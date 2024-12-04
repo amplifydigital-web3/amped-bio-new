@@ -13,6 +13,9 @@ export function Preview() {
   const blocks = useEditorStore((state) => state.blocks);
   const theme = useEditorStore((state) => state.theme);
 
+  // Split name into characters for wave effect
+  const nameChars = profile.name.split('');
+
   return (
     <div className="flex-1 overflow-auto bg-gray-100">
       <div className="relative min-h-full">
@@ -75,10 +78,17 @@ export function Preview() {
                   )}
                   style={{ 
                     fontFamily: theme.fontFamily,
-                    color: theme.fontColor
+                    color: theme.heroEffect === 0 ? theme.fontColor : undefined
                   }}
+                  data-text={profile.name}
                 >
-                  {profile.name}
+                  {theme.heroEffect === 6 ? (
+                    nameChars.map((char, i) => (
+                      <span key={i} style={{ animationDelay: `${i * 0.1}s` }}>
+                        {char}
+                      </span>
+                    ))
+                  ) : profile.name}
                 </h1>
                 <p 
                   className="text-xl font-medium"
