@@ -1,11 +1,16 @@
 import React from 'react';
-import { Layout } from './components/Layout';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Editor } from './pages/Editor';
+import { View } from './pages/View';
 
 function App() {
   return (
-    <div className="h-screen">
-      <Layout />
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Editor />} />
+        <Route path="/view" element={<View />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

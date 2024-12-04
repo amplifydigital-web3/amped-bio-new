@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import { 
-  User, Link, Palette, Sparkles, LayoutGrid, Download,
+  User, Link, Palette, Sparkles, LayoutGrid, Download, Upload,
 } from 'lucide-react';
 import { exportSettings } from '../utils/export';
+import { importSettings } from '../utils/import';
 
 const navItems = [
   { id: 'profile', icon: User, label: 'Profile' },
@@ -17,6 +18,7 @@ export function Sidebar() {
   const activePanel = useEditorStore((state) => state.activePanel);
   const setActivePanel = useEditorStore((state) => state.setActivePanel);
   const editorState = useEditorStore();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExport = () => {
     exportSettings({
@@ -25,6 +27,20 @@ export function Sidebar() {
       theme: editorState.theme,
       activePanel: editorState.activePanel,
     });
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      await importSettings(file);
+      // Reset the input value to allow importing the same file again
+      e.target.value = '';
+    } catch (error) {
+      console.error('Failed to import settings:', error);
+      alert('Failed to import settings. Please check the file format.');
+    }
   };
 
   return (
@@ -45,7 +61,7 @@ export function Sidebar() {
           </button>
         ))}
         
-        <div className="md:mt-auto md:mb-6">
+        <div className="md:mt-auto md:mb-6 flex md:flex-col items-center space-x-2 md:space-x-0 md:space-y-2">
           <button
             onClick={handleExport}
             className="w-12 h-12 flex flex-col items-center justify-center rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors"
@@ -54,6 +70,23 @@ export function Sidebar() {
             <Download className="w-5 h-5" />
             <span className="text-xs mt-1">Export</span>
           </button>
+
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="w-12 h-12 flex flex-col items-center justify-center rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors"
+            title="Import Settings"
+          >
+            <Upload className="w-5 h-5" />
+            <span className="text-xs mt-1">Import</span>
+          </button>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json"
+            onChange={handleImport}
+            className="hidden"
+          />
         </div>
       </div>
     </div>

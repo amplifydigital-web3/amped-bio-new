@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Preview } from './Preview';
 import { useEditorStore } from '../store/editorStore';
@@ -7,6 +8,7 @@ import { LinksPanel } from './panels/links/LinksPanel';
 import { AppearancePanel } from './panels/appearance/AppearancePanel';
 import { EffectsPanel } from './panels/effects/EffectsPanel';
 import { BlocksPanel } from './panels/blocks/BlocksPanel';
+import { Eye } from 'lucide-react';
 
 export function Layout() {
   const activePanel = useEditorStore((state) => state.activePanel);
@@ -23,8 +25,17 @@ export function Layout() {
             {activePanel === 'effects' && <EffectsPanel />}
             {activePanel === 'blocks' && <BlocksPanel />}
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto relative">
             <Preview />
+            
+            {/* View Button */}
+            <Link
+              to="/view"
+              className="absolute top-4 right-4 px-4 py-2 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-colors flex items-center space-x-2"
+            >
+              <Eye className="w-4 h-4" />
+              <span className="text-sm font-medium">View Page</span>
+            </Link>
           </div>
         </div>
       </main>
