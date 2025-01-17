@@ -1,0 +1,64 @@
+datasource db {
+  url      = env("DATABASE_URL")
+  provider = "mysql"
+}
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native"]
+}
+
+model User {
+  id                 Int          @id @default(autoincrement())
+  name               String       @db.VarChar(255)
+  email              String       @unique @db.VarChar(255)
+  email_verified_at  DateTime?
+  password           String       @db.VarChar(255)
+  onelink            String       @unique @map("littlelink_name") @db.VarChar(255)
+  description        String?      @map("littlelink_description") @db.LongText
+  role               String       @default("user") @db.VarChar(255)
+  block              String       @default("no") @db.VarChar(255)
+  remember_token     String?      @db.VarChar(255)
+  theme              String?      @db.VarChar(255)
+  auth_as            Int?
+  provider           String?      @db.VarChar(255) //unused
+  provider_id        String?      @db.VarChar(255) //unused
+  image              String?      @db.VarChar(255)
+  reward_business_id String?      @db.VarChar(255)
+  created_at         DateTime     @default(now())
+  updated_at         DateTime?
+  Link               Link[]
+  UserWallet         UserWallet[]
+
+  @@map("users")
+}
+
+model Link {
+  id           Int       @id @default(autoincrement())
+  user_id      Int
+  button_id    Int?
+  link         String?   @db.LongText
+  title        String?   @db.LongText
+  order        Int       @default(0)
+  click_number Int       @default(0)
+  up_link      String    @default("no") @db.VarChar(255)
+  custom_css   String    @default("") @db.VarChar(255)
+  custom_icon  String    @default("fa-external-link") @db.VarChar(255)
+  created_at   DateTime  @default(now())
+  updated_at   DateTime?
+  User         User      @relation(fields: [user_id], references: [id])
+}
+
+model UserWallet {
+  id             Int       @id @default(autoincrement())
+  user_id        Int
+  wallet_address String    @db.VarChar(42)
+  chain_id       Int       @default(1)
+  updated_by     String?   @db.VarChar(68)
+  updated_at     DateTime?
+  created_by     String    @db.VarChar(68)
+  created_at     DateTime  @default(now())
+  User           User      @relation(fields: [user_id], references: [id])
+
+  @@unique([user_id, wallet_address])
+}

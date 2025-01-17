@@ -1,7 +1,9 @@
 import { create } from 'zustand';
-import type { EditorState, Block, UserProfile, Theme, Background } from '../types/editor';
+import type { EditorState, UserProfile, Theme, Background, Block } from '../types/editor';
+import type { AuthUser } from '../types/auth';
 
 interface EditorStore extends EditorState {
+  setUser: (user: AuthUser) => void;
   setProfile: (profile: UserProfile) => void;
   addBlock: (block: Block) => void;
   removeBlock: (id: string) => void;
@@ -19,7 +21,14 @@ const defaultProfile: UserProfile = {
   photoUrl: 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=400&h=400&q=80&fit=crop',
 };
 
+const defaultUser: AuthUser = {
+  email: 'alex@thompson.com',
+  id: '',
+  token: ''
+}
+
 const initialState: EditorState = {
+  user: defaultUser,
   profile: defaultProfile,
   blocks: [
     {
@@ -66,24 +75,25 @@ const initialState: EditorState = {
 
 export const useEditorStore = create<EditorStore>((set) => ({
   ...initialState,
+  setUser: (user) => set({ user }),
   setProfile: (profile) => set({ profile }),
-  addBlock: (block) => set((state) => ({ 
+  addBlock: (block: Block) => set((state) => ({
     blocks: [...state.blocks, block],
   })),
-  removeBlock: (id) => set((state) => ({
+  removeBlock: (id: string) => set((state) => ({
     blocks: state.blocks.filter((block) => block.id !== id),
   })),
-  updateBlock: (id, updatedBlock) => set((state) => ({
+  updateBlock: (id: string, updatedBlock: Partial<Block>) => set((state) => ({
     blocks: state.blocks.map((block) =>
       block.id === id ? { ...block, ...updatedBlock } : block
     ),
-  })),
-  reorderBlocks: (blocks) => set({ blocks }),
+  }) as Partial<EditorStore>),
+  reorderBlocks: (blocks: Block[]) => set({ blocks }),
   updateTheme: (theme) => set((state) => ({
     theme: { ...state.theme, ...theme },
   })),
-  setActivePanel: (activePanel) => set({ activePanel }),
-  setBackground: (background) => set((state) => ({
+  setActivePanel: (activePanel: string) => set({ activePanel }),
+  setBackground: (background: Background) => set((state) => ({
     theme: { ...state.theme, background },
   })),
 }));
