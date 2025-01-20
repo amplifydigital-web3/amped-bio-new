@@ -1,6 +1,5 @@
 {
         "recommendations": [
-                "dbaeumer.vscode-eslint",
-                "eamodio.gitlens"
+                "dbaeumer.vscode-eslint"
         ]
 }
