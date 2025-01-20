@@ -64,6 +64,7 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
           <Input
             label="Email"
             type="email"
+            name='email'
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -71,6 +72,7 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
 
           <Input
             label="Password"
+            name='password'
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -86,7 +88,7 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
           </Button>
 
           <p className="text-center text-sm text-gray-600">
-            {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
+            {isSignUp ? 'Already have an account?' : 'Don\'t have an account?'}{' '}
             <button
               type="button"
               onClick={() => setIsSignUp(!isSignUp)}

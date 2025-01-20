@@ -9,7 +9,7 @@ Follow these instructions to get a copy of the project up and running on your lo
 ### Prerequisites
 
 Make sure you have the following installed:
-- [Node.js](https://nodejs.org/) (version 14.x or later)
+- [Node.js](https://nodejs.org/) (version 22.9.0 or later)
 - [npm](https://www.npmjs.com/) (version 6.x or later)
 - [yarn](https://yarnpkg.com/)
 
