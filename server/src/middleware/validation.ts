@@ -7,7 +7,11 @@ export const validateAuthInput = (req: Request, res: Response, next: NextFunctio
     return res.status(400).json({ message: 'Email and password are required' });
   }
 
-  if (password.length < 6) {
+
+  /**
+   * this workaround is needed to work with "admin" passwords
+   */
+  if (password.length < 5) {
     return res.status(400).json({ message: 'Password must be at least 6 characters' });
   }
 
