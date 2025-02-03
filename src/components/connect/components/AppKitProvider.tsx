@@ -49,7 +49,6 @@ export type ModalContextType = {
 export const ModalContext = createContext<ModalContextType | null>(null);
 
 export function AppKitProvider({ children }: { children: ReactNode }) {
-  const [isClient, setIsClient] = useState<boolean>(false);
   const [open, setOpen] = useState<boolean>(false);
 
   const [queryClient] = useState(
@@ -62,11 +61,6 @@ export function AppKitProvider({ children }: { children: ReactNode }) {
         },
       })
   );
-
-  useEffect(() => {
-    console.info('QueryClient initialized', queryClient);
-    setIsClient(true);
-  }, [queryClient]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -100,9 +94,7 @@ export function AppKitProvider({ children }: { children: ReactNode }) {
     <ModalContext.Provider value={{ open, setOpen }}>
       <WagmiProvider config={wagmiAdapter.wagmiConfig}>
         <QueryClientProvider client={queryClient}>
-          {isClient && (
-            <ConnectModal modal={modal} open={open} setOpen={setOpen} />
-          )}
+          <ConnectModal modal={modal} open={open} setOpen={setOpen} />
           {children}
         </QueryClientProvider>
       </WagmiProvider>

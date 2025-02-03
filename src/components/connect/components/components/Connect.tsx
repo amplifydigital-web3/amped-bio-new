@@ -2,7 +2,6 @@ import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 import { ModalContext } from '../AppKitProvider';
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useChainId, useConfig } from 'wagmi';
-import styled from 'styled-components';
 import { getWalletClient } from '@wagmi/core';
 import useMemoizeValue from '../../../../hooks/useMemoizeValue';
 
@@ -29,39 +28,6 @@ type UpdateMessage = {
     data: any;
   }
 }
-
-const Wrapper = styled.div`
-
-.dark-button {
-  color: #ffffff;
-  margin-top: 2px;
-  margin-right: 6px;
-  margin-left: 6px;
-  padding: 2px 8px 2px 8px;
-  background-color: rgb(86, 58, 232);
-  border-color: rgb(86, 58, 232);
-  border-radius: 6px;
-  box-shadow: 0 0px 0px rgba(0, 0, 0, 0);
-}
-
-.dark-button:active {
-  color: #ffffff;
-  background-color: #2e46ba;
-  border-color: #2c41ae;
-}
-
-.dark-button:hover {
-  color: #ffffff;
-  background-color: #314ac5;
-  border-color: #2e46ba;
-}
-
-.dark-button:disabled {
-  color: #ffffff;
-  background-color: #3a57e8;
-  border-color: #3a57e8;
-}
-`
 
 export default function Web3ConnectButton() {
   const ctx = useContext(ModalContext);
@@ -172,19 +138,16 @@ export default function Web3ConnectButton() {
   }, [account.address, config, handleClick]);
 
   return (
-    <Wrapper>
-
-      <button
-        className="dark-button"
-        onClick={handleClick}
-      // disabled={isConnecting || isReconnecting ? true : undefined}
-      >
-        {account.address
-          ? `${account.address.substring(0, 4)}...${account.address.substring(
-            account.address.length - 4
-          )}`
-          : 'Connect Web3 Wallet'}
-      </button>
-    </Wrapper>
+    <button className="flex items-center space-x-2 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+      onClick={
+        handleClick
+      }
+    >
+      <span> {account.address
+        ? `${account.address.substring(0, 4)}...${account.address.substring(
+          account.address.length - 4
+        )}`
+        : 'Connect Web3 Wallet'}</span>
+    </button>
   );
 }
