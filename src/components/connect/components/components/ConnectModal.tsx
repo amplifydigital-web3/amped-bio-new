@@ -1,16 +1,16 @@
-"use client";
+'use client';
 
-import { useCallback } from "react";
-import { AppKit } from "@reown/appkit";
-import Modal from "./Modal";
-import ProgrammeHeader from "../header/Header";
-import { BaseLabel, Link } from "./DataDisplay";
-import { BrandedProgrammeButton } from "./Buttons";
-import { CreateWalletButton } from "../smartwallet/CreateWalletButton";
-import Spacer from "./Spacer";
-import SectionWrapper from "./SectionWrapper";
-import Body from "./Body";
-import { ErrorBoundary } from "react-error-boundary";
+import { useCallback } from 'react';
+import { AppKit } from '@reown/appkit';
+import Modal from './Modal';
+import ProgrammeHeader from '../header/Header';
+import { BaseLabel, Link } from './DataDisplay';
+import { BrandedProgrammeButton } from './Buttons';
+import { CreateWalletButton } from '../smartwallet/CreateWalletButton';
+import Spacer from './Spacer';
+import SectionWrapper from './SectionWrapper';
+import Body from './Body';
+import { ErrorBoundary } from 'react-error-boundary';
 
 export type ConnectModalProps = {
   modal: AppKit;
@@ -68,7 +68,7 @@ export function ConnectModal(props: ConnectModalProps) {
           </BrandedProgrammeButton>
         </SectionWrapper>
         <SectionWrapper>
-          <Link href={`https://ethereum.org/en/web3/`} target={"_blank"}>
+          <Link href={'https://ethereum.org/en/web3/'} target={'_blank'}>
             What's a Web3 Wallet and why do I need one?
           </Link>
         </SectionWrapper>

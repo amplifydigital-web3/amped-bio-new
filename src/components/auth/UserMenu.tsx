@@ -13,11 +13,11 @@ export function UserMenu() {
   const handleSignIn = (user) => {
     setShowAuthModal(false);
     setUser(user);
-  }
+  };
 
   const handleCancelAuth = () => {
     setShowAuthModal(false);
-  }
+  };
 
   const handleSignOut = async () => {
     try {
@@ -46,20 +46,29 @@ export function UserMenu() {
   }
 
   return (
-    <div className="relative group">
-      <button className="flex items-center space-x-2 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
-        <User className="w-4 h-4" />
-        <span>{user.email}</span>
+    <div className="relative flex items-center space-x-2">
+      <button className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+        <span>Connect Wallet</span>
       </button>
 
-      <div className="absolute right-0 mt-2 w-48 py-2 bg-white rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
-        <button
-          onClick={handleSignOut}
-          className="w-full px-4 py-2 text-left text-red-600 hover:bg-red-50 flex items-center space-x-2"
-        >
-          <LogOut className="w-4 h-4" />
-          <span>Sign Out</span>
+      {/* Envolvendo tudo em um "group" para o hover funcionar corretamente */}
+      <div className="relative group">
+        {/* Botão do usuário */}
+        <button className="flex items-center space-x-2 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+          <User className="w-4 h-4" />
+          <span>{user.email}</span>
         </button>
+
+        {/* Dropdown de Sign Out */}
+        <div className="absolute right-0 mt-1 w-40 bg-white rounded-lg shadow-lg opacity-0 scale-95 transform group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-10">
+          <button
+            onClick={handleSignOut}
+            className="w-full flex items-center px-4 py-2 text-red-600 hover:bg-red-50"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            <span>Sign Out</span>
+          </button>
+        </div>
       </div>
     </div>
   );
