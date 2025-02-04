@@ -1,16 +1,20 @@
-import React from 'react';
 import { Youtube } from 'lucide-react';
-import type { MediaBlock as MediaBlockType, Theme } from '../../types/editor';
+import type { MediaBlock as MediaBlockType, ThemeConfig } from '../../types/editor';
 
 interface YouTubeBlockProps {
   block: MediaBlockType;
-  theme: Theme;
+  theme: ThemeConfig;
 }
 
 function getYouTubeVideoId(url: string): string | null {
+  let videoId = '';
   try {
     const videoUrl = new URL(url);
-    return videoUrl.searchParams.get('v');
+    videoId = videoUrl.searchParams.get('v') || '';
+    if (videoId === '') {
+      videoId = url.split('/').at(-1) || '';
+    }
+    return videoId;
   } catch {
     return null;
   }
@@ -19,7 +23,7 @@ function getYouTubeVideoId(url: string): string | null {
 export function YouTubeBlock({ block, theme }: YouTubeBlockProps) {
   const videoId = block.content ? getYouTubeVideoId(block.content) : null;
 
-  if (!block.content || !videoId) {
+  if (!block.content || !videoId || videoId === '') {
     return (
       <div className="w-full p-6 rounded-lg bg-[#FF0000]/10 border-2 border-dashed border-[#FF0000]/20 flex flex-col items-center justify-center space-y-2">
         <Youtube className="w-8 h-8 text-[#FF0000]" />
@@ -34,7 +38,7 @@ export function YouTubeBlock({ block, theme }: YouTubeBlockProps) {
     <div className="w-full space-y-2">
       <div className="flex items-center space-x-2 px-3">
         <Youtube className="w-4 h-4 text-[#FF0000]" />
-        <span 
+        <span
           className="text-sm font-medium text-[#FF0000]"
           style={{ fontFamily: theme.fontFamily }}
         >

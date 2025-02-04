@@ -1,10 +1,9 @@
-import React from 'react';
 import { Twitter } from 'lucide-react';
-import type { MediaBlock as MediaBlockType, Theme } from '../../types/editor';
+import type { MediaBlock as MediaBlockType, ThemeConfig } from '../../types/editor';
 
 interface TwitterBlockProps {
   block: MediaBlockType;
-  theme: Theme;
+  theme: ThemeConfig;
 }
 
 export function TwitterBlock({ block, theme }: TwitterBlockProps) {
@@ -23,7 +22,7 @@ export function TwitterBlock({ block, theme }: TwitterBlockProps) {
     <div className="w-full space-y-2">
       <div className="flex items-center space-x-2 px-3">
         <Twitter className="w-4 h-4 text-[#1DA1F2]" />
-        <span 
+        <span
           className="text-sm font-medium text-[#1DA1F2]"
           style={{ fontFamily: theme.fontFamily }}
         >

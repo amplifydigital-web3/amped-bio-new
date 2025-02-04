@@ -1,4 +1,3 @@
-import React from 'react';
 import { BackgroundPicker } from './BackgroundPicker';
 import { ButtonStylePicker } from './ButtonStylePicker';
 import { ContainerStylePicker } from './ContainerStylePicker';
@@ -7,8 +6,8 @@ import { FontPicker } from './FontPicker';
 import { useEditorStore } from '../../../store/editorStore';
 
 export function AppearancePanel() {
-  const theme = useEditorStore((state) => state.theme);
-  const updateTheme = useEditorStore((state) => state.updateTheme);
+  const theme = useEditorStore((state) => state.theme.config);
+  const updateThemeConfig = useEditorStore((state) => state.updateThemeConfig);
   const setBackground = useEditorStore((state) => state.setBackground);
 
   return (
@@ -29,29 +28,29 @@ export function AppearancePanel() {
         value={theme.containerStyle}
         transparency={theme.transparency}
         containerColor={theme.containerColor}
-        onChange={(style) => updateTheme({ containerStyle: style })}
-        onTransparencyChange={(transparency) => updateTheme({ transparency })}
-        onColorChange={(color) => updateTheme({ containerColor: color })}
+        onChange={(style) => updateThemeConfig({ containerStyle: style })}
+        onTransparencyChange={(transparency) => updateThemeConfig({ transparency })}
+        onColorChange={(color) => updateThemeConfig({ containerColor: color })}
       />
 
       <ButtonStylePicker
         value={theme.buttonStyle}
-        onChange={(style) => updateTheme({ buttonStyle: style })}
+        onChange={(style) => updateThemeConfig({ buttonStyle: style })}
       />
 
       <ColorPicker
         label="Button Color"
         value={theme.buttonColor}
-        onChange={(color) => updateTheme({ buttonColor: color })}
+        onChange={(color) => updateThemeConfig({ buttonColor: color })}
       />
 
       <FontPicker
         font={theme.fontFamily}
         size={theme.fontSize}
         color={theme.fontColor}
-        onFontChange={(font) => updateTheme({ fontFamily: font })}
-        onSizeChange={(size) => updateTheme({ fontSize: size })}
-        onColorChange={(color) => updateTheme({ fontColor: color })}
+        onFontChange={(font) => updateThemeConfig({ fontFamily: font })}
+        onSizeChange={(size) => updateThemeConfig({ fontSize: size })}
+        onColorChange={(color) => updateThemeConfig({ fontColor: color })}
       />
     </div>
   );

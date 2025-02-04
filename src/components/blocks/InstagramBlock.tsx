@@ -1,10 +1,9 @@
-import React from 'react';
 import { Instagram } from 'lucide-react';
-import type { MediaBlock as MediaBlockType, Theme } from '../../types/editor';
+import type { MediaBlock as MediaBlockType, ThemeConfig } from '../../types/editor';
 
 interface InstagramBlockProps {
   block: MediaBlockType;
-  theme: Theme;
+  theme: ThemeConfig;
 }
 
 export function InstagramBlock({ block, theme }: InstagramBlockProps) {
@@ -23,7 +22,7 @@ export function InstagramBlock({ block, theme }: InstagramBlockProps) {
     <div className="w-full space-y-2">
       <div className="flex items-center space-x-2 px-3">
         <Instagram className="w-4 h-4 text-[#E4405F]" />
-        <span 
+        <span
           className="text-sm font-medium text-[#E4405F]"
           style={{ fontFamily: theme.fontFamily }}
         >

@@ -1,4 +1,3 @@
-import React from 'react';
 
 interface ButtonStylePickerProps {
   value: number;
@@ -30,11 +29,10 @@ export function ButtonStylePicker({ value, onChange }: ButtonStylePickerProps) {
           <button
             key={style.id}
             onClick={() => onChange(style.id)}
-            className={`p-4 text-center ${style.preview} ${
-              value === style.id
+            className={`p-4 text-center ${style.preview} ${value === style.id
                 ? 'ring-2 ring-blue-500'
                 : 'hover:ring-2 hover:ring-gray-200'
-            }`}
+              }`}
           >
             {style.name}
           </button>

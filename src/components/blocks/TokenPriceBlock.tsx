@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
-import type { MediaBlock as MediaBlockType, Theme } from '../../types/editor';
+import type { MediaBlock as MediaBlockType, ThemeConfig } from '../../types/editor';
 
 interface TokenPriceBlockProps {
   block: MediaBlockType;
-  theme: Theme;
+  theme: ThemeConfig;
 }
 
 interface TokenData {
@@ -42,15 +42,17 @@ export function TokenPriceBlock({ block, theme }: TokenPriceBlockProps) {
   useEffect(() => {
     // In a real app, you would fetch this data from an API
     // This is mock data for demonstration
+
+    // TODO MAKE THIS FETCH REAl TOKEN DATA
     if (block.content) {
       setTokenData({
-        name: "Ethereum",
-        symbol: "ETH",
+        name: 'Ethereum',
+        symbol: 'ETH',
         price: 2235.67,
         change24h: 2.45,
         marketCap: 268900000000,
         volume24h: 8750000000,
-        logoUrl: "https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png"
+        logoUrl: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png'
       });
     }
   }, [block.content]);
@@ -83,7 +85,7 @@ export function TokenPriceBlock({ block, theme }: TokenPriceBlockProps) {
     <div className="w-full space-y-2">
       <div className="flex items-center space-x-2 px-3">
         <DollarSign className="w-4 h-4 text-[#16C784]" />
-        <span 
+        <span
           className="text-sm font-medium text-[#16C784]"
           style={{ fontFamily: theme.fontFamily }}
         >
@@ -99,16 +101,16 @@ export function TokenPriceBlock({ block, theme }: TokenPriceBlockProps) {
             className="w-8 h-8 rounded-full"
           />
           <div>
-            <h3 
+            <h3
               className="font-semibold"
-              style={{ 
+              style={{
                 fontFamily: theme.fontFamily,
                 color: theme.fontColor
               }}
             >
               {tokenData.name}
             </h3>
-            <p 
+            <p
               className="text-sm text-gray-500"
               style={{ fontFamily: theme.fontFamily }}
             >
@@ -120,9 +122,9 @@ export function TokenPriceBlock({ block, theme }: TokenPriceBlockProps) {
         {/* Price and Change */}
         <div className="flex items-center justify-between">
           <div>
-            <p 
+            <p
               className="text-2xl font-bold"
-              style={{ 
+              style={{
                 fontFamily: theme.fontFamily,
                 color: theme.fontColor
               }}
@@ -139,15 +141,15 @@ export function TokenPriceBlock({ block, theme }: TokenPriceBlockProps) {
           <div className="text-right">
             <div className="space-y-1">
               <div>
-                <p 
+                <p
                   className="text-xs text-gray-500"
                   style={{ fontFamily: theme.fontFamily }}
                 >
                   Market Cap
                 </p>
-                <p 
+                <p
                   className="font-medium"
-                  style={{ 
+                  style={{
                     fontFamily: theme.fontFamily,
                     color: theme.fontColor
                   }}
@@ -156,15 +158,15 @@ export function TokenPriceBlock({ block, theme }: TokenPriceBlockProps) {
                 </p>
               </div>
               <div>
-                <p 
+                <p
                   className="text-xs text-gray-500"
                   style={{ fontFamily: theme.fontFamily }}
                 >
                   24h Volume
                 </p>
-                <p 
+                <p
                   className="font-medium"
-                  style={{ 
+                  style={{
                     fontFamily: theme.fontFamily,
                     color: theme.fontColor
                   }}

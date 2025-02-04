@@ -1,7 +1,6 @@
-import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Trash2, Settings } from 'lucide-react';
+import { GripVertical, Trash2, Settings, ExternalLink } from 'lucide-react';
 import type { Block } from '../../../types/editor';
 import { getPlatformIcon } from '../../../utils/platforms';
 
@@ -34,11 +33,10 @@ export function SortableItem({ id, block, onEdit, onRemove }: SortableItemProps)
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center space-x-3 p-3 rounded-lg border group ${
-        isDragging
-          ? 'bg-blue-50 border-blue-200 shadow-lg'
-          : 'bg-white border-gray-200'
-      }`}
+      className={`flex items-center space-x-3 p-3 rounded-lg border group ${isDragging
+        ? 'bg-blue-50 border-blue-200 shadow-lg'
+        : 'bg-white border-gray-200'
+        }`}
     >
       <button
         {...attributes}
@@ -48,26 +46,39 @@ export function SortableItem({ id, block, onEdit, onRemove }: SortableItemProps)
       >
         <GripVertical className="w-4 h-4 text-gray-400 cursor-move" />
       </button>
-      
+
       <div className="flex-1 flex items-center space-x-3 min-w-0">
         {Icon && <Icon className="w-4 h-4 flex-shrink-0" />}
         <div className="min-w-0">
           <p className="font-medium text-gray-900 truncate">
-            {block.type === 'link' ? block.label : block.type === 'media' ? block.mediaType : 'Text Block'}
+            {block.type === 'link' ? block.label : block.type === 'media' ? block.platform : 'Text Block'}
           </p>
           <p className="text-sm text-gray-500 truncate">
             {block.type === 'link' ? block.url : block.content || 'Empty block'}
           </p>
         </div>
       </div>
-      
+
       <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          onClick={onEdit}
-          className="p-1 text-gray-500 hover:text-gray-700"
-        >
-          <Settings className="w-4 h-4" />
-        </button>
+        {block.type === 'link' && (
+          <a
+            href={block.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-1 text-gray-500 hover:text-gray-700"
+          >
+            <ExternalLink className="w-4 h-4" />
+          </a>
+        )}
+        {block.type !== 'link' && (
+          <button
+            onClick={onEdit}
+            className="p-1 text-gray-500 hover:text-gray-700"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+        )}
+
         <button
           onClick={onRemove}
           className="p-1 text-red-500 hover:text-red-700"

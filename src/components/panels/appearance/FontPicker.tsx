@@ -1,4 +1,3 @@
-import React from 'react';
 import { ColorPicker } from './ColorPicker';
 
 interface FontPickerProps {
@@ -45,11 +44,10 @@ export function FontPicker({
             <button
               key={f.value}
               onClick={() => onFontChange(f.value)}
-              className={`p-3 text-left rounded-lg transition-all ${
-                font === f.value
+              className={`p-3 text-left rounded-lg transition-all ${font === f.value
                   ? 'bg-blue-50 text-blue-700 ring-2 ring-blue-500'
                   : 'bg-white hover:bg-gray-50 text-gray-900 ring-1 ring-gray-200'
-              }`}
+                }`}
               style={{ fontFamily: f.value }}
             >
               <span className="text-base">{f.name}</span>
@@ -70,11 +68,10 @@ export function FontPicker({
             <button
               key={s.value}
               onClick={() => onSizeChange(s.value)}
-              className={`p-3 text-center rounded-lg transition-all ${
-                size === s.value
+              className={`p-3 text-center rounded-lg transition-all ${size === s.value
                   ? 'bg-blue-50 text-blue-700 ring-2 ring-blue-500'
                   : 'bg-white hover:bg-gray-50 text-gray-900 ring-1 ring-gray-200'
-              }`}
+                }`}
               style={{ fontSize: s.value }}
             >
               {s.name}

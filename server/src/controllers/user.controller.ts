@@ -1,9 +1,7 @@
 import { Request, Response } from 'express';
-import { Prisma, PrismaClient } from '@prisma/client'
+import { PrismaClient } from '@prisma/client'
 
-import { hashPassword, comparePasswords } from '../utils/password';
 import { generateToken } from '../utils/token';
-import { validateEmail } from '../utils/validation';
 
 const prisma = new PrismaClient()
 
@@ -43,6 +41,49 @@ export const userController = {
         }
     },
 
+    async get(req: Request, res: Response) {
+        const { id } = req.params
+
+        try {
+            const user = await prisma.user.findUnique({
+                where: {
+                    id: Number(id),
+                }
+            });
+
+            if (user === null) {
+                return res.status(400).json({ message: `User not found: ${id}` });
+            }
+
+            const { theme: theme_id } = user;
+
+            const theme = await prisma.theme.findUnique({
+                where: {
+                    id: Number(theme_id)
+                }
+            });
+
+            const blocks = await prisma.block.findMany({
+                where: {
+                    user_id: Number(id)
+                }
+            });
+
+            const token = generateToken({ id: user.id, email: user.email });
+
+            const result = { user, theme, blocks };
+
+            res.status(201).json({
+                result,
+                token,
+            });
+
+        } catch (error) {
+            console.log('error', error);
+            res.status(500).json({ message: 'Server error' });
+        }
+    },
+
     async delete(req: Request, res: Response) {
         const { email, id } = req.body.data;
 
@@ -57,7 +98,7 @@ export const userController = {
                 return res.status(400).json({ message: `User not found: ${email}` });
             }
 
-            const post = await prisma.user.delete({
+            const result = await prisma.user.delete({
                 where: {
                     id: Number(id),
                     email: email
@@ -66,7 +107,7 @@ export const userController = {
             const token = generateToken({ id: user.id, email: user.email });
 
             res.json({
-                post,
+                result,
                 token,
             });
 

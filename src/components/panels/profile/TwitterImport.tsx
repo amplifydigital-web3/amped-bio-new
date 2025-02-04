@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Twitter } from 'lucide-react';
 import { Input } from '../../ui/Input';
 import { scrapeTwitterProfile } from '../../../utils/twitter';
@@ -40,7 +40,7 @@ export function TwitterImport({ onProfileUpdate }: TwitterImportProps) {
         <Twitter className="w-5 h-5 text-[#1DA1F2]" />
         <h3 className="text-sm font-medium text-gray-900">Import from Twitter</h3>
       </div>
-      
+
       <div className="flex space-x-2">
         <Input
           label=""
@@ -57,7 +57,7 @@ export function TwitterImport({ onProfileUpdate }: TwitterImportProps) {
           {loading ? 'Importing...' : 'Import'}
         </button>
       </div>
-      
+
       {error && (
         <p className="text-sm text-red-600">{error}</p>
       )}

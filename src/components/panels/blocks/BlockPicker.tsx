@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   Music,
   Instagram,
@@ -13,7 +12,7 @@ import {
   Users,
   ArrowUpRight,
 } from 'lucide-react';
-import type { Block } from '../../../types/editor';
+import type { Block, LinkBlock, MediaBlock, TextBlock } from '../../../types/editor';
 
 interface BlockPickerProps {
   onAdd: (block: Block) => void;
@@ -51,20 +50,35 @@ const blockTypes = [
 
 export function BlockPicker({ onAdd }: BlockPickerProps) {
   const handleAddBlock = (blockType: string, blockId: string) => {
-    const newBlock: Block = {
-      id: crypto.randomUUID(),
-      type: blockType as 'media' | 'text',
-      ...(blockType === 'media' 
-        ? {
-            mediaType: blockId as any,
-            content: '',
-          }
-        : {
-            content: '',
-          }
-      ),
-    };
-    onAdd(newBlock);
+    if (blockType === 'media') {
+      const newBlock: MediaBlock = {
+        id: blockId,
+        type: 'media',
+        platform: blockId,
+        url: '',
+        label: ''
+      }
+      onAdd(newBlock);
+    }
+    else if (blockType === 'link') {
+      const newBlock: LinkBlock = {
+        id: blockId,
+        type: 'link',
+        platform: '',
+        url: '',
+        label: ''
+      }
+      onAdd(newBlock);
+    }
+    else {
+      const newBlock: TextBlock = {
+        id: blockId,
+        type: 'text',
+        content: '',
+        platform: 'text'
+      }
+      onAdd(newBlock);
+    }
   };
 
   return (

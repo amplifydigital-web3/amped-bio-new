@@ -1,10 +1,9 @@
-import React from 'react';
 import { ArrowUpRight } from 'lucide-react';
-import type { MediaBlock as MediaBlockType, Theme } from '../../types/editor';
+import type { MediaBlock as MediaBlockType, ThemeConfig } from '../../types/editor';
 
 interface UniswapBlockProps {
   block: MediaBlockType;
-  theme: Theme;
+  theme: ThemeConfig;
 }
 
 export function UniswapBlock({ block, theme }: UniswapBlockProps) {
@@ -23,7 +22,7 @@ export function UniswapBlock({ block, theme }: UniswapBlockProps) {
     <div className="w-full space-y-2">
       <div className="flex items-center space-x-2 px-3">
         <ArrowUpRight className="w-4 h-4 text-[#FF007A]" />
-        <span 
+        <span
           className="text-sm font-medium text-[#FF007A]"
           style={{ fontFamily: theme.fontFamily }}
         >

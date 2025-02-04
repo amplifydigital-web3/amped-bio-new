@@ -29,7 +29,7 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
         onClose(user);
       } else {
         const user = await signIn(email, password);
-        toast.success('Welcome back!');
+        toast.success('Welcome back!', { icon: '👋' });
         onClose(user);
       }
     } catch (error) {
@@ -86,7 +86,7 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
           </Button>
 
           <p className="text-center text-sm text-gray-600">
-            {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
+            {isSignUp ? 'Already have an account?' : 'Don\'t have an account?'}{' '}
             <button
               type="button"
               onClick={() => setIsSignUp(!isSignUp)}

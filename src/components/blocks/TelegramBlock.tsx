@@ -1,10 +1,9 @@
-import React from 'react';
 import { MessageCircle } from 'lucide-react';
-import type { TextBlock as TextBlockType, Theme } from '../../types/editor';
+import type { TextBlock as TextBlockType, ThemeConfig } from '../../types/editor';
 
 interface TelegramBlockProps {
   block: TextBlockType;
-  theme: Theme;
+  theme: ThemeConfig;
 }
 
 export function TelegramBlock({ block, theme }: TelegramBlockProps) {
@@ -12,9 +11,9 @@ export function TelegramBlock({ block, theme }: TelegramBlockProps) {
     <div className="w-full p-6 rounded-lg bg-white/50 backdrop-blur-sm space-y-4">
       <div className="flex items-center space-x-2">
         <MessageCircle className="w-5 h-5 text-[#26A5E4]" />
-        <h3 
+        <h3
           className="font-medium"
-          style={{ 
+          style={{
             fontFamily: theme.fontFamily,
             color: theme.fontColor
           }}
@@ -33,9 +32,9 @@ export function TelegramBlock({ block, theme }: TelegramBlockProps) {
         Join Channel
       </a>
 
-      <p 
+      <p
         className="text-sm text-gray-600"
-        style={{ 
+        style={{
           fontFamily: theme.fontFamily,
           color: theme.fontColor
         }}

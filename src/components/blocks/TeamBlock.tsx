@@ -1,6 +1,5 @@
-import React from 'react';
 import { Users, Twitter } from 'lucide-react';
-import type { TextBlock as TextBlockType, Theme } from '../../types/editor';
+import type { TextBlock as TextBlockType, ThemeConfig } from '../../types/editor';
 
 interface TeamMember {
   name: string;
@@ -11,12 +10,12 @@ interface TeamMember {
 
 interface TeamBlockProps {
   block: TextBlockType;
-  theme: Theme;
+  theme: ThemeConfig;
 }
 
 export function TeamBlock({ block, theme }: TeamBlockProps) {
   let teamMembers: TeamMember[] = [];
-  
+
   try {
     teamMembers = JSON.parse(block.content);
   } catch {
@@ -28,7 +27,7 @@ export function TeamBlock({ block, theme }: TeamBlockProps) {
       <div className="w-full p-6 rounded-lg bg-gray-50/50 backdrop-blur-sm space-y-2">
         <div className="flex items-center space-x-2">
           <Users className="w-5 h-5 text-gray-400" />
-          <h3 
+          <h3
             className="font-medium text-gray-400"
             style={{ fontFamily: theme.fontFamily }}
           >
@@ -43,9 +42,9 @@ export function TeamBlock({ block, theme }: TeamBlockProps) {
     <div className="w-full p-6 rounded-lg bg-white/50 backdrop-blur-sm space-y-6">
       <div className="flex items-center space-x-2">
         <Users className="w-5 h-5 text-gray-600" />
-        <h3 
+        <h3
           className="font-medium text-gray-900"
-          style={{ 
+          style={{
             fontFamily: theme.fontFamily,
             color: theme.fontColor
           }}
@@ -63,16 +62,16 @@ export function TeamBlock({ block, theme }: TeamBlockProps) {
               className="w-12 h-12 rounded-full object-cover"
             />
             <div>
-              <h4 
+              <h4
                 className="font-medium"
-                style={{ 
+                style={{
                   fontFamily: theme.fontFamily,
                   color: theme.fontColor
                 }}
               >
                 {member.name}
               </h4>
-              <p 
+              <p
                 className="text-sm text-gray-500"
                 style={{ fontFamily: theme.fontFamily }}
               >

@@ -1,10 +1,9 @@
-import React from 'react';
 import { Music } from 'lucide-react';
-import type { MediaBlock as MediaBlockType, Theme } from '../../types/editor';
+import type { MediaBlock as MediaBlockType, ThemeConfig } from '../../types/editor';
 
 interface SpotifyBlockProps {
   block: MediaBlockType;
-  theme: Theme;
+  theme: ThemeConfig;
 }
 
 function getSpotifyEmbedUrl(url: string): string {
@@ -12,7 +11,7 @@ function getSpotifyEmbedUrl(url: string): string {
     // Convert Spotify URL to embed URL
     const spotifyUrl = new URL(url);
     const path = spotifyUrl.pathname;
-    
+
     if (path.includes('track')) {
       // For tracks
       return `https://open.spotify.com/embed${path}`;
@@ -28,8 +27,8 @@ function getSpotifyEmbedUrl(url: string): string {
 }
 
 export function SpotifyBlock({ block, theme }: SpotifyBlockProps) {
-  const embedUrl = getSpotifyEmbedUrl(block.content);
-  
+  const embedUrl = getSpotifyEmbedUrl(block.content || '');
+
   if (!block.content) {
     return (
       <div className="w-full p-6 rounded-lg bg-[#1DB954]/10 border-2 border-dashed border-[#1DB954]/20 flex flex-col items-center justify-center space-y-2">
@@ -45,7 +44,7 @@ export function SpotifyBlock({ block, theme }: SpotifyBlockProps) {
     <div className="w-full space-y-2">
       <div className="flex items-center space-x-2 px-3">
         <Music className="w-4 h-4 text-[#1DB954]" />
-        <span 
+        <span
           className="text-sm font-medium text-[#1DB954]"
           style={{ fontFamily: theme.fontFamily }}
         >

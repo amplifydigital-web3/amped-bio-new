@@ -1,8 +1,7 @@
-import React from 'react';
 import { BlockList } from './BlockList';
 import { BlockPicker } from './BlockPicker';
+import { LinkForm } from './LinkForm';
 import { useEditorStore } from '../../../store/editorStore';
-import type { Block } from '../../../types/editor';
 
 export function BlocksPanel() {
   const blocks = useEditorStore((state) => state.blocks);
@@ -12,22 +11,36 @@ export function BlocksPanel() {
   const reorderBlocks = useEditorStore((state) => state.reorderBlocks);
 
   return (
-    <div className="p-6 space-y-8">
-      <div className="space-y-2">
-        <h2 className="text-lg font-semibold text-gray-900">Blocks & Media</h2>
-        <p className="text-sm text-gray-500">
-          Add interactive blocks and media modules to your profile
-        </p>
-      </div>
+    <div className="flex flex-col" >
+      <div className="p-6 space-y-8">
+        <div className="space-y-2">
+          <h2 className="text-lg font-semibold text-gray-900">Links</h2>
+          <p className="text-sm text-gray-500">
+            Add and manage your social media and other important links
+          </p>
+        </div>
 
-      <BlockPicker onAdd={addBlock} />
-      
-      <BlockList
-        blocks={blocks}
-        onUpdate={updateBlock}
-        onRemove={removeBlock}
-        onReorder={reorderBlocks}
-      />
+        <LinkForm onAdd={addBlock} />
+
+      </div>
+      <div className="p-6 space-y-8">
+        <div className="space-y-2">
+          <h2 className="text-lg font-semibold text-gray-900">Blocks & Media</h2>
+          <p className="text-sm text-gray-500">
+            Add interactive blocks and media modules to your profile
+          </p>
+        </div>
+
+        <BlockPicker onAdd={addBlock} />
+
+        <BlockList
+          blocks={blocks}
+          onUpdate={updateBlock}
+          onRemove={removeBlock}
+          onReorder={reorderBlocks}
+        />
+      </div>
     </div>
+
   );
 }

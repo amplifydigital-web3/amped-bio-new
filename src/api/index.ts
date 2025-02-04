@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { Theme, Block } from '../types/editor';
 
 type loginData = {
     email: string;
@@ -41,13 +42,30 @@ export async function registerNewUser(userData: registerData) {
 };
 
 // Edit User
-export async function editUser(userData: { id: String; name: String; email: String; littlelink_name: String; littlelink_description: String; theme: any; image: any; reward_business_id: String; }) {
+export async function editUser(userData: { id: string; name: string; email: string; onelink: string; description: string; image: string; reward_business_id: string; }) {
     const { id } = userData;
+    console.log('Editing user:', userData);
     try {
         const response = await axios.put(`${baseURL}/user/${id}`, { data: userData });
         console.log('User updated successfully:', response.data);
+        return response.data;
     } catch (error) {
         console.error('Error updating user:', error);
+        return false;
+    }
+};
+
+// Get User
+export async function getUser(userData: { id: string; token: string; }) {
+    const { id } = userData;
+    console.log('Get user:', userData);
+    try {
+        const response = await axios.get(`${baseURL}/user/${id}`, { data: userData, headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache', 'Expires': 0 } });
+        console.log('User get:', response.data);
+        return response.data.result;
+    } catch (error) {
+        console.error('Error fetching user:', error);
+        return false;
     }
 };
 
@@ -61,4 +79,44 @@ export async function deleteUser(userData: deleteData) {
         console.error('Error deleting user:', error);
     }
 
+};
+
+// Edit Theme
+export async function editTheme(theme: Theme, user_id) {
+    const { id } = theme;
+    console.log('Editing Theme:', id);
+    try {
+        const response = await axios.put(`${baseURL}/user/theme/${id}`, { data: { theme, user_id } });
+        console.log('Theme updated successfully:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('Error updating Theme:', error);
+        return false;
+    }
+};
+
+// Edit Block
+export async function editBlocks(blocks: Block[], user_id) {
+    console.log('Editing user blocks:', user_id);
+    try {
+        const response = await axios.put(`${baseURL}/user/blocks/${user_id}`, { data: { blocks: blocks } });
+        console.log('User updated successfully:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('Error updating user:', error);
+        return false;
+    }
+};
+
+// Delete Block
+export async function deleteBlock(block_id, user_id) {
+    console.log('Delete user block:', user_id);
+    try {
+        const response = await axios.delete(`${baseURL}/user/blocks/block/${block_id}$${user_id}`);
+        console.log('Block deleted successfully:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('Error deleting block:', error);
+        return false;
+    }
 };
