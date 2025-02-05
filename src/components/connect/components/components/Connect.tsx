@@ -4,6 +4,7 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'r
 import { useChainId, useConfig } from 'wagmi';
 import { getWalletClient } from '@wagmi/core';
 import useMemoizeValue from '../../../../hooks/useMemoizeValue';
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 
 enum MessageType {
   RPC = 'rpc_request',
@@ -138,7 +139,7 @@ export default function Web3ConnectButton() {
   }, [account.address, config, handleClick]);
 
   return (
-    <button className="flex items-center space-x-2 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+    <DropdownMenuItem
       onClick={
         handleClick
       }
@@ -148,6 +149,6 @@ export default function Web3ConnectButton() {
           account.address.length - 4
         )}`
         : 'Connect Web3 Wallet'}</span>
-    </button>
+    </DropdownMenuItem>
   );
 }
