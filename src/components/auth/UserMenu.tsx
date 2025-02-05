@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { LogOut, User, Wallet } from 'lucide-react'
+import { LogOut, User } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { useEditorStore } from '../../store/editorStore'
 import { AuthModal } from './AuthModal'
@@ -49,14 +49,15 @@ export function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-      <button className='flex items-center space-x-2 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors'>Open</button>
+        <button className='flex items-center space-x-2 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors'> <User className="w-4 h-4" />
+          <span>{user.email}</span></button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
           <LogOut className="w-4 h-4 mr-2" />
           <span>Sign Out</span>
         </DropdownMenuItem>
-        <Web3ConnectButton/>
+        <Web3ConnectButton />
       </DropdownMenuContent>
     </DropdownMenu>
   )
