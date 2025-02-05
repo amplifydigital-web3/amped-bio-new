@@ -1,5 +1,4 @@
-import React from 'react';
-import type { MediaBlock as MediaBlockType, Theme } from '../../types/editor';
+import type { MediaBlock as MediaBlockType, ThemeConfig } from '../../types/editor';
 import { SpotifyBlock } from './SpotifyBlock';
 import { InstagramBlock } from './InstagramBlock';
 import { YouTubeBlock } from './YouTubeBlock';
@@ -11,11 +10,11 @@ import { SubstackBlock } from './SubstackBlock';
 
 interface MediaBlockProps {
   block: MediaBlockType;
-  theme: Theme;
+  theme: ThemeConfig;
 }
 
 export function MediaBlock({ block, theme }: MediaBlockProps) {
-  switch (block.mediaType) {
+  switch (block.platform) {
     case 'spotify':
       return <SpotifyBlock block={block} theme={theme} />;
     case 'instagram':

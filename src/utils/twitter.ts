@@ -21,6 +21,7 @@ export async function scrapeTwitterProfile(username: string): Promise<TwitterPro
       profileImage: response.data.data.profile_image_url.replace('_normal', '')
     };
   } catch (error) {
-    throw new Error('Failed to fetch Twitter profile');
+    console.log('Failed to fetch Twitter profile');
+    throw (error);
   }
 }

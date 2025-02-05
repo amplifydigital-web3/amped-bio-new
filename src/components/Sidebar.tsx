@@ -1,14 +1,13 @@
 import React, { useRef } from 'react';
 import { useEditorStore } from '../store/editorStore';
-import { 
-  User, Link, Palette, Sparkles, LayoutGrid, Download, Upload,
+import {
+  User, Palette, Sparkles, LayoutGrid, Download, Upload,
 } from 'lucide-react';
 import { exportSettings } from '../utils/export';
 import { importSettings } from '../utils/import';
 
 const navItems = [
   { id: 'profile', icon: User, label: 'Profile' },
-  { id: 'links', icon: Link, label: 'Links' },
   { id: 'appearance', icon: Palette, label: 'Appearance' },
   { id: 'effects', icon: Sparkles, label: 'Effects' },
   { id: 'blocks', icon: LayoutGrid, label: 'Blocks' },
@@ -50,17 +49,16 @@ export function Sidebar() {
           <button
             key={id}
             onClick={() => setActivePanel(id)}
-            className={`w-12 h-12 flex flex-col items-center justify-center rounded-lg transition-colors ${
-              activePanel === id
+            className={`w-12 h-12 flex flex-col items-center justify-center rounded-lg transition-colors ${activePanel === id
                 ? 'bg-gray-100 text-gray-900'
                 : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
-            }`}
+              }`}
           >
             <Icon className="w-5 h-5" />
             <span className="text-xs mt-1">{label}</span>
           </button>
         ))}
-        
+
         <div className="md:mt-auto md:mb-6 flex md:flex-col items-center space-x-2 md:space-x-0 md:space-y-2">
           <button
             onClick={handleExport}

@@ -1,10 +1,9 @@
-import React from 'react';
 import { Newspaper } from 'lucide-react';
-import type { MediaBlock as MediaBlockType, Theme } from '../../types/editor';
+import type { MediaBlock as MediaBlockType, ThemeConfig } from '../../types/editor';
 
 interface SubstackBlockProps {
   block: MediaBlockType;
-  theme: Theme;
+  theme: ThemeConfig;
 }
 
 export function SubstackBlock({ block, theme }: SubstackBlockProps) {
@@ -23,7 +22,7 @@ export function SubstackBlock({ block, theme }: SubstackBlockProps) {
     <div className="w-full space-y-2">
       <div className="flex items-center space-x-2 px-3">
         <Newspaper className="w-4 h-4 text-[#FF6719]" />
-        <span 
+        <span
           className="text-sm font-medium text-[#FF6719]"
           style={{ fontFamily: theme.fontFamily }}
         >

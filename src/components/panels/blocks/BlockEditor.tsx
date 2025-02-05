@@ -23,7 +23,7 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
       <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">
-            Edit {block.type === 'media' ? block.mediaType : 'Text'} Block
+            Edit {block.type === 'media' ? block.platform : 'Text'} Block
           </h3>
           <button
             onClick={onCancel}
@@ -34,7 +34,7 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
         </div>
 
         <div className="space-y-4">
-          {block.type === 'media' ? (
+          {block.type === 'media' && (
             <Input
               label="Content URL"
               type="url"
@@ -42,7 +42,8 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
               onChange={(e) => setContent(e.target.value)}
               placeholder="Enter media URL"
             />
-          ) : (
+          )}
+          {block.type === 'text' && (
             <Textarea
               label="Content"
               value={content}

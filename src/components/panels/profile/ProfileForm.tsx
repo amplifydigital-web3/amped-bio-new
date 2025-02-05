@@ -1,4 +1,3 @@
-import React from 'react';
 import type { UserProfile } from '../../../types/editor';
 import { Input } from '../../ui/Input';
 import { Textarea } from '../../ui/Textarea';
@@ -17,14 +16,14 @@ export function ProfileForm({ profile, onUpdate }: ProfileFormProps) {
         onChange={(e) => onUpdate('name', e.target.value)}
         placeholder="Enter your name"
       />
-      
+
       <Input
         label="Title"
         value={profile.title}
         onChange={(e) => onUpdate('title', e.target.value)}
         placeholder="Your professional title or tagline"
       />
-      
+
       <Textarea
         label="Bio"
         value={profile.bio}

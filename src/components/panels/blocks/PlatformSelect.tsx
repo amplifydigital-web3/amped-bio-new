@@ -1,4 +1,3 @@
-import React from 'react';
 import { platforms } from '../../../utils/platforms';
 
 interface PlatformSelectProps {

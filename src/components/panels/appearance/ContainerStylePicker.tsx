@@ -1,4 +1,3 @@
-import React from 'react';
 import { ColorPicker } from './ColorPicker';
 
 interface ContainerStylePickerProps {
@@ -23,13 +22,13 @@ const containerStyles = [
   { id: 9, name: 'Modern Card', preview: 'bg-white rounded-3xl shadow-[0_35px_60px_-15px_rgba(0,0,0,0.2)]' },
 ];
 
-export function ContainerStylePicker({ 
-  value, 
-  transparency, 
+export function ContainerStylePicker({
+  value,
+  transparency,
   containerColor,
-  onChange, 
+  onChange,
   onTransparencyChange,
-  onColorChange 
+  onColorChange
 }: ContainerStylePickerProps) {
   return (
     <div className="space-y-6">
@@ -42,11 +41,10 @@ export function ContainerStylePicker({
             <button
               key={style.id}
               onClick={() => onChange(style.id)}
-              className={`p-4 text-center ${style.preview} ${
-                value === style.id
+              className={`p-4 text-center ${style.preview} ${value === style.id
                   ? 'ring-2 ring-blue-500'
                   : 'hover:ring-2 hover:ring-gray-200'
-              } transition-all duration-200`}
+                } transition-all duration-200`}
             >
               {style.name}
             </button>

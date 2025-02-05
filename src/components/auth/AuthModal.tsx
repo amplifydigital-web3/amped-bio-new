@@ -29,7 +29,7 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
         onClose(user);
       } else {
         const user = await signIn(email, password);
-        toast.success('Welcome back!');
+        toast.success('Welcome back!', { icon: '👋' });
         onClose(user);
       }
     } catch (error) {

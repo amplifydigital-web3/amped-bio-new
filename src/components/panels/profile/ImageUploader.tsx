@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { Camera, X } from 'lucide-react';
 import { PhotoEditor } from './PhotoEditor';
+import { Input } from '../../ui/Input';
 
 interface ImageUploaderProps {
   imageUrl: string;
@@ -20,6 +21,11 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
       reader.readAsDataURL(file);
     }
   }, []);
+
+  const handleImageURL = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const url = e.target.value;
+    onImageChange(url);
+  }
 
   const handleSaveEdit = (editedImage: string) => {
     onImageChange(editedImage);
@@ -62,6 +68,12 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
             {imageUrl ? 'Change Photo' : 'Upload Photo'}
           </span>
         </label>
+        <Input
+          label="Photo URL"
+          value={imageUrl || ''}
+          onChange={handleImageURL}
+          placeholder="Photo URL"
+        />
       </div>
 
       {editingImage && (

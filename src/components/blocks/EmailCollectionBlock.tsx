@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Mail } from 'lucide-react';
-import type { TextBlock as TextBlockType, Theme } from '../../types/editor';
+import type { TextBlock as TextBlockType, ThemeConfig } from '../../types/editor';
 
 interface EmailCollectionBlockProps {
   block: TextBlockType;
-  theme: Theme;
+  theme: ThemeConfig;
 }
 
 export function EmailCollectionBlock({ block, theme }: EmailCollectionBlockProps) {
@@ -13,7 +13,7 @@ export function EmailCollectionBlock({ block, theme }: EmailCollectionBlockProps
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, you would send this to your backend
+    // TODO MAKE THIS SEND REAL EMAILS
     setStatus('success');
     setEmail('');
   };
@@ -22,9 +22,9 @@ export function EmailCollectionBlock({ block, theme }: EmailCollectionBlockProps
     <div className="w-full p-6 rounded-lg bg-white/50 backdrop-blur-sm space-y-4">
       <div className="flex items-center space-x-2">
         <Mail className="w-5 h-5 text-blue-500" />
-        <h3 
+        <h3
           className="font-medium"
-          style={{ 
+          style={{
             fontFamily: theme.fontFamily,
             color: theme.fontColor
           }}

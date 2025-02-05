@@ -8,8 +8,8 @@ function App() {
     <AppKitProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Editor />} />
-          <Route path="/view" element={<View />} />
+          <Route path="/" element={<View />} />
+          <Route path="/edit" element={<Editor />} />
         </Routes>
       </BrowserRouter>
     </AppKitProvider>

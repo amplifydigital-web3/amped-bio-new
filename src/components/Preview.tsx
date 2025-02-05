@@ -11,17 +11,17 @@ export function Preview() {
   const [isMobile, setIsMobile] = React.useState(false);
   const profile = useEditorStore((state) => state.profile);
   const blocks = useEditorStore((state) => state.blocks);
-  const theme = useEditorStore((state) => state.theme);
+  const theme = useEditorStore((state) => state.theme.config);
 
   return (
     <div className="flex-1 overflow-auto bg-gray-100">
       <div className="relative min-h-full">
         {/* Background Layer */}
-        <div 
+        <div
           className="absolute inset-0 w-full h-full"
           style={{
-            background: theme.background.type === 'color' 
-              ? theme.background.value 
+            background: theme.background.type === 'color'
+              ? theme.background.value
               : undefined
           }}
         >
@@ -63,8 +63,9 @@ export function Preview() {
             }}
           >
             {/* Profile Section */}
-            {profile.photoUrl && (
-              <div className="flex flex-col items-center text-center space-y-6">
+
+            <div className="flex flex-col items-center text-center space-y-6">
+              {profile.photoUrl && (
                 <div className="relative">
                   <img
                     src={profile.photoUrl}
@@ -73,45 +74,46 @@ export function Preview() {
                   />
                   <div className="absolute -inset-1 rounded-full blur-lg bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-30 group-hover:opacity-50 transition-opacity" />
                 </div>
-                <div className="space-y-4">
-                  <h1 
-                    className={cn(
-                      'text-4xl font-bold tracking-tight',
-                      getHeroEffectStyle(theme.heroEffect)
-                    )}
-                    style={{ 
+              )}
+              <div className="space-y-4">
+                <h1
+                  className={cn(
+                    'text-4xl font-bold tracking-tight',
+                    getHeroEffectStyle(theme.heroEffect)
+                  )}
+                  style={{
+                    fontFamily: theme.fontFamily,
+                    color: theme.fontColor
+                  }}
+                >
+                  {profile.name}
+                </h1>
+                {profile.title && (
+                  <p
+                    className="text-xl font-medium"
+                    style={{
                       fontFamily: theme.fontFamily,
                       color: theme.fontColor
                     }}
                   >
-                    {profile.name}
-                  </h1>
-                  {profile.title && (
-                    <p 
-                      className="text-xl font-medium"
-                      style={{ 
-                        fontFamily: theme.fontFamily,
-                        color: theme.fontColor
-                      }}
-                    >
-                      {profile.title}
-                    </p>
-                  )}
-                  {profile.bio && (
-                    <p 
-                      className="text-lg max-w-2xl mx-auto leading-relaxed"
-                      style={{ 
-                        fontFamily: theme.fontFamily,
-                        color: theme.fontColor,
-                        opacity: 0.9
-                      }}
-                    >
-                      {profile.bio}
-                    </p>
-                  )}
-                </div>
+                    {profile.title}
+                  </p>
+                )}
+                {profile.bio && (
+                  <p
+                    className="text-lg max-w-2xl mx-auto leading-relaxed"
+                    style={{
+                      fontFamily: theme.fontFamily,
+                      color: theme.fontColor,
+                      opacity: 0.9
+                    }}
+                  >
+                    {profile.bio}
+                  </p>
+                )}
               </div>
-            )}
+            </div>
+
 
             {/* Links & Blocks */}
             <div className="space-y-4">

@@ -1,4 +1,3 @@
-import React from 'react';
 
 interface ParticlesEffectPickerProps {
   value: number;
@@ -29,11 +28,10 @@ export function ParticlesEffectPicker({ value, onChange }: ParticlesEffectPicker
           <button
             key={effect.id}
             onClick={() => onChange(effect.id)}
-            className={`p-4 text-left rounded-lg border transition-all ${
-              value === effect.id
+            className={`p-4 text-left rounded-lg border transition-all ${value === effect.id
                 ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-500'
                 : 'bg-white border-gray-200 hover:border-blue-200'
-            }`}
+              }`}
           >
             <p className="font-medium text-gray-900">{effect.name}</p>
             <p className="text-sm text-gray-500 mt-1">{effect.description}</p>

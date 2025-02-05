@@ -29,6 +29,8 @@ model User {
   updated_at         DateTime?
   Link               Link[]
   UserWallet         UserWallet[]
+  Theme              Theme[]
+  Block              Block[]
 
   @@map("users")
 }
@@ -61,4 +63,32 @@ model UserWallet {
   User           User      @relation(fields: [user_id], references: [id])
 
   @@unique([user_id, wallet_address])
+}
+
+model Theme {
+  id           Int       @id @default(autoincrement())
+  user_id      Int
+  name         String    @db.VarChar(255)
+  share_level  String    @default("private") @db.VarChar(255)
+  share_config Json?
+  config       Json?
+  created_at   DateTime  @default(now())
+  updated_at   DateTime?
+  User         User      @relation(fields: [user_id], references: [id])
+
+  @@map("themes")
+}
+
+model Block {
+  id         Int       @id @default(autoincrement())
+  user_id    Int
+  type       String    @db.VarChar(255)
+  order      Int       @default(0)
+  clicks     Int       @default(0)
+  config     Json?
+  created_at DateTime  @default(now())
+  updated_at DateTime?
+  User       User      @relation(fields: [user_id], references: [id])
+
+  @@map("blocks")
 }

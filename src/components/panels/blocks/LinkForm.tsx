@@ -36,7 +36,7 @@ export function LinkForm({ onAdd }: LinkFormProps) {
         value={platform}
         onChange={(value) => setPlatform(value)}
       />
-      
+
       <Input
         label="URL"
         type="url"
@@ -45,7 +45,7 @@ export function LinkForm({ onAdd }: LinkFormProps) {
         placeholder="https://"
         required
       />
-      
+
       <Input
         label="Label"
         value={label}
@@ -53,7 +53,7 @@ export function LinkForm({ onAdd }: LinkFormProps) {
         placeholder="Display text for your link"
         required
       />
-      
+
       <button
         type="submit"
         className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"

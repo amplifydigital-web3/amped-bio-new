@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 // import { nanoid } from 'nanoid';
 
 import { hashPassword, comparePasswords } from '../utils/password';

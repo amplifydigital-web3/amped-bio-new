@@ -18,7 +18,6 @@ export type LinkBlock = {
 export type MediaBlock = {
   id: string;
   type: 'media';
-  mediaType?: 'spotify' | 'instagram' | 'youtube' | 'twitter' | 'token-price' | 'nft-collection' | 'uniswap' | 'substack';
   content?: string;
   platform: string;
   url: string;
@@ -29,6 +28,7 @@ export type TextBlock = {
   id: string;
   type: 'text';
   content: string;
+  platform: string;
 };
 
 export type Block = LinkBlock | MediaBlock | TextBlock;
@@ -39,7 +39,7 @@ export type Background = {
   label?: string;
 };
 
-export type Theme = {
+export type ThemeConfig = {
   buttonStyle: number;
   containerStyle: number;
   background: Background;
@@ -52,6 +52,14 @@ export type Theme = {
   buttonEffect: number;
   particlesEffect: number;
   heroEffect: number;
+};
+
+export type Theme = {
+  id: number;
+  name: string;
+  share_level: string;
+  share_config: object;
+  config: ThemeConfig;
 };
 
 export type EditorState = {

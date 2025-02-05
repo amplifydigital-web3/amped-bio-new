@@ -13,9 +13,9 @@ export function ProfilePanel() {
     setProfile({ ...profile, [field]: value });
   };
 
-  const handleTwitterImport = (importedProfile: Partial<UserProfile>) => {
-    setProfile({ ...profile, ...importedProfile });
-  };
+  // const handleTwitterImport = (importedProfile: Partial<UserProfile>) => {
+  //   setProfile({ ...profile, ...importedProfile });
+  // };
 
   return (
     <div className="p-6 space-y-8">
@@ -26,16 +26,16 @@ export function ProfilePanel() {
         </p>
       </div>
 
-      <TwitterImport onProfileUpdate={handleTwitterImport} />
+      {/* <TwitterImport onProfileUpdate={handleTwitterImport} /> */}
 
-      <div className="relative">
+      {/* <div className="relative">
         <div className="absolute inset-0 flex items-center" aria-hidden="true">
           <div className="w-full border-t border-gray-200" />
         </div>
         <div className="relative flex justify-center">
           <span className="px-2 bg-white text-sm text-gray-500">or add manually</span>
         </div>
-      </div>
+      </div> */}
 
       <ImageUploader
         imageUrl={profile.photoUrl}
