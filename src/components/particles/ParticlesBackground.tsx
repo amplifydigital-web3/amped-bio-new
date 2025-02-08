@@ -1,7 +1,5 @@
-import { useCallback } from 'react';
-import Particles from 'react-particles';
-import type { Engine } from 'tsparticles-engine';
-import { loadSlim } from 'tsparticles-slim';
+
+import Particles from '@tsparticles/react';
 import { particleConfigs } from './particleConfigs';
 
 interface ParticlesBackgroundProps {
@@ -9,9 +7,7 @@ interface ParticlesBackgroundProps {
 }
 
 export function ParticlesBackground({ effect }: ParticlesBackgroundProps) {
-  const particlesInit = useCallback(async (engine: Engine) => {
-    await loadSlim(engine);
-  }, []);
+
 
   if (effect === 0) return null;
 
@@ -21,7 +17,6 @@ export function ParticlesBackground({ effect }: ParticlesBackgroundProps) {
   return (
     <Particles
       id="tsparticles"
-      init={particlesInit}
       options={{
         ...config,
         fullScreen: {
@@ -36,7 +31,7 @@ export function ParticlesBackground({ effect }: ParticlesBackgroundProps) {
         fpsLimit: 120,
         detectRetina: true,
       }}
-      className="absolute inset-0 -z-10"
+      className="absolute inset-0"
     />
   );
 }

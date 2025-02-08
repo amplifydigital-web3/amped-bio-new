@@ -15,6 +15,7 @@ const particlesEffects = [
   { id: 7, name: 'Confetti', description: 'Colorful confetti particles' },
   { id: 8, name: 'Stars', description: 'Twinkling stars effect' },
   { id: 9, name: 'Geometric', description: 'Connected geometric shapes' },
+  { id: 10, name: 'Custom', description: 'Custom Config' }
 ];
 
 export function ParticlesEffectPicker({ value, onChange }: ParticlesEffectPickerProps) {
@@ -29,8 +30,8 @@ export function ParticlesEffectPicker({ value, onChange }: ParticlesEffectPicker
             key={effect.id}
             onClick={() => onChange(effect.id)}
             className={`p-4 text-left rounded-lg border transition-all ${value === effect.id
-                ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-500'
-                : 'bg-white border-gray-200 hover:border-blue-200'
+              ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-500'
+              : 'bg-white border-gray-200 hover:border-blue-200'
               }`}
           >
             <p className="font-medium text-gray-900">{effect.name}</p>
