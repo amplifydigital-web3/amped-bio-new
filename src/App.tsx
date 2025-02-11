@@ -5,6 +5,7 @@ import { View } from './pages/View';
 import { initParticlesEngine } from '@tsparticles/react';
 //import { loadSlim } from '@tsparticles/slim';
 import { loadAll } from '@tsparticles/all';
+import { AppKitProvider } from './components/connect/components/AppKitProvider';
 
 function App() {
   const [init, setInit] = useState(false);
@@ -26,15 +27,17 @@ function App() {
 
   if (init) {
     return (
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<View />} />
-          <Route path="/edit" element={<Editor />} />
-        </Routes>
-      </BrowserRouter>
+      <AppKitProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<View />} />
+            <Route path="/edit" element={<Editor />} />
+          </Routes>
+        </BrowserRouter>
+      </AppKitProvider>
     );
   }
-  return <></>
+  return <></>;
 }
 
 export default App;
