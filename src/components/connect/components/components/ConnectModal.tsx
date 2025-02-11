@@ -4,13 +4,29 @@ import { useCallback } from 'react';
 import { AppKit } from '@reown/appkit';
 import Modal from './Modal';
 import ProgrammeHeader from '../header/Header';
-import { BaseLabel, Link } from './DataDisplay';
 import { BrandedProgrammeButton } from './Buttons';
 import { CreateWalletButton } from '../smartwallet/CreateWalletButton';
 import Spacer from './Spacer';
 import SectionWrapper from './SectionWrapper';
 import Body from './Body';
 import { ErrorBoundary } from 'react-error-boundary';
+import styled from 'styled-components';
+
+export const Link = styled.a`
+  font-weight: 400;
+  font-size: 10px;
+  line-height: 12px;
+  margin-bottom: 4px;
+  color: var(--widget-contrast-high);
+`<any>
+
+export const BaseLabel = styled.div`
+  font-weight: 400;
+  font-size: 10px;
+  line-height: 12px;
+  margin-bottom: 4px;
+  color: var(--widget-contrast-high);
+`<any>
 
 export type ConnectModalProps = {
   modal: AppKit;

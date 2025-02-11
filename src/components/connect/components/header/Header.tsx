@@ -56,7 +56,7 @@ type Props = {
 function ProgrammeHeader({ title, subtitle, back }: Props) {
   return (
     <HeaderContainer>
-      {!!back ? (
+      {back ? (
         <DetailNav back={back} />
       ) : (
         <HeaderWelcome>Welcome to</HeaderWelcome>
