@@ -6,11 +6,12 @@ import { useAuthStore } from '../../store/authStore'
 import { useEditorStore } from '../../store/editorStore'
 import { AuthModal } from './AuthModal'
 import toast from 'react-hot-toast'
-import Web3ConnectButton from '../connect/components/components/Connect'
 import { Button } from '@/components/ui/Button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { useAmplifyConnect } from '../connect/hooks/useAmplifyConnect'
 
 export function UserMenu() {
+  const amplifyConnect = useAmplifyConnect()
   const [showAuthModal, setShowAuthModal] = useState(false)
   const { user, signOut } = useAuthStore()
   const { setUser, setDefault } = useEditorStore()
@@ -57,7 +58,18 @@ export function UserMenu() {
           <LogOut className="w-4 h-4 mr-2" />
           <span>Sign Out</span>
         </DropdownMenuItem>
-        <Web3ConnectButton />
+        <DropdownMenuItem onClick={amplifyConnect.handleClick}>
+          <span>
+            {amplifyConnect.account.address
+              ? `${amplifyConnect.account.address.substring(
+                0,
+                4
+              )}...${amplifyConnect.account.address.substring(
+                amplifyConnect.account.address.length - 4
+              )}`
+              : 'Connect Web3 Wallet'}
+          </span>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )
