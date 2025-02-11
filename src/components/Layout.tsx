@@ -9,6 +9,7 @@ import { AppearancePanel } from './panels/appearance/AppearancePanel';
 import { EffectsPanel } from './panels/effects/EffectsPanel';
 import { BlocksPanel } from './panels/blocks/BlocksPanel';
 import { Eye } from 'lucide-react';
+import RewardPanel from './panels/reward/RewardPanel.tsx';
 
 export function Layout() {
   const activePanel = useEditorStore((state) => state.activePanel);
@@ -28,6 +29,7 @@ export function Layout() {
               {activePanel === 'appearance' && <AppearancePanel />}
               {activePanel === 'effects' && <EffectsPanel />}
               {activePanel === 'blocks' && <BlocksPanel />}
+              {activePanel === 'reward' && <RewardPanel />}
             </div>
             <div className="flex-1 overflow-y-auto relative">
               <Preview isEditing={true} />
@@ -40,7 +42,6 @@ export function Layout() {
                 <Eye className="w-4 h-4" />
                 <span className="text-sm font-medium">View Page</span>
               </Link>
-
             </div>
           </div>
         </main>
