@@ -27,6 +27,11 @@ export async function login(authData: loginData) {
         return response.data;
     } catch (error) {
         console.error('Login Error:', error);
+        if (axios.isAxiosError(error)) { 
+            throw new Error(error.response?.data.message ?? error.message);
+        } else {
+            throw error;
+        }
     }
 };
 
