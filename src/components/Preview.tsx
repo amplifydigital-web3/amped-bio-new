@@ -27,8 +27,8 @@ export function Preview(props: PreviewProps) {
         </header>
       )}
 
-      <div className="flex-1 overflow-auto bg-gray-100">
-        <div className="relative min-h-full">
+      <div className="flex-1 overflow-auto bg-gray-100 relative">
+        <div className="min-h-full">
           {/* Background Layer */}
           <div
             className="absolute inset-0 w-full h-full"
