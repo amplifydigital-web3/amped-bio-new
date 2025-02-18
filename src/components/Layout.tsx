@@ -29,7 +29,7 @@ export function Layout() {
               {activePanel === 'effects' && <EffectsPanel />}
               {activePanel === 'blocks' && <BlocksPanel />}
             </div>
-            <div className="flex-1 overflow-y-auto relative">
+            <div className="flex flex-col flex-1 overflow-y-auto relative">
               <Preview isEditing={true} />
 
               {/* View Button */}

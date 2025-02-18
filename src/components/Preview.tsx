@@ -27,8 +27,8 @@ export function Preview(props: PreviewProps) {
         </header>
       )}
 
-      <div className="flex-1 overflow-auto bg-gray-100">
-        <div className="relative min-h-full">
+      <div className="flex-1 overflow-auto bg-gray-100 relative">
+        <div className="min-h-full">
           {/* Background Layer */}
           <div
             className="absolute inset-0 w-full h-full"
@@ -179,7 +179,7 @@ export function Preview(props: PreviewProps) {
           </div>
 
           {/* Mobile Toggle */}
-          <div className="fixed bottom-4 right-4 z-20">
+          <div className="fixed bottom-16 right-4 z-20">
             <button
               onClick={() => setIsMobile(!isMobile)}
               className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-50"
