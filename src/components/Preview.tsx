@@ -179,7 +179,7 @@ export function Preview(props: PreviewProps) {
           </div>
 
           {/* Mobile Toggle */}
-          <div className="fixed bottom-4 right-4 z-20">
+          <div className="fixed bottom-16 right-4 z-20">
             <button
               onClick={() => setIsMobile(!isMobile)}
               className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-50"
