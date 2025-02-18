@@ -71,6 +71,7 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
           <Input
             label="Email"
             type="email"
+            name='email'
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -82,6 +83,7 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
 
           <Input
             label="Password"
+            name='password'
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
