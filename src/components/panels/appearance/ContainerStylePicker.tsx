@@ -13,7 +13,7 @@ const containerStyles = [
   { id: 0, name: 'None', preview: '' },
   { id: 1, name: 'Frosted Glass', preview: 'bg-white/70 backdrop-blur-md rounded-2xl shadow-lg' },
   { id: 2, name: 'Floating Card', preview: 'bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] hover:shadow-[0_20px_60px_rgba(0,0,0,0.12)] transition-shadow' },
-  { id: 3, name: 'Gradient Border', preview: 'bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 p-[1px] rounded-2xl' },
+  { id: 3, name: 'Gradient Border', preview: 'bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-2xl' },
   { id: 4, name: 'Neon Glow', preview: 'bg-white rounded-2xl shadow-[0_0_30px_rgba(59,130,246,0.5)]' },
   { id: 5, name: 'Double Border', preview: 'bg-white rounded-2xl border-2 border-gray-200 outline outline-2 outline-offset-2 outline-gray-100' },
   { id: 6, name: 'Morphic', preview: 'bg-white/90 rounded-[2.5rem] shadow-[inset_0_0_30px_rgba(0,0,0,0.05),0_20px_40px_rgba(0,0,0,0.1)]' },
@@ -42,8 +42,8 @@ export function ContainerStylePicker({
               key={style.id}
               onClick={() => onChange(style.id)}
               className={`p-4 text-center ${style.preview} ${value === style.id
-                  ? 'ring-2 ring-blue-500'
-                  : 'hover:ring-2 hover:ring-gray-200'
+                ? 'ring-2 ring-blue-500'
+                : 'hover:ring-2 hover:ring-gray-200'
                 } transition-all duration-200`}
             >
               {style.name}
