@@ -23,7 +23,7 @@ export function getContainerStyle(style: number): string {
     0: '',
     1: 'bg-white/70 backdrop-blur-md rounded-2xl shadow-lg',
     2: 'bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] hover:shadow-[0_20px_60px_rgba(0,0,0,0.12)] transition-shadow',
-    3: 'bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 p-[1px] rounded-2xl',
+    3: 'bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-2xl',
     4: 'bg-white rounded-2xl shadow-[0_0_30px_rgba(59,130,246,0.5)]',
     5: 'bg-white rounded-2xl border-2 border-gray-200 outline outline-2 outline-offset-2 outline-gray-100',
     6: 'bg-white/90 rounded-[2.5rem] shadow-[inset_0_0_30px_rgba(0,0,0,0.05),0_20px_40px_rgba(0,0,0,0.1)]',
