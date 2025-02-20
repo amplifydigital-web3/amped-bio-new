@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { Theme, Block } from '../types/editor';
+import { withRelatedProject } from '@vercel/related-projects';
 
 type loginData = {
     email: string;
@@ -17,8 +18,15 @@ type deleteData = {
     password: string;
 };
 
+const baseURL = withRelatedProject({
+    projectName: 'amped-bio-server',
+    defaultHost: 'http://localhost:3000/api'
+})
+
 // const baseURL = env('API_URL');
-const baseURL = 'http://localhost:3000/api';
+// const baseURL = 'http://localhost:3000/api';
+
+
 
 export async function login(authData: loginData) {
     try {
@@ -27,7 +35,7 @@ export async function login(authData: loginData) {
         return response.data;
     } catch (error) {
         console.error('Login Error:', error);
-        if (axios.isAxiosError(error)) { 
+        if (axios.isAxiosError(error)) {
             throw new Error(error.response?.data.message ?? error.message);
         } else {
             throw error;
