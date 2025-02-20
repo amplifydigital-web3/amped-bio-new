@@ -11,7 +11,7 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/', (req, res) => res.send('Express on Vercel'));
-app.get('/testing', (req, res) => res.send('Express on Vercel test'));
+app.get('/testing', (req, res) => res.send('Express on Vercel test yes api'));
 
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
