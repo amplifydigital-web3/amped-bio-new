@@ -20,7 +20,7 @@ type deleteData = {
 
 const baseURL = withRelatedProject({
     projectName: 'amped-bio-server',
-    defaultHost: 'http://localhost:3000/api'
+    defaultHost: 'http://localhost:3000/'
 })
 
 // const baseURL = env('API_URL');
