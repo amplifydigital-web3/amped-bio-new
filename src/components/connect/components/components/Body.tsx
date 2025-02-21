@@ -2,7 +2,7 @@ import { motion } from 'framer-motion'
 import styled, { css } from 'styled-components'
 import type React from 'react'
 
-const ProgramContainer = styled(motion.div)<{
+const ProgramContainer = styled(motion.div) <{
   $float?: boolean
   $home?: boolean
   $banner?: boolean
@@ -28,16 +28,15 @@ const ProgramContainer = styled(motion.div)<{
             z-index: 99;
             width: 100%;
             padding-top: 8px;
-            ${
-              $home
-                ? `max-height: calc(100vh - ${$banner ? '214px' : '214px'});`
-                : ''
-            }
+            ${$home
+        ? `max-height: calc(100vh - ${$banner ? '214px' : '214px'});`
+        : ''
+      }
             }
         `}
 `
 
-const Container = styled(motion.div)<{ $float?: boolean; $home?: boolean }>`
+const Container = styled(motion.div) <{ $float?: boolean; $home?: boolean }>`
   margin-top: 150px;
   padding-top: 12px;
   z-index: 1;
@@ -54,7 +53,7 @@ const Container = styled(motion.div)<{ $float?: boolean; $home?: boolean }>`
             z-index: 99;
             width: 100%;
             padding-top: 8px;
-            ${$home ? `max-height: calc(100% - 214px);` : ''}
+            ${$home ? 'max-height: calc(100% - 214px);' : ''}
             }
         `}
 `

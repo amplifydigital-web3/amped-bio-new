@@ -4,7 +4,8 @@ export type UserProfile = {
   name: string;
   title: string;
   bio: string;
-  photoUrl: string;
+  photoUrl?: string;
+  photoCmp?: string;
 };
 
 export type LinkBlock = {

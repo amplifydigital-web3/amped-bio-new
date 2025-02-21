@@ -88,6 +88,16 @@ export function Preview(props: PreviewProps) {
                     <div className="absolute -inset-1 rounded-full blur-lg bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-30 group-hover:opacity-50 transition-opacity" />
                   </div>
                 )}
+                {profile.photoCmp && (
+                  <div className="relative">
+                    <img
+                      src={profile.photoCmp}
+                      alt={profile.name}
+                      className="w-32 h-auto"
+                    />
+                    {/* <div className="absolute -inset-1 rounded-full blur-lg bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-30 group-hover:opacity-50 transition-opacity" /> */}
+                  </div>
+                )}
                 <div className="space-y-4">
                   <h1
                     className={cn(
