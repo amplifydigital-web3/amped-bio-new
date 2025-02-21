@@ -27,8 +27,8 @@ export function Preview(props: PreviewProps) {
         </header>
       )}
 
-      <div className="flex-1 overflow-auto bg-gray-100">
-        <div className="relative min-h-full">
+      <div className="flex-1 overflow-auto bg-gray-100 relative">
+        <div className="min-h-full">
           {/* Background Layer */}
           <div
             className="absolute inset-0 w-full h-full"
@@ -86,6 +86,16 @@ export function Preview(props: PreviewProps) {
                       className="w-32 h-32 rounded-full object-cover ring-4 ring-white/50 shadow-xl"
                     />
                     <div className="absolute -inset-1 rounded-full blur-lg bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-30 group-hover:opacity-50 transition-opacity" />
+                  </div>
+                )}
+                {profile.photoCmp && (
+                  <div className="relative">
+                    <img
+                      src={profile.photoCmp}
+                      alt={profile.name}
+                      className="w-32 h-auto"
+                    />
+                    {/* <div className="absolute -inset-1 rounded-full blur-lg bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-30 group-hover:opacity-50 transition-opacity" /> */}
                   </div>
                 )}
                 <div className="space-y-4">
@@ -179,7 +189,7 @@ export function Preview(props: PreviewProps) {
           </div>
 
           {/* Mobile Toggle */}
-          <div className="fixed bottom-4 right-4 z-20">
+          <div className="fixed bottom-16 right-4 z-20">
             <button
               onClick={() => setIsMobile(!isMobile)}
               className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-50"

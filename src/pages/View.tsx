@@ -7,7 +7,7 @@ export function View() {
   const { user } = useAuthStore();
   console.log({ user });
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen flex flex-col">
       <Preview isEditing={false} />
 
       {/* Edit Button */}

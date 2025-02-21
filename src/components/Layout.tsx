@@ -32,7 +32,7 @@ export function Layout() {
               {activePanel === 'reward' && <RewardPanel />}
             </div>
             {
-              activePanel !== 'reward' && <div className="flex-1 overflow-y-auto relative">
+              activePanel !== 'reward' && <div className="flex flex-col  overflow-y-auto relative">
                 <Preview isEditing={true} />
 
                 {/* View Button */}

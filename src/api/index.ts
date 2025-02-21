@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { Theme, Block } from '../types/editor';
+import { withRelatedProject } from '@vercel/related-projects';
 
 type loginData = {
     email: string;
@@ -17,23 +18,35 @@ type deleteData = {
     password: string;
 };
 
+const baseURL = withRelatedProject({
+    projectName: 'amped-bio-server',
+    defaultHost: 'http://localhost:3000'
+})
+console.log(baseURL);
 // const baseURL = env('API_URL');
-const baseURL = 'http://localhost:3000/api';
+// const baseURL = 'http://localhost:3000/api';
+
+
 
 export async function login(authData: loginData) {
     try {
-        const response = await axios.post(`${baseURL}/auth/login`, { data: authData });
+        const response = await axios.post(`${baseURL}/api/auth/login`, { data: authData });
         console.log('Login successful:', response.data);
         return response.data;
     } catch (error) {
         console.error('Login Error:', error);
+        if (axios.isAxiosError(error)) {
+            throw new Error(error.response?.data.message ?? error.message);
+        } else {
+            throw error;
+        }
     }
 };
 
 // Add New User
 export async function registerNewUser(userData: registerData) {
     try {
-        const response = await axios.post(`${baseURL}/auth/register`, { data: userData });
+        const response = await axios.post(`${baseURL}/api/auth/register`, { data: userData });
         console.log('New User created successfully:', response.data);
         return response.data;
     } catch (error) {
@@ -46,7 +59,7 @@ export async function editUser(userData: { id: string; name: string; email: stri
     const { id } = userData;
     console.log('Editing user:', userData);
     try {
-        const response = await axios.put(`${baseURL}/user/${id}`, { data: userData });
+        const response = await axios.put(`${baseURL}/api/user/${id}`, { data: userData });
         console.log('User updated successfully:', response.data);
         return response.data;
     } catch (error) {
@@ -60,7 +73,7 @@ export async function getUser(userData: { id: string; token: string; }) {
     const { id } = userData;
     console.log('Get user:', userData);
     try {
-        const response = await axios.get(`${baseURL}/user/${id}`, { data: userData, headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache', 'Expires': 0 } });
+        const response = await axios.get(`${baseURL}/api/user/${id}`, { data: userData, headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache', 'Expires': 0 } });
         console.log('User get:', response.data);
         return response.data.result;
     } catch (error) {
@@ -73,7 +86,7 @@ export async function getUser(userData: { id: string; token: string; }) {
 export async function deleteUser(userData: deleteData) {
     const { id, password } = userData;
     try {
-        const response = await axios.delete(`${baseURL}/user/${id}`, { data: { password } });
+        const response = await axios.delete(`${baseURL}/api/user/${id}`, { data: { password } });
         console.log('User deleted successfully:', response.data);
     } catch (error) {
         console.error('Error deleting user:', error);
@@ -86,7 +99,7 @@ export async function editTheme(theme: Theme, user_id) {
     const { id } = theme;
     console.log('Editing Theme:', id);
     try {
-        const response = await axios.put(`${baseURL}/user/theme/${id}`, { data: { theme, user_id } });
+        const response = await axios.put(`${baseURL}/api/user/theme/${id}`, { data: { theme, user_id } });
         console.log('Theme updated successfully:', response.data);
         return response.data;
     } catch (error) {
@@ -99,7 +112,7 @@ export async function editTheme(theme: Theme, user_id) {
 export async function editBlocks(blocks: Block[], user_id) {
     console.log('Editing user blocks:', user_id);
     try {
-        const response = await axios.put(`${baseURL}/user/blocks/${user_id}`, { data: { blocks: blocks } });
+        const response = await axios.put(`${baseURL}/api/user/blocks/${user_id}`, { data: { blocks: blocks } });
         console.log('User updated successfully:', response.data);
         return response.data;
     } catch (error) {
@@ -112,7 +125,7 @@ export async function editBlocks(blocks: Block[], user_id) {
 export async function deleteBlock(block_id, user_id) {
     console.log('Delete user block:', user_id);
     try {
-        const response = await axios.delete(`${baseURL}/user/blocks/block/${block_id}$${user_id}`);
+        const response = await axios.delete(`${baseURL}/api/user/blocks/block/${block_id}$${user_id}`);
         console.log('Block deleted successfully:', response.data);
         return response.data;
     } catch (error) {
