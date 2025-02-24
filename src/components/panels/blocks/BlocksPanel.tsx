@@ -33,6 +33,11 @@ export function BlocksPanel() {
 
         <BlockPicker onAdd={addBlock} />
 
+        {
+          blocks.length > 0 && <div className="border-t border-gray-200 my-4"/>
+        }
+        
+
         <BlockList
           blocks={blocks}
           onUpdate={updateBlock}
