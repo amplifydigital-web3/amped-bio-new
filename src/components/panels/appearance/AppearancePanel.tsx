@@ -1,7 +1,6 @@
 import { BackgroundPicker } from './BackgroundPicker';
 import { ButtonStylePicker } from './ButtonStylePicker';
 import { ContainerStylePicker } from './ContainerStylePicker';
-import { ColorPicker } from './ColorPicker';
 import { FontPicker } from './FontPicker';
 import { useEditorStore } from '../../../store/editorStore';
 
@@ -34,14 +33,10 @@ export function AppearancePanel() {
       />
 
       <ButtonStylePicker
-        value={theme.buttonStyle}
-        onChange={(style) => updateThemeConfig({ buttonStyle: style })}
-      />
-
-      <ColorPicker
-        label="Button Color"
-        value={theme.buttonColor}
-        onChange={(color) => updateThemeConfig({ buttonColor: color })}
+        style={theme.buttonStyle}
+        color={theme.buttonColor}
+        onButtonStyleChange={(style) => updateThemeConfig({ buttonStyle: style })}
+        onButtonColorChange={(color) => updateThemeConfig({ buttonColor: color })}
       />
 
       <FontPicker
