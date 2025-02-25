@@ -2,7 +2,7 @@ import React from 'react';
 
 const RewardPanel: React.FC = () => {
   return (
-    <div className="space-y-6">
+    <div>
       <div className="p-6 space-y-8">
         <div className="space-y-2">
           <h2 className="text-lg font-semibold text-gray-900">Reward</h2>
