@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import {
   User, Palette, Sparkles, LayoutGrid, Download, Upload,
+  Sparkle,
 } from 'lucide-react';
 import { exportSettings } from '../utils/export';
 import { importSettings } from '../utils/import';
@@ -11,6 +12,7 @@ const navItems = [
   { id: 'appearance', icon: Palette, label: 'Appearance' },
   { id: 'effects', icon: Sparkles, label: 'Effects' },
   { id: 'blocks', icon: LayoutGrid, label: 'Blocks' },
+  { id: 'reward', icon: Sparkle, label: 'Reward' },
 ];
 
 export function Sidebar() {
