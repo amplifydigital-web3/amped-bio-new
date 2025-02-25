@@ -32,15 +32,14 @@ const CollapsiblePanelWrapper: React.FC<CollapsiblePanelWrapperProps> = ({
     <Collapsible open={!isCollapsed}>
       <CollapsibleTrigger
         onClick={toggleCollapse}
-        className="flex w-full items-center justify-between py-2"
+        className={`flex w-full items-center justify-between p-2 mb-2 rounded hover:bg-blue-200 ${isCollapsed ? '' : 'bg-gray-200'}`}
       >
-        <label className="text-sm font-medium text-gray-700 cursor-pointer">
+        <label className="text-m font-medium text-gray-700 cursor-pointer">
           {title}
         </label>
         <ChevronDown
-          className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
-            !isCollapsed ? 'rotate-180' : ''
-          }`}
+          className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${!isCollapsed ? 'rotate-180' : ''
+            }`}
         />
       </CollapsibleTrigger>
       <CollapsibleContent>{children}</CollapsibleContent>

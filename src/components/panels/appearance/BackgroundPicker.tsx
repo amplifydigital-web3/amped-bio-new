@@ -132,7 +132,7 @@ export const BackgroundPicker = memo(({ value, onChange }: BackgroundPickerProps
   }, [value, onChange]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       {/* Gradients */}
       <CollapsiblePanelWrapper initialOpen={true} title="Gradient Backgrounds">
         <div className="grid grid-cols-2 gap-3">
