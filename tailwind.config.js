@@ -13,7 +13,9 @@ export default {
   			slideUp: 'slideUp 1s ease-out forwards',
   			wave: 'wave 1s ease-in-out infinite',
   			rainbow: 'rainbow 3s linear infinite',
-  			glitch: 'glitch 3s infinite'
+  			glitch: 'glitch 3s infinite',
+			'collapsible-down': 'collapsible-down 0.2s ease-out',
+  			'collapsible-up': 'collapsible-up 0.2s ease-out'
   		},
   		keyframes: {
   			wiggle: {
@@ -22,6 +24,22 @@ export default {
   				},
   				'50%': {
   					transform: 'rotate(3deg)'
+  				}
+  			},
+			'collapsible-down': {
+  				from: {
+  					height: '0'
+  				},
+  				to: {
+  					height: 'var(--radix-collapsible-content-height)'
+  				}
+  			},
+  			'collapsible-up': {
+  				from: {
+  					height: 'var(--radix-collapsible-content-height)'
+  				},
+  				to: {
+  					height: '0'
   				}
   			}
   		},

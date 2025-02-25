@@ -1,3 +1,4 @@
+import CollapsiblePanelWrapper from '../CollapsiblePanelWrapper';
 import { ColorPicker } from './ColorPicker';
 
 interface FontPickerProps {
@@ -34,71 +35,75 @@ export function FontPicker({
   onColorChange,
 }: FontPickerProps) {
   return (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <label className="block text-sm font-medium text-gray-700">
-          Font Family
-        </label>
-        <div className="grid grid-cols-1 gap-3">
-          {fonts.map((f) => (
-            <button
-              key={f.value}
-              onClick={() => onFontChange(f.value)}
-              className={`p-3 text-left rounded-lg transition-all ${font === f.value
-                  ? 'bg-blue-50 text-blue-700 ring-2 ring-blue-500'
-                  : 'bg-white hover:bg-gray-50 text-gray-900 ring-1 ring-gray-200'
+    <CollapsiblePanelWrapper title="Font Style">
+      <div className="space-y-6">
+        <div className="space-y-4">
+          <label className="block text-sm font-medium text-gray-700">
+            Font Family
+          </label>
+          <div className="grid grid-cols-1 gap-3 px-1">
+            {fonts.map((f) => (
+              <button
+                key={f.value}
+                onClick={() => onFontChange(f.value)}
+                className={`p-3 text-left rounded-lg transition-all ${
+                  font === f.value
+                    ? 'bg-blue-50 text-blue-700 ring-2 ring-blue-500'
+                    : 'bg-white hover:bg-gray-50 text-gray-900 ring-1 ring-gray-200'
                 }`}
-              style={{ fontFamily: f.value }}
-            >
-              <span className="text-base">{f.name}</span>
-              <p className="mt-1 text-sm opacity-70">
-                The quick brown fox jumps over the lazy dog
-              </p>
-            </button>
-          ))}
+                style={{ fontFamily: f.value }}
+              >
+                <span className="text-base">{f.name}</span>
+                <p className="mt-1 text-sm opacity-70">
+                  The quick brown fox jumps over the lazy dog
+                </p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <label className="block text-sm font-medium text-gray-700">
+            Font Size
+          </label>
+          <div className="grid grid-cols-2 gap-3 px-1">
+            {fontSizes.map((s) => (
+              <button
+                key={s.value}
+                onClick={() => onSizeChange(s.value)}
+                className={`p-3 text-center rounded-lg transition-all ${
+                  size === s.value
+                    ? 'bg-blue-50 text-blue-700 ring-2 ring-blue-500'
+                    : 'bg-white hover:bg-gray-50 text-gray-900 ring-1 ring-gray-200'
+                }`}
+                style={{ fontSize: s.value }}
+              >
+                {s.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <ColorPicker
+          label="Font Color"
+          value={color}
+          onChange={onColorChange}
+        />
+
+        <div className="p-4 bg-gray-50 rounded-lg">
+          <p className="text-sm text-gray-500">Preview</p>
+          <p
+            className="mt-2"
+            style={{
+              fontFamily: font,
+              fontSize: size,
+              color: color,
+            }}
+          >
+            The quick brown fox jumps over the lazy dog
+          </p>
         </div>
       </div>
-
-      <div className="space-y-4">
-        <label className="block text-sm font-medium text-gray-700">
-          Font Size
-        </label>
-        <div className="grid grid-cols-2 gap-3">
-          {fontSizes.map((s) => (
-            <button
-              key={s.value}
-              onClick={() => onSizeChange(s.value)}
-              className={`p-3 text-center rounded-lg transition-all ${size === s.value
-                  ? 'bg-blue-50 text-blue-700 ring-2 ring-blue-500'
-                  : 'bg-white hover:bg-gray-50 text-gray-900 ring-1 ring-gray-200'
-                }`}
-              style={{ fontSize: s.value }}
-            >
-              {s.name}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <ColorPicker
-        label="Font Color"
-        value={color}
-        onChange={onColorChange}
-      />
-
-      <div className="p-4 bg-gray-50 rounded-lg">
-        <p className="text-sm text-gray-500">Preview</p>
-        <p
-          className="mt-2"
-          style={{
-            fontFamily: font,
-            fontSize: size,
-            color: color,
-          }}
-        >
-          The quick brown fox jumps over the lazy dog
-        </p>
-      </div>
-    </div>
+    </CollapsiblePanelWrapper>
   );
 }
