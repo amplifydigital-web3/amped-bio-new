@@ -41,16 +41,15 @@ export function FontPicker({
           <label className="block text-sm font-medium text-gray-700">
             Font Family
           </label>
-          <div className="grid grid-cols-1 gap-3 px-1">
+          <div className="grid grid-cols-1 gap-3">
             {fonts.map((f) => (
               <button
                 key={f.value}
                 onClick={() => onFontChange(f.value)}
-                className={`p-3 text-left rounded-lg transition-all ${
-                  font === f.value
-                    ? 'bg-blue-50 text-blue-700 ring-2 ring-blue-500'
-                    : 'bg-white hover:bg-gray-50 text-gray-900 ring-1 ring-gray-200'
-                }`}
+                className={`p-3 text-left rounded-lg transition-all ${font === f.value
+                  ? 'bg-blue-50 text-blue-700 ring-2 ring-blue-500'
+                  : 'bg-white hover:bg-gray-50 text-gray-900 ring-1 ring-gray-200'
+                  }`}
                 style={{ fontFamily: f.value }}
               >
                 <span className="text-base">{f.name}</span>
@@ -66,16 +65,15 @@ export function FontPicker({
           <label className="block text-sm font-medium text-gray-700">
             Font Size
           </label>
-          <div className="grid grid-cols-2 gap-3 px-1">
+          <div className="grid grid-cols-2 gap-3">
             {fontSizes.map((s) => (
               <button
                 key={s.value}
                 onClick={() => onSizeChange(s.value)}
-                className={`p-3 text-center rounded-lg transition-all ${
-                  size === s.value
-                    ? 'bg-blue-50 text-blue-700 ring-2 ring-blue-500'
-                    : 'bg-white hover:bg-gray-50 text-gray-900 ring-1 ring-gray-200'
-                }`}
+                className={`p-3 text-center rounded-lg transition-all ${size === s.value
+                  ? 'bg-blue-50 text-blue-700 ring-2 ring-blue-500'
+                  : 'bg-white hover:bg-gray-50 text-gray-900 ring-1 ring-gray-200'
+                  }`}
                 style={{ fontSize: s.value }}
               >
                 {s.name}

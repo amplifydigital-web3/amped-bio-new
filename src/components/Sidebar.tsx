@@ -1,18 +1,21 @@
 import React, { useRef } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import {
-  User, Palette, Sparkles, LayoutGrid, Download, Upload,
-  Sparkle,
+  User, Link, Palette, Sparkles, Sparkle, LayoutGrid, Image, CoinsIcon, Trophy, AtSign, Download, Upload
 } from 'lucide-react';
 import { exportSettings } from '../utils/export';
 import { importSettings } from '../utils/import';
 
 const navItems = [
   { id: 'profile', icon: User, label: 'Profile' },
+  { id: 'gallery', icon: Image, label: 'Gallery' },
   { id: 'appearance', icon: Palette, label: 'Appearance' },
   { id: 'effects', icon: Sparkles, label: 'Effects' },
   { id: 'blocks', icon: LayoutGrid, label: 'Blocks' },
   { id: 'reward', icon: Sparkle, label: 'Reward' },
+  { id: 'creatorpool', icon: CoinsIcon, label: 'CreatorPool' },
+  { id: 'leaderboard', icon: Trophy, label: 'Leaderboard' },
+  { id: 'rns', icon: AtSign, label: 'RNS' },
 ];
 
 export function Sidebar() {

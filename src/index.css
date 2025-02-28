@@ -29,16 +29,16 @@
 /* Text Shadow Utilities */
 .text-shadow-glow {
   text-shadow: 0 0 10px rgba(255, 255, 255, 0.8),
-               0 0 20px rgba(255, 255, 255, 0.8),
-               0 0 30px rgba(255, 255, 255, 0.8);
+    0 0 20px rgba(255, 255, 255, 0.8),
+    0 0 30px rgba(255, 255, 255, 0.8);
 }
 
 .text-shadow-neon {
   text-shadow: 0 0 5px #fff,
-               0 0 10px #fff,
-               0 0 20px #ff00de,
-               0 0 30px #ff00de,
-               0 0 40px #ff00de;
+    0 0 10px #fff,
+    0 0 20px #ff00de,
+    0 0 30px #ff00de,
+    0 0 40px #ff00de;
 }
 
 @layer base {
@@ -69,6 +69,7 @@
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
   }
+
   .dark {
     --background: 0 0% 3.9%;
     --foreground: 0 0% 98%;
@@ -101,7 +102,25 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Animation Utilities */
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
 }

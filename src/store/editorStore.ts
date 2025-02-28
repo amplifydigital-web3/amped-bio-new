@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { EditorState, UserProfile, ThemeConfig, Background, Block } from '../types/editor';
+import type { EditorState, Block, UserProfile, Theme, ThemeConfig, Background, GalleryImage, MarketplaceTheme } from '../types/editor';
 import type { AuthUser } from '../types/auth';
 import { editUser, getUser, editTheme, editBlocks, deleteBlock } from '../api';
 import initialState from './defaults';
@@ -17,7 +17,16 @@ interface EditorStore extends EditorState {
   setBackground: (background: Background) => void;
   saveChanges: () => void;
   setDefault: () => void;
+  addToGallery: (image: GalleryImage) => void;
+  removeFromGallery: (url: string) => void;
+  setMarketplaceView: (view: 'grid' | 'list') => void;
+  setMarketplaceFilter: (filter: string) => void;
+  setMarketplaceSort: (sort: 'popular' | 'newest' | 'rating') => void;
+  applyTheme: (theme: Theme) => void;
+  selectedPoolId: string | null;
+  setSelectedPoolId: (id: string | null) => void;
 }
+
 
 export const useEditorStore = create<EditorStore>((set) => ({
   changes: false,
@@ -77,6 +86,18 @@ export const useEditorStore = create<EditorStore>((set) => ({
     theme: { ...state.theme, config: { ...state.theme.config, background } },
     changes: true
   })),
+  addToGallery: (image) => set((state) => ({
+    gallery: [...state.gallery, image],
+  })),
+  removeFromGallery: (url) => set((state) => ({
+    gallery: state.gallery.filter((image) => image.url !== url),
+  })),
+  setMarketplaceView: (marketplaceView) => set({ marketplaceView }),
+  setMarketplaceFilter: (marketplaceFilter) => set({ marketplaceFilter }),
+  setMarketplaceSort: (marketplaceSort) => set({ marketplaceSort }),
+  applyTheme: (theme) => set({ theme }),
+  selectedPoolId: null,
+  setSelectedPoolId: (id) => set({ selectedPoolId: id }),
   saveChanges: async () => {
     // Save changes to the server
     console.log('Saving changes...');
