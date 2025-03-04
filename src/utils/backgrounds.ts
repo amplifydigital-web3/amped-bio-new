@@ -148,12 +148,12 @@ export const videos: Background[] = [
   },
   {
     type: 'video',
-    value: 'https://assets.mixkit.co/videos/preview/mixkit-blue-and-pink-particles-floating-in-the-air-48647-large.mp4',
+    value: 'https://assets.mixkit.co/videos/47355/47355-720.mp4',
     label: 'Floating Particles',
   },
   {
     type: 'video',
-    value: 'https://assets.mixkit.co/videos/preview/mixkit-waves-in-the-water-1164-large.mp4',
+    value: 'https://assets.mixkit.co/videos/48527/48527-720.mp4',
     label: 'Ocean Waves',
   },
   {
