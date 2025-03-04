@@ -121,4 +121,5 @@ export type EditorState = {
   marketplaceFilter: string;
   marketplaceSort: 'popular' | 'newest' | 'rating';
   connectedWallet?: string;
+  selectedPoolId: string | null;
 };
