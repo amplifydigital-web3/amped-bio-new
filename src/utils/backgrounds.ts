@@ -1,5 +1,11 @@
 import type { Background } from '../types/editor';
 
+import abstractWaves from '../assets/videos/abstract_waves.mp4';
+import gradientLines from '../assets/videos/gradient_lines.mp4';
+import inkFlow from '../assets/videos/ink_flow.mp4';
+import oceanWaves from '../assets/videos/ocean_waves.mp4';
+import floatingParticles from '../assets/videos/floating_particles.mp4';
+
 export const gradients: Background[] = [
   {
     type: 'image',
@@ -138,27 +144,27 @@ export const photos: Background[] = [
 export const videos: Background[] = [
   {
     type: 'video',
-    value: 'https://assets.mixkit.co/videos/preview/mixkit-ink-swirling-in-water-107-large.mp4',
+    value: inkFlow,
     label: 'Ink Flow',
   },
   {
     type: 'video',
-    value: 'https://assets.mixkit.co/videos/preview/mixkit-abstract-background-with-moving-gradient-lines-32969-large.mp4',
+    value: gradientLines,
     label: 'Gradient Lines',
   },
   {
     type: 'video',
-    value: 'https://assets.mixkit.co/videos/47355/47355-720.mp4',
+    value: floatingParticles,
     label: 'Floating Particles',
   },
   {
     type: 'video',
-    value: 'https://assets.mixkit.co/videos/48527/48527-720.mp4',
+    value: oceanWaves,
     label: 'Ocean Waves',
   },
   {
     type: 'video',
-    value: 'https://assets.mixkit.co/videos/preview/mixkit-white-abstract-wave-patterns-11069-large.mp4',
+    value: abstractWaves,
     label: 'Abstract Waves',
   },
 ];
