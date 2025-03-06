@@ -23,6 +23,7 @@ export function ProfilePanel() {
 
   const handleURLUpdate = (value: string) => {
     setProfile({ ...profile, onelink: value });
+    setUrlStatus('Unknown');
     saveChanges();
     nav(`/${value}/edit`);
   };
@@ -100,7 +101,7 @@ export function ProfilePanel() {
             <Button
               variant={urlStatus === 'Available' ? 'confirm' : 'outline'}
               size='sm'
-              disabled={urlStatus !== 'Available'}
+              disabled={urlStatus !== 'Available' || url === profile.onelink}
               onClick={() => handleURLUpdate(url)}
             >
               {url === profile.onelink && 'Your URL'}
