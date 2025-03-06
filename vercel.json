@@ -5,7 +5,7 @@
     "rewrites": [
         {
             "source": "/(.*)",
-            "destination": "/src/main.tsx"
+            "destination": "/src"
         }
     ]
 }
