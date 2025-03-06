@@ -30,9 +30,9 @@ function App() {
       <AppKitProvider>
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<View />} />
             <Route path="/:onelink" element={<View />} />
             <Route path="/:onelink/edit" element={<Editor />} />
+            <Route path="/" element={<View />} />
           </Routes>
         </BrowserRouter>
       </AppKitProvider>
