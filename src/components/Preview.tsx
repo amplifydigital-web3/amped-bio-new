@@ -138,7 +138,6 @@ export function Preview(props: PreviewProps) {
                 </div>
               </div>
 
-
               {/* Links & Blocks */}
               <div className="space-y-4">
                 {blocks.map((block) => {

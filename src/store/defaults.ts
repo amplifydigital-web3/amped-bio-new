@@ -67,6 +67,11 @@ const initialState: EditorState = {
 
     },
     activePanel: 'profile',
+    gallery: [],
+    marketplaceView: 'grid',
+    marketplaceFilter: '',
+    marketplaceSort: 'popular',
+    selectedPoolId: null,
 };
 
 const defaultbio = 'This is your default Bio! 🚀';

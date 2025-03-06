@@ -70,25 +70,24 @@ export function ContainerStylePicker({
   containerColor,
   onChange,
   onTransparencyChange,
-  onColorChange,
+  onColorChange
 }: ContainerStylePickerProps) {
   return (
     <CollapsiblePanelWrapper title="Container Style">
       <div className="space-y-6">
         <div className="space-y-4">
-          {/* <label className="block text-sm font-medium text-gray-700">
+          <label className="block text-sm font-medium text-gray-700">
             Container Style
-          </label> */}
-          <div className="grid grid-cols-2 gap-3 px-1">
+          </label>
+          <div className="grid grid-cols-2 gap-3">
             {containerStyles.map((style) => (
               <button
                 key={style.id}
                 onClick={() => onChange(style.id)}
-                className={`p-4 text-center ${style.preview} ${
-                  value === style.id
+                className={`p-4 text-center ${style.preview} ${value === style.id
                     ? 'ring-2 ring-blue-500'
                     : 'hover:ring-2 hover:ring-gray-200'
-                } transition-all duration-200`}
+                  } transition-all duration-200`}
               >
                 {style.name}
               </button>
@@ -106,7 +105,7 @@ export function ContainerStylePicker({
           <label className="block text-sm font-medium text-gray-700">
             Container Transparency
           </label>
-          <div className="flex items-center space-x-4 px-1">
+          <div className="flex items-center space-x-4">
             <input
               type="range"
               min={0}

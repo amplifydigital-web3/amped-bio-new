@@ -55,15 +55,15 @@ export function getButtonEffectStyle(effect: number): string {
 export function getHeroEffectStyle(effect: number): string {
   const effects = {
     0: '',
-    1: 'bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-[length:200%_auto] animate-[gradient_3s_linear_infinite] bg-clip-text text-transparent',
-    2: 'text-transparent relative before:content-[attr(data-text)] before:absolute before:text-white before:inset-0 before:animate-[glow_2s_ease-in-out_infinite_alternate] before:text-shadow-glow',
-    3: 'overflow-hidden whitespace-nowrap border-r-4 border-white/50 pr-1 w-fit animate-[typewriter_3s_steps(40)_1s_forwards,blink_0.5s_step-end_infinite]',
-    4: 'opacity-0 animate-[fadeIn_1s_ease-out_forwards]',
-    5: 'opacity-0 animate-[slideUp_1s_ease-out_forwards]',
-    6: '[&>span]:inline-block [&>span]:animate-[wave_1s_ease-in-out_infinite] [&>span:nth-child(2)]:animation-delay-100 [&>span:nth-child(3)]:animation-delay-200 [&>span:nth-child(4)]:animation-delay-300',
-    7: 'text-shadow-neon animate-pulse',
-    8: 'animate-[rainbow_3s_linear_infinite]',
-    9: 'animate-[glitch_3s_infinite] font-mono',
+    1: 'bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-purple-500 animate-gradient',
+    2: 'text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.7)]',
+    3: 'animate-typewriter',
+    4: 'animate-fade-in',
+    5: 'animate-slide-up',
+    6: 'animate-wave',
+    7: 'text-[#ff00ff] drop-shadow-[0_0_10px_#ff00ff]',
+    8: 'animate-rainbow',
+    9: 'animate-glitch',
   };
 
   return effects[effect as keyof typeof effects] || '';

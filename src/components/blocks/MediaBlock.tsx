@@ -7,6 +7,7 @@ import { TokenPriceBlock } from './TokenPriceBlock';
 import { NFTCollectionBlock } from './NFTCollectionBlock';
 import { UniswapBlock } from './UniswapBlock';
 import { SubstackBlock } from './SubstackBlock';
+import { CreatorPoolBlock } from './CreatorPoolBlock';
 
 interface MediaBlockProps {
   block: MediaBlockType;
@@ -31,6 +32,8 @@ export function MediaBlock({ block, theme }: MediaBlockProps) {
       return <UniswapBlock block={block} theme={theme} />;
     case 'substack':
       return <SubstackBlock block={block} theme={theme} />;
+    case 'creator-pool':
+      return <CreatorPoolBlock block={block} theme={theme} />;
     default:
       return null;
   }

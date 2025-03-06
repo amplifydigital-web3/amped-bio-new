@@ -34,6 +34,7 @@ const blockTypes = [
       { id: 'token-price', name: 'Token Price', icon: DollarSign, type: 'media' },
       { id: 'nft-collection', name: 'NFT Collection', icon: Store, type: 'media' },
       { id: 'uniswap', name: 'Uniswap Swap', icon: ArrowUpRight, type: 'media' },
+      { id: 'creator-pool', name: 'Creator Pool', icon: Users, type: 'media' },
     ],
   },
   {

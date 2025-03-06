@@ -5,9 +5,13 @@ import { UserMenu } from './auth/UserMenu';
 import SaveButton from './panels/SaveButton.tsx';
 import { useEditorStore } from '../store/editorStore';
 import { ProfilePanel } from './panels/profile/ProfilePanel';
+import { GalleryPanel } from './panels/gallery/GalleryPanel';
 import { AppearancePanel } from './panels/appearance/AppearancePanel';
 import { EffectsPanel } from './panels/effects/EffectsPanel';
 import { BlocksPanel } from './panels/blocks/BlocksPanel';
+import { CreatorPoolPanel } from './panels/creatorpool/CreatorPoolPanel';
+import { LeaderboardPanel } from './panels/leaderboard/LeaderboardPanel';
+import { RNSPanel } from './panels/rns/RNSPanel';
 import { Eye } from 'lucide-react';
 import RewardPanel from './panels/reward/RewardPanel.tsx';
 
@@ -18,6 +22,10 @@ interface LayoutProps {
 export function Layout(props: LayoutProps) {
   const activePanel = useEditorStore((state) => state.activePanel);
   const { onelink } = props;
+
+  // Determine if we should use wider panel layout
+  const isWidePanel = activePanel === 'gallery' || activePanel === 'creatorpool' || activePanel === 'leaderboard' || activePanel === 'rns' || activePanel === 'reward';
+  const panelWidth = isWidePanel ? 'md:w-[800px]' : 'md:w-[400px]';
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -40,12 +48,16 @@ export function Layout(props: LayoutProps) {
 
           </header>
           <div className="flex-1 flex flex-col md:flex-row min-h-0">
-            <div className={`w-full ${activePanel !== 'reward' ? 'md:w-[400px] border-b md:border-b-0 md:border-r' : ''} border-gray-200 bg-white overflow-y-auto`}>
+            <div className={`w-full ${activePanel !== 'reward' ? 'border-b md:border-b-0 md:border-r' : ''} ${panelWidth} border-gray-200 bg-white overflow-y-auto`}>
               {activePanel === 'profile' && <ProfilePanel />}
+              {activePanel === 'reward' && <RewardPanel />}
+              {activePanel === 'gallery' && <GalleryPanel />}
               {activePanel === 'appearance' && <AppearancePanel />}
               {activePanel === 'effects' && <EffectsPanel />}
               {activePanel === 'blocks' && <BlocksPanel />}
-              {activePanel === 'reward' && <RewardPanel />}
+              {activePanel === 'creatorpool' && <CreatorPoolPanel />}
+              {activePanel === 'leaderboard' && <LeaderboardPanel />}
+              {activePanel === 'rns' && <RNSPanel />}
             </div>
             {
               activePanel !== 'reward' && <div className="flex flex-col flex-1 overflow-y-auto relative">
