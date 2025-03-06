@@ -10,6 +10,7 @@ import { UserMenu } from './auth/UserMenu';
 
 interface PreviewProps {
   isEditing: boolean;
+  onelink: string;
 }
 
 export function Preview(props: PreviewProps) {
@@ -17,7 +18,7 @@ export function Preview(props: PreviewProps) {
   const profile = useEditorStore((state) => state.profile);
   const blocks = useEditorStore((state) => state.blocks);
   const theme = useEditorStore((state) => state.theme.config);
-  const { isEditing = false } = props;
+  const { isEditing = false, onelink } = props;
 
   return (
     <>
@@ -111,7 +112,7 @@ export function Preview(props: PreviewProps) {
                   >
                     {profile.name}
                   </h1>
-                  {profile.title && (
+                  {/* {profile.title && (
                     <p
                       className="text-xl font-medium"
                       style={{
@@ -121,7 +122,7 @@ export function Preview(props: PreviewProps) {
                     >
                       {profile.title}
                     </p>
-                  )}
+                  )} */}
                   {profile.bio && (
                     <p
                       className="text-lg max-w-2xl mx-auto leading-relaxed"

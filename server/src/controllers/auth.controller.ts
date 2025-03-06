@@ -19,6 +19,16 @@ export const authController = {
         return res.status(400).json({ message: 'Invalid email format' });
       }
 
+      const existingOnelink = await prisma.user.findUnique({
+        where: {
+          onelink: onelink
+        }
+      }) !== null;
+
+      if (existingOnelink) {
+        return res.status(400).json({ message: 'URL already taken' });
+      }
+
       const existingUser = await prisma.user.findUnique({
         where: {
           email: email
@@ -43,7 +53,7 @@ export const authController = {
       const token = generateToken({ id: result.id, email: result.email });
 
       res.status(201).json({
-        user: { id: result.id, email },
+        user: { id: result.id, email, onelink },
         token,
       });
     } catch (error) {
@@ -75,7 +85,7 @@ export const authController = {
         const token = generateToken({ id: user.id, email: user.email });
 
         res.json({
-          user: { id: user.id, email: user.email },
+          user: { id: user.id, email: user.email, onelink: user.onelink },
           token,
         });
       }

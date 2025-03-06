@@ -11,8 +11,13 @@ import { BlocksPanel } from './panels/blocks/BlocksPanel';
 import { Eye } from 'lucide-react';
 import RewardPanel from './panels/reward/RewardPanel.tsx';
 
-export function Layout() {
+interface LayoutProps {
+  onelink: string;
+}
+
+export function Layout(props: LayoutProps) {
   const activePanel = useEditorStore((state) => state.activePanel);
+  const { onelink } = props;
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -22,7 +27,7 @@ export function Layout() {
           <header className="h-16 border-b bg-white px-6 flex items-center justify-between shrink-0">
             {/* View Button */}
             <Link
-              to="/"
+              to={`/${onelink}`}
               className=" px-4 py-2 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-colors flex items-center space-x-2"
             >
               <Eye className="w-4 h-4" />
@@ -44,7 +49,7 @@ export function Layout() {
             </div>
             {
               activePanel !== 'reward' && <div className="flex flex-col flex-1 overflow-y-auto relative">
-                <Preview isEditing={true} />
+                <Preview isEditing={true} onelink={onelink} />
 
 
               </div>

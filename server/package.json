@@ -7,7 +7,7 @@
   },
   "scripts": {
     "start": "node dist/index.js",
-    "dev": "nodemon --verbose src/index.ts",
+    "dev": "nodemon --verbose api/index.ts",
     "build": "tsc"
   },
   "dependencies": {

@@ -6,6 +6,7 @@ import { userController } from '../src/controllers/user.controller';
 import { validateUserInput } from '../src/middleware/validation';
 import { themeController } from '../src/controllers/theme.controller';
 import { blockController } from '../src/controllers/block.controller';
+import { onelinkController } from '../src/controllers/onelink.controller';
 
 dotenv.config();
 
@@ -16,7 +17,7 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/', (req, res) => res.send('Express on Vercel'));
-app.get('/testing', (req, res) => res.send('Express on Vercel test yes api'));
+
 
 app.post('/api/auth/register', authController.register);
 app.post('/api/auth/login', authController.login);
@@ -46,6 +47,8 @@ app.get('/api/user/blocks/block/:id', blockController.get);
 // Delete Block
 app.delete('/api/user/blocks/block/:id', blockController.delete);
 
+app.get('/api/onelink/:onelink', onelinkController.getOnelink);
+app.get('/api/onelink/check/:onelink', onelinkController.checkOnelink);
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
     console.error(err.stack);

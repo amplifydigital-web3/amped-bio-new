@@ -51,6 +51,11 @@ export async function registerNewUser(userData: registerData) {
         return response.data;
     } catch (error) {
         console.error('Error creating user:', error);
+        if (axios.isAxiosError(error)) {
+            throw new Error(error.response?.data.message ?? error.message);
+        } else {
+            throw error;
+        }
     }
 };
 
@@ -64,7 +69,11 @@ export async function editUser(userData: { id: string; name: string; email: stri
         return response.data;
     } catch (error) {
         console.error('Error updating user:', error);
-        return false;
+        if (axios.isAxiosError(error)) {
+            throw new Error(error.response?.data.message ?? error.message);
+        } else {
+            throw error;
+        }
     }
 };
 
@@ -78,7 +87,11 @@ export async function getUser(userData: { id: string; token: string; }) {
         return response.data.result;
     } catch (error) {
         console.error('Error fetching user:', error);
-        return false;
+        if (axios.isAxiosError(error)) {
+            throw new Error(error.response?.data.message ?? error.message);
+        } else {
+            throw error;
+        }
     }
 };
 
@@ -90,6 +103,11 @@ export async function deleteUser(userData: deleteData) {
         console.log('User deleted successfully:', response.data);
     } catch (error) {
         console.error('Error deleting user:', error);
+        if (axios.isAxiosError(error)) {
+            throw new Error(error.response?.data.message ?? error.message);
+        } else {
+            throw error;
+        }
     }
 
 };
@@ -104,7 +122,11 @@ export async function editTheme(theme: Theme, user_id) {
         return response.data;
     } catch (error) {
         console.error('Error updating Theme:', error);
-        return false;
+        if (axios.isAxiosError(error)) {
+            throw new Error(error.response?.data.message ?? error.message);
+        } else {
+            throw error;
+        }
     }
 };
 
@@ -117,7 +139,11 @@ export async function editBlocks(blocks: Block[], user_id) {
         return response.data;
     } catch (error) {
         console.error('Error updating user:', error);
-        return false;
+        if (axios.isAxiosError(error)) {
+            throw new Error(error.response?.data.message ?? error.message);
+        } else {
+            throw error;
+        }
     }
 };
 
@@ -130,6 +156,41 @@ export async function deleteBlock(block_id, user_id) {
         return response.data;
     } catch (error) {
         console.error('Error deleting block:', error);
-        return false;
+        if (axios.isAxiosError(error)) {
+            throw new Error(error.response?.data.message ?? error.message);
+        } else {
+            throw error;
+        }
     }
 };
+
+// Get Onelink
+export async function getOnelink(onelink: string) {
+    console.log('Get onelink:', onelink);
+    try {
+        const response = await axios.get(`${baseURL}/api/onelink/${onelink}`);
+        return response.data.result;
+    } catch (error) {
+        console.error('Error fetching user:', error);
+        if (axios.isAxiosError(error)) {
+            throw new Error(error.response?.data.message ?? error.message);
+        } else {
+            throw error;
+        }
+    }
+};
+
+export async function checkOnelinkAvailability(onelink: string) {
+    console.log('Check onelink:', onelink);
+    try {
+        const response = await axios.get(`${baseURL}/api/onelink/check/${onelink}`);
+        return response.data.message;
+    } catch (error) {
+        console.error('Error checking URL:', error);
+        if (axios.isAxiosError(error)) {
+            throw new Error(error.response?.data.message ?? error.message);
+        } else {
+            throw error;
+        }
+    }
+}

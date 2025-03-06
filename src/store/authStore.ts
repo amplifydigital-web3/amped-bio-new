@@ -1,9 +1,10 @@
 import { create } from 'zustand';
+import { persist, PersistOptions } from 'zustand/middleware';
 import { login, registerNewUser } from '../api';
 import type { AuthUser } from '../types/auth';
 
 type AuthState = {
-  user: AuthUser | null;
+  authUser: AuthUser | null;
   token: string | null;
   loading: boolean;
   error: string | null;
@@ -12,56 +13,65 @@ type AuthState = {
   signOut: () => Promise<void>;
 };
 
-export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  loading: false,
-  error: null,
-  token: null,
+type AuthPersistOptions = PersistOptions<AuthState>;
 
-  signIn: async (email: string, password: string) => {
-    let authed_user = { email: '', id: '', token: '' };
-    try {
-      set({ loading: true, error: null });
-      const { user, token } = await login({ email, password });
-      set({ user: { ...user, token } });
-      authed_user = user;
-    } catch (error) {
-      set({ error: (error as Error).message });
-      throw error;
-    } finally {
-      set({ loading: false });
-    }
+const persistOptions: AuthPersistOptions = {
+  name: 'auth-storage'
+};
 
-    return authed_user;
-  },
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
+      authUser: null,
+      loading: false,
+      error: null,
+      token: null,
 
-  signUp: async (onelink: string, email: string, password: string) => {
-    let authed_user = { email: '', id: '', token: '' };
-    try {
-      set({ loading: true, error: null });
-      const { user, token } = await registerNewUser({ onelink, email, password });
-      set({ user: { ...user, token } });
-      authed_user = user;
-    } catch (error) {
-      set({ error: (error as Error).message });
-      throw error;
-    } finally {
-      set({ loading: false });
-    }
-    return authed_user;
-  },
+      signIn: async (email: string, password: string) => {
+        let authed_user = { email: '', id: '', token: '' };
+        try {
+          set({ loading: true, error: null });
+          const { user, token } = await login({ email, password });
+          set({ authUser: { ...user, token } });
+          authed_user = user;
+        } catch (error) {
+          set({ error: (error as Error).message });
+          throw error;
+        } finally {
+          set({ loading: false });
+        }
 
-  signOut: async () => {
-    try {
-      set({ loading: true, error: null, user: null, token: null });
-    } catch (error) {
-      set({ error: (error as Error).message });
-      throw error;
-    } finally {
-      set({ loading: false });
-    }
-  },
-}));
+        return authed_user;
+      },
+
+      signUp: async (onelink: string, email: string, password: string) => {
+        let authed_user = { email: '', id: '', token: '' };
+        try {
+          set({ loading: true, error: null });
+          const { user, token } = await registerNewUser({ onelink, email, password });
+          set({ authUser: { ...user, token } });
+          authed_user = user;
+        } catch (error) {
+          set({ error: (error as Error).message });
+          throw error;
+        } finally {
+          set({ loading: false });
+        }
+        return authed_user;
+      },
+
+      signOut: async () => {
+        try {
+          set({ loading: true, error: null, authUser: null, token: null });
+        } catch (error) {
+          set({ error: (error as Error).message });
+          throw error;
+        } finally {
+          set({ loading: false });
+        }
+      },
+    }), persistOptions)
+);
 
 // // Set up auth state listener
 // onAuthStateChanged(auth, (user) => {

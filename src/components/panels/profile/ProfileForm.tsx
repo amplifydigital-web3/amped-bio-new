@@ -1,6 +1,6 @@
 import type { UserProfile } from '../../../types/editor';
-import { Input } from '../../ui/Input';
-import { Textarea } from '../../ui/Textarea';
+import { Input } from '@/components/ui/Input';
+import { Textarea } from '@/components/ui/Textarea';
 
 interface ProfileFormProps {
   profile: UserProfile;
@@ -8,6 +8,7 @@ interface ProfileFormProps {
 }
 
 export function ProfileForm({ profile, onUpdate }: ProfileFormProps) {
+
   return (
     <div className="space-y-6">
       <Input
@@ -17,12 +18,12 @@ export function ProfileForm({ profile, onUpdate }: ProfileFormProps) {
         placeholder="Enter your name"
       />
 
-      <Input
+      {/* <Input
         label="Title"
         value={profile.title}
         onChange={(e) => onUpdate('title', e.target.value)}
         placeholder="Your professional title or tagline"
-      />
+      /> */}
 
       <Textarea
         label="Bio"

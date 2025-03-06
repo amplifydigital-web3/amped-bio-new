@@ -31,7 +31,8 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<View />} />
-            <Route path="/edit" element={<Editor />} />
+            <Route path="/:onelink" element={<View />} />
+            <Route path="/:onelink/edit" element={<Editor />} />
           </Routes>
         </BrowserRouter>
       </AppKitProvider>
