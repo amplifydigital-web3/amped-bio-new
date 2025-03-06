@@ -7,7 +7,6 @@ import { getPlatformIcon } from '../utils/platforms';
 import { MediaBlock } from './blocks/MediaBlock';
 import { TextBlock } from './blocks/TextBlock';
 import { UserMenu } from './auth/UserMenu';
-import { CreatorPoolDashboard } from './CreatorPoolDashboard';
 
 interface PreviewProps {
   isEditing: boolean;
@@ -138,9 +137,6 @@ export function Preview(props: PreviewProps) {
                   )}
                 </div>
               </div>
-
-              {/* Creator Pool Dashboard */}
-              <CreatorPoolDashboard theme={theme} />
 
               {/* Links & Blocks */}
               <div className="space-y-4">

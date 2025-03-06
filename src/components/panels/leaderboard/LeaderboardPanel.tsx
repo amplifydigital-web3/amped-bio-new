@@ -58,7 +58,7 @@ const mockPools: Pool[] = [
     apr: 8.5,
     topStaker: {
       name: 'nft_collector.eth',
-      avatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca62?w=48&h=48&fit=crop',
+      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=64&h=64&fit=crop',
       stakedAmount: 180000,
     },
   },
@@ -77,7 +77,7 @@ const mockPools: Pool[] = [
     apr: 15.2,
     topStaker: {
       name: 'defi_master.eth',
-      avatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca63?w=48&h=48&fit=crop',
+      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=64&h=64&fit=crop',
       stakedAmount: 320000,
     },
   },

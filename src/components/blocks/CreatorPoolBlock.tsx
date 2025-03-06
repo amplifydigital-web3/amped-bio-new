@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { CoinsIcon, Users, Clock, TrendingUp, DollarSign, Wallet, History, ChevronDown, ChevronUp, ExternalLink, Shield, Zap } from 'lucide-react';
-import type { ThemeConfig } from '../types/editor';
+import type { MediaBlock as MediaBlockType, ThemeConfig } from '../../types/editor';
 
-interface CreatorPoolDashboardProps {
+interface CreatorPoolBlockProps {
+  block: MediaBlockType;
   theme: ThemeConfig;
 }
 
-export function CreatorPoolDashboard({ theme }: CreatorPoolDashboardProps) {
+export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Mock data - in a real app, this would come from your smart contract
