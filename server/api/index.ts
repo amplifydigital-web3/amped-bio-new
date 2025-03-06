@@ -13,7 +13,11 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3000;
 
-app.use(cors({ origin: '*', allowedHeaders: ['Content-Type', 'Authorization'] }));
+app.use(cors({
+    origin: '*', // You can specify the allowed origins here
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 
 app.all('*', (req, res, next) => {
