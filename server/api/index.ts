@@ -13,8 +13,16 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3000;
 
-app.use(cors());
+app.use(cors({ origin: '*', allowedHeaders: ['Content-Type', 'Authorization'] }));
 app.use(express.json());
+
+app.all('*', (req, res, next) => {
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+    next();
+});
+
 
 app.get('/', (req, res) => res.send('Express on Vercel'));
 
