@@ -87,7 +87,7 @@ export interface MarketplaceTheme {
   downloads: number;
   rating: number;
   tags: string[];
-  theme: Theme;
+  theme: ThemeConfig;
   locked?: boolean;
   nftRequirement?: NFTRequirement;
 }

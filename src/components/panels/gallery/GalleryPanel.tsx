@@ -17,15 +17,16 @@ export function GalleryPanel() {
   const setFilter = useEditorStore((state) => state.setMarketplaceFilter);
   const setSort = useEditorStore((state) => state.setMarketplaceSort);
   const applyTheme = useEditorStore((state) => state.applyTheme);
+  const updateThemeConfig = useEditorStore((state) => state.updateThemeConfig);
 
   const currentCollection = collections.find(c => c.id === activeCollection);
-  const filteredThemes = currentCollection 
+  const filteredThemes = currentCollection
     ? currentCollection.themes
     : collections.flatMap(c => c.themes);
 
   const displayThemes = filteredThemes
-    .filter((theme) => 
-      filter === '' || 
+    .filter((theme) =>
+      filter === '' ||
       theme.name.toLowerCase().includes(filter.toLowerCase()) ||
       theme.tags.some(tag => tag.toLowerCase().includes(filter.toLowerCase()))
     )
@@ -52,12 +53,12 @@ export function GalleryPanel() {
         onFilterChange={setFilter}
         onSortChange={setSort}
       />
-      
+
       <CollectionNav
         activeCollection={activeCollection}
         onCollectionChange={setActiveCollection}
       />
-      
+
       <div className="flex-1 overflow-y-auto">
         {!activeCollection ? (
           <CollectionsOverview onCollectionSelect={setActiveCollection} />
@@ -67,12 +68,12 @@ export function GalleryPanel() {
             {view === 'grid' ? (
               <MarketplaceGrid
                 themes={displayThemes}
-                onApply={applyTheme}
+                onApply={updateThemeConfig}
               />
             ) : (
               <MarketplaceList
                 themes={displayThemes}
-                onApply={applyTheme}
+                onApply={updateThemeConfig}
               />
             )}
           </div>
