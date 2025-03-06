@@ -60,12 +60,13 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           {isSignUp && (
             <Input
-              label="Amped-Bio Name"
+              label="Amped-Bio Unique URL"
               value={onelink}
               onChange={(e) => setOnelink(e.target.value)}
               required
-              aria-label="Amped-Bio username"
+              aria-label="Amped-Bio Unique URL"
               autoComplete="username"
+              placeholder={'your-url'}
             />
           )}
           <Input

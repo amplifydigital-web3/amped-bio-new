@@ -2,7 +2,7 @@ import React from 'react';
 import { cn } from '../../utils/cn';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'default' | 'outline';
+  variant?: 'default' | 'outline' | 'confirm';
   size?: 'default' | 'sm' | 'lg';
 }
 
@@ -24,6 +24,7 @@ export function Button({
           'h-9 px-4 text-sm': size === 'default',
           'h-8 px-3 text-sm': size === 'sm',
           'h-10 px-6': size === 'lg',
+          'bg-green-600 text-white hover:bg-green-700': variant === 'confirm',
         },
         className
       )}

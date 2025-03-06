@@ -2,7 +2,7 @@ import type { AuthUser } from '../types/auth';
 
 export type UserProfile = {
   name: string;
-  title: string;
+  onelink: string;
   bio: string;
   photoUrl?: string;
   photoCmp?: string;

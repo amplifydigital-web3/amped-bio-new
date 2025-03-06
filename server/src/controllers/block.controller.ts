@@ -42,7 +42,7 @@ export const blockController = {
     },
 
     async editBlock(id: number, user_id: number, type: string, order: number, config: object) {
-        console.log('editing block', { user_id, id, type, order, config });
+        // console.log('editing block', { user_id, id, type, order, config });
         const block = await prisma.block.findUnique({
             where: {
                 id: id,
