@@ -4,6 +4,7 @@ import { persist, PersistOptions } from 'zustand/middleware';
 import type { AuthUser } from '../types/auth';
 import { editUser, getUser, editTheme, editBlocks, deleteBlock, getOnelink } from '../api';
 import initialState from './defaults';
+import { isNumber } from '@tsparticles/engine';
 
 interface EditorStore extends EditorState {
   changes: boolean;
@@ -93,7 +94,9 @@ export const useEditorStore = create<EditorStore>()(
       removeBlock: async (id: string) => {
         const { user } = useEditorStore.getState();
         try {
-          await deleteBlock(id, user.id);
+          if (isNumber(parseInt(id))) {
+            await deleteBlock(id, user.id);
+          }
           set((state) => ({
             blocks: state.blocks.filter((block) => block.id !== id)
           }));
