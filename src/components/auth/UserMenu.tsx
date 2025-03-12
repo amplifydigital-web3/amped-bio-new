@@ -15,12 +15,12 @@ export function UserMenu() {
   const amplifyConnect = useAmplifyConnect()
   const [showAuthModal, setShowAuthModal] = useState(false)
   const { authUser, signOut } = useAuthStore()
-  const { setAuthUser, setDefault } = useEditorStore()
+  const { setUser, setDefault } = useEditorStore()
   const nav = useNavigate();
 
   const handleSignIn = (user) => {
     setShowAuthModal(false)
-    setAuthUser(user)
+    setUser(user.onelink)
     const onelink = user.onelink;
     if (onelink) {
       return nav(`/${onelink}`);

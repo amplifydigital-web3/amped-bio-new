@@ -38,7 +38,7 @@ const InstagramEmbed: React.FC<InstagramEmbedProps> = ({
 
     // Extract post ID from URL
     const extractPostId = (url: string): string | null => {
-        const regex = /instagram\.com\/(p|reel)\/([^\/\?]+)/;
+        const regex = /instagram\.com\/(p|reel)\/([^/?]+)/;
         const match = url.match(regex);
         return match ? match[2] : null;
     };
@@ -90,7 +90,9 @@ const InstagramEmbed: React.FC<InstagramEmbedProps> = ({
             if (window.instgrm) {
                 // Use setTimeout to ensure the DOM is fully updated before processing
                 setTimeout(() => {
-                    window.instgrm.Embeds.process();
+                    if (window.instgrm) {
+                        window.instgrm.Embeds.process();
+                    }
                     setIsLoaded(true);
                 }, 0);
             }

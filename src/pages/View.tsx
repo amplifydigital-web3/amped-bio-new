@@ -9,12 +9,10 @@ export function View() {
   const { onelink = '' } = useParams();
   const { authUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
-  const user = useEditorStore((state) => state.user);
   const profile = useEditorStore((state) => state.profile);
   const setUser = useEditorStore((state) => state.setUser);
 
   useEffect(() => {
-
     if (onelink && onelink !== profile.onelink) {
       setLoading(true);
       setUser(onelink).then(() => {
@@ -34,7 +32,7 @@ export function View() {
       <Preview isEditing={false} onelink={onelink} />
 
       {/* Edit Button */}
-      {authUser && authUser?.email === user.email && (
+      {authUser && authUser?.email === profile.email && (
         <Link
           to={`/${onelink}/edit`}
           className="fixed bottom-4 right-4 p-3 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-colors flex items-center space-x-2"

@@ -1,8 +1,7 @@
-import type { AuthUser } from '../types/auth';
-
 export type UserProfile = {
   name: string;
   onelink: string;
+  email: string;
   bio: string;
   photoUrl?: string;
   photoCmp?: string;
@@ -111,7 +110,6 @@ export interface Collection {
 }
 
 export type EditorState = {
-  user: AuthUser;
   profile: UserProfile;
   blocks: Block[];
   theme: Theme;
