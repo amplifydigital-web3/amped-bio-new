@@ -15,7 +15,7 @@ export function UserMenu() {
   const amplifyConnect = useAmplifyConnect()
   const [showAuthModal, setShowAuthModal] = useState(false)
   const { authUser, signOut } = useAuthStore()
-  const { setUser, setDefault } = useEditorStore()
+  const { profile, setUser, setDefault } = useEditorStore()
   const nav = useNavigate();
 
   const handleSignIn = (user) => {
@@ -40,6 +40,12 @@ export function UserMenu() {
       toast.success('Signed out successfully')
     } catch {
       toast.error('Failed to sign out')
+    }
+  }
+
+  const handleNavtoHome = () => {
+    if (authUser) {
+      return nav(`/${authUser?.onelink}`);
     }
   }
 
@@ -78,6 +84,11 @@ export function UserMenu() {
               : 'Connect Web3 Wallet'}
           </span>
         </DropdownMenuItem>
+        {authUser.onelink !== profile.onelink && (
+          <DropdownMenuItem onClick={handleNavtoHome}>
+            <span>Go To My Home</span>
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )
