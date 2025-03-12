@@ -15,7 +15,7 @@ const particlesEffects = [
   { id: 7, name: 'Confetti', description: 'Colorful confetti particles' },
   { id: 8, name: 'Stars', description: 'Twinkling stars effect' },
   { id: 9, name: 'Geometric', description: 'Connected geometric shapes' },
-  { id: 10, name: 'Custom', description: 'Custom Config' }
+  // { id: 10, name: 'Custom', description: 'Custom Config' }
 ];
 
 export function ParticlesEffectPicker({ value, onChange }: ParticlesEffectPickerProps) {
