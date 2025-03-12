@@ -8,15 +8,26 @@ import { importSettings } from '../utils/import';
 
 const navItems = [
   { id: 'profile', icon: User, label: 'Profile' },
-  { id: 'gallery', icon: Image, label: 'Gallery' },
   { id: 'appearance', icon: Palette, label: 'Appearance' },
   { id: 'effects', icon: Sparkles, label: 'Effects' },
   { id: 'blocks', icon: LayoutGrid, label: 'Blocks' },
-  { id: 'reward', icon: Sparkle, label: 'Reward' },
-  { id: 'creatorpool', icon: CoinsIcon, label: 'CreatorPool' },
-  { id: 'leaderboard', icon: Trophy, label: 'Leaderboard' },
-  { id: 'rns', icon: AtSign, label: 'RNS' },
 ];
+
+if (import.meta.env.VITE_SHOW_GALLERY === 'true') {
+  navItems.splice(1, 0, { id: 'gallery', icon: Image, label: 'Gallery' });
+}
+
+if (import.meta.env.VITE_SHOW_REWARD === 'true') {
+  navItems.splice(5, 0, { id: 'reward', icon: Sparkle, label: 'Reward' });
+}
+
+if (import.meta.env.VITE_SHOW_CREATOR_POOL === 'true') {
+  navItems.splice(6, 0, { id: 'creatorpool', icon: CoinsIcon, label: 'CreatorPool' }, { id: 'leaderboard', icon: Trophy, label: 'Leaderboard' });
+}
+
+if (import.meta.env.VITE_SHOW_RNS === 'true') {
+  navItems.splice(8, 0, { id: 'rns', icon: AtSign, label: 'RNS' });
+}
 
 export function Sidebar() {
   const activePanel = useEditorStore((state) => state.activePanel);
@@ -55,8 +66,8 @@ export function Sidebar() {
             key={id}
             onClick={() => setActivePanel(id)}
             className={`w-12 h-12 flex flex-col items-center justify-center rounded-lg transition-colors ${activePanel === id
-                ? 'bg-gray-100 text-gray-900'
-                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+              ? 'bg-gray-100 text-gray-900'
+              : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
               }`}
           >
             <Icon className="w-5 h-5" />
