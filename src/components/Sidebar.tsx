@@ -75,7 +75,7 @@ export function Sidebar() {
           </button>
         ))}
 
-        <div className="md:mt-auto md:mb-6 flex md:flex-col items-center space-x-2 md:space-x-0 md:space-y-2">
+        {/* <div className="md:mt-auto md:mb-6 flex md:flex-col items-center space-x-2 md:space-x-0 md:space-y-2">
           <button
             onClick={handleExport}
             className="w-12 h-12 flex flex-col items-center justify-center rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors"
@@ -101,7 +101,7 @@ export function Sidebar() {
             onChange={handleImport}
             className="hidden"
           />
-        </div>
+        </div> */}
       </div>
     </div>
   );
