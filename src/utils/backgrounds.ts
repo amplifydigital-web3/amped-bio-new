@@ -138,28 +138,38 @@ export const photos: Background[] = [
 export const videos: Background[] = [
   {
     type: 'video',
-    value: 'https://assets.mixkit.co/videos/preview/mixkit-ink-swirling-in-water-107-large.mp4',
+    value: 'https://assets.mixkit.co/active_storage/video_items/99921/1717719102/99921-video-720.mp4',
     label: 'Ink Flow',
   },
   {
     type: 'video',
-    value: 'https://assets.mixkit.co/videos/preview/mixkit-abstract-background-with-moving-gradient-lines-32969-large.mp4',
+    value: 'https://assets.mixkit.co/videos/24551/24551-720.mp4',
+    label: 'Cloudy Sky',
+  },
+  {
+    type: 'video',
+    value: 'https://assets.mixkit.co/videos/35746/35746-720.mp4',
     label: 'Gradient Lines',
   },
   {
     type: 'video',
-    value: 'https://assets.mixkit.co/videos/preview/mixkit-blue-and-pink-particles-floating-in-the-air-48647-large.mp4',
-    label: 'Floating Particles',
+    value: 'https://assets.mixkit.co/videos/4192/4192-720.mp4',
+    label: 'Digital Wall',
   },
   {
     type: 'video',
-    value: 'https://assets.mixkit.co/videos/preview/mixkit-waves-in-the-water-1164-large.mp4',
+    value: 'https://assets.mixkit.co/videos/51476/51476-720.mp4',
     label: 'Ocean Waves',
   },
   {
     type: 'video',
-    value: 'https://assets.mixkit.co/videos/preview/mixkit-white-abstract-wave-patterns-11069-large.mp4',
-    label: 'Abstract Waves',
+    value: 'https://assets.mixkit.co/videos/18305/18305-720.mp4',
+    label: 'Make it Rain',
+  },
+  {
+    type: 'video',
+    value: 'https://assets.mixkit.co/videos/4067/4067-720.mp4',
+    label: 'City Traffic',
   },
 ];
 
