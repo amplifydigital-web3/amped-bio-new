@@ -127,9 +127,16 @@ export const useEditorStore = create<EditorStore>()(
             toast.error('Authentication error');
             return;
           }
-          const status = await editUser({ id: authUser.id, name: profile.name, email: profile.email, onelink: profile.onelink, description: profile.bio, image: profile.photoUrl || '', reward_business_id: '' });
           const theme_status = await editTheme({ id: theme.id, name: theme.name, share_level: theme.share_level, share_config: theme.share_config, config: theme.config }, authUser.id);
           const blocks_status = await editBlocks(blocks, authUser.id);
+
+          if (theme.id !== theme_status.result.id) {
+            // new theme was created
+            set((state) => ({ theme: { ...state.theme, id: theme_status.result.id } }));
+          }
+
+          const status = await editUser({ id: authUser.id, name: profile.name, email: profile.email, onelink: profile.onelink, description: profile.bio, image: profile.photoUrl || '', reward_business_id: '', theme: theme_status.result.id });
+
           if (!status) {
             console.error('User Save failed');
             console.error(status);

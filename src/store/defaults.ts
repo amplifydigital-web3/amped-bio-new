@@ -42,7 +42,7 @@ const initialState: EditorState = {
         },
     ],
     theme: {
-        id: 1,
+        id: 0,
         name: 'base',
         share_level: 'private',
         share_config: {},

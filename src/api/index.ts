@@ -60,7 +60,7 @@ export async function registerNewUser(userData: registerData) {
 };
 
 // Edit User
-export async function editUser(userData: { id: string; name: string; email: string; onelink: string; description: string; image: string; reward_business_id: string; }) {
+export async function editUser(userData: { id: string; name: string; email: string; onelink: string; description: string; image: string; reward_business_id: string; theme: string; }) {
     const { id } = userData;
     console.log('Editing user:', userData);
     try {
