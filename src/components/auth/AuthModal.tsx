@@ -23,7 +23,8 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
 
     try {
       if (isSignUp) {
-        const user = await signUp(onelink, email, password);
+        const atURL = `@${onelink}`;
+        const user = await signUp(atURL, email, password);
         toast.success('Account created successfully!');
         onClose(user);
       } else {
@@ -57,7 +58,7 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+        <form onSubmit={handleSubmit} className="space-y-4">
           {isSignUp && (
             <Input
               label="Amped-Bio Unique URL"
@@ -78,7 +79,7 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
             required
             aria-label="Email address"
             autoComplete="email"
-            pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+            pattern="^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"
             aria-invalid={!email ? 'true' : 'false'}
           />
 

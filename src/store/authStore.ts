@@ -9,7 +9,7 @@ type AuthState = {
   loading: boolean;
   error: string | null;
   signIn: (email: string, password: string) => Promise<AuthUser>;
-  signUp: (name: string, email: string, password: string) => Promise<AuthUser>;
+  signUp: (onelink: string, email: string, password: string) => Promise<AuthUser>;
   signOut: () => Promise<void>;
 };
 
