@@ -3,7 +3,7 @@ import type { EditorState, Block, UserProfile, Theme, ThemeConfig, Background, G
 import { persist, PersistOptions } from 'zustand/middleware';
 import type { AuthUser } from '../types/auth';
 import { editUser, getUser, editTheme, editBlocks, deleteBlock, getOnelink } from '../api';
-import initialState from './defaults';
+import initialState, { defaultAuthUser } from './defaults';
 import { isNumber } from '@tsparticles/engine';
 import { useAuthStore } from './authStore';
 import toast from 'react-hot-toast'
@@ -73,8 +73,8 @@ export const useEditorStore = create<EditorStore>()(
       removeBlock: async (id: string) => {
         const { authUser } = useAuthStore.getState();
         try {
-          if (!authUser) {
-            console.error('authUser is null');
+          if (authUser === defaultAuthUser) {
+            console.error('Remove Block Error: No user logged in');
             toast.error('Authentication error');
             return;
           }
@@ -122,8 +122,8 @@ export const useEditorStore = create<EditorStore>()(
         const { profile, theme, blocks } = useEditorStore.getState();
         const { authUser } = useAuthStore.getState();
         try {
-          if (!authUser || authUser.email !== profile.email) {
-            console.error('authUser is null');
+          if (authUser === defaultAuthUser || authUser.email !== profile.email) {
+            console.error('Save Error: No user logged in');
             toast.error('Authentication error');
             return;
           }

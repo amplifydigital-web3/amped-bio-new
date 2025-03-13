@@ -2,9 +2,10 @@ import { create } from 'zustand';
 import { persist, PersistOptions } from 'zustand/middleware';
 import { login, registerNewUser } from '../api';
 import type { AuthUser } from '../types/auth';
+import { defaultAuthUser } from './defaults';
 
 type AuthState = {
-  authUser: AuthUser | null;
+  authUser: AuthUser;
   token: string | null;
   loading: boolean;
   error: string | null;
@@ -22,7 +23,7 @@ const persistOptions: AuthPersistOptions = {
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      authUser: null,
+      authUser: defaultAuthUser,
       loading: false,
       error: null,
       token: null,
@@ -62,7 +63,7 @@ export const useAuthStore = create<AuthState>()(
 
       signOut: async () => {
         try {
-          set({ loading: true, error: null, authUser: null, token: null });
+          set({ loading: true, error: null, authUser: defaultAuthUser, token: null });
         } catch (error) {
           set({ error: (error as Error).message });
           throw error;

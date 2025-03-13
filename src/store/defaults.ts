@@ -1,5 +1,5 @@
 import type { EditorState, UserProfile } from '../types/editor';
-import type { AuthUser } from '../types/auth';
+import { AuthUser } from '@/types/auth';
 import AmplifySVG from '../assets/AMPLIFY_FULL_K.svg'
 
 const defaultProfile: UserProfile = {
@@ -9,12 +9,6 @@ const defaultProfile: UserProfile = {
     bio: 'Empowering individuals and communities, enabling seamless transactions without intermediaries',
     photoCmp: AmplifySVG,
 };
-
-const defaultUser: AuthUser = {
-    email: 'donotreply@amplifydigital.ai',
-    id: '',
-    token: ''
-}
 
 const initialState: EditorState = {
     profile: defaultProfile,
@@ -77,3 +71,10 @@ const initialState: EditorState = {
 const defaultbio = 'This is your default Bio! 🚀';
 
 export default initialState;
+
+export const defaultAuthUser: AuthUser = {
+    email: 'donotreply@amplifydigital.ai',
+    id: '',
+    token: '',
+    onelink: 'Amped-Bio',
+}

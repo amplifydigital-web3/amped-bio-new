@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useAmplifyConnect } from '../connect/hooks/useAmplifyConnect'
 import { useNavigate } from 'react-router-dom'
+import { defaultAuthUser } from '@/store/defaults'
 
 export function UserMenu() {
   const amplifyConnect = useAmplifyConnect()
@@ -44,12 +45,10 @@ export function UserMenu() {
   }
 
   const handleNavtoHome = () => {
-    if (authUser) {
-      return nav(`/${authUser?.onelink}`);
-    }
+    return nav(`/${authUser?.onelink}`);
   }
 
-  if (!authUser) {
+  if (authUser === defaultAuthUser) {
     return (
       <>
         <Button onClick={() => setShowAuthModal(true)} className="flex items-center space-x-2">
