@@ -15,14 +15,16 @@ import { RNSPanel } from './panels/rns/RNSPanel';
 import { Eye } from 'lucide-react';
 import RewardPanel from './panels/reward/RewardPanel.tsx';
 import EmailVerificationBanner from './auth/EmailVerificationBanner.tsx';
+import { useAuthStore } from '@/store/authStore.ts';
 
 interface LayoutProps {
   onelink: string;
 }
 
 export function Layout(props: LayoutProps) {
-  const activePanel = useEditorStore((state) => state.activePanel);
   const { onelink } = props;
+  const activePanel = useEditorStore((state) => state.activePanel);
+  const emailVerified = useAuthStore((state) => state.authUser.emailVerified);
 
   // Determine if we should use wider panel layout
   const isWidePanel = activePanel === 'gallery' || activePanel === 'creatorpool' || activePanel === 'leaderboard' || activePanel === 'rns' || activePanel === 'reward';
@@ -33,22 +35,25 @@ export function Layout(props: LayoutProps) {
       <div className="flex flex-col md:flex-row w-full">
         <Sidebar />
         <main className="flex-1 flex flex-col overflow-hidden">
-          <header className="h-16 border-b bg-white px-6 flex items-center justify-between shrink-0">
+          <div className="h-16 border-b bg-white px-6 flex items-center justify-between shrink-0">
             {/* View Button */}
-            <Link
-              to={`/${onelink}`}
-              className=" px-4 py-2 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-colors flex items-center space-x-2"
-            >
-              <Eye className="w-4 h-4" />
-              <span className="text-sm font-medium">View Page</span>
-            </Link>
-            <EmailVerificationBanner />
+            <div className='max-h-10'>
+              <Link
+                to={`/${onelink}`}
+                className=" px-4 py-2 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-colors flex items-center space-x-2"
+              >
+                <Eye className="w-4 h-4" />
+                <span className="text-sm font-medium">View Page</span>
+              </Link>
+            </div>
+
+            {!emailVerified && (<EmailVerificationBanner />)}
             <div className='flex items-center justify-end'>
               <SaveButton />
               <UserMenu />
             </div>
 
-          </header>
+          </div>
           <div className="flex-1 flex flex-col md:flex-row min-h-0">
             <div className={`w-full ${activePanel !== 'reward' ? 'border-b md:border-b-0 md:border-r' : ''} ${panelWidth} border-gray-200 bg-white overflow-y-auto`}>
               {activePanel === 'profile' && <ProfilePanel />}

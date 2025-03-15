@@ -3,4 +3,5 @@ export type AuthUser = {
     email: string;
     onelink: string;
     token: string;
+    emailVerified: boolean;
 };

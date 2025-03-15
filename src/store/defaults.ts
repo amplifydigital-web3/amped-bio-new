@@ -77,4 +77,5 @@ export const defaultAuthUser: AuthUser = {
     id: '',
     token: '',
     onelink: 'Amped-Bio',
+    emailVerified: true
 }

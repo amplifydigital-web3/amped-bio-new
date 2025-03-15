@@ -95,9 +95,10 @@ export const authController = {
       }
       else {
         const token = generateToken({ id: user.id, email: user.email });
+        const emailVerified = user.email_verified_at !== null
 
         res.json({
-          user: { id: user.id, email: user.email, onelink: user.onelink },
+          user: { id: user.id, email: user.email, onelink: user.onelink, emailVerified },
           token,
         });
       }
