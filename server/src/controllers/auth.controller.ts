@@ -44,19 +44,25 @@ export const authController = {
       }
 
       const hashedPassword = await hashPassword(password);
+      const remember_token = crypto.randomBytes(32).toString('hex');
 
       const result = await prisma.user.create({
         data: {
           onelink,
           name: onelink,
           email,
-          password: hashedPassword
+          password: hashedPassword,
+          remember_token: remember_token
         },
       })
 
       const token = generateToken({ id: result.id, email: result.email });
 
-      const emailRes = sendEmail({ to: email, subject: 'Welcome to OneLink', text_body: 'Welcome to OneLink' });
+      try {
+        sendEmailVerification(email, remember_token)
+      } catch (error) {
+        res.status(500).json({ message: 'Error sending email' });
+      }
 
       res.status(201).json({
         user: { id: result.id, email, onelink },
