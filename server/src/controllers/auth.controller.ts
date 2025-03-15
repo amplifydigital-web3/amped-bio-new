@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { sendEmail, sendEmailVerification } from '../utils/email';
+import { sendEmailVerification } from '../utils/email/email';
 import { hashPassword, comparePasswords } from '../utils/password';
 import { generateToken } from '../utils/token';
 import { validateEmail } from '../utils/validation';

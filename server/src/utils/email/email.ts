@@ -1,6 +1,7 @@
 import axios from 'axios';
 import ReactDOMServer from 'react-dom/server';
 import { verifyEmailTemplate } from './VerifyEmailTemplate';
+import { resetPasswordTemplate } from './ResetPasswordTemplate';
 import { withRelatedProject } from '@vercel/related-projects';
 
 const baseURL = withRelatedProject({
@@ -70,11 +71,21 @@ export const sendEmail = async (options: EmailOptions) => {
 }
 
 export const sendEmailVerification = async (email: string, token: string) => {
-    const url = `${baseURL}/api/auth/verifyEmail/${token}`;
+    const url = `${baseURL}/api/auth/verifyEmail/${token}?email=${encodeURIComponent(email)}`;
     const body = verifyEmailTemplate(url);
     return sendEmail({
         to: email,
         subject: 'Amped-Bio Email Verification',
+        html_body: ReactDOMServer.renderToString(body),
+    });
+}
+
+export const sendPasswordResetEmail = async (email: string, token: string) => {
+    const url = `${baseURL}/api/auth/passwordReset/${token}?email=${encodeURIComponent(email)}`;
+    const body = resetPasswordTemplate(url);
+    return sendEmail({
+        to: email,
+        subject: 'Amped-Bio Password Reset',
         html_body: ReactDOMServer.renderToString(body),
     });
 }

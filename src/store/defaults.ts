@@ -5,7 +5,7 @@ import AmplifySVG from '../assets/AMPLIFY_FULL_K.svg'
 const defaultProfile: UserProfile = {
     name: 'Amplify Digital',
     onelink: 'Amped-Bio',
-    email: 'donotreply@amplifydigital.ai',
+    email: 'info@amplifydigital.ai',
     bio: 'Empowering individuals and communities, enabling seamless transactions without intermediaries',
     photoCmp: AmplifySVG,
 };
@@ -73,7 +73,7 @@ const defaultbio = 'This is your default Bio! 🚀';
 export default initialState;
 
 export const defaultAuthUser: AuthUser = {
-    email: 'donotreply@amplifydigital.ai',
+    email: 'info@amplifydigital.ai',
     id: '',
     token: '',
     onelink: 'Amped-Bio',

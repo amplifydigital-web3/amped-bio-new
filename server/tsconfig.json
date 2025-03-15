@@ -13,7 +13,7 @@
   },
   "include": [
     "src/**/*.ts",
-    "src/utils/VerifyEmailTemplate.tsx"
+    "src/utils/email/*.tsx"
   ],
   "exclude": [
     "node_modules",

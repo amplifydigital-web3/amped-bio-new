@@ -33,8 +33,8 @@ app.get('/', (req, res) => res.send('Express on Vercel'));
 
 app.post('/api/auth/register', authController.register);
 app.post('/api/auth/login', authController.login);
-app.post('/api/auth/password-reset', authController.passwordReset);
-app.post('/api/auth/password-reset-request', authController.passwordResetRequest);
+app.post('/api/auth/passwordReset/:token', authController.passwordReset);
+app.post('/api/auth/passwordResetRequest', authController.passwordResetRequest);
 app.post('/api/auth/sendEmailVerification', authController.sendVerifyEmail);
 app.get('/api/auth/verifyEmail/:token', authController.verifyEmail);
 
