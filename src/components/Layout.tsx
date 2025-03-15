@@ -14,6 +14,7 @@ import { LeaderboardPanel } from './panels/leaderboard/LeaderboardPanel';
 import { RNSPanel } from './panels/rns/RNSPanel';
 import { Eye } from 'lucide-react';
 import RewardPanel from './panels/reward/RewardPanel.tsx';
+import EmailVerificationBanner from './auth/EmailVerificationBanner.tsx';
 
 interface LayoutProps {
   onelink: string;
@@ -41,6 +42,7 @@ export function Layout(props: LayoutProps) {
               <Eye className="w-4 h-4" />
               <span className="text-sm font-medium">View Page</span>
             </Link>
+            <EmailVerificationBanner />
             <div className='flex items-center justify-end'>
               <SaveButton />
               <UserMenu />

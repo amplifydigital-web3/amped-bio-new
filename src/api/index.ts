@@ -59,6 +59,22 @@ export async function registerNewUser(userData: registerData) {
     }
 };
 
+// Resend Email Verification
+export async function resendEmailVerification(email: string) {
+    try {
+        const response = await axios.post(`${baseURL}/api/auth/sendEmailVerification`, { data: { email } });
+        console.log('Verification email sent:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('Error sending verification email:', error);
+        if (axios.isAxiosError(error)) {
+            throw new Error(error.response?.data.message ?? error.message);
+        } else {
+            throw error;
+        }
+    }
+};
+
 // Edit User
 export async function editUser(userData: { id: string; name: string; email: string; onelink: string; description: string; image: string; reward_business_id: string; theme: string; }) {
     const { id } = userData;

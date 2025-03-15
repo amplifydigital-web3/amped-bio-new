@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "jsx": "react",
     "target": "es2020",
     "module": "CommonJS",
     "moduleResolution": "node",
@@ -11,7 +12,8 @@
     "forceConsistentCasingInFileNames": true
   },
   "include": [
-    "src/**/*.ts"
+    "src/**/*.ts",
+    "src/utils/VerifyEmailTemplate.tsx"
   ],
   "exclude": [
     "node_modules",
