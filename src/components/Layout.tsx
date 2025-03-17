@@ -30,10 +30,6 @@ export function Layout(props: LayoutProps) {
   const isWidePanel = activePanel === 'gallery' || activePanel === 'creatorpool' || activePanel === 'leaderboard' || activePanel === 'rns' || activePanel === 'reward';
   const panelWidth = isWidePanel ? 'md:w-[800px]' : 'md:w-[400px]';
 
-  // Determine if we should use wider panel layout
-  const isWidePanel = activePanel === 'gallery' || activePanel === 'creatorpool' || activePanel === 'leaderboard' || activePanel === 'rns' || activePanel === 'reward';
-  const panelWidth = isWidePanel ? 'md:w-[800px]' : 'md:w-[400px]';
-
   return (
     <div className="flex h-screen bg-gray-50">
       <div className="flex flex-col md:flex-row w-full">

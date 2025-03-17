@@ -8,7 +8,6 @@ import { importSettings } from '../utils/import';
 
 const navItems = [
   { id: 'profile', icon: User, label: 'Profile' },
-  { id: 'gallery', icon: Image, label: 'Gallery' },
   { id: 'appearance', icon: Palette, label: 'Appearance' },
   { id: 'effects', icon: Sparkles, label: 'Effects' },
   { id: 'blocks', icon: LayoutGrid, label: 'Blocks' },
