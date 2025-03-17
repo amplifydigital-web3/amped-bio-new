@@ -48,7 +48,7 @@ export function UserMenu() {
     return nav(`/${authUser?.onelink}`);
   }
 
-  if (authUser === defaultAuthUser) {
+  if (authUser.email === defaultAuthUser.email) {
     return (
       <>
         <Button onClick={() => setShowAuthModal(true)} className="flex items-center space-x-2">
