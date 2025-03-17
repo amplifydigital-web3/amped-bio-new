@@ -18,7 +18,7 @@ export const themeController = {
                 }
             });
 
-            if (theme === null) {
+            if (theme === null || Number(id) === 0) {
                 const result = await prisma.theme.create({
                     data: {
                         user_id, name, share_level, share_config, config

@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/authStore';
 import { useEffect, useState } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import { useNavigate } from 'react-router-dom'
+import { defaultAuthUser } from '@/store/defaults';
 
 export function Editor() {
   const { onelink = '' } = useParams();
@@ -14,7 +15,7 @@ export function Editor() {
   const nav = useNavigate();
 
   useEffect(() => {
-    if (!authUser) {
+    if (authUser === defaultAuthUser) {
       nav('/');
     }
   }, [authUser, nav]);

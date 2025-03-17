@@ -1,22 +1,16 @@
 import type { EditorState, UserProfile } from '../types/editor';
-import type { AuthUser } from '../types/auth';
+import { AuthUser } from '@/types/auth';
 import AmplifySVG from '../assets/AMPLIFY_FULL_K.svg'
 
 const defaultProfile: UserProfile = {
     name: 'Amplify Digital',
-    title: 'Amped-Bio',
+    onelink: 'Amped-Bio',
+    email: 'info@amplifydigital.ai',
     bio: 'Empowering individuals and communities, enabling seamless transactions without intermediaries',
     photoCmp: AmplifySVG,
 };
 
-const defaultUser: AuthUser = {
-    email: 'donotreply@amplifydigital.ai',
-    id: '',
-    token: ''
-}
-
 const initialState: EditorState = {
-    user: defaultUser,
     profile: defaultProfile,
     blocks: [
         {
@@ -42,7 +36,7 @@ const initialState: EditorState = {
         },
     ],
     theme: {
-        id: 1,
+        id: 0,
         name: 'base',
         share_level: 'private',
         share_config: {},
@@ -77,3 +71,11 @@ const initialState: EditorState = {
 const defaultbio = 'This is your default Bio! 🚀';
 
 export default initialState;
+
+export const defaultAuthUser: AuthUser = {
+    email: 'info@amplifydigital.ai',
+    id: '',
+    token: '',
+    onelink: 'Amped-Bio',
+    emailVerified: true
+}

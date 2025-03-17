@@ -2,14 +2,15 @@ import { create } from 'zustand';
 import { persist, PersistOptions } from 'zustand/middleware';
 import { login, registerNewUser } from '../api';
 import type { AuthUser } from '../types/auth';
+import { defaultAuthUser } from './defaults';
 
 type AuthState = {
-  authUser: AuthUser | null;
+  authUser: AuthUser;
   token: string | null;
   loading: boolean;
   error: string | null;
   signIn: (email: string, password: string) => Promise<AuthUser>;
-  signUp: (name: string, email: string, password: string) => Promise<AuthUser>;
+  signUp: (onelink: string, email: string, password: string) => Promise<AuthUser>;
   signOut: () => Promise<void>;
 };
 
@@ -22,13 +23,13 @@ const persistOptions: AuthPersistOptions = {
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      authUser: null,
+      authUser: defaultAuthUser,
       loading: false,
       error: null,
       token: null,
 
       signIn: async (email: string, password: string) => {
-        let authed_user = { email: '', id: '', token: '' };
+        let authed_user = { email: '', id: '', onelink: '', token: '', emailVerified: false };
         try {
           set({ loading: true, error: null });
           const { user, token } = await login({ email, password });
@@ -45,7 +46,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       signUp: async (onelink: string, email: string, password: string) => {
-        let authed_user = { email: '', id: '', token: '' };
+        let authed_user = { email: '', id: '', onelink: '', token: '', emailVerified: false };
         try {
           set({ loading: true, error: null });
           const { user, token } = await registerNewUser({ onelink, email, password });
@@ -62,7 +63,7 @@ export const useAuthStore = create<AuthState>()(
 
       signOut: async () => {
         try {
-          set({ loading: true, error: null, authUser: null, token: null });
+          set({ loading: true, error: null, authUser: defaultAuthUser, token: null });
         } catch (error) {
           set({ error: (error as Error).message });
           throw error;

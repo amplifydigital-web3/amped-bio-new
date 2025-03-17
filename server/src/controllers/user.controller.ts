@@ -24,7 +24,7 @@ export const userController = {
             const result = await prisma.user.update({
                 where: { id: Number(id) },
                 data: {
-                    name, email, onelink, description, theme, image, reward_business_id
+                    name, email, onelink, description, theme: `${theme}`, image, reward_business_id
                 },
             })
 

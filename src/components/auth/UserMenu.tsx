@@ -10,17 +10,18 @@ import { Button } from '@/components/ui/Button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useAmplifyConnect } from '../connect/hooks/useAmplifyConnect'
 import { useNavigate } from 'react-router-dom'
+import { defaultAuthUser } from '@/store/defaults'
 
 export function UserMenu() {
   const amplifyConnect = useAmplifyConnect()
   const [showAuthModal, setShowAuthModal] = useState(false)
   const { authUser, signOut } = useAuthStore()
-  const { setAuthUser, setDefault } = useEditorStore()
+  const { profile, setUser, setDefault } = useEditorStore()
   const nav = useNavigate();
 
   const handleSignIn = (user) => {
     setShowAuthModal(false)
-    setAuthUser(user)
+    setUser(user.onelink)
     const onelink = user.onelink;
     if (onelink) {
       return nav(`/${onelink}`);
@@ -43,7 +44,11 @@ export function UserMenu() {
     }
   }
 
-  if (!authUser) {
+  const handleNavtoHome = () => {
+    return nav(`/${authUser?.onelink}`);
+  }
+
+  if (authUser === defaultAuthUser) {
     return (
       <>
         <Button onClick={() => setShowAuthModal(true)} className="flex items-center space-x-2">
@@ -78,6 +83,11 @@ export function UserMenu() {
               : 'Connect Web3 Wallet'}
           </span>
         </DropdownMenuItem>
+        {authUser.onelink !== profile.onelink && (
+          <DropdownMenuItem onClick={handleNavtoHome}>
+            <span>Go To My Home</span>
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )

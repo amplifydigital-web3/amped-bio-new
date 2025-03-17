@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, memo } from 'react';
-import { Check, Upload } from 'lucide-react';
+import { Check, Upload, ExternalLink } from 'lucide-react';
 import type { Background } from '../../../types/editor';
 import { gradients, photos, videos, backgroundColors } from '../../../utils/backgrounds';
 import CollapsiblePanelWrapper from '../CollapsiblePanelWrapper';
@@ -10,6 +10,8 @@ interface BackgroundPickerProps {
 }
 
 export const BackgroundPicker = memo(({ value, onChange }: BackgroundPickerProps) => {
+  const [customURL, setCustomURL] = React.useState('');
+
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -25,6 +27,15 @@ export const BackgroundPicker = memo(({ value, onChange }: BackgroundPickerProps
       reader.readAsDataURL(file);
     }
   }, [onChange]);
+
+  const handleURLUpload = (type: 'video' | 'image') => {
+    if (!customURL) return;
+    onChange({
+      type,
+      value: customURL,
+      label: 'Custom Background',
+    });
+  };
 
   const gradientsMemoized = useMemo(() => {
     return gradients.map((bg) => (
@@ -134,7 +145,7 @@ export const BackgroundPicker = memo(({ value, onChange }: BackgroundPickerProps
   return (
     <div className="space-y-4">
       {/* Gradients */}
-      <CollapsiblePanelWrapper initialOpen={true} title="Gradient Backgrounds">
+      <CollapsiblePanelWrapper initialOpen={false} title="Gradient Backgrounds">
         <div className="grid grid-cols-2 gap-3">
           {gradientsMemoized}
         </div>
@@ -161,8 +172,8 @@ export const BackgroundPicker = memo(({ value, onChange }: BackgroundPickerProps
         </div>
       </CollapsiblePanelWrapper>
 
-      {/* Custom Upload */}
-      <CollapsiblePanelWrapper initialOpen={false} title="Custom Background">
+      {/* Custom File Upload */}
+      {/* <CollapsiblePanelWrapper initialOpen={false} title="Custom Background">
         <label className="block">
           <div className="w-full h-24 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors">
             <Upload className="w-6 h-6 text-gray-400 mb-2" />
@@ -174,6 +185,39 @@ export const BackgroundPicker = memo(({ value, onChange }: BackgroundPickerProps
             accept="image/*,video/*"
             onChange={handleFileUpload}
           />
+        </label>
+      </CollapsiblePanelWrapper> */}
+
+      {/* Custom URL Upload */}
+      <CollapsiblePanelWrapper initialOpen={false} title="Custom Background">
+        <label className="block m-2">
+          <div className="w-full flex items-center gap-1 mb-1">
+            <ExternalLink className="w-6 h-6 text-gray-400" />
+            <span className="text-sm text-gray-500">Set image or video URL</span>
+          </div>
+          <div className='flex flex-col items-center gap-2'>
+            <input
+              type="text"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              onChange={(e) => setCustomURL(e.target.value)}
+            />
+            <div className='w-full flex items-center'>
+              <button
+                onClick={() => handleURLUpload('image')}
+                className="w-full px-1 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm hover:bg-gray-300 transition-colors"
+              >
+                Set as Image
+              </button>
+              <button
+                onClick={() => handleURLUpload('video')}
+                className="w-full px-1 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm hover:bg-gray-300 transition-colors"
+              >
+                Set as Video
+              </button>
+            </div>
+
+          </div>
+
         </label>
       </CollapsiblePanelWrapper>
     </div>

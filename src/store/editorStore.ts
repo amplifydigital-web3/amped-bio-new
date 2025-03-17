@@ -3,12 +3,15 @@ import type { EditorState, Block, UserProfile, Theme, ThemeConfig, Background, G
 import { persist, PersistOptions } from 'zustand/middleware';
 import type { AuthUser } from '../types/auth';
 import { editUser, getUser, editTheme, editBlocks, deleteBlock, getOnelink } from '../api';
-import initialState from './defaults';
+import initialState, { defaultAuthUser } from './defaults';
+import { isNumber } from '@tsparticles/engine';
+import { useAuthStore } from './authStore';
+import toast from 'react-hot-toast'
 
 interface EditorStore extends EditorState {
   changes: boolean;
   setUser: (onelink: string) => Promise<any>;
-  setAuthUser: (user: AuthUser) => void;
+  // setAuthUser: (user: AuthUser) => void;
   setProfile: (profile: UserProfile) => void;
   addBlock: (block: Block) => void;
   removeBlock: (id: string) => void;
@@ -41,7 +44,6 @@ export const useEditorStore = create<EditorStore>()(
       changes: false,
       ...initialState,
       setUser: async (onelink: string) => {
-
         try {
           const userData = await getOnelink(onelink);
           if (!userData) {
@@ -49,35 +51,13 @@ export const useEditorStore = create<EditorStore>()(
             return
           }
           const { user, theme, blocks: blocks_raw } = userData;
-          const { name, email, description, image, reward_business_id } = user;
-          set({ user: { ...user, email } });
-          set({ profile: { name, onelink, bio: description, photoUrl: image } });
+          const { name, email, description, image } = user;
+
+          set({ profile: { name, onelink, email, bio: description, photoUrl: image } });
           set({ theme: { ...initialState.theme, ...theme } });
           const blocks = blocks_raw.sort((a, b) => a.order - b.order).map(({ id, type, config }) => { return { id, type, ...config } });
           set({ blocks: blocks });
           return userData;
-        }
-        catch (error) {
-          console.error('Error getting user:', error);
-          return
-        }
-
-      },
-      setAuthUser: async (authed_user) => {
-        const { id, token } = authed_user;
-        try {
-          const userData = await getUser({ id, token });
-          if (!userData) {
-            console.error('User not found:', authed_user);
-            return
-          }
-          const { user, theme, blocks: blocks_raw } = userData;
-          const { name, email, onelink, description, image, reward_business_id } = user;
-          set({ user: { ...user, email } });
-          set({ profile: { name, onelink, bio: description, photoUrl: image } });
-          set({ theme: { ...initialState.theme, ...theme } });
-          const blocks = blocks_raw.sort((a, b) => a.order - b.order).map(({ id, type, config }) => { return { id, type, ...config } });
-          set({ blocks: blocks });
         }
         catch (error) {
           console.error('Error getting user:', error);
@@ -91,9 +71,16 @@ export const useEditorStore = create<EditorStore>()(
         changes: true
       })),
       removeBlock: async (id: string) => {
-        const { user } = useEditorStore.getState();
+        const { authUser } = useAuthStore.getState();
         try {
-          await deleteBlock(id, user.id);
+          if (authUser === defaultAuthUser) {
+            console.error('Remove Block Error: No user logged in');
+            toast.error('Authentication error');
+            return;
+          }
+          if (isNumber(parseInt(id))) {
+            await deleteBlock(id, authUser.id);
+          }
           set((state) => ({
             blocks: state.blocks.filter((block) => block.id !== id)
           }));
@@ -132,11 +119,24 @@ export const useEditorStore = create<EditorStore>()(
       saveChanges: async () => {
         // Save changes to the server
         console.log('Saving changes...');
-        const { user, profile, theme, blocks } = useEditorStore.getState();
+        const { profile, theme, blocks } = useEditorStore.getState();
+        const { authUser } = useAuthStore.getState();
         try {
-          const status = await editUser({ id: user.id, name: profile.name, email: user.email, onelink: profile.onelink, description: profile.bio, image: profile.photoUrl || '', reward_business_id: '' });
-          const theme_status = await editTheme({ id: theme.id, name: theme.name, share_level: theme.share_level, share_config: theme.share_config, config: theme.config }, user.id);
-          const blocks_status = await editBlocks(blocks, user.id);
+          if (authUser === defaultAuthUser || authUser.email !== profile.email) {
+            console.error('Save Error: No user logged in');
+            toast.error('Authentication error');
+            return;
+          }
+          const theme_status = await editTheme({ id: theme.id, name: theme.name, share_level: theme.share_level, share_config: theme.share_config, config: theme.config }, authUser.id);
+          const blocks_status = await editBlocks(blocks, authUser.id);
+
+          if (theme.id !== theme_status.result.id) {
+            // new theme was created
+            set((state) => ({ theme: { ...state.theme, id: theme_status.result.id } }));
+          }
+
+          const status = await editUser({ id: authUser.id, name: profile.name, email: profile.email, onelink: profile.onelink, description: profile.bio, image: profile.photoUrl || '', reward_business_id: '', theme: theme_status.result.id });
+
           if (!status) {
             console.error('User Save failed');
             console.error(status);
@@ -153,16 +153,11 @@ export const useEditorStore = create<EditorStore>()(
             return;
           }
           console.log('Save success');
-
-          const userData = await getUser({ id: user.id, token: user.token });
-          const { theme: theme_new, blocks: blocks_raw } = userData;
-          set({ theme: { ...initialState.theme, ...theme_new } });
-          const blocks_new = blocks_raw.sort((a, b) => a.order - b.order).map(({ id, type, config }) => { return { id, type, ...config } });
-          set({ blocks: blocks_new });
-
+          toast.success('Changes saved successfully');
           set({ changes: false });
         } catch (error) {
           console.error('Save failed:', error)
+          toast.error('Error saving changes');
         }
 
       },

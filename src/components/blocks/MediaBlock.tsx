@@ -1,6 +1,6 @@
 import type { MediaBlock as MediaBlockType, ThemeConfig } from '../../types/editor';
 import { SpotifyBlock } from './SpotifyBlock';
-import { InstagramBlock } from './InstagramBlock';
+import { InstagramBlock } from './Instagram/InstagramBlock';
 import { YouTubeBlock } from './YouTubeBlock';
 import { TwitterBlock } from './TwitterBlock';
 import { TokenPriceBlock } from './TokenPriceBlock';
