@@ -1,10 +1,21 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { sendEmailVerification } from '../utils/email/email';
+import { sendEmailVerification, sendPasswordResetEmail } from '../utils/email/email';
 import { hashPassword, comparePasswords } from '../utils/password';
 import { generateToken } from '../utils/token';
 import { validateEmail } from '../utils/validation';
 import crypto from 'crypto';
+import { withRelatedProject } from '@vercel/related-projects';
+
+const serverBaseURL = withRelatedProject({
+  projectName: 'amped-bio-server',
+  defaultHost: 'http://localhost:3000'
+})
+
+const frontendBaseURL = withRelatedProject({
+  projectName: 'amped-bio',
+  defaultHost: 'http://localhost:5173'
+})
 
 const prisma = new PrismaClient()
 
@@ -123,7 +134,7 @@ export const authController = {
         return res.status(400).json({ message: 'User not found' });
       }
 
-      // const resetToken = nanoid(255);
+      const remember_token = crypto.randomBytes(32).toString('hex');
 
       const result = await prisma.user.update({
         where: { email: email },
@@ -132,7 +143,11 @@ export const authController = {
         },
       })
 
-      // TODO: Send password reset email with resetToken
+      try {
+        sendPasswordResetEmail(result.email, result.remember_token || remember_token)
+      } catch (error) {
+        res.status(500).json({ message: 'Error sending email' });
+      }
 
       res.json({ message: 'Password reset email sent' });
 
@@ -187,7 +202,17 @@ export const authController = {
   },
 
   async sendVerifyEmail(req: Request, res: Response) {
-    const { email } = req.body.data;
+    const { email: emailQuery, renderResponse } = req.query;
+    const email = decodeURIComponent(Array.isArray(emailQuery) ? `${emailQuery[0]}` : `${emailQuery}`);
+
+    if (!email || email === '') {
+      if (renderResponse === 'false') {
+        return res.status(400).json({ message: 'Email missing from query' })
+      } else {
+        return res.render('EmailVerificationResentPage.ejs', { status: 'error', message: 'Email missing from query', email: 'Undefined' })
+      }
+    }
+
     console.log('Got send verify email request: ', email);
     try {
       const user = await prisma.user.findUnique({
@@ -197,7 +222,11 @@ export const authController = {
       });
 
       if (user === null) {
-        return res.status(400).json({ message: 'User not found' });
+        if (renderResponse === 'false') {
+          return res.status(400).json({ message: 'User not found' })
+        } else {
+          return res.render('EmailVerificationResentPage.ejs', { status: 'error', message: 'User not found', email: email })
+        }
       }
 
       // Commented for testing!!!!
@@ -216,21 +245,28 @@ export const authController = {
       }).then((result) => {
         const { email, remember_token } = result;
         if (!remember_token) {
-          res.status(500).json({ message: 'Error generating token' });
-          return;
+          if (renderResponse === 'false') {
+            return res.status(500).json({ message: 'Error generating token' })
+          } else {
+            return res.render('EmailVerificationResentPage.ejs', { status: 'error', message: 'Error generating token', email: email })
+          }
         }
         try {
           return sendEmailVerification(email, remember_token || '').then((emailRes) => {
-            res.json({ message: 'Email sent', results: emailRes });
+            if (renderResponse === 'false') {
+              return res.json({ message: 'Email sent', results: emailRes });
+            } else {
+              return res.render('EmailVerificationResentPage.ejs', { status: 'success', message: '', email: email })
+            }
           });
         } catch (error) {
-          res.status(500).json({ message: 'Error sending email' });
+          if (renderResponse === 'false') {
+            return res.status(500).json({ message: 'Error sending email' })
+          } else {
+            return res.render('EmailVerificationResentPage.ejs', { status: 'error', message: 'Error sending email', email: email })
+          }
         }
       });
-
-
-
-
 
     } catch (error) {
       console.log('error', error);
@@ -239,17 +275,25 @@ export const authController = {
   },
 
   async verifyEmail(req: Request, res: Response) {
-    const { token } = req.params
-    console.log('Got verify email request');
+    const { token } = req.params;
+    const { email: emailQuery } = req.query;
+    const email = decodeURIComponent(Array.isArray(emailQuery) ? `${emailQuery[0]}` : `${emailQuery}`);
+
+    console.log('Got verify email request: ', email || 'no email?');
+
+    if (!email || email === '') {
+      return res.render('EmailVerificationPage.ejs', { status: 'error', message: 'Email missing', url: '' });
+    }
     try {
       const user = await prisma.user.findFirst({
         where: {
-          remember_token: token
+          remember_token: token,
+          email
         }
       });
 
       if (user === null) {
-        return res.status(400).json({ message: 'User not found' });
+        return res.render('EmailVerificationPage.ejs', { status: 'error', message: '(Token, Email) not found', url: email && email !== '' ? `${serverBaseURL}/api/auth/sendEmailVerification?email=${encodeURIComponent(email)}` : '' });
       }
 
       const result = await prisma.user.update({
@@ -260,11 +304,11 @@ export const authController = {
         }
       });
 
-      res.json({ message: 'Email Verified', results: result });
+      res.render('EmailVerificationPage.ejs', { status: 'success', message: '', url: `${frontendBaseURL}/${result.onelink}` })
 
     } catch (error) {
       console.log('error', error);
-      res.status(500).json({ message: 'Server error' });
+      return res.render('EmailVerificationPage.ejs', { status: 'error', message: 'Server Error' })
     }
   }
 };

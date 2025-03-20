@@ -17,7 +17,7 @@ type EmailOptions = {
 }
 
 export const sendEmail = async (options: EmailOptions) => {
-    console.log('Sending email:', options);
+    console.log('Sending email:', { to: options.to, subject: options.subject });
     return new Promise((resolve, reject) => {
         // Validate required options
         if (!process.env.SMTP2GO_API_KEY) {
@@ -54,8 +54,6 @@ export const sendEmail = async (options: EmailOptions) => {
             },
             data: jsonData
         };
-
-        console.log('Sending email request:', requestData);
 
         const request = axios.request(requestOptions).then((res) => {
             console.log('Email request sent:', res.data);

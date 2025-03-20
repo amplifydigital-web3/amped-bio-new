@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 import { authController } from '../src/controllers/auth.controller';
 import { userController } from '../src/controllers/user.controller';
 import { validateUserInput } from '../src/middleware/validation';
@@ -27,6 +28,8 @@ app.all('*', (req, res, next) => {
     next();
 });
 
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, '../src/views'));
 
 app.get('/', (req, res) => res.send('Express on Vercel'));
 
@@ -35,7 +38,7 @@ app.post('/api/auth/register', authController.register);
 app.post('/api/auth/login', authController.login);
 app.post('/api/auth/passwordReset/:token', authController.passwordReset);
 app.post('/api/auth/passwordResetRequest', authController.passwordResetRequest);
-app.post('/api/auth/sendEmailVerification', authController.sendVerifyEmail);
+app.get('/api/auth/sendEmailVerification', authController.sendVerifyEmail);
 app.get('/api/auth/verifyEmail/:token', authController.verifyEmail);
 
 // Save user

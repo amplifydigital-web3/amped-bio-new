@@ -62,7 +62,7 @@ export async function registerNewUser(userData: registerData) {
 // Resend Email Verification
 export async function resendEmailVerification(email: string) {
     try {
-        const response = await axios.post(`${baseURL}/api/auth/sendEmailVerification`, { data: { email } });
+        const response = await axios.get(`${baseURL}/api/auth/sendEmailVerification?email=${encodeURIComponent(email)}&renderResponse=false`);
         console.log('Verification email sent:', response.data);
         return response.data;
     } catch (error) {
