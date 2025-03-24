@@ -23,11 +23,6 @@ export function ParticlesBackground({ effect }: ParticlesBackgroundProps) {
           enable: false,
           zIndex: 0
         },
-        background: {
-          color: {
-            value: 'transparent',
-          },
-        },
         fpsLimit: 120,
         detectRetina: true,
       }}
