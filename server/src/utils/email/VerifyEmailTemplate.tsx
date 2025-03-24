@@ -77,7 +77,7 @@ export const verifyEmailTemplate = (url: string) => {
                                         <tr>
                                             <td className="content-cell" align="center" style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative', maxWidth: '100vw', padding: '32px' }}>
                                                 <p style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative', lineHeight: '1.5em', marginTop: '0', color: '#b0adc5', fontSize: '12px', textAlign: 'center' }}>
-                                                    © 2025 Amped-Bio. All rights reserved.
+                                                    © 2025 Amplify Digital. All rights reserved.
                                                 </p>
                                             </td>
                                         </tr>
