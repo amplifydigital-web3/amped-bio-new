@@ -12,7 +12,7 @@ import { withRelatedProject } from '@vercel/related-projects';
 //   defaultHost: 'http://localhost:3000'
 // })
 
-const serverBaseURL = process.env.VERCEL_URL || 'http://localhost:3000';
+const serverBaseURL = process.env.VERCEL_PROJECT_PRODUCTION_URL || 'http://localhost:3000';
 
 const frontendBaseURL = withRelatedProject({
   projectName: 'amped-bio',
