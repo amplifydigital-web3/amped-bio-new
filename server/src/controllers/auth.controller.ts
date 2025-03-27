@@ -210,7 +210,7 @@ export const authController = {
         }
       }
 
-      return res.render('PasswordResetPage.ejs', { token: resetToken, url: `${serverBaseURL}/api/auth/passwordReset` });
+      return res.render('PasswordResetPage.ejs', { token: resetToken });
 
     } catch (error) {
       console.error('error', error);
