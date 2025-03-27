@@ -36,7 +36,7 @@ export const blockController = {
             res.status(201).json({ message: 'Blocks updated successfully' });
         }
         catch (error) {
-            console.log('error editing blocks', error);
+            console.error('error editing blocks', error);
             res.status(500).json({ message: 'Server error' });
         }
     },
@@ -91,7 +91,7 @@ export const blockController = {
             });
 
         } catch (error) {
-            console.log('error', error);
+            console.error('error', error);
             res.status(500).json({ message: 'Server error' });
         }
     },
@@ -115,7 +115,7 @@ export const blockController = {
             });
 
         } catch (error) {
-            console.log('error', error);
+            console.error('error', error);
             res.status(500).json({ message: 'Server error' });
         }
     },
@@ -152,7 +152,7 @@ export const blockController = {
             });
 
         } catch (error) {
-            console.log('error', error);
+            console.error('error', error);
             res.status(500).json({ message: 'Server error' });
         }
     },
