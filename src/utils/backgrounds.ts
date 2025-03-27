@@ -1,5 +1,8 @@
 import type { Background } from '../types/editor';
 
+const awsS3 = import.meta.env.AWS_S3_BACKGROUNDS || 'https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds';
+
+
 export const gradients: Background[] = [
   {
     type: 'image',
@@ -170,6 +173,261 @@ export const videos: Background[] = [
     type: 'video',
     value: 'https://assets.mixkit.co/videos/4067/4067-720.mp4',
     label: 'City Traffic',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Astral_Staircase.mp4`,
+    label: 'Astral Staircase',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Beach_House.mp4`,
+    label: 'Beach House',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Big_Sky.mov`,
+    label: 'Big Sky',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Bubbles.mp4`,
+    label: 'Bubbles',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Christmas_Ornaments.mov`,
+    label: 'Cristmas Ornaments',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Cube_Wall.mp4`,
+    label: 'Cube Wall',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Cyber_Arches.mov`,
+    label: 'Cyber Arches',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Cyber_Corridor.mp4`,
+    label: 'Cyber Corridor',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Dark_Lighning.mov`,
+    label: 'Dark Lightning',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Dot_Matrix.mp4`,
+    label: 'Dot Matrix',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Ellipse.mp4`,
+    label: 'Ellipse',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Event_Horizon.mp4`,
+    label: 'Event Horizon',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Forest_Sunbeams.mp4`,
+    label: 'Forest Sunbeams',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Fractal_Flower.mov`,
+    label: 'Fractal Flower',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Inferno.mp4`,
+    label: 'Inferno',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Jade_Tunnel.mp4`,
+    label: 'Jade Tunnel',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Kitten.mov`,
+    label: 'Kitten',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Kyoto_Rain.mp4`,
+    label: 'Kyoto Rain',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Landscape_Waves.mp4`,
+    label: 'Landscape Waves',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Magic_Portal.mp4`,
+    label: 'Magic Portal',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Midnight_Grove.mov`,
+    label: 'Midnight Grove',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Moonlight_Campfire.mp4`,
+    label: 'Moonlight Campfire',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Mushrooms.mov`,
+    label: 'Mushrooms',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Nebula.mp4`,
+    label: 'Nebula',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Neo.mp4`,
+    label: 'Neo',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Neon_Slide.mp4`,
+    label: 'Neon Slide',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Neon_Stars.mp4`,
+    label: 'Neon Stars',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Neon_Tunnel.mov`,
+    label: 'Neon Tunnel',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Network.mp4`,
+    label: 'Network',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Night_City.mp4`,
+    label: 'Night City',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Peaceful_River.mp4`,
+    label: 'Peaceful River',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Plasma.mp4`,
+    label: 'Plasma',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Plexus.mp4`,
+    label: 'Plexus',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Poolside.mp4`,
+    label: 'Poolside',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Redshift.mp4`,
+    label: 'Redshift',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Rings.mov`,
+    label: 'Rings',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Sakura.mp4`,
+    label: 'Sakura',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Savannah_Sunset.mp4`,
+    label: 'Savannah Sunset',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Sleigh_Ride.mov`,
+    label: 'Sleigh Ride',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Snow_Globe.mp4`,
+    label: 'Snow Globe',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Snowflakes.mp4`,
+    label: 'Snowflakes',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Space_Grid.mp4`,
+    label: 'Space Grid',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Sparkle.mp4`,
+    label: 'Sparkle',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Spotlight.mp4`,
+    label: 'Spotlight',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Stormy_Sky.mov`,
+    label: 'Stormy Sky',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Sunset_Beach.mp4`,
+    label: 'Sunset Beach',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Tokyo_Spring.mp4`,
+    label: 'tokyo Spring',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Torus.mp4`,
+    label: 'Torus',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Turbulence.mp4`,
+    label: 'Turbulence',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Urban_Sunset.mov`,
+    label: 'Urban Sunset',
+  },
+  {
+    type: 'video',
+    value: `${awsS3}/Winter_Wonderland.mp4`,
+    label: 'Winter Wonderland',
   },
 ];
 
