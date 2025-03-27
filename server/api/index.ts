@@ -15,11 +15,12 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(cors({
-    origin: '*', // You can specify the allowed origins here
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'cache-control', 'expires', 'pragma'],
 }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 app.all('*', (req, res, next) => {
     if (req.method === 'OPTIONS') {
@@ -33,39 +34,41 @@ app.set('views', path.join(__dirname, '../src/views'));
 
 app.get('/', (req, res) => res.send('Express on Vercel'));
 
-
+// Auth
 app.post('/api/auth/register', authController.register);
 app.post('/api/auth/login', authController.login);
-app.post('/api/auth/passwordReset/:token', authController.passwordReset);
-app.post('/api/auth/passwordResetRequest', authController.passwordResetRequest);
+
+// Password Reset
+app.get('/api/auth/passwordResetRequest', authController.passwordResetRequest);
+app.post('/api/auth/passwordReset', authController.processPasswordReset);
+app.get('/api/auth/passwordReset/:token', authController.passwordReset);
+
+
+// Email Verification
 app.get('/api/auth/sendEmailVerification', authController.sendVerifyEmail);
 app.get('/api/auth/verifyEmail/:token', authController.verifyEmail);
 
-// Save user
+// User
 app.put('/api/user/:id', validateUserInput, userController.edit);
-// Get User
 app.get('/api/user/:id', userController.get);
-// Delete user
 app.delete('/api/user/:id', validateUserInput, userController.delete);
 
-// Edit Theme
+// Theme
 app.put('/api/user/theme/:id', themeController.editTheme);
-// Get Theme
 app.get('/api/user/theme/id', themeController.get);
-// delete Theme
 app.delete('/api/user/theme/id', themeController.delete);
 
-// Edit Blocks
+// Blocks
 app.put('/api/user/blocks/:user_id', blockController.editBlocks);
-// Get All User Blocks
 app.get('/api/user/blocks/:user_id', blockController.getAll);
-// Get Block
 app.get('/api/user/blocks/block/:id', blockController.get);
-// Delete Block
 app.delete('/api/user/blocks/block/:id', blockController.delete);
 
+// Onelink
 app.get('/api/onelink/:onelink', onelinkController.getOnelink);
 app.get('/api/onelink/check/:onelink', onelinkController.checkOnelink);
+
+
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
     console.error(err.stack);

@@ -7,10 +7,12 @@ import { validateEmail } from '../utils/validation';
 import crypto from 'crypto';
 import { withRelatedProject } from '@vercel/related-projects';
 
-const serverBaseURL = withRelatedProject({
-  projectName: 'amped-bio-server',
-  defaultHost: 'http://localhost:3000'
-})
+// const serverBaseURL = withRelatedProject({
+//   projectName: 'amped-bio-server',
+//   defaultHost: 'http://localhost:3000'
+// })
+
+const serverBaseURL = process.env.VERCEL_URL || 'http://localhost:3000';
 
 const frontendBaseURL = withRelatedProject({
   projectName: 'amped-bio',
@@ -80,7 +82,7 @@ export const authController = {
         token,
       });
     } catch (error) {
-      console.log('error', error);
+      console.error('error', error);
       res.status(500).json({ message: 'Server error' });
     }
   },
@@ -115,13 +117,14 @@ export const authController = {
       }
 
     } catch (error) {
-      console.log('error', error);
+      console.error('error', error);
       res.status(500).json({ message: 'Server error' });
     }
   },
 
   async passwordResetRequest(req: Request, res: Response) {
-    const { email } = req.body.data;
+    const { email: emailQuery, renderResponse } = req.query;
+    const email = decodeURIComponent(Array.isArray(emailQuery) ? `${emailQuery[0]}` : `${emailQuery}`);
 
     try {
       const user = await prisma.user.findUnique({
@@ -131,34 +134,58 @@ export const authController = {
       });
 
       if (user === null) {
-        return res.status(400).json({ message: 'User not found' });
+        if (renderResponse === 'false') {
+          return res.status(400).json({ message: 'User not found' })
+        } else {
+          return res.render('PasswordResetRequestPage.ejs', { status: 'error', message: 'User not found', email: email, url: `${frontendBaseURL}/` })
+        }
       }
 
       const remember_token = crypto.randomBytes(32).toString('hex');
 
-      const result = await prisma.user.update({
-        where: { email: email },
+      return prisma.user.update({
+        where: { id: user.id },
         data: {
-          remember_token: 'resetToken'
-        },
-      })
+          remember_token: remember_token
+        }
+      }).then(
+        (result) => {
+          if (!result.remember_token) {
+            if (renderResponse === 'false') {
+              throw new Error(`Token write failed: user_id: ${user.id}`);
+            } else {
+              return res.render('PasswordResetRequestPage.ejs', { status: 'error', message: 'Error generating token', email: email, url: `${frontendBaseURL}/` })
+            }
 
-      try {
-        sendPasswordResetEmail(result.email, result.remember_token || remember_token)
-      } catch (error) {
-        res.status(500).json({ message: 'Error sending email' });
-      }
+          }
+          return sendPasswordResetEmail(result.email, result.remember_token);
+        }
+      ).then(
+        () => {
+          if (renderResponse === 'false') {
+            res.json({ message: 'Password reset email sent' })
+          } else {
+            return res.render('PasswordResetRequestPage.ejs', { status: 'success', message: '', email: email })
+          }
 
-      res.json({ message: 'Password reset email sent' });
-
+        }, (error) => {
+          if (renderResponse === 'false') {
+            res.status(500).json({ message: 'Error sending password reset email', error })
+          } else {
+            return res.render('PasswordResetRequestPage.ejs', { status: 'error', message: 'Error sending password reset email', email: email, url: `${frontendBaseURL}/` })
+          }
+        }
+      );
     } catch (error) {
-      console.log('error', error);
+      console.error('error', error);
       res.status(500).json({ message: 'Server error' });
     }
   },
 
   async passwordReset(req: Request, res: Response) {
-    const { email, resetToken, newPassword } = req.body.data;
+    const { token: resetToken } = req.params;
+    const { email: emailQuery, renderResponse } = req.query;
+    const email = decodeURIComponent(Array.isArray(emailQuery) ? `${emailQuery[0]}` : `${emailQuery}`);
 
     try {
       const user = await prisma.user.findUnique({
@@ -168,35 +195,67 @@ export const authController = {
       });
 
       if (user === null) {
-        return res.status(400).json({ message: 'User not found' });
+        if (renderResponse === 'false') {
+          return res.status(400).json({ message: 'User not found' });
+        } else {
+          return res.render('PasswordResetStatusPage.ejs', { status: 'error', message: `User not found for email: ${email}`, email: email, url: `${frontendBaseURL}` })
+        }
       }
 
       if (user.remember_token !== resetToken) {
-        return res.status(400).json({ message: 'Invalid reset token' });
+        if (renderResponse === 'false') {
+          return res.status(400).json({ message: 'Invalid reset token' });
+        } else {
+          return res.render('PasswordResetStatusPage.ejs', { status: 'error', message: 'Invalid reset token', email: email, url: `${frontendBaseURL}` })
+        }
       }
 
-      const hashedPassword = await hashPassword(newPassword);
+      return res.render('PasswordResetPage.ejs', { token: resetToken, url: `${serverBaseURL}/api/auth/passwordReset` });
+
+    } catch (error) {
+      console.error('error', error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  },
+
+  async processPasswordReset(req: Request, res: Response) {
+    const { url, method, query, params, body } = req;
+    const { email: emailQuery } = req.query;
+    const { token: requestToken, password, confirmPassword } = req.body;
+
+    if (password !== confirmPassword) {
+      return res.render('PasswordResetStatusPage.ejs', { status: 'error', message: 'Passwords do not match', url: `${frontendBaseURL}` })
+    }
+
+    try {
+      const user = await prisma.user.findFirst({
+        where: {
+          remember_token: requestToken
+        }
+      });
+
+      if (!user) {
+        return res.render('PasswordResetStatusPage.ejs', { status: 'error', message: 'Invalid reset token', url: `${frontendBaseURL}` })
+      }
+
+      const hashedPassword = await hashPassword(password);
 
       if (user.password === hashedPassword) {
-        return res.status(400).json({ message: 'New password must be different' });
+        return res.render('PasswordResetStatusPage.ejs', { status: 'error', message: 'New password must be different than old password', url: `${frontendBaseURL}` })
       }
 
       const result = await prisma.user.update({
-        where: { email: email },
+        where: { id: user.id },
         data: {
-          password: hashedPassword
+          password: hashedPassword,
+          remember_token: null
         },
       })
 
-      const token = generateToken({ id: result.id, email: result.email });
-
-      res.json({
-        user: { id: result.id, email: result.email },
-        token,
-      });
+      return res.render('PasswordResetStatusPage.ejs', { status: 'success', message: '', url: `${frontendBaseURL}` });
 
     } catch (error) {
-      console.log('error', error);
+      console.error('error', error);
       res.status(500).json({ message: 'Server error' });
     }
   },
@@ -269,7 +328,7 @@ export const authController = {
       });
 
     } catch (error) {
-      console.log('error', error);
+      console.error('error', error);
       res.status(500).json({ message: 'Server error' });
     }
   },
@@ -307,7 +366,7 @@ export const authController = {
       res.render('EmailVerificationPage.ejs', { status: 'success', message: '', url: `${frontendBaseURL}/${result.onelink}` })
 
     } catch (error) {
-      console.log('error', error);
+      console.error('error', error);
       return res.render('EmailVerificationPage.ejs', { status: 'error', message: 'Server Error' })
     }
   }

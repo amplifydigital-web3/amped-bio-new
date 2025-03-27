@@ -4,10 +4,12 @@ import { verifyEmailTemplate } from './VerifyEmailTemplate';
 import { resetPasswordTemplate } from './ResetPasswordTemplate';
 import { withRelatedProject } from '@vercel/related-projects';
 
-const baseURL = withRelatedProject({
-    projectName: 'amped-bio-server',
-    defaultHost: 'http://localhost:3000'
-})
+// const baseURL = withRelatedProject({
+//     projectName: 'amped-bio-server',
+//     defaultHost: 'http://localhost:3000'
+// })
+
+const baseURL = process.env.VERCEL_URL || 'http://localhost:3000';
 
 type EmailOptions = {
     to: string | string[];
@@ -16,7 +18,7 @@ type EmailOptions = {
     subject: string;
 }
 
-export const sendEmail = async (options: EmailOptions) => {
+const sendEmail = async (options: EmailOptions) => {
     console.log('Sending email:', { to: options.to, subject: options.subject });
     return new Promise((resolve, reject) => {
         // Validate required options
@@ -59,7 +61,7 @@ export const sendEmail = async (options: EmailOptions) => {
             console.log('Email request sent:', res.data);
             return res.data;
         }).catch((error) => {
-            console.log(error);
+            console.error(error);
             reject(new Error(`Request to SMTP2GO failed: ${error.message}`));
         });
 
