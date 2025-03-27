@@ -1,9 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import authRoutes from './routes/auth.routes';
-import userRoutes from './routes/user.routes';
-import adminRoutes from './routes/admin.routes';
+
 
 dotenv.config();
 
@@ -16,10 +14,10 @@ app.use(express.json());
 app.get('/', (req, res) => res.send('Express on Vercel'));
 app.get('/testing', (req, res) => res.send('Express on Vercel test non api'));
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/user', userRoutes);
-app.use('/api/admin', adminRoutes);
+// // Routes
+// app.use('/api/auth', authRoutes);
+// app.use('/api/user', userRoutes);
+// app.use('/api/admin', adminRoutes);
 
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
