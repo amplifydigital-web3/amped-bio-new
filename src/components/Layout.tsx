@@ -26,6 +26,9 @@ export function Layout(props: LayoutProps) {
   const activePanel = useEditorStore((state) => state.activePanel);
   const emailVerified = useAuthStore((state) => state.authUser.emailVerified);
 
+  // FOR TESTING
+  const usr = useAuthStore((state) => state.authUser);
+
   // Determine if we should use wider panel layout
   const isWidePanel = activePanel === 'gallery' || activePanel === 'creatorpool' || activePanel === 'leaderboard' || activePanel === 'rns' || activePanel === 'reward';
   const panelWidth = isWidePanel ? 'md:w-[800px]' : 'md:w-[400px]';
@@ -47,7 +50,7 @@ export function Layout(props: LayoutProps) {
               </Link>
             </div>
 
-            {!emailVerified && (<EmailVerificationBanner />)}
+            {!emailVerified || usr.email === 'will@amplifydigital.ai' && (<EmailVerificationBanner />)}
             <div className='flex items-center justify-end'>
               <SaveButton />
               <UserMenu />
