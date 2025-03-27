@@ -9,7 +9,7 @@ import { withRelatedProject } from '@vercel/related-projects';
 //     defaultHost: 'http://localhost:3000'
 // })
 
-const baseURL = process.env.VERCEL_URL || 'http://localhost:3000';
+const baseURL = process.env.VERCEL_PROJECT_PRODUCTION_URL || 'http://localhost:3000';
 
 type EmailOptions = {
     to: string | string[];
