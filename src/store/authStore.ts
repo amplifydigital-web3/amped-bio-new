@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, PersistOptions } from 'zustand/middleware';
-import { login, registerNewUser } from '../api';
+import { login, registerNewUser, passwordResetRequest } from '../api';
 import type { AuthUser } from '../types/auth';
 import { defaultAuthUser } from './defaults';
 
@@ -12,6 +12,7 @@ type AuthState = {
   signIn: (email: string, password: string) => Promise<AuthUser>;
   signUp: (onelink: string, email: string, password: string) => Promise<AuthUser>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<string>
 };
 
 type AuthPersistOptions = PersistOptions<AuthState>;
@@ -71,6 +72,16 @@ export const useAuthStore = create<AuthState>()(
           set({ loading: false });
         }
       },
+      resetPassword: async (email: string) => {
+        try {
+          return passwordResetRequest(email);
+        } catch (error) {
+          set({ error: (error as Error).message });
+          throw error;
+        } finally {
+          set({ loading: false });
+        }
+      }
     }), persistOptions)
 );
 

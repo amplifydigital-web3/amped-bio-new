@@ -12,25 +12,35 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ onClose, onCancel }: AuthModalProps) {
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [form, setForm] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [onelink, setOnelink] = useState('');
-  const { signIn, signUp, loading } = useAuthStore();
+  const { signIn, signUp, loading, resetPassword } = useAuthStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
-      if (isSignUp) {
-        const atURL = `@${onelink}`;
-        const user = await signUp(atURL, email, password);
-        toast.success('Account created successfully!');
-        onClose(user);
-      } else {
-        const user = await signIn(email, password);
-        toast.success('Welcome back!', { icon: '👋' });
-        onClose(user);
+      switch (form) {
+        case 'register': {
+          const atURL = `@${onelink}`;
+          const user = await signUp(atURL, email, password);
+          toast.success('Account created successfully!');
+          return onClose(user);
+        }
+
+        case 'login': {
+          const user = await signIn(email, password);
+          toast.success('Welcome back!', { icon: '👋' });
+          return onClose(user);
+        }
+
+        case 'reset': {
+          await resetPassword(email);
+          toast.success('Reset email sent!');
+          return onCancel();
+        }
       }
     } catch (error) {
       toast.error((error as Error).message);
@@ -47,7 +57,9 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
       <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
         <div className="flex items-center justify-between mb-6">
           <h2 id="auth-modal-title" className="text-xl font-semibold">
-            {isSignUp ? 'Create Account' : 'Sign In'}
+            {form === 'register' && 'Create Account'}
+            {form === 'login' && 'Sign In'}
+            {form === 'reset' && 'Reset Password'}
           </h2>
           <button
             onClick={onCancel}
@@ -59,7 +71,7 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {isSignUp && (
+          {form === 'register' && (
             <Input
               label="Amped-Bio Unique URL"
               value={onelink}
@@ -83,41 +95,73 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
             aria-invalid={!email ? 'true' : 'false'}
           />
 
-          <Input
-            label="Password"
-            name='password'
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            aria-label="Password"
-            autoComplete={isSignUp ? 'new-password' : 'current-password'}
-            minLength={6}
-            aria-invalid={password.length < 6 ? 'true' : 'false'}
-          />
+          {form !== 'reset' && (
+            <Input
+              label="Password"
+              name='password'
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              aria-label="Password"
+              autoComplete={form === 'register' ? 'new-password' : 'current-password'}
+              minLength={6}
+              aria-invalid={password.length < 6 ? 'true' : 'false'}
+            />)}
 
           <Button
             type="submit"
             className="w-full"
             disabled={loading}
             aria-disabled={loading}
-            aria-label={loading ? 'Processing' : isSignUp ? 'Create account' : 'Sign in'}
+            aria-label={form}
           >
-            {loading ? 'Loading...' : isSignUp ? 'Create Account' : 'Sign In'}
+            {loading && 'Loading...'}
+            {form === 'register' && 'Create Account'}
+            {form === 'login' && 'Sign In'}
+            {form === 'reset' && 'Reset Password'}
           </Button>
-
-          <p className="text-center text-sm text-gray-600">
-            {isSignUp ? 'Already have an account?' : 'Don\'t have an account?'}{' '}
+        </form>
+        <p className="text-center text-sm text-gray-600 mt-2">
+          {form !== 'login' && (
+            <>
+              {'Already have an account?'}
+              <button
+                type="button"
+                onClick={() => setForm('login')}
+                className="text-blue-600 hover:text-blue-700 ml-2"
+                aria-label={'Switch to sign in'}
+              >
+                {'Sign In'}
+              </button>
+            </>
+          )}
+          {form === 'login' && (
+            <>
+              {'Don\'t have an account?'}
+              <button
+                type="button"
+                onClick={() => setForm('register')}
+                className="text-blue-600 hover:text-blue-700 ml-2"
+                aria-label={'Switch to sign up'}
+              >
+                {'Sign Up'}
+              </button>
+            </>
+          )}
+        </p>
+        <p className="text-center text-sm text-gray-600 mt-1">
+          {form !== 'reset' && (
             <button
               type="button"
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="text-blue-600 hover:text-blue-700"
-              aria-label={isSignUp ? 'Switch to sign in' : 'Switch to sign up'}
+              onClick={() => setForm('reset')}
+              className="text-blue-600 hover:text-blue-700 ml-2"
+              aria-label={'Forgot Password'}
             >
-              {isSignUp ? 'Sign In' : 'Sign Up'}
+              {'Forgot Password'}
             </button>
-          </p>
-        </form>
+          )}
+        </p>
       </div>
     </div>
   );

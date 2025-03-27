@@ -22,7 +22,7 @@ const baseURL = withRelatedProject({
     projectName: 'amped-bio-server',
     defaultHost: 'http://localhost:3000'
 })
-console.log(baseURL);
+// console.log(baseURL);
 // const baseURL = env('API_URL');
 // const baseURL = 'http://localhost:3000/api';
 
@@ -74,6 +74,22 @@ export async function resendEmailVerification(email: string) {
         }
     }
 };
+
+// Password Reset
+export async function passwordResetRequest(email: string) {
+    try {
+        const response = await axios.get(`${baseURL}/api/auth/passwordResetRequest?email=${encodeURIComponent(email)}&renderResponse=false`);
+        console.log('Password reset email sent:', response.data);
+        return response.data.message;
+    } catch (error) {
+        console.error('Error sending password reset email:', error);
+        if (axios.isAxiosError(error)) {
+            throw new Error(error.response?.data.message ?? error.message);
+        } else {
+            throw error;
+        }
+    }
+}
 
 // Edit User
 export async function editUser(userData: { id: string; name: string; email: string; onelink: string; description: string; image: string; reward_business_id: string; theme: string; }) {
