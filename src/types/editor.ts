@@ -19,7 +19,7 @@ export type MediaBlock = {
   id: string;
   type: 'media';
   content?: string;
-  platform: string;
+  platform: 'spotify' | 'instagram' | 'youtube' | 'twitter' | 'token-price' | 'nft-collection' | 'uniswap' | 'substack' | 'creator-pool';
   url: string;
   label: string;
 };

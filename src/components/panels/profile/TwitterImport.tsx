@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Twitter } from 'lucide-react';
+import { FaXTwitter } from 'react-icons/fa6';
 import { Input } from '../../ui/Input';
 import { scrapeTwitterProfile } from '../../../utils/twitter';
 import type { UserProfile } from '../../../types/editor';
@@ -28,7 +28,7 @@ export function TwitterImport({ onProfileUpdate }: TwitterImportProps) {
       });
       setUsername('');
     } catch (err) {
-      setError('Failed to import Twitter profile. Please try again.');
+      setError('Failed to import X profile. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -37,14 +37,14 @@ export function TwitterImport({ onProfileUpdate }: TwitterImportProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center space-x-2">
-        <Twitter className="w-5 h-5 text-[#1DA1F2]" />
-        <h3 className="text-sm font-medium text-gray-900">Import from Twitter</h3>
+        <FaXTwitter className="w-5 h-5 text-[#1DA1F2]" />
+        <h3 className="text-sm font-medium text-gray-900">Import from X</h3>
       </div>
 
       <div className="flex space-x-2">
         <Input
           label=""
-          placeholder="Enter Twitter username"
+          placeholder="Enter X username"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           className="flex-1"

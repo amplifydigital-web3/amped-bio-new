@@ -2,7 +2,6 @@ import {
   Music,
   Instagram,
   Youtube,
-  Twitter,
   DollarSign,
   Store,
   Mail,
@@ -13,6 +12,7 @@ import {
   ArrowUpRight,
 } from 'lucide-react';
 import type { Block, LinkBlock, MediaBlock, TextBlock } from '../../../types/editor';
+import { FaXTwitter } from 'react-icons/fa6';
 
 interface BlockPickerProps {
   onAdd: (block: Block) => void;
@@ -25,7 +25,7 @@ const blockTypes = [
       { id: 'spotify', name: 'Spotify', icon: Music, type: 'media' },
       { id: 'instagram', name: 'Instagram', icon: Instagram, type: 'media' },
       { id: 'youtube', name: 'YouTube', icon: Youtube, type: 'media' },
-      { id: 'twitter', name: 'Twitter Post', icon: Twitter, type: 'media' },
+      { id: 'twitter', name: 'X Post', icon: FaXTwitter, type: 'media' },
     ],
   },
   {

@@ -386,7 +386,7 @@ const modernCollection: Collection = {
   collaborator: {
     name: 'Alex Design',
     avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop',
-    url: 'https://twitter.com/alexdesign',
+    url: 'https://x.com/alexdesign',
     bio: 'UI/UX Designer specializing in minimal interfaces',
   },
   themeCount: modernThemes.length,
@@ -402,7 +402,7 @@ const natureCollection: Collection = {
   collaborator: {
     name: 'Emma Nature',
     avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=64&h=64&fit=crop',
-    url: 'https://twitter.com/emmanature',
+    url: 'https://x.com/emmanature',
     bio: 'Environmental artist and digital designer',
   },
   themeCount: natureThemes.length,
@@ -418,7 +418,7 @@ const cyberpunkCollection: Collection = {
   collaborator: {
     name: 'Neo Digital',
     avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=64&h=64&fit=crop',
-    url: 'https://twitter.com/neodigital',
+    url: 'https://x.com/neodigital',
     bio: 'Digital artist exploring the intersection of art and technology',
   },
   themeCount: cyberpunkThemes.length,
@@ -434,7 +434,7 @@ const oceanCollection: Collection = {
   collaborator: {
     name: 'Marina Waves',
     avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=64&h=64&fit=crop',
-    url: 'https://twitter.com/marinawaves',
+    url: 'https://x.com/marinawaves',
     bio: 'Marine photographer and digital creator',
   },
   themeCount: oceanThemes.length,
@@ -450,7 +450,7 @@ const redBullCollection: Collection = {
   collaborator: {
     name: 'Red Bull Creative',
     avatar: 'https://images.unsplash.com/photo-1551836022-deb4988cc6c0?w=64&h=64&fit=crop',
-    url: 'https://twitter.com/redbullracing',
+    url: 'https://x.com/redbullracing',
     bio: 'Official Red Bull Racing digital design team',
   },
   themeCount: redBullThemes.length,
@@ -466,7 +466,7 @@ const chanelCollection: Collection = {
   collaborator: {
     name: 'Chanel Digital',
     avatar: 'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?w=64&h=64&fit=crop',
-    url: 'https://twitter.com/chanel',
+    url: 'https://x.com/chanel',
     bio: 'Chanel digital experience design team',
   },
   themeCount: chanelThemes.length,
