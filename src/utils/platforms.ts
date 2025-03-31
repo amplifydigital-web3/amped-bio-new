@@ -22,8 +22,17 @@ import {
   type LucideIcon
 } from 'lucide-react';
 
+export type PlatformId = 
+  | 'twitter' | 'telegram' | 'discord' | 'instagram' | 'lens' | 'facebook' | 'tiktok' | 'element'
+  | 'github' | 'linkedin' | 'medium' | 'mirror'
+  | 'warpcast' | 'zora' | 'opensea'
+  | 'youtube' | 'patreon' | 'onlyfans'
+  | 'appstore' | 'playstore'
+  | 'email' | 'document'
+  | 'custom';
+
 interface Platform {
-  id: string;
+  id: PlatformId;
   name: string;
   icon: LucideIcon;
   color: string;
@@ -68,10 +77,10 @@ export const platforms: Platform[] = [
   { id: 'custom', name: 'Custom Link', icon: Link, color: '#000000' },
 ];
 
-export function getPlatformIcon(platformId: string): LucideIcon {
+export function getPlatformIcon(platformId: PlatformId): LucideIcon {
   return platforms.find((p) => p.id === platformId)?.icon || Link;
 }
 
-export function getPlatformColor(platformId: string): string {
+export function getPlatformColor(platformId: PlatformId): string {
   return platforms.find((p) => p.id === platformId)?.color || '#000000';
 }
