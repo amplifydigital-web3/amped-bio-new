@@ -8,7 +8,7 @@ export type UserProfile = {
 };
 
 export type LinkBlock = {
-  id: string;
+  id: number;
   type: 'link';
   platform: string;
   url: string;
@@ -16,7 +16,7 @@ export type LinkBlock = {
 };
 
 export type MediaBlock = {
-  id: string;
+  id: number;
   type: 'media';
   content?: string;
   platform: string;
@@ -25,7 +25,7 @@ export type MediaBlock = {
 };
 
 export type TextBlock = {
-  id: string;
+  id: number;
   type: 'text';
   content: string;
   platform: string;
