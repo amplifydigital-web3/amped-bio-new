@@ -21,18 +21,15 @@ export const userController = {
                 return res.status(400).json({ message: `User not found: ${email}` });
             }
 
-            const result = await prisma.user.update({
+            await prisma.user.update({
                 where: { id: Number(id) },
                 data: {
                     name, email, onelink, description, theme: `${theme}`, image, reward_business_id
                 },
             })
 
-            const token = generateToken({ id: result.id, email: result.email });
-
-            res.status(201).json({
-                result,
-                token,
+            res.status(200).json({
+                message: 'User updated successfully',
             });
 
         } catch (error) {

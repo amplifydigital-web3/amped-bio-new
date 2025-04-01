@@ -33,7 +33,7 @@ export const blockController = {
                 }
             });
 
-            res.status(201).json({ message: 'Blocks updated successfully' });
+            res.status(200).json({ message: 'Blocks updated successfully' });
         }
         catch (error) {
             console.error('error editing blocks', error);
