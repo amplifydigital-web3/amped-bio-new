@@ -23,8 +23,17 @@ import {
 import { FaXTwitter } from 'react-icons/fa6';
 import { type IconType } from 'react-icons/lib';
 
+export type PlatformId = 
+   | 'twitter' | 'telegram' | 'discord' | 'instagram' | 'lens' | 'facebook' | 'tiktok' | 'element'
+   | 'github' | 'linkedin' | 'medium' | 'mirror'
+   | 'warpcast' | 'zora' | 'opensea'
+   | 'youtube' | 'patreon' | 'onlyfans'
+   | 'appstore' | 'playstore'
+   | 'email' | 'document'
+   | 'custom';
+
 interface Platform {
-  id: string;
+  id: PlatformId;
   name: string;
   icon: IconType | LucideIcon;
   color: string;
