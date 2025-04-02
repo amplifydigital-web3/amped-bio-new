@@ -32,7 +32,7 @@ const initialState: EditorState = {
             type: 'link',
             platform: 'telegram',
             url: 'https://t.me/npayme_network',
-            label: 'Connect on telegram',
+            label: 'Connect on Telegram',
         },
     ],
     theme: {

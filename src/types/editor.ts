@@ -10,7 +10,7 @@ export type UserProfile = {
 };
 
 export type LinkBlock = {
-  id: string;
+  id: number;
   type: 'link';
   platform: PlatformId;
   url: string;
@@ -18,16 +18,16 @@ export type LinkBlock = {
 };
 
 export type MediaBlock = {
-  id: string;
+  id: number;
   type: 'media';
   content?: string;
-  platform: string;
+  platform: 'spotify' | 'instagram' | 'youtube' | 'twitter' | 'token-price' | 'nft-collection' | 'uniswap' | 'substack' | 'creator-pool';
   url: string;
   label: string;
 };
 
 export type TextBlock = {
-  id: string;
+  id: number;
   type: 'text';
   content: string;
   platform: string;

@@ -92,7 +92,7 @@ export async function passwordResetRequest(email: string) {
 }
 
 // Edit User
-export async function editUser(userData: { id: string; name: string; email: string; onelink: string; description: string; image: string; reward_business_id: string; theme: string; }) {
+export async function editUser(userData: { id: number; name: string; email: string; onelink: string; description: string; image: string; reward_business_id: string; theme: string; }) {
     const { id } = userData;
     console.log('Editing user:', userData);
     try {
@@ -180,7 +180,7 @@ export async function editBlocks(blocks: Block[], user_id) {
 };
 
 // Delete Block
-export async function deleteBlock(block_id, user_id) {
+export async function deleteBlock(block_id: number, user_id: number) {
     console.log('Delete user block:', user_id);
     try {
         const response = await axios.delete(`${baseURL}/api/user/blocks/block/${block_id}$${user_id}`);

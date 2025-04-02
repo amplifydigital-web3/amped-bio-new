@@ -33,7 +33,7 @@ export const blockController = {
                 }
             });
 
-            res.status(201).json({ message: 'Blocks updated successfully' });
+            res.status(200).json({ message: 'Blocks updated successfully' });
         }
         catch (error) {
             console.error('error editing blocks', error);
@@ -123,9 +123,10 @@ export const blockController = {
     async delete(req: Request, res: Response) {
         const { id: id_combined } = req.params
         const [id_raw, user_id] = id_combined.split('$');
-        let id = Number(id_raw);
+        const id = Number(id_raw);
+
         if (Number.isNaN(id)) {
-            id = 0;
+            return res.status(400).json({ message: `Block id is not a number: ${id}` });
         }
 
         try {

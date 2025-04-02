@@ -2,7 +2,6 @@ import {
   Music,
   Instagram,
   Youtube,
-  Twitter,
   DollarSign,
   Store,
   Mail,
@@ -13,6 +12,7 @@ import {
   ArrowUpRight,
 } from 'lucide-react';
 import type { Block, LinkBlock, MediaBlock, TextBlock } from '../../../types/editor';
+import { FaXTwitter } from 'react-icons/fa6';
 
 interface BlockPickerProps {
   onAdd: (block: Block) => void;
@@ -25,7 +25,7 @@ const blockTypes = [
       { id: 'spotify', name: 'Spotify', icon: Music, type: 'media' },
       { id: 'instagram', name: 'Instagram', icon: Instagram, type: 'media' },
       { id: 'youtube', name: 'YouTube', icon: Youtube, type: 'media' },
-      { id: 'twitter', name: 'Twitter Post', icon: Twitter, type: 'media' },
+      { id: 'twitter', name: 'X Post', icon: FaXTwitter, type: 'media' },
     ],
   },
   {
@@ -53,7 +53,7 @@ export function BlockPicker({ onAdd }: BlockPickerProps) {
   const handleAddBlock = (blockType: string, blockId: string) => {
     if (blockType === 'media') {
       const newBlock: MediaBlock = {
-        id: blockId,
+        id: 0,
         type: 'media',
         platform: blockId,
         url: '',
@@ -63,7 +63,7 @@ export function BlockPicker({ onAdd }: BlockPickerProps) {
     }
     else if (blockType === 'link') {
       const newBlock: LinkBlock = {
-        id: blockId,
+        id: 0,
         type: 'link',
         platform: '',
         url: '',
@@ -73,7 +73,7 @@ export function BlockPicker({ onAdd }: BlockPickerProps) {
     }
     else {
       const newBlock: TextBlock = {
-        id: blockId,
+        id: 0,
         type: 'text',
         content: '',
         platform: 'text'

@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react';
 import { Input } from '../../ui/Input';
 import { PlatformSelect } from './PlatformSelect';
 import type { LinkBlock } from '../../../types/editor';
+import { PlatformId } from '@/utils/platforms';
 
 interface LinkFormProps {
   onAdd: (block: LinkBlock) => void;
@@ -10,7 +11,7 @@ interface LinkFormProps {
 
 export function LinkForm({ onAdd }: LinkFormProps) {
   const [url, setUrl] = useState('');
-  const [platform, setPlatform] = useState('');
+  const [platform, setPlatform] = useState<PlatformId | null>(null);
   const [label, setLabel] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -18,7 +19,7 @@ export function LinkForm({ onAdd }: LinkFormProps) {
     if (!url || !platform || !label) return;
 
     onAdd({
-      id: crypto.randomUUID(),
+      id: 0,
       type: 'link',
       platform,
       url,
@@ -26,7 +27,7 @@ export function LinkForm({ onAdd }: LinkFormProps) {
     });
 
     setUrl('');
-    setPlatform('');
+    setPlatform(null);
     setLabel('');
   };
 

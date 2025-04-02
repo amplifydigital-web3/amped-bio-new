@@ -14,8 +14,8 @@ interface EditorStore extends EditorState {
   // setAuthUser: (user: AuthUser) => void;
   setProfile: (profile: UserProfile) => void;
   addBlock: (block: Block) => void;
-  removeBlock: (id: string) => void;
-  updateBlock: (id: string, block: Partial<Block>) => void;
+  removeBlock: (id: number) => void;
+  updateBlock: (id: number, block: Partial<Block>) => void;
   reorderBlocks: (blocks: Block[]) => void;
   updateThemeConfig: (theme: Partial<ThemeConfig>) => void;
   setActivePanel: (panel: string) => void;
@@ -70,7 +70,7 @@ export const useEditorStore = create<EditorStore>()(
         blocks: [...state.blocks, block],
         changes: true
       })),
-      removeBlock: async (id: string) => {
+      removeBlock: async (id: number) => {
         const { authUser } = useAuthStore.getState();
         try {
           if (authUser === defaultAuthUser) {
@@ -78,9 +78,9 @@ export const useEditorStore = create<EditorStore>()(
             toast.error('Authentication error');
             return;
           }
-          if (isNumber(parseInt(id))) {
-            await deleteBlock(id, authUser.id);
-          }
+        
+          await deleteBlock(id, authUser.id);
+          
           set((state) => ({
             blocks: state.blocks.filter((block) => block.id !== id)
           }));
@@ -88,7 +88,7 @@ export const useEditorStore = create<EditorStore>()(
           console.log('error deleting block', error);
         }
       },
-      updateBlock: (id: string, updatedBlock: Partial<Block>) => set((state) => ({
+      updateBlock: (id: number, updatedBlock: Partial<Block>) => set((state) => ({
         blocks: state.blocks.map((block) =>
           block.id === id ? { ...block, ...updatedBlock } : block
         ),
