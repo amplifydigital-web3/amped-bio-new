@@ -9,5 +9,13 @@ export const comparePasswords = async (
   password: string,
   hashedPassword: string
 ): Promise<boolean> => {
-  return bcrypt.compare(password, hashedPassword);
+
+
+  /**
+   * Workaround for bcryptjs issue with comparing passwords hashed with PHP
+   * Source: https://stackoverflow.com/questions/23015043/verify-password-hash-in-nodejs-which-was-generated-in-php
+   */
+  const parsedHashedPassword = hashedPassword.replace(/^\$2y(.+)$/i, '$2a$1');
+
+  return bcrypt.compare(password, parsedHashedPassword);
 };
