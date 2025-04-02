@@ -20,13 +20,13 @@ import { BlockEditor } from './BlockEditor';
 
 interface BlockListProps {
   blocks: Block[];
-  onUpdate: (id: string, block: Partial<Block>) => void;
-  onRemove: (id: string) => void;
+  onUpdate: (id: number, block: Partial<Block>) => void;
+  onRemove: (id: number) => void;
   onReorder: (blocks: Block[]) => void;
 }
 
 export function BlockList({ blocks, onUpdate, onRemove, onReorder }: BlockListProps) {
-  const [editingBlock, setEditingBlock] = React.useState<string | null>(null);
+  const [editingBlock, setEditingBlock] = React.useState<number | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -45,6 +45,8 @@ export function BlockList({ blocks, onUpdate, onRemove, onReorder }: BlockListPr
     }
   };
 
+  console.log('blocks', blocks);
+
   return (
     <div className="space-y-4">
       <DndContext
@@ -60,7 +62,7 @@ export function BlockList({ blocks, onUpdate, onRemove, onReorder }: BlockListPr
             {blocks.map((block) => (
               <SortableItem
                 key={block.id}
-                id={block.id}
+                id={block.id.toString()}
                 block={block}
                 onEdit={() => setEditingBlock(block.id)}
                 onRemove={() => onRemove(block.id)}
