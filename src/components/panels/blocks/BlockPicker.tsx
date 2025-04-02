@@ -53,7 +53,7 @@ export function BlockPicker({ onAdd }: BlockPickerProps) {
   const handleAddBlock = (blockType: string, blockId: string) => {
     if (blockType === 'media') {
       const newBlock: MediaBlock = {
-        id: blockId,
+        id: 0,
         type: 'media',
         platform: blockId,
         url: '',
@@ -63,7 +63,7 @@ export function BlockPicker({ onAdd }: BlockPickerProps) {
     }
     else if (blockType === 'link') {
       const newBlock: LinkBlock = {
-        id: blockId,
+        id: 0,
         type: 'link',
         platform: '',
         url: '',
@@ -73,7 +73,7 @@ export function BlockPicker({ onAdd }: BlockPickerProps) {
     }
     else {
       const newBlock: TextBlock = {
-        id: blockId,
+        id: 0,
         type: 'text',
         content: '',
         platform: 'text'

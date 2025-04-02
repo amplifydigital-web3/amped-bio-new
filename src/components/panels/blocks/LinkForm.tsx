@@ -18,7 +18,7 @@ export function LinkForm({ onAdd }: LinkFormProps) {
     if (!url || !platform || !label) return;
 
     onAdd({
-      id: crypto.randomUUID(),
+      id: 0,
       type: 'link',
       platform,
       url,
