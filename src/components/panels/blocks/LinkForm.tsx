@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import { Input } from '../../ui/Input';
 import { PlatformSelect } from './PlatformSelect';
 import type { LinkBlock } from '../../../types/editor';
+import { getPlatformUrl } from '../../../utils/platforms';
 
 interface LinkFormProps {
   onAdd: (block: LinkBlock) => void;
@@ -10,8 +11,16 @@ interface LinkFormProps {
 
 export function LinkForm({ onAdd }: LinkFormProps) {
   const [url, setUrl] = useState('');
+  const [username, setUsername] = useState('');
   const [platform, setPlatform] = useState('');
   const [label, setLabel] = useState('');
+
+  // Update URL when username or platform changes (for non-custom platforms)
+  useEffect(() => {
+    if (platform && platform !== 'custom' && username) {
+      setUrl(getPlatformUrl(platform, username));
+    }
+  }, [platform, username]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,25 +35,67 @@ export function LinkForm({ onAdd }: LinkFormProps) {
     });
 
     setUrl('');
+    setUsername('');
     setPlatform('');
     setLabel('');
+  };
+
+  const handlePlatformChange = (value: string) => {
+    setPlatform(value);
+    // Reset fields when changing platforms
+    setUsername('');
+    if (value === 'custom') {
+      setUrl('');
+    }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <PlatformSelect
         value={platform}
-        onChange={(value) => setPlatform(value)}
+        onChange={handlePlatformChange}
       />
 
-      <Input
-        label="URL"
-        type="url"
-        value={url}
-        onChange={(e) => setUrl(e.target.value)}
-        placeholder="https://"
-        required
-      />
+      {platform === 'custom' ? (
+        <Input
+          label="URL"
+          type="url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://"
+          required
+        />
+      ) : platform === 'email' ? (
+        <Input
+          label="Email Address"
+          type="email"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          placeholder="your@email.com"
+          required
+        />
+      ) : platform ? (
+        <div>
+          <label className="block text-sm font-medium mb-1">
+            {platform === 'document' ? 'Document URL' : 'Username'}
+          </label>
+          <div className="flex items-center border rounded-md overflow-hidden">
+            {platform !== 'document' && (
+              <span className="bg-gray-100 px-3 py-2 text-gray-500 text-sm border-r">
+                {getPlatformUrl(platform, '').replace('{{username}}', '')}
+              </span>
+            )}
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="flex-grow px-3 py-2 focus:outline-none"
+              placeholder={platform === 'document' ? 'https://example.com/doc' : 'username'}
+              required
+            />
+          </div>
+        </div>
+      ) : null}
 
       <Input
         label="Label"
