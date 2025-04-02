@@ -1,4 +1,5 @@
-import { Users, Twitter } from 'lucide-react';
+import { Users } from 'lucide-react';
+import { FaXTwitter } from 'react-icons/fa6';
 import type { TextBlock as TextBlockType, ThemeConfig } from '../../types/editor';
 
 interface TeamMember {
@@ -78,12 +79,12 @@ export function TeamBlock({ block, theme }: TeamBlockProps) {
                 {member.role}
               </p>
               <a
-                href={`https://twitter.com/${member.twitter}`}
+                href={`https://x.com/${member.twitter}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center space-x-1 text-sm text-blue-500 hover:text-blue-600 mt-1"
               >
-                <Twitter className="w-3 h-3" />
+                <FaXTwitter className="w-3 h-3" />
                 <span>@{member.twitter}</span>
               </a>
             </div>

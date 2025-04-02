@@ -16,22 +16,23 @@ import {
   DollarSign,
   Music,
   Newspaper,
-  Twitter,
   Gamepad2,
   Share2,
   type LucideIcon
 } from 'lucide-react';
+import { FaXTwitter } from 'react-icons/fa6';
+import { type IconType } from 'react-icons/lib';
 
 interface Platform {
   id: string;
   name: string;
-  icon: LucideIcon;
+  icon: IconType | LucideIcon;
   color: string;
 }
 
 export const platforms: Platform[] = [
   // Social Media
-  { id: 'twitter', name: 'Twitter/X', icon: Twitter, color: '#000000' },
+  { id: 'twitter', name: 'X', icon: FaXTwitter, color: '#000000' },
   { id: 'telegram', name: 'Telegram', icon: MessageCircle, color: '#26A5E4' },
   { id: 'discord', name: 'Discord', icon: Gamepad2, color: '#5865F2' },
   { id: 'instagram', name: 'Instagram', icon: Instagram, color: '#E4405F' },
@@ -69,7 +70,8 @@ export const platforms: Platform[] = [
 ];
 
 export function getPlatformIcon(platformId: string): LucideIcon {
-  return platforms.find((p) => p.id === platformId)?.icon || Link;
+  const icon = platforms.find((p) => p.id === platformId)?.icon;
+  return typeof icon === 'function' ? (icon as LucideIcon) : Link;
 }
 
 export function getPlatformColor(platformId: string): string {
