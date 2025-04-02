@@ -14,6 +14,7 @@ export function LinkForm({ onAdd }: LinkFormProps) {
   const [username, setUsername] = useState('');
   const [platform, setPlatform] = useState('');
   const [label, setLabel] = useState('');
+  const [error, setError] = useState('');
 
   // Update URL when username or platform changes (for non-custom platforms)
   useEffect(() => {
@@ -25,6 +26,7 @@ export function LinkForm({ onAdd }: LinkFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!url || !platform || !label) return;
+    if (error) return;
 
     onAdd({
       id: 0,
@@ -38,14 +40,41 @@ export function LinkForm({ onAdd }: LinkFormProps) {
     setUsername('');
     setPlatform('');
     setLabel('');
+    setError('');
   };
 
   const handlePlatformChange = (value: string) => {
     setPlatform(value);
     // Reset fields when changing platforms
     setUsername('');
+    setError('');
     if (value === 'custom') {
       setUrl('');
+    }
+  };
+
+  const isValidUsername = (value: string): boolean => {
+    // Allow alphanumeric characters, hyphens, underscores, periods
+    const validUsernamePattern = /^[a-zA-Z0-9._-]*$/;
+    return validUsernamePattern.test(value);
+  };
+
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    
+    if (platform === 'email') {
+      // Email validation is handled by the input type="email"
+      setUsername(value);
+      setError('');
+    } else if (platform === 'document') {
+      // Full URL - allow the input
+      setUsername(value);
+      setError('');
+    } else if (!value || isValidUsername(value)) {
+      setUsername(value);
+      setError('');
+    } else {
+      setError('Username can only contain letters, numbers, dots, hyphens, and underscores');
     }
   };
 
@@ -70,7 +99,7 @@ export function LinkForm({ onAdd }: LinkFormProps) {
           label="Email Address"
           type="email"
           value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          onChange={handleUsernameChange}
           placeholder="your@email.com"
           required
         />
@@ -79,7 +108,7 @@ export function LinkForm({ onAdd }: LinkFormProps) {
           <label className="block text-sm font-medium mb-1">
             {platform === 'document' ? 'Document URL' : 'Username'}
           </label>
-          <div className="flex items-center border rounded-md overflow-hidden">
+          <div className={`flex items-center border rounded-md overflow-hidden ${error ? 'border-red-500' : ''}`}>
             {platform !== 'document' && (
               <span className="bg-gray-100 px-3 py-2 text-gray-500 text-sm border-r">
                 {getPlatformUrl(platform, '').replace('{{username}}', '')}
@@ -88,12 +117,13 @@ export function LinkForm({ onAdd }: LinkFormProps) {
             <input
               type="text"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="flex-grow px-3 py-2 focus:outline-none"
+              onChange={handleUsernameChange}
+              className={`flex-grow px-3 py-2 focus:outline-none ${error ? 'bg-red-50' : ''}`}
               placeholder={platform === 'document' ? 'https://example.com/doc' : 'username'}
               required
             />
           </div>
+          {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
         </div>
       ) : null}
 
@@ -107,7 +137,8 @@ export function LinkForm({ onAdd }: LinkFormProps) {
 
       <button
         type="submit"
-        className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+        disabled={!!error}
+        className={`w-full flex items-center justify-center px-4 py-2 text-white rounded-md ${error ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
       >
         <Plus className="w-4 h-4 mr-2" />
         Add Link
