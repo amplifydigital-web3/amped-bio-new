@@ -39,13 +39,11 @@ app.post('/api/auth/register', authController.register);
 app.post('/api/auth/login', authController.login);
 
 // Password Reset
-app.get('/api/auth/passwordResetRequest', authController.passwordResetRequest);
+app.post('/api/auth/passwordResetRequest', authController.passwordResetRequest);
 app.post('/api/auth/passwordReset', authController.processPasswordReset);
-app.get('/api/auth/passwordReset/:token', authController.passwordReset);
-
 
 // Email Verification
-app.get('/api/auth/sendEmailVerification', authController.sendVerifyEmail);
+app.post('/api/auth/sendEmailVerification', authController.sendVerifyEmail);
 app.get('/api/auth/verifyEmail/:token', authController.verifyEmail);
 
 // User

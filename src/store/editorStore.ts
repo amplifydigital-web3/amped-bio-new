@@ -18,7 +18,7 @@ import {
   editBlocks,
   deleteBlock,
   getOnelink,
-} from '../api';
+} from '../api/api';
 import initialState, { defaultAuthUser } from './defaults';
 import { isNumber } from '@tsparticles/engine';
 import { useAuthStore } from './authStore';

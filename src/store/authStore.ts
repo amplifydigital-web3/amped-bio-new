@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, PersistOptions } from 'zustand/middleware';
-import { login, registerNewUser, passwordResetRequest } from '../api';
+import { login, registerNewUser, passwordResetRequest } from '../api/api';
 import type { AuthUser } from '../types/auth';
 import { defaultAuthUser } from './defaults';
 

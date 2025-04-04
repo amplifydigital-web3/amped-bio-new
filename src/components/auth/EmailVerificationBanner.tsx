@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AlertTriangle, Mail } from 'lucide-react';
-import { resendEmailVerification } from '@/api';
+import { resendEmailVerification } from '@/api/api';
 import { useAuthStore } from '@/store/authStore';
 import { defaultAuthUser } from '@/store/defaults';
 

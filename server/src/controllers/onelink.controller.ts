@@ -48,13 +48,13 @@ export const onelinkController = {
         const { onelink } = req.params
 
         try {
-            const user = await prisma.user.findUnique({
+            const count = await prisma.user.count({
                 where: {
                     onelink: onelink,
                 }
             });
 
-            if (user === null) {
+            if (count === 0) {
                 return res.status(201).json({ url: onelink, message: 'Available' });
             } else {
                 return res.status(201).json({ url: onelink, message: 'Taken' });
