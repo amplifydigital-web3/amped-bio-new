@@ -5,6 +5,7 @@ import { PrismaClient } from '@prisma/client'
 const prisma = new PrismaClient()
 
 export const themeController = {
+    // edit theme for user
     async editTheme(req: Request, res: Response) {
         const { id } = req.params
         const { user_id, theme } = req.body.data;
@@ -50,9 +51,11 @@ export const themeController = {
         }
     },
 
+    // get theme by id
     async get(req: Request, res: Response) {
         const { id } = req.params
 
+        // TODO filter requests if theme is not visible to current user. Check theme share_level, share_config and user id
         try {
             const result = await prisma.theme.findUnique({
                 where: {
@@ -74,9 +77,11 @@ export const themeController = {
         }
     },
 
+    // delete theme by id
     async delete(req: Request, res: Response) {
         const { user_id, id } = req.body.data;
 
+        // TODO filter requests if theme is not editiable by user
         try {
             const theme = await prisma.theme.findUnique({
                 where: {
@@ -105,4 +110,7 @@ export const themeController = {
             res.status(500).json({ message: 'Server error' });
         }
     },
+
+    // TODO add a getAll themes for planned Gallery feature
+    // return all themes based on share_level and share_config
 };

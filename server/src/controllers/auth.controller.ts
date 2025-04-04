@@ -7,11 +7,6 @@ import { validateEmail } from '../utils/validation';
 import crypto from 'crypto';
 import { withRelatedProject } from '@vercel/related-projects';
 
-// const serverBaseURL = withRelatedProject({
-//   projectName: 'amped-bio-server',
-//   defaultHost: 'http://localhost:3000'
-// })
-
 const serverBaseURL = process.env.VERCEL_PROJECT_PRODUCTION_URL || 'http://localhost:3000';
 
 const frontendBaseURL = withRelatedProject({
@@ -22,6 +17,7 @@ const frontendBaseURL = withRelatedProject({
 const prisma = new PrismaClient()
 
 export const authController = {
+  // register new user
   async register(req: Request, res: Response) {
     const { onelink, email, password } = req.body.data;
 
@@ -87,6 +83,7 @@ export const authController = {
     }
   },
 
+  // user login
   async login(req: Request, res: Response) {
     const { email, password } = req.body.data;
 
@@ -122,6 +119,7 @@ export const authController = {
     }
   },
 
+  // request password reset email
   async passwordResetRequest(req: Request, res: Response) {
     const { email: emailQuery, renderResponse } = req.query;
     const email = decodeURIComponent(Array.isArray(emailQuery) ? `${emailQuery[0]}` : `${emailQuery}`);
@@ -182,6 +180,7 @@ export const authController = {
     }
   },
 
+  // handle password reset request and return/render status
   async passwordReset(req: Request, res: Response) {
     const { token: resetToken } = req.params;
     const { email: emailQuery, renderResponse } = req.query;
@@ -218,9 +217,8 @@ export const authController = {
     }
   },
 
+  // process password reset and return/render status
   async processPasswordReset(req: Request, res: Response) {
-    const { url, method, query, params, body } = req;
-    const { email: emailQuery } = req.query;
     const { token: requestToken, password, confirmPassword } = req.body;
 
     if (password !== confirmPassword) {
@@ -260,6 +258,7 @@ export const authController = {
     }
   },
 
+  // handle verify email request and return/render status
   async sendVerifyEmail(req: Request, res: Response) {
     const { email: emailQuery, renderResponse } = req.query;
     const email = decodeURIComponent(Array.isArray(emailQuery) ? `${emailQuery[0]}` : `${emailQuery}`);
@@ -287,12 +286,6 @@ export const authController = {
           return res.render('EmailVerificationResentPage.ejs', { status: 'error', message: 'User not found', email: email })
         }
       }
-
-      // Commented for testing!!!!
-      // if (user.email_verified_at !== null) {
-      //   return res.status(400).json({ message: 'Email already verified' });
-      // }
-
 
       const remember_token = crypto.randomBytes(32).toString('hex');
 
@@ -333,6 +326,7 @@ export const authController = {
     }
   },
 
+  // process email verification and render status
   async verifyEmail(req: Request, res: Response) {
     const { token } = req.params;
     const { email: emailQuery } = req.query;

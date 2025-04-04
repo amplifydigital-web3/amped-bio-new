@@ -4,6 +4,8 @@ interface HeroEffectPickerProps {
   onChange: (effect: number) => void;
 }
 
+// TODO centralize list of effects, we should not have two different lists
+
 const heroEffects = [
   { id: 0, name: 'None', description: 'No text effect' },
   { id: 1, name: 'Gradient', description: 'Animated gradient text' },
@@ -29,8 +31,8 @@ export function HeroEffectPicker({ value, onChange }: HeroEffectPickerProps) {
             key={effect.id}
             onClick={() => onChange(effect.id)}
             className={`p-4 text-left rounded-lg border transition-all ${value === effect.id
-                ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-500'
-                : 'bg-white border-gray-200 hover:border-blue-200'
+              ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-500'
+              : 'bg-white border-gray-200 hover:border-blue-200'
               }`}
           >
             <p className="font-medium text-gray-900">{effect.name}</p>

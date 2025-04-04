@@ -4,6 +4,8 @@ interface ParticlesEffectPickerProps {
   onChange: (effect: number) => void;
 }
 
+// TODO centralize list of effects, we should not have two different lists here and in particleConfigs
+
 const particlesEffects = [
   { id: 0, name: 'None', description: 'No particles effect' },
   { id: 1, name: 'Floating Dots', description: 'Gentle floating particles' },

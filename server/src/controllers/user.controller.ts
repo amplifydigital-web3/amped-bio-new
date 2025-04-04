@@ -6,6 +6,7 @@ import { generateToken } from '../utils/token';
 const prisma = new PrismaClient()
 
 export const userController = {
+    // edit user
     async edit(req: Request, res: Response) {
         const { id } = req.params
         const { name, email, onelink, description, theme, image, reward_business_id } = req.body.data;
@@ -38,6 +39,7 @@ export const userController = {
         }
     },
 
+    // get user by id
     async get(req: Request, res: Response) {
         const { id } = req.params
 
@@ -81,6 +83,7 @@ export const userController = {
         }
     },
 
+    // delete user by id
     async delete(req: Request, res: Response) {
         const { email, id } = req.body.data;
 

@@ -5,38 +5,41 @@ import { PrismaClient } from '@prisma/client'
 const prisma = new PrismaClient()
 
 export const onelinkController = {
+    // get all data for user by onelink
     async getOnelink(req: Request, res: Response) {
         const { onelink } = req.params
-
+        console.log('query onelink:', onelink)
         try {
-            const user = await prisma.user.findUnique({
+            return prisma.user.findUnique({
                 where: {
                     onelink: onelink,
                 }
-            });
-
-            if (user === null) {
-                return res.status(400).json({ message: `Onelink not found: ${onelink}` });
-            }
-
-            const { theme: theme_id, id: user_id, name, email, description, image } = user;
-
-            const theme = await prisma.theme.findUnique({
-                where: {
-                    id: Number(theme_id)
+            }).then((user) => {
+                if (user === null) {
+                    res.status(400).json({ message: `Onelink not found: ${onelink}` });
+                    return;
                 }
-            });
 
-            const blocks = await prisma.block.findMany({
-                where: {
-                    user_id: Number(user_id)
-                }
-            });
+                const { theme: theme_id, id: user_id, name, email, description, image } = user;
 
-            const result = { user: { name, email, description, image }, theme, blocks };
+                const theme = prisma.theme.findUnique({
+                    where: {
+                        id: Number(theme_id)
+                    }
+                });
 
-            res.status(201).json({
-                result,
+                const blocks = prisma.block.findMany({
+                    where: {
+                        user_id: Number(user_id)
+                    }
+                });
+
+                Promise.all([theme, blocks]).then(([theme, blocks]) => {
+                    const result = { user: { name, email, description, image }, theme, blocks };
+                    res.status(201).json({
+                        result,
+                    });
+                });
             });
 
         } catch (error) {
@@ -44,6 +47,8 @@ export const onelinkController = {
             res.status(500).json({ message: 'Server error' });
         }
     },
+
+    // check availability of onelink
     async checkOnelink(req: Request, res: Response) {
         const { onelink } = req.params
 

@@ -18,6 +18,8 @@ interface BlockPickerProps {
   onAdd: (block: Block) => void;
 }
 
+// TODO centralize list, thsi should be in a config file
+
 const blockTypes = [
   {
     category: 'Media Embeds',

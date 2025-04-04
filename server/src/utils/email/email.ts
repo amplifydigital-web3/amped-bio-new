@@ -2,13 +2,8 @@ import axios from 'axios';
 import ReactDOMServer from 'react-dom/server';
 import { verifyEmailTemplate } from './VerifyEmailTemplate';
 import { resetPasswordTemplate } from './ResetPasswordTemplate';
-import { withRelatedProject } from '@vercel/related-projects';
 
-// const baseURL = withRelatedProject({
-//     projectName: 'amped-bio-server',
-//     defaultHost: 'http://localhost:3000'
-// })
-
+// TODO make sure this is always the right URL, another env var may be better
 const baseURL = process.env.VERCEL_PROJECT_PRODUCTION_URL || 'http://localhost:3000';
 
 type EmailOptions = {

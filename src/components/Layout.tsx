@@ -50,7 +50,7 @@ export function Layout(props: LayoutProps) {
               </Link>
             </div>
 
-            {!emailVerified || usr.email === 'will@amplifydigital.ai' && (<EmailVerificationBanner />)}
+            {!emailVerified && (<EmailVerificationBanner />)}
             <div className='flex items-center justify-end'>
               <SaveButton />
               <UserMenu />

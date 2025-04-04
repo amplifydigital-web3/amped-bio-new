@@ -18,6 +18,8 @@ export function ProfileForm({ profile, onUpdate }: ProfileFormProps) {
         placeholder="Enter your name"
       />
 
+      {/* TODO: can we turn the title editing back on? */}
+
       {/* <Input
         label="Title"
         value={profile.title}
