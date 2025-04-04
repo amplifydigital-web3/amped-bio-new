@@ -18,7 +18,7 @@ export function CreateWalletButton({
     try {
       await wallet.connect('coinbase');
     } catch (error) {
-      console.log('error.....', error);
+      console.error('error.....', error);
       handleError(error);
     }
   }, [handleSuccess, handleError]);

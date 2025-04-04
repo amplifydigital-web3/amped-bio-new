@@ -59,7 +59,7 @@ export function ConnectModal(props: ConnectModalProps) {
   );
 
   const handleError = useCallback((e: any) => {
-    console.log(e);
+    console.error(e);
   }, []);
 
   return (

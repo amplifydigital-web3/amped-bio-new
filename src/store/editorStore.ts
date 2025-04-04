@@ -108,7 +108,7 @@ export const useEditorStore = create<EditorStore>()((set) => ({
         blocks: state.blocks.filter((block) => block.id !== id),
       }));
     } catch (error) {
-      console.log('error deleting block', error);
+      console.error('error deleting block', error);
     }
   },
 

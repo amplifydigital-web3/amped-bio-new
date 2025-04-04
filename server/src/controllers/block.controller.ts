@@ -29,7 +29,7 @@ export const blockController = {
                     blockController.editBlock(Number(id), Number(user_id), type, idx, rest);
                 }
                 catch (error) {
-                    console.log(`error editing block ${id} `, error);
+                    console.error(`error editing block ${id} `, error);
                     throw (error);
                 }
             });

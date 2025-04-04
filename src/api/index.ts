@@ -94,7 +94,6 @@ export async function passwordResetRequest(email: string) {
 // Edit User
 export async function editUser(userData: { id: number; name: string; email: string; onelink: string; description: string; image: string; reward_business_id: string; theme: string; }) {
     const { id } = userData;
-    console.log('Editing user:', userData);
     try {
         const response = await axios.put(`${baseURL}/api/user/${id}`, { data: userData });
         console.log('User updated successfully:', response.data);
@@ -112,7 +111,6 @@ export async function editUser(userData: { id: number; name: string; email: stri
 // Get User
 export async function getUser(userData: { id: string; token: string; }) {
     const { id } = userData;
-    console.log('Get user:', userData);
     try {
         const response = await axios.get(`${baseURL}/api/user/${id}`, { data: userData, headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache', 'Expires': 0 } });
         console.log('User get:', response.data);
@@ -147,7 +145,6 @@ export async function deleteUser(userData: deleteData) {
 // Edit Theme
 export async function editTheme(theme: Theme, user_id) {
     const { id } = theme;
-    console.log('Editing Theme:', id);
     try {
         const response = await axios.put(`${baseURL}/api/user/theme/${id}`, { data: { theme, user_id } });
         console.log('Theme updated successfully:', response.data);
@@ -164,7 +161,6 @@ export async function editTheme(theme: Theme, user_id) {
 
 // Edit Block
 export async function editBlocks(blocks: Block[], user_id) {
-    console.log('Editing user blocks:', user_id);
     try {
         const response = await axios.put(`${baseURL}/api/user/blocks/${user_id}`, { data: { blocks: blocks } });
         console.log('User updated successfully:', response.data);
@@ -181,7 +177,6 @@ export async function editBlocks(blocks: Block[], user_id) {
 
 // Delete Block
 export async function deleteBlock(block_id: number, user_id: number) {
-    console.log('Delete user block:', user_id);
     try {
         const response = await axios.delete(`${baseURL}/api/user/blocks/block/${block_id}$${user_id}`);
         console.log('Block deleted successfully:', response.data);
@@ -198,7 +193,6 @@ export async function deleteBlock(block_id: number, user_id: number) {
 
 // Get Onelink
 export async function getOnelink(onelink: string) {
-    console.log('Get onelink:', onelink);
     try {
         const response = await axios.get(`${baseURL}/api/onelink/${onelink}`);
         return response.data.result;
@@ -213,7 +207,6 @@ export async function getOnelink(onelink: string) {
 };
 
 export async function checkOnelinkAvailability(onelink: string) {
-    console.log('Check onelink:', onelink);
     try {
         const response = await axios.get(`${baseURL}/api/onelink/check/${onelink}`);
         return response.data.message;
