@@ -1,3 +1,5 @@
+import { PlatformId } from '@/utils/platforms';
+
 export type UserProfile = {
   name: string;
   onelink: string;
@@ -10,7 +12,7 @@ export type UserProfile = {
 export type LinkBlock = {
   id: number;
   type: 'link';
-  platform: string;
+  platform: PlatformId;
   url: string;
   label: string;
 };
