@@ -10,6 +10,8 @@ const prisma = new PrismaClient()
 
 export const adminController = {
 
+    // TODO: Implement admin endpoints
+
     // // Get all users
     // app.get('/users', async (req, res) => {
     //     const users = await prisma.user.findMany()

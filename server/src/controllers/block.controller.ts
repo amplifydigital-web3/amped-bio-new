@@ -14,6 +14,7 @@ type BlockRaw = {
 const prisma = new PrismaClient()
 
 export const blockController = {
+    // edit all blocks for a user
     async editBlocks(req: Request, res: Response) {
         const { user_id } = req.params;
         const { blocks } = req.body.data;
@@ -41,8 +42,8 @@ export const blockController = {
         }
     },
 
+    // edit single block
     async editBlock(id: number, user_id: number, type: string, order: number, config: object) {
-        // console.log('editing block', { user_id, id, type, order, config });
         const block = await prisma.block.findUnique({
             where: {
                 id: id,
@@ -72,6 +73,7 @@ export const blockController = {
 
     },
 
+    // get specific block by id
     async get(req: Request, res: Response) {
         const { id } = req.params
 
@@ -96,6 +98,7 @@ export const blockController = {
         }
     },
 
+    // get all blocks for user id
     async getAll(req: Request, res: Response) {
         const { user_id } = req.params
 
@@ -120,6 +123,7 @@ export const blockController = {
         }
     },
 
+    // delete block by id
     async delete(req: Request, res: Response) {
         const { id: id_combined } = req.params
         const [id_raw, user_id] = id_combined.split('$');

@@ -14,21 +14,21 @@ const initialState: EditorState = {
     profile: defaultProfile,
     blocks: [
         {
-            id: '1',
+            id: 1,
             type: 'link',
             platform: 'twitter',
             url: 'https://x.com/amped_bio',
             label: 'Follow on X',
         },
         {
-            id: '2',
+            id: 2,
             type: 'link',
             platform: 'github',
             url: 'https://github.com/amplifydigital-web3',
             label: 'Check out our Github',
         },
         {
-            id: '3',
+            id: 3,
             type: 'link',
             platform: 'telegram',
             url: 'https://t.me/npayme_network',
@@ -74,7 +74,7 @@ export default initialState;
 
 export const defaultAuthUser: AuthUser = {
     email: 'info@amplifydigital.ai',
-    id: '',
+    id: 0,
     token: '',
     onelink: 'Amped-Bio',
     emailVerified: true

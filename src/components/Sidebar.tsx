@@ -75,6 +75,8 @@ export function Sidebar() {
           </button>
         ))}
 
+        {/* IMPORT and EXPORT hidden for BETA as they do not work following changes to theme config. Needs fix */}
+
         {/* <div className="md:mt-auto md:mb-6 flex md:flex-col items-center space-x-2 md:space-x-0 md:space-y-2">
           <button
             onClick={handleExport}

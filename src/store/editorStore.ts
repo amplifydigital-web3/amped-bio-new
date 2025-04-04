@@ -10,24 +10,20 @@ import type {
   MarketplaceTheme,
 } from '../types/editor';
 import { persist, PersistOptions } from 'zustand/middleware';
-import type { AuthUser } from '../types/auth';
 import {
   editUser,
-  getUser,
   editTheme,
   editBlocks,
   deleteBlock,
   getOnelink,
 } from '../api';
 import initialState, { defaultAuthUser } from './defaults';
-import { isNumber } from '@tsparticles/engine';
 import { useAuthStore } from './authStore';
 import toast from 'react-hot-toast';
 
 interface EditorStore extends EditorState {
   changes: boolean;
   setUser: (onelink: string) => Promise<any>;
-  // setAuthUser: (user: AuthUser) => void;
   setProfile: (profile: UserProfile) => void;
   addBlock: (block: Block) => void;
   removeBlock: (id: number) => void;
@@ -57,6 +53,8 @@ type EditorPersistOptions = PersistOptions<EditorStore>;
 export const useEditorStore = create<EditorStore>()((set) => ({
   changes: false,
   ...initialState,
+
+  // SetUser will fetch all user data (profile, blocks, theme) and apply all
   setUser: async (onelink: string) => {
     try {
       const userData = await getOnelink(onelink);
@@ -83,12 +81,18 @@ export const useEditorStore = create<EditorStore>()((set) => ({
       return;
     }
   },
+
+  // setProfile
   setProfile: (profile) => set({ profile, changes: true }),
+
+  // addBlock
   addBlock: (block: Block) =>
     set((state) => ({
       blocks: [...state.blocks, block],
       changes: true,
     })),
+
+  // removeBlock will attempt to make a delete request to the server to prevent block ordering confusion on save
   removeBlock: async (id: number) => {
     const { authUser } = useAuthStore.getState();
     try {
@@ -107,23 +111,32 @@ export const useEditorStore = create<EditorStore>()((set) => ({
       console.log('error deleting block', error);
     }
   },
+
+  // updateBlock will do a partial update a block in the list of blocks
   updateBlock: (id: number, updatedBlock: Partial<Block>) =>
     set(
       (state) =>
-        ({
-          blocks: state.blocks.map((block) =>
-            block.id === id ? { ...block, ...updatedBlock } : block
-          ),
-          changes: true,
-        } as Partial<EditorStore>)
+      ({
+        blocks: state.blocks.map((block) =>
+          block.id === id ? { ...block, ...updatedBlock } : block
+        ),
+        changes: true,
+      } as Partial<EditorStore>)
     ),
+
+  // reorderBlock
   reorderBlocks: (blocks: Block[]) => set({ blocks, changes: true }),
+  // updateThemeConfig will update the theme config and preserve prev values not changed
   updateThemeConfig: (config) =>
     set((state) => ({
       theme: { ...state.theme, config: { ...state.theme.config, ...config } },
       changes: true,
     })),
+
+  // setActivePanel used for changing sidebar panels
   setActivePanel: (activePanel: string) => set({ activePanel }),
+
+  // setBackground
   setBackground: (background: Background) =>
     set((state) => ({
       theme: {
@@ -132,10 +145,14 @@ export const useEditorStore = create<EditorStore>()((set) => ({
       },
       changes: true,
     })),
+
+  // addToGallery
   addToGallery: (image) =>
     set((state) => ({
       gallery: [...state.gallery, image],
     })),
+
+  // removeFromGallery
   removeFromGallery: (url) =>
     set((state) => ({
       gallery: state.gallery.filter((image) => image.url !== url),
@@ -143,11 +160,17 @@ export const useEditorStore = create<EditorStore>()((set) => ({
   setMarketplaceView: (marketplaceView) => set({ marketplaceView }),
   setMarketplaceFilter: (marketplaceFilter) => set({ marketplaceFilter }),
   setMarketplaceSort: (marketplaceSort) => set({ marketplaceSort }),
+
+  // This should be removed and replace usage with updateThemeConfig
   applyTheme: (theme) => set({ theme }),
+
+  // creator pool things
   selectedPoolId: null,
   setSelectedPoolId: (id) => set({ selectedPoolId: id }),
+
+  // saveChanges bundles changes and makes edit requests to server
+  // function could be re-ordered as a promise chain
   saveChanges: async () => {
-    // Save changes to the server
     console.log('Saving changes...');
     const { profile, theme, blocks } = useEditorStore.getState();
     const { authUser } = useAuthStore.getState();

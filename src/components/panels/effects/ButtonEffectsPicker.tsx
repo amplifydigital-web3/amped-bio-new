@@ -5,6 +5,8 @@ interface ButtonEffectsPickerProps {
   onChange: (effect: number) => void;
 }
 
+// TODO centralize list of effects, we should not have two different lists
+
 const buttonEffects = [
   { id: 0, name: 'None', preview: '' },
   { id: 1, name: 'Scale', preview: 'hover:scale-105 transition-transform' },

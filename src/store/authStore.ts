@@ -30,7 +30,7 @@ export const useAuthStore = create<AuthState>()(
       token: null,
 
       signIn: async (email: string, password: string) => {
-        let authed_user = { email: '', id: '', onelink: '', token: '', emailVerified: false };
+        let authed_user = { email: '', id: 0, onelink: '', token: '', emailVerified: false };
         try {
           set({ loading: true, error: null });
           const { user, token } = await login({ email, password });
@@ -47,7 +47,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       signUp: async (onelink: string, email: string, password: string) => {
-        let authed_user = { email: '', id: '', onelink: '', token: '', emailVerified: false };
+        let authed_user = { email: '', id: 0, onelink: '', token: '', emailVerified: false };
         try {
           set({ loading: true, error: null });
           const { user, token } = await registerNewUser({ onelink, email, password });
