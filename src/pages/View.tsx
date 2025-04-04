@@ -35,7 +35,7 @@ export function View() {
       {/* Edit Button */}
       {authUser !== defaultAuthUser && authUser.email === profile.email && (
         <Link
-          to={`/${onelink}/edit`}
+          to={`/${onelink.length > 0 ? onelink : profile.onelink}/edit`}
           className="fixed bottom-4 right-4 p-3 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-colors flex items-center space-x-2"
         >
           <Settings className="w-5 h-5" />

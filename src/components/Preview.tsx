@@ -8,6 +8,19 @@ import { MediaBlock } from './blocks/MediaBlock';
 import { TextBlock } from './blocks/TextBlock';
 import { UserMenu } from './auth/UserMenu';
 
+// Helper function to extract the root domain from a URL
+const extractRootDomain = (url: string): string => {
+  try {
+    // Add protocol if missing to make URL constructor work
+    const urlString = url.startsWith('http') ? url : `https://${url}`;
+    const urlObj = new URL(urlString);
+    return urlObj.hostname;
+  } catch (e) {
+    // Return the original URL if parsing fails
+    return url;
+  }
+};
+
 interface PreviewProps {
   isEditing: boolean;
   onelink: string;
@@ -143,6 +156,10 @@ export function Preview(props: PreviewProps) {
                 {blocks.map((block) => {
                   if (block.type === 'link') {
                     const Icon = getPlatformIcon(block.platform);
+                    const element = block.platform === 'custom' ?  <img 
+                      src={`https://www.google.com/s2/favicons?domain=${extractRootDomain(block.url)}&sz=128`} 
+                      className="w-5 h-5 flex-shrink-0 rounded-full" />  :  <Icon className="w-5 h-5 flex-shrink-0" />;
+
                     return (
                       <a
                         key={block.id}
@@ -162,7 +179,7 @@ export function Preview(props: PreviewProps) {
                           color: theme.fontColor,
                         }}
                       >
-                        <Icon className="w-5 h-5 flex-shrink-0" />
+                        {element}
                         <span className="flex-1 text-center">{block.label}</span>
                       </a>
                     );

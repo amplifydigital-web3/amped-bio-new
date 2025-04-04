@@ -3,7 +3,7 @@ import { Plus } from 'lucide-react';
 import { Input } from '../../ui/Input';
 import { PlatformSelect } from './PlatformSelect';
 import type { LinkBlock } from '../../../types/editor';
-import { getPlatformUrl } from '../../../utils/platforms';
+import { PlatformId, getPlatformUrl } from '@/utils/platforms';
 
 interface LinkFormProps {
   onAdd: (block: LinkBlock) => void;
@@ -12,7 +12,7 @@ interface LinkFormProps {
 export function LinkForm({ onAdd }: LinkFormProps) {
   const [url, setUrl] = useState('');
   const [username, setUsername] = useState('');
-  const [platform, setPlatform] = useState('');
+  const [platform, setPlatform] = useState<PlatformId | null>(null);
   const [label, setLabel] = useState('');
   const [error, setError] = useState('');
 
@@ -38,12 +38,12 @@ export function LinkForm({ onAdd }: LinkFormProps) {
 
     setUrl('');
     setUsername('');
-    setPlatform('');
+    setPlatform(null);
     setLabel('');
     setError('');
   };
 
-  const handlePlatformChange = (value: string) => {
+  const handlePlatformChange = (value: PlatformId) => {
     setPlatform(value);
     // Reset fields when changing platforms
     setUsername('');
