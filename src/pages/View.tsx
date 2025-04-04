@@ -22,6 +22,8 @@ export function View() {
     } else {
       setLoading(false);
     }
+
+    console.info("onelink", onelink);
   }, [onelink, profile, setUser]);
 
   if (loading) {
