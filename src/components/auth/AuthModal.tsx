@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Loader2 } from 'lucide-react';
+import { X, Loader2, Eye, EyeOff } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
@@ -49,6 +49,8 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
   const [loading, setLoading] = useState(false);
   const [sharedEmail, setSharedEmail] = useState('');
   const isUserTyping = useRef(false);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
 
   // Use react-hook-form with zod resolver based on current form type
   const {
@@ -213,15 +215,25 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
               autoComplete="email"
               {...registerLogin('email')}
             />
-            <Input
-              label="Password"
-              type="password"
-              error={loginErrors.password?.message}
-              required
-              aria-label="Password"
-              autoComplete="current-password"
-              {...registerLogin('password')}
-            />
+            <div className="relative">
+              <Input
+                label="Password"
+                type={showLoginPassword ? 'text' : 'password'}
+                error={loginErrors.password?.message}
+                required
+                aria-label="Password"
+                autoComplete="current-password"
+                {...registerLogin('password')}
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-9 text-gray-500 hover:text-gray-700"
+                onClick={() => setShowLoginPassword(!showLoginPassword)}
+                aria-label={showLoginPassword ? 'Hide password' : 'Show password'}
+              >
+                {showLoginPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
+            </div>
             <Button
               type="submit"
               className="w-full"
@@ -256,15 +268,29 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
               autoComplete="email"
               {...registerSignUp('email')}
             />
-            <Input
-              label="Password"
-              type="password"
-              error={registerErrors.password?.message}
-              required
-              aria-label="Password"
-              autoComplete="new-password"
-              {...registerSignUp('password')}
-            />
+            <div className="relative">
+              <Input
+                label="Password"
+                type={showRegisterPassword ? 'text' : 'password'}
+                error={registerErrors.password?.message}
+                required
+                aria-label="Password"
+                autoComplete="new-password"
+                {...registerSignUp('password')}
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-9 text-gray-500 hover:text-gray-700"
+                onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+                aria-label={showRegisterPassword ? 'Hide password' : 'Show password'}
+              >
+                {showRegisterPassword ? (
+                  <EyeOff className="h-5 w-5" />
+                ) : (
+                  <Eye className="h-5 w-5" />
+                )}
+              </button>
+            </div>
             <Button
               type="submit"
               className="w-full"
