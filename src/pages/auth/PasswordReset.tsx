@@ -68,11 +68,7 @@ export function PasswordReset() {
     setIsLoading(true);
 
     try {
-      const response: PasswordResetResponse = await processPasswordReset(
-        data.token,
-        data.password,
-        data.confirmPassword
-      );
+      const response: PasswordResetResponse = await processPasswordReset(data.token, data.password);
 
       if (response.success) {
         setStatus('success');

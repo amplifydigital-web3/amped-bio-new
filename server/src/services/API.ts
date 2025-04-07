@@ -29,7 +29,6 @@ export class API implements Service {
     this.app.use((req, res, next) => {
       res.locals = {
         di: this.di,
-        user: null,
       };
       next();
     });

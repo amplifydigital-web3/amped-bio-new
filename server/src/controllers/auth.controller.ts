@@ -3,45 +3,42 @@ import { PrismaClient } from '@prisma/client';
 import { sendEmailVerification, sendPasswordResetEmail } from '../utils/email/email';
 import { hashPassword, comparePasswords } from '../utils/password';
 import { generateToken } from '../utils/token';
-import { validateEmail } from '../utils/validation';
 import crypto from 'crypto';
+import { ValidatedRequest } from '../middleware/validation.middleware';
+import {
+  RegisterInput,
+  LoginInput,
+  PasswordResetRequestInput,
+  ProcessPasswordResetInput,
+  SendVerifyEmailInput,
+} from '../schemas/auth.schema';
 
 const prisma = new PrismaClient();
 
 export const authController = {
   async register(req: Request, res: Response) {
-    const { onelink, email, password } = req.body.data;
+    const { onelink, email, password } = (req as ValidatedRequest<RegisterInput>).validatedData;
 
     console.log('Got Register Request: ', onelink, email);
 
     try {
-      if (!validateEmail(email)) {
-        return res.status(400).json({ success: false, message: 'Invalid email format' });
-      }
+      const existingOnelinkCount = await prisma.user.count({
+        where: {
+          onelink: onelink,
+        },
+      });
 
-      const existingOnelink =
-        (await prisma.user.findUnique({
-          where: {
-            onelink: onelink,
-          },
-        })) !== null;
-
-      //TODO write funciton to check if onelink is valid
-      // if it is not, add random numbers to the end and check again
-      // repeat above until it is valid
-
-      if (existingOnelink) {
+      if (existingOnelinkCount > 0) {
         return res.status(400).json({ success: false, message: 'URL already taken' });
       }
 
-      const existingUser =
-        (await prisma.user.findUnique({
-          where: {
-            email: email,
-          },
-        })) !== null;
+      const existingUserCount = await prisma.user.count({
+        where: {
+          email: email,
+        },
+      });
 
-      if (existingUser) {
+      if (existingUserCount > 0) {
         return res.status(400).json({ success: false, message: 'Email already registered' });
       }
 
@@ -58,8 +55,6 @@ export const authController = {
         },
       });
 
-      const token = generateToken({ id: result.id, email: result.email });
-
       try {
         sendEmailVerification(email, remember_token);
       } catch (error) {
@@ -69,7 +64,6 @@ export const authController = {
       res.status(201).json({
         success: true,
         user: { id: result.id, email, onelink },
-        token,
       });
     } catch (error) {
       console.error('error', error);
@@ -78,7 +72,7 @@ export const authController = {
   },
 
   async login(req: Request, res: Response) {
-    const { email, password } = req.body.data;
+    const { email, password } = (req as ValidatedRequest<LoginInput>).validatedData;
 
     console.info('Got Login Request:', email, password);
 
@@ -116,7 +110,7 @@ export const authController = {
   },
 
   async passwordResetRequest(req: Request, res: Response) {
-    const { email } = req.body;
+    const { email } = (req as ValidatedRequest<PasswordResetRequestInput>).validatedData;
 
     try {
       const user = await prisma.user.findUnique({
@@ -173,14 +167,9 @@ export const authController = {
   },
 
   async processPasswordReset(req: Request, res: Response) {
-    const { token: requestToken, password, confirmPassword } = req.body;
-
-    if (password !== confirmPassword) {
-      return res.status(400).json({
-        success: false,
-        message: 'Passwords do not match',
-      });
-    }
+    const { token: requestToken, newPassword } = (
+      req as ValidatedRequest<ProcessPasswordResetInput>
+    ).validatedData;
 
     try {
       const user = await prisma.user.findFirst({
@@ -196,7 +185,7 @@ export const authController = {
         });
       }
 
-      const hashedPassword = await hashPassword(password);
+      const hashedPassword = await hashPassword(newPassword);
 
       if (user.password === hashedPassword) {
         return res.status(400).json({
@@ -227,14 +216,7 @@ export const authController = {
   },
 
   async sendVerifyEmail(req: Request, res: Response) {
-    const { email } = req.body;
-
-    if (!email || email === '') {
-      return res.status(400).json({
-        success: false,
-        message: 'Email missing from request body',
-      });
-    }
+    const { email } = (req as ValidatedRequest<SendVerifyEmailInput>).validatedData;
 
     console.log('Got send verify email request: ', email);
     try {

@@ -1,12 +1,13 @@
 import express from 'express';
 import { userController } from '../controllers/user.controller';
-import { validateUserInput } from '../middleware/validation';
+import { authMiddleware } from '../middleware/auth';
+import { validate, ValidationTarget } from '../middleware/validation.middleware';
+import { deleteUserSchema, editUserSchema } from '../schemas/user.schema';
 
 const router = express.Router();
 
-// User routes
-router.put('/:id', validateUserInput, userController.edit);
-router.get('/:id', userController.get);
-router.delete('/:id', validateUserInput, userController.delete);
+router.put('/', authMiddleware(), validate(editUserSchema), userController.edit);
+router.get('/', authMiddleware(), userController.get);
+router.delete('/', authMiddleware(), validate(deleteUserSchema), userController.delete);
 
 export default router;
