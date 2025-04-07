@@ -1,25 +1,31 @@
 import { useState, useEffect } from 'react';
-import { useParams, useLocation, useNavigate } from 'react-router-dom';
+import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
 import { processPasswordReset } from '../../api/api';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader } from 'lucide-react';
 import type { PasswordResetResponse } from '../../api/api.types';
+import logoSVG from '../../assets/AMPLIFY_FULL_K.svg';
+import { AuthHeader } from '../../components/auth/AuthHeader';
 
 // Define the validation schema using Zod
-const passwordResetSchema = z.object({
-  token: z.string().min(1, 'Token is required'),
-  password: z.string()
-    .min(8, 'Password must be at least 8 characters long')
-    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
-    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
-    .regex(/[0-9]/, 'Password must contain at least one number'),
-  confirmPassword: z.string(),
-}).refine(data => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-});
+const passwordResetSchema = z
+  .object({
+    token: z.string().min(1, 'Token is required'),
+    password: z
+      .string()
+      .min(8, 'Password must be at least 8 characters long')
+      .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+      .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+      .regex(/[0-9]/, 'Password must contain at least one number'),
+    confirmPassword: z.string(),
+  })
+  .refine(data => data.password === data.confirmPassword, {
+    // eslint-disable-next-line prettier/prettier
+    message: 'Passwords don\'t match',
+    path: ['confirmPassword'],
+  });
 
 // Infer the type from the schema
 type PasswordResetFormData = z.infer<typeof passwordResetSchema>;
@@ -30,7 +36,7 @@ export function PasswordReset() {
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
   const email = queryParams.get('email') || '';
-  
+
   const [status, setStatus] = useState<'valid' | 'submitting' | 'success' | 'error'>('valid');
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -60,10 +66,14 @@ export function PasswordReset() {
   const onSubmit = async (data: PasswordResetFormData) => {
     setStatus('submitting');
     setIsLoading(true);
-    
+
     try {
-      const response: PasswordResetResponse = await processPasswordReset(data.token, data.password, data.confirmPassword);
-      
+      const response: PasswordResetResponse = await processPasswordReset(
+        data.token,
+        data.password,
+        data.confirmPassword
+      );
+
       if (response.success) {
         setStatus('success');
         setMessage(response.message || 'Password has been successfully reset.');
@@ -73,7 +83,9 @@ export function PasswordReset() {
       }
     } catch (error) {
       setStatus('error');
-      setMessage(error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.');
+      setMessage(
+        error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -82,19 +94,30 @@ export function PasswordReset() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
       <div className="w-full max-w-md p-8 space-y-4 bg-white rounded-xl shadow-md">
-        <h1 className="text-2xl font-bold text-center text-gray-800">Reset Your Password</h1>
-        
+        <AuthHeader title="Reset Your Password" />
+
         {status === 'success' ? (
           <div className="text-center space-y-4">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100">
-              <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              <svg
+                className="w-8 h-8 text-green-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
               </svg>
             </div>
             <h2 className="text-xl font-semibold text-gray-800">Password Reset Successful!</h2>
             <p className="text-gray-600">{message}</p>
-            <button 
-              onClick={() => navigate('/auth/login')} 
+            <button
+              onClick={() => navigate('/auth/login')}
               className="w-full px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 transition-colors"
             >
               Go to Login
@@ -103,7 +126,9 @@ export function PasswordReset() {
         ) : (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="form-group space-y-2">
-              <label htmlFor="token" className="block text-sm font-medium text-gray-700">Reset Token</label>
+              <label htmlFor="token" className="block text-sm font-medium text-gray-700">
+                Reset Token
+              </label>
               <input
                 type="text"
                 id="token"
@@ -111,15 +136,13 @@ export function PasswordReset() {
                 placeholder="Enter your reset token"
                 {...register('token')}
               />
-              {errors.token && (
-                <p className="text-sm text-red-500 mt-1">
-                  {errors.token.message}
-                </p>
-              )}
+              {errors.token && <p className="text-sm text-red-500 mt-1">{errors.token.message}</p>}
             </div>
-            
+
             <div className="form-group space-y-2">
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">New Password</label>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                New Password
+              </label>
               <input
                 type="password"
                 id="password"
@@ -128,14 +151,14 @@ export function PasswordReset() {
                 {...register('password')}
               />
               {errors.password && (
-                <p className="text-sm text-red-500 mt-1">
-                  {errors.password.message}
-                </p>
+                <p className="text-sm text-red-500 mt-1">{errors.password.message}</p>
               )}
             </div>
-            
+
             <div className="form-group space-y-2">
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">Confirm Password</label>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                Confirm Password
+              </label>
               <input
                 type="password"
                 id="confirmPassword"
@@ -144,20 +167,18 @@ export function PasswordReset() {
                 {...register('confirmPassword')}
               />
               {errors.confirmPassword && (
-                <p className="text-sm text-red-500 mt-1">
-                  {errors.confirmPassword.message}
-                </p>
+                <p className="text-sm text-red-500 mt-1">{errors.confirmPassword.message}</p>
               )}
             </div>
-            
+
             {status === 'error' && message && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-md">
                 <p className="text-sm text-red-600">{message}</p>
               </div>
             )}
-            
-            <button 
-              type="submit" 
+
+            <button
+              type="submit"
               className="w-full px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 transition-colors"
               disabled={isLoading}
             >
@@ -166,7 +187,9 @@ export function PasswordReset() {
                   <Loader className="inline mr-2 w-4 h-4 animate-spin" />
                   <span>Processing...</span>
                 </div>
-              ) : 'Reset Password'}
+              ) : (
+                'Reset Password'
+              )}
             </button>
           </form>
         )}

@@ -6,11 +6,11 @@ import { initParticlesEngine } from '@tsparticles/react';
 //import { loadSlim } from '@tsparticles/slim';
 import { loadAll } from '@tsparticles/all';
 import { AppKitProvider } from './components/connect/components/AppKitProvider';
-import { 
-  EmailVerification, 
-  EmailVerificationResent, 
-  PasswordResetRequest, 
-  PasswordReset, 
+import {
+  EmailVerification,
+  EmailVerificationResent,
+  PasswordResetRequest,
+  PasswordReset,
 } from './pages/auth';
 
 function App() {
@@ -28,7 +28,7 @@ function App() {
 
   // this should be run only once per application lifetime
   useEffect(() => {
-    initParticlesEngine(async (engine) => {
+    initParticlesEngine(async engine => {
       // you can initiate the tsParticles instance (engine) here, adding custom shapes or presets
       // this loads the tsparticles package bundle, it's the easiest method for getting everything ready
       // starting from v2 you can add only the features you need reducing the bundle size
@@ -49,12 +49,12 @@ function App() {
             <Route path="/:onelink/edit" element={<Editor />} />
             <Route path="/:onelink" element={<View />} />
             <Route path="/" element={<View />} />
-            
+
             {/* Authentication Routes */}
-            <Route path="/auth/verify-email/:token" element={<EmailVerification />} />
+            <Route path="/auth/verify-email/:token?" element={<EmailVerification />} />
             <Route path="/auth/resend-verification" element={<EmailVerificationResent />} />
             <Route path="/auth/reset-password-request" element={<PasswordResetRequest />} />
-            <Route path="/auth/reset-password/:token" element={<PasswordReset />} />
+            <Route path="/auth/reset-password/:token?" element={<PasswordReset />} />
           </Routes>
         </BrowserRouter>
       </AppKitProvider>

@@ -6,6 +6,8 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader } from 'lucide-react';
 import type { PasswordResetResponse } from '../../api/api.types';
+import logoSVG from '../../assets/AMPLIFY_FULL_K.svg';
+import { AuthHeader } from '../../components/auth/AuthHeader';
 
 // Define the validation schema using Zod
 const passwordResetSchema = z.object({
@@ -70,7 +72,7 @@ export function PasswordResetRequest() {
 
     try {
       const response: PasswordResetResponse = await requestPasswordReset(data.email);
-      
+
       if (response.success) {
         setStatus('success');
         setMessage(response.message || 'Password reset instructions have been sent to your email.');
@@ -80,19 +82,23 @@ export function PasswordResetRequest() {
       }
     } catch (error) {
       setStatus('error');
-      setMessage(error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.');
+      setMessage(
+        error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.'
+      );
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
       <div className="w-full max-w-md p-8 space-y-4 bg-white rounded-xl shadow-md">
-        <h1 className="text-2xl font-bold text-center text-gray-800">Reset Your Password</h1>
-        
+        <AuthHeader title="Reset Your Password" />
+
         {status === 'idle' || status === 'error' || status === 'loading' ? (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="form-group space-y-2">
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email Address</label>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                Email Address
+              </label>
               <input
                 type="email"
                 id="email"
@@ -100,21 +106,17 @@ export function PasswordResetRequest() {
                 placeholder="Enter your email address"
                 {...register('email')}
               />
-              {errors.email && (
-                <p className="text-sm text-red-500 mt-1">
-                  {errors.email.message}
-                </p>
-              )}
+              {errors.email && <p className="text-sm text-red-500 mt-1">{errors.email.message}</p>}
             </div>
-            
+
             {status === 'error' && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-md">
                 <p className="text-sm text-red-600">{message}</p>
               </div>
             )}
-            
-            <button 
-              type="submit" 
+
+            <button
+              type="submit"
               className="w-full px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 transition-colors"
               disabled={status === 'loading'}
             >
@@ -123,11 +125,16 @@ export function PasswordResetRequest() {
                   <Loader className="inline mr-2 w-4 h-4 animate-spin" />
                   <span>Sending...</span>
                 </div>
-              ) : 'Send Reset Link'}
+              ) : (
+                'Send Reset Link'
+              )}
             </button>
-            
+
             <div className="text-center pt-2">
-              <Link to="/" className="text-primary hover:text-primary-dark text-sm transition-colors">
+              <Link
+                to="/"
+                className="text-primary hover:text-primary-dark text-sm transition-colors"
+              >
                 Back to Home
               </Link>
             </div>
@@ -135,14 +142,30 @@ export function PasswordResetRequest() {
         ) : status === 'success' ? (
           <div className="text-center space-y-4">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100">
-              <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              <svg
+                className="w-8 h-8 text-green-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
               </svg>
             </div>
             <h2 className="text-xl font-semibold text-gray-800">Email Sent!</h2>
             <p className="text-gray-600">{message}</p>
-            <p className="text-gray-600">Please check your inbox for further instructions to reset your password.</p>
-            <Link to="/" className="inline-block mt-4 px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors">
+            <p className="text-gray-600">
+              Please check your inbox for further instructions to reset your password.
+            </p>
+            <Link
+              to="/"
+              className="inline-block mt-4 px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
+            >
               Go to Home
             </Link>
           </div>
