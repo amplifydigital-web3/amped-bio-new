@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { Input } from '../ui/Input';
@@ -48,6 +48,7 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
   const { signIn, signUp, resetPassword } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [sharedEmail, setSharedEmail] = useState('');
+  const isUserTyping = useRef(false);
 
   // Use react-hook-form with zod resolver based on current form type
   const {
@@ -92,34 +93,33 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
     },
   });
 
-  // Watch for changes in email fields across all forms
-  useEffect(() => {
-    const loginEmail = watchLogin('email');
-    if (loginEmail !== sharedEmail) {
-      setSharedEmail(loginEmail || '');
-    }
-  }, [watchLogin('email')]);
+  // Extract watch calls outside of useEffect
+  const loginEmail = watchLogin('email');
+  const registerEmail = watchRegister('email');
+  const resetEmail = watchReset('email');
 
+  // Use a single useEffect to handle all email synchronization
   useEffect(() => {
-    const registerEmail = watchRegister('email');
-    if (registerEmail !== sharedEmail) {
-      setSharedEmail(registerEmail || '');
-    }
-  }, [watchRegister('email')]);
+    // Determine the current active form's email
+    const currentEmail =
+      form === 'login' ? loginEmail : form === 'register' ? registerEmail : resetEmail;
 
-  useEffect(() => {
-    const resetEmail = watchReset('email');
-    if (resetEmail !== sharedEmail) {
-      setSharedEmail(resetEmail || '');
+    // Only update shared email when user is actively typing
+    if (currentEmail !== sharedEmail && currentEmail !== undefined) {
+      setSharedEmail(currentEmail);
+      isUserTyping.current = true;
     }
-  }, [watchReset('email')]);
+  }, [loginEmail, registerEmail, resetEmail, form, sharedEmail]);
 
-  // Update form values when shared email changes
+  // Update other forms only when shared email changes and not from user typing
   useEffect(() => {
-    setLoginValue('email', sharedEmail);
-    setRegisterValue('email', sharedEmail);
-    setResetValue('email', sharedEmail);
-  }, [sharedEmail]);
+    if (!isUserTyping.current) {
+      setLoginValue('email', sharedEmail);
+      setRegisterValue('email', sharedEmail);
+      setResetValue('email', sharedEmail);
+    }
+    isUserTyping.current = false;
+  }, [setLoginValue, setRegisterValue, setResetValue, sharedEmail]);
 
   // Custom form switcher that maintains email
   const switchForm = (newForm: FormType) => {
@@ -303,7 +303,7 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
             <div className="text-center text-sm text-gray-600 mt-2">
               Have a password reset token?
               <Link
-                to="/auth/reset-password/token"
+                to="/auth/reset-password/"
                 className="text-blue-600 hover:text-blue-700 ml-2"
                 aria-label="Use reset token"
               >
@@ -329,7 +329,7 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
           )}
           {form === 'login' && (
             <>
-              {"Don't have an account?"}
+              Don't have an account?
               <button
                 type="button"
                 onClick={() => switchForm('register')}

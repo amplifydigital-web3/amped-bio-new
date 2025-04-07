@@ -1,32 +1,12 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
+import { API } from './services/API';
+import { IDI } from './types/di';
 
+export const DI = {} as IDI;
 
-dotenv.config();
+const main = async () => {
+  DI.API = new API(DI);
 
-const app = express();
-const port = process.env.PORT || 3000;
+  await DI.API.start();
+};
 
-app.use(cors());
-app.use(express.json());
-
-app.get('/', (req, res) => res.send('Express on Vercel'));
-app.get('/testing', (req, res) => res.send('Express on Vercel test non api'));
-
-// // Routes
-// app.use('/api/auth', authRoutes);
-// app.use('/api/user', userRoutes);
-// app.use('/api/admin', adminRoutes);
-
-// Error handling middleware
-app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!' });
-});
-
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-});
-
-module.exports = app;
+main();

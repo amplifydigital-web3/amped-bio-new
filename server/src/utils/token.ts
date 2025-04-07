@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { jwtConfig } from '../config/jwt';
+import { env } from '../env';
 
 interface TokenUser {
   id: number;
@@ -7,9 +7,7 @@ interface TokenUser {
 }
 
 export const generateToken = (user: TokenUser): string => {
-  return jwt.sign(
-    { id: user.id, email: user.email },
-    jwtConfig.secret,
-    { expiresIn: jwtConfig.expiresIn }
-  );
+  return jwt.sign({ id: user.id, email: user.email }, env.JWT_SECRET, {
+    expiresIn: '7d',
+  });
 };
