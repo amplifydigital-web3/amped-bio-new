@@ -74,7 +74,7 @@ export const authController = {
   async login(req: Request, res: Response) {
     const { email, password } = (req as ValidatedRequest<LoginInput>).validatedData;
 
-    console.info('Got Login Request:', email, password);
+    console.info('Got Login Request:', email);
 
     try {
       const user = await prisma.user.findUnique({
