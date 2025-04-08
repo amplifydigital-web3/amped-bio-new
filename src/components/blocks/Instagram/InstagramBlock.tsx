@@ -8,7 +8,6 @@ interface InstagramBlockProps {
 }
 
 export function InstagramBlock({ block, theme }: InstagramBlockProps) {
-
   if (!block.content) {
     return (
       <div className="w-full p-6 rounded-lg bg-[#E4405F]/10 border-2 border-dashed border-[#E4405F]/20 flex flex-col items-center justify-center space-y-2">
@@ -22,9 +21,7 @@ export function InstagramBlock({ block, theme }: InstagramBlockProps) {
 
   return (
     <div className="w-full space-y-2">
-      <InstagramEmbed
-        url={block.content}
-      />
+      <InstagramEmbed url={block.content} />
     </div>
   );
 

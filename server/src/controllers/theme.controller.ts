@@ -1,5 +1,8 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { ValidatedRequest } from '../middleware/validation.middleware';
+import { z } from 'zod';
+import { editThemeSchema } from '../schemas/theme.schema';
 
 const prisma = new PrismaClient();
 
@@ -7,7 +10,7 @@ export const themeController = {
   async editTheme(req: Request, res: Response) {
     const { id } = req.params;
     const user_id = req.user.id;
-    const { theme } = req.body.data;
+    const { theme } = (req as ValidatedRequest<z.infer<typeof editThemeSchema>>).validatedData;
     const { name, share_level, share_config, config } = theme;
 
     try {

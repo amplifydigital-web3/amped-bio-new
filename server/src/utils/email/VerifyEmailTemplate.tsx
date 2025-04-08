@@ -1,94 +1,85 @@
-import React from 'react';
+import {
+  Body,
+  Button,
+  Container,
+  Head,
+  Heading,
+  Hr,
+  Html,
+  Preview,
+  Section,
+  Text,
+  Tailwind,
+} from '@react-email/components';
 
-export const verifyEmailTemplate = (url: string) => {
-    return (
-        <div style={{ borderLeftColor: 'grey', borderLeftWidth: 'thin', borderLeftStyle: 'solid', margin: '5px 5px', paddingLeft: '10px' }}>
-            <table className="wrapper" width="100%" cellPadding="0" cellSpacing="0" role="presentation" style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative', backgroundColor: '#edf2f7', margin: '0', padding: '0', width: '100%' }}>
-                <tr>
-                    <td align="center" style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative', padding: '0' }}>
-                        <table className="content" width="100%" cellPadding="0" cellSpacing="0" role="presentation" style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative', margin: '0', padding: '0', width: '100%' }}>
-                            <tr>
-                                <td className="header" style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative', padding: '25px 0', textAlign: 'center' }}>
-                                    <a href="" style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative', color: '#3d4852', fontSize: '19px', fontWeight: 'bold', textDecoration: 'none', display: 'inline-block' }}>
-                                        Amped-Bio
-                                    </a>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td className="body" width="100%" style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative', backgroundColor: '#edf2f7', borderBottom: '1px solid #edf2f7', borderTop: '1px solid #edf2f7', margin: '0', padding: '0', width: '100%', border: 'hidden!important' }}>
-                                    <table className="inner-body" align="center" width="570" cellPadding="0" cellSpacing="0" role="presentation" style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative', backgroundColor: '#ffffff', borderColor: '#e8e5ef', borderRadius: '2px', borderWidth: '1px', boxShadow: '0 2px 0 rgba(0, 0, 150, 0.025), 2px 4px 0 rgba(0, 0, 150, 0.015)', margin: '0 auto', padding: '0', width: '570px' }}>
-                                        <tr>
-                                            <td className="content-cell" style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative', maxWidth: '100vw', padding: '32px' }}>
-                                                <h1 style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative', color: '#3d4852', fontSize: '18px', fontWeight: 'bold', marginTop: '0', textAlign: 'left' }}>
-                                                    Hello!
-                                                </h1>
-                                                <p style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative', fontSize: '16px', lineHeight: '1.5em', marginTop: '0', textAlign: 'left' }}>
-                                                    Please click the button below to verify your email address.
-                                                </p>
-                                                <table className="action" align="center" width="100%" cellPadding="0" cellSpacing="0" role="presentation" style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative', margin: '30px auto', padding: '0', textAlign: 'center', width: '100%' }}>
-                                                    <tr>
-                                                        <td align="center" style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative' }}>
-                                                            <table width="100%" cellPadding="0" cellSpacing="0" role="presentation" style={{ border: '0', boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative' }}>
-                                                                <tr>
-                                                                    <td align="center" style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative' }}>
-                                                                        <table cellPadding="0" cellSpacing="0" role="presentation" style={{ border: '0', boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative' }}>
-                                                                            <tr>
-                                                                                <td style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative' }}>
-                                                                                    <a href={url} className="button button-primary" target="_blank" rel="noopener" style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative', WebkitTextSizeAdjust: 'none', borderRadius: '4px', color: '#fff', display: 'inline-block', overflow: 'hidden', textDecoration: 'none', backgroundColor: '#2d3748', borderBottom: '8px solid #2d3748', borderLeft: '18px solid #2d3748', borderRight: '18px solid #2d3748', borderTop: '8px solid #2d3748' }}>
-                                                                                        Verify Email Address
-                                                                                    </a>
-                                                                                </td>
-                                                                            </tr>
-                                                                        </table>
-                                                                    </td>
-                                                                </tr>
-                                                            </table>
-                                                        </td>
-                                                    </tr>
-                                                </table>
-                                                <p style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative', fontSize: '16px', lineHeight: '1.5em', marginTop: '0', textAlign: 'left' }}>
-                                                    If you did not create an account, no further action is required.
-                                                </p>
-                                                <p style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative', fontSize: '16px', lineHeight: '1.5em', marginTop: '0', textAlign: 'left' }}>
-                                                    Regards,<br />Amped-Bio
-                                                </p>
-                                                <table className="subcopy" width="100%" cellPadding="0" cellSpacing="0" role="presentation" style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative', borderTop: '1px solid #e8e5ef', marginTop: '25px', paddingTop: '25px' }}>
-                                                    <tr>
-                                                        <td style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative' }}>
-                                                            <p style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative', lineHeight: '1.5em', marginTop: '0', textAlign: 'left', fontSize: '14px' }}>
-                                                                If you're having trouble clicking the "Verify Email Address" button, copy and paste the URL below into your web browser:
-                                                                <span className="break-all" style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative', wordBreak: 'break-all' }}>
-                                                                    <a href={url} style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative', color: '#3869d4' }}>
-                                                                        {url}
-                                                                    </a>
-                                                                </span>
-                                                            </p>
-                                                        </td>
-                                                    </tr>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                    </table>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative' }}>
-                                    <table className="footer" align="center" width="570" cellPadding="0" cellSpacing="0" role="presentation" style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative', margin: '0 auto', padding: '0', textAlign: 'center', width: '570px' }}>
-                                        <tr>
-                                            <td className="content-cell" align="center" style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative', maxWidth: '100vw', padding: '32px' }}>
-                                                <p style={{ boxSizing: 'border-box', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"', position: 'relative', lineHeight: '1.5em', marginTop: '0', color: '#b0adc5', fontSize: '12px', textAlign: 'center' }}>
-                                                    © 2025 Amplify Digital. All rights reserved.
-                                                </p>
-                                            </td>
-                                        </tr>
-                                    </table>
-                                </td>
-                            </tr>
-                        </table>
-                    </td>
-                </tr>
-            </table>
-        </div>
-    );
+const VerifyEmailTemplate = ({ url = 'https://example.com/verify-email' }) => {
+  return (
+    <Html>
+      <Tailwind>
+        <Head />
+        <Preview>Please verify your email address</Preview>
+        <Body className="bg-[#edf2f7] font-sans py-[40px]">
+          <Container className="max-w-[570px] mx-auto">
+            <Section className="text-center py-[25px]">
+              <Text className="text-[#3d4852] text-[19px] font-bold">Amped-Bio</Text>
+            </Section>
+
+            <Container className="bg-white rounded-[2px] border border-[#e8e5ef] p-[32px] shadow-sm">
+              <Heading className="text-[18px] font-bold text-[#3d4852] m-0 text-left">
+                Hello!
+              </Heading>
+
+              <Text className="text-[16px] leading-[1.5em] text-[#3d4852] mt-0 text-left">
+                Please click the button below to verify your email address.
+              </Text>
+
+              <Section className="text-center my-[30px]">
+                <Button
+                  className="bg-[#2d3748] text-white px-[18px] py-[8px] rounded-[4px] font-medium no-underline text-center box-border"
+                  href={url}
+                >
+                  Verify Email Address
+                </Button>
+              </Section>
+
+              <Text className="text-[16px] leading-[1.5em] text-[#3d4852] mt-0 text-left">
+                If you did not create an account, no further action is required.
+              </Text>
+
+              <Text className="text-[16px] leading-[1.5em] text-[#3d4852] mt-0 text-left">
+                Regards,
+                <br />
+                Amped-Bio
+              </Text>
+
+              <Hr className="border-t border-[#e8e5ef] my-[25px]" />
+
+              <Text className="text-[14px] leading-[1.5em] text-[#3d4852] mt-0 text-left">
+                If you're having trouble clicking the "Verify Email Address" button, copy and paste
+                the URL below into your web browser:
+              </Text>
+
+              <Text className="text-[14px] leading-[1.5em] text-[#3869d4] mt-0 text-left break-all">
+                <a href={url} className="text-[#3869d4]">
+                  {url}
+                </a>
+              </Text>
+            </Container>
+
+            <Section className="text-center py-[32px]">
+              <Text className="text-[12px] leading-[1.5em] text-[#b0adc5] m-0">
+                © 2025 Amplify Digital. All rights reserved.
+              </Text>
+            </Section>
+          </Container>
+        </Body>
+      </Tailwind>
+    </Html>
+  );
 };
 
+VerifyEmailTemplate.PreviewProps = {
+  url: 'https://example.com/verify-email?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
+};
+
+export default VerifyEmailTemplate;

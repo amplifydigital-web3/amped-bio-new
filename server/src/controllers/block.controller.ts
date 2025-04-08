@@ -1,36 +1,50 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-
-type BlockRaw = {
-  id: number;
-  type: string;
-  platform?: string;
-  url?: string;
-  label?: string;
-  content?: string;
-};
+import { Block, AddBlockInput, EditBlocksInput } from '../schemas/block.schema';
 
 const prisma = new PrismaClient();
 
 export const blockController = {
   async editBlocks(req: Request, res: Response) {
     const user_id = req.user.id;
+    const { blocks } = req.body as EditBlocksInput;
 
-    const { blocks } = req.body.data;
     try {
-      await blocks.forEach((block: BlockRaw, idx: number) => {
-        const { id: id_raw, type, ...rest } = block;
-        let id = Number(id_raw);
-        if (Number.isNaN(id)) {
-          id = 0;
-        }
+      for (let idx = 0; idx < blocks.length; idx++) {
+        const { id, type, ...rest } = blocks[idx];
+
         try {
-          blockController.editBlock(Number(id), user_id, type, idx, rest);
+          const block = await prisma.block.findUnique({
+            where: {
+              id: id,
+              user_id: user_id,
+            },
+          });
+
+          if (block === null) {
+            await prisma.block.create({
+              data: {
+                user_id,
+                type,
+                order: idx,
+                config: rest,
+              },
+            });
+          } else {
+            await prisma.block.update({
+              where: { id: id },
+              data: {
+                type,
+                order: idx,
+                config: rest,
+              },
+            });
+          }
         } catch (error) {
           console.log(`error editing block ${id} `, error);
           throw error;
         }
-      });
+      }
 
       res.status(200).json({ message: 'Blocks updated successfully' });
     } catch (error) {
@@ -147,6 +161,31 @@ export const blockController = {
       });
     } catch (error) {
       console.error('error', error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  },
+
+  async addBlock(req: Request, res: Response) {
+    const user_id = req.user.id;
+
+    try {
+      const { type, order, ...config } = req.body as AddBlockInput;
+
+      const result = await prisma.block.create({
+        data: {
+          user_id,
+          type,
+          order: order || 0,
+          config,
+        },
+      });
+
+      res.status(201).json({
+        message: 'Block added successfully',
+        result,
+      });
+    } catch (error) {
+      console.error('error adding block', error);
       res.status(500).json({ message: 'Server error' });
     }
   },

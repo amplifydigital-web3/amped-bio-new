@@ -1,4 +1,4 @@
-import { cleanEnv, str, port, url } from 'envalid';
+import { cleanEnv, str, port, url, bool } from 'envalid';
 
 export const env = cleanEnv(process.env, {
   JWT_SECRET: str({
@@ -20,8 +20,39 @@ export const env = cleanEnv(process.env, {
     example: 'noreply@yourdomain.com',
   }),
   VERCEL_PROJECT_PRODUCTION_URL: url({
-    desc: 'URL for the server in production',
-    default: 'http://localhost:3000',
-    example: 'https://api.yourdomain.com',
+    desc: 'URL for the site in production',
+    default: 'http://localhost:5173',
+    example: 'https://yourdomain.com',
+  }),
+  // New SMTP variables with MailDev defaults
+  SMTP_HOST: str({
+    desc: 'SMTP server host',
+    default: 'localhost', // Default for MailDev
+    example: 'smtp.gmail.com',
+  }),
+  SMTP_PORT: port({
+    desc: 'SMTP server port',
+    default: 1025, // Default for MailDev
+    example: '587',
+  }),
+  SMTP_SECURE: bool({
+    desc: 'Whether to use secure connection (TLS)',
+    default: false,
+    example: 'true',
+  }),
+  SMTP_USER: str({
+    desc: 'SMTP authentication username',
+    default: '', // MailDev doesn't require authentication
+    example: 'user@example.com',
+  }),
+  SMTP_PASSWORD: str({
+    desc: 'SMTP authentication password',
+    default: '', // MailDev doesn't require authentication
+    example: 'your-smtp-password',
+  }),
+  SMTP_FROM_EMAIL: str({
+    desc: 'Email address to use as sender',
+    default: 'noreply@amped-bio.com',
+    example: 'noreply@yourdomain.com',
   }),
 });

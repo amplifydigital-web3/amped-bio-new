@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { processPasswordReset } from '../../api/api';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader } from 'lucide-react';
 import type { PasswordResetResponse } from '../../api/api.types';
-import logoSVG from '../../assets/AMPLIFY_FULL_K.svg';
 import { AuthHeader } from '../../components/auth/AuthHeader';
 
 // Define the validation schema using Zod
@@ -32,10 +31,7 @@ type PasswordResetFormData = z.infer<typeof passwordResetSchema>;
 
 export function PasswordReset() {
   const { token: urlToken } = useParams();
-  const location = useLocation();
   const navigate = useNavigate();
-  const queryParams = new URLSearchParams(location.search);
-  const email = queryParams.get('email') || '';
 
   const [status, setStatus] = useState<'valid' | 'submitting' | 'success' | 'error'>('valid');
   const [message, setMessage] = useState('');
@@ -113,7 +109,7 @@ export function PasswordReset() {
             <h2 className="text-xl font-semibold text-gray-800">Password Reset Successful!</h2>
             <p className="text-gray-600">{message}</p>
             <button
-              onClick={() => navigate('/auth/login')}
+              onClick={() => navigate('/')}
               className="w-full px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 transition-colors"
             >
               Go to Login

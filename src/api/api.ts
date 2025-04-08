@@ -9,6 +9,8 @@ import type {
   EmailVerificationResponse,
   PasswordResetResponse,
   VerifyEmailResponse,
+  BlockResponse,
+  BlockData,
 } from './api.types';
 
 const baseURL = withRelatedProject({
@@ -20,6 +22,20 @@ const baseURL = withRelatedProject({
 const api = axios.create({
   baseURL: `${baseURL}/api`,
 });
+
+// Add interceptor to automatically add authentication token to requests
+api.interceptors.request.use(
+  config => {
+    const token = localStorage.getItem('amped-bio-auth-token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  error => {
+    return Promise.reject(error);
+  }
+);
 
 // Helper function to handle API errors consistently
 async function apiRequest<T>(requestFn: () => Promise<any>, successMessage: string): Promise<T> {
@@ -39,15 +55,12 @@ async function apiRequest<T>(requestFn: () => Promise<any>, successMessage: stri
 
 // Authentication APIs
 export async function login(authData: LoginData): Promise<AuthResponse> {
-  return apiRequest<AuthResponse>(
-    () => api.post('/auth/login', { data: authData }),
-    'Login successful:'
-  );
+  return apiRequest<AuthResponse>(() => api.post('/auth/login', authData), 'Login successful:');
 }
 
 export async function registerNewUser(userData: RegisterData): Promise<AuthResponse> {
   return apiRequest<AuthResponse>(
-    () => api.post('/auth/register', { data: userData }),
+    () => api.post('/auth/register', userData),
     'New User created successfully:'
   );
 }
@@ -117,27 +130,24 @@ export async function processPasswordReset(
 
 // User APIs
 export async function editUser(userData: {
-  id: number;
   name: string;
+  // TODO remove unused fields
   email: string;
   onelink: string;
   description: string;
   image: string;
   reward_business_id: string;
-  theme: string;
+  theme: number;
 }) {
-  const { id } = userData;
   console.log('Editing user:', userData);
-  return apiRequest(() => api.put(`/user/${id}`, { data: userData }), 'User updated successfully:');
+  return apiRequest(() => api.put('/user', userData), 'User updated successfully:');
 }
 
-export async function getUser(userData: { id: string; token: string }) {
-  const { id } = userData;
+export async function getUser(userData: { token: string }) {
   console.log('Get user:', userData);
   return apiRequest<any>(
     () =>
-      api.get(`/user/${id}`, {
-        data: userData,
+      api.get('/user', {
         headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache', Expires: '0' },
       }),
     'User get:'
@@ -145,36 +155,48 @@ export async function getUser(userData: { id: string; token: string }) {
 }
 
 export async function deleteUser(userData: DeleteData) {
-  const { id, password } = userData;
+  const { password } = userData;
   return apiRequest(
-    () => api.delete(`/user/${id}`, { data: { password } }),
+    () => api.delete('/user', { data: { password } }),
     'User deleted successfully:'
   );
 }
 
 // Theme and Block APIs
-export async function editTheme(theme: Theme, user_id: any) {
+export async function editTheme(theme: Theme) {
   const { id } = theme;
   console.log('Editing Theme:', id);
-  return apiRequest(
-    () => api.put(`/user/theme/${id}`, { data: { theme, user_id } }),
-    'Theme updated successfully:'
-  );
+  return apiRequest<{
+    id: number;
+    user_id: number;
+    name: string;
+    share_level: string;
+    share_config: Map<string, any> | null;
+    config: Map<string, any> | null;
+    created_at: Date;
+    updated_at: Date | null;
+  }>(() => api.put(`/user/theme/${id}`, { theme }), 'Theme updated successfully:');
 }
 
-export async function editBlocks(blocks: Block[], user_id: any) {
-  console.log('Editing user blocks:', user_id);
-  return apiRequest(
-    () => api.put(`/user/blocks/${user_id}`, { data: { blocks } }),
-    'User updated successfully:'
-  );
+export async function editBlocks(blocks: Block[]) {
+  console.log('Editing user blocks');
+  return apiRequest(() => api.put('/user/blocks', { blocks }), 'User updated successfully:');
 }
 
-export async function deleteBlock(block_id: number, user_id: number) {
-  console.log('Delete user block:', user_id);
+export async function deleteBlock(block_id: number) {
+  console.log('Delete user block:', block_id);
   return apiRequest(
-    () => api.delete(`/user/blocks/block/${block_id}$${user_id}`),
+    () => api.delete(`/user/blocks/block/${block_id}`),
     'Block deleted successfully:'
+  );
+}
+
+// Add a function to add a single block
+export async function addBlock(block: BlockData): Promise<BlockResponse> {
+  console.log('Adding new block:', block);
+  return apiRequest<BlockResponse>(
+    () => api.post('/user/blocks', block),
+    'Block added successfully:'
   );
 }
 
