@@ -1,4 +1,4 @@
-import { cleanEnv, str, port, url, bool } from 'envalid';
+import { cleanEnv, str, port, bool } from 'envalid';
 
 export const env = cleanEnv(process.env, {
   JWT_SECRET: str({
@@ -9,7 +9,7 @@ export const env = cleanEnv(process.env, {
     desc: 'Port for the server to listen on',
     default: 3000,
   }),
-  VERCEL_PROJECT_PRODUCTION_URL: url({
+  VERCEL_PROJECT_PRODUCTION_URL: str({
     desc: 'URL for the site in production',
     default: 'http://localhost:5173',
     example: 'https://yourdomain.com',
