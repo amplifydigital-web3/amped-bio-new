@@ -1,12 +1,3 @@
-import { API } from './services/API';
-import { IDI } from './types/di';
+import app from './app';
 
-export const DI = {} as IDI;
-
-const main = async () => {
-  DI.API = new API(DI);
-
-  await DI.API.start();
-};
-
-main();
+app();
