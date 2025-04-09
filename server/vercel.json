@@ -3,16 +3,15 @@
   "builds": [
     {
       "src": "src/index.ts",
-      "use": "@vercel/node",
-      "config": {
-        "distDir": "dist"
-      }
+      "use": "@vercel/node"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "dist/index.js"
+      "dest": "/dist/index.js"
     }
-  ]
+  ],
+  "buildCommand": "yarn run build",
+  "outputDirectory": "dist"
 }
