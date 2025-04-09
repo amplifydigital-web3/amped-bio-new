@@ -55,6 +55,8 @@ export function BlockList({ blocks, onUpdate, onRemove, onReorder }: BlockListPr
   // Create a consistent list of IDs for SortableContext
   const itemIds = blocks.map(block => String(block.id));
 
+  console.log('blocks', blocks);
+
   return (
     <div className="space-y-4">
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>

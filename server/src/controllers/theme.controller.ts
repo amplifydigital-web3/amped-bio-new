@@ -17,7 +17,7 @@ export const themeController = {
       const theme = await prisma.theme.findUnique({
         where: {
           id: Number(id),
-          user_id: Number(user_id),
+          user_id: user_id,
         },
       });
 

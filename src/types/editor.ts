@@ -21,7 +21,16 @@ export type MediaBlock = {
   id: number;
   type: 'media';
   content?: string;
-  platform: 'spotify' | 'instagram' | 'youtube' | 'twitter' | 'token-price' | 'nft-collection' | 'uniswap' | 'substack' | 'creator-pool';
+  platform:
+    | 'spotify'
+    | 'instagram'
+    | 'youtube'
+    | 'twitter'
+    | 'token-price'
+    | 'nft-collection'
+    | 'uniswap'
+    | 'substack'
+    | 'creator-pool';
   url: string;
   label: string;
 };

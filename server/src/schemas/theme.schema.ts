@@ -8,7 +8,7 @@ export const editThemeSchema = z.object({
   theme: z.object({
     name: z.string().min(1, 'Theme name is required'),
     share_level: z.string(),
-    share_config: z.boolean().default(false),
+    share_config: z.any(),
     config: themeConfigSchema,
   }),
 });
