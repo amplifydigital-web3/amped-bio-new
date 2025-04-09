@@ -2,16 +2,14 @@
   "version": 2,
   "builds": [
     {
-      "src": "src/index.ts",
+      "src": "src/app.ts",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "/dist/index.js"
+      "dest": "src/app.ts"
     }
-  ],
-  "buildCommand": "yarn run build",
-  "outputDirectory": "dist"
+  ]
 }
