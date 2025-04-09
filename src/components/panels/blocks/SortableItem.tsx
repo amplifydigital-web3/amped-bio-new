@@ -12,14 +12,9 @@ interface SortableItemProps {
 }
 
 export function SortableItem({ id, block, onEdit, onRemove }: SortableItemProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -33,17 +28,11 @@ export function SortableItem({ id, block, onEdit, onRemove }: SortableItemProps)
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center space-x-3 p-3 rounded-lg border group ${isDragging
-        ? 'bg-blue-50 border-blue-200 shadow-lg'
-        : 'bg-white border-gray-200'
-        }`}
+      className={`flex items-center space-x-3 p-3 rounded-lg border group ${
+        isDragging ? 'bg-blue-50 border-blue-200 shadow-lg' : 'bg-white border-gray-200'
+      }`}
     >
-      <button
-        {...attributes}
-        {...listeners}
-        className="touch-none"
-        aria-label="Drag handle"
-      >
+      <button {...attributes} {...listeners} className="touch-none" aria-label="Drag handle">
         <GripVertical className="w-4 h-4 text-gray-400 cursor-move" />
       </button>
 
@@ -51,7 +40,11 @@ export function SortableItem({ id, block, onEdit, onRemove }: SortableItemProps)
         {Icon && <Icon className="w-4 h-4 flex-shrink-0" />}
         <div className="min-w-0">
           <p className="font-medium text-gray-900 truncate">
-            {block.type === 'link' ? block.label : block.type === 'media' ? block.platform : 'Text Block'}
+            {block.type === 'link'
+              ? block.label
+              : block.type === 'media'
+                ? block.platform
+                : 'Text Block'}
           </p>
           <p className="text-sm text-gray-500 truncate">
             {block.type === 'link' ? block.url : block.content || 'Empty block'}
@@ -71,18 +64,12 @@ export function SortableItem({ id, block, onEdit, onRemove }: SortableItemProps)
           </a>
         )}
         {block.type !== 'link' && (
-          <button
-            onClick={onEdit}
-            className="p-1 text-gray-500 hover:text-gray-700"
-          >
+          <button onClick={onEdit} className="p-1 text-gray-500 hover:text-gray-700">
             <Settings className="w-4 h-4" />
           </button>
         )}
 
-        <button
-          onClick={onRemove}
-          className="p-1 text-red-500 hover:text-red-700"
-        >
+        <button onClick={onRemove} className="p-1 text-red-500 hover:text-red-700">
           <Trash2 className="w-4 h-4" />
         </button>
       </div>

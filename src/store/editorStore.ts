@@ -18,7 +18,8 @@ import {
   editBlocks,
   deleteBlock,
   getOnelink,
-} from '../api';
+  addBlock as apiAddBlock,
+} from '../api/api';
 import initialState, { defaultAuthUser } from './defaults';
 import { isNumber } from '@tsparticles/engine';
 import { useAuthStore } from './authStore';
@@ -27,9 +28,8 @@ import toast from 'react-hot-toast';
 interface EditorStore extends EditorState {
   changes: boolean;
   setUser: (onelink: string) => Promise<any>;
-  // setAuthUser: (user: AuthUser) => void;
   setProfile: (profile: UserProfile) => void;
-  addBlock: (block: Block) => void;
+  addBlock: (block: Block) => Promise<Block>; // Updated return type
   removeBlock: (id: number) => void;
   updateBlock: (id: number, block: Partial<Block>) => void;
   reorderBlocks: (blocks: Block[]) => void;
@@ -50,165 +50,315 @@ interface EditorStore extends EditorState {
 
 type EditorPersistOptions = PersistOptions<EditorStore>;
 
-// const persistOptions: EditorPersistOptions = {
-//   name: 'editor-storage'
-// };
-
-export const useEditorStore = create<EditorStore>()((set) => ({
+export const useEditorStore = create<EditorStore>()(set => ({
   changes: false,
   ...initialState,
   setUser: async (onelink: string) => {
+    console.group(`🔍 Setting User: ${onelink}`);
+    console.info('🚀 Loading user data...');
     try {
       const userData = await getOnelink(onelink);
       if (!userData) {
-        console.error('User not found:', onelink);
+        console.info('❌ User not found:', onelink);
+        console.groupEnd();
         return;
       }
       const { user, theme, blocks: blocks_raw } = userData;
       const { name, email, description, image } = user;
+      console.info('👤 User data loaded:', { name, email });
 
       set({
         profile: { name, onelink, email, bio: description, photoUrl: image },
       });
+      console.info('🎨 Setting theme...');
       set({ theme: { ...initialState.theme, ...theme } });
       const blocks = blocks_raw
         .sort((a, b) => a.order - b.order)
         .map(({ id, type, config }) => {
           return { id, type, ...config };
         });
+      console.info(`📦 Setting ${blocks.length} blocks...`);
       set({ blocks: blocks });
+      console.info('✅ User setup complete');
+      console.groupEnd();
       return userData;
     } catch (error) {
-      console.error('Error getting user:', error);
+      console.info('❌ Error getting user:', error);
+      console.groupEnd();
       return;
     }
   },
-  setProfile: (profile) => set({ profile, changes: true }),
-  addBlock: (block: Block) =>
-    set((state) => ({
-      blocks: [...state.blocks, block],
-      changes: true,
-    })),
+  setProfile: profile => {
+    console.group('👤 Setting Profile');
+    console.info('New profile data:', profile);
+    set({ profile, changes: true });
+    console.info('✅ Profile updated');
+    console.groupEnd();
+  },
+  addBlock: async (block: Block): Promise<Block> => {
+    console.group('➕ Adding Block');
+    console.info('Block data:', block);
+
+    const { authUser } = useAuthStore.getState();
+    let newBlock = block; // Initialize with the original block
+
+    try {
+      if (authUser === defaultAuthUser) {
+        console.info('❌ Add Block Error: No user logged in');
+        toast.error('Authentication error');
+        console.groupEnd();
+
+        // Still add to local state even if not authenticated
+        set(state => ({
+          blocks: [...state.blocks, block],
+          changes: true,
+        }));
+        return block; // Return original block
+      }
+
+      // Prepare block data for API
+      const { type, ...config } = block;
+      const blockOrder = useEditorStore.getState().blocks.length;
+
+      console.info('🔄 Adding block to server...');
+      const response = await apiAddBlock({ type, order: blockOrder, ...config });
+      console.info('✅ Block added to server:', response);
+
+      // Update block with server-generated ID if available
+      if (response?.result) {
+        newBlock = {
+          ...block,
+          id: response.result.id,
+        };
+      }
+
+      set(state => ({
+        blocks: [...state.blocks, newBlock],
+        changes: false, // No changes needed since we just saved to the server
+      }));
+
+      toast.success('Block added successfully');
+      console.info('✅ Block added to state');
+    } catch (error) {
+      console.info('❌ Error adding block:', error);
+      toast.error('Error adding block');
+
+      // Still add to local state on error
+      set(state => ({
+        blocks: [...state.blocks, block],
+        changes: true,
+      }));
+    }
+
+    console.groupEnd();
+    return newBlock; // Return the block with server-generated ID if available
+  },
   removeBlock: async (id: number) => {
+    console.group(`🗑️ Removing Block: ${id}`);
     const { authUser } = useAuthStore.getState();
     try {
       if (authUser === defaultAuthUser) {
-        console.error('Remove Block Error: No user logged in');
+        console.info('❌ Remove Block Error: No user logged in');
         toast.error('Authentication error');
+        console.groupEnd();
         return;
       }
 
-      await deleteBlock(id, authUser.id);
+      console.info('🔄 Deleting block from server...');
+      await deleteBlock(id);
+      console.info('✅ Block deleted from server');
 
-      set((state) => ({
-        blocks: state.blocks.filter((block) => block.id !== id),
+      set(state => ({
+        blocks: state.blocks.filter(block => block.id !== id),
       }));
+      console.info('✅ Block removed from state');
+      console.groupEnd();
     } catch (error) {
-      console.log('error deleting block', error);
+      console.info('❌ Error deleting block:', error);
+      console.groupEnd();
     }
   },
-  updateBlock: (id: number, updatedBlock: Partial<Block>) =>
+  updateBlock: (id: number, updatedBlock: Partial<Block>) => {
+    console.group(`🔄 Updating Block: ${id}`);
+    console.info('Update data:', updatedBlock);
     set(
-      (state) =>
+      state =>
         ({
-          blocks: state.blocks.map((block) =>
+          blocks: state.blocks.map(block =>
             block.id === id ? { ...block, ...updatedBlock } : block
           ),
           changes: true,
-        } as Partial<EditorStore>)
-    ),
-  reorderBlocks: (blocks: Block[]) => set({ blocks, changes: true }),
-  updateThemeConfig: (config) =>
-    set((state) => ({
+        }) as Partial<EditorStore>
+    );
+    console.info('✅ Block updated');
+    console.groupEnd();
+  },
+  reorderBlocks: (blocks: Block[]) => {
+    console.group('🔀 Reordering Blocks');
+    console.info(`Reordering ${blocks.length} blocks`);
+    set({ blocks, changes: true });
+    console.info('✅ Blocks reordered');
+    console.groupEnd();
+  },
+  updateThemeConfig: config => {
+    console.group('🎨 Updating Theme Config');
+    console.info('New config:', config);
+    set(state => ({
       theme: { ...state.theme, config: { ...state.theme.config, ...config } },
       changes: true,
-    })),
-  setActivePanel: (activePanel: string) => set({ activePanel }),
-  setBackground: (background: Background) =>
-    set((state) => ({
+    }));
+    console.info('✅ Theme config updated');
+    console.groupEnd();
+  },
+  setActivePanel: (activePanel: string) => {
+    console.group('📋 Setting Active Panel');
+    console.info(`Panel: ${activePanel}`);
+    set({ activePanel });
+    console.info('✅ Active panel set');
+    console.groupEnd();
+  },
+  setBackground: (background: Background) => {
+    console.group('🖼️ Setting Background');
+    console.info('Background:', background);
+    set(state => ({
       theme: {
         ...state.theme,
         config: { ...state.theme.config, background },
       },
       changes: true,
-    })),
-  addToGallery: (image) =>
-    set((state) => ({
+    }));
+    console.info('✅ Background updated');
+    console.groupEnd();
+  },
+  addToGallery: image => {
+    console.group('🖼️ Adding to Gallery');
+    console.info('Image:', image);
+    set(state => ({
       gallery: [...state.gallery, image],
-    })),
-  removeFromGallery: (url) =>
-    set((state) => ({
-      gallery: state.gallery.filter((image) => image.url !== url),
-    })),
-  setMarketplaceView: (marketplaceView) => set({ marketplaceView }),
-  setMarketplaceFilter: (marketplaceFilter) => set({ marketplaceFilter }),
-  setMarketplaceSort: (marketplaceSort) => set({ marketplaceSort }),
-  applyTheme: (theme) => set({ theme }),
+    }));
+    console.info('✅ Image added to gallery');
+    console.groupEnd();
+  },
+  removeFromGallery: url => {
+    console.group('🗑️ Removing from Gallery');
+    console.info('URL:', url);
+    set(state => ({
+      gallery: state.gallery.filter(image => image.url !== url),
+    }));
+    console.info('✅ Image removed from gallery');
+    console.groupEnd();
+  },
+  setMarketplaceView: marketplaceView => {
+    console.group('🛒 Setting Marketplace View');
+    console.info(`View: ${marketplaceView}`);
+    set({ marketplaceView });
+    console.info('✅ Marketplace view updated');
+    console.groupEnd();
+  },
+  setMarketplaceFilter: marketplaceFilter => {
+    console.group('🔍 Setting Marketplace Filter');
+    console.info(`Filter: ${marketplaceFilter}`);
+    set({ marketplaceFilter });
+    console.info('✅ Marketplace filter updated');
+    console.groupEnd();
+  },
+  setMarketplaceSort: marketplaceSort => {
+    console.group('📊 Setting Marketplace Sort');
+    console.info(`Sort: ${marketplaceSort}`);
+    set({ marketplaceSort });
+    console.info('✅ Marketplace sort updated');
+    console.groupEnd();
+  },
+  applyTheme: theme => {
+    console.group('🎨 Applying Theme');
+    console.info('Theme:', theme.name);
+    set({ theme });
+    console.info('✅ Theme applied');
+    console.groupEnd();
+  },
   selectedPoolId: null,
-  setSelectedPoolId: (id) => set({ selectedPoolId: id }),
+  setSelectedPoolId: id => {
+    console.group('🏊 Setting Selected Pool ID');
+    console.info(`Pool ID: ${id}`);
+    set({ selectedPoolId: id });
+    console.info('✅ Selected pool ID updated');
+    console.groupEnd();
+  },
   saveChanges: async () => {
-    // Save changes to the server
-    console.log('Saving changes...');
+    console.group('💾 Saving Changes');
+    console.info('Starting save process...');
     const { profile, theme, blocks } = useEditorStore.getState();
     const { authUser } = useAuthStore.getState();
     try {
       if (authUser === defaultAuthUser || authUser.email !== profile.email) {
-        console.error('Save Error: No user logged in');
+        console.info('❌ Save Error: No user logged in or email mismatch');
         toast.error('Authentication error');
+        console.groupEnd();
         return;
       }
-      const theme_status = await editTheme(
-        {
-          id: theme.id,
-          name: theme.name,
-          share_level: theme.share_level,
-          share_config: theme.share_config,
-          config: theme.config,
-        },
-        authUser.id
-      );
-      const blocks_status = await editBlocks(blocks, authUser.id);
 
-      if (theme.id !== theme_status.result.id) {
-        // new theme was created
-        set((state) => ({
-          theme: { ...state.theme, id: theme_status.result.id },
+      console.info('🎨 Saving theme...');
+      const theme_status = await editTheme({
+        id: theme.id,
+        name: theme.name,
+        share_level: theme.share_level,
+        share_config: theme.share_config,
+        config: theme.config,
+      });
+
+      console.info('📦 Saving blocks...');
+      const blocks_status = await editBlocks(blocks);
+
+      if (theme.id !== theme_status.id) {
+        console.info('🆕 New theme created, updating ID');
+        set(state => ({
+          theme: { ...state.theme, id: theme_status.id },
         }));
       }
 
+      console.info('👤 Saving user profile...');
       const status = await editUser({
-        id: authUser.id,
         name: profile.name,
         email: profile.email,
         onelink: profile.onelink,
         description: profile.bio,
         image: profile.photoUrl || '',
         reward_business_id: '',
-        theme: theme_status.result.id,
+        theme: theme_status.id,
       });
 
       if (!status) {
-        console.error('User Save failed');
-        console.error(status);
+        console.info('❌ User Save failed');
+        console.info(status);
+        console.groupEnd();
         return;
       }
       if (!theme_status) {
-        console.error('Theme Save failed');
-        console.error(theme_status);
+        console.info('❌ Theme Save failed');
+        console.info(theme_status);
+        console.groupEnd();
         return;
       }
       if (!blocks_status) {
-        console.error('Blocks Save failed');
-        console.error(blocks_status);
+        console.info('❌ Blocks Save failed');
+        console.info(blocks_status);
+        console.groupEnd();
         return;
       }
-      console.log('Save success');
+      console.info('✅ Save success');
       toast.success('Changes saved successfully');
       set({ changes: false });
+      console.groupEnd();
     } catch (error) {
-      console.error('Save failed:', error);
+      console.info('❌ Save failed:', error);
       toast.error('Error saving changes');
+      console.groupEnd();
     }
   },
-  setDefault: () => set({ ...initialState, changes: false }),
+  setDefault: () => {
+    console.group('🔄 Resetting to Default');
+    set({ ...initialState, changes: false });
+    console.info('✅ Reset to default state');
+    console.groupEnd();
+  },
 }));

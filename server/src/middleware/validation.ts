@@ -13,23 +13,3 @@ export const validateAuthInput = (req: Request, res: Response, next: NextFunctio
 
   next();
 };
-
-export const validateUserInput = (req: Request, res: Response, next: NextFunction) => {
-  const { id } = req.body.data;
-
-  if (!id || id === '') {
-    return res.status(400).json({ message: 'User ID required' });
-  }
-
-  next();
-};
-
-export const validateAdminInput = (req: Request, res: Response, next: NextFunction) => {
-  const { id } = req.body.data;
-
-  if (!id || id === '') { // Is this the right place for the admin check?
-    return res.status(400).json({ message: 'Admin ID required' });
-  }
-
-  next();
-}

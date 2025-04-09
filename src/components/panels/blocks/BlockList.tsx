@@ -39,30 +39,31 @@ export function BlockList({ blocks, onUpdate, onRemove, onReorder }: BlockListPr
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
-      const oldIndex = blocks.findIndex((block) => block.id === active.id);
-      const newIndex = blocks.findIndex((block) => block.id === over.id);
-      onReorder(arrayMove(blocks, oldIndex, newIndex));
+      // Convert string IDs back to numbers for finding indexes
+      const activeId = Number(active.id);
+      const overId = Number(over.id);
+
+      const oldIndex = blocks.findIndex(block => block.id === activeId);
+      const newIndex = blocks.findIndex(block => block.id === overId);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        onReorder(arrayMove(blocks, oldIndex, newIndex));
+      }
     }
   };
 
-  console.log('blocks', blocks);
+  // Create a consistent list of IDs for SortableContext
+  const itemIds = blocks.map(block => String(block.id));
 
   return (
     <div className="space-y-4">
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext
-          items={blocks.map((block) => block.id)}
-          strategy={verticalListSortingStrategy}
-        >
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
           <div className="space-y-2">
-            {blocks.map((block) => (
+            {blocks.map(block => (
               <SortableItem
                 key={block.id}
-                id={block.id.toString()}
+                id={String(block.id)}
                 block={block}
                 onEdit={() => setEditingBlock(block.id)}
                 onRemove={() => onRemove(block.id)}
@@ -74,8 +75,8 @@ export function BlockList({ blocks, onUpdate, onRemove, onReorder }: BlockListPr
 
       {editingBlock && (
         <BlockEditor
-          block={blocks.find((b) => b.id === editingBlock)!}
-          onSave={(updatedBlock) => {
+          block={blocks.find(b => b.id === editingBlock)!}
+          onSave={updatedBlock => {
             onUpdate(editingBlock, updatedBlock);
             setEditingBlock(null);
           }}

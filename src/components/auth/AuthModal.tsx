@@ -1,49 +1,183 @@
-import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, Loader2, Eye, EyeOff } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import toast from 'react-hot-toast';
 import type { AuthUser } from '../../types/auth';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import type { LoginData, RegisterData } from '../../api/api.types';
+import { Link } from 'react-router-dom';
 
 interface AuthModalProps {
   onClose: (user: AuthUser) => void;
   onCancel: () => void;
 }
 
+// Define validation schemas using Zod
+const loginSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters long'),
+});
+
+const registerSchema = z.object({
+  onelink: z
+    .string()
+    .min(3, 'URL must be at least 3 characters')
+    .regex(/^[a-zA-Z0-9_-]+$/, 'URL can only contain letters, numbers, underscores and hyphens'),
+  email: z.string().email('Please enter a valid email address'),
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters long')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one number'),
+});
+
+const resetSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+});
+
+// Create union type for all form types
+type FormType = 'login' | 'register' | 'reset';
+
 export function AuthModal({ onClose, onCancel }: AuthModalProps) {
-  const [form, setForm] = useState('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [onelink, setOnelink] = useState('');
-  const { signIn, signUp, loading, resetPassword } = useAuthStore();
+  const [form, setForm] = useState<FormType>('login');
+  const { signIn, signUp, resetPassword } = useAuthStore();
+  const [loading, setLoading] = useState(false);
+  const [sharedEmail, setSharedEmail] = useState('');
+  const isUserTyping = useRef(false);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Use react-hook-form with zod resolver based on current form type
+  const {
+    register: registerLogin,
+    handleSubmit: handleSubmitLogin,
+    formState: { errors: loginErrors },
+    setValue: setLoginValue,
+    watch: watchLogin,
+  } = useForm<z.infer<typeof loginSchema>>({
+    resolver: zodResolver(loginSchema),
+    mode: 'onBlur',
+    defaultValues: {
+      email: sharedEmail,
+    },
+  });
 
+  const {
+    register: registerSignUp,
+    handleSubmit: handleSubmitSignUp,
+    formState: { errors: registerErrors },
+    setValue: setRegisterValue,
+    watch: watchRegister,
+  } = useForm<z.infer<typeof registerSchema>>({
+    resolver: zodResolver(registerSchema),
+    mode: 'onBlur',
+    defaultValues: {
+      email: sharedEmail,
+    },
+  });
+
+  const {
+    register: registerReset,
+    handleSubmit: handleSubmitReset,
+    formState: { errors: resetErrors },
+    setValue: setResetValue,
+    watch: watchReset,
+  } = useForm<z.infer<typeof resetSchema>>({
+    resolver: zodResolver(resetSchema),
+    mode: 'onBlur',
+    defaultValues: {
+      email: sharedEmail,
+    },
+  });
+
+  // Extract watch calls outside of useEffect
+  const loginEmail = watchLogin('email');
+  const registerEmail = watchRegister('email');
+  const resetEmail = watchReset('email');
+
+  // Use a single useEffect to handle all email synchronization
+  useEffect(() => {
+    // Determine the current active form's email
+    const currentEmail =
+      form === 'login' ? loginEmail : form === 'register' ? registerEmail : resetEmail;
+
+    // Only update shared email when user is actively typing
+    if (currentEmail !== sharedEmail && currentEmail !== undefined) {
+      setSharedEmail(currentEmail);
+      isUserTyping.current = true;
+    }
+  }, [loginEmail, registerEmail, resetEmail, form, sharedEmail]);
+
+  // Update other forms only when shared email changes and not from user typing
+  useEffect(() => {
+    if (!isUserTyping.current) {
+      setLoginValue('email', sharedEmail);
+      setRegisterValue('email', sharedEmail);
+      setResetValue('email', sharedEmail);
+    }
+    isUserTyping.current = false;
+  }, [setLoginValue, setRegisterValue, setResetValue, sharedEmail]);
+
+  // Custom form switcher that maintains email
+  const switchForm = (newForm: FormType) => {
+    setForm(newForm);
+  };
+
+  // Handle login form submission
+  const onSubmitLogin = async (data: z.infer<typeof loginSchema>) => {
+    setLoading(true);
     try {
-      switch (form) {
-        case 'register': {
-          const atURL = `@${onelink}`;
-          const user = await signUp(atURL, email, password);
-          toast.success('Account created successfully!');
-          return onClose(user);
-        }
+      const loginData: LoginData = {
+        email: data.email,
+        password: data.password,
+      };
 
-        case 'login': {
-          const user = await signIn(email, password);
-          toast.success('Welcome back!', { icon: '👋' });
-          return onClose(user);
-        }
-
-        case 'reset': {
-          await resetPassword(email);
-          toast.success('Reset email sent!');
-          return onCancel();
-        }
-      }
+      const user = await signIn(loginData.email, loginData.password);
+      toast.success('Welcome back!', { icon: '👋' });
+      onClose(user);
     } catch (error) {
       toast.error((error as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle register form submission
+  const onSubmitRegister = async (data: z.infer<typeof registerSchema>) => {
+    setLoading(true);
+    try {
+      const registerData: RegisterData = {
+        onelink: `@${data.onelink}`,
+        email: data.email,
+        password: data.password,
+      };
+
+      const user = await signUp(registerData.onelink, registerData.email, registerData.password);
+      toast.success('Account created successfully!');
+      onClose(user);
+    } catch (error) {
+      toast.error((error as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle password reset form submission
+  const onSubmitReset = async (data: z.infer<typeof resetSchema>) => {
+    setLoading(true);
+    try {
+      const response = await resetPassword(data.email);
+      toast.success('Reset email sent!');
+      onCancel();
+    } catch (error) {
+      toast.error((error as Error).message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -70,65 +204,148 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {form === 'register' && (
+        {form === 'login' && (
+          <form onSubmit={handleSubmitLogin(onSubmitLogin)} className="space-y-4">
+            <Input
+              label="Email"
+              type="email"
+              error={loginErrors.email?.message}
+              required
+              aria-label="Email address"
+              autoComplete="email"
+              {...registerLogin('email')}
+            />
+            <div className="relative">
+              <Input
+                label="Password"
+                type={showLoginPassword ? 'text' : 'password'}
+                error={loginErrors.password?.message}
+                required
+                aria-label="Password"
+                autoComplete="current-password"
+                {...registerLogin('password')}
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-9 text-gray-500 hover:text-gray-700"
+                onClick={() => setShowLoginPassword(!showLoginPassword)}
+                aria-label={showLoginPassword ? 'Hide password' : 'Show password'}
+              >
+                {showLoginPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
+            </div>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading}
+              aria-disabled={loading}
+              aria-label="Sign In"
+            >
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Sign In
+            </Button>
+          </form>
+        )}
+
+        {form === 'register' && (
+          <form onSubmit={handleSubmitSignUp(onSubmitRegister)} className="space-y-4">
             <Input
               label="Amped-Bio Unique URL"
-              value={onelink}
-              onChange={(e) => setOnelink(e.target.value)}
+              leftText="@"
+              error={registerErrors.onelink?.message}
               required
               aria-label="Amped-Bio Unique URL"
               autoComplete="username"
-              placeholder={'your-url'}
+              placeholder="your-url"
+              {...registerSignUp('onelink')}
             />
-          )}
-          <Input
-            label="Email"
-            type="email"
-            name='email'
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            aria-label="Email address"
-            autoComplete="email"
-            pattern="^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"
-            aria-invalid={!email ? 'true' : 'false'}
-          />
-
-          {form !== 'reset' && (
             <Input
-              label="Password"
-              name='password'
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              label="Email"
+              type="email"
+              error={registerErrors.email?.message}
               required
-              aria-label="Password"
-              autoComplete={form === 'register' ? 'new-password' : 'current-password'}
-              minLength={6}
-              aria-invalid={password.length < 6 ? 'true' : 'false'}
-            />)}
+              aria-label="Email address"
+              autoComplete="email"
+              {...registerSignUp('email')}
+            />
+            <div className="relative">
+              <Input
+                label="Password"
+                type={showRegisterPassword ? 'text' : 'password'}
+                error={registerErrors.password?.message}
+                required
+                aria-label="Password"
+                autoComplete="new-password"
+                {...registerSignUp('password')}
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-9 text-gray-500 hover:text-gray-700"
+                onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+                aria-label={showRegisterPassword ? 'Hide password' : 'Show password'}
+              >
+                {showRegisterPassword ? (
+                  <EyeOff className="h-5 w-5" />
+                ) : (
+                  <Eye className="h-5 w-5" />
+                )}
+              </button>
+            </div>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading}
+              aria-disabled={loading}
+              aria-label="Create Account"
+            >
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Create Account
+            </Button>
+          </form>
+        )}
 
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={loading}
-            aria-disabled={loading}
-            aria-label={form}
-          >
-            {loading && 'Loading...'}
-            {form === 'register' && 'Create Account'}
-            {form === 'login' && 'Sign In'}
-            {form === 'reset' && 'Reset Password'}
-          </Button>
-        </form>
+        {form === 'reset' && (
+          <form onSubmit={handleSubmitReset(onSubmitReset)} className="space-y-4">
+            <Input
+              label="Email"
+              type="email"
+              error={resetErrors.email?.message}
+              required
+              aria-label="Email address"
+              autoComplete="email"
+              {...registerReset('email')}
+            />
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading}
+              aria-disabled={loading}
+              aria-label="Reset Password"
+            >
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Reset Password
+            </Button>
+
+            <div className="text-center text-sm text-gray-600 mt-2">
+              Have a password reset token?
+              <Link
+                to="/auth/reset-password/"
+                className="text-blue-600 hover:text-blue-700 ml-2"
+                aria-label="Use reset token"
+              >
+                Reset here
+              </Link>
+            </div>
+          </form>
+        )}
+
         <p className="text-center text-sm text-gray-600 mt-2">
           {form !== 'login' && (
             <>
               {'Already have an account?'}
               <button
                 type="button"
-                onClick={() => setForm('login')}
+                onClick={() => switchForm('login')}
                 className="text-blue-600 hover:text-blue-700 ml-2"
                 aria-label={'Switch to sign in'}
               >
@@ -138,10 +355,10 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
           )}
           {form === 'login' && (
             <>
-              {'Don\'t have an account?'}
+              Don't have an account?
               <button
                 type="button"
-                onClick={() => setForm('register')}
+                onClick={() => switchForm('register')}
                 className="text-blue-600 hover:text-blue-700 ml-2"
                 aria-label={'Switch to sign up'}
               >
@@ -154,7 +371,7 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
           {form !== 'reset' && (
             <button
               type="button"
-              onClick={() => setForm('reset')}
+              onClick={() => switchForm('reset')}
               className="text-blue-600 hover:text-blue-700 ml-2"
               aria-label={'Forgot Password'}
             >

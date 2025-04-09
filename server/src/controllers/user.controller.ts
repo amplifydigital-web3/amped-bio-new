@@ -1,116 +1,145 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient } from '@prisma/client';
+import { ValidatedRequest } from '../middleware/validation.middleware';
+import { DeleteUserInput, EditUserInput } from '../schemas/user.schema';
 
-import { generateToken } from '../utils/token';
-
-const prisma = new PrismaClient()
+const prisma = new PrismaClient();
 
 export const userController = {
-    async edit(req: Request, res: Response) {
-        const { id } = req.params
-        const { name, email, onelink, description, theme, image, reward_business_id } = req.body.data;
+  async edit(req: Request, res: Response) {
+    const userId = req.user.id;
+    const validatedReq = req as ValidatedRequest<EditUserInput>;
 
-        try {
-            const user = await prisma.user.findUnique({
-                where: {
-                    email: email
-                }
-            });
+    const { name, email, onelink, description, theme, image, reward_business_id } =
+      validatedReq.validatedData;
 
-            if (user === null) {
-                return res.status(400).json({ message: `User not found: ${email}` });
-            }
+    try {
+      const user = await prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+      });
 
-            await prisma.user.update({
-                where: { id: Number(id) },
-                data: {
-                    name, email, onelink, description, theme: `${theme}`, image, reward_business_id
-                },
-            })
+      if (user === null) {
+        return res.status(400).json({ message: 'User not found' });
+      }
 
-            res.status(200).json({
-                message: 'User updated successfully',
-            });
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          name,
+          email,
+          onelink,
+          description,
+          theme: `${theme}`,
+          image,
+          reward_business_id,
+        },
+      });
 
-        } catch (error) {
-            console.error('error', error);
-            res.status(500).json({ message: 'Server error' });
-        }
-    },
+      res.status(200).json({
+        message: 'User updated successfully',
+      });
+    } catch (error) {
+      console.error('error', error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  },
 
-    async get(req: Request, res: Response) {
-        const { id } = req.params
+  async get(req: Request, res: Response) {
+    const userId = req.user.id;
 
-        try {
-            const user = await prisma.user.findUnique({
-                where: {
-                    id: Number(id),
-                }
-            });
+    try {
+      const user = await prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          email_verified_at: true,
+          onelink: true,
+          description: true,
+          role: true,
+          block: true,
+          remember_token: true,
+          theme: true,
+          auth_as: true,
+          provider: true,
+          provider_id: true,
+          image: true,
+          reward_business_id: true,
+          created_at: true,
+          updated_at: true,
+        },
+      });
 
-            if (user === null) {
-                return res.status(400).json({ message: `User not found: ${id}` });
-            }
+      if (user === null) {
+        return res.status(400).json({ message: 'User not found' });
+      }
 
-            const { theme: theme_id } = user;
+      const { theme: theme_id } = user;
 
-            const theme = await prisma.theme.findUnique({
-                where: {
-                    id: Number(theme_id)
-                }
-            });
+      const theme = await prisma.theme.findUnique({
+        where: {
+          id: Number(theme_id),
+        },
+      });
 
-            const blocks = await prisma.block.findMany({
-                where: {
-                    user_id: Number(id)
-                }
-            });
+      const blocks = await prisma.block.findMany({
+        where: {
+          user_id: userId,
+        },
+      });
 
-            const token = generateToken({ id: user.id, email: user.email });
+      const result = { user, theme, blocks };
 
-            const result = { user, theme, blocks };
+      res.status(201).json({
+        result,
+      });
+    } catch (error) {
+      console.error('error', error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  },
 
-            res.status(201).json({
-                result,
-                token,
-            });
+  async delete(req: Request, res: Response) {
+    const userId = req.user.id;
+    const validatedReq = req as ValidatedRequest<DeleteUserInput>;
+    const { email } = validatedReq.validatedData;
 
-        } catch (error) {
-            console.error('error', error);
-            res.status(500).json({ message: 'Server error' });
-        }
-    },
+    try {
+      const user = await prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+      });
 
-    async delete(req: Request, res: Response) {
-        const { email, id } = req.body.data;
+      if (user === null) {
+        return res.status(400).json({ message: 'User not found' });
+      }
 
-        try {
-            const user = await prisma.user.findUnique({
-                where: {
-                    email: email
-                }
-            });
+      // Verify the email matches the authenticated user
+      if (user.email !== email) {
+        return res
+          .status(403)
+          .json({ message: 'Email confirmation does not match authenticated user' });
+      }
 
-            if (user === null) {
-                return res.status(400).json({ message: `User not found: ${email}` });
-            }
+      const result = await prisma.user.delete({
+        where: {
+          id: userId,
+        },
+      });
 
-            const result = await prisma.user.delete({
-                where: {
-                    id: Number(id),
-                    email: email
-                },
-            })
-            const token = generateToken({ id: user.id, email: user.email });
-
-            res.json({
-                result,
-                token,
-            });
-
-        } catch (error) {
-            console.error('error', error);
-            res.status(500).json({ message: 'Server error' });
-        }
-    },
+      res.json({
+        result,
+        message: 'User deleted successfully',
+      });
+    } catch (error) {
+      console.error('error', error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  },
 };

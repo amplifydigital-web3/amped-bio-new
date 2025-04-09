@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, PersistOptions } from 'zustand/middleware';
-import { login, registerNewUser, passwordResetRequest } from '../api';
+import { login, registerNewUser, passwordResetRequest } from '../api/api';
 import type { AuthUser } from '../types/auth';
 import { defaultAuthUser } from './defaults';
 
@@ -12,29 +12,31 @@ type AuthState = {
   signIn: (email: string, password: string) => Promise<AuthUser>;
   signUp: (onelink: string, email: string, password: string) => Promise<AuthUser>;
   signOut: () => Promise<void>;
-  resetPassword: (email: string) => Promise<string>
+  resetPassword: (email: string) => Promise<string>;
 };
 
 type AuthPersistOptions = PersistOptions<AuthState>;
 
 const persistOptions: AuthPersistOptions = {
-  name: 'auth-storage'
+  name: 'auth-storage',
 };
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    set => ({
       authUser: defaultAuthUser,
       loading: false,
       error: null,
       token: null,
 
       signIn: async (email: string, password: string) => {
-        let authed_user = { email: '', id: '', onelink: '', token: '', emailVerified: false };
+        let authed_user = { email: '', id: 0, onelink: '', emailVerified: false };
         try {
           set({ loading: true, error: null });
           const { user, token } = await login({ email, password });
-          set({ authUser: { ...user, token } });
+          // Save token to localStorage for axios to use
+          localStorage.setItem('amped-bio-auth-token', token);
+          set({ authUser: { ...user, token }, token });
           authed_user = user;
         } catch (error) {
           set({ error: (error as Error).message });
@@ -47,11 +49,13 @@ export const useAuthStore = create<AuthState>()(
       },
 
       signUp: async (onelink: string, email: string, password: string) => {
-        let authed_user = { email: '', id: '', onelink: '', token: '', emailVerified: false };
+        let authed_user = { email: '', id: 0, onelink: '', token: '', emailVerified: false };
         try {
           set({ loading: true, error: null });
           const { user, token } = await registerNewUser({ onelink, email, password });
-          set({ authUser: { ...user, token } });
+          // Save token to localStorage for axios to use
+          localStorage.setItem('auth-token', token);
+          set({ authUser: { ...user, token }, token });
           authed_user = user;
         } catch (error) {
           set({ error: (error as Error).message });
@@ -65,6 +69,8 @@ export const useAuthStore = create<AuthState>()(
       signOut: async () => {
         try {
           set({ loading: true, error: null, authUser: defaultAuthUser, token: null });
+          // Remove token from localStorage when signing out
+          localStorage.removeItem('auth-token');
         } catch (error) {
           set({ error: (error as Error).message });
           throw error;
@@ -74,15 +80,18 @@ export const useAuthStore = create<AuthState>()(
       },
       resetPassword: async (email: string) => {
         try {
-          return passwordResetRequest(email);
+          const res = await passwordResetRequest(email);
+          return res.message;
         } catch (error) {
           set({ error: (error as Error).message });
           throw error;
         } finally {
           set({ loading: false });
         }
-      }
-    }), persistOptions)
+      },
+    }),
+    persistOptions
+  )
 );
 
 // // Set up auth state listener

@@ -1,91 +1,112 @@
-import axios from 'axios';
-import ReactDOMServer from 'react-dom/server';
-import { verifyEmailTemplate } from './VerifyEmailTemplate';
-import { resetPasswordTemplate } from './ResetPasswordTemplate';
-import { withRelatedProject } from '@vercel/related-projects';
+import nodemailer from 'nodemailer';
+import { render } from '@react-email/render';
+import verifyEmailTemplate from './VerifyEmailTemplate';
+import resetPasswordTemplate from './ResetPasswordTemplate';
+import { env } from '../../env';
 
-// const baseURL = withRelatedProject({
-//     projectName: 'amped-bio-server',
-//     defaultHost: 'http://localhost:3000'
-// })
-
-const baseURL = process.env.VERCEL_PROJECT_PRODUCTION_URL || 'http://localhost:3000';
+const baseURL = env.VERCEL_PROJECT_PRODUCTION_URL;
 
 type EmailOptions = {
-    to: string | string[];
-    text_body?: string;
-    html_body?: string;
-    subject: string;
-}
+  to: string | string[];
+  html_body: string;
+  subject: string;
+};
+
+// Create a nodemailer transporter
+const transporter = nodemailer.createTransport({
+  host: env.SMTP_HOST,
+  port: env.SMTP_PORT,
+  secure: env.SMTP_SECURE,
+  auth: {
+    user: env.SMTP_USER,
+    pass: env.SMTP_PASSWORD,
+  },
+});
 
 const sendEmail = async (options: EmailOptions) => {
-    console.log('Sending email:', { to: options.to, subject: options.subject });
-    return new Promise((resolve, reject) => {
-        // Validate required options
-        if (!process.env.SMTP2GO_API_KEY) {
-            reject(new Error('API key is required'));
-            return;
-        }
+  console.log('📧 Starting email sending process:', { to: options.to, subject: options.subject });
 
-        if (!options.to) {
-            reject(new Error('Email subject is required'));
-            return;
-        }
+  // Validate required options
+  console.log('🔍 Validating SMTP credentials...');
 
-        if (!options.text_body && !options.html_body) {
-            reject(new Error('Either text_body or html_body is required'));
-            return;
-        }
+  console.log('🔍 Validating email options...');
+  if (!options.to) {
+    console.error('❌ Email recipient missing');
+    throw new Error('Email recipient is required');
+  }
 
-        const recipients = Array.isArray(options.to) ? options.to : [options.to];
-        const requestData = {
-            api_key: process.env.SMTP2GO_API_KEY,
-            sender: process.env.SMTP2GO_EMAIL,
-            to: recipients,
-            subject: options.subject,
-            text_body: options.text_body || '',
-            html_body: options.html_body || ''
-        };
-        const jsonData = JSON.stringify(requestData);
-        const requestOptions = {
-            url: 'https://api.smtp2go.com/v3/email/send',
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Content-Length': Buffer.byteLength(jsonData)
-            },
-            data: jsonData
-        };
+  if (!options.subject) {
+    console.error('❌ Email subject missing');
+    throw new Error('Email subject is required');
+  }
 
-        const request = axios.request(requestOptions).then((res) => {
-            console.log('Email request sent:', res.data);
-            return res.data;
-        }).catch((error) => {
-            console.error(error);
-            reject(new Error(`Request to SMTP2GO failed: ${error.message}`));
-        });
+  if (!options.html_body) {
+    console.error('❌ Email body missing');
+    throw new Error('html_body is required');
+  }
+  console.log('✅ Email options validated');
 
+  const recipients = Array.isArray(options.to) ? options.to : [options.to];
+  console.log(`👥 Preparing email for ${recipients.length} recipient(s):`, recipients);
 
-        resolve(request);
+  const mailOptions = {
+    from: env.SMTP_FROM_EMAIL || 'noreply@amped-bio.com',
+    to: recipients.join(','),
+    subject: options.subject,
+    html: options.html_body,
+  };
+
+  console.log('📤 Attempting to send email via SMTP...');
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log('✅ Email sent successfully:', {
+      messageId: info.messageId,
+      response: info.response,
+      timestamp: new Date().toISOString(),
     });
-}
+    return info;
+  } catch (error: any) {
+    console.error('❌ Email sending failed:', {
+      error: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString(),
+    });
+    throw new Error(`Failed to send email: ${error.message}`);
+  }
+};
 
 export const sendEmailVerification = async (email: string, token: string) => {
-    const url = `${baseURL}/api/auth/verifyEmail/${token}?email=${encodeURIComponent(email)}`;
-    const body = verifyEmailTemplate(url);
-    return sendEmail({
-        to: email,
-        subject: 'Amped-Bio Email Verification',
-        html_body: ReactDOMServer.renderToString(body),
-    });
-}
+  console.log(`🔗 Generating verification URL for email: ${email}`);
+  const url = `${baseURL}/auth/verify-email/${token}?email=${encodeURIComponent(email)}`;
+  console.log('🔗 Verification URL generated:', url);
+
+  console.log('🎨 Rendering email verification template...');
+  const emailComponent = verifyEmailTemplate({ url });
+  const htmlContent = await render(emailComponent);
+  console.log('✅ Email template rendered successfully');
+
+  console.log('📨 Sending verification email...');
+  return sendEmail({
+    to: email,
+    subject: 'Amped-Bio Email Verification',
+    html_body: htmlContent,
+  });
+};
 
 export const sendPasswordResetEmail = async (email: string, token: string) => {
-    const url = `${baseURL}/api/auth/passwordReset/${token}?email=${encodeURIComponent(email)}`;
-    const body = resetPasswordTemplate(url);
-    return sendEmail({
-        to: email,
-        subject: 'Amped-Bio Password Reset',
-        html_body: ReactDOMServer.renderToString(body),
-    });
-}
+  console.log(`🔑 Generating password reset URL for email: ${email}`);
+  const url = `${baseURL}/auth/reset-password/${token}`;
+  console.log('🔗 Password reset URL generated:', url);
+
+  console.log('🎨 Rendering password reset template...');
+  const emailComponent = resetPasswordTemplate({ url });
+  const htmlContent = await render(emailComponent);
+  console.log('✅ Email template rendered successfully');
+
+  console.log('📨 Sending password reset email...');
+  return sendEmail({
+    to: email,
+    subject: 'Amped-Bio Password Reset',
+    html_body: htmlContent,
+  });
+};
