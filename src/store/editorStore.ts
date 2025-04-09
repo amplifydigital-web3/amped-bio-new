@@ -324,7 +324,7 @@ export const useEditorStore = create<EditorStore>()(set => ({
       const status = await editUser({
         name: profile.name,
         email: profile.email,
-        onelink: profile.onelink,
+        onelink: profile.onelink.replace(/@/g, ''),
         description: profile.bio,
         image: profile.photoUrl || '',
         reward_business_id: '',
