@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { ValidatedRequest } from '../middleware/validation.middleware';
+import { OnelinkParamInput, RedeemOnelinkInput } from '../schemas/onelink.schema';
 
 const prisma = new PrismaClient();
 
@@ -7,7 +9,7 @@ export const onelinkController = {
   async getOnelink(req: Request, res: Response) {
     console.group('🔗 GET ONELINK REQUEST');
     console.info('📥 Received request for onelink');
-    const { onelink } = req.params;
+    const { onelink } = (req as ValidatedRequest<OnelinkParamInput>).validatedData;
     console.info(`🔍 Looking up onelink: ${onelink}`);
 
     try {
@@ -62,7 +64,7 @@ export const onelinkController = {
   async checkOnelink(req: Request, res: Response) {
     console.group('🔍 CHECK ONELINK REQUEST');
     console.info('📥 Received request to check onelink availability');
-    const { onelink } = req.params;
+    const { onelink } = (req as ValidatedRequest<OnelinkParamInput>).validatedData;
     console.info(`🔍 Checking availability for: ${onelink}`);
 
     try {
@@ -74,19 +76,104 @@ export const onelinkController = {
       });
       console.info(`🔢 Count result: ${count}`);
 
-      if (count === 0) {
-        console.info(`✅ Onelink "${onelink}" is available`);
-        console.groupEnd();
-        return res.status(201).json({ url: onelink, message: 'Available' });
-      } else {
-        console.info(`❌ Onelink "${onelink}" is already taken`);
-        console.groupEnd();
-        return res.status(201).json({ url: onelink, message: 'Taken' });
-      }
+      const available = count === 0;
+      console.info(
+        `${available ? '✅' : '❌'} Onelink "${onelink}" is ${available ? 'available' : 'taken'}`
+      );
+      console.groupEnd();
+
+      return res.status(200).json({
+        available,
+        onelink,
+      });
     } catch (error) {
       console.error('❌ ERROR in checkOnelink', error);
       console.groupEnd();
       res.status(500).json({ message: 'Server error' });
+    }
+  },
+  async redeemOnelink(req: Request, res: Response) {
+    console.group('🔄 REDEEM ONELINK REQUEST');
+    console.info('📥 Received request to redeem onelink');
+
+    const { newOnelink } = (req as ValidatedRequest<RedeemOnelinkInput>).validatedData;
+    const userId = req.user?.id; // Get user ID from authentication middleware
+
+    if (!userId) {
+      console.info('❌ User not authenticated');
+      console.groupEnd();
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
+
+    try {
+      // First get the current user to find their current onelink
+      const currentUser = await prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+        select: {
+          onelink: true,
+        },
+      });
+
+      if (!currentUser) {
+        console.info(`❌ User with ID ${userId} not found`);
+        console.groupEnd();
+        return res.status(404).json({
+          success: false,
+          message: 'User not found',
+        });
+      }
+
+      const currentOnelink = currentUser.onelink;
+      console.info(
+        `🔄 User ${userId} requesting to change onelink from "${currentOnelink}" to "${newOnelink}"`
+      );
+
+      // Check if the new onelink is available
+      const existingOnelink = await prisma.user.findUnique({
+        where: {
+          onelink: newOnelink,
+        },
+      });
+
+      if (existingOnelink) {
+        console.info(`❌ Onelink "${newOnelink}" is already taken`);
+        console.groupEnd();
+        return res.status(400).json({
+          success: false,
+          message: 'This onelink is already taken',
+        });
+      }
+
+      // Update the user's onelink
+      const updatedUser = await prisma.user.update({
+        where: {
+          id: userId,
+        },
+        data: {
+          onelink: newOnelink,
+        },
+      });
+
+      console.info(`✅ Onelink successfully updated to "${newOnelink}"`);
+      console.groupEnd();
+
+      return res.status(200).json({
+        success: true,
+        message: 'Onelink updated successfully',
+        onelink: newOnelink,
+      });
+    } catch (error) {
+      console.error('❌ ERROR in redeemOnelink', error);
+      console.groupEnd();
+      res.status(500).json({
+        success: false,
+        message: 'Server error',
+      });
     }
   },
 };

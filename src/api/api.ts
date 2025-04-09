@@ -11,6 +11,8 @@ import type {
   VerifyEmailResponse,
   BlockResponse,
   BlockData,
+  OnelinkRedemptionResponse,
+  OnelinkAvailabilityResponse,
 } from './api.types';
 
 const baseURL = withRelatedProject({
@@ -166,16 +168,20 @@ export async function deleteUser(userData: DeleteData) {
 export async function editTheme(theme: Theme) {
   const { id } = theme;
   console.log('Editing Theme:', id);
-  return apiRequest<{
-    id: number;
-    user_id: number;
-    name: string;
-    share_level: string;
-    share_config: Map<string, any> | null;
-    config: Map<string, any> | null;
-    created_at: Date;
-    updated_at: Date | null;
+  const res = await apiRequest<{
+    result: {
+      id: number;
+      user_id: number;
+      name: string;
+      share_level: string;
+      share_config: Map<string, any> | null;
+      config: Map<string, any> | null;
+      created_at: Date;
+      updated_at: Date | null;
+    };
   }>(() => api.put(`/user/theme/${id}`, { theme }), 'Theme updated successfully:');
+
+  return res.result;
 }
 
 export async function editBlocks(blocks: Block[]) {
@@ -202,17 +208,26 @@ export async function addBlock(block: BlockData): Promise<BlockResponse> {
 
 // Onelink APIs
 export async function getOnelink(onelink: string) {
-  console.log('Get onelink:', onelink);
+  const sanitizedOnelink = onelink.replace(/^@+/, '');
+  console.log('Get onelink:', sanitizedOnelink);
   return apiRequest<any>(
-    () => api.get(`/onelink/${onelink}`),
+    () => api.get(`/onelink/${sanitizedOnelink}`),
     'Onelink retrieved successfully:'
   ).then(data => data.result);
 }
 
-export async function checkOnelinkAvailability(onelink: string) {
+export async function checkOnelinkAvailability(onelink: string): Promise<boolean> {
   console.log('Check onelink:', onelink);
-  return apiRequest<any>(
+  return apiRequest<OnelinkAvailabilityResponse>(
     () => api.get(`/onelink/check/${onelink}`),
     'Onelink availability checked:'
-  ).then(data => data.message);
+  ).then(data => data.available);
+}
+
+export async function redeemOnelink(newOnelink: string) {
+  console.log(`Redeeming onelink: changing to ${newOnelink}`);
+  return apiRequest<OnelinkRedemptionResponse>(
+    () => api.post('/onelink/redeem', { newOnelink }),
+    'Onelink redemption process:'
+  );
 }

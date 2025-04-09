@@ -83,3 +83,15 @@ export interface BlockData {
   order?: number;
   [key: string]: any;
 }
+
+// Onelink-related types
+export interface OnelinkRedemptionResponse {
+  success: boolean;
+  message: string;
+  onelink?: string;
+}
+
+export interface OnelinkAvailabilityResponse {
+  available: boolean;
+  onelink: string;
+}

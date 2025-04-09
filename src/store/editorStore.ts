@@ -75,7 +75,7 @@ export const useEditorStore = create<EditorStore>()(set => ({
       const blocks = blocks_raw
         .sort((a, b) => a.order - b.order)
         .map(({ id, type, config }) => {
-          return { id, type, ...config };
+          return { ...config, id, type };
         });
       console.info(`📦 Setting ${blocks.length} blocks...`);
       set({ blocks: blocks });
@@ -305,6 +305,10 @@ export const useEditorStore = create<EditorStore>()(set => ({
         share_config: theme.share_config,
         config: theme.config,
       });
+
+      console.info('Theme status:', theme_status);
+
+      console.info('Theme', theme);
 
       console.info('📦 Saving blocks...');
       const blocks_status = await editBlocks(blocks);
