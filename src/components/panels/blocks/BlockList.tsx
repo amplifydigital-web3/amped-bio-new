@@ -15,14 +15,14 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { SortableItem } from './SortableItem';
-import type { Block } from '../../../types/editor';
 import { BlockEditor } from './BlockEditor';
+import { BlockType } from '@/api/api.types';
 
 interface BlockListProps {
-  blocks: Block[];
-  onUpdate: (id: number, block: Partial<Block>) => void;
+  blocks: BlockType[];
+  onUpdate: (id: number, block: BlockType['config']) => void;
   onRemove: (id: number) => void;
-  onReorder: (blocks: Block[]) => void;
+  onReorder: (blocks: BlockType[]) => void;
 }
 
 export function BlockList({ blocks, onUpdate, onRemove, onReorder }: BlockListProps) {

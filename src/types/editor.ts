@@ -1,4 +1,4 @@
-import { PlatformId } from '@/utils/platforms';
+import { BaseBlock, BlockType } from '@/api/api.types';
 
 export type UserProfile = {
   name: string;
@@ -8,41 +8,6 @@ export type UserProfile = {
   photoUrl?: string;
   photoCmp?: string;
 };
-
-export type LinkBlock = {
-  id: number;
-  type: 'link';
-  platform: PlatformId;
-  url: string;
-  label: string;
-};
-
-export type MediaBlock = {
-  id: number;
-  type: 'media';
-  content?: string;
-  platform:
-    | 'spotify'
-    | 'instagram'
-    | 'youtube'
-    | 'twitter'
-    | 'token-price'
-    | 'nft-collection'
-    | 'uniswap'
-    | 'substack'
-    | 'creator-pool';
-  url: string;
-  label: string;
-};
-
-export type TextBlock = {
-  id: number;
-  type: 'text';
-  content: string;
-  platform: string;
-};
-
-export type Block = LinkBlock | MediaBlock | TextBlock;
 
 export type Background = {
   type: 'color' | 'image' | 'video';
@@ -122,7 +87,7 @@ export interface Collection {
 
 export type EditorState = {
   profile: UserProfile;
-  blocks: Block[];
+  blocks: BlockType[];
   theme: Theme;
   activePanel: string;
   gallery: GalleryImage[];

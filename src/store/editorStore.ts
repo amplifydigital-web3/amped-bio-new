@@ -1,19 +1,15 @@
 import { create } from 'zustand';
 import type {
   EditorState,
-  Block,
   UserProfile,
   Theme,
   ThemeConfig,
   Background,
   GalleryImage,
-  MarketplaceTheme,
 } from '../types/editor';
-import { persist, PersistOptions } from 'zustand/middleware';
-import type { AuthUser } from '../types/auth';
+import { PersistOptions } from 'zustand/middleware';
 import {
   editUser,
-  getUser,
   editTheme,
   editBlocks,
   deleteBlock,
@@ -21,18 +17,18 @@ import {
   addBlock as apiAddBlock,
 } from '../api/api';
 import initialState, { defaultAuthUser } from './defaults';
-import { isNumber } from '@tsparticles/engine';
 import { useAuthStore } from './authStore';
 import toast from 'react-hot-toast';
+import { BlockType } from '@/api/api.types';
 
 interface EditorStore extends EditorState {
   changes: boolean;
   setUser: (onelink: string) => Promise<any>;
   setProfile: (profile: UserProfile) => void;
-  addBlock: (block: Block) => Promise<Block>; // Updated return type
+  addBlock: (block: BlockType) => Promise<BlockType>; // Updated return type
   removeBlock: (id: number) => void;
-  updateBlock: (id: number, block: Partial<Block>) => void;
-  reorderBlocks: (blocks: Block[]) => void;
+  updateBlock: (id: number, updatedConfig: BlockType['config']) => void;
+  reorderBlocks: (blocks: BlockType[]) => void;
   updateThemeConfig: (theme: Partial<ThemeConfig>) => void;
   setActivePanel: (panel: string) => void;
   setBackground: (background: Background) => void;
@@ -65,18 +61,14 @@ export const useEditorStore = create<EditorStore>()(set => ({
       }
       const { user, theme, blocks: blocks_raw } = userData;
       const { name, email, description, image } = user;
-      console.info('👤 User data loaded:', { name, email });
+      console.info('👤 User data loaded:', { name, email, blocks: blocks_raw });
 
       set({
         profile: { name, onelink, email, bio: description, photoUrl: image },
       });
       console.info('🎨 Setting theme...');
       set({ theme: { ...initialState.theme, ...theme } });
-      const blocks = blocks_raw
-        .sort((a, b) => a.order - b.order)
-        .map(({ id, type, config }) => {
-          return { ...config, id, type };
-        });
+      const blocks = blocks_raw.sort((a, b) => a.order - b.order);
       console.info(`📦 Setting ${blocks.length} blocks...`);
       set({ blocks: blocks });
       console.info('✅ User setup complete');
@@ -95,7 +87,7 @@ export const useEditorStore = create<EditorStore>()(set => ({
     console.info('✅ Profile updated');
     console.groupEnd();
   },
-  addBlock: async (block: Block): Promise<Block> => {
+  addBlock: async (block: BlockType): Promise<BlockType> => {
     console.group('➕ Adding Block');
     console.info('Block data:', block);
 
@@ -116,12 +108,10 @@ export const useEditorStore = create<EditorStore>()(set => ({
         return block; // Return original block
       }
 
-      // Prepare block data for API
-      const { type, ...config } = block;
       const blockOrder = useEditorStore.getState().blocks.length;
 
       console.info('🔄 Adding block to server...');
-      const response = await apiAddBlock({ type, order: blockOrder, ...config });
+      const response = await apiAddBlock(block);
       console.info('✅ Block added to server:', response);
 
       // Update block with server-generated ID if available
@@ -129,6 +119,7 @@ export const useEditorStore = create<EditorStore>()(set => ({
         newBlock = {
           ...block,
           id: response.result.id,
+          order: blockOrder,
         };
       }
 
@@ -178,14 +169,14 @@ export const useEditorStore = create<EditorStore>()(set => ({
       console.groupEnd();
     }
   },
-  updateBlock: (id: number, updatedBlock: Partial<Block>) => {
+  updateBlock: (id: number, updatedConfig: BlockType['config']) => {
     console.group(`🔄 Updating Block: ${id}`);
-    console.info('Update data:', updatedBlock);
+    console.info('Update data:', updatedConfig);
     set(
       state =>
         ({
           blocks: state.blocks.map(block =>
-            block.id === id ? { ...block, ...updatedBlock } : block
+            block.id === id ? { ...block, config: updatedConfig } : block
           ),
           changes: true,
         }) as Partial<EditorStore>
@@ -193,7 +184,7 @@ export const useEditorStore = create<EditorStore>()(set => ({
     console.info('✅ Block updated');
     console.groupEnd();
   },
-  reorderBlocks: (blocks: Block[]) => {
+  reorderBlocks: (blocks: BlockType[]) => {
     console.group('🔀 Reordering Blocks');
     console.info(`Reordering ${blocks.length} blocks`);
     set({ blocks, changes: true });

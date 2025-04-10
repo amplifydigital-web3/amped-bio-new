@@ -1,8 +1,9 @@
 import { MessageCircle } from 'lucide-react';
-import type { TextBlock as TextBlockType, ThemeConfig } from '../../types/editor';
+import type { ThemeConfig } from '../../types/editor';
+import { TextBlock } from '@/api/api.types';
 
 interface TelegramBlockProps {
-  block: TextBlockType;
+  block: TextBlock;
   theme: ThemeConfig;
 }
 
@@ -15,7 +16,7 @@ export function TelegramBlock({ block, theme }: TelegramBlockProps) {
           className="font-medium"
           style={{
             fontFamily: theme.fontFamily,
-            color: theme.fontColor
+            color: theme.fontColor,
           }}
         >
           Join our Telegram Channel
@@ -23,7 +24,7 @@ export function TelegramBlock({ block, theme }: TelegramBlockProps) {
       </div>
 
       <a
-        href={block.content}
+        href={block.config.content}
         target="_blank"
         rel="noopener noreferrer"
         className="block w-full px-4 py-3 bg-[#26A5E4] text-white rounded-lg hover:bg-[#229ED9] transition-colors text-center"
@@ -36,7 +37,7 @@ export function TelegramBlock({ block, theme }: TelegramBlockProps) {
         className="text-sm text-gray-600"
         style={{
           fontFamily: theme.fontFamily,
-          color: theme.fontColor
+          color: theme.fontColor,
         }}
       >
         Stay updated with our latest announcements and community discussions.

@@ -1,14 +1,15 @@
 import { Instagram } from 'lucide-react';
-import type { MediaBlock as MediaBlockType, ThemeConfig } from '../../../types/editor';
+import type { ThemeConfig } from '../../../types/editor';
 import InstagramEmbed from './InstagramEmbed';
+import { MediaBlock } from '@/api/api.types';
 
 interface InstagramBlockProps {
-  block: MediaBlockType;
+  block: MediaBlock;
   theme: ThemeConfig;
 }
 
 export function InstagramBlock({ block, theme }: InstagramBlockProps) {
-  if (!block.content) {
+  if (!block.config.content) {
     return (
       <div className="w-full p-6 rounded-lg bg-[#E4405F]/10 border-2 border-dashed border-[#E4405F]/20 flex flex-col items-center justify-center space-y-2">
         <Instagram className="w-8 h-8 text-[#E4405F]" />
@@ -21,7 +22,7 @@ export function InstagramBlock({ block, theme }: InstagramBlockProps) {
 
   return (
     <div className="w-full space-y-2">
-      <InstagramEmbed url={block.content} />
+      <InstagramEmbed url={block.config.content} />
     </div>
   );
 
@@ -38,7 +39,7 @@ export function InstagramBlock({ block, theme }: InstagramBlockProps) {
   //     </div>
   //     <div className="w-full rounded-lg overflow-hidden bg-white shadow-lg">
   //       <iframe
-  //         src={`${block.content}/embed`}
+  //         src={`${block.config.content}/embed`}
   //         width="100%"
   //         height="400"
   //         frameBorder="0"

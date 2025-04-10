@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { Block, AddBlockInput, EditBlocksInput } from '../schemas/block.schema';
+import { AddBlockInput, EditBlocksInput } from '../schemas/block.schema';
 
 const prisma = new PrismaClient();
 
@@ -169,7 +169,7 @@ export const blockController = {
     const user_id = req.user.id;
 
     try {
-      const { type, order, ...config } = req.body as AddBlockInput;
+      const { type, order, config } = req.body as AddBlockInput;
 
       const result = await prisma.block.create({
         data: {

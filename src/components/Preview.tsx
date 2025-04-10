@@ -2,7 +2,12 @@ import React from 'react';
 import { useEditorStore } from '../store/editorStore';
 import { ParticlesBackground } from './particles/ParticlesBackground';
 import { cn } from '../utils/cn';
-import { getButtonBaseStyle, getContainerStyle, getButtonEffectStyle, getHeroEffectStyle } from '../utils/styles';
+import {
+  getButtonBaseStyle,
+  getContainerStyle,
+  getButtonEffectStyle,
+  getHeroEffectStyle,
+} from '../utils/styles';
 import { getPlatformIcon } from '../utils/platforms';
 import { MediaBlock } from './blocks/MediaBlock';
 import { TextBlock } from './blocks/TextBlock';
@@ -28,10 +33,12 @@ interface PreviewProps {
 
 export function Preview(props: PreviewProps) {
   const [isMobile, setIsMobile] = React.useState(false);
-  const profile = useEditorStore((state) => state.profile);
-  const blocks = useEditorStore((state) => state.blocks);
-  const theme = useEditorStore((state) => state.theme.config);
+  const profile = useEditorStore(state => state.profile);
+  const blocks = useEditorStore(state => state.blocks);
+  const theme = useEditorStore(state => state.theme.config);
   const { isEditing = false, onelink } = props;
+
+  console.info('blocks preview', blocks);
 
   return (
     <>
@@ -47,9 +54,7 @@ export function Preview(props: PreviewProps) {
           <div
             className="absolute inset-0 w-full h-full"
             style={{
-              background: theme.background.type === 'color'
-                ? theme.background.value
-                : undefined
+              background: theme.background.type === 'color' ? theme.background.value : undefined,
             }}
           >
             {theme.background.type === 'video' ? (
@@ -65,7 +70,7 @@ export function Preview(props: PreviewProps) {
               <div
                 className="w-full h-full bg-cover bg-center"
                 style={{
-                  backgroundImage: `url(${theme.background.value})`
+                  backgroundImage: `url(${theme.background.value})`,
                 }}
               />
             ) : null}
@@ -75,18 +80,19 @@ export function Preview(props: PreviewProps) {
           </div>
 
           {/* Content Layer */}
-          <div className={cn(
-            'relative min-h-full py-8 px-4 transition-all duration-300 mx-auto z-10',
-            isMobile ? 'max-w-[375px]' : 'max-w-[640px]'
-          )}>
+          <div
+            className={cn(
+              'relative min-h-full py-8 px-4 transition-all duration-300 mx-auto z-10',
+              isMobile ? 'max-w-[375px]' : 'max-w-[640px]'
+            )}
+          >
             {/* Container */}
             <div
-              className={cn(
-                'w-full space-y-8 p-8',
-                getContainerStyle(theme.containerStyle)
-              )}
+              className={cn('w-full space-y-8 p-8', getContainerStyle(theme.containerStyle))}
               style={{
-                backgroundColor: `${theme.containerColor}${Math.round(theme.transparency * 2.55).toString(16).padStart(2, '0')}`,
+                backgroundColor: `${theme.containerColor}${Math.round(theme.transparency * 2.55)
+                  .toString(16)
+                  .padStart(2, '0')}`,
               }}
             >
               {/* Profile Section */}
@@ -104,11 +110,7 @@ export function Preview(props: PreviewProps) {
                 )}
                 {profile.photoCmp && (
                   <div className="relative">
-                    <img
-                      src={profile.photoCmp}
-                      alt={profile.name}
-                      className="w-32 h-auto"
-                    />
+                    <img src={profile.photoCmp} alt={profile.name} className="w-32 h-auto" />
                     {/* <div className="absolute -inset-1 rounded-full blur-lg bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-30 group-hover:opacity-50 transition-opacity" /> */}
                   </div>
                 )}
@@ -120,7 +122,7 @@ export function Preview(props: PreviewProps) {
                     )}
                     style={{
                       fontFamily: theme.fontFamily,
-                      color: theme.fontColor
+                      color: theme.fontColor,
                     }}
                   >
                     {profile.name}
@@ -142,7 +144,7 @@ export function Preview(props: PreviewProps) {
                       style={{
                         fontFamily: theme.fontFamily,
                         color: theme.fontColor,
-                        opacity: 0.9
+                        opacity: 0.9,
                       }}
                     >
                       {profile.bio}
@@ -153,17 +155,23 @@ export function Preview(props: PreviewProps) {
 
               {/* Links & Blocks */}
               <div className="space-y-4">
-                {blocks.map((block) => {
+                {blocks.map(block => {
                   if (block.type === 'link') {
-                    const Icon = getPlatformIcon(block.platform);
-                    const element = block.platform === 'custom' ?  <img 
-                      src={`https://www.google.com/s2/favicons?domain=${extractRootDomain(block.url)}&sz=128`} 
-                      className="w-5 h-5 flex-shrink-0 rounded-full" />  :  <Icon className="w-5 h-5 flex-shrink-0" />;
+                    const Icon = getPlatformIcon(block.config.platform);
+                    const element =
+                      block.config.platform === 'custom' ? (
+                        <img
+                          src={`https://www.google.com/s2/favicons?domain=${extractRootDomain(block.config.url)}&sz=128`}
+                          className="w-5 h-5 flex-shrink-0 rounded-full"
+                        />
+                      ) : (
+                        <Icon className="w-5 h-5 flex-shrink-0" />
+                      );
 
                     return (
                       <a
-                        key={block.id}
-                        href={block.url}
+                        key={block.id.toString()}
+                        href={block.config.url}
                         target="_blank"
                         rel="noopener noreferrer"
                         className={cn(
@@ -180,26 +188,14 @@ export function Preview(props: PreviewProps) {
                         }}
                       >
                         {element}
-                        <span className="flex-1 text-center">{block.label}</span>
+                        <span className="flex-1 text-center">{block.config.label}</span>
                       </a>
                     );
                   }
                   if (block.type === 'media') {
-                    return (
-                      <MediaBlock
-                        key={block.id}
-                        block={block}
-                        theme={theme}
-                      />
-                    );
+                    return <MediaBlock key={block.id} block={block} theme={theme} />;
                   }
-                  return (
-                    <TextBlock
-                      key={block.id}
-                      block={block}
-                      theme={theme}
-                    />
-                  );
+                  return <TextBlock key={block.id} block={block} theme={theme} />;
                 })}
               </div>
             </div>
@@ -216,11 +212,21 @@ export function Preview(props: PreviewProps) {
               </span>
               {isMobile ? (
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                  />
                 </svg>
               ) : (
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
+                  />
                 </svg>
               )}
             </button>

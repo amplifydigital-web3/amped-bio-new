@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Mail } from 'lucide-react';
-import type { TextBlock as TextBlockType, ThemeConfig } from '../../types/editor';
+import type { ThemeConfig } from '../../types/editor';
+import type { TextBlock } from '@/api/api.types';
 
 interface EmailCollectionBlockProps {
-  block: TextBlockType;
+  block: TextBlock;
   theme: ThemeConfig;
 }
 
@@ -26,10 +27,10 @@ export function EmailCollectionBlock({ block, theme }: EmailCollectionBlockProps
           className="font-medium"
           style={{
             fontFamily: theme.fontFamily,
-            color: theme.fontColor
+            color: theme.fontColor,
           }}
         >
-          {block.content || 'Subscribe to Updates'}
+          {block.config.content || 'Subscribe to Updates'}
         </h3>
       </div>
 
@@ -37,7 +38,7 @@ export function EmailCollectionBlock({ block, theme }: EmailCollectionBlockProps
         <input
           type="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={e => setEmail(e.target.value)}
           placeholder="Enter your email"
           className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           style={{ fontFamily: theme.fontFamily }}

@@ -1,12 +1,12 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Trash2, Settings, ExternalLink } from 'lucide-react';
-import type { Block } from '../../../types/editor';
+import type { BlockType } from '@/api/api.types';
 import { getPlatformIcon } from '../../../utils/platforms';
 
 interface SortableItemProps {
   id: string;
-  block: Block;
+  block: BlockType;
   onEdit: () => void;
   onRemove: () => void;
 }
@@ -22,7 +22,7 @@ export function SortableItem({ id, block, onEdit, onRemove }: SortableItemProps)
     zIndex: isDragging ? 1 : undefined,
   };
 
-  const Icon = block.type === 'link' ? getPlatformIcon(block.platform) : undefined;
+  const Icon = block.type === 'link' ? getPlatformIcon(block.config.platform) : undefined;
 
   return (
     <div
@@ -41,13 +41,13 @@ export function SortableItem({ id, block, onEdit, onRemove }: SortableItemProps)
         <div className="min-w-0">
           <p className="font-medium text-gray-900 truncate">
             {block.type === 'link'
-              ? block.label
+              ? block.config.label
               : block.type === 'media'
-                ? block.platform
+                ? block.config.platform
                 : 'Text Block'}
           </p>
           <p className="text-sm text-gray-500 truncate">
-            {block.type === 'link' ? block.url : block.content || 'Empty block'}
+            {block.type === 'link' ? block.config.url : block.config.content || 'Empty block'}
           </p>
         </div>
       </div>
@@ -55,7 +55,7 @@ export function SortableItem({ id, block, onEdit, onRemove }: SortableItemProps)
       <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
         {block.type === 'link' && (
           <a
-            href={block.url}
+            href={block.config.url}
             target="_blank"
             rel="noopener noreferrer"
             className="p-1 text-gray-500 hover:text-gray-700"

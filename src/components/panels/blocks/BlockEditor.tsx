@@ -1,21 +1,21 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X } from 'lucide-react';
 import { Input } from '../../ui/Input';
 import { Textarea } from '../../ui/Textarea';
 import { Button } from '../../ui/Button';
-import type { Block } from '../../../types/editor';
+import { BlockType } from '@/api/api.types';
 
 interface BlockEditorProps {
-  block: Block;
-  onSave: (block: Partial<Block>) => void;
+  block: BlockType;
+  onSave: (block: BlockType['config']) => void;
   onCancel: () => void;
 }
 
 export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
-  const [content, setContent] = useState(block.content);
+  const [config, setConfig] = useState(block.config);
 
   const handleSave = () => {
-    onSave({ content });
+    onSave(config);
   };
 
   return (
@@ -23,12 +23,9 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
       <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">
-            Edit {block.type === 'media' ? block.platform : 'Text'} Block
+            Edit {block.type === 'media' ? block.config.platform : 'Text'} Block
           </h3>
-          <button
-            onClick={onCancel}
-            className="p-1 text-gray-500 hover:text-gray-700"
-          >
+          <button onClick={onCancel} className="p-1 text-gray-500 hover:text-gray-700">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -38,16 +35,16 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
             <Input
               label="Content URL"
               type="url"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
+              value={block.config.content || block.config.url || ''}
+              onChange={e => setConfig({ ...config, content: e.target.value })}
               placeholder="Enter media URL"
             />
           )}
           {block.type === 'text' && (
             <Textarea
               label="Content"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
+              value={block.config.content || ''}
+              onChange={e => setConfig({ ...config, content: e.target.value })}
               placeholder="Enter your text content"
               rows={4}
             />
@@ -57,9 +54,7 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
             <Button variant="outline" onClick={onCancel}>
               Cancel
             </Button>
-            <Button onClick={handleSave}>
-              Save Changes
-            </Button>
+            <Button onClick={handleSave}>Save Changes</Button>
           </div>
         </div>
       </div>

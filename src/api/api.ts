@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Theme, Block } from '../types/editor';
+import type { Theme } from '../types/editor';
 import { withRelatedProject } from '@vercel/related-projects';
 import type {
   LoginData,
@@ -10,9 +10,11 @@ import type {
   PasswordResetResponse,
   VerifyEmailResponse,
   BlockResponse,
-  BlockData,
+  AddBlockData,
   OnelinkRedemptionResponse,
   OnelinkAvailabilityResponse,
+  OnelinkResponse,
+  BlockType,
 } from './api.types';
 
 const baseURL = withRelatedProject({
@@ -184,7 +186,7 @@ export async function editTheme(theme: Theme) {
   return res.result;
 }
 
-export async function editBlocks(blocks: Block[]) {
+export async function editBlocks(blocks: BlockType[]) {
   console.log('Editing user blocks');
   return apiRequest(() => api.put('/user/blocks', { blocks }), 'User updated successfully:');
 }
@@ -198,10 +200,21 @@ export async function deleteBlock(block_id: number) {
 }
 
 // Add a function to add a single block
-export async function addBlock(block: BlockData): Promise<BlockResponse> {
+export async function addBlock(block: AddBlockData): Promise<BlockResponse> {
   console.log('Adding new block:', block);
+
+  // Extract type and order, move all other properties to config
+  const { type, order, ...configData } = block;
+
+  // Format the request according to the server's expected structure
+  const payload = {
+    type,
+    order: order || 0,
+    config: configData,
+  };
+
   return apiRequest<BlockResponse>(
-    () => api.post('/user/blocks', block),
+    () => api.post('/user/blocks', payload),
     'Block added successfully:'
   );
 }
@@ -210,7 +223,7 @@ export async function addBlock(block: BlockData): Promise<BlockResponse> {
 export async function getOnelink(onelink: string) {
   const sanitizedOnelink = onelink.replace(/^@+/, '');
   console.log('Get onelink:', sanitizedOnelink);
-  return apiRequest<any>(
+  return apiRequest<OnelinkResponse>(
     () => api.get(`/onelink/${sanitizedOnelink}`),
     'Onelink retrieved successfully:'
   ).then(data => data.result);

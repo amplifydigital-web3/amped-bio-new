@@ -25,10 +25,10 @@ export default tseslint.config(
         'warn',
         { allowConstantExport: true },
       ],
-      'quotes': ['error', 'single'],
+      'quotes': ['warn', 'double'],
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': 'off',
-      'prettier/prettier': 'error',
+      'prettier/prettier': 'warn',
       "@typescript-eslint/no-namespace": "off"
     },
   }

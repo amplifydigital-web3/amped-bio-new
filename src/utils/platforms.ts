@@ -13,41 +13,41 @@ import {
   Store,
   Video,
   Heart,
-  DollarSign,
-  Music,
   Newspaper,
   Gamepad2,
   Share2,
   type LucideIcon,
 } from 'lucide-react';
-import React from 'react';
 import { FaXTwitter } from 'react-icons/fa6';
 import { type IconType } from 'react-icons/lib';
 
-export type PlatformId =
-  | 'twitter'
-  | 'telegram'
-  | 'discord'
-  | 'instagram'
-  | 'lens'
-  | 'facebook'
-  | 'tiktok'
-  | 'element'
-  | 'github'
-  | 'linkedin'
-  | 'medium'
-  | 'mirror'
-  | 'warpcast'
-  | 'zora'
-  | 'opensea'
-  | 'youtube'
-  | 'patreon'
-  | 'onlyfans'
-  | 'appstore'
-  | 'playstore'
-  | 'email'
-  | 'document'
-  | 'custom';
+export const allowedPlatforms = [
+  'twitter',
+  'telegram',
+  'discord',
+  'instagram',
+  'lens',
+  'facebook',
+  'tiktok',
+  'element',
+  'github',
+  'linkedin',
+  'medium',
+  'mirror',
+  'warpcast',
+  'zora',
+  'opensea',
+  'youtube',
+  'patreon',
+  'onlyfans',
+  'appstore',
+  'playstore',
+  'email',
+  'document',
+  'custom',
+] as const;
+
+export type PlatformId = (typeof allowedPlatforms)[number];
 
 interface Platform {
   id: PlatformId;
