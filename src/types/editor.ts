@@ -1,4 +1,4 @@
-import { BaseBlock, BlockType } from '@/api/api.types';
+import { BaseBlock, BlockType } from "@/api/api.types";
 
 export type UserProfile = {
   name: string;
@@ -10,9 +10,10 @@ export type UserProfile = {
 };
 
 export type Background = {
-  type: 'color' | 'image' | 'video';
+  type: "color" | "image" | "video";
   value: string;
   label?: string;
+  thumbnail?: string;
 };
 
 export type ThemeConfig = {
@@ -91,9 +92,9 @@ export type EditorState = {
   theme: Theme;
   activePanel: string;
   gallery: GalleryImage[];
-  marketplaceView: 'grid' | 'list';
+  marketplaceView: "grid" | "list";
   marketplaceFilter: string;
-  marketplaceSort: 'popular' | 'newest' | 'rating';
+  marketplaceSort: "popular" | "newest" | "rating";
   connectedWallet?: string;
   selectedPoolId: string | null;
 };
