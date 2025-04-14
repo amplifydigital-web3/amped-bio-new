@@ -1,4 +1,4 @@
-import { PlatformId } from '@/utils/platforms';
+import { BaseBlock, BlockType } from "@/api/api.types";
 
 export type UserProfile = {
   name: string;
@@ -9,45 +9,11 @@ export type UserProfile = {
   photoCmp?: string;
 };
 
-export type LinkBlock = {
-  id: number;
-  type: 'link';
-  platform: PlatformId;
-  url: string;
-  label: string;
-};
-
-export type MediaBlock = {
-  id: number;
-  type: 'media';
-  content?: string;
-  platform:
-    | 'spotify'
-    | 'instagram'
-    | 'youtube'
-    | 'twitter'
-    | 'token-price'
-    | 'nft-collection'
-    | 'uniswap'
-    | 'substack'
-    | 'creator-pool';
-  url: string;
-  label: string;
-};
-
-export type TextBlock = {
-  id: number;
-  type: 'text';
-  content: string;
-  platform: string;
-};
-
-export type Block = LinkBlock | MediaBlock | TextBlock;
-
 export type Background = {
-  type: 'color' | 'image' | 'video';
+  type: "color" | "image" | "video";
   value: string;
   label?: string;
+  thumbnail?: string;
 };
 
 export type ThemeConfig = {
@@ -122,13 +88,13 @@ export interface Collection {
 
 export type EditorState = {
   profile: UserProfile;
-  blocks: Block[];
+  blocks: BlockType[];
   theme: Theme;
   activePanel: string;
   gallery: GalleryImage[];
-  marketplaceView: 'grid' | 'list';
+  marketplaceView: "grid" | "list";
   marketplaceFilter: string;
-  marketplaceSort: 'popular' | 'newest' | 'rating';
+  marketplaceSort: "popular" | "newest" | "rating";
   connectedWallet?: string;
   selectedPoolId: string | null;
 };

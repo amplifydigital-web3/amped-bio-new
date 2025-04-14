@@ -1,8 +1,9 @@
 import { Youtube } from 'lucide-react';
-import type { MediaBlock as MediaBlockType, ThemeConfig } from '../../types/editor';
+import type { ThemeConfig } from '../../types/editor';
+import { MediaBlock } from '@/api/api.types';
 
 interface YouTubeBlockProps {
-  block: MediaBlockType;
+  block: MediaBlock;
   theme: ThemeConfig;
 }
 
@@ -21,9 +22,9 @@ function getYouTubeVideoId(url: string): string | null {
 }
 
 export function YouTubeBlock({ block, theme }: YouTubeBlockProps) {
-  const videoId = block.content ? getYouTubeVideoId(block.content) : null;
+  const videoId = block.config.content ? getYouTubeVideoId(block.config.content) : null;
 
-  if (!block.content || !videoId || videoId === '') {
+  if (!block.config.content || !videoId || videoId === '') {
     return (
       <div className="w-full p-6 rounded-lg bg-[#FF0000]/10 border-2 border-dashed border-[#FF0000]/20 flex flex-col items-center justify-center space-y-2">
         <Youtube className="w-8 h-8 text-[#FF0000]" />

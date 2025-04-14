@@ -15,24 +15,33 @@ const initialState: EditorState = {
   blocks: [
     {
       id: 1,
+      order: 0,
       type: 'link',
-      platform: 'twitter',
-      url: 'https://x.com/amped_bio',
-      label: 'Follow on X',
+      config: {
+        platform: 'twitter',
+        url: 'https://x.com/amped_bio',
+        label: 'Follow on X',
+      },
     },
     {
       id: 2,
+      order: 1,
       type: 'link',
-      platform: 'github',
-      url: 'https://github.com/amplifydigital-web3',
-      label: 'Check out our Github',
+      config: {
+        platform: 'github',
+        url: 'https://github.com/amplifydigital-web3',
+        label: 'Check out our Github',
+      },
     },
     {
       id: 3,
+      order: 2,
       type: 'link',
-      platform: 'telegram',
-      url: 'https://t.me/npayme_network',
-      label: 'Connect on Telegram',
+      config: {
+        platform: 'telegram',
+        url: 'https://t.me/npayme_network',
+        label: 'Connect on Telegram',
+      },
     },
   ],
   theme: {

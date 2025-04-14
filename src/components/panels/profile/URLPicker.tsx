@@ -13,7 +13,7 @@ export function URLPicker() {
     ? profile.onelink.substring(1)
     : profile.onelink || '';
 
-  const [url, setUrl] = useState('');
+  const [url, setUrl] = useState(currentOnelink);
   const [urlStatus, setUrlStatus] = useState<
     'Unknown' | 'Checking...' | 'Available' | 'Unavailable' | 'Invalid'
   >('Unknown');
@@ -39,6 +39,12 @@ export function URLPicker() {
       return;
     }
 
+    // Check if URL is the same as current onelink
+    if (url === currentOnelink) {
+      setUrlStatus('Unknown'); // Use 'Unknown' status but we'll handle display separately
+      return;
+    }
+
     setUrlStatus('Checking...');
 
     // Clear any existing timer
@@ -59,7 +65,7 @@ export function URLPicker() {
         clearTimeout(debounceTimer.current);
       }
     };
-  }, [url, isValid]);
+  }, [url, isValid, currentOnelink]);
 
   // Function to handle URL update with async/await
   const handleURLUpdate = async (value: string) => {
@@ -117,33 +123,43 @@ export function URLPicker() {
 
   // Helper function to render status indicator with Lucide icons
   const renderStatusIndicator = () => {
+    // Special case: URL is the same as current onelink
+    if (url === currentOnelink && url !== '') {
+      return (
+        <div className="flex items-center text-blue-600 whitespace-nowrap">
+          <CheckCircle className="w-4 h-4 mr-1 flex-shrink-0" />
+          <span>Current handle</span>
+        </div>
+      );
+    }
+
     switch (urlStatus) {
       case 'Checking...':
         return (
-          <div className="flex items-center text-amber-500">
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Checking...
+          <div className="flex items-center text-amber-500 whitespace-nowrap">
+            <Loader2 className="w-4 h-4 mr-2 animate-spin flex-shrink-0" />
+            <span>Checking...</span>
           </div>
         );
       case 'Available':
         return (
-          <div className="flex items-center text-green-600">
-            <CheckCircle className="w-4 h-4 mr-1" />
-            Available
+          <div className="flex items-center text-green-600 whitespace-nowrap">
+            <CheckCircle className="w-4 h-4 mr-1 flex-shrink-0" />
+            <span>Available</span>
           </div>
         );
       case 'Unavailable':
         return (
-          <div className="flex items-center text-red-600">
-            <XCircle className="w-4 h-4 mr-1" />
-            Unavailable
+          <div className="flex items-center text-red-600 whitespace-nowrap">
+            <XCircle className="w-4 h-4 mr-1 flex-shrink-0" />
+            <span>Unavailable</span>
           </div>
         );
       case 'Invalid':
         return (
-          <div className="flex items-center text-red-600">
-            <XCircle className="w-4 h-4 mr-1" />
-            Invalid
+          <div className="flex items-center text-red-600 whitespace-nowrap">
+            <XCircle className="w-4 h-4 mr-1 flex-shrink-0" />
+            <span>Invalid</span>
           </div>
         );
       default:
@@ -172,10 +188,10 @@ export function URLPicker() {
               onChange={e => handleUrlChange(e.target.value)}
               placeholder={currentOnelink || 'Your unique URL'}
               pattern="^[a-zA-Z0-9_-]+$"
-              className="w-full px-3 py-2 border border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-24"
+              className="w-full px-3 py-2 border border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-32"
               aria-label="URL slug"
             />
-            <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+            <div className="absolute right-3 top-1/2 transform -translate-y-1/2 min-w-[90px] text-right">
               {renderStatusIndicator()}
             </div>
           </div>

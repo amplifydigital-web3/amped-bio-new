@@ -1,13 +1,14 @@
 import { ArrowUpRight } from 'lucide-react';
-import type { MediaBlock as MediaBlockType, ThemeConfig } from '../../types/editor';
+import type { ThemeConfig } from '../../types/editor';
+import { MediaBlock } from '@/api/api.types';
 
 interface UniswapBlockProps {
-  block: MediaBlockType;
+  block: MediaBlock;
   theme: ThemeConfig;
 }
 
 export function UniswapBlock({ block, theme }: UniswapBlockProps) {
-  if (!block.content) {
+  if (!block.config.content) {
     return (
       <div className="w-full p-6 rounded-lg bg-[#FF007A]/10 border-2 border-dashed border-[#FF007A]/20 flex flex-col items-center justify-center space-y-2">
         <ArrowUpRight className="w-8 h-8 text-[#FF007A]" />
@@ -31,7 +32,7 @@ export function UniswapBlock({ block, theme }: UniswapBlockProps) {
       </div>
       <div className="w-full rounded-lg overflow-hidden bg-white shadow-lg">
         <iframe
-          src={block.content}
+          src={block.config.content}
           width="100%"
           height="400"
           frameBorder="0"

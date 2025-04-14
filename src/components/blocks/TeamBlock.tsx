@@ -1,6 +1,7 @@
 import { Users } from 'lucide-react';
 import { FaXTwitter } from 'react-icons/fa6';
-import type { TextBlock as TextBlockType, ThemeConfig } from '../../types/editor';
+import type { ThemeConfig } from '../../types/editor';
+import { TextBlock } from '@/api/api.types';
 
 interface TeamMember {
   name: string;
@@ -10,7 +11,7 @@ interface TeamMember {
 }
 
 interface TeamBlockProps {
-  block: TextBlockType;
+  block: TextBlock;
   theme: ThemeConfig;
 }
 
@@ -18,7 +19,7 @@ export function TeamBlock({ block, theme }: TeamBlockProps) {
   let teamMembers: TeamMember[] = [];
 
   try {
-    teamMembers = JSON.parse(block.content);
+    teamMembers = JSON.parse(block.config.content);
   } catch {
     teamMembers = [];
   }
@@ -28,10 +29,7 @@ export function TeamBlock({ block, theme }: TeamBlockProps) {
       <div className="w-full p-6 rounded-lg bg-gray-50/50 backdrop-blur-sm space-y-2">
         <div className="flex items-center space-x-2">
           <Users className="w-5 h-5 text-gray-400" />
-          <h3
-            className="font-medium text-gray-400"
-            style={{ fontFamily: theme.fontFamily }}
-          >
+          <h3 className="font-medium text-gray-400" style={{ fontFamily: theme.fontFamily }}>
             Add Team Members
           </h3>
         </div>
@@ -47,7 +45,7 @@ export function TeamBlock({ block, theme }: TeamBlockProps) {
           className="font-medium text-gray-900"
           style={{
             fontFamily: theme.fontFamily,
-            color: theme.fontColor
+            color: theme.fontColor,
           }}
         >
           Our Team
@@ -67,15 +65,12 @@ export function TeamBlock({ block, theme }: TeamBlockProps) {
                 className="font-medium"
                 style={{
                   fontFamily: theme.fontFamily,
-                  color: theme.fontColor
+                  color: theme.fontColor,
                 }}
               >
                 {member.name}
               </h4>
-              <p
-                className="text-sm text-gray-500"
-                style={{ fontFamily: theme.fontFamily }}
-              >
+              <p className="text-sm text-gray-500" style={{ fontFamily: theme.fontFamily }}>
                 {member.role}
               </p>
               <a

@@ -1,3 +1,5 @@
+import { PlatformId } from "@/utils/platforms";
+
 export type LoginData = {
   email: string;
   password: string;
@@ -78,9 +80,10 @@ export interface BlockResponse {
   };
 }
 
-export interface BlockData {
-  type: string;
+export interface AddBlockData {
+  type: BaseBlockType;
   order?: number;
+  // All other fields will be part of the config object
   [key: string]: any;
 }
 
@@ -94,4 +97,62 @@ export interface OnelinkRedemptionResponse {
 export interface OnelinkAvailabilityResponse {
   available: boolean;
   onelink: string;
+}
+
+type BaseBlockType = "link" | "media" | "text";
+
+export type BaseBlock<type extends BaseBlockType = any, T = any> = {
+  id: number;
+  user_id?: number;
+  type: type;
+  order: number;
+  config: T;
+  created_at?: string;
+  updated_at?: string | null;
+};
+
+export type LinkBlock = BaseBlock<"link", { platform: PlatformId; url: string; label: string }>;
+
+export type MediaBlockPlatform =
+  | "spotify"
+  | "instagram"
+  | "youtube"
+  | "twitter"
+  | "token-price"
+  | "nft-collection"
+  | "uniswap"
+  | "substack"
+  | "creator-pool";
+
+export type MediaBlock = BaseBlock<
+  "media",
+  {
+    content?: string;
+    platform: MediaBlockPlatform;
+    url: string;
+    label: string;
+  }
+>;
+
+export type TextBlock = BaseBlock<
+  "text",
+  {
+    content: string;
+    platform: string;
+  }
+>;
+
+export type BlockType = LinkBlock | MediaBlock | TextBlock;
+
+export interface OnelinkResponse {
+  result: {
+    user: {
+      name: string;
+      email: string;
+      description: string;
+      image: string;
+    };
+    theme: any;
+    blocks: BlockType[];
+  };
 }

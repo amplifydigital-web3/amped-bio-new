@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
-import type { MediaBlock as MediaBlockType, ThemeConfig } from '../../types/editor';
+import type { ThemeConfig } from '../../types/editor';
+import { MediaBlock } from '@/api/api.types';
 
 interface TokenPriceBlockProps {
-  block: MediaBlockType;
+  block: MediaBlock;
   theme: ThemeConfig;
 }
 
@@ -44,7 +45,7 @@ export function TokenPriceBlock({ block, theme }: TokenPriceBlockProps) {
     // This is mock data for demonstration
 
     // TODO MAKE THIS FETCH REAl TOKEN DATA
-    if (block.content) {
+    if (block.config.content) {
       setTokenData({
         name: 'Ethereum',
         symbol: 'ETH',
@@ -52,12 +53,12 @@ export function TokenPriceBlock({ block, theme }: TokenPriceBlockProps) {
         change24h: 2.45,
         marketCap: 268900000000,
         volume24h: 8750000000,
-        logoUrl: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png'
+        logoUrl: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png',
       });
     }
-  }, [block.content]);
+  }, [block.config.content]);
 
-  if (!block.content) {
+  if (!block.config.content) {
     return (
       <div className="w-full p-6 rounded-lg bg-[#16C784]/10 border-2 border-dashed border-[#16C784]/20 flex flex-col items-center justify-center space-y-2">
         <DollarSign className="w-8 h-8 text-[#16C784]" />
@@ -95,25 +96,18 @@ export function TokenPriceBlock({ block, theme }: TokenPriceBlockProps) {
       <div className="w-full rounded-lg overflow-hidden bg-white/50 backdrop-blur-sm p-4 space-y-4">
         {/* Token Header */}
         <div className="flex items-center space-x-3">
-          <img
-            src={tokenData.logoUrl}
-            alt={tokenData.name}
-            className="w-8 h-8 rounded-full"
-          />
+          <img src={tokenData.logoUrl} alt={tokenData.name} className="w-8 h-8 rounded-full" />
           <div>
             <h3
               className="font-semibold"
               style={{
                 fontFamily: theme.fontFamily,
-                color: theme.fontColor
+                color: theme.fontColor,
               }}
             >
               {tokenData.name}
             </h3>
-            <p
-              className="text-sm text-gray-500"
-              style={{ fontFamily: theme.fontFamily }}
-            >
+            <p className="text-sm text-gray-500" style={{ fontFamily: theme.fontFamily }}>
               {tokenData.symbol}
             </p>
           </div>
@@ -126,49 +120,46 @@ export function TokenPriceBlock({ block, theme }: TokenPriceBlockProps) {
               className="text-2xl font-bold"
               style={{
                 fontFamily: theme.fontFamily,
-                color: theme.fontColor
+                color: theme.fontColor,
               }}
             >
               {formatNumber(tokenData.price)}
             </p>
-            <div className={`inline-flex items-center space-x-1 px-2 py-1 rounded-lg ${changeBg} ${changeColor}`}>
+            <div
+              className={`inline-flex items-center space-x-1 px-2 py-1 rounded-lg ${changeBg} ${changeColor}`}
+            >
               <TrendIcon className="w-4 h-4" />
               <span className="text-sm font-medium">
-                {tokenData.change24h > 0 ? '+' : ''}{tokenData.change24h}%
+                {tokenData.change24h > 0 ? '+' : ''}
+                {tokenData.change24h}%
               </span>
             </div>
           </div>
           <div className="text-right">
             <div className="space-y-1">
               <div>
-                <p
-                  className="text-xs text-gray-500"
-                  style={{ fontFamily: theme.fontFamily }}
-                >
+                <p className="text-xs text-gray-500" style={{ fontFamily: theme.fontFamily }}>
                   Market Cap
                 </p>
                 <p
                   className="font-medium"
                   style={{
                     fontFamily: theme.fontFamily,
-                    color: theme.fontColor
+                    color: theme.fontColor,
                   }}
                 >
                   {formatLargeNumber(tokenData.marketCap)}
                 </p>
               </div>
               <div>
-                <p
-                  className="text-xs text-gray-500"
-                  style={{ fontFamily: theme.fontFamily }}
-                >
+                <p className="text-xs text-gray-500" style={{ fontFamily: theme.fontFamily }}>
                   24h Volume
                 </p>
                 <p
                   className="font-medium"
                   style={{
                     fontFamily: theme.fontFamily,
-                    color: theme.fontColor
+                    color: theme.fontColor,
                   }}
                 >
                   {formatLargeNumber(tokenData.volume24h)}

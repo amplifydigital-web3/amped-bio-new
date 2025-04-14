@@ -1,22 +1,23 @@
-import type { TextBlock as TextBlockType, ThemeConfig } from '../../types/editor';
+import type { ThemeConfig } from '../../types/editor';
 import { EmailCollectionBlock } from './EmailCollectionBlock';
 import { TelegramBlock } from './TelegramBlock';
 import { TeamBlock } from './TeamBlock';
+import { TextBlock as TextBlockT } from '@/api/api.types';
 
 interface TextBlockProps {
-  block: TextBlockType;
+  block: TextBlockT;
   theme: ThemeConfig;
 }
 
 export function TextBlock({ block, theme }: TextBlockProps) {
   // Check if this is a special text block type
-  if (block.platform === 'email-collect') {
+  if (block.config.platform === 'email-collect') {
     return <EmailCollectionBlock block={block} theme={theme} />;
   }
-  if (block.platform === 'telegram') {
+  if (block.config.platform === 'telegram') {
     return <TelegramBlock block={block} theme={theme} />;
   }
-  if (block.platform === 'team') {
+  if (block.config.platform === 'team') {
     return <TeamBlock block={block} theme={theme} />;
   }
 
@@ -30,10 +31,10 @@ export function TextBlock({ block, theme }: TextBlockProps) {
         className="whitespace-pre-wrap"
         style={{
           color: theme.fontColor,
-          fontSize: theme.fontSize
+          fontSize: theme.fontSize,
         }}
       >
-        {block.content}
+        {block.config.content}
       </p>
     </div>
   );
