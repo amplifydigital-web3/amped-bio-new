@@ -27,6 +27,18 @@ const allowedPlatforms = [
   "custom",
 ] as const;
 
+const mediaPlataforms = [
+  "spotify",
+  "instagram",
+  "youtube",
+  "twitter",
+  "token-price",
+  "nft-collection",
+  "uniswap",
+  "substack",
+  "creator-pool",
+] as const;
+
 // Define configuration schemas for each block type
 const linkConfigSchema = z.object({
   platform: z.enum(allowedPlatforms),
@@ -35,17 +47,7 @@ const linkConfigSchema = z.object({
 });
 
 const mediaConfigSchema = z.object({
-  platform: z.enum([
-    "spotify",
-    "instagram",
-    "youtube",
-    "twitter",
-    "token-price",
-    "nft-collection",
-    "uniswap",
-    "substack",
-    "creator-pool",
-  ]),
+  platform: z.enum(mediaPlataforms),
   url: z.string().url("Must be a valid URL"),
   label: z.string(),
   content: z.string().optional(),
@@ -53,7 +55,7 @@ const mediaConfigSchema = z.object({
 
 const textConfigSchema = z.object({
   platform: z.string(),
-  content: z.string().min(1, "Content is required"),
+  content: z.string().min(0, "Content is required"),
 });
 
 // Generic config schema that's used when we don't know the block type yet
@@ -64,7 +66,8 @@ export const blockSchema = z.object({
   id: z.number(),
   type: z.string().min(1, "Block type is required"),
   order: z.number().default(0),
-  // Additional properties are now moved to their own config objects
+  // Config is validated separately based on type
+  config: z.union([linkConfigSchema, mediaConfigSchema, textConfigSchema]),
 });
 
 // Schema for editing multiple blocks
@@ -76,41 +79,7 @@ export const editBlocksSchema = z.object({
 export const addBlockSchema = z.object({
   type: z.string().min(1, "Block type is required"),
   order: z.number().default(0),
-  config: z
-    .discriminatedUnion("blockType", [
-      z.object({
-        blockType: z.literal("link"),
-        platform: z.enum(allowedPlatforms),
-        url: z.string().url("Must be a valid URL"),
-        label: z.string().min(1, "Label is required"),
-      }),
-      z.object({
-        blockType: z.literal("media"),
-        platform: z.enum([
-          "spotify",
-          "instagram",
-          "youtube",
-          "twitter",
-          "token-price",
-          "nft-collection",
-          "uniswap",
-          "substack",
-          "creator-pool",
-        ]),
-        url: z.string().url("Must be a valid URL"),
-        label: z.string(),
-        content: z.string().optional(),
-      }),
-      z.object({
-        blockType: z.literal("text"),
-        platform: z.string(),
-        content: z.string().min(1, "Content is required"),
-      }),
-    ])
-    .transform(config => {
-      const { blockType, ...rest } = config;
-      return rest;
-    }),
+  config: z.union([linkConfigSchema, mediaConfigSchema, textConfigSchema]),
 });
 
 // Schema for block id parameter
@@ -121,6 +90,7 @@ export const blockIdParamSchema = z.object({
 });
 
 export type PlatformId = (typeof allowedPlatforms)[number];
+export type MediaPlatformId = (typeof mediaPlataforms)[number];
 export type Block = z.infer<typeof blockSchema>;
 export type EditBlocksInput = z.infer<typeof editBlocksSchema>;
 export type AddBlockInput = z.infer<typeof addBlockSchema>;
