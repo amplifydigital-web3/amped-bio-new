@@ -13,7 +13,8 @@
     "preview": "vite preview",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "generate-thumbnails": "tsx scripts/generate-video-thumbnails.ts"
+    "generate-thumbnails": "tsx scripts/generate-video-thumbnails.ts",
+    "download-convert-videos": "tsx scripts/download-convert-videos.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",

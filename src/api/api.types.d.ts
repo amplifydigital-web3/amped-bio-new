@@ -1,4 +1,4 @@
-import { PlatformId } from '@/utils/platforms';
+import { PlatformId } from "@/utils/platforms";
 
 export type LoginData = {
   email: string;
@@ -99,7 +99,7 @@ export interface OnelinkAvailabilityResponse {
   onelink: string;
 }
 
-type BaseBlockType = 'link' | 'media' | 'text';
+type BaseBlockType = "link" | "media" | "text";
 
 export type BaseBlock<type extends BaseBlockType = any, T = any> = {
   id: number;
@@ -111,29 +111,31 @@ export type BaseBlock<type extends BaseBlockType = any, T = any> = {
   updated_at?: string | null;
 };
 
-export type LinkBlock = BaseBlock<'link', { platform: PlatformId; url: string; label: string }>;
+export type LinkBlock = BaseBlock<"link", { platform: PlatformId; url: string; label: string }>;
+
+export type MediaBlockPlatform =
+  | "spotify"
+  | "instagram"
+  | "youtube"
+  | "twitter"
+  | "token-price"
+  | "nft-collection"
+  | "uniswap"
+  | "substack"
+  | "creator-pool";
 
 export type MediaBlock = BaseBlock<
-  'media',
+  "media",
   {
     content?: string;
-    platform:
-      | 'spotify'
-      | 'instagram'
-      | 'youtube'
-      | 'twitter'
-      | 'token-price'
-      | 'nft-collection'
-      | 'uniswap'
-      | 'substack'
-      | 'creator-pool';
+    platform: MediaBlockPlatform;
     url: string;
     label: string;
   }
 >;
 
 export type TextBlock = BaseBlock<
-  'text',
+  "text",
   {
     content: string;
     platform: string;

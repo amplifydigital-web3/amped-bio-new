@@ -15,9 +15,10 @@ const execAsync = promisify(exec);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Directory to save thumbnails - updating to src/assets/thumbnails
-const OUTPUT_DIR = path.resolve(__dirname, "../src/assets/thumbnails");
+// Directory to save thumbnails in temp directory
 const TEMP_DIR = path.join(os.tmpdir(), "video-thumbnails");
+const THUMBNAILS_DIR = path.join(TEMP_DIR, "thumbnails");
+const ZIP_OUTPUT = path.resolve(__dirname, "../video-thumbnails.zip");
 
 /**
  * Extract filename from URL
@@ -55,19 +56,83 @@ async function downloadFile(url: string, outputPath: string): Promise<void> {
 }
 
 /**
+ * Validate downloaded video file
+ */
+async function validateVideoFile(filePath: string): Promise<boolean> {
+  try {
+    // Check if file exists and has size > 0
+    const stats = await fs.stat(filePath);
+    if (!stats.size) return false;
+
+    // Try to probe the video file
+    const { stderr } = await execAsync(`ffmpeg -v error -i "${filePath}" -f null -`);
+    return !stderr; // If no errors, file is valid
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Generate a thumbnail from a video
  */
 async function generateThumbnail(videoPath: string, outputPath: string): Promise<void> {
   console.log(`Generating thumbnail for ${videoPath}...`);
 
   try {
-    // Use ffmpeg to extract a frame from the video
-    const command = `ffmpeg -i "${videoPath}" -ss 00:00:01 -vframes 1 -filter:v scale="640:-1" -quality 95 "${outputPath}" -y`;
-    await execAsync(command);
+    // Validate video file first
+    if (!(await validateVideoFile(videoPath))) {
+      throw new Error("Invalid or corrupted video file");
+    }
 
-    console.log(`Thumbnail created at ${outputPath}`);
+    // Try different methods in sequence until one works
+    const commands = [
+      // Method 1: Simple frame extraction
+      `ffmpeg -i "${videoPath}" -ss 00:00:01 -vframes 1 "${outputPath}" -y`,
+
+      // Method 2: With pixel format conversion
+      `ffmpeg -i "${videoPath}" -ss 00:00:01 -vframes 1 -pix_fmt yuv420p "${outputPath}" -y`,
+
+      // Method 3: Force format and codec
+      `ffmpeg -i "${videoPath}" -ss 00:00:01 -vframes 1 -f image2 -c:v mjpeg "${outputPath}" -y`,
+
+      // Method 4: With scaling and format forcing
+      `ffmpeg -i "${videoPath}" -ss 00:00:01 -vframes 1 -vf "scale=640:-2" -f image2 "${outputPath}" -y`,
+    ];
+
+    for (const [index, command] of commands.entries()) {
+      try {
+        console.log(`Attempting method ${index + 1}...`);
+        await execAsync(command);
+
+        // Verify the thumbnail was created
+        if (await fs.stat(outputPath).catch(() => false)) {
+          console.log(`Thumbnail created successfully using method ${index + 1}`);
+          return;
+        }
+      } catch (error) {
+        console.log(`Method ${index + 1} failed, trying next method...`);
+        continue;
+      }
+    }
+
+    throw new Error("All thumbnail generation methods failed");
   } catch (error) {
     console.error(`Error generating thumbnail for ${videoPath}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Create a zip file from a directory
+ */
+async function createZipFile(sourceDir: string, outputPath: string): Promise<void> {
+  console.log(`Creating zip file at ${outputPath}...`);
+
+  try {
+    await execAsync(`zip -r "${outputPath}" .`, { cwd: sourceDir });
+    console.log(`Zip file created at ${outputPath}`);
+  } catch (error) {
+    console.error("Error creating zip file:", error);
     throw error;
   }
 }
@@ -76,43 +141,90 @@ async function generateThumbnail(videoPath: string, outputPath: string): Promise
  * Main function
  */
 async function main() {
+  const generatedThumbnails: string[] = [];
+  const failedThumbnails: { name: string; url: string }[] = [];
+
   try {
-    // Create directories
     await fs.mkdir(TEMP_DIR, { recursive: true });
-    await fs.mkdir(OUTPUT_DIR, { recursive: true });
+    await fs.mkdir(THUMBNAILS_DIR, { recursive: true });
     console.log(`Temporary directory created: ${TEMP_DIR}`);
-    console.log(`Output directory created: ${OUTPUT_DIR}`);
+    console.log(`Thumbnails directory created: ${THUMBNAILS_DIR}`);
 
-    // Process each video from the array
-    for (const video of videos) {
-      if (video.type !== "video") continue;
+    // Filter to include only video items
+    const videoItems = videos.filter(video => video.type === "video");
+    console.log(`Found ${videoItems.length} videos to process`);
 
-      // Extract filename
-      const fileName = extractFilenameFromUrl(video.value);
-      const fileNameWithoutExt = fileName.substring(0, fileName.lastIndexOf("."));
+    // Process videos in batches of parallel operations
+    const BATCH_SIZE = 5; // Process 5 videos at once
+    const videoBatches = [];
 
-      // Define paths
-      const localVideoPath = path.join(TEMP_DIR, fileName);
-      const localThumbnailPath = path.join(OUTPUT_DIR, `${fileNameWithoutExt}_thumbnail.jpg`);
-
-      try {
-        // 1. Download video
-        await downloadFile(video.value, localVideoPath);
-
-        // 2. Generate thumbnail
-        await generateThumbnail(localVideoPath, localThumbnailPath);
-
-        // 3. Clean up temporary file
-        await fs.unlink(localVideoPath);
-
-        console.log(`Successfully processed: ${video.label} -> ${localThumbnailPath}`);
-      } catch (error) {
-        console.error(`Error processing ${fileName}:`, error);
-        // Continue with the next video
-      }
+    // Group videos into batches for parallel processing
+    for (let i = 0; i < videoItems.length; i += BATCH_SIZE) {
+      videoBatches.push(videoItems.slice(i, i + BATCH_SIZE));
     }
 
-    console.log("Processing completed!");
+    console.log(`Split processing into ${videoBatches.length} batches of ${BATCH_SIZE}`);
+
+    // Process each batch in parallel
+    for (const [batchIndex, batch] of videoBatches.entries()) {
+      console.log(`\nProcessing batch ${batchIndex + 1}/${videoBatches.length}...`);
+
+      // Start all video processes in this batch in parallel
+      const processingPromises = batch.map(async video => {
+        const fileName = extractFilenameFromUrl(video.value);
+        const fileNameWithoutExt = fileName.replace(/\.(mp4|mov)$/, "");
+        const thumbnailName = `${fileNameWithoutExt}_thumbnail.jpg`;
+
+        const localVideoPath = path.join(TEMP_DIR, fileName);
+        const localThumbnailPath = path.join(THUMBNAILS_DIR, thumbnailName);
+
+        try {
+          console.log(`Processing video: ${video.label} (${fileName})`);
+          await downloadFile(video.value, localVideoPath);
+          await generateThumbnail(localVideoPath, localThumbnailPath);
+
+          // Clean up video file after generating thumbnail
+          await fs.unlink(localVideoPath).catch(() => {});
+
+          console.log(`✓ Successfully processed: ${video.label}`);
+          return { success: true, name: thumbnailName };
+        } catch (error) {
+          console.error(`✕ Error processing ${fileName} (${video.value}):`, error);
+          return { success: false, name: fileName, url: video.value };
+        }
+      });
+
+      // Wait for all videos in this batch to complete
+      const results = await Promise.all(processingPromises);
+
+      // Collect results
+      results.forEach(result => {
+        if (result.success) {
+          generatedThumbnails.push(result.name);
+        } else {
+          failedThumbnails.push({ name: result.name, url: result.url });
+        }
+      });
+    }
+
+    // Create zip file
+    await createZipFile(THUMBNAILS_DIR, ZIP_OUTPUT);
+
+    // Display summary
+    console.log("\n=== Summary ===");
+    console.log(`\nSuccessfully generated (${generatedThumbnails.length}):`);
+    generatedThumbnails.forEach((name, index) => {
+      console.log(`${index + 1}. ${name}`);
+    });
+
+    if (failedThumbnails.length > 0) {
+      console.log(`\nFailed thumbnails (${failedThumbnails.length}):`);
+      failedThumbnails.forEach(({ name, url }, index) => {
+        console.log(`${index + 1}. ${name} - URL: ${url}`);
+      });
+    }
+
+    console.log("\nProcessing completed!");
   } catch (error) {
     console.error("Error executing the script:", error);
   } finally {

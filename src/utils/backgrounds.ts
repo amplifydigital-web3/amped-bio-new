@@ -4,8 +4,8 @@ const awsS3 =
   import.meta.env?.AWS_S3_BACKGROUNDS ||
   "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds";
 
-// Base path for thumbnails - updating path to src/assets/thumbnails
-const thumbnailsPath = "/src/assets/thumbnails";
+// Update thumbnailsPath to use S3 URL
+const thumbnailsPath = awsS3;
 
 export const gradients: Background[] = [
   {
@@ -200,7 +200,7 @@ export const videos: Background[] = [
   },
   {
     type: "video",
-    value: `${awsS3}/Big_Sky.mov`,
+    value: `${awsS3}/Big_Sky.mp4`,
     label: "Big Sky",
     thumbnail: `${thumbnailsPath}/Big_Sky_thumbnail.jpg`,
   },
@@ -212,7 +212,7 @@ export const videos: Background[] = [
   },
   {
     type: "video",
-    value: `${awsS3}/Christmas_Ornaments.mov`,
+    value: `${awsS3}/Christmas_Ornaments.mp4`,
     label: "Cristmas Ornaments",
     thumbnail: `${thumbnailsPath}/Christmas_Ornaments_thumbnail.jpg`,
   },
@@ -224,7 +224,7 @@ export const videos: Background[] = [
   },
   {
     type: "video",
-    value: `${awsS3}/Cyber_Arches.mov`,
+    value: `${awsS3}/Cyber_Arches.mp4`,
     label: "Cyber Arches",
     thumbnail: `${thumbnailsPath}/Cyber_Arches_thumbnail.jpg`,
   },
@@ -236,7 +236,7 @@ export const videos: Background[] = [
   },
   {
     type: "video",
-    value: `${awsS3}/Dark_Lighning.mov`,
+    value: `${awsS3}/Dark_Lighning.mp4`,
     label: "Dark Lightning",
     thumbnail: `${thumbnailsPath}/Dark_Lighning_thumbnail.jpg`,
   },
@@ -266,7 +266,7 @@ export const videos: Background[] = [
   },
   {
     type: "video",
-    value: `${awsS3}/Fractal_Flower.mov`,
+    value: `${awsS3}/Fractal_Flower.mp4`,
     label: "Fractal Flower",
     thumbnail: `${thumbnailsPath}/Fractal_Flower_thumbnail.jpg`,
   },
@@ -284,7 +284,7 @@ export const videos: Background[] = [
   },
   {
     type: "video",
-    value: `${awsS3}/Kitten.mov`,
+    value: `${awsS3}/Kitten.mp4`,
     label: "Kitten",
     thumbnail: `${thumbnailsPath}/Kitten_thumbnail.jpg`,
   },
@@ -308,7 +308,7 @@ export const videos: Background[] = [
   },
   {
     type: "video",
-    value: `${awsS3}/Midnight_Grove.mov`,
+    value: `${awsS3}/Midnight_Grove.mp4`,
     label: "Midnight Grove",
     thumbnail: `${thumbnailsPath}/Midnight_Grove_thumbnail.jpg`,
   },
@@ -320,7 +320,7 @@ export const videos: Background[] = [
   },
   {
     type: "video",
-    value: `${awsS3}/Mushrooms.mov`,
+    value: `${awsS3}/Mushrooms.mp4`,
     label: "Mushrooms",
     thumbnail: `${thumbnailsPath}/Mushrooms_thumbnail.jpg`,
   },
@@ -350,7 +350,7 @@ export const videos: Background[] = [
   },
   {
     type: "video",
-    value: `${awsS3}/Neon_Tunnel.mov`,
+    value: `${awsS3}/Neon_Tunnel.mp4`,
     label: "Neon Tunnel",
     thumbnail: `${thumbnailsPath}/Neon_Tunnel_thumbnail.jpg`,
   },
@@ -398,7 +398,7 @@ export const videos: Background[] = [
   },
   {
     type: "video",
-    value: `${awsS3}/Rings.mov`,
+    value: `${awsS3}/Rings.mp4`,
     label: "Rings",
     thumbnail: `${thumbnailsPath}/Rings_thumbnail.jpg`,
   },
@@ -416,7 +416,7 @@ export const videos: Background[] = [
   },
   {
     type: "video",
-    value: `${awsS3}/Sleigh_Ride.mov`,
+    value: `${awsS3}/Sleigh_Ride.mp4`,
     label: "Sleigh Ride",
     thumbnail: `${thumbnailsPath}/Sleigh_Ride_thumbnail.jpg`,
   },
@@ -452,7 +452,7 @@ export const videos: Background[] = [
   },
   {
     type: "video",
-    value: `${awsS3}/Stormy_Sky.mov`,
+    value: `${awsS3}/Stormy_Sky.mp4`,
     label: "Stormy Sky",
     thumbnail: `${thumbnailsPath}/Stormy_Sky_thumbnail.jpg`,
   },
@@ -482,7 +482,7 @@ export const videos: Background[] = [
   },
   {
     type: "video",
-    value: `${awsS3}/Urban_Sunset.mov`,
+    value: `${awsS3}/Urban_Sunset.mp4`,
     label: "Urban Sunset",
     thumbnail: `${thumbnailsPath}/Urban_Sunset_thumbnail.jpg`,
   },
