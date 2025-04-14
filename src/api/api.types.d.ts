@@ -83,8 +83,7 @@ export interface BlockResponse {
 export interface AddBlockData {
   type: BaseBlockType;
   order?: number;
-  // All other fields will be part of the config object
-  [key: string]: any;
+  config: any;
 }
 
 // Onelink-related types

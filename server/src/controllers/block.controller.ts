@@ -1,6 +1,6 @@
-import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
-import { AddBlockInput, EditBlocksInput } from '../schemas/block.schema';
+import { Request, Response } from "express";
+import { PrismaClient } from "@prisma/client";
+import { AddBlockInput, EditBlocksInput } from "../schemas/block.schema";
 
 const prisma = new PrismaClient();
 
@@ -11,7 +11,7 @@ export const blockController = {
 
     try {
       for (let idx = 0; idx < blocks.length; idx++) {
-        const { id, type, ...rest } = blocks[idx];
+        const { id, type, config } = blocks[idx];
 
         try {
           const block = await prisma.block.findUnique({
@@ -27,7 +27,7 @@ export const blockController = {
                 user_id,
                 type,
                 order: idx,
-                config: rest,
+                config: config,
               },
             });
           } else {
@@ -36,7 +36,7 @@ export const blockController = {
               data: {
                 type,
                 order: idx,
-                config: rest,
+                config: config,
               },
             });
           }
@@ -46,10 +46,10 @@ export const blockController = {
         }
       }
 
-      res.status(200).json({ message: 'Blocks updated successfully' });
+      res.status(200).json({ message: "Blocks updated successfully" });
     } catch (error) {
-      console.error('error editing blocks', error);
-      res.status(500).json({ message: 'Server error' });
+      console.error("error editing blocks", error);
+      res.status(500).json({ message: "Server error" });
     }
   },
 
@@ -104,8 +104,8 @@ export const blockController = {
         result,
       });
     } catch (error) {
-      console.error('error', error);
-      res.status(500).json({ message: 'Server error' });
+      console.error("error", error);
+      res.status(500).json({ message: "Server error" });
     }
   },
 
@@ -123,8 +123,8 @@ export const blockController = {
         result,
       });
     } catch (error) {
-      console.error('error', error);
-      res.status(500).json({ message: 'Server error' });
+      console.error("error", error);
+      res.status(500).json({ message: "Server error" });
     }
   },
 
@@ -160,8 +160,8 @@ export const blockController = {
         result,
       });
     } catch (error) {
-      console.error('error', error);
-      res.status(500).json({ message: 'Server error' });
+      console.error("error", error);
+      res.status(500).json({ message: "Server error" });
     }
   },
 
@@ -181,12 +181,12 @@ export const blockController = {
       });
 
       res.status(201).json({
-        message: 'Block added successfully',
+        message: "Block added successfully",
         result,
       });
     } catch (error) {
-      console.error('error adding block', error);
-      res.status(500).json({ message: 'Server error' });
+      console.error("error adding block", error);
+      res.status(500).json({ message: "Server error" });
     }
   },
 };

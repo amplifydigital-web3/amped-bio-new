@@ -203,18 +203,8 @@ export async function deleteBlock(block_id: number) {
 export async function addBlock(block: AddBlockData): Promise<BlockResponse> {
   console.log("Adding new block:", block);
 
-  // Extract type and order, move all other properties to config
-  const { type, order, ...configData } = block;
-
-  // Format the request according to the server's expected structure
-  const payload = {
-    type,
-    order: order || 0,
-    config: configData,
-  };
-
   return apiRequest<BlockResponse>(
-    () => api.post("/user/blocks", payload),
+    () => api.post("/user/blocks", block),
     "Block added successfully:"
   );
 }
