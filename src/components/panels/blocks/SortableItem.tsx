@@ -1,8 +1,9 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Trash2, Settings, ExternalLink } from "lucide-react";
 import type { BlockType } from "@/api/api.types";
-import { getPlatformIcon } from "../../../utils/platforms";
+import { getPlatformIcon, getPlatformName } from "../../../utils/platforms";
 
 interface SortableItemProps {
   id: string;
@@ -43,11 +44,14 @@ export function SortableItem({ id, block, onEdit, onRemove }: SortableItemProps)
             {block.type === "link"
               ? block.config.label
               : block.type === "media"
-                ? block.config.platform
-                : "Text Block"}
+                ? getPlatformName(block.config.platform)
+                : "Text"}
           </p>
           <p className="text-sm text-gray-500 truncate">
-            {block.type === "link" ? block.config.url : block.config.content || "Empty block"}
+            {block.type === "link"
+              ? block.config.url
+              : // @ts-ignore
+                (block.config.content ?? block.config.url)}
           </p>
         </div>
       </div>

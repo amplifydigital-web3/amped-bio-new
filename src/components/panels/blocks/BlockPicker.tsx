@@ -1,21 +1,6 @@
 import { BlockType, LinkBlock, MediaBlock, MediaBlockPlatform, TextBlock } from "@/api/api.types";
-import { PlatformId } from "@/utils/platforms";
-import {
-  Music,
-  Instagram,
-  Youtube,
-  DollarSign,
-  Store,
-  Mail,
-  MessageCircle,
-  FileText,
-  Newspaper,
-  Users,
-  ArrowUpRight,
-  LucideIcon,
-} from "lucide-react";
-// import type { Block, LinkBlock, MediaBlock, TextBlock } from "../../../types/editor";
-import { FaXTwitter } from "react-icons/fa6";
+import { getPlatformIcon } from "@/utils/platforms";
+import { FileText, LucideIcon } from "lucide-react";
 import { IconType } from "react-icons/lib";
 import { useState } from "react";
 import { BlockEditor } from "./BlockEditor";
@@ -44,10 +29,10 @@ const blockTypes: {
   {
     category: "Media Embeds",
     blocks: [
-      { id: "spotify", name: "Spotify", icon: Music, type: "media" },
-      { id: "instagram", name: "Instagram", icon: Instagram, type: "media" },
-      { id: "youtube", name: "YouTube", icon: Youtube, type: "media" },
-      { id: "twitter", name: "X Post", icon: FaXTwitter, type: "media" },
+      { id: "spotify", name: "Spotify", icon: getPlatformIcon("spotify"), type: "media" },
+      { id: "instagram", name: "Instagram", icon: getPlatformIcon("instagram"), type: "media" },
+      { id: "youtube", name: "YouTube", icon: getPlatformIcon("youtube"), type: "media" },
+      { id: "twitter", name: "X Post", icon: getPlatformIcon("twitter"), type: "media" },
     ],
   },
   // {
