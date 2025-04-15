@@ -236,9 +236,9 @@ export const videos: Background[] = [
   },
   {
     type: "video",
-    value: `${awsS3}/Dark_Lighning.mp4`,
+    value: `${awsS3}/Dark_Lightning.mp4`,
     label: "Dark Lightning",
-    thumbnail: `${thumbnailsPath}/Dark_Lighning_thumbnail.jpg`,
+    thumbnail: `${thumbnailsPath}/Dark_Lightning_thumbnail.jpg`,
   },
   {
     type: "video",
