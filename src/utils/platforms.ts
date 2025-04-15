@@ -210,7 +210,7 @@ export const platforms: Platform[] = [
   { id: "custom", name: "Custom Link", icon: Link, color: "#000000" },
 ];
 
-export function getPlatformIcon(platformId: PlatformId): IconType | LucideIcon {
+export function getPlatformIcon(platformId: string): IconType | LucideIcon {
   const icon = platforms.find(p => p.id === platformId)?.icon;
   return icon ?? Link;
 }

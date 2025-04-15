@@ -1,4 +1,4 @@
-import { PlatformId } from "@/utils/platforms";
+import { PlatformId as LinkBlockPlatform } from "@/utils/platforms";
 
 export type LoginData = {
   email: string;
@@ -110,7 +110,10 @@ export type BaseBlock<type extends BaseBlockType = any, T = any> = {
   updated_at?: string | null;
 };
 
-export type LinkBlock = BaseBlock<"link", { platform: PlatformId; url: string; label: string }>;
+export type LinkBlock = BaseBlock<
+  "link",
+  { platform: LinkBlockPlatform; url: string; label: string }
+>;
 
 export type MediaBlockPlatform =
   | "spotify"

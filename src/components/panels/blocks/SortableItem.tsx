@@ -1,8 +1,8 @@
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Trash2, Settings, ExternalLink } from 'lucide-react';
-import type { BlockType } from '@/api/api.types';
-import { getPlatformIcon } from '../../../utils/platforms';
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { GripVertical, Trash2, Settings, ExternalLink } from "lucide-react";
+import type { BlockType } from "@/api/api.types";
+import { getPlatformIcon } from "../../../utils/platforms";
 
 interface SortableItemProps {
   id: string;
@@ -22,14 +22,14 @@ export function SortableItem({ id, block, onEdit, onRemove }: SortableItemProps)
     zIndex: isDragging ? 1 : undefined,
   };
 
-  const Icon = block.type === 'link' ? getPlatformIcon(block.config.platform) : undefined;
+  const Icon = getPlatformIcon(block.config.platform);
 
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={`flex items-center space-x-3 p-3 rounded-lg border group ${
-        isDragging ? 'bg-blue-50 border-blue-200 shadow-lg' : 'bg-white border-gray-200'
+        isDragging ? "bg-blue-50 border-blue-200 shadow-lg" : "bg-white border-gray-200"
       }`}
     >
       <button {...attributes} {...listeners} className="touch-none" aria-label="Drag handle">
@@ -40,20 +40,20 @@ export function SortableItem({ id, block, onEdit, onRemove }: SortableItemProps)
         {Icon && <Icon className="w-4 h-4 flex-shrink-0" />}
         <div className="min-w-0">
           <p className="font-medium text-gray-900 truncate">
-            {block.type === 'link'
+            {block.type === "link"
               ? block.config.label
-              : block.type === 'media'
+              : block.type === "media"
                 ? block.config.platform
-                : 'Text Block'}
+                : "Text Block"}
           </p>
           <p className="text-sm text-gray-500 truncate">
-            {block.type === 'link' ? block.config.url : block.config.content || 'Empty block'}
+            {block.type === "link" ? block.config.url : block.config.content || "Empty block"}
           </p>
         </div>
       </div>
 
       <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        {block.type === 'link' && (
+        {block.type === "link" && (
           <a
             href={block.config.url}
             target="_blank"
@@ -63,7 +63,7 @@ export function SortableItem({ id, block, onEdit, onRemove }: SortableItemProps)
             <ExternalLink className="w-4 h-4" />
           </a>
         )}
-        {block.type !== 'link' && (
+        {block.type !== "link" && (
           <button onClick={onEdit} className="p-1 text-gray-500 hover:text-gray-700">
             <Settings className="w-4 h-4" />
           </button>

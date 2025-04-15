@@ -17,6 +17,8 @@ import {
 // import type { Block, LinkBlock, MediaBlock, TextBlock } from "../../../types/editor";
 import { FaXTwitter } from "react-icons/fa6";
 import { IconType } from "react-icons/lib";
+import { useState } from "react";
+import { BlockEditor } from "./BlockEditor";
 
 interface BlockPickerProps {
   onAdd: (block: BlockType) => void;
@@ -70,9 +72,11 @@ const blockTypes: {
 ];
 
 export function BlockPicker({ onAdd }: BlockPickerProps) {
-  const handleAddBlock = (blockType: string, platform: MediaBlockPlatform) => {
+  const [editingBlock, setEditingBlock] = useState<BlockType | null>(null);
+
+  const createBlock = (blockType: string, platform: MediaBlockPlatform): BlockType => {
     if (blockType === "media") {
-      const newBlock: MediaBlock = {
+      return {
         id: 0,
         type: "media",
         order: 0,
@@ -81,10 +85,9 @@ export function BlockPicker({ onAdd }: BlockPickerProps) {
           url: "",
           label: "",
         },
-      };
-      onAdd(newBlock);
+      } as MediaBlock;
     } else if (blockType === "link") {
-      const newBlock: LinkBlock = {
+      return {
         id: 0,
         type: "link",
         order: 0,
@@ -93,10 +96,9 @@ export function BlockPicker({ onAdd }: BlockPickerProps) {
           url: "",
           label: "",
         },
-      };
-      onAdd(newBlock);
+      } as LinkBlock;
     } else {
-      const newBlock: TextBlock = {
+      return {
         id: 0,
         type: "text",
         order: 0,
@@ -104,9 +106,40 @@ export function BlockPicker({ onAdd }: BlockPickerProps) {
           content: "",
           platform: "text",
         },
-      };
-      onAdd(newBlock);
+      } as TextBlock;
     }
+  };
+
+  const handleBlockSelection = (blockType: string, platform: MediaBlockPlatform) => {
+    const newBlock = createBlock(blockType, platform);
+    setEditingBlock(newBlock);
+  };
+
+  const handleSave = (config: BlockType["config"]) => {
+    if (editingBlock) {
+      // Mantenha o mesmo tipo do bloco que estamos editando
+      if (editingBlock.type === "media") {
+        onAdd({
+          ...editingBlock,
+          config: config as MediaBlock["config"],
+        } as MediaBlock);
+      } else if (editingBlock.type === "link") {
+        onAdd({
+          ...editingBlock,
+          config: config as LinkBlock["config"],
+        } as LinkBlock);
+      } else {
+        onAdd({
+          ...editingBlock,
+          config: config as TextBlock["config"],
+        } as TextBlock);
+      }
+      setEditingBlock(null);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditingBlock(null);
   };
 
   return (
@@ -118,7 +151,7 @@ export function BlockPicker({ onAdd }: BlockPickerProps) {
             {category.blocks.map(block => (
               <button
                 key={block.id}
-                onClick={() => handleAddBlock(block.type, block.id as MediaBlockPlatform)}
+                onClick={() => handleBlockSelection(block.type, block.id as MediaBlockPlatform)}
                 className="flex items-center space-x-3 p-3 bg-white rounded-lg border border-gray-200 hover:border-blue-500 hover:ring-1 hover:ring-blue-500 transition-all"
               >
                 <block.icon className="w-5 h-5 text-gray-500" />
@@ -128,6 +161,10 @@ export function BlockPicker({ onAdd }: BlockPickerProps) {
           </div>
         </div>
       ))}
+
+      {editingBlock && (
+        <BlockEditor block={editingBlock} onSave={handleSave} onCancel={handleCancel} />
+      )}
     </div>
   );
 }

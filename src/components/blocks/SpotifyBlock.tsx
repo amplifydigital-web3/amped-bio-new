@@ -1,6 +1,6 @@
-import { Music } from 'lucide-react';
-import type { ThemeConfig } from '../../types/editor';
-import { MediaBlock } from '@/api/api.types';
+import { Music } from "lucide-react";
+import type { ThemeConfig } from "../../types/editor";
+import { MediaBlock } from "@/api/api.types";
 
 interface SpotifyBlockProps {
   block: MediaBlock;
@@ -13,10 +13,10 @@ function getSpotifyEmbedUrl(url: string): string {
     const spotifyUrl = new URL(url);
     const path = spotifyUrl.pathname;
 
-    if (path.includes('track')) {
+    if (path.includes("track")) {
       // For tracks
       return `https://open.spotify.com/embed${path}`;
-    } else if (path.includes('playlist')) {
+    } else if (path.includes("playlist")) {
       // For playlists
       return `https://open.spotify.com/embed${path}?utm_source=generator`;
     } else {
@@ -28,9 +28,14 @@ function getSpotifyEmbedUrl(url: string): string {
 }
 
 export function SpotifyBlock({ block, theme }: SpotifyBlockProps) {
-  const embedUrl = getSpotifyEmbedUrl(block.config.content || '');
+  // Use either content or url, prioritizing content
+  const spotifyUrl = block.config.content || block.config.url || "";
+  const embedUrl = getSpotifyEmbedUrl(spotifyUrl);
 
-  if (!block.config.content) {
+  const isTrack = spotifyUrl.includes("track");
+  const isPlaylist = spotifyUrl.includes("playlist");
+
+  if (!spotifyUrl) {
     return (
       <div className="w-full p-6 rounded-lg bg-[#1DB954]/10 border-2 border-dashed border-[#1DB954]/20 flex flex-col items-center justify-center space-y-2">
         <Music className="w-8 h-8 text-[#1DB954]" />
@@ -49,14 +54,14 @@ export function SpotifyBlock({ block, theme }: SpotifyBlockProps) {
           className="text-sm font-medium text-[#1DB954]"
           style={{ fontFamily: theme.fontFamily }}
         >
-          Spotify
+          {isTrack ? "Spotify Track" : isPlaylist ? "Spotify Playlist" : "Spotify"}
         </span>
       </div>
       <div className="w-full rounded-lg overflow-hidden bg-[#121212] shadow-lg">
         <iframe
           src={embedUrl}
           width="100%"
-          height={block.config.content.includes('playlist') ? '380' : '152'}
+          height={isPlaylist ? "380" : "152"}
           frameBorder="0"
           allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
           loading="lazy"
