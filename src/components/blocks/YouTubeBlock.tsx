@@ -1,6 +1,6 @@
-import { Youtube } from 'lucide-react';
-import type { ThemeConfig } from '../../types/editor';
-import { MediaBlock } from '@/api/api.types';
+import { Youtube } from "lucide-react";
+import type { ThemeConfig } from "../../types/editor";
+import { MediaBlock } from "@/api/api.types";
 
 interface YouTubeBlockProps {
   block: MediaBlock;
@@ -8,12 +8,12 @@ interface YouTubeBlockProps {
 }
 
 function getYouTubeVideoId(url: string): string | null {
-  let videoId = '';
+  let videoId = "";
   try {
     const videoUrl = new URL(url);
-    videoId = videoUrl.searchParams.get('v') || '';
-    if (videoId === '') {
-      videoId = url.split('/').at(-1) || '';
+    videoId = videoUrl.searchParams.get("v") || "";
+    if (videoId === "") {
+      videoId = url.split("/").at(-1) || "";
     }
     return videoId;
   } catch {
@@ -22,9 +22,9 @@ function getYouTubeVideoId(url: string): string | null {
 }
 
 export function YouTubeBlock({ block, theme }: YouTubeBlockProps) {
-  const videoId = block.config.content ? getYouTubeVideoId(block.config.content) : null;
+  const videoId = block.config.url ? getYouTubeVideoId(block.config.url) : null;
 
-  if (!block.config.content || !videoId || videoId === '') {
+  if (!block.config.url) {
     return (
       <div className="w-full p-6 rounded-lg bg-[#FF0000]/10 border-2 border-dashed border-[#FF0000]/20 flex flex-col items-center justify-center space-y-2">
         <Youtube className="w-8 h-8 text-[#FF0000]" />
@@ -58,6 +58,13 @@ export function YouTubeBlock({ block, theme }: YouTubeBlockProps) {
           className="w-full"
         />
       </div>
+      {block.config.content && block.config.content.trim() !== "" && (
+        <div className="mt-2 px-3 py-2">
+          <p className="text-sm text-gray-700" style={{ fontFamily: theme.fontFamily }}>
+            {block.config.content}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

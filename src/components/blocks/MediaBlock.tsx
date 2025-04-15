@@ -1,13 +1,14 @@
-import type { MediaBlock as MediaBlockType, ThemeConfig } from '../../types/editor';
-import { SpotifyBlock } from './SpotifyBlock';
-import { InstagramBlock } from './Instagram/InstagramBlock';
-import { YouTubeBlock } from './YouTubeBlock';
-import { TwitterBlock } from './TwitterBlock';
-import { TokenPriceBlock } from './TokenPriceBlock';
-import { NFTCollectionBlock } from './NFTCollectionBlock';
-import { UniswapBlock } from './UniswapBlock';
-import { SubstackBlock } from './SubstackBlock';
-import { CreatorPoolBlock } from './CreatorPoolBlock';
+import type { ThemeConfig } from "../../types/editor";
+import { SpotifyBlock } from "./SpotifyBlock";
+import { InstagramBlock } from "./Instagram/InstagramBlock";
+import { YouTubeBlock } from "./YouTubeBlock";
+import { TwitterBlock } from "./TwitterBlock";
+import { TokenPriceBlock } from "./TokenPriceBlock";
+import { NFTCollectionBlock } from "./NFTCollectionBlock";
+import { UniswapBlock } from "./UniswapBlock";
+import { SubstackBlock } from "./SubstackBlock";
+import { CreatorPoolBlock } from "./CreatorPoolBlock";
+import { MediaBlock as MediaBlockType } from "@/api/api.types";
 
 interface MediaBlockProps {
   block: MediaBlockType;
@@ -15,24 +16,24 @@ interface MediaBlockProps {
 }
 
 export function MediaBlock({ block, theme }: MediaBlockProps) {
-  switch (block.platform) {
-    case 'spotify':
+  switch (block.config.platform) {
+    case "spotify":
       return <SpotifyBlock block={block} theme={theme} />;
-    case 'instagram':
+    case "instagram":
       return <InstagramBlock block={block} theme={theme} />;
-    case 'youtube':
+    case "youtube":
       return <YouTubeBlock block={block} theme={theme} />;
-    case 'twitter':
+    case "twitter":
       return <TwitterBlock block={block} theme={theme} />;
-    case 'token-price':
+    case "token-price":
       return <TokenPriceBlock block={block} theme={theme} />;
-    case 'nft-collection':
+    case "nft-collection":
       return <NFTCollectionBlock block={block} theme={theme} />;
-    case 'uniswap':
+    case "uniswap":
       return <UniswapBlock block={block} theme={theme} />;
-    case 'substack':
+    case "substack":
       return <SubstackBlock block={block} theme={theme} />;
-    case 'creator-pool':
+    case "creator-pool":
       return <CreatorPoolBlock block={block} theme={theme} />;
     default:
       return null;

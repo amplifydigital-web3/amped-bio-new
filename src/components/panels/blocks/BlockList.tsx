@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   DndContext,
   closestCenter,
@@ -7,20 +7,20 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
-} from '@dnd-kit/core';
+} from "@dnd-kit/core";
 import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { SortableItem } from './SortableItem';
-import { BlockEditor } from './BlockEditor';
-import { BlockType } from '@/api/api.types';
+} from "@dnd-kit/sortable";
+import { SortableItem } from "./SortableItem";
+import { BlockEditor } from "./BlockEditor";
+import { BlockType } from "@/api/api.types";
 
 interface BlockListProps {
   blocks: BlockType[];
-  onUpdate: (id: number, block: BlockType['config']) => void;
+  onUpdate: (id: number, block: BlockType["config"]) => void;
   onRemove: (id: number) => void;
   onReorder: (blocks: BlockType[]) => void;
 }
@@ -55,7 +55,7 @@ export function BlockList({ blocks, onUpdate, onRemove, onReorder }: BlockListPr
   // Create a consistent list of IDs for SortableContext
   const itemIds = blocks.map(block => String(block.id));
 
-  console.log('blocks', blocks);
+  console.log("blocks", blocks);
 
   return (
     <div className="space-y-4">

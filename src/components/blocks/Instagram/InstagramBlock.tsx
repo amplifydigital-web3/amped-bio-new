@@ -1,7 +1,7 @@
-import { Instagram } from 'lucide-react';
-import type { ThemeConfig } from '../../../types/editor';
-import InstagramEmbed from './InstagramEmbed';
-import { MediaBlock } from '@/api/api.types';
+import { Instagram } from "lucide-react";
+import type { ThemeConfig } from "../../../types/editor";
+import InstagramEmbed from "./InstagramEmbed";
+import { MediaBlock } from "@/api/api.types";
 
 interface InstagramBlockProps {
   block: MediaBlock;
@@ -9,7 +9,7 @@ interface InstagramBlockProps {
 }
 
 export function InstagramBlock({ block, theme }: InstagramBlockProps) {
-  if (!block.config.content) {
+  if (!block.config.url) {
     return (
       <div className="w-full p-6 rounded-lg bg-[#E4405F]/10 border-2 border-dashed border-[#E4405F]/20 flex flex-col items-center justify-center space-y-2">
         <Instagram className="w-8 h-8 text-[#E4405F]" />
@@ -22,7 +22,7 @@ export function InstagramBlock({ block, theme }: InstagramBlockProps) {
 
   return (
     <div className="w-full space-y-2">
-      <InstagramEmbed url={block.config.content} />
+      <InstagramEmbed url={block.config.url} />
     </div>
   );
 
