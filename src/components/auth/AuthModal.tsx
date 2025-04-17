@@ -210,7 +210,7 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
     setLoading(true);
     try {
       const registerData: RegisterData = {
-        onelink: data.onelink,
+        onelink: `@${data.onelink}`,
         email: data.email,
         password: data.password,
       };
@@ -294,13 +294,19 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
             </div>
             <Button
               type="submit"
-              className="w-full"
+              className="w-full relative"
               disabled={loading}
               aria-disabled={loading}
               aria-label="Sign In"
             >
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Sign In
+              {loading ? (
+                <span className="flex items-center justify-center">
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin text-white/80" />
+                  Signing In...
+                </span>
+              ) : (
+                "Sign In"
+              )}
             </Button>
           </form>
         )}
@@ -373,13 +379,19 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
             </div>
             <Button
               type="submit"
-              className="w-full"
+              className="w-full relative"
               disabled={loading || urlStatus === "Unavailable" || !isValid || !onelinkInput}
               aria-disabled={loading || urlStatus === "Unavailable" || !isValid || !onelinkInput}
               aria-label="Create Account"
             >
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create Account
+              {loading ? (
+                <span className="flex items-center justify-center">
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin text-white/80" />
+                  Creating Account...
+                </span>
+              ) : (
+                "Create Account"
+              )}
             </Button>
             {urlStatus === "Unavailable" && onelinkInput && (
               <p className="text-xs text-center text-red-600">
@@ -391,6 +403,12 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
 
         {form === "reset" && (
           <form onSubmit={handleSubmitReset(onSubmitReset)} className="space-y-4">
+            <div className="mb-2">
+              <p className="text-sm text-gray-600 mb-4">
+                Enter your email address below and we'll send you instructions to reset your
+                password.
+              </p>
+            </div>
             <Input
               label="Email"
               type="email"
@@ -402,23 +420,29 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
             />
             <Button
               type="submit"
-              className="w-full"
+              className="w-full relative"
               disabled={loading}
               aria-disabled={loading}
               aria-label="Reset Password"
             >
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Reset Password
+              {loading ? (
+                <span className="flex items-center justify-center">
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin text-white/80" />
+                  Sending Email...
+                </span>
+              ) : (
+                "Send Reset Instructions"
+              )}
             </Button>
 
-            <div className="text-center text-sm text-gray-600 mt-2">
-              Have a password reset token?
+            <div className="text-center text-sm text-gray-600 mt-4 p-3 border border-gray-200 rounded-md bg-gray-50">
+              <p>Already have a password reset token?</p>
               <Link
                 to="/auth/reset-password/"
-                className="text-blue-600 hover:text-blue-700 ml-2"
+                className="inline-block mt-2 text-blue-600 hover:text-blue-700 hover:underline font-medium"
                 aria-label="Use reset token"
               >
-                Reset here
+                Use your reset token here →
               </Link>
             </div>
           </form>
