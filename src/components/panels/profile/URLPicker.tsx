@@ -1,71 +1,39 @@
-import { useState, useEffect, useRef } from 'react';
-import { useEditorStore } from '../../../store/editorStore';
-import { Button } from '@/components/ui/Button';
-import { checkOnelinkAvailability, redeemOnelink } from '@/api/api';
-import { useNavigate } from 'react-router-dom';
-import { Loader2, CheckCircle, XCircle } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { useState } from "react";
+import { useEditorStore } from "../../../store/editorStore";
+import { Button } from "@/components/ui/Button";
+import { redeemOnelink } from "@/api/api";
+import { useNavigate } from "react-router-dom";
+import { Loader2 } from "lucide-react";
+import { toast } from "react-hot-toast";
+import { useOnelinkAvailability } from "@/hooks/useOnelinkAvailability";
+import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
+import {
+  normalizeOnelink,
+  formatOnelink,
+  cleanOnelinkInput,
+  getOnelinkPublicUrl,
+} from "@/utils/onelink";
 
 export function URLPicker() {
-  // Extract onelink without @ symbol if it exists
+  // Extract onelink without @ symbol if it exists using our utility function
   const profile = useEditorStore(state => state.profile);
-  const currentOnelink = profile.onelink?.startsWith('@')
-    ? profile.onelink.substring(1)
-    : profile.onelink || '';
+  const currentOnelink = normalizeOnelink(profile.onelink || "");
 
   const [url, setUrl] = useState(currentOnelink);
-  const [urlStatus, setUrlStatus] = useState<
-    'Unknown' | 'Checking...' | 'Available' | 'Unavailable' | 'Invalid'
-  >('Unknown');
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // Use our custom hook for URL validation and availability checking
+  const { urlStatus, isValid, isCurrentUrl } = useOnelinkAvailability(url, currentOnelink);
+
   const setProfile = useEditorStore(state => state.setProfile);
   const saveChanges = useEditorStore(state => state.saveChanges);
   const nav = useNavigate();
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
-  const [isUpdating, setIsUpdating] = useState(false);
 
-  // Updated regex to only allow alphanumeric characters, hyphens, and underscores
-  const urlRegex = /^[a-zA-Z0-9_-]+$/;
-  const isValid = urlRegex.test(url);
-
-  // Effect for debounced URL checking
-  useEffect(() => {
-    if (url.trim() === '') {
-      setUrlStatus('Unknown');
-      return;
-    }
-
-    if (!isValid) {
-      setUrlStatus('Invalid');
-      return;
-    }
-
-    // Check if URL is the same as current onelink
-    if (url === currentOnelink) {
-      setUrlStatus('Unknown'); // Use 'Unknown' status but we'll handle display separately
-      return;
-    }
-
-    setUrlStatus('Checking...');
-
-    // Clear any existing timer
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-    }
-
-    // Set a new timer
-    debounceTimer.current = setTimeout(() => {
-      // Don't send the @ symbol in the request
-      checkOnelinkAvailability(url).then(available => {
-        setUrlStatus(available ? 'Available' : 'Unavailable');
-      });
-    }, 500);
-
-    return () => {
-      if (debounceTimer.current) {
-        clearTimeout(debounceTimer.current);
-      }
-    };
-  }, [url, isValid, currentOnelink]);
+  const handleUrlChange = (value: string) => {
+    // Use our central utility function to clean the input
+    const cleanValue = cleanOnelinkInput(value);
+    setUrl(cleanValue);
+  };
 
   // Function to handle URL update with async/await
   const handleURLUpdate = async (value: string) => {
@@ -74,96 +42,40 @@ export function URLPicker() {
 
     setIsUpdating(true);
 
-    // Store with @ symbol for compatibility with existing code
-    const atURL = `@${value}`;
+    // Apply our formatOnelink utility to ensure @ prefix
+    const formattedURL = formatOnelink(value);
 
     try {
-      // Call the API to update the onelink - without @ symbol
-      const response = await redeemOnelink(value);
+      // Call the API to update the onelink - with normalized value (without @ symbol)
+      const response = await redeemOnelink(normalizeOnelink(value));
 
       if (response.success) {
         // Show success toast
-        toast.success('URL updated successfully!');
+        toast.success("URL updated successfully!");
 
         // Update local state on success
-        setProfile({ ...profile, onelink: atURL });
-        setUrlStatus('Unknown');
+        setProfile({ ...profile, onelink: formattedURL });
         saveChanges();
 
         // Navigate to the new URL
-        nav(`/${atURL}/edit`);
+        nav(`/${formattedURL}/edit`);
       } else {
         // Handle unsuccessful response
-        console.error('Failed to update onelink:', response.message);
+        console.error("Failed to update onelink:", response.message);
         toast.error(`Failed to update URL: ${response.message}`);
       }
     } catch (error) {
       // Handle errors
-      console.error('Error updating onelink:', error);
+      console.error("Error updating onelink:", error);
 
       // Display error message with toast
       if (error instanceof Error) {
         toast.error(`Error: ${error.message}`);
       } else {
-        toast.error('An unexpected error occurred');
+        toast.error("An unexpected error occurred");
       }
     } finally {
       setIsUpdating(false);
-    }
-  };
-
-  const handleUrlChange = (value: string) => {
-    // Remove @ symbol if user enters it manually
-    const cleanValue = value.startsWith('@') ? value.substring(1) : value;
-
-    // Only allow valid characters
-    const validChars = cleanValue.replace(/[^a-zA-Z0-9_-]/g, '');
-    setUrl(validChars);
-  };
-
-  // Helper function to render status indicator with Lucide icons
-  const renderStatusIndicator = () => {
-    // Special case: URL is the same as current onelink
-    if (url === currentOnelink && url !== '') {
-      return (
-        <div className="flex items-center text-blue-600 whitespace-nowrap">
-          <CheckCircle className="w-4 h-4 mr-1 flex-shrink-0" />
-          <span>Current handle</span>
-        </div>
-      );
-    }
-
-    switch (urlStatus) {
-      case 'Checking...':
-        return (
-          <div className="flex items-center text-amber-500 whitespace-nowrap">
-            <Loader2 className="w-4 h-4 mr-2 animate-spin flex-shrink-0" />
-            <span>Checking...</span>
-          </div>
-        );
-      case 'Available':
-        return (
-          <div className="flex items-center text-green-600 whitespace-nowrap">
-            <CheckCircle className="w-4 h-4 mr-1 flex-shrink-0" />
-            <span>Available</span>
-          </div>
-        );
-      case 'Unavailable':
-        return (
-          <div className="flex items-center text-red-600 whitespace-nowrap">
-            <XCircle className="w-4 h-4 mr-1 flex-shrink-0" />
-            <span>Unavailable</span>
-          </div>
-        );
-      case 'Invalid':
-        return (
-          <div className="flex items-center text-red-600 whitespace-nowrap">
-            <XCircle className="w-4 h-4 mr-1 flex-shrink-0" />
-            <span>Invalid</span>
-          </div>
-        );
-      default:
-        return null;
     }
   };
 
@@ -186,37 +98,38 @@ export function URLPicker() {
               type="text"
               value={url}
               onChange={e => handleUrlChange(e.target.value)}
-              placeholder={currentOnelink || 'Your unique URL'}
-              pattern="^[a-zA-Z0-9_-]+$"
+              placeholder={currentOnelink || "Your unique URL"}
               className="w-full px-3 py-2 border border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-32"
               aria-label="URL slug"
             />
             <div className="absolute right-3 top-1/2 transform -translate-y-1/2 min-w-[90px] text-right">
-              {renderStatusIndicator()}
+              <URLStatusIndicator status={urlStatus} isCurrentUrl={isCurrentUrl} />
             </div>
           </div>
         </div>
 
         <p className="text-xs text-gray-500 mt-1">
-          Your URL will be:{' '}
-          <span className="font-medium">amped-bio.com/@{url || currentOnelink || 'your-url'}</span>
+          Your URL will be:{" "}
+          <span className="font-medium">
+            {getOnelinkPublicUrl(url || currentOnelink || "your-url")}
+          </span>
         </p>
       </div>
 
       <div className="flex justify-between items-center">
         <div>
-          {url !== '' && !isValid && (
+          {url !== "" && !isValid && (
             <p className="text-xs text-red-600">
               URLs can only contain letters, numbers, hyphens, and underscores.
             </p>
           )}
         </div>
 
-        {urlStatus === 'Available' && (
+        {urlStatus === "Available" && (
           <Button
             variant="confirm"
             size="sm"
-            disabled={!isValid || url === currentOnelink || isUpdating}
+            disabled={!isValid || isCurrentUrl || isUpdating}
             onClick={() => handleURLUpdate(url)}
             className="transition-all duration-200 transform hover:scale-105"
           >
@@ -226,7 +139,7 @@ export function URLPicker() {
                 Updating...
               </>
             ) : (
-              'Use this URL'
+              "Use this URL"
             )}
           </Button>
         )}
