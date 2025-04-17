@@ -15,10 +15,10 @@ export function Editor() {
   const setActivePanel = useEditorStore(state => state.setActivePanel);
   const nav = useNavigate();
 
-  // Para usuários não logados, direcionar para a página Home
+  // Redirect unauthenticated users to Home page
   useEffect(() => {
     if (authUser === defaultAuthUser) {
-      // Definir a página ativa como Home
+      // Set active panel to home
       setActivePanel("home");
     }
   }, [authUser, setActivePanel]);
