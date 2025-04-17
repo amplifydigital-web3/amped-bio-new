@@ -1,25 +1,25 @@
-import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
-import { ValidatedRequest } from '../middleware/validation.middleware';
-import { OnelinkParamInput, RedeemOnelinkInput } from '../schemas/onelink.schema';
+import { Request, Response } from "express";
+import { PrismaClient } from "@prisma/client";
+import { ValidatedRequest } from "../middleware/validation.middleware";
+import { OnelinkParamInput, RedeemOnelinkInput } from "../schemas/onelink.schema";
 
 const prisma = new PrismaClient();
 
 export const onelinkController = {
   async getOnelink(req: Request, res: Response) {
-    console.group('🔗 GET ONELINK REQUEST');
-    console.info('📥 Received request for onelink');
+    console.group("🔗 GET ONELINK REQUEST");
+    console.info("📥 Received request for onelink");
     const { onelink } = (req as ValidatedRequest<OnelinkParamInput>).validatedData;
     console.info(`🔍 Looking up onelink: ${onelink}`);
 
     try {
-      console.info('🔄 Querying database for user');
+      console.info("🔄 Querying database for user");
       const user = await prisma.user.findUnique({
         where: {
           onelink: onelink,
         },
       });
-      console.info(`🔍 User lookup result: ${user ? '✅ Found' : '❌ Not found'}`);
+      console.info(`🔍 User lookup result: ${user ? "✅ Found" : "❌ Not found"}`);
 
       if (user === null) {
         console.info(`⚠️ Onelink not found: ${onelink}`);
@@ -36,7 +36,7 @@ export const onelinkController = {
           id: Number(theme_id),
         },
       });
-      console.info(`🎨 Theme fetch result: ${theme ? '✅ Found' : '❌ Not found'}`);
+      console.info(`🎨 Theme fetch result: ${theme ? "✅ Found" : "❌ Not found"}`);
 
       console.info(`📦 Fetching blocks for user ID: ${user_id}`);
       const blocks = await prisma.block.findMany({
@@ -47,28 +47,28 @@ export const onelinkController = {
       console.info(`📦 Blocks fetched: ${blocks.length} blocks found`);
 
       const result = { user: { name, email, description, image }, theme, blocks };
-      console.info('🔄 Preparing response with user data, theme, and blocks');
+      console.info("🔄 Preparing response with user data, theme, and blocks");
 
-      console.info('✅ Successfully processed onelink request');
+      console.info("✅ Successfully processed onelink request");
       console.groupEnd();
 
       res.status(201).json({
         result,
       });
     } catch (error) {
-      console.error('❌ ERROR in getOnelink', error);
+      console.error("❌ ERROR in getOnelink", error);
       console.groupEnd();
-      res.status(500).json({ message: 'Server error' });
+      res.status(500).json({ message: "Server error" });
     }
   },
   async checkOnelink(req: Request, res: Response) {
-    console.group('🔍 CHECK ONELINK REQUEST');
-    console.info('📥 Received request to check onelink availability');
+    console.group("🔍 CHECK ONELINK REQUEST");
+    console.info("📥 Received request to check onelink availability");
     const { onelink } = (req as ValidatedRequest<OnelinkParamInput>).validatedData;
     console.info(`🔍 Checking availability for: ${onelink}`);
 
     try {
-      console.info('🔄 Querying database to count matching onelinks');
+      console.info("🔄 Querying database to count matching onelinks");
       const count = await prisma.user.count({
         where: {
           onelink: onelink,
@@ -78,7 +78,7 @@ export const onelinkController = {
 
       const available = count === 0;
       console.info(
-        `${available ? '✅' : '❌'} Onelink "${onelink}" is ${available ? 'available' : 'taken'}`
+        `${available ? "✅" : "❌"} Onelink "${onelink}" is ${available ? "available" : "taken"}`
       );
       console.groupEnd();
 
@@ -87,24 +87,24 @@ export const onelinkController = {
         onelink,
       });
     } catch (error) {
-      console.error('❌ ERROR in checkOnelink', error);
+      console.error("❌ ERROR in checkOnelink", error);
       console.groupEnd();
-      res.status(500).json({ message: 'Server error' });
+      res.status(500).json({ message: "Server error" });
     }
   },
   async redeemOnelink(req: Request, res: Response) {
-    console.group('🔄 REDEEM ONELINK REQUEST');
-    console.info('📥 Received request to redeem onelink');
+    console.group("🔄 REDEEM ONELINK REQUEST");
+    console.info("📥 Received request to redeem onelink");
 
     const { newOnelink } = (req as ValidatedRequest<RedeemOnelinkInput>).validatedData;
     const userId = req.user?.id; // Get user ID from authentication middleware
 
     if (!userId) {
-      console.info('❌ User not authenticated');
+      console.info("❌ User not authenticated");
       console.groupEnd();
       return res.status(401).json({
         success: false,
-        message: 'Authentication required',
+        message: "Authentication required",
       });
     }
 
@@ -124,7 +124,7 @@ export const onelinkController = {
         console.groupEnd();
         return res.status(404).json({
           success: false,
-          message: 'User not found',
+          message: "User not found",
         });
       }
 
@@ -145,7 +145,7 @@ export const onelinkController = {
         console.groupEnd();
         return res.status(400).json({
           success: false,
-          message: 'This onelink is already taken',
+          message: "This onelink is already taken",
         });
       }
 
@@ -164,15 +164,15 @@ export const onelinkController = {
 
       return res.status(200).json({
         success: true,
-        message: 'Onelink updated successfully',
+        message: "Onelink updated successfully",
         onelink: newOnelink,
       });
     } catch (error) {
-      console.error('❌ ERROR in redeemOnelink', error);
+      console.error("❌ ERROR in redeemOnelink", error);
       console.groupEnd();
       res.status(500).json({
         success: false,
-        message: 'Server error',
+        message: "Server error",
       });
     }
   },

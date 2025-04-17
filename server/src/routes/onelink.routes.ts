@@ -1,27 +1,27 @@
-import express from 'express';
-import { onelinkController } from '../controllers/onelink.controller';
-import { validate, ValidationTarget } from '../middleware/validation.middleware';
-import { onelinkParamSchema, redeemOnelinkSchema } from '../schemas/onelink.schema';
-import { authMiddleware } from '../middleware/auth';
+import express from "express";
+import { onelinkController } from "../controllers/onelink.controller";
+import { validate, ValidationTarget } from "../middleware/validation.middleware";
+import { onelinkParamSchema, redeemOnelinkSchema } from "../schemas/onelink.schema";
+import { authMiddleware } from "../middleware/auth";
 
 const router = express.Router();
 
 // Onelink routes
 router.get(
-  '/:onelink',
+  "/:onelink",
   validate(onelinkParamSchema, ValidationTarget.Params),
   onelinkController.getOnelink
 );
 
 router.get(
-  '/check/:onelink',
+  "/check/:onelink",
   authMiddleware(),
   validate(onelinkParamSchema, ValidationTarget.Params),
   onelinkController.checkOnelink
 );
 
 router.post(
-  '/redeem',
+  "/redeem",
   authMiddleware(),
   validate(redeemOnelinkSchema),
   onelinkController.redeemOnelink

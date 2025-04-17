@@ -1,17 +1,17 @@
-import { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { Editor } from './pages/Editor';
-import { View } from './pages/View';
-import { initParticlesEngine } from '@tsparticles/react';
+import { useEffect, useState } from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Editor } from "./pages/Editor";
+import { View } from "./pages/View";
+import { initParticlesEngine } from "@tsparticles/react";
 //import { loadSlim } from '@tsparticles/slim';
-import { loadAll } from '@tsparticles/all';
-import { AppKitProvider } from './components/connect/components/AppKitProvider';
+import { loadAll } from "@tsparticles/all";
+import { AppKitProvider } from "./components/connect/components/AppKitProvider";
 import {
   EmailVerification,
   EmailVerificationResent,
   PasswordResetRequest,
   PasswordReset,
-} from './pages/auth';
+} from "./pages/auth";
 
 function App() {
   const [init, setInit] = useState(false);
@@ -20,9 +20,9 @@ function App() {
   useEffect(() => {
     // Add primary colors to root CSS variables if they don't exist already
     const root = document.documentElement;
-    if (!root.style.getPropertyValue('--color-primary')) {
-      root.style.setProperty('--color-primary', '#3B82F6'); // Blue-500
-      root.style.setProperty('--color-primary-dark', '#2563EB'); // Blue-600
+    if (!root.style.getPropertyValue("--color-primary")) {
+      root.style.setProperty("--color-primary", "#3B82F6"); // Blue-500
+      root.style.setProperty("--color-primary-dark", "#2563EB"); // Blue-600
     }
   }, []);
 

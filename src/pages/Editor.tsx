@@ -1,24 +1,27 @@
-import { useParams } from 'react-router-dom';
-import { Layout } from '../components/Layout';
-import { useAuthStore } from '../store/authStore';
-import { useEffect, useState } from 'react';
-import { useEditorStore } from '../store/editorStore';
-import { useNavigate } from 'react-router-dom'
-import { defaultAuthUser } from '@/store/defaults';
+import { useParams } from "react-router-dom";
+import { Layout } from "../components/Layout";
+import { useAuthStore } from "../store/authStore";
+import { useEffect, useState } from "react";
+import { useEditorStore } from "../store/editorStore";
+import { useNavigate } from "react-router-dom";
+import { defaultAuthUser } from "@/store/defaults";
 
 export function Editor() {
-  const { onelink = '' } = useParams();
+  const { onelink = "" } = useParams();
   const { authUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
-  const profile = useEditorStore((state) => state.profile);
-  const setUser = useEditorStore((state) => state.setUser);
+  const profile = useEditorStore(state => state.profile);
+  const setUser = useEditorStore(state => state.setUser);
+  const setActivePanel = useEditorStore(state => state.setActivePanel);
   const nav = useNavigate();
 
+  // Redirect unauthenticated users to Home page
   useEffect(() => {
     if (authUser === defaultAuthUser) {
-      nav('/');
+      // Set active panel to home
+      setActivePanel("home");
     }
-  }, [authUser, nav]);
+  }, [authUser, setActivePanel]);
 
   useEffect(() => {
     if (onelink && onelink !== profile.onelink) {

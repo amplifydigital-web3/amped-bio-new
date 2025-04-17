@@ -1,0 +1,5 @@
+If you need to write commnets, write them only in english.
+Use only zod to create schemas.
+Prefer to use tailwind classes to do style instead of creating css files.
+Write UI texts only in english.
+Create functions, classes, variables only with english names.
