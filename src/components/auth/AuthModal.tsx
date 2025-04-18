@@ -206,10 +206,10 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
       toast.success("Welcome back!", { icon: "👋" });
       onClose(user);
 
-      // Redirect the user to their edit page
+      // Redirect the user to their edit page with panel state set to "home"
       if (user && user.onelink) {
         const formattedOnelink = formatOnelink(user.onelink);
-        navigate(`/${formattedOnelink}/edit`);
+        navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
       }
     } catch (error) {
       toast.error((error as Error).message);
@@ -231,6 +231,12 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
       const user = await signUp(registerData.onelink, registerData.email, registerData.password);
       toast.success("Account created successfully!");
       onClose(user);
+
+      // Redirect to edit page with home panel selected
+      if (user && user.onelink) {
+        const formattedOnelink = formatOnelink(user.onelink);
+        navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
+      }
     } catch (error) {
       toast.error((error as Error).message);
     } finally {

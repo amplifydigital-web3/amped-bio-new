@@ -27,6 +27,15 @@ export function View() {
     location.pathname === "/register" ? "register" : "login"
   );
 
+  // Redirect to URL with @ symbol if missing
+  useEffect(() => {
+    // Only redirect if we have a onelink and not on register path
+    if (onelink && location.pathname !== "/register" && !onelink.startsWith("@")) {
+      // Navigate to the same route but with @ symbol
+      navigate(`/@${onelink}${location.search}`, { replace: true });
+    }
+  }, [onelink, navigate, location.pathname, location.search]);
+
   useEffect(() => {
     if (normalizedOnelink && normalizedOnelink !== profile.onelink) {
       setLoading(true);
