@@ -15,7 +15,6 @@ router.get(
 
 router.get(
   "/check/:onelink",
-  authMiddleware(),
   validate(onelinkParamSchema, ValidationTarget.Params),
   onelinkController.checkOnelink
 );
