@@ -4,83 +4,97 @@
 import { checkOnelinkAvailability } from "@/api/api";
 
 // Constants
-const ONELINK_PREFIX = "@";
-const ONELINK_MIN_LENGTH = 1; // Min length without @ symbol
-export const ONELINK_REGEX = /^[a-zA-Z0-9_@-]+$/;
+const ONELINK_MIN_LENGTH = 3; // Min length without @ symbol
+export const ONELINK_REGEX = /^[a-z0-9_-]+$/i;
+const BASE_URL = "https://amped-bio.com";
 
 // Types
 export type OnelinkStatus =
-  | "Unknown"
-  | "Checking..."
   | "Available"
   | "Unavailable"
   | "Invalid"
-  | "TooShort";
+  | "TooShort"
+  | "Checking"
+  | "Unknown"
+  | "Current"
+  | "Taken";
 
 // Utility functions
 
 /**
- * Normalize a onelink by removing @ prefix and trimming
+ * Normalize an onelink by removing @ prefix if present
  */
-export const normalizeOnelink = (onelink: string): string => {
-  return onelink.replace(/^@+/, "").trim();
-};
+export function normalizeOnelink(onelink: string): string {
+  if (!onelink) return "";
+  return onelink.startsWith("@") ? onelink.substring(1) : onelink;
+}
 
 /**
- * Format a onelink with @ prefix
+ * Format an onelink with @ prefix for display
  */
-export const formatOnelink = (onelink: string): string => {
-  const normalized = normalizeOnelink(onelink);
-  return normalized ? `${ONELINK_PREFIX}${normalized}` : "";
-};
+export function formatOnelink(onelink: string): string {
+  if (!onelink) return "";
+  return onelink.startsWith("@") ? onelink : `@${onelink}`;
+}
 
 /**
- * Validate if a onelink string is valid (follows character rules)
+ * Get the full public URL for an onelink
  */
-export const validateOnelinkFormat = (onelink: string): boolean => {
-  const normalized = normalizeOnelink(onelink);
-  return ONELINK_REGEX.test(normalized);
-};
+export function getOnelinkPublicUrl(onelink: string): string {
+  if (!onelink) return BASE_URL;
+  const formatted = formatOnelink(onelink);
+  return `${BASE_URL}/${formatted}`;
+}
 
 /**
- * Validate if a onelink has minimum required length
+ * Clean onelink input by removing spaces and special characters
  */
-export const validateOnelinkLength = (onelink: string): boolean => {
-  const normalized = normalizeOnelink(onelink);
-  return normalized.length >= ONELINK_MIN_LENGTH;
-};
+export function cleanOnelinkInput(input: string): string {
+  // Remove @ prefix if present
+  const withoutAtSymbol = normalizeOnelink(input);
+
+  // Remove spaces and special characters, allowing only a-z, 0-9, underscore and hyphen
+  return withoutAtSymbol.replace(/[^a-z0-9_-]/gi, "");
+}
 
 /**
- * Clean an input onelink to ensure it has valid characters
+ * Validate the format of an onelink (without @ prefix)
+ * Only alphanumeric, underscore and hyphen allowed
  */
-export const cleanOnelinkInput = (onelink: string): string => {
-  const normalized = normalizeOnelink(onelink);
-  return normalized.replace(/[^a-zA-Z0-9_@-]/g, "");
-};
+export function validateOnelinkFormat(onelink: string): boolean {
+  return ONELINK_REGEX.test(onelink);
+}
 
 /**
- * Check if a onelink is available (not already taken)
- * @returns Promise resolving to a boolean indicating availability
+ * Validate the length of an onelink
  */
-export const checkOnelink = async (onelink: string): Promise<boolean> => {
-  const normalized = normalizeOnelink(onelink);
-  if (!validateOnelinkFormat(normalized) || !validateOnelinkLength(normalized)) {
+export function validateOnelinkLength(onelink: string): boolean {
+  return onelink.length >= ONELINK_MIN_LENGTH;
+}
+
+/**
+ * Compare two onelinks for equivalence (ignoring @ prefix and case)
+ */
+export function isEquivalentOnelink(onelink1: string, onelink2: string): boolean {
+  if (!onelink1 || !onelink2) return false;
+  return normalizeOnelink(onelink1).toLowerCase() === normalizeOnelink(onelink2).toLowerCase();
+}
+
+/**
+ * Check if an onelink is available via API
+ */
+export async function checkOnelink(onelink: string): Promise<boolean> {
+  try {
+    // Normalize to ensure we're sending the version without @ prefix
+    const normalizedOnelink = normalizeOnelink(onelink);
+
+    // API call to check availability
+    const response = await checkOnelinkAvailability(normalizedOnelink);
+
+    // Return true if available, false if taken
+    return response;
+  } catch (error) {
+    console.error("Error checking onelink availability:", error);
     return false;
   }
-  return await checkOnelinkAvailability(normalized);
-};
-
-/**
- * Get the full public URL for a onelink
- */
-export const getOnelinkPublicUrl = (onelink: string): string => {
-  const normalized = normalizeOnelink(onelink);
-  return normalized ? `amped-bio.com/${formatOnelink(normalized)}` : "";
-};
-
-/**
- * Determine if two onelinks are equivalent (accounting for @ prefixes)
- */
-export const isEquivalentOnelink = (onelink1: string, onelink2: string): boolean => {
-  return normalizeOnelink(onelink1) === normalizeOnelink(onelink2);
-};
+}

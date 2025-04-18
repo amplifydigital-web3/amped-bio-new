@@ -5,12 +5,14 @@ import { useEffect, useState } from "react";
 import { useEditorStore } from "../store/editorStore";
 import { useNavigate } from "react-router-dom";
 import { defaultAuthUser } from "@/store/defaults";
-import { normalizeOnelink } from "@/utils/onelink";
+import { normalizeOnelink, formatOnelink, isEquivalentOnelink } from "@/utils/onelink";
+import { toast } from "react-hot-toast";
 
 export function Editor() {
   const { onelink = "" } = useParams();
   const { authUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
+  const [authorized, setAuthorized] = useState(false);
   const profile = useEditorStore(state => state.profile);
   const setUser = useEditorStore(state => state.setUser);
   const setActivePanel = useEditorStore(state => state.setActivePanel);
@@ -19,6 +21,7 @@ export function Editor() {
 
   // Normalize onelink to handle @ symbols in URLs
   const normalizedOnelink = normalizeOnelink(onelink);
+  const formattedOnelink = formatOnelink(onelink);
 
   // Initialize Freshworks help widget
   useEffect(() => {
@@ -75,6 +78,32 @@ export function Editor() {
     }
   }, [onelink, nav, location.search]);
 
+  // Check if user is allowed to edit this page
+  useEffect(() => {
+    // Check if the user is logged in by comparing with defaultAuthUser
+    const isLoggedIn = authUser !== defaultAuthUser && authUser.id !== defaultAuthUser.id;
+
+    if (!isLoggedIn) {
+      // User is not logged in, redirect to view page
+      toast.error("You need to log in to edit this page");
+      nav(`/${formattedOnelink}`, { replace: true });
+      return;
+    }
+
+    // Now check if logged-in user owns this onelink
+    const isOwner = isEquivalentOnelink(authUser.onelink, normalizedOnelink);
+
+    if (!isOwner) {
+      // User is logged in but doesn't own this onelink
+      toast.error("You cannot edit this page as it belongs to another user");
+      nav(`/${formattedOnelink}`, { replace: true });
+      return;
+    }
+
+    // User is authorized to edit
+    setAuthorized(true);
+  }, [normalizedOnelink, authUser, nav, formattedOnelink]);
+
   // Set active panel from location state or default to home
   useEffect(() => {
     // Check if a specific panel was passed in the navigation state
@@ -100,6 +129,12 @@ export function Editor() {
   if (loading) {
     return <div>Loading...</div>;
   }
+
+  // Only render the editor if the user is authorized
+  if (!authorized) {
+    return null; // Render nothing while redirection happens
+  }
+
   return (
     <div className="h-screen">
       <Layout onelink={normalizedOnelink} />

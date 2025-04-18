@@ -93,7 +93,7 @@ export function View() {
       <Preview isEditing={false} onelink={normalizedOnelink} />
 
       {/* Edit Button */}
-      {authUser !== defaultAuthUser && authUser.email === profile.email && (
+      {authUser.id != 0 && authUser !== defaultAuthUser && authUser.email === profile.email && (
         <Link
           to={`/${normalizedOnelink.length > 0 ? normalizedOnelink : profile.onelink}/edit`}
           className="fixed bottom-4 right-4 p-3 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-colors flex items-center space-x-2"

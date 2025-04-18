@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useEditorStore } from "../../../store/editorStore";
 import { Button } from "@/components/ui/Button";
 import { redeemOnelink } from "@/api/api";
@@ -10,12 +10,16 @@ import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
 import { normalizeOnelink, formatOnelink, cleanOnelinkInput } from "@/utils/onelink";
 
 export function URLPicker() {
-  // Extract onelink without @ symbol if it exists using our utility function
+  // Extract profile data safely from the store
   const profile = useEditorStore(state => state.profile);
-  const currentOnelink = normalizeOnelink(profile.onelink || "");
-  const currentOnelinkFormatted = profile.onelinkFormatted || formatOnelink(profile.onelink || "");
 
-  const [url, setUrl] = useState(currentOnelink);
+  // Safely extract and process onelink values with default fallbacks
+  const currentOnelink = normalizeOnelink(profile?.onelink || "");
+  const currentOnelinkFormatted =
+    profile?.onelinkFormatted || formatOnelink(profile?.onelink || "");
+
+  // Initialize state with safe default values
+  const [url, setUrl] = useState(currentOnelink || "");
   const [isUpdating, setIsUpdating] = useState(false);
 
   // Use our custom hook for URL validation and availability checking
@@ -24,6 +28,13 @@ export function URLPicker() {
   const setProfile = useEditorStore(state => state.setProfile);
   const saveChanges = useEditorStore(state => state.saveChanges);
   const nav = useNavigate();
+
+  // Update local state if profile changes
+  useEffect(() => {
+    if (profile?.onelink) {
+      setUrl(normalizeOnelink(profile.onelink));
+    }
+  }, [profile?.onelink]);
 
   const handleUrlChange = (value: string) => {
     // Use our central utility function to clean the input
@@ -77,35 +88,38 @@ export function URLPicker() {
   };
 
   return (
-    <div>
-      <h3 className="text-sm font-medium text-gray-700 mb-1">Your Public URL</h3>
+    <div className="w-full bg-white rounded-md p-4">
+      <div className="space-y-2 mb-4">
+        <h3 className="text-sm font-medium text-gray-700">Your Public URL</h3>
+        <p className="text-xs text-gray-500">Choose a unique URL for your public profile</p>
+      </div>
 
-      <div className="flex items-center space-x-2">
-        <div className="relative flex-1">
-          <div className="flex items-center">
-            <div className="bg-gray-100 text-gray-500 px-3 py-2 rounded-l-md border-y border-l border-gray-300">
+      <div className="flex flex-col space-y-4">
+        <div className="relative w-full">
+          <div className="flex items-center w-full">
+            <div className="bg-gray-100 text-gray-500 px-3 py-2 rounded-l-md border-y border-l border-gray-300 text-sm whitespace-nowrap">
               amped-bio.com/@
             </div>
             <input
               type="text"
               value={url}
               onChange={e => handleUrlChange(e.target.value)}
-              className={`flex-1 px-3 py-2 border rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              className={`w-full px-3 py-2 border rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 urlStatus === "Invalid" || urlStatus === "TooShort"
                   ? "border-red-500"
                   : "border-gray-300"
               }`}
               placeholder="your-unique-url"
             />
-          </div>
-
-          {/* Status indicator */}
-          <div className="absolute right-3 top-2">
-            <URLStatusIndicator status={urlStatus} isCurrentUrl={isCurrentUrl} />
+            {/* Status indicator positioned right inside input */}
+            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+              {urlStatus && <URLStatusIndicator status={urlStatus} isCurrentUrl={isCurrentUrl} />}
+            </div>
           </div>
         </div>
 
-        <div>
+        {/* Validation message */}
+        <div className="min-h-[20px]">
           {url !== "" && !isValid && (
             <p className="text-xs text-red-600">
               URLs can only contain letters, numbers, hyphens, and underscores.
@@ -113,24 +127,34 @@ export function URLPicker() {
           )}
         </div>
 
-        {urlStatus === "Available" && (
-          <Button
-            variant="confirm"
-            size="sm"
-            disabled={!isValid || isCurrentUrl || isUpdating}
-            onClick={() => handleURLUpdate(url)}
-            className="transition-all duration-200 transform hover:scale-105"
-          >
-            {isUpdating ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Updating...
-              </>
-            ) : (
-              "Use this URL"
-            )}
-          </Button>
+        {/* Current URL display */}
+        {isCurrentUrl && url !== "" && (
+          <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded-md">
+            This is your current URL
+          </div>
         )}
+
+        {/* Action button */}
+        <div className="flex justify-end">
+          {urlStatus === "Available" && (
+            <Button
+              variant="confirm"
+              size="sm"
+              disabled={!isValid || isCurrentUrl || isUpdating}
+              onClick={() => handleURLUpdate(url)}
+              className="transition-all duration-200"
+            >
+              {isUpdating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Use this URL"
+              )}
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
