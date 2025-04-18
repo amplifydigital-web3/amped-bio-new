@@ -51,7 +51,8 @@ export function Layout(props: LayoutProps) {
       <div className="flex flex-col md:flex-row w-full">
         <Sidebar />
         <main className="flex-1 flex flex-col overflow-hidden">
-          <div className="h-16 border-b bg-white px-6 flex items-center justify-between shrink-0">
+          {/* Header - Now always visible regardless of panel */}
+          <div className="h-16 border-b bg-white px-6 flex items-center justify-between shrink-0 shadow-sm z-20">
             {/* View Button - Only show for logged in users */}
             {isLoggedIn && (
               <div className="max-h-10">
@@ -74,9 +75,10 @@ export function Layout(props: LayoutProps) {
               <UserMenu />
             </div>
           </div>
+
           <div className="flex-1 flex flex-col md:flex-row min-h-0">
             <div
-              className={`w-full ${hidePreview ? "md:w-full" : `border-b md:border-b-0 md:border-r ${panelWidth}`} border-gray-200 bg-white overflow-y-auto`}
+              className={`w-full ${hidePreview ? "md:w-full" : `border-b md:border-b-0 md:border-r ${panelWidth}`} border-gray-200 bg-white overflow-y-auto flex-shrink-0 z-10`}
             >
               {activePanel === "home" && <HomePanel />}
               {activePanel === "profile" && <ProfilePanel />}

@@ -42,23 +42,26 @@ export function Preview(props: PreviewProps) {
 
   return (
     <div className="flex flex-col h-screen">
-      {!isEditing && (
-        <header className="h-16 border-b bg-white px-6 flex items-center justify-end shrink-0">
-          <UserMenu />
-        </header>
-      )}
-
       <div
         className={cn(
           "flex-1 overflow-auto relative",
-          theme.background.type === "color" ? "bg-gray-100" : ""
+          theme.background.type === "color" && !theme.background.value.includes("gradient")
+            ? "bg-gray-100"
+            : ""
         )}
       >
         {/* Background Layer - Fixed to viewport */}
         <div
           className="fixed inset-0 w-full h-full"
           style={{
-            backgroundColor: theme.background.type === "color" ? theme.background.value : undefined,
+            backgroundColor:
+              theme.background.type === "color" && !theme.background.value.includes("gradient")
+                ? theme.background.value
+                : undefined,
+            background:
+              theme.background.type === "color" && theme.background.value.includes("gradient")
+                ? theme.background.value
+                : undefined,
           }}
         >
           {theme.background.type === "video" ? (

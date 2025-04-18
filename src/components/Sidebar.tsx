@@ -72,7 +72,7 @@ export function Sidebar() {
   };
 
   return (
-    <div className="w-full h-16 md:w-20 md:h-screen bg-white border-b md:border-r border-gray-200">
+    <div className="w-full h-16 md:w-20 md:h-screen bg-white border-b md:border-r border-gray-200 shrink-0 z-10">
       <div className="h-full flex md:flex-col items-center justify-around md:justify-start md:py-6">
         {allNavItems.map(({ id, icon: Icon, label, alwaysShow, environmentFlag }) => {
           // Determine if item should be enabled based on environment flag or alwaysShow
