@@ -12,6 +12,9 @@ import { getPlatformIcon } from "../utils/platforms";
 import { MediaBlock } from "./blocks/MediaBlock";
 import { TextBlock } from "./blocks/TextBlock";
 import { UserMenu } from "./auth/UserMenu";
+import { useAuthStore } from "../store/authStore";
+import { defaultAuthUser } from "@/store/defaults";
+import { normalizeOnelink, isEquivalentOnelink } from "../utils/onelink";
 
 // Helper function to extract the root domain from a URL
 const extractRootDomain = (url: string): string => {
@@ -36,7 +39,6 @@ export function Preview(props: PreviewProps) {
   const profile = useEditorStore(state => state.profile);
   const blocks = useEditorStore(state => state.blocks);
   const theme = useEditorStore(state => state.theme.config);
-  const { isEditing = false, onelink } = props;
 
   console.info("blocks preview", blocks);
 
