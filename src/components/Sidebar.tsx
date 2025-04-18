@@ -95,7 +95,7 @@ export function Sidebar() {
             >
               <Icon className={`w-5 h-5 ${!isEnabled ? "opacity-40" : ""}`} />
               <span
-                className={`text-xs mt-1 truncate w-full text-center px-1 ${!isEnabled ? "opacity-40" : ""}`}
+                className={`text-[0.65rem] leading-tight mt-1 w-full text-center ${!isEnabled ? "opacity-40" : ""}`}
               >
                 {label}
               </span>
