@@ -16,6 +16,7 @@ import {
 import { useAmplifyConnect } from "../connect/hooks/useAmplifyConnect";
 import { useNavigate } from "react-router-dom";
 import { defaultAuthUser } from "@/store/defaults";
+import { formatOnelink } from "@/utils/onelink";
 
 export function UserMenu() {
   const amplifyConnect = useAmplifyConnect();
@@ -27,9 +28,11 @@ export function UserMenu() {
   const handleSignIn = user => {
     setShowAuthModal(false);
     setUser(user.onelink);
-    const onelink = user.onelink;
-    if (onelink) {
-      return nav(`/${onelink}`);
+
+    // Redirect to the edit page instead of public profile
+    if (user && user.onelink) {
+      const formattedOnelink = formatOnelink(user.onelink);
+      return nav(`/${formattedOnelink}/edit`);
     }
     return nav("/");
   };

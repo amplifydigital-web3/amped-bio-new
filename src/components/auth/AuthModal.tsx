@@ -9,14 +9,20 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { LoginData, RegisterData } from "../../api/api.types";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useOnelinkAvailability } from "@/hooks/useOnelinkAvailability";
 import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
-import { normalizeOnelink, cleanOnelinkInput, getOnelinkPublicUrl } from "@/utils/onelink";
+import {
+  normalizeOnelink,
+  cleanOnelinkInput,
+  getOnelinkPublicUrl,
+  formatOnelink,
+} from "@/utils/onelink";
 
 interface AuthModalProps {
   onClose: (user: AuthUser) => void;
   onCancel: () => void;
+  initialForm?: FormType;
 }
 
 // Define validation schemas using Zod
@@ -81,14 +87,15 @@ const PasswordStrengthIndicator = ({ password }: { password: string }) => {
   );
 };
 
-export function AuthModal({ onClose, onCancel }: AuthModalProps) {
-  const [form, setForm] = useState<FormType>("login");
+export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModalProps) {
+  const [form, setForm] = useState<FormType>(initialForm);
   const { signIn, signUp, resetPassword } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [sharedEmail, setSharedEmail] = useState("");
   const isUserTyping = useRef(false);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const navigate = useNavigate();
 
   const [onelinkInput, setOnelinkInput] = useState("");
   const { urlStatus, isValid } = useOnelinkAvailability(onelinkInput);
@@ -198,6 +205,12 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
       const user = await signIn(loginData.email, loginData.password);
       toast.success("Welcome back!", { icon: "👋" });
       onClose(user);
+
+      // Redirect the user to their edit page with panel state set to "home"
+      if (user && user.onelink) {
+        const formattedOnelink = formatOnelink(user.onelink);
+        navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
+      }
     } catch (error) {
       toast.error((error as Error).message);
     } finally {
@@ -218,6 +231,12 @@ export function AuthModal({ onClose, onCancel }: AuthModalProps) {
       const user = await signUp(registerData.onelink, registerData.email, registerData.password);
       toast.success("Account created successfully!");
       onClose(user);
+
+      // Redirect to edit page with home panel selected
+      if (user && user.onelink) {
+        const formattedOnelink = formatOnelink(user.onelink);
+        navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
+      }
     } catch (error) {
       toast.error((error as Error).message);
     } finally {

@@ -48,6 +48,7 @@ function App() {
           <Routes>
             <Route path="/:onelink/edit" element={<Editor />} />
             <Route path="/:onelink" element={<View />} />
+            <Route path="/register" element={<View />} />
             <Route path="/" element={<View />} />
 
             {/* Authentication Routes */}

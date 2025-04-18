@@ -2,7 +2,8 @@ import { BaseBlock, BlockType } from "@/api/api.types";
 
 export type UserProfile = {
   name: string;
-  onelink: string;
+  onelink: string; // Without @ symbol
+  onelinkFormatted: string; // With @ symbol
   email: string;
   bio: string;
   photoUrl?: string;

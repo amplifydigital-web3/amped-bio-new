@@ -6,7 +6,7 @@ import { checkOnelinkAvailability } from "@/api/api";
 // Constants
 const ONELINK_PREFIX = "@";
 const ONELINK_MIN_LENGTH = 1; // Min length without @ symbol
-export const ONELINK_REGEX = /^[a-zA-Z0-9_-]+$/;
+export const ONELINK_REGEX = /^[a-zA-Z0-9_@-]+$/;
 
 // Types
 export type OnelinkStatus =
@@ -55,7 +55,7 @@ export const validateOnelinkLength = (onelink: string): boolean => {
  */
 export const cleanOnelinkInput = (onelink: string): string => {
   const normalized = normalizeOnelink(onelink);
-  return normalized.replace(/[^a-zA-Z0-9_-]/g, "");
+  return normalized.replace(/[^a-zA-Z0-9_@-]/g, "");
 };
 
 /**
@@ -75,7 +75,7 @@ export const checkOnelink = async (onelink: string): Promise<boolean> => {
  */
 export const getOnelinkPublicUrl = (onelink: string): string => {
   const normalized = normalizeOnelink(onelink);
-  return normalized ? `amped-bio.com/${ONELINK_PREFIX}${normalized}` : "";
+  return normalized ? `amped-bio.com/${formatOnelink(normalized)}` : "";
 };
 
 /**
