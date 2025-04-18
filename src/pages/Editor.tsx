@@ -20,6 +20,53 @@ export function Editor() {
   // Normalize onelink to handle @ symbols in URLs
   const normalizedOnelink = normalizeOnelink(onelink);
 
+  // Initialize Freshworks help widget
+  useEffect(() => {
+    // Set widget settings
+    window.fwSettings = {
+      widget_id: 154000003550,
+    };
+
+    // Initialize Freshworks Widget
+    if (typeof window.FreshworksWidget !== "function") {
+      const n = function (...args: any[]) {
+        n.q.push(args);
+      };
+      n.q = [];
+      window.FreshworksWidget = n;
+    }
+
+    // Load the script
+    const script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src = "https://widget.freshworks.com/widgets/154000003550.js";
+    script.async = true;
+    script.defer = true;
+    document.body.appendChild(script);
+
+    window.FreshworksWidget(
+      "identify",
+      "ticketForm",
+      {
+        name: authUser!.onelink,
+        email: authUser!.email,
+      },
+      {
+        formId: 1234, // Ticket Form ID
+      }
+    );
+
+    // Cleanup function to remove the script when component unmounts
+    return () => {
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+      // Clean up the global variable
+      delete window.FreshworksWidget;
+      delete window.fwSettings;
+    };
+  }, []);
+
   // Redirect to URL with @ symbol if missing
   useEffect(() => {
     if (onelink && !onelink.startsWith("@")) {

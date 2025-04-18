@@ -8,6 +8,7 @@ import { defaultAuthUser } from "@/store/defaults";
 import { AuthModal } from "../components/auth/AuthModal";
 import { formatOnelink, normalizeOnelink } from "@/utils/onelink";
 import type { AuthUser } from "../types/auth";
+import { UserMenu } from "../components/auth/UserMenu";
 
 export function View() {
   const { onelink = "" } = useParams();
@@ -20,6 +21,9 @@ export function View() {
 
   // Normalize onelink to handle @ symbols in URLs
   const normalizedOnelink = normalizeOnelink(onelink);
+
+  // Determine if this is the initial/home page (no onelink parameter)
+  const isInitialPage = !onelink || onelink === "";
 
   // Check if we're on the register route to show the auth modal
   const [showAuthModal, setShowAuthModal] = useState(location.pathname === "/register");
@@ -79,6 +83,13 @@ export function View() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      {/* Navbar - Only visible on the initial page */}
+      {isInitialPage && (
+        <header className="sticky top-0 z-30 h-16 border-b bg-white px-6 flex items-center justify-end shrink-0 shadow-sm">
+          <UserMenu />
+        </header>
+      )}
+
       <Preview isEditing={false} onelink={normalizedOnelink} />
 
       {/* Edit Button */}

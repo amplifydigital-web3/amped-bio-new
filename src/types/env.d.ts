@@ -8,3 +8,11 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+// Freshworks Widget global variables
+interface Window {
+  fwSettings?: {
+    widget_id: number;
+  };
+  FreshworksWidget?: any;
+}
