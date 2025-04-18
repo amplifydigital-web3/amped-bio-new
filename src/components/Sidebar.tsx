@@ -22,7 +22,7 @@ import { importSettings } from "../utils/import";
 const allNavItems = [
   { id: "home", icon: Home, label: "Home", alwaysShow: true },
   { id: "profile", icon: User, label: "Profile", alwaysShow: true },
-  { id: "gallery", icon: Image, label: "Gallery", environmentFlag: "VITE_SHOW_GALLERY" },
+  { id: "gallery", icon: Image, label: "Themes", environmentFlag: "VITE_SHOW_GALLERY" },
   { id: "appearance", icon: Palette, label: "Appearance", alwaysShow: true },
   { id: "effects", icon: Sparkles, label: "Effects", alwaysShow: true },
   { id: "blocks", icon: LayoutGrid, label: "Blocks", alwaysShow: true },
@@ -94,7 +94,11 @@ export function Sidebar() {
               disabled={!isEnabled}
             >
               <Icon className={`w-5 h-5 ${!isEnabled ? "opacity-40" : ""}`} />
-              <span className={`text-xs mt-1 ${!isEnabled ? "opacity-40" : ""}`}>{label}</span>
+              <span
+                className={`text-xs mt-1 truncate w-full text-center px-1 ${!isEnabled ? "opacity-40" : ""}`}
+              >
+                {label}
+              </span>
               {!isEnabled && (
                 <span className="absolute top-0 right-0 bg-gray-200 text-gray-600 rounded-bl-lg rounded-tr-lg px-1 text-[0.6rem]">
                   Soon

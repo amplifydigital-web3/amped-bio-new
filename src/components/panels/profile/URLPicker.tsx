@@ -7,17 +7,13 @@ import { Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useOnelinkAvailability } from "@/hooks/useOnelinkAvailability";
 import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
-import {
-  normalizeOnelink,
-  formatOnelink,
-  cleanOnelinkInput,
-  getOnelinkPublicUrl,
-} from "@/utils/onelink";
+import { normalizeOnelink, formatOnelink, cleanOnelinkInput } from "@/utils/onelink";
 
 export function URLPicker() {
   // Extract onelink without @ symbol if it exists using our utility function
   const profile = useEditorStore(state => state.profile);
   const currentOnelink = normalizeOnelink(profile.onelink || "");
+  const currentOnelinkFormatted = profile.onelinkFormatted || formatOnelink(profile.onelink || "");
 
   const [url, setUrl] = useState(currentOnelink);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -42,19 +38,26 @@ export function URLPicker() {
 
     setIsUpdating(true);
 
-    // Apply our formatOnelink utility to ensure @ prefix
+    // Apply our formatOnelink utility to ensure @ prefix for formatted version
+    // and normalized version without @ prefix
     const formattedURL = formatOnelink(value);
+    const normalizedURL = normalizeOnelink(value);
 
     try {
       // Call the API to update the onelink - with normalized value (without @ symbol)
-      const response = await redeemOnelink(normalizeOnelink(value));
+      const response = await redeemOnelink(normalizedURL);
 
       if (response.success) {
         // Show success toast
         toast.success("URL updated successfully!");
 
-        // Update local state on success
-        setProfile({ ...profile, onelink: formattedURL });
+        // Update local state on success with both versions
+        setProfile({
+          ...profile,
+          onelink: normalizedURL,
+          onelinkFormatted: formattedURL,
+        });
+
         saveChanges();
 
         // Navigate to the new URL
@@ -67,56 +70,41 @@ export function URLPicker() {
     } catch (error) {
       // Handle errors
       console.error("Error updating onelink:", error);
-
-      // Display error message with toast
-      if (error instanceof Error) {
-        toast.error(`Error: ${error.message}`);
-      } else {
-        toast.error("An unexpected error occurred");
-      }
+      toast.error("Failed to update URL. Please try again");
     } finally {
       setIsUpdating(false);
     }
   };
 
   return (
-    <div className="space-y-3 p-4 bg-white rounded-lg shadow-sm border border-gray-100">
-      <div>
-        <h3 className="text-lg font-semibold text-gray-900">Unique Amped-Bio URL</h3>
-        <p className="text-sm text-gray-500 mt-1">
-          Choose a unique string that will be used in your public profile link.
-        </p>
-      </div>
+    <div>
+      <h3 className="text-sm font-medium text-gray-700 mb-1">Your Public URL</h3>
 
-      <div className="relative mt-2">
-        <div className="flex items-center">
-          <div className="bg-gray-100 flex items-center justify-center h-10 px-3 rounded-l-md border border-r-0 border-gray-300 text-gray-500">
-            @
-          </div>
-          <div className="relative flex-grow">
+      <div className="flex items-center space-x-2">
+        <div className="relative flex-1">
+          <div className="flex items-center">
+            <div className="bg-gray-100 text-gray-500 px-3 py-2 rounded-l-md border-y border-l border-gray-300">
+              amped-bio.com/@
+            </div>
             <input
               type="text"
               value={url}
               onChange={e => handleUrlChange(e.target.value)}
-              placeholder={currentOnelink || "Your unique URL"}
-              className="w-full px-3 py-2 border border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-32"
-              aria-label="URL slug"
+              className={`flex-1 px-3 py-2 border rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                urlStatus === "Invalid" || urlStatus === "TooShort"
+                  ? "border-red-500"
+                  : "border-gray-300"
+              }`}
+              placeholder="your-unique-url"
             />
-            <div className="absolute right-3 top-1/2 transform -translate-y-1/2 min-w-[90px] text-right">
-              <URLStatusIndicator status={urlStatus} isCurrentUrl={isCurrentUrl} />
-            </div>
+          </div>
+
+          {/* Status indicator */}
+          <div className="absolute right-3 top-2">
+            <URLStatusIndicator status={urlStatus} isCurrentUrl={isCurrentUrl} />
           </div>
         </div>
 
-        <p className="text-xs text-gray-500 mt-1">
-          Your URL will be:{" "}
-          <span className="font-medium">
-            {getOnelinkPublicUrl(url || currentOnelink || "your-url")}
-          </span>
-        </p>
-      </div>
-
-      <div className="flex justify-between items-center">
         <div>
           {url !== "" && !isValid && (
             <p className="text-xs text-red-600">

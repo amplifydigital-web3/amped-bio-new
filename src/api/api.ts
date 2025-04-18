@@ -1,6 +1,7 @@
 import axios from "axios";
 import type { Theme } from "../types/editor";
 import { withRelatedProject } from "@vercel/related-projects";
+import { normalizeOnelink } from "@/utils/onelink";
 import type {
   LoginData,
   RegisterData,
@@ -143,8 +144,12 @@ export async function editUser(userData: {
   reward_business_id: string;
   theme: number;
 }) {
-  console.log("Editing user:", userData);
-  return apiRequest(() => api.put("/user", userData), "User updated successfully:");
+  const updatedUserData = {
+    ...userData,
+    onelink: normalizeOnelink(userData.onelink),
+  };
+  console.log("Editing user:", updatedUserData);
+  return apiRequest(() => api.put("/user", updatedUserData), "User updated successfully:");
 }
 
 export async function getUser(userData: { token: string }) {
@@ -211,26 +216,28 @@ export async function addBlock(block: AddBlockData): Promise<BlockResponse> {
 
 // Onelink APIs
 export async function getOnelink(onelink: string) {
-  const sanitizedOnelink = onelink.replace(/^@+/, "");
-  console.log("Get onelink:", sanitizedOnelink);
+  const normalizedOnelink = normalizeOnelink(onelink);
+  console.log("Get onelink:", normalizedOnelink);
   return apiRequest<OnelinkResponse>(
-    () => api.get(`/onelink/${sanitizedOnelink}`),
+    () => api.get(`/onelink/${normalizedOnelink}`),
     "Onelink retrieved successfully:"
   ).then(data => data.result);
 }
 
 export async function checkOnelinkAvailability(onelink: string): Promise<boolean> {
-  console.log("Check onelink:", onelink);
+  const normalizedOnelink = normalizeOnelink(onelink);
+  console.log("Check onelink:", normalizedOnelink);
   return apiRequest<OnelinkAvailabilityResponse>(
-    () => api.get(`/onelink/check/${onelink}`),
+    () => api.get(`/onelink/check/${normalizedOnelink}`),
     "Onelink availability checked:"
   ).then(data => data.available);
 }
 
 export async function redeemOnelink(newOnelink: string) {
-  console.log(`Redeeming onelink: changing to ${newOnelink}`);
+  const normalizedNewOnelink = normalizeOnelink(newOnelink);
+  console.log(`Redeeming onelink: changing to ${normalizedNewOnelink}`);
   return apiRequest<OnelinkRedemptionResponse>(
-    () => api.post("/onelink/redeem", { newOnelink }),
+    () => api.post("/onelink/redeem", { newOnelink: normalizedNewOnelink }),
     "Onelink redemption process:"
   );
 }
