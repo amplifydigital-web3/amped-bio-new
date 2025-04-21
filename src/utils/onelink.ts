@@ -32,9 +32,9 @@ export function normalizeOnelink(onelink: string): string {
 /**
  * Format an onelink with @ prefix for display
  */
-export function formatOnelink(onelink: string): string {
-  if (!onelink) return "";
-  return onelink.startsWith("@") ? onelink : `@${onelink}`;
+export function formatOnelink(onelink: string): `@${string}` {
+  if (!onelink) return "@";
+  return onelink.startsWith("@") ? (onelink as `@${string}`) : `@${onelink}`;
 }
 
 /**
