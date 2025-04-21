@@ -52,10 +52,10 @@ export function Layout(props: LayoutProps) {
         <Sidebar />
         <main className="flex-1 flex flex-col overflow-hidden">
           {/* Header - Now always visible regardless of panel */}
-          <div className="h-16 border-b bg-white px-6 flex items-center justify-between shrink-0 shadow-sm z-20">
+          <div className="h-16 border-b bg-white px-6 flex items-center justify-between shrink-0 shadow-sm z-20 overflow-x-auto">
             {/* View Button - Only show for logged in users */}
             {isLoggedIn && (
-              <div className="max-h-10">
+              <div className="max-h-10 flex-shrink-0">
                 <Link
                   to={`/${onelink}`}
                   className="px-4 py-2 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-colors flex items-center space-x-2"
@@ -67,10 +67,10 @@ export function Layout(props: LayoutProps) {
             )}
             {!isLoggedIn && <div></div>}
 
-            {isLoggedIn && !emailVerified && usr.email === "will@amplifydigital.ai" && (
-              <EmailVerificationBanner />
-            )}
-            <div className="flex items-center justify-end">
+            {/* {isLoggedIn && !emailVerified && usr.email === "will@amplifydigital.ai" && (
+              <EmailVerificationBanner className="flex-shrink-0 mx-2" />
+            )} */}
+            <div className="flex items-center justify-end flex-shrink-0 ml-2">
               {isLoggedIn && <SaveButton />}
               <UserMenu />
             </div>
