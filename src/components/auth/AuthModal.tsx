@@ -223,7 +223,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     setLoading(true);
     try {
       const registerData: RegisterData = {
-        onelink: `@${data.onelink}`,
+        onelink: data.onelink,
         email: data.email,
         password: data.password,
       };
