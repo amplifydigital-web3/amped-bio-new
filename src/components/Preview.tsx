@@ -11,10 +11,6 @@ import {
 import { getPlatformIcon } from "../utils/platforms";
 import { MediaBlock } from "./blocks/MediaBlock";
 import { TextBlock } from "./blocks/TextBlock";
-import { UserMenu } from "./auth/UserMenu";
-import { useAuthStore } from "../store/authStore";
-import { defaultAuthUser } from "@/store/defaults";
-import { normalizeOnelink, isEquivalentOnelink } from "../utils/onelink";
 
 // Helper function to extract the root domain from a URL
 const extractRootDomain = (url: string): string => {
@@ -211,37 +207,6 @@ export function Preview(props: PreviewProps) {
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Mobile Toggle */}
-        <div className="fixed bottom-16 right-4 z-20">
-          <button
-            onClick={() => setIsMobile(!isMobile)}
-            className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-50"
-          >
-            <span className="sr-only">
-              {isMobile ? "Switch to desktop view" : "Switch to mobile view"}
-            </span>
-            {isMobile ? (
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                />
-              </svg>
-            ) : (
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
-                />
-              </svg>
-            )}
-          </button>
         </div>
       </div>
     </div>
