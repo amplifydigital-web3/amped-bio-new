@@ -96,7 +96,7 @@ export function View() {
       {authUser.id != 0 && authUser !== defaultAuthUser && authUser.email === profile.email && (
         <Link
           to={`/${normalizedOnelink.length > 0 ? normalizedOnelink : profile.onelink}/edit`}
-          className="fixed bottom-4 right-4 p-3 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-colors flex items-center space-x-2"
+          className="fixed bottom-4 right-4 p-3 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-colors flex items-center space-x-2 z-50"
         >
           <Settings className="w-5 h-5" />
           <span className="text-sm font-medium">Edit Page</span>
