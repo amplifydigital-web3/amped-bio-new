@@ -205,6 +205,19 @@ export function Preview(props: PreviewProps) {
                   return <TextBlock key={block.id} block={block} theme={theme} />;
                 })}
               </div>
+
+              {/* Powered by footer */}
+              <div className="pt-4 text-center">
+                <p
+                  className="text-sm opacity-70"
+                  style={{
+                    fontFamily: theme.fontFamily,
+                    color: theme.fontColor,
+                  }}
+                >
+                  Powered by Amped-Bio
+                </p>
+              </div>
             </div>
           </div>
         </div>
