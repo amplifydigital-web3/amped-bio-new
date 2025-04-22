@@ -1,13 +1,13 @@
-import React from 'react';
-import { LayoutGrid, List, Search } from 'lucide-react';
+import React from "react";
+import { LayoutGrid, List, Search } from "lucide-react";
 
 interface MarketplaceHeaderProps {
-  view: 'grid' | 'list';
+  view: "grid" | "list";
   filter: string;
-  sort: 'popular' | 'newest' | 'rating';
-  onViewChange: (view: 'grid' | 'list') => void;
+  sort: "popular" | "newest" | "rating";
+  onViewChange: (view: "grid" | "list") => void;
   onFilterChange: (filter: string) => void;
-  onSortChange: (sort: 'popular' | 'newest' | 'rating') => void;
+  onSortChange: (sort: "popular" | "newest" | "rating") => void;
 }
 
 export function MarketplaceHeader({
@@ -23,27 +23,25 @@ export function MarketplaceHeader({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Theme Marketplace</h2>
-          <p className="text-sm text-gray-500">
-            Browse and apply beautiful themes to your profile
-          </p>
+          <p className="text-sm text-gray-500">Browse and apply beautiful themes to your profile</p>
         </div>
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => onViewChange('grid')}
+            onClick={() => onViewChange("grid")}
             className={`p-2 rounded-lg ${
-              view === 'grid'
-                ? 'bg-gray-100 text-gray-900'
-                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+              view === "grid"
+                ? "bg-gray-100 text-gray-900"
+                : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
             }`}
           >
             <LayoutGrid className="w-5 h-5" />
           </button>
           <button
-            onClick={() => onViewChange('list')}
+            onClick={() => onViewChange("list")}
             className={`p-2 rounded-lg ${
-              view === 'list'
-                ? 'bg-gray-100 text-gray-900'
-                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+              view === "list"
+                ? "bg-gray-100 text-gray-900"
+                : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
             }`}
           >
             <List className="w-5 h-5" />
@@ -51,7 +49,7 @@ export function MarketplaceHeader({
         </div>
       </div>
 
-      <div className="flex items-center space-x-4">
+      {/* <div className="flex items-center space-x-4">
         <div className="flex-1 relative">
           <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
@@ -71,7 +69,7 @@ export function MarketplaceHeader({
           <option value="newest">Newest</option>
           <option value="rating">Top Rated</option>
         </select>
-      </div>
+      </div> */}
     </div>
   );
 }

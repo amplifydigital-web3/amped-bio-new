@@ -50,7 +50,7 @@ export function Preview(props: PreviewProps) {
       >
         {/* Background Layer - Fixed to viewport */}
         <div
-          className="fixed inset-0 w-full h-full"
+          className="fixed inset-0 w-full h-full z-[1]"
           style={{
             backgroundColor:
               theme.background.type === "color" && !theme.background.value.includes("gradient")
@@ -86,7 +86,7 @@ export function Preview(props: PreviewProps) {
         </div>
 
         {/* Content Layer */}
-        <div className="min-h-full relative">
+        <div className="min-h-full relative z-[2]">
           <div
             className={cn(
               "relative min-h-full py-8 px-4 transition-all duration-300 mx-auto z-10",

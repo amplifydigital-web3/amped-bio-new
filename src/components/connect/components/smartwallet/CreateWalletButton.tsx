@@ -1,8 +1,8 @@
-import { useCallback, useEffect } from 'react';
-import { CoinbaseWalletLogo } from './CoinbaseWalletLogo';
-import { BrandedProgrammeButton } from '../components/Buttons';
-import { useAppKitWallet } from '@reown/appkit-wallet-button/react';
-import { useAppKitAccount } from '@reown/appkit/react';
+import { useCallback, useEffect } from "react";
+import { CoinbaseWalletLogo } from "./CoinbaseWalletLogo";
+import { BrandedProgrammeButton } from "../components/Buttons";
+import { useAppKitWallet } from "@reown/appkit-wallet-button/react";
+import { useAppKitAccount } from "@reown/appkit/react";
 
 export function CreateWalletButton({
   handleSuccess,
@@ -16,9 +16,9 @@ export function CreateWalletButton({
 
   const createWallet = useCallback(async () => {
     try {
-      await wallet.connect('coinbase');
+      await wallet.connect("coinbase");
     } catch (error) {
-      console.log('error.....', error);
+      console.log("error.....", error);
       handleError(error);
     }
   }, [handleSuccess, handleError]);

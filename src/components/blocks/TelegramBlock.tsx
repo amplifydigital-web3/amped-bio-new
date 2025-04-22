@@ -1,6 +1,6 @@
-import { MessageCircle } from 'lucide-react';
-import type { ThemeConfig } from '../../types/editor';
-import { TextBlock } from '@/api/api.types';
+import { MessageCircle } from "lucide-react";
+import type { ThemeConfig } from "../../types/editor";
+import { TextBlock } from "@/api/api.types";
 
 interface TelegramBlockProps {
   block: TextBlock;

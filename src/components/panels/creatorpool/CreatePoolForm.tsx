@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Input } from '../../ui/Input';
-import { Textarea } from '../../ui/Textarea';
-import { CoinsIcon, Clock, Users, Percent } from 'lucide-react';
+import React, { useState } from "react";
+import { Input } from "../../ui/Input";
+import { Textarea } from "../../ui/Textarea";
+import { CoinsIcon, Clock, Users, Percent } from "lucide-react";
 
 interface CreatePoolFormProps {
   onComplete: () => void;
@@ -9,19 +9,19 @@ interface CreatePoolFormProps {
 
 export function CreatePoolForm({ onComplete }: CreatePoolFormProps) {
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    tokenAddress: '',
-    rewardRate: '',
-    lockPeriod: '',
-    minStake: '',
-    maxParticipants: '',
+    name: "",
+    description: "",
+    tokenAddress: "",
+    rewardRate: "",
+    lockPeriod: "",
+    minStake: "",
+    maxParticipants: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     // Here you would integrate with a smart contract to create the pool
-    console.log('Creating pool:', formData);
+    console.log("Creating pool:", formData);
     onComplete();
   };
 
@@ -39,7 +39,7 @@ export function CreatePoolForm({ onComplete }: CreatePoolFormProps) {
         <Input
           label="Pool Name"
           value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          onChange={e => setFormData({ ...formData, name: e.target.value })}
           placeholder="e.g., Creator Season 1 Pool"
           required
         />
@@ -47,7 +47,7 @@ export function CreatePoolForm({ onComplete }: CreatePoolFormProps) {
         <Input
           label="Token Contract Address"
           value={formData.tokenAddress}
-          onChange={(e) => setFormData({ ...formData, tokenAddress: e.target.value })}
+          onChange={e => setFormData({ ...formData, tokenAddress: e.target.value })}
           placeholder="0x..."
           required
         />
@@ -55,7 +55,7 @@ export function CreatePoolForm({ onComplete }: CreatePoolFormProps) {
         <Input
           label="Reward Rate (% APR)"
           value={formData.rewardRate}
-          onChange={(e) => setFormData({ ...formData, rewardRate: e.target.value })}
+          onChange={e => setFormData({ ...formData, rewardRate: e.target.value })}
           type="number"
           min="0"
           max="100"
@@ -66,7 +66,7 @@ export function CreatePoolForm({ onComplete }: CreatePoolFormProps) {
         <Input
           label="Lock Period (Days)"
           value={formData.lockPeriod}
-          onChange={(e) => setFormData({ ...formData, lockPeriod: e.target.value })}
+          onChange={e => setFormData({ ...formData, lockPeriod: e.target.value })}
           type="number"
           min="1"
           placeholder="30"
@@ -76,7 +76,7 @@ export function CreatePoolForm({ onComplete }: CreatePoolFormProps) {
         <Input
           label="Minimum Stake"
           value={formData.minStake}
-          onChange={(e) => setFormData({ ...formData, minStake: e.target.value })}
+          onChange={e => setFormData({ ...formData, minStake: e.target.value })}
           type="number"
           min="0"
           placeholder="100"
@@ -86,7 +86,7 @@ export function CreatePoolForm({ onComplete }: CreatePoolFormProps) {
         <Input
           label="Maximum Participants"
           value={formData.maxParticipants}
-          onChange={(e) => setFormData({ ...formData, maxParticipants: e.target.value })}
+          onChange={e => setFormData({ ...formData, maxParticipants: e.target.value })}
           type="number"
           min="1"
           placeholder="1000"
@@ -97,7 +97,7 @@ export function CreatePoolForm({ onComplete }: CreatePoolFormProps) {
       <Textarea
         label="Pool Description"
         value={formData.description}
-        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+        onChange={e => setFormData({ ...formData, description: e.target.value })}
         placeholder="Describe the benefits and purpose of your staking pool..."
         rows={4}
         required
@@ -109,7 +109,7 @@ export function CreatePoolForm({ onComplete }: CreatePoolFormProps) {
             <CoinsIcon className="w-5 h-5" />
             <span className="font-medium">Rewards</span>
           </div>
-          <p className="text-sm text-gray-500">Earn {formData.rewardRate || '0'}% APR</p>
+          <p className="text-sm text-gray-500">Earn {formData.rewardRate || "0"}% APR</p>
         </div>
 
         <div className="p-4 bg-gray-50 rounded-lg">
@@ -117,7 +117,7 @@ export function CreatePoolForm({ onComplete }: CreatePoolFormProps) {
             <Clock className="w-5 h-5" />
             <span className="font-medium">Duration</span>
           </div>
-          <p className="text-sm text-gray-500">{formData.lockPeriod || '0'} Days Lock</p>
+          <p className="text-sm text-gray-500">{formData.lockPeriod || "0"} Days Lock</p>
         </div>
 
         <div className="p-4 bg-gray-50 rounded-lg">
@@ -125,7 +125,7 @@ export function CreatePoolForm({ onComplete }: CreatePoolFormProps) {
             <Percent className="w-5 h-5" />
             <span className="font-medium">Minimum</span>
           </div>
-          <p className="text-sm text-gray-500">{formData.minStake || '0'} Tokens</p>
+          <p className="text-sm text-gray-500">{formData.minStake || "0"} Tokens</p>
         </div>
 
         <div className="p-4 bg-gray-50 rounded-lg">
@@ -133,7 +133,7 @@ export function CreatePoolForm({ onComplete }: CreatePoolFormProps) {
             <Users className="w-5 h-5" />
             <span className="font-medium">Capacity</span>
           </div>
-          <p className="text-sm text-gray-500">{formData.maxParticipants || '0'} Users</p>
+          <p className="text-sm text-gray-500">{formData.maxParticipants || "0"} Users</p>
         </div>
       </div>
 

@@ -1,6 +1,6 @@
-import { Newspaper } from 'lucide-react';
-import type { ThemeConfig } from '../../types/editor';
-import { MediaBlock } from '@/api/api.types';
+import { Newspaper } from "lucide-react";
+import type { ThemeConfig } from "../../types/editor";
+import { MediaBlock } from "@/api/api.types";
 
 interface SubstackBlockProps {
   block: MediaBlock;

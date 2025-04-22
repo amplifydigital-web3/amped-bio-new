@@ -52,7 +52,7 @@ export function Layout(props: LayoutProps) {
         <Sidebar />
         <main className="flex-1 flex flex-col overflow-hidden">
           {/* Header - Now always visible regardless of panel */}
-          <div className="h-16 border-b bg-white px-6 flex items-center justify-between shrink-0 shadow-sm z-20 overflow-x-auto">
+          <div className="h-16 border-b bg-white px-6 flex items-center justify-between shrink-0 shadow-sm z-[10] overflow-x-auto">
             {/* View Button - Only show for logged in users */}
             {isLoggedIn && (
               <div className="max-h-10 flex-shrink-0">
@@ -78,7 +78,7 @@ export function Layout(props: LayoutProps) {
 
           <div className="flex-1 flex flex-col md:flex-row min-h-0">
             <div
-              className={`w-full ${hidePreview ? "md:w-full" : `border-b md:border-b-0 md:border-r ${panelWidth}`} border-gray-200 bg-white overflow-y-auto flex-shrink-0 z-10 max-h-full`}
+              className={`w-full ${hidePreview ? "md:w-full" : `border-b md:border-b-0 md:border-r ${panelWidth}`} border-gray-200 bg-white overflow-y-auto flex-shrink-0 z-[10] max-h-full`}
               style={{ height: "calc(100vh - 64px)" }}
             >
               {activePanel === "home" && <HomePanel />}
@@ -93,7 +93,7 @@ export function Layout(props: LayoutProps) {
               {activePanel === "rns" && <RNSPanel />}
             </div>
             {!hidePreview && (
-              <div className="hidden md:flex md:flex-col md:flex-1 overflow-y-auto relative">
+              <div className="hidden md:flex md:flex-col md:flex-1 overflow-y-auto relative z-[5]">
                 <Preview isEditing={true} onelink={onelink} />
               </div>
             )}

@@ -1,6 +1,6 @@
-import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { env } from '../env';
+import { Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
+import { env } from "../env";
 
 export type JWTUser = {
   id: number;
@@ -21,10 +21,10 @@ declare global {
 
 export const authMiddleware = (...requiredRoles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
-    const token = req.headers.authorization?.split(' ')[1];
+    const token = req.headers.authorization?.split(" ")[1];
 
     if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
+      return res.status(401).json({ message: "No token provided" });
     }
 
     try {
@@ -38,18 +38,18 @@ export const authMiddleware = (...requiredRoles: string[]) => {
       }
 
       // Check if user has required role
-      const userRole = req.user.role || '';
+      const userRole = req.user.role || "";
       const hasRequiredRole = requiredRoles.includes(userRole);
 
       if (!hasRequiredRole) {
         return res.status(403).json({
-          message: 'Forbidden: Insufficient permissions',
+          message: "Forbidden: Insufficient permissions",
         });
       }
 
       next();
     } catch (error) {
-      return res.status(401).json({ message: 'Invalid token' });
+      return res.status(401).json({ message: "Invalid token" });
     }
   };
 };

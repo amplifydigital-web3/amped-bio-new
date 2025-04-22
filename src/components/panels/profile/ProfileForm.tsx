@@ -1,6 +1,6 @@
-import type { UserProfile } from '../../../types/editor';
-import { Input } from '@/components/ui/Input';
-import { Textarea } from '@/components/ui/Textarea';
+import type { UserProfile } from "../../../types/editor";
+import { Input } from "@/components/ui/Input";
+import { Textarea } from "@/components/ui/Textarea";
 
 interface ProfileFormProps {
   profile: UserProfile;
@@ -8,13 +8,12 @@ interface ProfileFormProps {
 }
 
 export function ProfileForm({ profile, onUpdate }: ProfileFormProps) {
-
   return (
     <div className="space-y-6">
       <Input
         label="Name"
         value={profile.name}
-        onChange={(e) => onUpdate('name', e.target.value)}
+        onChange={e => onUpdate("name", e.target.value)}
         placeholder="Enter your name"
       />
 
@@ -28,7 +27,7 @@ export function ProfileForm({ profile, onUpdate }: ProfileFormProps) {
       <Textarea
         label="Bio"
         value={profile.bio}
-        onChange={(e) => onUpdate('bio', e.target.value)}
+        onChange={e => onUpdate("bio", e.target.value)}
         placeholder="Tell your story..."
         rows={4}
       />

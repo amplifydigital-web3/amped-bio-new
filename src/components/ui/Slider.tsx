@@ -1,4 +1,3 @@
-
 interface SliderProps {
   min: number;
   max: number;
@@ -16,12 +15,10 @@ export function Slider({ min, max, step, value, onChange }: SliderProps) {
         max={max}
         step={step}
         value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
+        onChange={e => onChange(parseFloat(e.target.value))}
         className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
       />
-      <span className="text-sm text-gray-600 min-w-[3ch]">
-        {value.toFixed(1)}x
-      </span>
+      <span className="text-sm text-gray-600 min-w-[3ch]">{value.toFixed(1)}x</span>
     </div>
   );
 }

@@ -1,7 +1,7 @@
-import { BlockList } from './BlockList';
-import { BlockPicker } from './BlockPicker';
-import { LinkForm } from './LinkForm';
-import { useEditorStore } from '../../../store/editorStore';
+import { BlockList } from "./BlockList";
+import { BlockPicker } from "./BlockPicker";
+import { LinkForm } from "./LinkForm";
+import { useEditorStore } from "../../../store/editorStore";
 
 export function BlocksPanel() {
   const blocks = useEditorStore(state => state.blocks);

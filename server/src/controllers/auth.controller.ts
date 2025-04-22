@@ -1,17 +1,17 @@
-import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
-import { sendEmailVerification, sendPasswordResetEmail } from '../utils/email/email';
-import { hashPassword, comparePasswords } from '../utils/password';
-import { generateToken } from '../utils/token';
-import crypto from 'crypto';
-import { ValidatedRequest } from '../middleware/validation.middleware';
+import { Request, Response } from "express";
+import { PrismaClient } from "@prisma/client";
+import { sendEmailVerification, sendPasswordResetEmail } from "../utils/email/email";
+import { hashPassword, comparePasswords } from "../utils/password";
+import { generateToken } from "../utils/token";
+import crypto from "crypto";
+import { ValidatedRequest } from "../middleware/validation.middleware";
 import {
   RegisterInput,
   LoginInput,
   PasswordResetRequestInput,
   ProcessPasswordResetInput,
   SendVerifyEmailInput,
-} from '../schemas/auth.schema';
+} from "../schemas/auth.schema";
 
 const prisma = new PrismaClient();
 
@@ -19,7 +19,7 @@ export const authController = {
   async register(req: Request, res: Response) {
     const { onelink, email, password } = (req as ValidatedRequest<RegisterInput>).validatedData;
 
-    console.log('Got Register Request: ', onelink, email);
+    console.log("Got Register Request: ", onelink, email);
 
     try {
       const existingOnelinkCount = await prisma.user.count({
@@ -29,7 +29,7 @@ export const authController = {
       });
 
       if (existingOnelinkCount > 0) {
-        return res.status(400).json({ success: false, message: 'URL already taken' });
+        return res.status(400).json({ success: false, message: "URL already taken" });
       }
 
       const existingUserCount = await prisma.user.count({
@@ -39,11 +39,11 @@ export const authController = {
       });
 
       if (existingUserCount > 0) {
-        return res.status(400).json({ success: false, message: 'Email already registered' });
+        return res.status(400).json({ success: false, message: "Email already registered" });
       }
 
       const hashedPassword = await hashPassword(password);
-      const remember_token = crypto.randomBytes(32).toString('hex');
+      const remember_token = crypto.randomBytes(32).toString("hex");
 
       const result = await prisma.user.create({
         data: {
@@ -58,7 +58,7 @@ export const authController = {
       try {
         sendEmailVerification(email, remember_token);
       } catch (error) {
-        res.status(500).json({ success: false, message: 'Error sending email' });
+        res.status(500).json({ success: false, message: "Error sending email" });
       }
 
       res.status(201).json({
@@ -66,15 +66,15 @@ export const authController = {
         user: { id: result.id, email, onelink },
       });
     } catch (error) {
-      console.error('error', error);
-      res.status(500).json({ success: false, message: 'Server error' });
+      console.error("error", error);
+      res.status(500).json({ success: false, message: "Server error" });
     }
   },
 
   async login(req: Request, res: Response) {
     const { email, password } = (req as ValidatedRequest<LoginInput>).validatedData;
 
-    console.info('Got Login Request:', email);
+    console.info("Got Login Request:", email);
 
     try {
       const user = await prisma.user.findUnique({
@@ -84,15 +84,15 @@ export const authController = {
       });
 
       if (user === null) {
-        return res.status(400).json({ success: false, message: 'Invalid credentials' });
+        return res.status(400).json({ success: false, message: "Invalid credentials" });
       }
 
-      console.log('user', user);
+      console.log("user", user);
 
       const isValidPassword = await comparePasswords(password, user.password);
 
       if (!isValidPassword) {
-        return res.status(401).json({ success: false, message: 'Invalid credentials' });
+        return res.status(401).json({ success: false, message: "Invalid credentials" });
       } else {
         const token = generateToken({ id: user.id, email: user.email });
         const emailVerified = user.email_verified_at !== null;
@@ -104,8 +104,8 @@ export const authController = {
         });
       }
     } catch (error) {
-      console.error('error', error);
-      res.status(500).json({ success: false, message: 'Server error' });
+      console.error("error", error);
+      res.status(500).json({ success: false, message: "Server error" });
     }
   },
 
@@ -122,11 +122,11 @@ export const authController = {
       if (user === null) {
         return res.status(400).json({
           success: false,
-          message: 'User not found',
+          message: "User not found",
         });
       }
 
-      const remember_token = crypto.randomBytes(32).toString('hex');
+      const remember_token = crypto.randomBytes(32).toString("hex");
 
       return prisma.user
         .update({
@@ -145,23 +145,23 @@ export const authController = {
           () => {
             res.json({
               success: true,
-              message: 'Password reset email sent',
+              message: "Password reset email sent",
               email: email,
             });
           },
           error => {
             res.status(500).json({
               success: false,
-              message: 'Error sending password reset email',
+              message: "Error sending password reset email",
               error: error.message,
             });
           }
         );
     } catch (error) {
-      console.error('error', error);
+      console.error("error", error);
       res.status(500).json({
         success: false,
-        message: 'Server error',
+        message: "Server error",
       });
     }
   },
@@ -181,7 +181,7 @@ export const authController = {
       if (!user) {
         return res.status(400).json({
           success: false,
-          message: 'Invalid reset token',
+          message: "Invalid reset token",
         });
       }
 
@@ -190,7 +190,7 @@ export const authController = {
       if (user.password === hashedPassword) {
         return res.status(400).json({
           success: false,
-          message: 'New password must be different than old password',
+          message: "New password must be different than old password",
         });
       }
 
@@ -204,13 +204,13 @@ export const authController = {
 
       return res.json({
         success: true,
-        message: 'Password has been reset successfully',
+        message: "Password has been reset successfully",
       });
     } catch (error) {
-      console.error('error', error);
+      console.error("error", error);
       res.status(500).json({
         success: false,
-        message: 'Server error',
+        message: "Server error",
       });
     }
   },
@@ -218,7 +218,7 @@ export const authController = {
   async sendVerifyEmail(req: Request, res: Response) {
     const { email } = (req as ValidatedRequest<SendVerifyEmailInput>).validatedData;
 
-    console.log('Got send verify email request: ', email);
+    console.log("Got send verify email request: ", email);
     try {
       const user = await prisma.user.findUnique({
         where: {
@@ -229,7 +229,7 @@ export const authController = {
       if (user === null) {
         return res.status(400).json({
           success: false,
-          message: 'User not found',
+          message: "User not found",
         });
       }
 
@@ -238,7 +238,7 @@ export const authController = {
       //   return res.status(400).json({ message: 'Email already verified' });
       // }
 
-      const remember_token = crypto.randomBytes(32).toString('hex');
+      const remember_token = crypto.randomBytes(32).toString("hex");
 
       return prisma.user
         .update({
@@ -252,14 +252,14 @@ export const authController = {
           if (!remember_token) {
             return res.status(500).json({
               success: false,
-              message: 'Error generating token',
+              message: "Error generating token",
             });
           }
           try {
-            return sendEmailVerification(email, remember_token || '').then(emailRes => {
+            return sendEmailVerification(email, remember_token || "").then(emailRes => {
               return res.json({
                 success: true,
-                message: 'Email sent',
+                message: "Email sent",
                 results: emailRes,
                 email: email,
               });
@@ -267,15 +267,15 @@ export const authController = {
           } catch (error) {
             return res.status(500).json({
               success: false,
-              message: 'Error sending email',
+              message: "Error sending email",
             });
           }
         });
     } catch (error) {
-      console.error('error', error);
+      console.error("error", error);
       res.status(500).json({
         success: false,
-        message: 'Server error',
+        message: "Server error",
       });
     }
   },
@@ -287,12 +287,12 @@ export const authController = {
       Array.isArray(emailQuery) ? `${emailQuery[0]}` : `${emailQuery}`
     );
 
-    console.log('Got verify email request: ', email || 'no email?');
+    console.log("Got verify email request: ", email || "no email?");
 
-    if (!email || email === '') {
+    if (!email || email === "") {
       return res.status(400).json({
         success: false,
-        message: 'Email missing',
+        message: "Email missing",
       });
     }
 
@@ -307,7 +307,7 @@ export const authController = {
       if (user === null) {
         return res.status(400).json({
           success: false,
-          message: '(Token, Email) not found',
+          message: "(Token, Email) not found",
           email: email,
         });
       }
@@ -322,15 +322,15 @@ export const authController = {
 
       return res.json({
         success: true,
-        message: 'Email verified successfully',
+        message: "Email verified successfully",
         onelink: result.onelink,
         email: email,
       });
     } catch (error) {
-      console.error('error', error);
+      console.error("error", error);
       return res.status(500).json({
         success: false,
-        message: 'Server Error',
+        message: "Server Error",
       });
     }
   },

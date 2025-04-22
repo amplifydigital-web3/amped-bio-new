@@ -1,45 +1,45 @@
-import { useEffect, useState } from 'react';
-import { useParams, useLocation, Link, useNavigate } from 'react-router-dom';
-import { verifyEmail } from '../../api/api';
-import type { VerifyEmailResponse } from '../../api/api.types';
-import { Loader } from 'lucide-react';
-import { AuthHeader } from '../../components/auth/AuthHeader';
+import { useEffect, useState } from "react";
+import { useParams, useLocation, Link, useNavigate } from "react-router-dom";
+import { verifyEmail } from "../../api/api";
+import type { VerifyEmailResponse } from "../../api/api.types";
+import { Loader } from "lucide-react";
+import { AuthHeader } from "../../components/auth/AuthHeader";
 
 export function EmailVerification() {
   const { token } = useParams();
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
-  const [message, setMessage] = useState('');
-  const [onelink, setOnelink] = useState('');
+  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
+  const [message, setMessage] = useState("");
+  const [onelink, setOnelink] = useState("");
   const location = useLocation();
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
-  const email = queryParams.get('email') || '';
-  const statusParam = queryParams.get('status');
-  const errorParam = queryParams.get('error');
+  const email = queryParams.get("email") || "";
+  const statusParam = queryParams.get("status");
+  const errorParam = queryParams.get("error");
 
   useEffect(() => {
     // If status or error info is passed in URL params, use that
-    if (statusParam === 'success') {
-      setStatus('success');
-      const onelinkParam = queryParams.get('onelink');
+    if (statusParam === "success") {
+      setStatus("success");
+      const onelinkParam = queryParams.get("onelink");
       if (onelinkParam) setOnelink(onelinkParam);
       return;
     } else if (errorParam) {
-      setStatus('error');
+      setStatus("error");
       setMessage(
-        errorParam === 'invalidToken'
-          ? '(Token, Email) not found'
-          : errorParam === 'emailMissing'
-            ? 'Email address is missing'
-            : 'Verification failed'
+        errorParam === "invalidToken"
+          ? "(Token, Email) not found"
+          : errorParam === "emailMissing"
+            ? "Email address is missing"
+            : "Verification failed"
       );
       return;
     }
 
     // Otherwise, make the API call
     if (!token || !email) {
-      setStatus('error');
-      setMessage('Missing token or email');
+      setStatus("error");
+      setMessage("Missing token or email");
       return;
     }
 
@@ -47,17 +47,17 @@ export function EmailVerification() {
     verifyEmail(token, email)
       .then((data: VerifyEmailResponse) => {
         if (data.success) {
-          setStatus('success');
+          setStatus("success");
           if (data.onelink) setOnelink(data.onelink);
         } else {
-          setStatus('error');
-          setMessage(data.message || 'Failed to verify email');
+          setStatus("error");
+          setMessage(data.message || "Failed to verify email");
         }
       })
       .catch(error => {
-        setStatus('error');
+        setStatus("error");
         setMessage(
-          error instanceof Error ? error.message : 'An error occurred during verification'
+          error instanceof Error ? error.message : "An error occurred during verification"
         );
       });
   }, [token, email, statusParam, errorParam, queryParams, navigate]);
@@ -67,14 +67,14 @@ export function EmailVerification() {
       <div className="w-full max-w-md p-8 space-y-4 bg-white rounded-xl shadow-md">
         <AuthHeader title="Email Verification" />
 
-        {status === 'loading' && (
+        {status === "loading" && (
           <div className="text-center space-y-3">
             <Loader className="animate-spin h-10 w-10 mx-auto text-primary" />
             <p className="text-gray-600">Verifying your email...</p>
           </div>
         )}
 
-        {status === 'success' && (
+        {status === "success" && (
           <div className="text-center space-y-4">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100">
               <svg
@@ -114,7 +114,7 @@ export function EmailVerification() {
           </div>
         )}
 
-        {status === 'error' && (
+        {status === "error" && (
           <div className="text-center space-y-4">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100">
               <svg
@@ -134,7 +134,7 @@ export function EmailVerification() {
             </div>
             <h2 className="text-xl font-semibold text-gray-800">Verification Failed</h2>
             <p className="text-gray-600">
-              {message || 'There was a problem verifying your email.'}
+              {message || "There was a problem verifying your email."}
             </p>
             <p className="text-gray-600">Please try again or request a new verification link.</p>
             <Link

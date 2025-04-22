@@ -1,7 +1,7 @@
-import React from 'react';
-import { useEditorStore } from '../../../store/editorStore';
-import { CreatorPoolDetail } from '../creatorpool/CreatorPoolDetail';
-import { CoinsIcon, Users, Clock, TrendingUp, Crown } from 'lucide-react';
+import React from "react";
+import { useEditorStore } from "../../../store/editorStore";
+import { CreatorPoolDetail } from "../creatorpool/CreatorPoolDetail";
+import { CoinsIcon, Users, Clock, TrendingUp, Crown } from "lucide-react";
 
 interface Pool {
   id: string;
@@ -25,11 +25,11 @@ interface Pool {
 
 const mockPools: Pool[] = [
   {
-    id: '1',
-    name: 'Web3 Development Pool',
+    id: "1",
+    name: "Web3 Development Pool",
     creator: {
-      name: 'Alex Thompson',
-      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop',
+      name: "Alex Thompson",
+      avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop",
       verified: true,
     },
     totalStaked: 2500000,
@@ -38,17 +38,17 @@ const mockPools: Pool[] = [
     maxParticipants: 1000,
     apr: 12.5,
     topStaker: {
-      name: 'crypto_whale.eth',
-      avatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=48&h=48&fit=crop',
+      name: "crypto_whale.eth",
+      avatar: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=48&h=48&fit=crop",
       stakedAmount: 250000,
     },
   },
   {
-    id: '2',
-    name: 'NFT Creators Pool',
+    id: "2",
+    name: "NFT Creators Pool",
     creator: {
-      name: 'Emma Digital',
-      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=64&h=64&fit=crop',
+      name: "Emma Digital",
+      avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=64&h=64&fit=crop",
       verified: true,
     },
     totalStaked: 1800000,
@@ -57,17 +57,17 @@ const mockPools: Pool[] = [
     maxParticipants: 800,
     apr: 8.5,
     topStaker: {
-      name: 'nft_collector.eth',
-      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=64&h=64&fit=crop',
+      name: "nft_collector.eth",
+      avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=64&h=64&fit=crop",
       stakedAmount: 180000,
     },
   },
   {
-    id: '3',
-    name: 'DeFi Innovators',
+    id: "3",
+    name: "DeFi Innovators",
     creator: {
-      name: 'Sam Blockchain',
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=64&h=64&fit=crop',
+      name: "Sam Blockchain",
+      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=64&h=64&fit=crop",
       verified: true,
     },
     totalStaked: 3200000,
@@ -76,50 +76,43 @@ const mockPools: Pool[] = [
     maxParticipants: 1000,
     apr: 15.2,
     topStaker: {
-      name: 'defi_master.eth',
-      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=64&h=64&fit=crop',
+      name: "defi_master.eth",
+      avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=64&h=64&fit=crop",
       stakedAmount: 320000,
     },
   },
 ];
 
 export function LeaderboardPanel() {
-  const selectedPoolId = useEditorStore((state) => state.selectedPoolId);
-  const setSelectedPoolId = useEditorStore((state) => state.setSelectedPoolId);
+  const selectedPoolId = useEditorStore(state => state.selectedPoolId);
+  const setSelectedPoolId = useEditorStore(state => state.setSelectedPoolId);
 
   const formatUSD = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(value);
   };
 
   const formatNumber = (value: number) => {
-    return new Intl.NumberFormat('en-US').format(value);
+    return new Intl.NumberFormat("en-US").format(value);
   };
 
   if (selectedPoolId) {
-    return (
-      <CreatorPoolDetail
-        poolId={selectedPoolId}
-        onBack={() => setSelectedPoolId(null)}
-      />
-    );
+    return <CreatorPoolDetail poolId={selectedPoolId} onBack={() => setSelectedPoolId(null)} />;
   }
 
   return (
     <div className="p-6 space-y-8">
       <div className="space-y-2">
         <h2 className="text-lg font-semibold text-gray-900">Creator Pool Leaderboard</h2>
-        <p className="text-sm text-gray-500">
-          Explore and compare different creator pools
-        </p>
+        <p className="text-sm text-gray-500">Explore and compare different creator pools</p>
       </div>
 
       <div className="space-y-6">
-        {mockPools.map((pool) => (
+        {mockPools.map(pool => (
           <div
             key={pool.id}
             className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:border-blue-500 transition-colors"
@@ -138,7 +131,11 @@ export function LeaderboardPanel() {
                       <span className="text-sm text-gray-500">by {pool.creator.name}</span>
                       {pool.creator.verified && (
                         <div className="bg-blue-500 rounded-full p-0.5">
-                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <svg
+                            className="w-3 h-3 text-white"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
                             <path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" />
                           </svg>
                         </div>
@@ -193,8 +190,12 @@ export function LeaderboardPanel() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Participants</p>
-                    <p className="font-medium">{pool.participants} / {pool.maxParticipants}</p>
-                    <p className="text-xs text-gray-500">{((pool.participants / pool.maxParticipants) * 100).toFixed(1)}% filled</p>
+                    <p className="font-medium">
+                      {pool.participants} / {pool.maxParticipants}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {((pool.participants / pool.maxParticipants) * 100).toFixed(1)}% filled
+                    </p>
                   </div>
                 </div>
 

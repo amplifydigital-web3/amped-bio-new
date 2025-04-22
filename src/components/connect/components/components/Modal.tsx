@@ -1,7 +1,7 @@
-import { motion } from 'framer-motion';
-import { Cross } from 'lucide-react';
-import React from 'react';
-import styled from 'styled-components';
+import { motion } from "framer-motion";
+import { Cross } from "lucide-react";
+import React from "react";
+import styled from "styled-components";
 
 const Backdrop = styled.div`
   position: fixed;

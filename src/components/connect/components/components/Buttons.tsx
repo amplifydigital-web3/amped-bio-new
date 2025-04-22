@@ -1,10 +1,10 @@
-import styled, { css } from 'styled-components'
+import styled, { css } from "styled-components";
 
 export const BaseButton = styled.button<{
-  danger?: boolean
-  colorPicker?: boolean
-  disabled?: boolean
-  onClick?: (() => Promise<void>) | (() => void)
+  danger?: boolean;
+  colorPicker?: boolean;
+  disabled?: boolean;
+  onClick?: (() => Promise<void>) | (() => void);
 }>`
   display: flex;
   align-items: center;
@@ -15,7 +15,7 @@ export const BaseButton = styled.button<{
   background: transparent;
   width: fit-content;
   border-radius: ${({ colorPicker }) => (colorPicker ? 4 : 20)}px;
-  padding: ${({ colorPicker }) => (colorPicker ? '12px' : '10px 30px')};
+  padding: ${({ colorPicker }) => (colorPicker ? "12px" : "10px 30px")};
   color: var(--widget-contrast-low);
   font-size: 14px;
   font-weight: 600;
@@ -41,13 +41,12 @@ export const BaseButton = styled.button<{
         }
       }
     `}
-`<any>
+`<any>;
 
 export const BrandedProgrammeButton = styled(BaseButton)<{
-  background?: string
+  background?: string;
 }>`
-  background: ${({ background }) =>
-    background || 'var(--npayme__brand-color)'};
+  background: ${({ background }) => background || "var(--npayme__brand-color)"};
   color: var(--npayme__copy-color);
   padding: 0.3rem 0.6rem;
   font-weight: 700;
@@ -69,8 +68,7 @@ export const BrandedProgrammeButton = styled(BaseButton)<{
 
   &:hover {
     color: var(--npayme__copy-color);
-    background: ${({ background }) =>
-      background || 'var(--npayme__brand-color)'};
+    background: ${({ background }) => background || "var(--npayme__brand-color)"};
     border: none;
   }
 
@@ -79,4 +77,4 @@ export const BrandedProgrammeButton = styled(BaseButton)<{
     filter: grayscale(0.9);
     cursor: not-allowed;
   }
-`
+`;

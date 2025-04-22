@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
-import type { ThemeConfig } from '../../types/editor';
-import { MediaBlock } from '@/api/api.types';
+import { useState, useEffect } from "react";
+import { DollarSign, TrendingUp, TrendingDown } from "lucide-react";
+import type { ThemeConfig } from "../../types/editor";
+import { MediaBlock } from "@/api/api.types";
 
 interface TokenPriceBlockProps {
   block: MediaBlock;
@@ -19,9 +19,9 @@ interface TokenData {
 }
 
 function formatNumber(num: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(num);
@@ -47,13 +47,13 @@ export function TokenPriceBlock({ block, theme }: TokenPriceBlockProps) {
     // TODO MAKE THIS FETCH REAl TOKEN DATA
     if (block.config.content) {
       setTokenData({
-        name: 'Ethereum',
-        symbol: 'ETH',
+        name: "Ethereum",
+        symbol: "ETH",
         price: 2235.67,
         change24h: 2.45,
         marketCap: 268900000000,
         volume24h: 8750000000,
-        logoUrl: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png',
+        logoUrl: "https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png",
       });
     }
   }, [block.config.content]);
@@ -79,8 +79,8 @@ export function TokenPriceBlock({ block, theme }: TokenPriceBlockProps) {
 
   const isPositive = tokenData.change24h >= 0;
   const TrendIcon = isPositive ? TrendingUp : TrendingDown;
-  const changeColor = isPositive ? 'text-[#16C784]' : 'text-[#EA3943]';
-  const changeBg = isPositive ? 'bg-[#16C784]/10' : 'bg-[#EA3943]/10';
+  const changeColor = isPositive ? "text-[#16C784]" : "text-[#EA3943]";
+  const changeBg = isPositive ? "bg-[#16C784]/10" : "bg-[#EA3943]/10";
 
   return (
     <div className="w-full space-y-2">
@@ -130,7 +130,7 @@ export function TokenPriceBlock({ block, theme }: TokenPriceBlockProps) {
             >
               <TrendIcon className="w-4 h-4" />
               <span className="text-sm font-medium">
-                {tokenData.change24h > 0 ? '+' : ''}
+                {tokenData.change24h > 0 ? "+" : ""}
                 {tokenData.change24h}%
               </span>
             </div>

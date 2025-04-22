@@ -10,9 +10,9 @@ import {
   Section,
   Text,
   Tailwind,
-} from '@react-email/components';
+} from "@react-email/components";
 
-const VerifyEmailTemplate = ({ url = 'https://example.com/verify-email' }) => {
+const VerifyEmailTemplate = ({ url = "https://example.com/verify-email" }) => {
   return (
     <Html>
       <Tailwind>
@@ -79,7 +79,7 @@ const VerifyEmailTemplate = ({ url = 'https://example.com/verify-email' }) => {
 };
 
 VerifyEmailTemplate.PreviewProps = {
-  url: 'https://example.com/verify-email?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
+  url: "https://example.com/verify-email?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
 };
 
 export default VerifyEmailTemplate;

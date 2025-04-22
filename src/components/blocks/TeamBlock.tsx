@@ -1,7 +1,7 @@
-import { Users } from 'lucide-react';
-import { FaXTwitter } from 'react-icons/fa6';
-import type { ThemeConfig } from '../../types/editor';
-import { TextBlock } from '@/api/api.types';
+import { Users } from "lucide-react";
+import { FaXTwitter } from "react-icons/fa6";
+import type { ThemeConfig } from "../../types/editor";
+import { TextBlock } from "@/api/api.types";
 
 interface TeamMember {
   name: string;

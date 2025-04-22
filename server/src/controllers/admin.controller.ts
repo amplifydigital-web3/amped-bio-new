@@ -1,6 +1,6 @@
-import { Request, Response } from 'express';
-import { Prisma, PrismaClient } from '@prisma/client';
-import { hashPassword } from '../utils/password';
+import { Request, Response } from "express";
+import { Prisma, PrismaClient } from "@prisma/client";
+import { hashPassword } from "../utils/password";
 
 const prisma = new PrismaClient();
 
@@ -12,8 +12,8 @@ export const adminController = {
 
       res.json(users);
     } catch (error) {
-      console.error('error', error);
-      res.status(500).json({ message: 'Server error' });
+      console.error("error", error);
+      res.status(500).json({ message: "Server error" });
     }
   },
 
@@ -29,13 +29,13 @@ export const adminController = {
       });
 
       if (!user) {
-        return res.status(404).json({ message: 'User not found' });
+        return res.status(404).json({ message: "User not found" });
       }
 
       res.json(user);
     } catch (error) {
-      console.error('error', error);
-      res.status(500).json({ message: 'Server error' });
+      console.error("error", error);
+      res.status(500).json({ message: "Server error" });
     }
   },
 
@@ -46,7 +46,7 @@ export const adminController = {
 
       // Validate required fields
       if (!name || !email || !password || !onelink) {
-        return res.status(400).json({ message: 'Missing required fields' });
+        return res.status(400).json({ message: "Missing required fields" });
       }
 
       // Check if email already exists
@@ -55,7 +55,7 @@ export const adminController = {
       });
 
       if (existingEmail) {
-        return res.status(400).json({ message: 'Email already in use' });
+        return res.status(400).json({ message: "Email already in use" });
       }
 
       // Check if onelink already exists
@@ -64,7 +64,7 @@ export const adminController = {
       });
 
       if (existingOnelink) {
-        return res.status(400).json({ message: 'Onelink name already in use' });
+        return res.status(400).json({ message: "Onelink name already in use" });
       }
 
       // Hash password
@@ -78,7 +78,7 @@ export const adminController = {
           password: hashedPassword,
           onelink,
           description,
-          role: role || 'user',
+          role: role || "user",
         },
       });
 
@@ -87,11 +87,11 @@ export const adminController = {
 
       res.status(201).json(userWithoutPassword);
     } catch (error) {
-      console.error('error', error);
+      console.error("error", error);
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         return res.status(400).json({ message: error.message });
       }
-      res.status(500).json({ message: 'Server error' });
+      res.status(500).json({ message: "Server error" });
     }
   },
 
@@ -107,7 +107,7 @@ export const adminController = {
       });
 
       if (!existingUser) {
-        return res.status(404).json({ message: 'User not found' });
+        return res.status(404).json({ message: "User not found" });
       }
 
       // Prepare update data
@@ -125,7 +125,7 @@ export const adminController = {
         });
 
         if (existingEmail) {
-          return res.status(400).json({ message: 'Email already in use' });
+          return res.status(400).json({ message: "Email already in use" });
         }
 
         updateData.email = email;
@@ -138,7 +138,7 @@ export const adminController = {
         });
 
         if (existingOnelink) {
-          return res.status(400).json({ message: 'Onelink name already in use' });
+          return res.status(400).json({ message: "Onelink name already in use" });
         }
 
         updateData.onelink = onelink;
@@ -162,11 +162,11 @@ export const adminController = {
 
       res.json(userWithoutPassword);
     } catch (error) {
-      console.error('error', error);
+      console.error("error", error);
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         return res.status(400).json({ message: error.message });
       }
-      res.status(500).json({ message: 'Server error' });
+      res.status(500).json({ message: "Server error" });
     }
   },
 
@@ -176,7 +176,7 @@ export const adminController = {
       const { id } = req.params;
       const { block } = req.body;
 
-      if (block !== 'yes' && block !== 'no') {
+      if (block !== "yes" && block !== "no") {
         return res.status(400).json({ message: 'Block status must be "yes" or "no"' });
       }
 
@@ -186,7 +186,7 @@ export const adminController = {
       });
 
       if (!existingUser) {
-        return res.status(404).json({ message: 'User not found' });
+        return res.status(404).json({ message: "User not found" });
       }
 
       // Update user block status
@@ -203,8 +203,8 @@ export const adminController = {
 
       res.json(userWithoutPassword);
     } catch (error) {
-      console.error('error', error);
-      res.status(500).json({ message: 'Server error' });
+      console.error("error", error);
+      res.status(500).json({ message: "Server error" });
     }
   },
 
@@ -214,8 +214,8 @@ export const adminController = {
       const { id } = req.params;
       const { role } = req.body;
 
-      if (!role || !['user', 'admin'].includes(role)) {
-        return res.status(400).json({ message: 'Valid role is required' });
+      if (!role || !["user", "admin"].includes(role)) {
+        return res.status(400).json({ message: "Valid role is required" });
       }
 
       // Check if user exists
@@ -224,7 +224,7 @@ export const adminController = {
       });
 
       if (!existingUser) {
-        return res.status(404).json({ message: 'User not found' });
+        return res.status(404).json({ message: "User not found" });
       }
 
       // Update user role
@@ -241,8 +241,8 @@ export const adminController = {
 
       res.json(userWithoutPassword);
     } catch (error) {
-      console.error('error', error);
-      res.status(500).json({ message: 'Server error' });
+      console.error("error", error);
+      res.status(500).json({ message: "Server error" });
     }
   },
 };
