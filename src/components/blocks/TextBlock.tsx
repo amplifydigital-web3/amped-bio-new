@@ -1,8 +1,8 @@
-import type { ThemeConfig } from '../../types/editor';
-import { EmailCollectionBlock } from './EmailCollectionBlock';
-import { TelegramBlock } from './TelegramBlock';
-import { TeamBlock } from './TeamBlock';
-import { TextBlock as TextBlockT } from '@/api/api.types';
+import type { ThemeConfig } from "../../types/editor";
+import { EmailCollectionBlock } from "./EmailCollectionBlock";
+import { TelegramBlock } from "./TelegramBlock";
+import { TeamBlock } from "./TeamBlock";
+import { TextBlock as TextBlockT } from "@/api/api.types";
 
 interface TextBlockProps {
   block: TextBlockT;
@@ -11,13 +11,13 @@ interface TextBlockProps {
 
 export function TextBlock({ block, theme }: TextBlockProps) {
   // Check if this is a special text block type
-  if (block.config.platform === 'email-collect') {
+  if (block.config.platform === "email-collect") {
     return <EmailCollectionBlock block={block} theme={theme} />;
   }
-  if (block.config.platform === 'telegram') {
+  if (block.config.platform === "telegram") {
     return <TelegramBlock block={block} theme={theme} />;
   }
-  if (block.config.platform === 'team') {
+  if (block.config.platform === "team") {
     return <TeamBlock block={block} theme={theme} />;
   }
 

@@ -1,31 +1,31 @@
-import { useState, useEffect } from 'react';
-import { useLocation, Link, useNavigate } from 'react-router-dom';
-import { resendVerificationEmail } from '../../api/api';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import type { EmailVerificationResponse } from '../../api/api.types';
-import { Loader } from 'lucide-react';
-import { AuthHeader } from '../../components/auth/AuthHeader';
-import logoSVG from '../../assets/AMPLIFY_FULL_K.svg';
+import { useState, useEffect } from "react";
+import { useLocation, Link, useNavigate } from "react-router-dom";
+import { resendVerificationEmail } from "../../api/api";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import type { EmailVerificationResponse } from "../../api/api.types";
+import { Loader } from "lucide-react";
+import { AuthHeader } from "../../components/auth/AuthHeader";
+import logoSVG from "../../assets/AMPLIFY_FULL_K.svg";
 
 // Define the validation schema using Zod
 const emailSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
+  email: z.string().email("Please enter a valid email address"),
 });
 
 // Infer the type from the schema
 type EmailFormData = z.infer<typeof emailSchema>;
 
 export function EmailVerificationResent() {
-  const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'form'>('loading');
-  const [message, setMessage] = useState('');
+  const [status, setStatus] = useState<"loading" | "success" | "error" | "form">("loading");
+  const [message, setMessage] = useState("");
   const location = useLocation();
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
-  const emailParam = queryParams.get('email') || '';
-  const statusParam = queryParams.get('status');
-  const errorParam = queryParams.get('error');
+  const emailParam = queryParams.get("email") || "";
+  const statusParam = queryParams.get("status");
+  const errorParam = queryParams.get("error");
 
   // Initialize react-hook-form with zod resolver
   const {
@@ -43,37 +43,37 @@ export function EmailVerificationResent() {
   useEffect(() => {
     // If email is not provided, show form instead of automatically sending
     if (!emailParam) {
-      setStatus('form');
+      setStatus("form");
       return;
     }
 
     // Set email value in form if provided
-    setValue('email', emailParam);
+    setValue("email", emailParam);
 
     // If status or error info is passed in URL params, use that
-    if (statusParam === 'success') {
-      setStatus('success');
+    if (statusParam === "success") {
+      setStatus("success");
       return;
     } else if (errorParam) {
-      setStatus('error');
+      setStatus("error");
       switch (errorParam) {
-        case 'userNotFound':
-          setMessage('User not found');
+        case "userNotFound":
+          setMessage("User not found");
           break;
-        case 'emailMissing':
-          setMessage('Email address is required');
+        case "emailMissing":
+          setMessage("Email address is required");
           break;
-        case 'tokenGenerationFailed':
-          setMessage('Failed to generate verification token');
+        case "tokenGenerationFailed":
+          setMessage("Failed to generate verification token");
           break;
-        case 'emailSendFailed':
-          setMessage('Failed to send verification email');
+        case "emailSendFailed":
+          setMessage("Failed to send verification email");
           break;
-        case 'serverError':
-          setMessage('Server error occurred');
+        case "serverError":
+          setMessage("Server error occurred");
           break;
         default:
-          setMessage('An error occurred');
+          setMessage("An error occurred");
       }
       return;
     }
@@ -82,35 +82,35 @@ export function EmailVerificationResent() {
     resendVerificationEmail(emailParam)
       .then((data: EmailVerificationResponse) => {
         if (data.success) {
-          setStatus('success');
-          setMessage(data.message || 'Verification email has been sent');
+          setStatus("success");
+          setMessage(data.message || "Verification email has been sent");
         } else {
-          setStatus('error');
-          setMessage(data.message || 'Failed to resend verification email');
+          setStatus("error");
+          setMessage(data.message || "Failed to resend verification email");
         }
       })
       .catch(error => {
-        setStatus('error');
-        setMessage(error instanceof Error ? error.message : 'An error occurred');
+        setStatus("error");
+        setMessage(error instanceof Error ? error.message : "An error occurred");
       });
   }, [emailParam, statusParam, errorParam, setValue]);
 
   const onSubmit = async (data: EmailFormData) => {
-    setStatus('loading');
+    setStatus("loading");
 
     try {
       const response: EmailVerificationResponse = await resendVerificationEmail(data.email);
 
       if (response.success) {
-        setStatus('success');
-        setMessage(response.message || 'Verification email has been sent');
+        setStatus("success");
+        setMessage(response.message || "Verification email has been sent");
       } else {
-        setStatus('error');
-        setMessage(response.message || 'Failed to resend verification email');
+        setStatus("error");
+        setMessage(response.message || "Failed to resend verification email");
       }
     } catch (error) {
-      setStatus('error');
-      setMessage(error instanceof Error ? error.message : 'An error occurred');
+      setStatus("error");
+      setMessage(error instanceof Error ? error.message : "An error occurred");
     }
   };
 
@@ -119,14 +119,14 @@ export function EmailVerificationResent() {
       <div className="w-full max-w-md p-8 space-y-4 bg-white rounded-xl shadow-md">
         <AuthHeader title="Email Verification" />
 
-        {status === 'loading' && (
+        {status === "loading" && (
           <div className="text-center space-y-3">
             <Loader className="animate-spin h-10 w-10 mx-auto text-primary" />
             <p className="text-gray-600">Sending verification email...</p>
           </div>
         )}
 
-        {status === 'form' && (
+        {status === "form" && (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <p className="text-center text-gray-600">
               Enter your email address to receive a verification link:
@@ -138,9 +138,9 @@ export function EmailVerificationResent() {
               <input
                 type="email"
                 id="email"
-                className={`w-full px-3 py-2 border rounded-md focus:ring-primary focus:border-primary ${errors.email ? 'border-red-500' : 'border-gray-300'}`}
+                className={`w-full px-3 py-2 border rounded-md focus:ring-primary focus:border-primary ${errors.email ? "border-red-500" : "border-gray-300"}`}
                 placeholder="Enter your email address"
-                {...register('email')}
+                {...register("email")}
               />
               {errors.email && <p className="text-sm text-red-500 mt-1">{errors.email.message}</p>}
             </div>
@@ -163,7 +163,7 @@ export function EmailVerificationResent() {
           </form>
         )}
 
-        {status === 'success' && (
+        {status === "success" && (
           <div className="text-center space-y-4">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100">
               <svg
@@ -197,7 +197,7 @@ export function EmailVerificationResent() {
           </div>
         )}
 
-        {status === 'error' && (
+        {status === "error" && (
           <div className="space-y-4">
             <div className="text-center">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100">
@@ -218,7 +218,7 @@ export function EmailVerificationResent() {
               </div>
               <h2 className="text-xl font-semibold text-gray-800 mt-2">Error</h2>
               <p className="text-gray-600 mt-1">
-                {message || 'There was a problem sending the verification email.'}
+                {message || "There was a problem sending the verification email."}
               </p>
               <p className="text-gray-600">
                 Please make sure the email address is correct and try again.
@@ -233,8 +233,8 @@ export function EmailVerificationResent() {
                 <input
                   type="email"
                   id="email"
-                  className={`w-full px-3 py-2 border rounded-md focus:ring-primary focus:border-primary ${errors.email ? 'border-red-500' : 'border-gray-300'}`}
-                  {...register('email')}
+                  className={`w-full px-3 py-2 border rounded-md focus:ring-primary focus:border-primary ${errors.email ? "border-red-500" : "border-gray-300"}`}
+                  {...register("email")}
                 />
                 {errors.email && (
                   <p className="text-sm text-red-500 mt-1">{errors.email.message}</p>

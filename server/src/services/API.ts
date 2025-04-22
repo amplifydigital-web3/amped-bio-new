@@ -1,14 +1,14 @@
-import 'express-async-errors';
-import { IDI } from '../types/di';
-import { Service } from '../types/service';
-import express from 'express';
-import helmet from 'helmet';
-import cors from 'cors';
-import { env } from '../env';
-import { Server } from 'http';
-import router from '../routes';
+import "express-async-errors";
+import { IDI } from "../types/di";
+import { Service } from "../types/service";
+import express from "express";
+import helmet from "helmet";
+import cors from "cors";
+import { env } from "../env";
+import { Server } from "http";
+import router from "../routes";
 
-const logTag = '[API]';
+const logTag = "[API]";
 
 export class API implements Service {
   public app;
@@ -35,7 +35,7 @@ export class API implements Service {
 
     this.app.use(cors());
 
-    this.app.use('/api/', router);
+    this.app.use("/api/", router);
 
     this.app.use(logErrors);
     this.app.use(handleErrors);
@@ -53,10 +53,10 @@ export class API implements Service {
     return new Promise<void>((resolve, reject) =>
       this.server.close(err => {
         if (err) {
-          console.error(logTag, 'error stopping server', err);
+          console.error(logTag, "error stopping server", err);
           reject(err);
         } else {
-          console.log(logTag, 'server stopped');
+          console.log(logTag, "server stopped");
           resolve();
         }
       })
@@ -64,7 +64,7 @@ export class API implements Service {
   }
 }
 
-export function handleMessage(data: any, res: express.Response, message = '') {
+export function handleMessage(data: any, res: express.Response, message = "") {
   return res.json(data);
 }
 
@@ -75,7 +75,7 @@ function logErrors(
   next: express.NextFunction
 ) {
   if (err.code !== 401)
-    console.error(req.headers['x-forwarded-for'] || req.connection.remoteAddress, err);
+    console.error(req.headers["x-forwarded-for"] || req.connection.remoteAddress, err);
   next(err);
 }
 
@@ -85,11 +85,11 @@ function handleErrors(
   res: express.Response,
   next?: express.NextFunction
 ) {
-  if (typeof err.code === 'number') {
+  if (typeof err.code === "number") {
     return res.status(err.code).send({
       message: err.message || err,
     });
   }
 
-  return res.status(500).json({ message: 'Something went wrong!' });
+  return res.status(500).json({ message: "Something went wrong!" });
 }

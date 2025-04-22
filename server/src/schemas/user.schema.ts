@@ -1,9 +1,7 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 export const editUserSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Invalid email format'),
-  onelink: z.string().min(1, 'Onelink is required'),
+  name: z.string().min(1, "Name is required"),
   description: z.string().nullable().optional(),
   theme: z.number(),
   image: z.string().nullable().optional(),
@@ -11,7 +9,7 @@ export const editUserSchema = z.object({
 });
 
 export const deleteUserSchema = z.object({
-  email: z.string().email('Invalid email format'),
+  email: z.string().email("Invalid email format"),
 });
 
 export type EditUserInput = z.infer<typeof editUserSchema>;

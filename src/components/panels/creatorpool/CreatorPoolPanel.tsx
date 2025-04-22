@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { useEditorStore } from '../../../store/editorStore';
-import { CreatePoolForm } from './CreatePoolForm';
-import { PoolList } from './PoolList';
+import React, { useState } from "react";
+import { useEditorStore } from "../../../store/editorStore";
+import { CreatePoolForm } from "./CreatePoolForm";
+import { PoolList } from "./PoolList";
 
 export function CreatorPoolPanel() {
-  const [activeView, setActiveView] = useState<'list' | 'create'>('list');
+  const [activeView, setActiveView] = useState<"list" | "create">("list");
 
   return (
     <div className="p-6 space-y-8">
@@ -17,14 +17,18 @@ export function CreatorPoolPanel() {
 
       <div className="flex justify-end">
         <button
-          onClick={() => setActiveView(activeView === 'list' ? 'create' : 'list')}
+          onClick={() => setActiveView(activeView === "list" ? "create" : "list")}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
-          {activeView === 'list' ? 'Create New Pool' : 'View Pools'}
+          {activeView === "list" ? "Create New Pool" : "View Pools"}
         </button>
       </div>
 
-      {activeView === 'list' ? <PoolList /> : <CreatePoolForm onComplete={() => setActiveView('list')} />}
+      {activeView === "list" ? (
+        <PoolList />
+      ) : (
+        <CreatePoolForm onComplete={() => setActiveView("list")} />
+      )}
     </div>
   );
 }

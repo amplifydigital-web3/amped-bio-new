@@ -1,6 +1,6 @@
-import { Store } from 'lucide-react';
-import type { ThemeConfig } from '../../types/editor';
-import { MediaBlock } from '@/api/api.types';
+import { Store } from "lucide-react";
+import type { ThemeConfig } from "../../types/editor";
+import { MediaBlock } from "@/api/api.types";
 
 interface NFTCollectionBlockProps {
   block: MediaBlock;

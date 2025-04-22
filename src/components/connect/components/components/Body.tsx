@@ -1,11 +1,11 @@
-import { motion } from 'framer-motion'
-import styled, { css } from 'styled-components'
-import type React from 'react'
+import { motion } from "framer-motion";
+import styled, { css } from "styled-components";
+import type React from "react";
 
-const ProgramContainer = styled(motion.div) <{
-  $float?: boolean
-  $home?: boolean
-  $banner?: boolean
+const ProgramContainer = styled(motion.div)<{
+  $float?: boolean;
+  $home?: boolean;
+  $banner?: boolean;
 }>`
   margin-top: 150px;
   padding-top: 12px;
@@ -28,15 +28,12 @@ const ProgramContainer = styled(motion.div) <{
             z-index: 99;
             width: 100%;
             padding-top: 8px;
-            ${$home
-        ? `max-height: calc(100vh - ${$banner ? '214px' : '214px'});`
-        : ''
-      }
+            ${$home ? `max-height: calc(100vh - ${$banner ? "214px" : "214px"});` : ""}
             }
         `}
-`
+`;
 
-const Container = styled(motion.div) <{ $float?: boolean; $home?: boolean }>`
+const Container = styled(motion.div)<{ $float?: boolean; $home?: boolean }>`
   margin-top: 150px;
   padding-top: 12px;
   z-index: 1;
@@ -53,21 +50,21 @@ const Container = styled(motion.div) <{ $float?: boolean; $home?: boolean }>`
             z-index: 99;
             width: 100%;
             padding-top: 8px;
-            ${$home ? 'max-height: calc(100% - 214px);' : ''}
+            ${$home ? "max-height: calc(100% - 214px);" : ""}
             }
         `}
-`
+`;
 
 type Props = {
-  children: React.ReactNode | React.ReactNode[]
-  $float?: boolean
-  $home?: boolean
-  $banner?: boolean
-  pathname?: string
-}
+  children: React.ReactNode | React.ReactNode[];
+  $float?: boolean;
+  $home?: boolean;
+  $banner?: boolean;
+  pathname?: string;
+};
 
 function Body({ children, $float, $home, $banner, pathname }: Props) {
-  if (pathname?.includes('programme')) {
+  if (pathname?.includes("programme")) {
     return (
       <ProgramContainer
         $float={$float}
@@ -79,19 +76,19 @@ function Body({ children, $float, $home, $banner, pathname }: Props) {
           opacity: 1,
           y: 0,
           transition: {
-            duration: 0.3
-          }
+            duration: 0.3,
+          },
         }}
         exit={{
           opacity: 0,
           transition: {
-            duration: 0.15
-          }
+            duration: 0.15,
+          },
         }}
       >
         {children}
       </ProgramContainer>
-    )
+    );
   } else {
     return (
       <Container
@@ -103,20 +100,20 @@ function Body({ children, $float, $home, $banner, pathname }: Props) {
           opacity: 1,
           y: 0,
           transition: {
-            duration: 0.3
-          }
+            duration: 0.3,
+          },
         }}
         exit={{
           opacity: 0,
           transition: {
-            duration: 0.15
-          }
+            duration: 0.15,
+          },
         }}
       >
         {children}
       </Container>
-    )
+    );
   }
 }
 
-export default Body
+export default Body;

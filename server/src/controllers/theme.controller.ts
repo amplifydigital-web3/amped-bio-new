@@ -1,8 +1,8 @@
-import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
-import { ValidatedRequest } from '../middleware/validation.middleware';
-import { z } from 'zod';
-import { editThemeSchema } from '../schemas/theme.schema';
+import { Request, Response } from "express";
+import { PrismaClient } from "@prisma/client";
+import { ValidatedRequest } from "../middleware/validation.middleware";
+import { z } from "zod";
+import { editThemeSchema } from "../schemas/theme.schema";
 
 const prisma = new PrismaClient();
 
@@ -51,8 +51,8 @@ export const themeController = {
         result,
       });
     } catch (error) {
-      console.error('error', error);
-      res.status(500).json({ message: 'Server error' });
+      console.error("error", error);
+      res.status(500).json({ message: "Server error" });
     }
   },
 
@@ -74,8 +74,8 @@ export const themeController = {
         result,
       });
     } catch (error) {
-      console.error('error', error);
-      res.status(500).json({ message: 'Server error' });
+      console.error("error", error);
+      res.status(500).json({ message: "Server error" });
     }
   },
 
@@ -106,8 +106,8 @@ export const themeController = {
         result,
       });
     } catch (error) {
-      console.error('error', error);
-      res.status(500).json({ message: 'Server error' });
+      console.error("error", error);
+      res.status(500).json({ message: "Server error" });
     }
   },
 };

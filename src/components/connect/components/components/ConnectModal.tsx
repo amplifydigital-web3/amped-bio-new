@@ -1,16 +1,16 @@
-'use client';
+"use client";
 
-import { useCallback } from 'react';
-import { AppKit } from '@reown/appkit';
-import Modal from './Modal';
-import ProgrammeHeader from '../header/Header';
-import { BrandedProgrammeButton } from './Buttons';
-import { CreateWalletButton } from '../smartwallet/CreateWalletButton';
-import Spacer from './Spacer';
-import SectionWrapper from './SectionWrapper';
-import Body from './Body';
-import { ErrorBoundary } from 'react-error-boundary';
-import styled from 'styled-components';
+import { useCallback } from "react";
+import { AppKit } from "@reown/appkit";
+import Modal from "./Modal";
+import ProgrammeHeader from "../header/Header";
+import { BrandedProgrammeButton } from "./Buttons";
+import { CreateWalletButton } from "../smartwallet/CreateWalletButton";
+import Spacer from "./Spacer";
+import SectionWrapper from "./SectionWrapper";
+import Body from "./Body";
+import { ErrorBoundary } from "react-error-boundary";
+import styled from "styled-components";
 
 export const Link = styled.a`
   font-weight: 400;
@@ -18,7 +18,7 @@ export const Link = styled.a`
   line-height: 12px;
   margin-bottom: 4px;
   color: var(--widget-contrast-high);
-`<any>
+`<any>;
 
 export const BaseLabel = styled.div`
   font-weight: 400;
@@ -26,7 +26,7 @@ export const BaseLabel = styled.div`
   line-height: 12px;
   margin-bottom: 4px;
   color: var(--widget-contrast-high);
-`<any>
+`<any>;
 
 export type ConnectModalProps = {
   modal: AppKit;
@@ -70,10 +70,7 @@ export function ConnectModal(props: ConnectModalProps) {
           <BaseLabel>I'd like to join and I need a Web3 Wallet</BaseLabel>
           <Spacer size={8} />
           <ErrorBoundary fallback={<p>⚠️Something went wrong</p>}>
-            <CreateWalletButton
-              handleSuccess={handleSuccess}
-              handleError={handleError}
-            />
+            <CreateWalletButton handleSuccess={handleSuccess} handleError={handleError} />
           </ErrorBoundary>
         </SectionWrapper>
         <SectionWrapper>
@@ -84,7 +81,7 @@ export function ConnectModal(props: ConnectModalProps) {
           </BrandedProgrammeButton>
         </SectionWrapper>
         <SectionWrapper>
-          <Link href={'https://ethereum.org/en/web3/'} target={'_blank'}>
+          <Link href={"https://ethereum.org/en/web3/"} target={"_blank"}>
             What's a Web3 Wallet and why do I need one?
           </Link>
         </SectionWrapper>

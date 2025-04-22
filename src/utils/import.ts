@@ -1,5 +1,5 @@
-import type { EditorState } from '../types/editor';
-import { useEditorStore } from '../store/editorStore';
+import type { EditorState } from "../types/editor";
+import { useEditorStore } from "../store/editorStore";
 
 export async function importSettings(file: File): Promise<void> {
   try {
@@ -8,7 +8,7 @@ export async function importSettings(file: File): Promise<void> {
 
     // Validate the imported data structure
     if (!data.profile || !data.blocks || !data.theme) {
-      throw new Error('Invalid settings file format');
+      throw new Error("Invalid settings file format");
     }
 
     // Get the store actions

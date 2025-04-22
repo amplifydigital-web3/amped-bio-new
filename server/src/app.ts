@@ -1,5 +1,5 @@
-import { API } from './services/API';
-import { IDI } from './types/di';
+import { API } from "./services/API";
+import { IDI } from "./types/di";
 
 export const DI = {} as IDI;
 

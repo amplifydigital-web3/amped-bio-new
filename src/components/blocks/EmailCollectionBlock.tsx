@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Mail } from 'lucide-react';
-import type { ThemeConfig } from '../../types/editor';
-import type { TextBlock } from '@/api/api.types';
+import React, { useState } from "react";
+import { Mail } from "lucide-react";
+import type { ThemeConfig } from "../../types/editor";
+import type { TextBlock } from "@/api/api.types";
 
 interface EmailCollectionBlockProps {
   block: TextBlock;
@@ -9,14 +9,14 @@ interface EmailCollectionBlockProps {
 }
 
 export function EmailCollectionBlock({ block, theme }: EmailCollectionBlockProps) {
-  const [email, setEmail] = useState('');
-  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // TODO MAKE THIS SEND REAL EMAILS
-    setStatus('success');
-    setEmail('');
+    setStatus("success");
+    setEmail("");
   };
 
   return (
@@ -30,7 +30,7 @@ export function EmailCollectionBlock({ block, theme }: EmailCollectionBlockProps
             color: theme.fontColor,
           }}
         >
-          {block.config.content || 'Subscribe to Updates'}
+          {block.config.content || "Subscribe to Updates"}
         </h3>
       </div>
 
@@ -53,7 +53,7 @@ export function EmailCollectionBlock({ block, theme }: EmailCollectionBlockProps
         </button>
       </form>
 
-      {status === 'success' && (
+      {status === "success" && (
         <p className="text-sm text-green-600" style={{ fontFamily: theme.fontFamily }}>
           Thanks for subscribing!
         </p>

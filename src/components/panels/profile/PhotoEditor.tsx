@@ -1,8 +1,8 @@
-import React, { useState, useRef } from 'react';
-import ReactCrop, { type Crop, centerCrop, makeAspectCrop } from 'react-image-crop';
-import { Slider } from '../../ui/Slider';
-import { Button } from '../../ui/Button';
-import 'react-image-crop/dist/ReactCrop.css';
+import React, { useState, useRef } from "react";
+import ReactCrop, { type Crop, centerCrop, makeAspectCrop } from "react-image-crop";
+import { Slider } from "../../ui/Slider";
+import { Button } from "../../ui/Button";
+import "react-image-crop/dist/ReactCrop.css";
 
 interface PhotoEditorProps {
   imageUrl: string;
@@ -10,23 +10,19 @@ interface PhotoEditorProps {
   onCancel: () => void;
 }
 
-function centerAspectCrop(
-  mediaWidth: number,
-  mediaHeight: number,
-  aspect: number,
-) {
+function centerAspectCrop(mediaWidth: number, mediaHeight: number, aspect: number) {
   return centerCrop(
     makeAspectCrop(
       {
-        unit: '%',
+        unit: "%",
         width: 90,
       },
       aspect,
       mediaWidth,
-      mediaHeight,
+      mediaHeight
     ),
     mediaWidth,
-    mediaHeight,
+    mediaHeight
   );
 }
 
@@ -46,7 +42,7 @@ export function PhotoEditor({ imageUrl, onSave, onCancel }: PhotoEditorProps) {
 
     const image = imageRef.current;
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     // Set canvas size to desired output size (e.g., 400x400 for profile photo)
@@ -66,24 +62,14 @@ export function PhotoEditor({ imageUrl, onSave, onCancel }: PhotoEditorProps) {
     // Apply zoom
     ctx.save();
     ctx.scale(zoom, zoom);
-    
+
     // Draw the cropped image
-    ctx.drawImage(
-      image,
-      sourceX,
-      sourceY,
-      sourceWidth,
-      sourceHeight,
-      0,
-      0,
-      size,
-      size
-    );
-    
+    ctx.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, size, size);
+
     ctx.restore();
 
     // Convert canvas to data URL and save
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
     onSave(dataUrl);
   };
 
@@ -91,7 +77,7 @@ export function PhotoEditor({ imageUrl, onSave, onCancel }: PhotoEditorProps) {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
         <h3 className="text-lg font-semibold mb-4">Edit Photo</h3>
-        
+
         <div className="space-y-6">
           <div className="relative">
             <ReactCrop
@@ -112,33 +98,20 @@ export function PhotoEditor({ imageUrl, onSave, onCancel }: PhotoEditorProps) {
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">
-              Zoom
-            </label>
-            <Slider
-              min={0.5}
-              max={3}
-              step={0.1}
-              value={zoom}
-              onChange={setZoom}
-            />
+            <label className="block text-sm font-medium text-gray-700">Zoom</label>
+            <Slider min={0.5} max={3} step={0.1} value={zoom} onChange={setZoom} />
           </div>
 
           <div className="flex justify-end space-x-3">
             <Button variant="outline" onClick={onCancel}>
               Cancel
             </Button>
-            <Button onClick={handleSave}>
-              Save
-            </Button>
+            <Button onClick={handleSave}>Save</Button>
           </div>
         </div>
 
         {/* Hidden canvas for processing the image */}
-        <canvas
-          ref={canvasRef}
-          className="hidden"
-        />
+        <canvas ref={canvasRef} className="hidden" />
       </div>
     </div>
   );

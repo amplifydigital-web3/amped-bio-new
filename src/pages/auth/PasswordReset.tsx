@@ -1,29 +1,28 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { processPasswordReset } from '../../api/api';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader } from 'lucide-react';
-import type { PasswordResetResponse } from '../../api/api.types';
-import { AuthHeader } from '../../components/auth/AuthHeader';
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { processPasswordReset } from "../../api/api";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader } from "lucide-react";
+import type { PasswordResetResponse } from "../../api/api.types";
+import { AuthHeader } from "../../components/auth/AuthHeader";
 
 // Define the validation schema using Zod
 const passwordResetSchema = z
   .object({
-    token: z.string().min(1, 'Token is required'),
+    token: z.string().min(1, "Token is required"),
     password: z
       .string()
-      .min(8, 'Password must be at least 8 characters long')
-      .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
-      .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
-      .regex(/[0-9]/, 'Password must contain at least one number'),
+      .min(8, "Password must be at least 8 characters long")
+      .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+      .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+      .regex(/[0-9]/, "Password must contain at least one number"),
     confirmPassword: z.string(),
   })
   .refine(data => data.password === data.confirmPassword, {
-    // eslint-disable-next-line prettier/prettier
-    message: 'Passwords don\'t match',
-    path: ['confirmPassword'],
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
   });
 
 // Infer the type from the schema
@@ -33,8 +32,8 @@ export function PasswordReset() {
   const { token: urlToken } = useParams();
   const navigate = useNavigate();
 
-  const [status, setStatus] = useState<'valid' | 'submitting' | 'success' | 'error'>('valid');
-  const [message, setMessage] = useState('');
+  const [status, setStatus] = useState<"valid" | "submitting" | "success" | "error">("valid");
+  const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   // Initialize react-hook-form with zod resolver
@@ -46,37 +45,37 @@ export function PasswordReset() {
   } = useForm<PasswordResetFormData>({
     resolver: zodResolver(passwordResetSchema),
     defaultValues: {
-      token: urlToken || '',
-      password: '',
-      confirmPassword: '',
+      token: urlToken || "",
+      password: "",
+      confirmPassword: "",
     },
   });
 
   useEffect(() => {
     // If URL has a token, set it in the form
     if (urlToken) {
-      setValue('token', urlToken);
+      setValue("token", urlToken);
     }
   }, [urlToken, setValue]);
 
   const onSubmit = async (data: PasswordResetFormData) => {
-    setStatus('submitting');
+    setStatus("submitting");
     setIsLoading(true);
 
     try {
       const response: PasswordResetResponse = await processPasswordReset(data.token, data.password);
 
       if (response.success) {
-        setStatus('success');
-        setMessage(response.message || 'Password has been successfully reset.');
+        setStatus("success");
+        setMessage(response.message || "Password has been successfully reset.");
       } else {
-        setStatus('error');
-        setMessage(response.message || 'Failed to reset password');
+        setStatus("error");
+        setMessage(response.message || "Failed to reset password");
       }
     } catch (error) {
-      setStatus('error');
+      setStatus("error");
       setMessage(
-        error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.'
+        error instanceof Error ? error.message : "An unexpected error occurred. Please try again."
       );
     } finally {
       setIsLoading(false);
@@ -88,7 +87,7 @@ export function PasswordReset() {
       <div className="w-full max-w-md p-8 space-y-4 bg-white rounded-xl shadow-md">
         <AuthHeader title="Reset Your Password" />
 
-        {status === 'success' ? (
+        {status === "success" ? (
           <div className="text-center space-y-4">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100">
               <svg
@@ -109,7 +108,7 @@ export function PasswordReset() {
             <h2 className="text-xl font-semibold text-gray-800">Password Reset Successful!</h2>
             <p className="text-gray-600">{message}</p>
             <button
-              onClick={() => navigate('/')}
+              onClick={() => navigate("/")}
               className="w-full px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 transition-colors"
             >
               Go to Login
@@ -124,9 +123,9 @@ export function PasswordReset() {
               <input
                 type="text"
                 id="token"
-                className={`w-full px-3 py-2 border rounded-md focus:ring-primary focus:border-primary ${errors.token ? 'border-red-500' : 'border-gray-300'}`}
+                className={`w-full px-3 py-2 border rounded-md focus:ring-primary focus:border-primary ${errors.token ? "border-red-500" : "border-gray-300"}`}
                 placeholder="Enter your reset token"
-                {...register('token')}
+                {...register("token")}
               />
               {errors.token && <p className="text-sm text-red-500 mt-1">{errors.token.message}</p>}
             </div>
@@ -138,9 +137,9 @@ export function PasswordReset() {
               <input
                 type="password"
                 id="password"
-                className={`w-full px-3 py-2 border rounded-md focus:ring-primary focus:border-primary ${errors.password ? 'border-red-500' : 'border-gray-300'}`}
+                className={`w-full px-3 py-2 border rounded-md focus:ring-primary focus:border-primary ${errors.password ? "border-red-500" : "border-gray-300"}`}
                 placeholder="Enter new password"
-                {...register('password')}
+                {...register("password")}
               />
               {errors.password && (
                 <p className="text-sm text-red-500 mt-1">{errors.password.message}</p>
@@ -154,16 +153,16 @@ export function PasswordReset() {
               <input
                 type="password"
                 id="confirmPassword"
-                className={`w-full px-3 py-2 border rounded-md focus:ring-primary focus:border-primary ${errors.confirmPassword ? 'border-red-500' : 'border-gray-300'}`}
+                className={`w-full px-3 py-2 border rounded-md focus:ring-primary focus:border-primary ${errors.confirmPassword ? "border-red-500" : "border-gray-300"}`}
                 placeholder="Confirm new password"
-                {...register('confirmPassword')}
+                {...register("confirmPassword")}
               />
               {errors.confirmPassword && (
                 <p className="text-sm text-red-500 mt-1">{errors.confirmPassword.message}</p>
               )}
             </div>
 
-            {status === 'error' && message && (
+            {status === "error" && message && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-md">
                 <p className="text-sm text-red-600">{message}</p>
               </div>
@@ -180,7 +179,7 @@ export function PasswordReset() {
                   <span>Processing...</span>
                 </div>
               ) : (
-                'Reset Password'
+                "Reset Password"
               )}
             </button>
           </form>

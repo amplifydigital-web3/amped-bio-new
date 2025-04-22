@@ -1,11 +1,11 @@
-import { ButtonEffectsPicker } from './ButtonEffectsPicker';
-import { ParticlesEffectPicker } from './ParticlesEffectPicker';
-import { HeroEffectPicker } from './HeroEffectPicker';
-import { useEditorStore } from '../../../store/editorStore';
+import { ButtonEffectsPicker } from "./ButtonEffectsPicker";
+import { ParticlesEffectPicker } from "./ParticlesEffectPicker";
+import { HeroEffectPicker } from "./HeroEffectPicker";
+import { useEditorStore } from "../../../store/editorStore";
 
 export function EffectsPanel() {
-  const theme = useEditorStore((state) => state.theme.config);
-  const updateThemeConfig = useEditorStore((state) => state.updateThemeConfig);
+  const theme = useEditorStore(state => state.theme.config);
+  const updateThemeConfig = useEditorStore(state => state.updateThemeConfig);
 
   return (
     <div className="p-6 space-y-8">
@@ -18,17 +18,17 @@ export function EffectsPanel() {
 
       <ButtonEffectsPicker
         value={theme.buttonEffect}
-        onChange={(effect) => updateThemeConfig({ buttonEffect: effect })}
+        onChange={effect => updateThemeConfig({ buttonEffect: effect })}
       />
 
       <ParticlesEffectPicker
         value={theme.particlesEffect}
-        onChange={(effect) => updateThemeConfig({ particlesEffect: effect })}
+        onChange={effect => updateThemeConfig({ particlesEffect: effect })}
       />
 
       <HeroEffectPicker
         value={theme.heroEffect}
-        onChange={(effect) => updateThemeConfig({ heroEffect: effect })}
+        onChange={effect => updateThemeConfig({ heroEffect: effect })}
       />
     </div>
   );

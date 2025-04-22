@@ -1,26 +1,26 @@
-import { type ISourceOptions } from '@tsparticles/engine';
+import { type ISourceOptions } from "@tsparticles/engine";
 
 export const particleConfigs: Record<number, ISourceOptions> = {
   1: {
     particles: {
       number: { value: 80, density: { enable: true } },
-      color: { value: '#ffffff' },
-      shape: { type: 'circle' },
+      color: { value: "#ffffff" },
+      shape: { type: "circle" },
       opacity: { value: 0.5 },
       size: { value: { min: 3, max: 6 } },
       move: {
         enable: true,
         speed: 1,
-        direction: 'none',
+        direction: "none",
         random: false,
         straight: false,
-        outModes: { default: 'out' }
+        outModes: { default: "out" },
       },
     },
     interactivity: {
       events: {
-        onHover: { enable: true, mode: 'repulse' },
-        onClick: { enable: true, mode: 'push' },
+        onHover: { enable: true, mode: "repulse" },
+        onClick: { enable: true, mode: "push" },
         resize: { enable: true },
       },
     },
@@ -28,30 +28,30 @@ export const particleConfigs: Record<number, ISourceOptions> = {
   2: {
     particles: {
       number: { value: 60, density: { enable: true } },
-      color: { value: '#ffffff' },
-      shape: { type: 'circle' },
+      color: { value: "#ffffff" },
+      shape: { type: "circle" },
       opacity: { value: 0.5 },
       size: { value: { min: 3, max: 6 } },
       links: {
         enable: true,
         distance: 150,
-        color: '#ffffff',
+        color: "#ffffff",
         opacity: 0.4,
         width: 1,
       },
       move: {
         enable: true,
         speed: 2,
-        direction: 'none',
+        direction: "none",
         random: false,
         straight: false,
-        outModes: { default: 'out' }
+        outModes: { default: "out" },
       },
     },
     interactivity: {
       events: {
-        onHover: { enable: true, mode: 'grab' },
-        onClick: { enable: true, mode: 'push' },
+        onHover: { enable: true, mode: "grab" },
+        onClick: { enable: true, mode: "push" },
         resize: { enable: true },
       },
     },
@@ -59,23 +59,23 @@ export const particleConfigs: Record<number, ISourceOptions> = {
   3: {
     particles: {
       number: { value: 100, density: { enable: true } },
-      color: { value: '#ffffff' },
-      shape: { type: 'circle' },
+      color: { value: "#ffffff" },
+      shape: { type: "circle" },
       opacity: { value: 0.7 },
       size: { value: { min: 4, max: 8 } },
       move: {
         enable: true,
         speed: 3,
-        direction: 'bottom',
+        direction: "bottom",
         random: false,
         straight: false,
-        outModes: { default: 'out' }
+        outModes: { default: "out" },
       },
     },
     interactivity: {
       events: {
-        onHover: { enable: true, mode: 'repulse' },
-        onClick: { enable: true, mode: 'remove' },
+        onHover: { enable: true, mode: "repulse" },
+        onClick: { enable: true, mode: "remove" },
         resize: { enable: true },
       },
     },
@@ -83,23 +83,23 @@ export const particleConfigs: Record<number, ISourceOptions> = {
   4: {
     particles: {
       number: { value: 50, density: { enable: true } },
-      color: { value: '#ffffff' },
-      shape: { type: 'circle' },
+      color: { value: "#ffffff" },
+      shape: { type: "circle" },
       opacity: { value: { min: 0.3, max: 0.7 } },
       size: { value: { min: 8, max: 12 } },
       move: {
         enable: true,
         speed: 2,
-        direction: 'top',
+        direction: "top",
         random: true,
         straight: false,
-        outModes: { default: 'out' }
+        outModes: { default: "out" },
       },
     },
     interactivity: {
       events: {
-        onHover: { enable: true, mode: 'bubble' },
-        onClick: { enable: true, mode: 'repulse' },
+        onHover: { enable: true, mode: "bubble" },
+        onClick: { enable: true, mode: "repulse" },
         resize: { enable: true },
       },
     },
@@ -107,23 +107,23 @@ export const particleConfigs: Record<number, ISourceOptions> = {
   5: {
     particles: {
       number: { value: 50, density: { enable: true } },
-      color: { value: '#ffff00' },
-      shape: { type: 'circle' },
+      color: { value: "#ffff00" },
+      shape: { type: "circle" },
       opacity: { value: { min: 0.5, max: 0.8 } },
       size: { value: { min: 3, max: 6 } },
       move: {
         enable: true,
         speed: 1,
-        direction: 'none',
+        direction: "none",
         random: true,
         straight: false,
-        outModes: { default: 'out' }
+        outModes: { default: "out" },
       },
     },
     interactivity: {
       events: {
-        onHover: { enable: true, mode: 'bubble' },
-        onClick: { enable: true, mode: 'repulse' },
+        onHover: { enable: true, mode: "bubble" },
+        onClick: { enable: true, mode: "repulse" },
         resize: { enable: true },
       },
     },
@@ -132,24 +132,24 @@ export const particleConfigs: Record<number, ISourceOptions> = {
     fpsLimit: 60,
     particles: {
       number: { value: 80, density: { enable: true } },
-      color: { value: '#00ff00' },
+      color: { value: "#00ff00" },
       shape: {
-        type: 'char',
+        type: "char",
         options: {
           char: {
             0: {
-              value: '0',
-              font: 'Courier New',
-              style: '',
-              weight: '400',
+              value: "0",
+              font: "Courier New",
+              style: "",
+              weight: "400",
             },
             1: {
-              value: '1',
-              font: 'Courier New',
-              style: '',
-              weight: '400',
-            }
-          }
+              value: "1",
+              font: "Courier New",
+              style: "",
+              weight: "400",
+            },
+          },
         },
       },
       opacity: {
@@ -161,10 +161,10 @@ export const particleConfigs: Record<number, ISourceOptions> = {
       move: {
         enable: true,
         speed: 5,
-        direction: 'bottom',
+        direction: "bottom",
         random: false,
         straight: true,
-        outModes: { default: 'out' },
+        outModes: { default: "out" },
       },
       life: {
         duration: { value: 3, sync: false },
@@ -173,7 +173,7 @@ export const particleConfigs: Record<number, ISourceOptions> = {
     },
     interactivity: {
       events: {
-        onClick: { enable: true, mode: 'push' },
+        onClick: { enable: true, mode: "push" },
         resize: { enable: true },
       },
     },
@@ -182,7 +182,7 @@ export const particleConfigs: Record<number, ISourceOptions> = {
     particles: {
       number: { value: 100, density: { enable: true } },
       color: {
-        value: ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff'],
+        value: ["#ff0000", "#00ff00", "#0000ff", "#ffff00", "#ff00ff"],
         animation: {
           enable: true,
           speed: 20,
@@ -190,28 +190,28 @@ export const particleConfigs: Record<number, ISourceOptions> = {
         },
       },
       shape: {
-        type: 'polygon',
+        type: "polygon",
         options: {
           polygon: {
-            sides: 4
-          }
-        }
+            sides: 4,
+          },
+        },
       },
       opacity: { value: { min: 0.5, max: 0.8 } },
       size: { value: { min: 3, max: 6 } },
       move: {
         enable: true,
         speed: 3,
-        direction: 'bottom',
+        direction: "bottom",
         random: true,
         straight: false,
-        outModes: { default: 'out' }
+        outModes: { default: "out" },
       },
     },
     interactivity: {
       events: {
-        onHover: { enable: true, mode: 'bubble' },
-        onClick: { enable: true, mode: 'repulse' },
+        onHover: { enable: true, mode: "bubble" },
+        onClick: { enable: true, mode: "repulse" },
         resize: { enable: true },
       },
     },
@@ -219,23 +219,23 @@ export const particleConfigs: Record<number, ISourceOptions> = {
   8: {
     particles: {
       number: { value: 100, density: { enable: true } },
-      color: { value: '#ffffff' },
-      shape: { type: 'star' },
+      color: { value: "#ffffff" },
+      shape: { type: "star" },
       opacity: { value: { min: 0.5, max: 0.8 } },
       size: { value: { min: 3, max: 6 } },
       move: {
         enable: true,
         speed: 0.5,
-        direction: 'none',
+        direction: "none",
         random: true,
         straight: false,
-        outModes: { default: 'out' }
+        outModes: { default: "out" },
       },
     },
     interactivity: {
       events: {
-        onHover: { enable: true, mode: 'bubble' },
-        onClick: { enable: true, mode: 'push' },
+        onHover: { enable: true, mode: "bubble" },
+        onClick: { enable: true, mode: "push" },
         resize: { enable: true },
       },
     },
@@ -243,35 +243,35 @@ export const particleConfigs: Record<number, ISourceOptions> = {
   9: {
     particles: {
       number: { value: 30, density: { enable: true } },
-      color: { value: '#ffffff' },
+      color: { value: "#ffffff" },
       shape: {
-        type: 'polygon',
+        type: "polygon",
         options: {
-          polygon: { sides: 6 }
-        }
+          polygon: { sides: 6 },
+        },
       },
       opacity: { value: { min: 0.3, max: 0.6 } },
       size: { value: { min: 10, max: 16 } },
       links: {
         enable: true,
         distance: 200,
-        color: '#ffffff',
+        color: "#ffffff",
         opacity: 0.2,
         width: 1,
       },
       move: {
         enable: true,
         speed: 1,
-        direction: 'none',
+        direction: "none",
         random: false,
         straight: false,
-        outModes: { default: 'out' }
+        outModes: { default: "out" },
       },
     },
     interactivity: {
       events: {
-        onHover: { enable: true, mode: 'grab' },
-        onClick: { enable: true, mode: 'push' },
+        onHover: { enable: true, mode: "grab" },
+        onClick: { enable: true, mode: "push" },
         resize: { enable: true },
       },
     },

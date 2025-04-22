@@ -1,5 +1,5 @@
-import React from 'react';
-import { CoinsIcon, Users, Clock, TrendingUp, ExternalLink } from 'lucide-react';
+import React from "react";
+import { CoinsIcon, Users, Clock, TrendingUp, ExternalLink } from "lucide-react";
 
 interface Pool {
   id: string;
@@ -11,40 +11,40 @@ interface Pool {
   totalStaked: number;
   participants: number;
   maxParticipants: number;
-  status: 'active' | 'full' | 'ended';
+  status: "active" | "full" | "ended";
 }
 
 const mockPools: Pool[] = [
   {
-    id: '1',
-    name: 'Creator Season 1',
-    description: 'Stake tokens to earn rewards and exclusive content access',
-    tokenAddress: '0x1234...5678',
+    id: "1",
+    name: "Creator Season 1",
+    description: "Stake tokens to earn rewards and exclusive content access",
+    tokenAddress: "0x1234...5678",
     rewardRate: 5,
     lockPeriod: 30,
     totalStaked: 50000,
     participants: 150,
     maxParticipants: 1000,
-    status: 'active',
+    status: "active",
   },
   {
-    id: '2',
-    name: 'VIP Supporters',
-    description: 'Premium staking pool for dedicated supporters',
-    tokenAddress: '0x9876...4321',
+    id: "2",
+    name: "VIP Supporters",
+    description: "Premium staking pool for dedicated supporters",
+    tokenAddress: "0x9876...4321",
     rewardRate: 8,
     lockPeriod: 90,
     totalStaked: 100000,
     participants: 50,
     maxParticipants: 50,
-    status: 'full',
+    status: "full",
   },
 ];
 
 export function PoolList() {
   return (
     <div className="space-y-6">
-      {mockPools.map((pool) => (
+      {mockPools.map(pool => (
         <div
           key={pool.id}
           className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:border-blue-500 transition-colors"
@@ -57,11 +57,11 @@ export function PoolList() {
               </div>
               <span
                 className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  pool.status === 'active'
-                    ? 'bg-green-100 text-green-800'
-                    : pool.status === 'full'
-                    ? 'bg-yellow-100 text-yellow-800'
-                    : 'bg-red-100 text-red-800'
+                  pool.status === "active"
+                    ? "bg-green-100 text-green-800"
+                    : pool.status === "full"
+                      ? "bg-yellow-100 text-yellow-800"
+                      : "bg-red-100 text-red-800"
                 }`}
               >
                 {pool.status.charAt(0).toUpperCase() + pool.status.slice(1)}
@@ -129,7 +129,7 @@ export function PoolList() {
               <div className="flex space-x-3">
                 <button
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  disabled={pool.status !== 'active'}
+                  disabled={pool.status !== "active"}
                 >
                   Stake Tokens
                 </button>

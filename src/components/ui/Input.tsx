@@ -1,4 +1,4 @@
-import React, { forwardRef } from 'react';
+import React, { forwardRef } from "react";
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -14,13 +14,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         {label && <label className="block text-sm font-medium text-gray-700">{label}</label>}
         {leftText && (
           <div
-            className={`flex overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 focus-within:rounded-md ${error ? 'border-red-500' : ''}`}
+            className={`flex overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 focus-within:rounded-md ${error ? "border-red-500" : ""}`}
           >
             <div className="flex items-center px-3 border-t border-b border-l border-gray-300 rounded-md rounded-r-none text-gray-500 bg-gray-50">
               {leftText}
             </div>
             <input
-              className={`flex-1 px-3 py-2 border rounded-md rounded-l-none ${error ? 'border-red-500' : 'border-gray-300'} focus:ring-0 focus:outline-none`}
+              className={`flex-1 px-3 py-2 border rounded-md rounded-l-none ${error ? "border-red-500" : "border-gray-300"} focus:ring-0 focus:outline-none`}
               pattern={pattern}
               ref={ref}
               {...props}
@@ -29,7 +29,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         )}
         {!leftText && (
           <input
-            className={`w-full px-3 py-2 border rounded-md ${error ? 'border-red-500' : 'border-gray-300'} shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+            className={`w-full px-3 py-2 border rounded-md ${error ? "border-red-500" : "border-gray-300"} shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
             pattern={pattern}
             ref={ref}
             {...props}
@@ -41,4 +41,4 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
   }
 );
 
-Input.displayName = 'Input';
+Input.displayName = "Input";

@@ -1,16 +1,16 @@
-import { createContext, useEffect, useState, type ReactNode } from 'react';
-import { createAppKit } from '@reown/appkit/react';
-import { WagmiProvider } from 'wagmi';
-import { AppKitNetwork } from '@reown/appkit/networks';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { networks, projectId, wagmiAdapter } from '../wagmiConfig';
-import { ConnectModal } from './components/ConnectModal';
+import { createContext, useEffect, useState, type ReactNode } from "react";
+import { createAppKit } from "@reown/appkit/react";
+import { WagmiProvider } from "wagmi";
+import { AppKitNetwork } from "@reown/appkit/networks";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { networks, projectId, wagmiAdapter } from "../wagmiConfig";
+import { ConnectModal } from "./components/ConnectModal";
 
 // 2. Create a metadata object - optional
 const metadata = {
-  name: 'OneLink',
-  description: 'npayme OneLink',
-  url: 'onelink.npayme.io',
+  name: "OneLink",
+  description: "npayme OneLink",
+  url: "onelink.npayme.io",
   icons: [],
 };
 
@@ -21,22 +21,14 @@ const modal = createAppKit({
   defaultNetwork: networks[0],
   metadata: metadata,
   //   enableCoinbase: true,
-  coinbasePreference: 'smartWalletOnly',
+  coinbasePreference: "smartWalletOnly",
   featuredWalletIds: [
-    'fd20dc426fb37566d803205b19bbc1d4096b248ac04548e3cfb6b3a38bd033aa', // coinbase
-    '4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0', // trustwallet
+    "fd20dc426fb37566d803205b19bbc1d4096b248ac04548e3cfb6b3a38bd033aa", // coinbase
+    "4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0", // trustwallet
   ],
   features: {
     swaps: true,
-    socials: [
-      'google',
-      'x',
-      'github',
-      'discord',
-      'apple',
-      'facebook',
-      'farcaster',
-    ],
+    socials: ["google", "x", "github", "discord", "apple", "facebook", "farcaster"],
   },
   // siweConfig: siweConfig,
 });
@@ -63,30 +55,15 @@ export function AppKitProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      document.documentElement.style.setProperty(
-        '--npayme__brand-color',
-        '#000'
-      );
-      document.documentElement.style.setProperty(
-        '--npayme__copy-color',
-        '#fff'
-      );
-      document.documentElement.style.setProperty('--widget-card', '#fff');
-      document.documentElement.style.setProperty(
-        '--widget-contrast',
-        '#1A1A1A'
-      );
-      document.documentElement.style.setProperty(
-        '--widget-contrast-low',
-        '#A64646'
-      );
-      document.documentElement.style.setProperty(
-        '--widget-contrast-high',
-        '#000'
-      );
+    if (typeof window !== "undefined") {
+      document.documentElement.style.setProperty("--npayme__brand-color", "#000");
+      document.documentElement.style.setProperty("--npayme__copy-color", "#fff");
+      document.documentElement.style.setProperty("--widget-card", "#fff");
+      document.documentElement.style.setProperty("--widget-contrast", "#1A1A1A");
+      document.documentElement.style.setProperty("--widget-contrast-low", "#A64646");
+      document.documentElement.style.setProperty("--widget-contrast-high", "#000");
 
-      document.documentElement.style.setProperty('--bg', '#f2f4f5');
+      document.documentElement.style.setProperty("--bg", "#f2f4f5");
     }
   }, []);
 

@@ -1,6 +1,19 @@
-import React, { useState } from 'react';
-import { CoinsIcon, Users, Clock, TrendingUp, DollarSign, Wallet, History, ChevronDown, ChevronUp, ExternalLink, Shield, Zap } from 'lucide-react';
-import type { MediaBlock as MediaBlockType, ThemeConfig } from '../../types/editor';
+import React, { useState } from "react";
+import {
+  CoinsIcon,
+  Users,
+  Clock,
+  TrendingUp,
+  DollarSign,
+  Wallet,
+  History,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  Shield,
+  Zap,
+} from "lucide-react";
+import type { MediaBlock as MediaBlockType, ThemeConfig } from "../../types/editor";
 
 interface CreatorPoolBlockProps {
   block: MediaBlockType;
@@ -20,8 +33,8 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
     totalEarnedByFans: 12500,
     lastMonthEarned: 2800,
     // Additional details for expanded view
-    contractAddress: '0x1234...5678',
-    rewardDistribution: 'Weekly',
+    contractAddress: "0x1234...5678",
+    rewardDistribution: "Weekly",
     minStakeAmount: 100,
     maxStakeAmount: 50000,
     stakingFee: 0.5,
@@ -32,9 +45,9 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
   };
 
   const formatUSD = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(value);
@@ -46,7 +59,7 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
         <div>
           <h3
             className="text-lg font-bold bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent"
-            style={{ fontFamily: 'Montserrat' }}
+            style={{ fontFamily: "Montserrat" }}
           >
             Creator Pool
           </h3>
@@ -54,7 +67,7 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
             className="text-xs mt-0.5 opacity-80"
             style={{
               fontFamily: theme.fontFamily,
-              color: theme.fontColor
+              color: theme.fontColor,
             }}
           >
             Stake tokens to earn rewards
@@ -62,7 +75,7 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
         </div>
         <button
           className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg font-medium"
-          style={{ fontFamily: 'Montserrat' }}
+          style={{ fontFamily: "Montserrat" }}
         >
           Stake 🥩 Me Now
         </button>
@@ -75,10 +88,7 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
             <div className="p-1.5 bg-blue-400/10 rounded-md mr-2">
               <CoinsIcon className="w-4 h-4" />
             </div>
-            <span
-              className="text-xs font-medium"
-              style={{ fontFamily: 'Montserrat' }}
-            >
+            <span className="text-xs font-medium" style={{ fontFamily: "Montserrat" }}>
               Total Staked
             </span>
           </div>
@@ -86,8 +96,8 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
             <p
               className="text-base font-bold"
               style={{
-                fontFamily: 'Montserrat',
-                color: theme.fontColor
+                fontFamily: "Montserrat",
+                color: theme.fontColor,
               }}
             >
               {poolStats.totalStaked.toLocaleString()}
@@ -104,10 +114,7 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
             <div className="p-1.5 bg-green-400/10 rounded-md mr-2">
               <Wallet className="w-4 h-4" />
             </div>
-            <span
-              className="text-xs font-medium"
-              style={{ fontFamily: 'Montserrat' }}
-            >
+            <span className="text-xs font-medium" style={{ fontFamily: "Montserrat" }}>
               Total Earned by Fans
             </span>
           </div>
@@ -115,8 +122,8 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
             <p
               className="text-base font-bold"
               style={{
-                fontFamily: 'Montserrat',
-                color: theme.fontColor
+                fontFamily: "Montserrat",
+                color: theme.fontColor,
               }}
             >
               {poolStats.totalEarnedByFans.toLocaleString()}
@@ -133,10 +140,7 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
             <div className="p-1.5 bg-blue-400/10 rounded-md mr-2">
               <Users className="w-4 h-4" />
             </div>
-            <span
-              className="text-xs font-medium"
-              style={{ fontFamily: 'Montserrat' }}
-            >
+            <span className="text-xs font-medium" style={{ fontFamily: "Montserrat" }}>
               Active Stakers
             </span>
           </div>
@@ -144,8 +148,8 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
             <p
               className="text-base font-bold"
               style={{
-                fontFamily: 'Montserrat',
-                color: theme.fontColor
+                fontFamily: "Montserrat",
+                color: theme.fontColor,
               }}
             >
               {poolStats.activeStakers.toLocaleString()}
@@ -162,7 +166,7 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
         style={{ fontFamily: theme.fontFamily }}
       >
         <span className="text-sm" style={{ color: theme.fontColor }}>
-          {isExpanded ? 'Show Less' : 'Show More Details'}
+          {isExpanded ? "Show Less" : "Show More Details"}
         </span>
         {isExpanded ? (
           <ChevronUp className="w-4 h-4" style={{ color: theme.fontColor }} />
@@ -179,18 +183,15 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
             <h4
               className="text-sm font-semibold mb-3"
               style={{
-                fontFamily: 'Montserrat',
-                color: theme.fontColor
+                fontFamily: "Montserrat",
+                color: theme.fontColor,
               }}
             >
               Pool Details
             </h4>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p
-                  className="text-xs opacity-70 mb-1"
-                  style={{ color: theme.fontColor }}
-                >
+                <p className="text-xs opacity-70 mb-1" style={{ color: theme.fontColor }}>
                   Contract Address
                 </p>
                 <a
@@ -204,16 +205,10 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
                 </a>
               </div>
               <div>
-                <p
-                  className="text-xs opacity-70 mb-1"
-                  style={{ color: theme.fontColor }}
-                >
+                <p className="text-xs opacity-70 mb-1" style={{ color: theme.fontColor }}>
                   Reward Distribution
                 </p>
-                <p
-                  className="text-sm"
-                  style={{ color: theme.fontColor }}
-                >
+                <p className="text-sm" style={{ color: theme.fontColor }}>
                   {poolStats.rewardDistribution}
                 </p>
               </div>
@@ -227,8 +222,8 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
               <h4
                 className="text-sm font-semibold"
                 style={{
-                  fontFamily: 'Montserrat',
-                  color: theme.fontColor
+                  fontFamily: "Montserrat",
+                  color: theme.fontColor,
                 }}
               >
                 Rewards & Performance
@@ -236,16 +231,10 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
             </div>
             <div className="space-y-4">
               <div>
-                <p
-                  className="text-xs opacity-70 mb-1"
-                  style={{ color: theme.fontColor }}
-                >
+                <p className="text-xs opacity-70 mb-1" style={{ color: theme.fontColor }}>
                   Total Rewards
                 </p>
-                <p
-                  className="text-sm font-bold"
-                  style={{ color: theme.fontColor }}
-                >
+                <p className="text-sm font-bold" style={{ color: theme.fontColor }}>
                   {poolStats.totalRewards.toLocaleString()} tokens
                 </p>
                 <div className="flex items-center text-green-400 text-xs mt-1">
@@ -254,16 +243,10 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
                 </div>
               </div>
               <div>
-                <p
-                  className="text-xs opacity-70 mb-1"
-                  style={{ color: theme.fontColor }}
-                >
+                <p className="text-xs opacity-70 mb-1" style={{ color: theme.fontColor }}>
                   Last Month Earned
                 </p>
-                <p
-                  className="text-sm font-bold"
-                  style={{ color: theme.fontColor }}
-                >
+                <p className="text-sm font-bold" style={{ color: theme.fontColor }}>
                   {poolStats.lastMonthEarned.toLocaleString()} tokens
                 </p>
                 <div className="flex items-center text-green-400 text-xs mt-1">
@@ -272,16 +255,10 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
                 </div>
               </div>
               <div>
-                <p
-                  className="text-xs opacity-70 mb-1"
-                  style={{ color: theme.fontColor }}
-                >
+                <p className="text-xs opacity-70 mb-1" style={{ color: theme.fontColor }}>
                   Average APR
                 </p>
-                <p
-                  className="text-sm font-bold"
-                  style={{ color: theme.fontColor }}
-                >
+                <p className="text-sm font-bold" style={{ color: theme.fontColor }}>
                   {poolStats.averageAPR}%
                 </p>
                 <p className="text-xs text-green-400 mt-1">Annual yield</p>
@@ -296,8 +273,8 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
               <h4
                 className="text-sm font-semibold"
                 style={{
-                  fontFamily: 'Montserrat',
-                  color: theme.fontColor
+                  fontFamily: "Montserrat",
+                  color: theme.fontColor,
                 }}
               >
                 Pool Metrics
@@ -305,30 +282,18 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
             </div>
             <div className="space-y-2">
               <div>
-                <p
-                  className="text-xs opacity-70 mb-1"
-                  style={{ color: theme.fontColor }}
-                >
+                <p className="text-xs opacity-70 mb-1" style={{ color: theme.fontColor }}>
                   Total Value Locked
                 </p>
-                <p
-                  className="text-sm"
-                  style={{ color: theme.fontColor }}
-                >
+                <p className="text-sm" style={{ color: theme.fontColor }}>
                   {formatUSD(poolStats.totalValueLocked)}
                 </p>
               </div>
               <div>
-                <p
-                  className="text-xs opacity-70 mb-1"
-                  style={{ color: theme.fontColor }}
-                >
+                <p className="text-xs opacity-70 mb-1" style={{ color: theme.fontColor }}>
                   Pool Liquidity
                 </p>
-                <p
-                  className="text-sm"
-                  style={{ color: theme.fontColor }}
-                >
+                <p className="text-sm" style={{ color: theme.fontColor }}>
                   {formatUSD(poolStats.poolLiquidity)}
                 </p>
               </div>

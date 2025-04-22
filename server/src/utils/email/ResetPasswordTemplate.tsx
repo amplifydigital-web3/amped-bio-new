@@ -10,7 +10,7 @@ import {
   Section,
   Text,
   Tailwind,
-} from '@react-email/components';
+} from "@react-email/components";
 
 const ResetPasswordTemplate = ({ url }: { url: string }) => {
   return (
@@ -84,7 +84,7 @@ const ResetPasswordTemplate = ({ url }: { url: string }) => {
 };
 
 ResetPasswordTemplate.PreviewProps = {
-  url: 'https://example.com/reset-password?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
+  url: "https://example.com/reset-password?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
 };
 
 export default ResetPasswordTemplate;

@@ -1,34 +1,34 @@
-import { useState } from 'react';
-import { FaXTwitter } from 'react-icons/fa6';
-import { Input } from '../../ui/Input';
-import { scrapeTwitterProfile } from '../../../utils/twitter';
-import type { UserProfile } from '../../../types/editor';
+import { useState } from "react";
+import { FaXTwitter } from "react-icons/fa6";
+import { Input } from "../../ui/Input";
+import { scrapeTwitterProfile } from "../../../utils/twitter";
+import type { UserProfile } from "../../../types/editor";
 
 interface TwitterImportProps {
   onProfileUpdate: (profile: Partial<UserProfile>) => void;
 }
 
 export function TwitterImport({ onProfileUpdate }: TwitterImportProps) {
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const handleImport = async () => {
     if (!username) return;
 
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
       const profile = await scrapeTwitterProfile(username);
       onProfileUpdate({
         name: profile.name,
         bio: profile.bio,
-        photoUrl: profile.profileImage
+        photoUrl: profile.profileImage,
       });
-      setUsername('');
+      setUsername("");
     } catch (err) {
-      setError('Failed to import X profile. Please try again.');
+      setError("Failed to import X profile. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -46,7 +46,7 @@ export function TwitterImport({ onProfileUpdate }: TwitterImportProps) {
           label=""
           placeholder="Enter X username"
           value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          onChange={e => setUsername(e.target.value)}
           className="flex-1"
         />
         <button
@@ -54,13 +54,11 @@ export function TwitterImport({ onProfileUpdate }: TwitterImportProps) {
           disabled={loading || !username}
           className="px-4 py-2 bg-[#1DA1F2] text-white rounded-md hover:bg-[#1a8cd8] disabled:opacity-50 disabled:cursor-not-allowed h-[42px] mt-[1px]"
         >
-          {loading ? 'Importing...' : 'Import'}
+          {loading ? "Importing..." : "Import"}
         </button>
       </div>
 
-      {error && (
-        <p className="text-sm text-red-600">{error}</p>
-      )}
+      {error && <p className="text-sm text-red-600">{error}</p>}
     </div>
   );
 }
