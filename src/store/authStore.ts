@@ -2,12 +2,9 @@ import { create } from "zustand";
 import { persist, PersistOptions } from "zustand/middleware";
 import { login, registerNewUser, passwordResetRequest } from "../api/api";
 import type { AuthUser } from "../types/auth";
-import { defaultAuthUser } from "./defaults";
 
 type AuthState = {
-  authUser: AuthUser;
-  token: string | null;
-  loading: boolean;
+  authUser: AuthUser | null;
   error: string | null;
   signIn: (email: string, password: string) => Promise<AuthUser>;
   signUp: (onelink: string, email: string, password: string) => Promise<AuthUser>;
@@ -24,58 +21,47 @@ const persistOptions: AuthPersistOptions = {
 export const useAuthStore = create<AuthState>()(
   persist(
     set => ({
-      authUser: defaultAuthUser,
-      loading: false,
+      authUser: null,
       error: null,
       token: null,
 
       signIn: async (email: string, password: string) => {
-        let authed_user = { email: "", id: 0, onelink: "", emailVerified: false };
         try {
-          set({ loading: true, error: null });
+          set({ error: null });
           const { user, token } = await login({ email, password });
           // Save token to localStorage for axios to use
           localStorage.setItem("amped-bio-auth-token", token);
-          set({ authUser: { ...user, token }, token });
-          authed_user = user;
+          set({ authUser: user });
+
+          return user;
         } catch (error) {
           set({ error: (error as Error).message });
           throw error;
-        } finally {
-          set({ loading: false });
         }
-
-        return authed_user;
       },
 
       signUp: async (onelink: string, email: string, password: string) => {
-        let authed_user = { email: "", id: 0, onelink: "", token: "", emailVerified: false };
         try {
-          set({ loading: true, error: null });
+          set({ error: null });
           const { user, token } = await registerNewUser({ onelink, email, password });
           // Save token to localStorage for axios to use
-          localStorage.setItem("auth-token", token);
-          set({ authUser: { ...user, token }, token });
-          authed_user = user;
+          localStorage.setItem("amped-bio-auth-token", token);
+          set({ authUser: { ...user } });
+          return user;
         } catch (error) {
           set({ error: (error as Error).message });
           throw error;
-        } finally {
-          set({ loading: false });
         }
-        return authed_user;
       },
 
       signOut: async () => {
         try {
-          set({ loading: true, error: null, authUser: defaultAuthUser, token: null });
+          set({ error: null, authUser: null });
           // Remove token from localStorage when signing out
-          localStorage.removeItem("auth-token");
+          localStorage.removeItem("amped-bio-auth-token");
         } catch (error) {
           set({ error: (error as Error).message });
           throw error;
-        } finally {
-          set({ loading: false });
         }
       },
       resetPassword: async (email: string) => {
@@ -85,16 +71,9 @@ export const useAuthStore = create<AuthState>()(
         } catch (error) {
           set({ error: (error as Error).message });
           throw error;
-        } finally {
-          set({ loading: false });
         }
       },
     }),
     persistOptions
   )
 );
-
-// // Set up auth state listener
-// onAuthStateChanged(auth, (user) => {
-//   useAuthStore.setState({ user, loading: false });
-// });

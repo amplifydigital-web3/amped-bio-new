@@ -15,9 +15,7 @@ import { RNSPanel } from "./panels/rns/RNSPanel";
 import { HomePanel } from "./panels/home/HomePanel";
 import { Eye } from "lucide-react";
 import RewardPanel from "./panels/reward/RewardPanel.tsx";
-import EmailVerificationBanner from "./auth/EmailVerificationBanner.tsx";
 import { useAuthStore } from "@/store/authStore.ts";
-import { defaultAuthUser } from "@/store/defaults";
 
 interface LayoutProps {
   onelink: string;
@@ -26,9 +24,9 @@ interface LayoutProps {
 export function Layout(props: LayoutProps) {
   const { onelink } = props;
   const activePanel = useEditorStore(state => state.activePanel);
-  const emailVerified = useAuthStore(state => state.authUser.emailVerified);
+  // const emailVerified = useAuthStore(state => state.authUser.emailVerified);
   const { authUser } = useAuthStore();
-  const isLoggedIn = authUser !== defaultAuthUser;
+  const isLoggedIn = authUser !== null;
 
   // FOR TESTING
   const usr = useAuthStore(state => state.authUser);

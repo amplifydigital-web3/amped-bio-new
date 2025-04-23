@@ -22,7 +22,7 @@ import { importSettings } from "../utils/import";
 const allNavItems = [
   { id: "home", icon: Home, label: "Home", alwaysShow: true },
   { id: "profile", icon: User, label: "Profile", alwaysShow: true },
-  { id: "gallery", icon: Image, label: "Themes", environmentFlag: "VITE_SHOW_GALLERY" },
+  { id: "gallery", icon: Image, label: "Themes", alwaysShow: true },
   { id: "appearance", icon: Palette, label: "Appearance", alwaysShow: true },
   { id: "effects", icon: Sparkles, label: "Effects", alwaysShow: true },
   { id: "blocks", icon: LayoutGrid, label: "Blocks", alwaysShow: true },

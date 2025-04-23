@@ -1,10 +1,10 @@
 import React from "react";
-import { Star, Download, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import type { MarketplaceTheme } from "../../../types/editor";
 
 interface MarketplaceListProps {
   themes: MarketplaceTheme[];
-  onApply: (theme: MarketplaceTheme["theme"]) => void;
+  onApply: (theme: any) => void;
 }
 
 export function MarketplaceList({ themes, onApply }: MarketplaceListProps) {
@@ -20,18 +20,7 @@ export function MarketplaceList({ themes, onApply }: MarketplaceListProps) {
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-medium text-gray-900">{theme.name}</h3>
-            {/* <p className="text-sm text-gray-500 mt-1">{theme.description}</p>
-            <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
-              <div className="flex items-center space-x-1">
-                <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                <span>{theme.rating.toFixed(1)}</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <Download className="w-4 h-4" />
-                <span>{theme.downloads}</span>
-              </div>
-              <span>by {theme.author}</span>
-            </div> */}
+            <p className="text-sm text-gray-500 mt-1">{theme.description}</p>
           </div>
           <button
             onClick={() => onApply(theme.theme)}

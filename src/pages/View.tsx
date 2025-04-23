@@ -4,7 +4,6 @@ import { Settings } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
 import { useEffect, useState } from "react";
 import { useEditorStore } from "../store/editorStore";
-import { defaultAuthUser } from "@/store/defaults";
 import { AuthModal } from "../components/auth/AuthModal";
 import { formatOnelink, normalizeOnelink } from "@/utils/onelink";
 import type { AuthUser } from "../types/auth";
@@ -93,7 +92,7 @@ export function View() {
       <Preview isEditing={false} onelink={normalizedOnelink} />
 
       {/* Edit Button */}
-      {(isInitialPage || authUser.id === 0 || authUser.email === profile.email) && (
+      {authUser && (isInitialPage || authUser.email === profile.email) && (
         <Link
           to={`/${formatOnelink(authUser.onelink)}/edit`}
           className="fixed bottom-4 right-4 p-3 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-colors flex items-center space-x-2 z-50"

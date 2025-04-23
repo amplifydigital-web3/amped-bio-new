@@ -21,7 +21,7 @@ export type User = {
   id: number;
   email: string;
   onelink: string;
-  emailVerified?: boolean;
+  // emailVerified?: boolean;
 };
 
 export type AuthResponse = {
