@@ -1,7 +1,6 @@
 import React from "react";
-import { ExternalLink, Download, Sparkles, Users, Star } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import type { Collection } from "../../../types/editor";
-import { StarRating } from "./StarRating";
 
 interface CollectionHeaderProps {
   collection: Collection;
@@ -118,24 +117,10 @@ export function CollectionHeader({ collection }: CollectionHeaderProps) {
 
         {/* Collection Stats Bar */}
         <div className="absolute bottom-0 left-0 right-0 bg-black/20 backdrop-blur-sm">
-          <div className="max-w-4xl mx-auto px-8 py-6 flex items-center justify-around">
+          <div className="max-w-4xl mx-auto px-8 py-6 flex items-center justify-center">
             <div className="text-center text-white">
               <p className="text-4xl font-bold">{collection.themeCount}</p>
               <p className="text-sm opacity-90">Unique Themes</p>
-            </div>
-            <div className="text-center text-white">
-              <div className="flex items-center justify-center text-4xl font-bold">
-                <Download className="w-7 h-7 mr-2" />
-                {collection.downloads.toLocaleString()}
-              </div>
-              <p className="text-sm opacity-90">Downloads</p>
-            </div>
-            <div className="text-center text-white">
-              <div className="flex items-center justify-center">
-                <StarRating rating={collection.rating} size="lg" />
-                <span className="ml-2 text-3xl font-bold">{collection.rating.toFixed(1)}</span>
-              </div>
-              <p className="text-sm opacity-90">Average Rating</p>
             </div>
           </div>
         </div>
@@ -148,50 +133,6 @@ export function CollectionHeader({ collection }: CollectionHeaderProps) {
             {/* Collection Description */}
             <div className="flex-1 min-w-0">
               <p className="text-xl text-gray-900 leading-relaxed mb-6">{collection.description}</p>
-
-              {/* Feature Tags */}
-              {/* <div className="flex flex-wrap gap-2 mb-6">
-                {["Responsive", "Customizable", "Modern Design", "Easy to Use"].map(tag => (
-                  <span
-                    key={tag}
-                    className={`px-3 py-1 rounded-full text-sm font-medium ${style.highlight} bg-gray-100/50`}
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div> */}
-
-              {/* Collaborator Card */}
-              {/* <div className="flex items-center gap-4 p-4 bg-white/50 rounded-lg border border-white/20">
-                <img
-                  src={collection.collaborator.avatar}
-                  alt={collection.collaborator.name}
-                  className="w-16 h-16 rounded-full ring-4 ring-white/50 shadow-lg"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm text-gray-500">Curated by</p>
-                    <div className={`px-2 py-0.5 rounded text-xs font-medium ${style.highlight} bg-gray-100/50`}>
-                      Verified Creator
-                    </div>
-                  </div>
-                  <p className="font-semibold text-gray-900 text-lg">
-                    {collection.collaborator.name}
-                  </p>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {collection.collaborator.bio}
-                  </p>
-                  <a
-                    href={collection.collaborator.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`inline-flex items-center text-sm ${style.highlight} hover:opacity-80 mt-2`}
-                  >
-                    <span>View Profile</span>
-                    <ExternalLink className="w-3 h-3 ml-1" />
-                  </a>
-                </div>
-              </div> */}
             </div>
           </div>
         </div>

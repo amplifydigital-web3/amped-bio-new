@@ -16,7 +16,7 @@ import {
   getOnelink,
   addBlock as apiAddBlock,
 } from "../api/api";
-import initialState, { defaultAuthUser } from "./defaults";
+import initialState from "./defaults";
 import { useAuthStore } from "./authStore";
 import toast from "react-hot-toast";
 import { BlockType } from "@/api/api.types";
@@ -131,7 +131,7 @@ export const useEditorStore = create<EditorStore>()(set => ({
     let newBlock = block; // Initialize with the original block
 
     try {
-      if (authUser === defaultAuthUser) {
+      if (authUser === null) {
         console.info("❌ Add Block Error: No user logged in");
         toast.error("Authentication error");
         console.groupEnd();
@@ -184,7 +184,7 @@ export const useEditorStore = create<EditorStore>()(set => ({
     console.group(`🗑️ Removing Block: ${id}`);
     const { authUser } = useAuthStore.getState();
     try {
-      if (authUser === defaultAuthUser) {
+      if (authUser === null) {
         console.info("❌ Remove Block Error: No user logged in");
         toast.error("Authentication error");
         console.groupEnd();
@@ -317,7 +317,7 @@ export const useEditorStore = create<EditorStore>()(set => ({
     const { profile, theme, blocks } = useEditorStore.getState();
     const { authUser } = useAuthStore.getState();
     try {
-      if (authUser === defaultAuthUser || authUser.email !== profile.email) {
+      if (authUser === null || authUser.email !== profile.email) {
         console.info("❌ Save Error: No user logged in or email mismatch");
         toast.error("Authentication error");
         console.groupEnd();

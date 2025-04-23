@@ -4,7 +4,6 @@ import { useAuthStore } from "../store/authStore";
 import { useEffect, useState } from "react";
 import { useEditorStore } from "../store/editorStore";
 import { useNavigate } from "react-router-dom";
-import { defaultAuthUser } from "@/store/defaults";
 import { normalizeOnelink, formatOnelink, isEquivalentOnelink } from "@/utils/onelink";
 import { toast } from "react-hot-toast";
 
@@ -80,8 +79,7 @@ export function Editor() {
 
   // Check if user is allowed to edit this page
   useEffect(() => {
-    // Check if the user is logged in by comparing with defaultAuthUser
-    const isLoggedIn = authUser !== defaultAuthUser && authUser.id !== defaultAuthUser.id;
+    const isLoggedIn = authUser !== null;
 
     if (!isLoggedIn) {
       // User is not logged in, redirect to view page
@@ -109,7 +107,7 @@ export function Editor() {
     // Check if a specific panel was passed in the navigation state
     if (location.state && location.state.panel) {
       setActivePanel(location.state.panel);
-    } else if (authUser === defaultAuthUser) {
+    } else if (authUser === null) {
       // For unauthenticated users, set to home
       setActivePanel("home");
     }

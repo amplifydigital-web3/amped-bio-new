@@ -1,8 +1,7 @@
 import React, { useState } from "react";
-import { Download, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
 import type { MarketplaceTheme } from "../../../types/editor";
 import { NFTVerificationModal } from "./NFTVerificationModal";
-import { StarRating } from "./StarRating";
 
 interface ThemeCardProps {
   theme: MarketplaceTheme;
@@ -50,13 +49,6 @@ export function ThemeCard({ theme, onApply }: ThemeCardProps) {
         <div className="p-4">
           <h3 className="font-medium text-gray-900 truncate">{theme.name}</h3>
           <p className="text-sm text-gray-500 line-clamp-2 mt-1">{theme.description}</p>
-          <div className="flex items-center justify-between mt-3">
-            <StarRating rating={theme.rating} size="sm" />
-            <div className="flex items-center space-x-1 text-sm text-gray-500">
-              <Download className="w-4 h-4" />
-              <span>{theme.downloads.toLocaleString()}</span>
-            </div>
-          </div>
         </div>
       </div>
 

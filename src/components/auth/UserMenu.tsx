@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAmplifyConnect } from "../connect/hooks/useAmplifyConnect";
 import { useNavigate } from "react-router-dom";
-import { defaultAuthUser } from "@/store/defaults";
 import { formatOnelink } from "@/utils/onelink";
 
 export function UserMenu() {
@@ -56,7 +55,7 @@ export function UserMenu() {
     return nav(`/@${authUser?.onelink}`);
   };
 
-  if (authUser.email === defaultAuthUser.email) {
+  if (authUser === null) {
     return (
       <>
         <Button onClick={() => setShowAuthModal(true)} className="flex items-center space-x-2">

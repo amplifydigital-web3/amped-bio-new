@@ -1,12 +1,20 @@
 import type { MarketplaceTheme, Collection } from "../types/editor";
 
+// Use the same AWS S3 URL as in backgrounds.ts
+const awsS3 =
+  import.meta.env?.AWS_S3_BACKGROUNDS ||
+  "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds";
+
+// Update thumbnailsPath to use S3 URL
+const thumbnailsPath = awsS3;
+
 // Modern & Minimal Collection Themes
 const modernThemes: MarketplaceTheme[] = [
   {
     id: "modern-bubbles",
     name: "Bubbles",
     description: "Dynamic bubble animations with a sleek modern feel",
-    thumbnail: "https://images.unsplash.com/photo-1507721999472-8ed4421c4af2?w=400&h=300&fit=crop",
+    thumbnail: `${thumbnailsPath}/Bubbles_thumbnail.jpg`,
     author: "Alex Design",
     downloads: 12500,
     rating: 4.8,
@@ -14,7 +22,7 @@ const modernThemes: MarketplaceTheme[] = [
     theme: {
       background: {
         type: "video",
-        value: "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Bubbles.mp4",
+        value: `${awsS3}/Bubbles.mp4`,
       },
     },
   },
@@ -22,7 +30,7 @@ const modernThemes: MarketplaceTheme[] = [
     id: "modern-cube-wall",
     name: "Cube Wall",
     description: "Geometric cube patterns with depth and dimension",
-    thumbnail: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=300&fit=crop",
+    thumbnail: `${thumbnailsPath}/Cube_Wall_thumbnail.jpg`,
     author: "Alex Design",
     downloads: 9800,
     rating: 4.7,
@@ -30,7 +38,7 @@ const modernThemes: MarketplaceTheme[] = [
     theme: {
       background: {
         type: "video",
-        value: "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Cube_Wall.mp4",
+        value: `${awsS3}/Cube_Wall.mp4`,
       },
     },
   },
@@ -38,7 +46,7 @@ const modernThemes: MarketplaceTheme[] = [
     id: "modern-dot-matrix",
     name: "Dot Matrix",
     description: "Elegant dot patterns with smooth animations",
-    thumbnail: "https://images.unsplash.com/photo-1550859492-d5da9d8e45f3?w=400&h=300&fit=crop",
+    thumbnail: `${thumbnailsPath}/Dot_Matrix_thumbnail.jpg`,
     author: "Alex Design",
     downloads: 8900,
     rating: 4.6,
@@ -46,7 +54,7 @@ const modernThemes: MarketplaceTheme[] = [
     theme: {
       background: {
         type: "video",
-        value: "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Dot_Matrix.mp4",
+        value: `${awsS3}/Dot_Matrix.mp4`,
       },
     },
   },
@@ -54,7 +62,7 @@ const modernThemes: MarketplaceTheme[] = [
     id: "modern-event-horizon",
     name: "Event Horizon",
     description: "Abstract cosmic event with mesmerizing visuals",
-    thumbnail: "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=400&h=300&fit=crop",
+    thumbnail: `${thumbnailsPath}/Event_Horizon_thumbnail.jpg`,
     author: "Alex Design",
     downloads: 10300,
     rating: 4.8,
@@ -62,7 +70,7 @@ const modernThemes: MarketplaceTheme[] = [
     theme: {
       background: {
         type: "video",
-        value: "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Event_Horizon.mp4",
+        value: `${awsS3}/Event_Horizon.mp4`,
       },
     },
   },
@@ -70,7 +78,7 @@ const modernThemes: MarketplaceTheme[] = [
     id: "modern-fractal-flower",
     name: "Fractal Flower",
     description: "Hypnotic fractal patterns blooming with color",
-    thumbnail: "https://images.unsplash.com/photo-1553356084-58ef4a67b2a7?w=400&h=300&fit=crop",
+    thumbnail: `${thumbnailsPath}/Fractal_Flower_thumbnail.jpg`,
     author: "Alex Design",
     downloads: 11200,
     rating: 4.7,
@@ -78,7 +86,7 @@ const modernThemes: MarketplaceTheme[] = [
     theme: {
       background: {
         type: "video",
-        value: "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Fractal_Flower.mp4",
+        value: `${awsS3}/Fractal_Flower.mp4`,
       },
     },
   },
@@ -86,7 +94,7 @@ const modernThemes: MarketplaceTheme[] = [
     id: "modern-inferno",
     name: "Inferno",
     description: "Dynamic fire-like abstract visuals with deep warmth",
-    thumbnail: "https://images.unsplash.com/photo-1543857778-c4a1a3e0b2eb?w=400&h=300&fit=crop",
+    thumbnail: `${thumbnailsPath}/Inferno_thumbnail.jpg`,
     author: "Alex Design",
     downloads: 9400,
     rating: 4.5,
@@ -94,7 +102,7 @@ const modernThemes: MarketplaceTheme[] = [
     theme: {
       background: {
         type: "video",
-        value: "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Inferno.mp4",
+        value: `${awsS3}/Inferno.mp4`,
       },
     },
   },
@@ -106,7 +114,7 @@ const natureThemes: MarketplaceTheme[] = [
     id: "nature-beach-house",
     name: "Beach House",
     description: "Serene coastal view with gentle waves",
-    thumbnail: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&h=300&fit=crop",
+    thumbnail: `${thumbnailsPath}/Beach_House_thumbnail.jpg`,
     author: "Emma Nature",
     downloads: 8700,
     rating: 4.6,
@@ -114,7 +122,7 @@ const natureThemes: MarketplaceTheme[] = [
     theme: {
       background: {
         type: "video",
-        value: "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Beach_House.mp4",
+        value: `${awsS3}/Beach_House.mp4`,
       },
     },
   },
@@ -122,7 +130,7 @@ const natureThemes: MarketplaceTheme[] = [
     id: "nature-big-sky",
     name: "Big Sky",
     description: "Expansive sky view with stunning cloud formations",
-    thumbnail: "https://images.unsplash.com/photo-1501854140801-50d01698950b?w=400&h=300&fit=crop",
+    thumbnail: `${thumbnailsPath}/Big_Sky_thumbnail.jpg`,
     author: "Emma Nature",
     downloads: 7200,
     rating: 4.5,
@@ -130,7 +138,7 @@ const natureThemes: MarketplaceTheme[] = [
     theme: {
       background: {
         type: "video",
-        value: "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Big_Sky.mp4",
+        value: `${awsS3}/Big_Sky.mp4`,
       },
     },
   },
@@ -138,7 +146,7 @@ const natureThemes: MarketplaceTheme[] = [
     id: "nature-forest-sunbeams",
     name: "Forest Sunbeams",
     description: "Magical forest with sunlight filtering through trees",
-    thumbnail: "https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?w=400&h=300&fit=crop",
+    thumbnail: `${thumbnailsPath}/Forest_Sunbeams_thumbnail.jpg`,
     author: "Emma Nature",
     downloads: 8900,
     rating: 4.7,
@@ -146,8 +154,7 @@ const natureThemes: MarketplaceTheme[] = [
     theme: {
       background: {
         type: "video",
-        value:
-          "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Forest_Sunbeams.mp4",
+        value: `${awsS3}/Forest_Sunbeams.mp4`,
       },
     },
   },
@@ -155,7 +162,7 @@ const natureThemes: MarketplaceTheme[] = [
     id: "nature-kitten",
     name: "Kitten",
     description: "Adorable kitten with playful charm",
-    thumbnail: "https://images.unsplash.com/photo-1574144283535-5a5c5c636d5d?w=400&h=300&fit=crop",
+    thumbnail: `${thumbnailsPath}/Kitten_thumbnail.jpg`,
     author: "Emma Nature",
     downloads: 9500,
     rating: 4.9,
@@ -163,7 +170,7 @@ const natureThemes: MarketplaceTheme[] = [
     theme: {
       background: {
         type: "video",
-        value: "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Kitten.mp4",
+        value: `${awsS3}/Kitten.mp4`,
       },
     },
   },
@@ -171,7 +178,7 @@ const natureThemes: MarketplaceTheme[] = [
     id: "nature-kyoto-rain",
     name: "Kyoto Rain",
     description: "Atmospheric rainy scene in tranquil Kyoto",
-    thumbnail: "https://images.unsplash.com/photo-1519181245277-cffeb31da2e3?w=400&h=300&fit=crop",
+    thumbnail: `${thumbnailsPath}/Kyoto_Rain_thumbnail.jpg`,
     author: "Emma Nature",
     downloads: 7800,
     rating: 4.6,
@@ -179,7 +186,7 @@ const natureThemes: MarketplaceTheme[] = [
     theme: {
       background: {
         type: "video",
-        value: "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Kyoto_Rain.mp4",
+        value: `${awsS3}/Kyoto_Rain.mp4`,
       },
     },
   },
@@ -187,7 +194,7 @@ const natureThemes: MarketplaceTheme[] = [
     id: "nature-sakura",
     name: "Sakura",
     description: "Beautiful cherry blossoms in full bloom",
-    thumbnail: "https://images.unsplash.com/photo-1522383225653-ed111181a951?w=400&h=300&fit=crop",
+    thumbnail: `${thumbnailsPath}/Sakura_thumbnail.jpg`,
     author: "Emma Nature",
     downloads: 8300,
     rating: 4.7,
@@ -195,7 +202,7 @@ const natureThemes: MarketplaceTheme[] = [
     theme: {
       background: {
         type: "video",
-        value: "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Sakura.mp4",
+        value: `${awsS3}/Sakura.mp4`,
       },
     },
   },
@@ -207,7 +214,7 @@ const cyberpunkThemes: MarketplaceTheme[] = [
     id: "cyber-astral-staircase",
     name: "Astral Staircase",
     description: "Mesmerizing staircase to another dimension",
-    thumbnail: "https://images.unsplash.com/photo-1534972195531-d756b9bfa9f2?w=400&h=300&fit=crop",
+    thumbnail: `${thumbnailsPath}/Astral_Staircase_thumbnail.jpg`,
     author: "Neo Digital",
     downloads: 11200,
     rating: 4.9,
@@ -215,8 +222,7 @@ const cyberpunkThemes: MarketplaceTheme[] = [
     theme: {
       background: {
         type: "video",
-        value:
-          "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Astral_Staircase.mp4",
+        value: `${awsS3}/Astral_Staircase.mp4`,
       },
     },
   },
@@ -224,7 +230,7 @@ const cyberpunkThemes: MarketplaceTheme[] = [
     id: "cyber-arches",
     name: "Cyber Arches",
     description: "Futuristic architectural arches with neon lighting",
-    thumbnail: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=400&h=300&fit=crop",
+    thumbnail: `${thumbnailsPath}/Cyber_Arches_thumbnail.jpg`,
     author: "Neo Digital",
     downloads: 9400,
     rating: 4.7,
@@ -232,7 +238,7 @@ const cyberpunkThemes: MarketplaceTheme[] = [
     theme: {
       background: {
         type: "video",
-        value: "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Cyber_Arches.mp4",
+        value: `${awsS3}/Cyber_Arches.mp4`,
       },
     },
   },
@@ -240,7 +246,7 @@ const cyberpunkThemes: MarketplaceTheme[] = [
     id: "cyber-corridor",
     name: "Cyber Corridor",
     description: "High-tech corridor with flowing digital elements",
-    thumbnail: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&h=300&fit=crop",
+    thumbnail: `${thumbnailsPath}/Cyber_Corridor_thumbnail.jpg`,
     author: "Neo Digital",
     downloads: 10300,
     rating: 4.8,
@@ -248,7 +254,7 @@ const cyberpunkThemes: MarketplaceTheme[] = [
     theme: {
       background: {
         type: "video",
-        value: "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Cyber_Corridor.mp4",
+        value: `${awsS3}/Cyber_Corridor.mp4`,
       },
     },
   },
@@ -256,7 +262,7 @@ const cyberpunkThemes: MarketplaceTheme[] = [
     id: "cyber-dark-lightning",
     name: "Dark Lightning",
     description: "Electric energy with dark atmospheric visuals",
-    thumbnail: "https://images.unsplash.com/photo-1535868463750-2646f8e60f89?w=400&h=300&fit=crop",
+    thumbnail: `${thumbnailsPath}/Dark_Lightning_thumbnail.jpg`,
     author: "Neo Digital",
     downloads: 8700,
     rating: 4.6,
@@ -264,7 +270,7 @@ const cyberpunkThemes: MarketplaceTheme[] = [
     theme: {
       background: {
         type: "video",
-        value: "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Dark_Lightning.mp4",
+        value: `${awsS3}/Dark_Lightning.mp4`,
       },
     },
   },
@@ -272,7 +278,7 @@ const cyberpunkThemes: MarketplaceTheme[] = [
     id: "cyber-night-city",
     name: "Night City",
     description: "Futuristic cityscape with neon lights",
-    thumbnail: "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=400&h=300&fit=crop",
+    thumbnail: `${thumbnailsPath}/Night_City_thumbnail.jpg`,
     author: "Neo Digital",
     downloads: 12500,
     rating: 4.9,
@@ -280,7 +286,7 @@ const cyberpunkThemes: MarketplaceTheme[] = [
     theme: {
       background: {
         type: "video",
-        value: "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Night_City.mp4",
+        value: `${awsS3}/Night_City.mp4`,
       },
     },
   },
@@ -288,7 +294,7 @@ const cyberpunkThemes: MarketplaceTheme[] = [
     id: "cyber-neo",
     name: "Neo",
     description: "Digital matrix-inspired visual effect",
-    thumbnail: "https://images.unsplash.com/photo-1515630278258-407f66498911?w=400&h=300&fit=crop",
+    thumbnail: `${thumbnailsPath}/Neo_thumbnail.jpg`,
     author: "Neo Digital",
     downloads: 9800,
     rating: 4.7,
@@ -306,7 +312,7 @@ const cyberpunkThemes: MarketplaceTheme[] = [
     theme: {
       background: {
         type: "video",
-        value: "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Neo.mp4",
+        value: `${awsS3}/Neo.mp4`,
       },
     },
   },
@@ -318,7 +324,7 @@ const winterThemes: MarketplaceTheme[] = [
     id: "winter-ornaments",
     name: "Christmas Ornaments",
     description: "Festive holiday ornaments with seasonal charm",
-    thumbnail: "https://images.unsplash.com/photo-1607262807149-dfd4c39320a6?w=400&h=300&fit=crop",
+    thumbnail: `${thumbnailsPath}/Christmas_Ornaments_thumbnail.jpg`,
     author: "Marina Waves",
     downloads: 7800,
     rating: 4.6,
@@ -326,8 +332,7 @@ const winterThemes: MarketplaceTheme[] = [
     theme: {
       background: {
         type: "video",
-        value:
-          "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Christmas_Ornaments.mp4",
+        value: `${awsS3}/Christmas_Ornaments.mp4`,
       },
     },
   },
@@ -335,7 +340,7 @@ const winterThemes: MarketplaceTheme[] = [
     id: "winter-sleigh",
     name: "Sleigh Ride",
     description: "Nostalgic winter sleigh ride through snowy landscape",
-    thumbnail: "https://images.unsplash.com/photo-1512389142860-9c449e58a543?w=400&h=300&fit=crop",
+    thumbnail: `${thumbnailsPath}/Sleigh_Ride_thumbnail.jpg`,
     author: "Marina Waves",
     downloads: 6500,
     rating: 4.5,
@@ -343,7 +348,7 @@ const winterThemes: MarketplaceTheme[] = [
     theme: {
       background: {
         type: "video",
-        value: "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Sleigh_Ride.mp4",
+        value: `${awsS3}/Sleigh_Ride.mp4`,
       },
     },
   },
@@ -351,7 +356,7 @@ const winterThemes: MarketplaceTheme[] = [
     id: "winter-snow-globe",
     name: "Snow Globe",
     description: "Magical snow globe with whimsical winter scene",
-    thumbnail: "https://images.unsplash.com/photo-1543557774-0661db793588?w=400&h=300&fit=crop",
+    thumbnail: `${thumbnailsPath}/Snow_Globe_thumbnail.jpg`,
     author: "Marina Waves",
     downloads: 8900,
     rating: 4.7,
@@ -359,7 +364,7 @@ const winterThemes: MarketplaceTheme[] = [
     theme: {
       background: {
         type: "video",
-        value: "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Snow_Globe.mp4",
+        value: `${awsS3}/Snow_Globe.mp4`,
       },
     },
   },
@@ -367,7 +372,7 @@ const winterThemes: MarketplaceTheme[] = [
     id: "winter-snowflakes",
     name: "Snowflakes",
     description: "Beautiful falling snowflakes with winter tranquility",
-    thumbnail: "https://images.unsplash.com/photo-1542376333-4481d6e29c05?w=400&h=300&fit=crop",
+    thumbnail: `${thumbnailsPath}/Snowflakes_thumbnail.jpg`,
     author: "Marina Waves",
     downloads: 9200,
     rating: 4.8,
@@ -375,7 +380,7 @@ const winterThemes: MarketplaceTheme[] = [
     theme: {
       background: {
         type: "video",
-        value: "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Snowflakes.mp4",
+        value: `${awsS3}/Snowflakes.mp4`,
       },
     },
   },
@@ -383,7 +388,7 @@ const winterThemes: MarketplaceTheme[] = [
     id: "winter-wonderland",
     name: "Winter Wonderland",
     description: "Serene winter landscape with magical atmosphere",
-    thumbnail: "https://images.unsplash.com/photo-1483921020237-2ff51e8e4b22?w=400&h=300&fit=crop",
+    thumbnail: `${thumbnailsPath}/Winter_Wonderland_thumbnail.jpg`,
     author: "Marina Waves",
     downloads: 10500,
     rating: 4.9,
@@ -391,8 +396,7 @@ const winterThemes: MarketplaceTheme[] = [
     theme: {
       background: {
         type: "video",
-        value:
-          "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Winter_Wonderland.mp4",
+        value: `${awsS3}/Winter_Wonderland.mp4`,
       },
     },
   },

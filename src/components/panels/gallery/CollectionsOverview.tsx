@@ -1,7 +1,5 @@
 import React from "react";
-import { ExternalLink } from "lucide-react";
 import { collections } from "../../../utils/themes";
-import { StarRating } from "./StarRating";
 
 interface CollectionsOverviewProps {
   onCollectionSelect: (collectionId: string) => void;
@@ -91,44 +89,10 @@ export function CollectionsOverview({ onCollectionSelect }: CollectionsOverviewP
             <div className="p-6">
               <p className="text-gray-600 mb-4">{collection.description}</p>
 
-              {/* Collection Stats */}
-              {/* <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
-                <div className="flex items-center space-x-2">
-                  <StarRating rating={collection.rating} size="sm" />
-                  <span>({collection.rating.toFixed(1)})</span>
-                </div>
-                <span>{collection.themeCount} themes</span>
-                <span>{collection.downloads.toLocaleString()} downloads</span>
-              </div> */}
-
-              {/* Collaborator */}
-              <div className="flex items-center space-x-3 border-t pt-4">
-                <img
-                  src={collection.collaborator.avatar}
-                  alt={collection.collaborator.name}
-                  className="w-10 h-10 rounded-full"
-                />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900">
-                    {collection.collaborator.name}
-                  </p>
-                  <p className="text-sm text-gray-500">Collection Curator</p>
-                </div>
-                <a
-                  href={collection.collaborator.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-2 text-gray-400 hover:text-gray-600"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <ExternalLink className="w-5 h-5" />
-                </a>
+              {/* Hover Overlay */}
+              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <span className="px-6 py-3 bg-white rounded-lg font-medium">View Collection</span>
               </div>
-            </div>
-
-            {/* Hover Overlay */}
-            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-              <span className="px-6 py-3 bg-white rounded-lg font-medium">View Collection</span>
             </div>
           </button>
         );

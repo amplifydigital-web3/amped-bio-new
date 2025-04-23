@@ -1,5 +1,4 @@
 import type { EditorState, UserProfile } from "../types/editor";
-import { AuthUser } from "@/types/auth";
 import AmplifySVG from "../assets/AMPLIFY_FULL_K.svg";
 
 const defaultProfile: UserProfile = {
@@ -80,11 +79,3 @@ const initialState: EditorState = {
 const defaultbio = "This is your default Bio! 🚀";
 
 export default initialState;
-
-export const defaultAuthUser: AuthUser = {
-  email: "info@amplifydigital.ai",
-  id: 0,
-  token: "",
-  onelink: "Amped.Bio",
-  emailVerified: true,
-};
