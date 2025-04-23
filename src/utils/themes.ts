@@ -106,6 +106,166 @@ const modernThemes: MarketplaceTheme[] = [
       },
     },
   },
+  {
+    id: "modern-jade-tunnel",
+    name: "Jade Tunnel",
+    description: "Immersive tunnel experience with jade green hues",
+    thumbnail: `${thumbnailsPath}/Jade_Tunnel_thumbnail.jpg`,
+    author: "Alex Design",
+    downloads: 9100,
+    rating: 4.6,
+    tags: ["tunnel", "modern", "immersive"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Jade_Tunnel.mp4`,
+      },
+    },
+  },
+  {
+    id: "modern-landscape-waves",
+    name: "Landscape Waves",
+    description: "Flowing waves of abstract landscape forms",
+    thumbnail: `${thumbnailsPath}/Landscape_Waves_thumbnail.jpg`,
+    author: "Alex Design",
+    downloads: 8300,
+    rating: 4.5,
+    tags: ["waves", "modern", "landscape"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Landscape_Waves.mp4`,
+      },
+    },
+  },
+  {
+    id: "modern-neon-slide",
+    name: "Neon Slide",
+    description: "Smooth sliding neon elements in motion",
+    thumbnail: `${thumbnailsPath}/Neon_Slide_thumbnail.jpg`,
+    author: "Alex Design",
+    downloads: 10700,
+    rating: 4.7,
+    tags: ["neon", "modern", "motion"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Neon_Slide.mp4`,
+      },
+    },
+  },
+  {
+    id: "modern-neon-stars",
+    name: "Neon Stars",
+    description: "Glowing neon star patterns in cosmic space",
+    thumbnail: `${thumbnailsPath}/Neon_Stars_thumbnail.jpg`,
+    author: "Alex Design",
+    downloads: 11800,
+    rating: 4.8,
+    tags: ["stars", "modern", "space"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Neon_Stars.mp4`,
+      },
+    },
+  },
+  {
+    id: "modern-neon-tunnel",
+    name: "Neon Tunnel",
+    description: "Immersive tunnel with vibrant neon lighting",
+    thumbnail: `${thumbnailsPath}/Neon_Tunnel_thumbnail.jpg`,
+    author: "Alex Design",
+    downloads: 12300,
+    rating: 4.9,
+    tags: ["tunnel", "modern", "neon"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Neon_Tunnel.mp4`,
+      },
+    },
+  },
+  {
+    id: "modern-space-grid",
+    name: "Space Grid",
+    description: "Futuristic grid patterns in cosmic space",
+    thumbnail: `${thumbnailsPath}/Space_Grid_thumbnail.jpg`,
+    author: "Alex Design",
+    downloads: 9600,
+    rating: 4.6,
+    tags: ["grid", "modern", "space"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Space_Grid.mp4`,
+      },
+    },
+  },
+  {
+    id: "modern-sparkle",
+    name: "Sparkle",
+    description: "Elegant sparkling particles in gentle motion",
+    thumbnail: `${thumbnailsPath}/Sparkle_thumbnail.jpg`,
+    author: "Alex Design",
+    downloads: 10500,
+    rating: 4.7,
+    tags: ["sparkle", "modern", "particles"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Sparkle.mp4`,
+      },
+    },
+  },
+  {
+    id: "modern-spotlight",
+    name: "Spotlight",
+    description: "Dynamic spotlight effects with smooth transitions",
+    thumbnail: `${thumbnailsPath}/Spotlight_thumbnail.jpg`,
+    author: "Alex Design",
+    downloads: 8800,
+    rating: 4.5,
+    tags: ["light", "modern", "spotlight"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Spotlight.mp4`,
+      },
+    },
+  },
+  {
+    id: "modern-torus",
+    name: "Torus",
+    description: "Mesmerizing torus geometric form in motion",
+    thumbnail: `${thumbnailsPath}/Torus_thumbnail.jpg`,
+    author: "Alex Design",
+    downloads: 9200,
+    rating: 4.6,
+    tags: ["geometric", "modern", "3D"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Torus.mp4`,
+      },
+    },
+  },
+  {
+    id: "modern-turbulence",
+    name: "Turbulence",
+    description: "Fluid dynamics creating abstract turbulent patterns",
+    thumbnail: `${thumbnailsPath}/Turbulence_thumbnail.jpg`,
+    author: "Alex Design",
+    downloads: 8700,
+    rating: 4.5,
+    tags: ["fluid", "modern", "abstract"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Turbulence.mp4`,
+      },
+    },
+  },
 ];
 
 // Nature & Organic Collection Themes
@@ -203,6 +363,166 @@ const natureThemes: MarketplaceTheme[] = [
       background: {
         type: "video",
         value: `${awsS3}/Sakura.mp4`,
+      },
+    },
+  },
+  {
+    id: "nature-midnight-grove",
+    name: "Midnight Grove",
+    description: "Mystical forest at night with enchanting atmosphere",
+    thumbnail: `${thumbnailsPath}/Midnight_Grove_thumbnail.jpg`,
+    author: "Emma Nature",
+    downloads: 7900,
+    rating: 4.6,
+    tags: ["nature", "forest", "night"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Midnight_Grove.mp4`,
+      },
+    },
+  },
+  {
+    id: "nature-moonlight-campfire",
+    name: "Moonlight Campfire",
+    description: "Cozy campfire under the moonlit sky",
+    thumbnail: `${thumbnailsPath}/Moonlight_Campfire_thumbnail.jpg`,
+    author: "Emma Nature",
+    downloads: 8100,
+    rating: 4.7,
+    tags: ["nature", "night", "fire"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Moonlight_Campfire.mp4`,
+      },
+    },
+  },
+  {
+    id: "nature-mushrooms",
+    name: "Mushrooms",
+    description: "Enchanting mushrooms with magical forest ambiance",
+    thumbnail: `${thumbnailsPath}/Mushrooms_thumbnail.jpg`,
+    author: "Emma Nature",
+    downloads: 7300,
+    rating: 4.5,
+    tags: ["nature", "mushrooms", "forest"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Mushrooms.mp4`,
+      },
+    },
+  },
+  {
+    id: "nature-nebula",
+    name: "Nebula",
+    description: "Cosmic nebula with vibrant space colors",
+    thumbnail: `${thumbnailsPath}/Nebula_thumbnail.jpg`,
+    author: "Emma Nature",
+    downloads: 9100,
+    rating: 4.8,
+    tags: ["nature", "space", "cosmos"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Nebula.mp4`,
+      },
+    },
+  },
+  {
+    id: "nature-peaceful-river",
+    name: "Peaceful River",
+    description: "Gentle flowing river with calming natural sounds",
+    thumbnail: `${thumbnailsPath}/Peaceful_River_thumbnail.jpg`,
+    author: "Emma Nature",
+    downloads: 8200,
+    rating: 4.6,
+    tags: ["nature", "water", "river"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Peaceful_River.mp4`,
+      },
+    },
+  },
+  {
+    id: "nature-poolside",
+    name: "Poolside",
+    description: "Relaxing poolside view with sparkling water",
+    thumbnail: `${thumbnailsPath}/Poolside_thumbnail.jpg`,
+    author: "Emma Nature",
+    downloads: 7600,
+    rating: 4.5,
+    tags: ["nature", "pool", "relax"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Poolside.mp4`,
+      },
+    },
+  },
+  {
+    id: "nature-savannah-sunset",
+    name: "Savannah Sunset",
+    description: "Golden sunset over the vast African savannah",
+    thumbnail: `${thumbnailsPath}/Savannah_Sunset_thumbnail.jpg`,
+    author: "Emma Nature",
+    downloads: 8700,
+    rating: 4.7,
+    tags: ["nature", "sunset", "africa"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Savannah_Sunset.mp4`,
+      },
+    },
+  },
+  {
+    id: "nature-stormy-sky",
+    name: "Stormy Sky",
+    description: "Dramatic clouds with atmospheric storm energy",
+    thumbnail: `${thumbnailsPath}/Stormy_Sky_thumbnail.jpg`,
+    author: "Emma Nature",
+    downloads: 7500,
+    rating: 4.6,
+    tags: ["nature", "storm", "clouds"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Stormy_Sky.mp4`,
+      },
+    },
+  },
+  {
+    id: "nature-sunset-beach",
+    name: "Sunset Beach",
+    description: "Beautiful sunset over tropical beach paradise",
+    thumbnail: `${thumbnailsPath}/Sunset_Beach_thumbnail.jpg`,
+    author: "Emma Nature",
+    downloads: 9800,
+    rating: 4.9,
+    tags: ["nature", "beach", "sunset"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Sunset_Beach.mp4`,
+      },
+    },
+  },
+  {
+    id: "nature-tokyo-spring",
+    name: "Tokyo Spring",
+    description: "Vibrant spring scenes from Tokyo with blossoms",
+    thumbnail: `${thumbnailsPath}/Tokyo_Spring_thumbnail.jpg`,
+    author: "Emma Nature",
+    downloads: 8500,
+    rating: 4.7,
+    tags: ["nature", "japan", "spring"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Tokyo_Spring.mp4`,
       },
     },
   },

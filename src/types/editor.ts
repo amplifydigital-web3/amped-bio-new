@@ -11,6 +11,7 @@ export type UserProfile = {
 };
 
 export type Background = {
+  id?: string;
   type: "color" | "image" | "video";
   value: string;
   label?: string;
