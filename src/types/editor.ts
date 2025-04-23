@@ -18,18 +18,18 @@ export type Background = {
 };
 
 export type ThemeConfig = {
-  buttonStyle: number;
-  containerStyle: number;
+  buttonStyle?: number;
+  containerStyle?: number;
   background: Background;
-  buttonColor: string;
-  containerColor: string;
-  fontFamily: string;
-  fontSize: string;
-  fontColor: string;
-  transparency: number;
-  buttonEffect: number;
-  particlesEffect: number;
-  heroEffect: number;
+  buttonColor?: string;
+  containerColor?: string;
+  fontFamily?: string;
+  fontSize?: string;
+  fontColor?: string;
+  transparency?: number;
+  buttonEffect?: number;
+  particlesEffect?: number;
+  heroEffect?: number;
 };
 
 export type Theme = {
