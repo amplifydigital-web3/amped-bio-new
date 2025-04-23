@@ -21,7 +21,7 @@ const ResetPasswordTemplate = ({ url }: { url: string }) => {
         <Body className="bg-[#edf2f7] font-sans py-[40px]">
           <Container className="max-w-[570px] mx-auto">
             <Section className="text-center py-[25px]">
-              <Text className="text-[#3d4852] text-[19px] font-bold">Amped-Bio</Text>
+              <Text className="text-[#3d4852] text-[19px] font-bold">Amped.Bio</Text>
             </Section>
 
             <Container className="bg-white rounded-[2px] border border-[#e8e5ef] p-[32px] shadow-sm">
@@ -54,7 +54,7 @@ const ResetPasswordTemplate = ({ url }: { url: string }) => {
               <Text className="text-[16px] leading-[1.5em] text-[#3d4852] mt-0 text-left">
                 Regards,
                 <br />
-                Amped-Bio
+                Amped.Bio
               </Text>
 
               <Hr className="border-t border-[#e8e5ef] my-[25px]" />

@@ -215,7 +215,7 @@ export function Preview(props: PreviewProps) {
                     color: theme.fontColor,
                   }}
                 >
-                  Powered by Amped-Bio
+                  Powered by Amped.Bio
                 </p>
               </div>
             </div>

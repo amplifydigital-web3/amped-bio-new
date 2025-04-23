@@ -88,7 +88,7 @@ export const sendEmailVerification = async (email: string, token: string) => {
   console.log("📨 Sending verification email...");
   return sendEmail({
     to: email,
-    subject: "Amped-Bio Email Verification",
+    subject: "Amped.Bio Email Verification",
     html_body: htmlContent,
   });
 };
@@ -106,7 +106,7 @@ export const sendPasswordResetEmail = async (email: string, token: string) => {
   console.log("📨 Sending password reset email...");
   return sendEmail({
     to: email,
-    subject: "Amped-Bio Password Reset",
+    subject: "Amped.Bio Password Reset",
     html_body: htmlContent,
   });
 };
