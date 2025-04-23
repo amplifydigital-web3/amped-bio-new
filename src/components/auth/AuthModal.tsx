@@ -334,11 +334,11 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
           <form onSubmit={handleSubmitSignUp(onSubmitRegister)} className="space-y-4">
             <div className="relative">
               <Input
-                label="Amped-Bio Unique URL"
+                label="Amped.Bio Unique URL"
                 leftText="@"
                 error={registerErrors.onelink?.message}
                 required
-                aria-label="Amped-Bio Unique URL"
+                aria-label="Amped.Bio Unique URL"
                 autoComplete="username"
                 placeholder="your-url"
                 {...registerSignUp("onelink")}
