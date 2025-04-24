@@ -5,11 +5,11 @@ interface HeroEffectPickerProps {
 
 const heroEffects = [
   { id: 0, name: "None", description: "No text effect" },
-  { id: 1, name: "Gradient", description: "Animated gradient text" },
+  // { id: 1, name: "Gradient", description: "Animated gradient text" }, is not working properly
   { id: 2, name: "Glow", description: "Soft glowing text" },
-  { id: 3, name: "Typewriter", description: "Typing animation" },
-  { id: 4, name: "Fade In", description: "Smooth fade in" },
-  { id: 5, name: "Slide Up", description: "Slide up animation" },
+  // { id: 3, name: "Typewriter", description: "Typing animation" }, is not working properly
+  // { id: 4, name: "Fade In", description: "Smooth fade in" }, is not working properly
+  // { id: 5, name: "Slide Up", description: "Slide up animation" }, is not working properly
   { id: 6, name: "Wave", description: "Wavy text effect" },
   { id: 7, name: "Neon", description: "Neon light effect" },
   { id: 8, name: "Rainbow", description: "Rainbow color cycle" },

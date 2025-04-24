@@ -10,7 +10,7 @@ const particlesEffects = [
   { id: 3, name: "Snow", description: "Falling snow effect" },
   { id: 4, name: "Bubbles", description: "Rising bubble particles" },
   { id: 5, name: "Fireflies", description: "Glowing firefly effect" },
-  { id: 6, name: "Matrix", description: "Digital rain effect" },
+  // { id: 6, name: "Matrix", description: "Digital rain effect" }, is not working properly
   { id: 7, name: "Confetti", description: "Colorful confetti particles" },
   { id: 8, name: "Stars", description: "Twinkling stars effect" },
   { id: 9, name: "Geometric", description: "Connected geometric shapes" },

@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { useEditorStore } from "../store/editorStore";
 import { ParticlesBackground } from "./particles/ParticlesBackground";
 import { cn } from "../utils/cn";
@@ -81,7 +82,7 @@ export function Preview(props: PreviewProps) {
             />
           ) : null}
           <div className="absolute inset-0">
-            <ParticlesBackground effect={theme.particlesEffect} />
+            <ParticlesBackground effect={theme.particlesEffect ?? 0} />
           </div>
         </div>
 
@@ -97,7 +98,9 @@ export function Preview(props: PreviewProps) {
             <div
               className={cn("w-full space-y-8 p-8", getContainerStyle(theme.containerStyle))}
               style={{
-                backgroundColor: `${theme.containerColor}${Math.round(theme.transparency * 2.55)
+                backgroundColor: `${theme.containerColor}${Math.round(
+                  (theme.transparency ?? 0) * 2.55
+                )
                   .toString(16)
                   .padStart(2, "0")}`,
               }}
@@ -208,15 +211,16 @@ export function Preview(props: PreviewProps) {
 
               {/* Powered by footer */}
               <div className="pt-4 text-center">
-                <p
-                  className="text-sm opacity-70"
+                <Link
+                  to="/register"
+                  className="text-sm opacity-70 hover:opacity-100 transition-opacity"
                   style={{
                     fontFamily: theme.fontFamily,
                     color: theme.fontColor,
                   }}
                 >
-                  Powered by Amped.Bio
-                </p>
+                  Claim your own Amped.Bio
+                </Link>
               </div>
             </div>
           </div>

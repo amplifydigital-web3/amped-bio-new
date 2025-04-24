@@ -2,7 +2,6 @@ import React, { useRef } from "react";
 import { useEditorStore } from "../store/editorStore";
 import {
   User,
-  Link,
   Palette,
   Sparkles,
   Sparkle,
@@ -11,8 +10,6 @@ import {
   CoinsIcon,
   Trophy,
   AtSign,
-  Download,
-  Upload,
   Home,
 } from "lucide-react";
 import { exportSettings } from "../utils/export";
@@ -26,7 +23,7 @@ const allNavItems = [
   { id: "appearance", icon: Palette, label: "Appearance", alwaysShow: true },
   { id: "effects", icon: Sparkles, label: "Effects", alwaysShow: true },
   { id: "blocks", icon: LayoutGrid, label: "Blocks", alwaysShow: true },
-  { id: "reward", icon: Sparkle, label: "Reward", environmentFlag: "VITE_SHOW_REWARD" },
+  { id: "reward", icon: Sparkle, label: "Reward", alwaysShow: false },
   {
     id: "creatorpool",
     icon: CoinsIcon,

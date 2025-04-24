@@ -39,23 +39,25 @@ const containerStyles = [
     preview:
       "bg-white rounded-2xl border-2 border-gray-200 outline outline-2 outline-offset-2 outline-gray-100",
   },
-  {
-    id: 6,
-    name: "Morphic",
-    preview:
-      "bg-white/90 rounded-[2.5rem] shadow-[inset_0_0_30px_rgba(0,0,0,0.05),0_20px_40px_rgba(0,0,0,0.1)]",
-  },
+  // is not working properly
+  // {
+  //   id: 6,
+  //   name: "Morphic",
+  //   preview:
+  //     "bg-white/90 rounded-[2.5rem] shadow-[inset_0_0_30px_rgba(0,0,0,0.05),0_20px_40px_rgba(0,0,0,0.1)]",
+  // },
   {
     id: 7,
     name: "Minimal Glass",
     preview: "bg-white/50 backdrop-blur-sm rounded-xl border border-white/20",
   },
-  {
-    id: 8,
-    name: "Soft Depth",
-    preview:
-      "relative before:absolute before:inset-x-0 before:top-0 before:-translate-y-[calc(100%-2rem)] before:h-24 before:bg-white/90 before:[border-radius:187.5px_187.5px_0_0] before:-z-10 bg-white/90 rounded-3xl shadow-[0_8px_32px_-4px_rgba(0,0,0,0.1),0_2px_8px_-2px_rgba(0,0,0,0.05)] backdrop-blur-sm",
-  },
+  // is not working properly
+  // {
+  //   id: 8,
+  //   name: "Soft Depth",
+  //   preview:
+  //     "relative before:absolute before:inset-x-0 before:top-0 before:-translate-y-[calc(100%-2rem)] before:h-24 before:bg-white/90 before:[border-radius:187.5px_187.5px_0_0] before:-z-10 bg-white/90 rounded-3xl shadow-[0_8px_32px_-4px_rgba(0,0,0,0.1),0_2px_8px_-2px_rgba(0,0,0,0.05)] backdrop-blur-sm",
+  // },
   {
     id: 9,
     name: "Modern Card",
