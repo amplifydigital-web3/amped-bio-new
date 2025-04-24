@@ -1,7 +1,4 @@
-import type { Theme } from "../types/editor";
-import { cn } from "./cn";
-
-export function getButtonBaseStyle(style: number): string {
+export function getButtonBaseStyle(style?: number): string {
   const styles = {
     0: "rounded-lg bg-gray-100",
     1: "rounded-full bg-gray-100",
@@ -18,7 +15,7 @@ export function getButtonBaseStyle(style: number): string {
   return styles[style as keyof typeof styles] || styles[0];
 }
 
-export function getContainerStyle(style: number): string {
+export function getContainerStyle(style?: number): string {
   const styles = {
     0: "",
     1: "bg-white/70 backdrop-blur-md rounded-2xl shadow-lg",
@@ -35,7 +32,7 @@ export function getContainerStyle(style: number): string {
   return styles[style as keyof typeof styles] || "";
 }
 
-export function getButtonEffectStyle(effect: number): string {
+export function getButtonEffectStyle(effect?: number): string {
   const effects = {
     0: "",
     1: "hover:scale-105 transition-transform",
@@ -52,7 +49,7 @@ export function getButtonEffectStyle(effect: number): string {
   return effects[effect as keyof typeof effects] || "";
 }
 
-export function getHeroEffectStyle(effect: number): string {
+export function getHeroEffectStyle(effect?: number): string {
   const effects = {
     0: "",
     1: "bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-purple-500 animate-gradient",

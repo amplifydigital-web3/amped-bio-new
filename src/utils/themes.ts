@@ -619,16 +619,6 @@ const cyberpunkThemes: MarketplaceTheme[] = [
     downloads: 9800,
     rating: 4.7,
     tags: ["cyberpunk", "matrix", "digital"],
-    locked: true,
-    nftRequirement: {
-      contractAddress: "0x456...",
-      chainId: 1,
-      minBalance: 1,
-      name: "Cyberpunk NFT",
-      image: "https://images.unsplash.com/photo-1515630278258-407f66498911?w=100&h=100&fit=crop",
-      price: "0.15 ETH",
-      marketplace: "https://opensea.io",
-    },
     theme: {
       background: {
         type: "video",
