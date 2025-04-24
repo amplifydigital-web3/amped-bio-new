@@ -8,6 +8,7 @@ import { toast } from "react-hot-toast";
 import { useOnelinkAvailability } from "@/hooks/useOnelinkAvailability";
 import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
 import { normalizeOnelink, formatOnelink, cleanOnelinkInput } from "@/utils/onelink";
+import { useAuthStore } from "@/store/authStore";
 
 export function URLPicker() {
   // Extract profile data safely from the store
@@ -26,7 +27,7 @@ export function URLPicker() {
   const { urlStatus, isValid, isCurrentUrl } = useOnelinkAvailability(url, currentOnelink);
 
   const setProfile = useEditorStore(state => state.setProfile);
-  const saveChanges = useEditorStore(state => state.saveChanges);
+  const { updateAuthUser } = useAuthStore();
   const nav = useNavigate();
 
   // Update local state if profile changes
@@ -59,20 +60,23 @@ export function URLPicker() {
       const response = await redeemOnelink(normalizedURL);
 
       if (response.success) {
-        // Show success toast
         toast.success("URL updated successfully!");
-
-        // Update local state on success with both versions
-        setProfile({
-          ...profile,
-          onelink: normalizedURL,
-          onelinkFormatted: formattedURL,
-        });
-
-        saveChanges();
-
         // Navigate to the new URL
-        nav(`/${formattedURL}/edit`);
+        console.log("REDIRECTING USER TO THE NEW URL ====>", formattedURL);
+        nav(`/${formattedURL}`);
+
+        setTimeout(() => {
+          // Update local state on success with both versions
+          setProfile({
+            ...profile,
+            onelink: normalizedURL,
+            onelinkFormatted: formattedURL,
+          });
+
+          updateAuthUser({
+            onelink: normalizedURL,
+          });
+        }, 500);
       } else {
         // Handle unsuccessful response
         console.error("Failed to update onelink:", response.message);

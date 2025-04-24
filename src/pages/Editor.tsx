@@ -9,7 +9,7 @@ import { toast } from "react-hot-toast";
 
 export function Editor() {
   const { onelink = "" } = useParams();
-  const { authUser } = useAuthStore();
+  const { authUser, updateAuthUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [authorized, setAuthorized] = useState(false);
   const profile = useEditorStore(state => state.profile);
