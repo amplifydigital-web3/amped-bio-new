@@ -33,7 +33,7 @@ interface EditorStore extends EditorState {
   updateThemeConfig: (theme: Partial<ThemeConfig>) => void;
   setActivePanel: (panel: string) => void;
   setBackground: (background: Background) => void;
-  saveChanges: () => void;
+  saveChanges: () => Promise<void>;
   setDefault: () => void;
   addToGallery: (image: GalleryImage) => void;
   removeFromGallery: (url: string) => void;
@@ -113,7 +113,6 @@ export const useEditorStore = create<EditorStore>()(set => ({
     ) {
       updatedProfile.onelink = normalizeOnelink(profile.onelinkFormatted);
     }
-
     set({ profile: updatedProfile, changes: true });
     console.info(
       "✅ Profile updated with onelink:",

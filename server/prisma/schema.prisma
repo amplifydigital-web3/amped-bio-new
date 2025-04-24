@@ -23,7 +23,7 @@ model User {
   auth_as            Int?
   provider           String?      @db.VarChar(255) //unused
   provider_id        String?      @db.VarChar(255) //unused
-  image              String?      @db.VarChar(255)
+  image              String?      @db.LongText
   reward_business_id String?      @db.VarChar(255)
   created_at         DateTime     @default(now())
   updated_at         DateTime?

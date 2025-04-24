@@ -13,7 +13,7 @@ CREATE TABLE `users` (
   `auth_as` int(11) DEFAULT NULL,
   `provider` varchar(255) DEFAULT NULL,
   `provider_id` varchar(255) DEFAULT NULL,
-  `image` varchar(255) DEFAULT NULL,
+  `image` longtext DEFAULT NULL,
   `reward_business_id` varchar(255) DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT NULL,

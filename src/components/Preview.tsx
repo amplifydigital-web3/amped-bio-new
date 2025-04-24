@@ -115,7 +115,7 @@ export function Preview(props: PreviewProps) {
                       alt={profile.name}
                       className="w-32 h-32 rounded-full object-cover ring-4 ring-white/50 shadow-xl"
                     />
-                    <div className="absolute -inset-1 rounded-full blur-lg bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-30 group-hover:opacity-50 transition-opacity" />
+                    <div className="absolute -inset-1 rounded-full" />
                   </div>
                 )}
                 {profile.photoCmp && (

@@ -8,6 +8,7 @@ import { AuthModal } from "../components/auth/AuthModal";
 import { formatOnelink, normalizeOnelink } from "@/utils/onelink";
 import type { AuthUser } from "../types/auth";
 import { UserMenu } from "../components/auth/UserMenu";
+import AMPLIFY_FULL_K from "@/assets/AMPLIFY_FULL_K.svg";
 
 // Default onelink username to show when accessing root URL
 const DEFAULT_ONELINK = "landingpage";
@@ -121,7 +122,7 @@ export function View() {
       {shouldShowNavbar && (
         <header className="sticky top-0 z-30 h-16 border-b bg-white px-6 flex items-center justify-between shrink-0 shadow-sm">
           <div className="flex items-center">
-            <img src="/src/assets/AMPLIFY_FULL_K.svg" alt="Amplify Logo" className="h-8" />
+            <img src={AMPLIFY_FULL_K} alt="Amplify Logo" className="h-8" />
           </div>
           <UserMenu />
         </header>

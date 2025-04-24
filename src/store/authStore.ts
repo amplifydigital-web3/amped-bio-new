@@ -10,6 +10,7 @@ type AuthState = {
   signUp: (onelink: string, email: string, password: string) => Promise<AuthUser>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<string>;
+  updateAuthUser: (userData: Partial<AuthUser>) => void;
 };
 
 type AuthPersistOptions = PersistOptions<AuthState>;
@@ -72,6 +73,12 @@ export const useAuthStore = create<AuthState>()(
           set({ error: (error as Error).message });
           throw error;
         }
+      },
+
+      updateAuthUser: (userData: Partial<AuthUser>) => {
+        set(state => ({
+          authUser: state.authUser ? { ...state.authUser, ...userData } : null,
+        }));
       },
     }),
     persistOptions

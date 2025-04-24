@@ -45,8 +45,8 @@ export function PhotoEditor({ imageUrl, onSave, onCancel }: PhotoEditorProps) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Set canvas size to desired output size (e.g., 400x400 for profile photo)
-    const size = 400;
+    // Set canvas size to desired output size (250x250 for profile photo)
+    const size = 250;
     canvas.width = size;
     canvas.height = size;
 
@@ -68,8 +68,8 @@ export function PhotoEditor({ imageUrl, onSave, onCancel }: PhotoEditorProps) {
 
     ctx.restore();
 
-    // Convert canvas to data URL and save
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+    // Convert canvas to data URL and save with 80% quality
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
     onSave(dataUrl);
   };
 
