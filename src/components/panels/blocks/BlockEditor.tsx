@@ -7,7 +7,8 @@ import { getPlatformName, getPlatformUrl } from "@/utils/platforms";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { extractUsernameFromUrl, LinkFormInputs } from "./LinkForm";
+import { extractUsernameFromUrl, LinkFormInputs, linkFormSchema } from "./LinkForm";
+import { useMemo } from "react";
 
 // Helper function to validate YouTube URLs
 const isValidYouTubeUrl = (url: string): boolean => {
@@ -48,6 +49,8 @@ const textBlockSchema = z.object({
   platform: z.string().optional(),
 });
 
+const linkBlockSchema = linkFormSchema;
+
 // Dynamic schema based on block type
 const createBlockSchema = (blockType: string, platform?: string) => {
   if (blockType === "text") {
@@ -74,6 +77,8 @@ const createBlockSchema = (blockType: string, platform?: string) => {
         path: ["url"],
       }
     );
+  } else if (blockType === "link") {
+    return linkBlockSchema;
   }
 
   return z.object({});
@@ -91,6 +96,20 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
     block.type === "media" ? block.config.platform : undefined
   );
 
+  // For link blocks, extract username from url if it exists
+  const initialValues = useMemo(() => {
+    const values = { ...block.config };
+    if (block.type === "link" && block.config.url && block.config.platform) {
+      const username = extractUsernameFromUrl(block.config.platform, block.config.url);
+      if (username) {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-expect-error
+        values.username = username;
+      }
+    }
+    return values;
+  }, [block.config, block.type]);
+
   const {
     watch,
     setValue,
@@ -99,17 +118,25 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
     formState: { errors },
   } = useForm({
     resolver: zodResolver(blockSchema),
-    defaultValues: block.config as any,
+    defaultValues: initialValues as any,
   });
 
   const onSubmit = (data: any) => {
     console.log("Submitted data:", data);
 
+    // For link blocks, ensure we have the correct URL based on platform/username
     if (block.type === "link") {
-      data.url = getPlatformUrl(block.config.platform, data.username);
-    }
+      // Only modify URL if we have both platform and username
+      if (data.platform && data.platform !== "custom" && data.username) {
+        data.url = getPlatformUrl(data.platform, data.username);
+      }
 
-    onSave(data);
+      // Remove username from final data as it's not needed in the config
+      const { username, ...configData } = data;
+      onSave(configData);
+    } else {
+      onSave(data);
+    }
   };
 
   return (
@@ -117,7 +144,13 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
       <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">
-            Edit {block.type === "media" ? getPlatformName(block.config.platform) : "Text"} Block
+            Edit{" "}
+            {block.type === "media"
+              ? getPlatformName(block.config.platform)
+              : block.type === "link"
+                ? "Link"
+                : "Text"}{" "}
+            Block
           </h3>
           <button onClick={onCancel} className="p-1 text-gray-500 hover:text-gray-700">
             <X className="w-5 h-5" />
