@@ -1,10 +1,13 @@
-import { useState } from "react";
 import { X } from "lucide-react";
 import { Input } from "../../ui/Input";
 import { Textarea } from "../../ui/Textarea";
 import { Button } from "../../ui/Button";
-import { BlockType, MediaBlock } from "@/api/api.types";
-import { getPlatformName } from "@/utils/platforms";
+import { BlockType } from "@/api/api.types";
+import { getPlatformName, getPlatformUrl } from "@/utils/platforms";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { extractUsernameFromUrl, LinkFormInputs } from "./LinkForm";
 
 // Helper function to validate YouTube URLs
 const isValidYouTubeUrl = (url: string): boolean => {
@@ -32,6 +35,50 @@ const isValidSpotifyUrl = (url: string): boolean => {
   return spotifyRegex.test(url);
 };
 
+// Create Zod schemas for validation
+const mediaBlockSchema = z.object({
+  url: z.string().min(1, "URL is required"),
+  label: z.string().optional(),
+  content: z.string().optional(),
+  platform: z.string(),
+});
+
+const textBlockSchema = z.object({
+  content: z.string().min(1, "Content is required"),
+  platform: z.string().optional(),
+});
+
+// Dynamic schema based on block type
+const createBlockSchema = (blockType: string, platform?: string) => {
+  if (blockType === "text") {
+    return textBlockSchema;
+  } else if (blockType === "media") {
+    return mediaBlockSchema.refine(
+      data => {
+        if (!data.url) return true;
+
+        if (platform === "youtube") {
+          return isValidYouTubeUrl(data.url);
+        } else if (platform === "instagram") {
+          return isValidInstagramUrl(data.url);
+        } else if (platform === "twitter" || platform === "x") {
+          return isValidXUrl(data.url);
+        } else if (platform === "spotify") {
+          return isValidSpotifyUrl(data.url);
+        }
+
+        return true;
+      },
+      {
+        message: "Please enter a valid URL for this platform",
+        path: ["url"],
+      }
+    );
+  }
+
+  return z.object({});
+};
+
 interface BlockEditorProps {
   block: BlockType;
   onSave: (block: BlockType["config"]) => void;
@@ -39,61 +86,30 @@ interface BlockEditorProps {
 }
 
 export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
-  const [config, setConfig] = useState(block.config);
-  const [urlError, setUrlError] = useState<string | null>(null);
+  const blockSchema = createBlockSchema(
+    block.type,
+    block.type === "media" ? block.config.platform : undefined
+  );
 
-  const validateUrl = (url: string) => {
-    if (!url) return true;
+  const {
+    watch,
+    setValue,
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(blockSchema),
+    defaultValues: block.config as any,
+  });
 
-    if (block.type === "media") {
-      const mediaBlock = block as MediaBlock;
+  const onSubmit = (data: any) => {
+    console.log("Submitted data:", data);
 
-      if (mediaBlock.config.platform === "youtube") {
-        if (!isValidYouTubeUrl(url)) {
-          setUrlError("Please enter a valid YouTube video or Shorts URL");
-          return false;
-        }
-      } else if (mediaBlock.config.platform === "instagram") {
-        if (!isValidInstagramUrl(url)) {
-          setUrlError("Please enter a valid Instagram post, reel, or TV URL");
-          return false;
-        }
-      } else if (mediaBlock.config.platform === "twitter") {
-        if (!isValidXUrl(url)) {
-          setUrlError("Please enter a valid X.com or Twitter post URL");
-          return false;
-        }
-      } else if (mediaBlock.config.platform === "spotify") {
-        if (!isValidSpotifyUrl(url)) {
-          setUrlError("Please enter a valid Spotify track, album, playlist, show, or episode URL");
-          return false;
-        }
-      }
+    if (block.type === "link") {
+      data.url = getPlatformUrl(block.config.platform, data.username);
     }
 
-    setUrlError(null);
-    return true;
-  };
-
-  const handleUrlChange = (url: string) => {
-    setConfig({ ...config, url } as MediaBlock["config"]);
-    validateUrl(url);
-  };
-
-  const handleSave = () => {
-    if (
-      block.type === "media" &&
-      (config.platform === "youtube" ||
-        config.platform === "instagram" ||
-        config.platform === "twitter" ||
-        config.platform === "x" ||
-        config.platform === "spotify")
-    ) {
-      if (!validateUrl(config.url || "")) {
-        return;
-      }
-    }
-    onSave(config);
+    onSave(data);
   };
 
   return (
@@ -108,31 +124,34 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
           </button>
         </div>
 
-        <div className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {block.type === "link" && (
+            <LinkFormInputs register={register} errors={errors} watch={watch} setValue={setValue} />
+          )}
+
           {block.type === "media" && (
             <>
               <Input
                 label="URL"
                 type="url"
-                defaultValue={block.config.url || ""}
-                onChange={e => handleUrlChange(e.target.value)}
                 placeholder="Enter media URL"
-                error={urlError}
+                error={errors.url?.message?.toString()}
+                {...register("url")}
               />
               <Input
                 label="Label"
                 type="text"
-                defaultValue={block.config.label || ""}
-                onChange={e => setConfig({ ...config, label: e.target.value })}
                 placeholder="Enter a label (optional)"
+                error={errors.label?.message?.toString()}
+                {...register("label")}
               />
               {block.config.content !== undefined && (
                 <Textarea
                   label="Content"
-                  defaultValue={block.config.content || ""}
-                  onChange={e => setConfig({ ...config, content: e.target.value })}
                   placeholder="Enter additional content"
                   rows={4}
+                  error={errors.content?.message?.toString()}
+                  {...register("content")}
                 />
               )}
             </>
@@ -140,22 +159,20 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
           {block.type === "text" && (
             <Textarea
               label="Content"
-              defaultValue={block.config.content || ""}
-              onChange={e => {
-                setConfig({ ...config, content: e.target.value });
-              }}
               placeholder="Enter your text content"
               rows={4}
+              error={errors.content?.message?.toString()}
+              {...register("content")}
             />
           )}
 
           <div className="flex justify-end space-x-3">
-            <Button variant="outline" onClick={onCancel}>
+            <Button variant="outline" type="button" onClick={onCancel}>
               Cancel
             </Button>
-            <Button onClick={handleSave}>Save Changes</Button>
+            <Button type="submit">Save Changes</Button>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );

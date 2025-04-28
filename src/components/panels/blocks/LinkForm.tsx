@@ -1,107 +1,136 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import { Plus } from "lucide-react";
-import { Input } from "../../ui/Input";
-import { PlatformSelect } from "./PlatformSelect";
-import { PlatformId, getPlatformUrl } from "@/utils/platforms";
+import { PlatformId, getPlatformUrl, platforms } from "@/utils/platforms";
 import { LinkBlock } from "@/api/api.types";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Input } from "../../ui/Input";
+import { Button } from "../../ui/Button";
 
 interface LinkFormProps {
   onAdd: (block: LinkBlock) => void;
 }
 
-export function LinkForm({ onAdd }: LinkFormProps) {
-  const [url, setUrl] = useState("");
-  const [username, setUsername] = useState("");
-  const [platform, setPlatform] = useState<PlatformId | null>(null);
-  const [label, setLabel] = useState("");
-  const [error, setError] = useState("");
+// Zod schema for form validation
+const linkFormSchema = z.object({
+  platform: z.string().min(1, "Platform is required"),
+  username: z
+    .string()
+    .optional()
+    .refine(
+      val => !val || /^[a-zA-Z0-9._-]*$/.test(val),
+      "Username can only contain letters, numbers, dots, hyphens, and underscores"
+    ),
+  url: z.string().min(1, "URL is required"),
+  label: z.string().min(1, "Label is required"),
+});
+
+type FormData = z.infer<typeof linkFormSchema>;
+
+// Utility function to extract username from URL
+// eslint-disable-next-line react-refresh/only-export-components
+export function extractUsernameFromUrl(platform: PlatformId, url: string): string | null {
+  // Skip for custom and document platforms
+  if (platform === "custom" || platform === "document") {
+    return null;
+  }
+
+  // For email platform
+  if (platform === "email" && url.startsWith("mailto:")) {
+    const emailMatch = url.match(/mailto:(.*)/);
+    if (emailMatch && emailMatch[1]) {
+      return emailMatch[1];
+    }
+  }
+  // For other platforms
+  else {
+    const platformUrlPattern = getPlatformUrl(platform, "").replace("{{username}}", "");
+    if (url.startsWith(platformUrlPattern)) {
+      return url.replace(platformUrlPattern, "");
+    }
+  }
+
+  return null;
+}
+
+// Abstract component for the link form inputs
+interface LinkFormInputsProps {
+  register: any;
+  errors: any;
+  watch: any;
+  setValue: any;
+}
+
+export function LinkFormInputs({ register, errors, watch, setValue }: LinkFormInputsProps) {
+  const platform = watch("platform") as PlatformId | "";
+  const username = watch("username");
+  const url = watch("url");
+  const firstLoad = React.useRef(true);
+
+  // Extract username from URL on initial load if username is empty
+  useEffect(() => {
+    if (platform && url && firstLoad.current) {
+      const extractedUsername = extractUsernameFromUrl(platform as PlatformId, url);
+      if (extractedUsername) {
+        setValue("username", extractedUsername);
+        firstLoad.current = false;
+      }
+    }
+  }, [platform, url, username, setValue]);
 
   // Update URL when username or platform changes (for non-custom platforms)
   useEffect(() => {
     if (platform && platform !== "custom" && username) {
-      setUrl(getPlatformUrl(platform, username));
+      setValue("url", getPlatformUrl(platform as PlatformId, username));
     }
-  }, [platform, username]);
+  }, [platform, username, setValue]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!url || !platform || !label) return;
-    if (error) return;
-
-    onAdd({
-      id: 0,
-      type: "link",
-      order: 0,
-      config: {
-        platform,
-        url,
-        label,
-      },
-    });
-
-    setUrl("");
-    setUsername("");
-    setPlatform(null);
-    setLabel("");
-    setError("");
-  };
-
-  const handlePlatformChange = (value: PlatformId) => {
-    setPlatform(value);
-    // Reset fields when changing platforms
-    setUsername("");
-    setError("");
+  const handlePlatformChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value as PlatformId;
+    setValue("platform", value);
+    setValue("username", "");
     if (value === "custom") {
-      setUrl("");
-    }
-  };
-
-  const isValidUsername = (value: string): boolean => {
-    // Allow alphanumeric characters, hyphens, underscores, periods
-    const validUsernamePattern = /^[a-zA-Z0-9._-]*$/;
-    return validUsernamePattern.test(value);
-  };
-
-  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-
-    if (platform === "email") {
-      // Email validation is handled by the input type="email"
-      setUsername(value);
-      setError("");
-    } else if (platform === "document") {
-      // Full URL - allow the input
-      setUsername(value);
-      setError("");
-    } else if (!value || isValidUsername(value)) {
-      setUsername(value);
-      setError("");
-    } else {
-      setError("Username can only contain letters, numbers, dots, hyphens, and underscores");
+      setValue("url", "");
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <PlatformSelect value={platform} onChange={handlePlatformChange} />
+    <>
+      <div className="space-y-1">
+        <label className="block text-sm font-medium text-gray-700">Platform</label>
+        <select
+          {...register("platform")}
+          onChange={handlePlatformChange}
+          className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+            errors.platform ? "border-red-500" : "border-gray-300"
+          }`}
+        >
+          <option value="">Select a platform</option>
+          {platforms.map(platform => (
+            <option key={platform.id} value={platform.id}>
+              {platform.name}
+            </option>
+          ))}
+        </select>
+        {errors.platform && <p className="text-red-500 text-xs mt-1">{errors.platform.message}</p>}
+      </div>
 
       {platform === "custom" ? (
         <Input
           label="URL"
           type="url"
-          value={url}
-          onChange={e => setUrl(e.target.value)}
           placeholder="https://"
-          required
+          error={errors.url?.message?.toString()}
+          {...register("url")}
         />
       ) : platform === "email" ? (
         <Input
           label="Email Address"
           type="email"
-          value={username}
-          onChange={handleUsernameChange}
           placeholder="your@email.com"
-          required
+          error={errors.username?.message?.toString()}
+          {...register("username")}
         />
       ) : platform ? (
         <div>
@@ -109,42 +138,83 @@ export function LinkForm({ onAdd }: LinkFormProps) {
             {platform === "document" ? "Document URL" : "Username"}
           </label>
           <div
-            className={`flex items-center border rounded-md overflow-hidden ${error ? "border-red-500" : ""}`}
+            className={`flex items-center border rounded-md overflow-hidden ${
+              errors.username ? "border-red-500" : "border-gray-300"
+            }`}
           >
             {platform !== "document" && (
               <span className="bg-gray-100 px-3 py-2 text-gray-500 text-sm border-r">
-                {getPlatformUrl(platform, "").replace("{{username}}", "")}
+                {getPlatformUrl(platform as PlatformId, "").replace("{{username}}", "")}
               </span>
             )}
             <input
               type="text"
-              value={username}
-              onChange={handleUsernameChange}
-              className={`flex-grow px-3 py-2 focus:outline-none ${error ? "bg-red-50" : ""}`}
+              {...register("username")}
+              className={`flex-grow px-3 py-2 focus:outline-none ${errors.username ? "bg-red-50" : ""}`}
               placeholder={platform === "document" ? "https://example.com/doc" : "username"}
-              required
             />
           </div>
-          {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+          {errors.username && (
+            <p className="text-red-500 text-xs mt-1">{errors.username.message}</p>
+          )}
         </div>
       ) : null}
 
+      {/* Hidden URL field for non-custom platforms */}
+      <input type="hidden" {...register("url")} />
+
       <Input
         label="Label"
-        value={label}
-        onChange={e => setLabel(e.target.value)}
+        type="text"
         placeholder="Display text for your link"
-        required
+        error={errors.label?.message?.toString()}
+        {...register("label")}
       />
+    </>
+  );
+}
 
-      <button
-        type="submit"
-        disabled={!!error}
-        className={`w-full flex items-center justify-center px-4 py-2 text-white rounded-md ${error ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"}`}
-      >
+export function LinkForm({ onAdd }: LinkFormProps) {
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    watch,
+    setValue,
+    reset,
+  } = useForm<FormData>({
+    resolver: zodResolver(linkFormSchema),
+    defaultValues: {
+      platform: "",
+      username: "",
+      url: "",
+      label: "",
+    },
+  });
+
+  const onSubmit = (data: FormData) => {
+    onAdd({
+      id: 0,
+      type: "link",
+      order: 0,
+      config: {
+        platform: data.platform as PlatformId,
+        url: data.url,
+        label: data.label,
+      },
+    });
+
+    reset();
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <LinkFormInputs register={register} errors={errors} watch={watch} setValue={setValue} />
+
+      <Button type="submit" className="w-full flex items-center justify-center">
         <Plus className="w-4 h-4 mr-2" />
         Add Link
-      </button>
+      </Button>
     </form>
   );
 }
