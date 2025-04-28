@@ -58,14 +58,19 @@ export function SortableItem({ id, block, onEdit, onRemove }: SortableItemProps)
 
       <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
         {block.type === "link" && (
-          <a
-            href={block.config.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-1 text-gray-500 hover:text-gray-700"
-          >
-            <ExternalLink className="w-4 h-4" />
-          </a>
+          <>
+            <button onClick={onEdit} className="p-1 text-gray-500 hover:text-gray-700">
+              <Settings className="w-4 h-4" />
+            </button>
+            <a
+              href={block.config.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-1 text-gray-500 hover:text-gray-700"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          </>
         )}
         {block.type !== "link" && (
           <button onClick={onEdit} className="p-1 text-gray-500 hover:text-gray-700">
