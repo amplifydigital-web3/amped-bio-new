@@ -71,8 +71,6 @@ export function LinkFormInputs({ register, errors, watch, setValue }: LinkFormIn
   // Extract username from URL on initial load if username is empty
   useEffect(() => {
     if (platform && url && firstLoad.current) {
-      console.info("Extracting username from URL:", url);
-
       const extractedUsername = extractUsernameFromUrl(platform as PlatformId, url);
       if (extractedUsername) {
         setValue("username", extractedUsername);
