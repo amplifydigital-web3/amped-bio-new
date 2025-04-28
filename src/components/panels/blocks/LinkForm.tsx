@@ -13,7 +13,8 @@ interface LinkFormProps {
 }
 
 // Zod schema for form validation
-const linkFormSchema = z.object({
+// eslint-disable-next-line react-refresh/only-export-components
+export const linkFormSchema = z.object({
   platform: z.string().min(1, "Platform is required"),
   username: z
     .string()
