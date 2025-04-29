@@ -2,9 +2,6 @@
   "name": "amped-bio",
   "private": true,
   "version": "1.0.0",
-  "workspaces": [
-    "apps/*"
-  ],
   "engines": {
     "node": ">=22.9.0"
   },
@@ -19,5 +16,5 @@
     "prettier": "^3.2.5",
     "turbo": "latest"
   },
-  "packageManager": "yarn@1.22.22"
+  "packageManager": "pnpm@8.15.4"
 }

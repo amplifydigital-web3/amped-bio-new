@@ -21,6 +21,7 @@ amped-bio-new/
 │       ├── prisma/     # Database schema and migrations
 │       └── ...
 │
+├── pnpm-workspace.yaml # pnpm workspace configuration
 ├── turbo.json          # Turborepo configuration
 └── package.json        # Root package.json for workspace management
 ```
@@ -68,8 +69,7 @@ Follow these instructions to get a copy of the project up and running on your lo
 
 Make sure you have the following installed:
 - [Node.js](https://nodejs.org/) (version 22.9.0 or later)
-- [npm](https://www.npmjs.com/) (version 6.x or later)
-- [yarn](https://yarnpkg.com/)
+- [pnpm](https://pnpm.io/) (version 8.15.4 or later)
 
 ### Installation
 
@@ -83,29 +83,29 @@ Make sure you have the following installed:
     ```
 3. Install dependencies for all workspaces:
     ```sh
-    yarn
+    pnpm install
     ```
 
 ### Development Workflow
 
 Run all applications in development mode:
 ```sh
-yarn dev
+pnpm dev
 ```
 
 Run only the client:
 ```sh
-yarn workspace client dev
+pnpm --filter client dev
 ```
 
 Run only the server:
 ```sh
-yarn workspace server dev
+pnpm --filter server dev
 ```
 
 Build all applications:
 ```sh
-yarn build
+pnpm build
 ```
 
 The client will be available at `http://localhost:5173`.
