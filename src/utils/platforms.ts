@@ -299,3 +299,28 @@ export function getPlatformUrl(platformId: string, username: string): string {
 
   return platform.url.replace("{{username}}", username);
 }
+
+// Utility function to extract username from URL
+export function extractUsernameFromUrl(platform: PlatformId, url: string): string | null {
+  // Skip for custom and document platforms
+  if (platform === "custom" || platform === "document") {
+    return null;
+  }
+
+  // For email platform
+  if (platform === "email" && url.startsWith("mailto:")) {
+    const emailMatch = url.match(/mailto:(.*)/);
+    if (emailMatch && emailMatch[1]) {
+      return emailMatch[1];
+    }
+  }
+  // For other platforms
+  else {
+    const platformUrlPattern = getPlatformUrl(platform, "").replace("{{username}}", "");
+    if (url.startsWith(platformUrlPattern)) {
+      return url.replace(platformUrlPattern, "");
+    }
+  }
+
+  return null;
+}

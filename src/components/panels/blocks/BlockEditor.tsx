@@ -1,13 +1,14 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 import { X } from "lucide-react";
 import { Input } from "../../ui/Input";
 import { Textarea } from "../../ui/Textarea";
 import { Button } from "../../ui/Button";
-import { BlockType } from "@/api/api.types";
-import { getPlatformName, getPlatformUrl } from "@/utils/platforms";
+import { BlockType, LinkBlock } from "@/api/api.types";
+import { extractUsernameFromUrl, getPlatformName, getPlatformUrl } from "@/utils/platforms";
 import { z } from "zod";
-import { useForm } from "react-hook-form";
+import { Resolver, SubmitHandler, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { extractUsernameFromUrl, LinkFormInputs, linkFormSchema } from "./LinkForm";
+import { LinkFormInputs, linkFormSchema } from "./LinkForm";
 import { useMemo } from "react";
 
 // Helper function to validate YouTube URLs
@@ -37,12 +38,34 @@ const isValidSpotifyUrl = (url: string): boolean => {
 };
 
 // Create Zod schemas for validation
-const mediaBlockSchema = z.object({
-  url: z.string().min(1, "URL is required"),
-  label: z.string().optional(),
-  content: z.string().optional(),
-  platform: z.string(),
-});
+const mediaBlockSchema = z
+  .object({
+    url: z.string().min(1, "URL is required"),
+    label: z.string().optional(),
+    content: z.string().optional(),
+    platform: z.string(),
+  })
+  .refine(
+    data => {
+      if (!data.url) return true;
+
+      if (data.platform === "youtube") {
+        return isValidYouTubeUrl(data.url);
+      } else if (data.platform === "instagram") {
+        return isValidInstagramUrl(data.url);
+      } else if (data.platform === "twitter" || data.platform === "x") {
+        return isValidXUrl(data.url);
+      } else if (data.platform === "spotify") {
+        return isValidSpotifyUrl(data.url);
+      }
+
+      return true;
+    },
+    {
+      message: "Please enter a valid URL for this platform",
+      path: ["url"],
+    }
+  );
 
 const textBlockSchema = z.object({
   content: z.string().min(1, "Content is required"),
@@ -52,36 +75,14 @@ const textBlockSchema = z.object({
 const linkBlockSchema = linkFormSchema;
 
 // Dynamic schema based on block type
-const createBlockSchema = (blockType: string, platform?: string) => {
+const createBlockSchema = (blockType: string) => {
   if (blockType === "text") {
     return textBlockSchema;
   } else if (blockType === "media") {
-    return mediaBlockSchema.refine(
-      data => {
-        if (!data.url) return true;
-
-        if (platform === "youtube") {
-          return isValidYouTubeUrl(data.url);
-        } else if (platform === "instagram") {
-          return isValidInstagramUrl(data.url);
-        } else if (platform === "twitter" || platform === "x") {
-          return isValidXUrl(data.url);
-        } else if (platform === "spotify") {
-          return isValidSpotifyUrl(data.url);
-        }
-
-        return true;
-      },
-      {
-        message: "Please enter a valid URL for this platform",
-        path: ["url"],
-      }
-    );
-  } else if (blockType === "link") {
-    return linkBlockSchema;
+    return mediaBlockSchema;
   }
 
-  return z.object({});
+  return linkBlockSchema;
 };
 
 interface BlockEditorProps {
@@ -91,24 +92,27 @@ interface BlockEditorProps {
 }
 
 export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
-  const blockSchema = createBlockSchema(
-    block.type,
-    block.type === "media" ? block.config.platform : undefined
-  );
+  const blockSchema = createBlockSchema(block.type);
 
   // For link blocks, extract username from url if it exists
   const initialValues = useMemo(() => {
-    const values = { ...block.config };
     if (block.type === "link" && block.config.url && block.config.platform) {
+      const values = { ...block.config };
       const username = extractUsernameFromUrl(block.config.platform, block.config.url);
       if (username) {
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-expect-error
-        values.username = username;
+        values.url = username;
       }
+      return values;
     }
-    return values;
+
+    return undefined;
   }, [block.config, block.type]);
+
+  // Create a type based on union of possible schemas
+  type BlockFormData =
+    | z.infer<typeof textBlockSchema>
+    | z.infer<typeof mediaBlockSchema>
+    | z.infer<typeof linkBlockSchema>;
 
   const {
     watch,
@@ -116,26 +120,26 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm({
-    resolver: zodResolver(blockSchema),
-    defaultValues: initialValues as any,
+  } = useForm<BlockFormData>({
+    // @ts-expect-error
+    resolver: zodResolver(blockSchema) as Resolver<BlockFormData>,
+    defaultValues: initialValues,
   });
 
-  const onSubmit = (data: any) => {
+  const onSubmit: SubmitHandler<BlockFormData> = (data: BlockFormData) => {
     console.log("Submitted data:", data);
 
     // For link blocks, ensure we have the correct URL based on platform/username
     if (block.type === "link") {
+      const typedConfig = data as LinkBlock["config"];
       // Only modify URL if we have both platform and username
-      if (data.platform && data.platform !== "custom" && data.username) {
-        data.url = getPlatformUrl(data.platform, data.username);
+      if (typedConfig.platform && typedConfig.platform !== "custom") {
+        typedConfig.url = getPlatformUrl(typedConfig.platform, typedConfig.url);
       }
 
-      // Remove username from final data as it's not needed in the config
-      const { username, ...configData } = data;
-      onSave(configData);
+      onSave(typedConfig);
     } else {
-      onSave(data);
+      onSave(data as BlockType["config"]);
     }
   };
 
@@ -168,21 +172,16 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
                 label="URL"
                 type="url"
                 placeholder="Enter media URL"
+                // @ts-ignore
                 error={errors.url?.message?.toString()}
                 {...register("url")}
-              />
-              <Input
-                label="Label"
-                type="text"
-                placeholder="Enter a label (optional)"
-                error={errors.label?.message?.toString()}
-                {...register("label")}
               />
               {block.config.content !== undefined && (
                 <Textarea
                   label="Content"
                   placeholder="Enter additional content"
                   rows={4}
+                  // @ts-ignore
                   error={errors.content?.message?.toString()}
                   {...register("content")}
                 />
@@ -194,6 +193,7 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
               label="Content"
               placeholder="Enter your text content"
               rows={4}
+              // @ts-ignore
               error={errors.content?.message?.toString()}
               {...register("content")}
             />
