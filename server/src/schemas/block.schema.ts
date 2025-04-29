@@ -54,7 +54,7 @@ const mediaConfigSchema = z.object({
 });
 
 const textConfigSchema = z.object({
-  platform: z.string(),
+  // platform: z.string(),
   content: z.string().min(0, "Content is required"),
 });
 

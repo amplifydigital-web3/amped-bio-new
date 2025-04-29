@@ -9,7 +9,7 @@ import { z } from "zod";
 import { Resolver, SubmitHandler, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LinkFormInputs, linkFormSchema } from "./LinkForm";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
 // Helper function to validate YouTube URLs
 const isValidYouTubeUrl = (url: string): boolean => {
@@ -41,14 +41,12 @@ const isValidSpotifyUrl = (url: string): boolean => {
 const mediaBlockSchema = z
   .object({
     url: z.string().min(1, "URL is required"),
-    label: z.string().optional(),
+    label: z.string().optional().default(""),
     content: z.string().optional(),
     platform: z.string(),
   })
   .refine(
     data => {
-      if (!data.url) return true;
-
       if (data.platform === "youtube") {
         return isValidYouTubeUrl(data.url);
       } else if (data.platform === "instagram") {
@@ -68,8 +66,7 @@ const mediaBlockSchema = z
   );
 
 const textBlockSchema = z.object({
-  content: z.string().min(1, "Content is required"),
-  platform: z.string().optional(),
+  content: z.string().min(1, "Content is required").trim(),
 });
 
 const linkBlockSchema = linkFormSchema;
@@ -92,7 +89,9 @@ interface BlockEditorProps {
 }
 
 export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
-  const blockSchema = createBlockSchema(block.type);
+  const blockSchema = useMemo(() => createBlockSchema(block.type), [block.type]);
+
+  console.info("BlockEditor", block.type, block.config);
 
   // For link blocks, extract username from url if it exists
   const initialValues = useMemo(() => {
@@ -105,7 +104,14 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
       return values;
     }
 
-    return undefined;
+    // Add proper initial values for text blocks
+    if (block.type === "text") {
+      return {
+        content: block.config.content || "",
+      };
+    }
+
+    return block.config;
   }, [block.config, block.type]);
 
   // Create a type based on union of possible schemas
@@ -119,29 +125,35 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
     setValue,
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<BlockFormData>({
     // @ts-expect-error
     resolver: zodResolver(blockSchema) as Resolver<BlockFormData>,
     defaultValues: initialValues,
+    mode: "onChange",
   });
 
-  const onSubmit: SubmitHandler<BlockFormData> = (data: BlockFormData) => {
-    console.log("Submitted data:", data);
+  const onSubmit: SubmitHandler<BlockFormData> = useCallback(
+    (data: BlockFormData) => {
+      console.log("Submitted data:", data);
+      console.log("Block type:", block.type);
 
-    // For link blocks, ensure we have the correct URL based on platform/username
-    if (block.type === "link") {
-      const typedConfig = data as LinkBlock["config"];
-      // Only modify URL if we have both platform and username
-      if (typedConfig.platform && typedConfig.platform !== "custom") {
-        typedConfig.url = getPlatformUrl(typedConfig.platform, typedConfig.url);
+      // For link blocks, ensure we have the correct URL based on platform/username
+      if (block.type === "link") {
+        const typedConfig = data as LinkBlock["config"];
+        // Only modify URL if we have both platform and username
+        if (typedConfig.platform && typedConfig.platform !== "custom") {
+          typedConfig.url = getPlatformUrl(typedConfig.platform, typedConfig.url);
+        }
+
+        onSave(typedConfig);
+      } else {
+        console.log("Saving non-link block:", data);
+        onSave(data as BlockType["config"]);
       }
-
-      onSave(typedConfig);
-    } else {
-      onSave(data as BlockType["config"]);
-    }
-  };
+    },
+    [block.type, onSave]
+  );
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -176,6 +188,8 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
                 error={errors.url?.message?.toString()}
                 {...register("url")}
               />
+              {/* Hidden input to ensure platform is included in form data */}
+              <input type="hidden" {...register("platform")} value={block.config.platform} />
               {block.config.content !== undefined && (
                 <Textarea
                   label="Content"
@@ -188,6 +202,7 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
               )}
             </>
           )}
+
           {block.type === "text" && (
             <Textarea
               label="Content"
@@ -203,7 +218,9 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
             <Button variant="outline" type="button" onClick={onCancel}>
               Cancel
             </Button>
-            <Button type="submit">Save Changes</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              Save Changes
+            </Button>
           </div>
         </form>
       </div>
