@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { Plus } from "lucide-react";
 import { PlatformId, getPlatformUrl, platforms } from "@/utils/platforms";
 import { LinkBlock } from "@/api/api.types";
@@ -12,48 +12,51 @@ interface LinkFormProps {
   onAdd: (block: LinkBlock) => void;
 }
 
-// Zod schema for form validation
+// Zod schema for form validation with dynamic validation based on platform
 // eslint-disable-next-line react-refresh/only-export-components
-export const linkFormSchema = z.object({
-  platform: z.string().min(1, "Platform is required"),
-  username: z
-    .string()
-    .optional()
-    .refine(
-      val => !val || /^[a-zA-Z0-9._-]*$/.test(val),
-      "Username can only contain letters, numbers, dots, hyphens, and underscores"
-    ),
-  url: z.string().min(1, "URL is required"),
-  label: z.string().min(1, "Label is required"),
-});
+export const linkFormSchema = z
+  .object({
+    platform: z.string().min(1, "Platform is required"),
+    url: z.string().min(1, "This field is required"),
+    label: z.string().min(1, "Label is required"),
+  })
+  .superRefine((data, ctx) => {
+    const platform = data.platform;
+    const url = data.url;
+
+    if (platform === "email") {
+      // Email validation using Zod's built-in email validator
+      if (!z.string().email().safeParse(url).success) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Please enter a valid email address",
+          path: ["url"],
+        });
+      }
+    } else if (platform === "custom" || platform === "document") {
+      // URL validation for custom and document platforms
+      try {
+        new URL(url);
+      } catch (e) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Please enter a valid URL",
+          path: ["url"],
+        });
+      }
+    } else if (platform && platform !== "") {
+      // Username validation for social platforms
+      if (!/^[a-zA-Z0-9._-]*$/.test(url)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Username can only contain letters, numbers, dots, hyphens, and underscores",
+          path: ["url"],
+        });
+      }
+    }
+  });
 
 type FormData = z.infer<typeof linkFormSchema>;
-
-// Utility function to extract username from URL
-// eslint-disable-next-line react-refresh/only-export-components
-export function extractUsernameFromUrl(platform: PlatformId, url: string): string | null {
-  // Skip for custom and document platforms
-  if (platform === "custom" || platform === "document") {
-    return null;
-  }
-
-  // For email platform
-  if (platform === "email" && url.startsWith("mailto:")) {
-    const emailMatch = url.match(/mailto:(.*)/);
-    if (emailMatch && emailMatch[1]) {
-      return emailMatch[1];
-    }
-  }
-  // For other platforms
-  else {
-    const platformUrlPattern = getPlatformUrl(platform, "").replace("{{username}}", "");
-    if (url.startsWith(platformUrlPattern)) {
-      return url.replace(platformUrlPattern, "");
-    }
-  }
-
-  return null;
-}
 
 // Abstract component for the link form inputs
 interface LinkFormInputsProps {
@@ -65,35 +68,31 @@ interface LinkFormInputsProps {
 
 export function LinkFormInputs({ register, errors, watch, setValue }: LinkFormInputsProps) {
   const platform = watch("platform") as PlatformId | "";
-  const username = watch("username");
-  const url = watch("url");
-  const firstLoad = React.useRef(true);
-
-  // Extract username from URL on initial load if username is empty
-  useEffect(() => {
-    if (platform && url && firstLoad.current) {
-      const extractedUsername = extractUsernameFromUrl(platform as PlatformId, url);
-      if (extractedUsername) {
-        setValue("username", extractedUsername);
-        firstLoad.current = false;
-      }
-    }
-  }, [platform, url, username, setValue]);
-
-  // Update URL when username or platform changes (for non-custom platforms)
-  useEffect(() => {
-    if (platform && platform !== "custom" && username) {
-      setValue("url", getPlatformUrl(platform as PlatformId, username));
-    }
-  }, [platform, username, setValue]);
 
   const handlePlatformChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value as PlatformId;
     setValue("platform", value);
-    setValue("username", "");
-    if (value === "custom") {
-      setValue("url", "");
-    }
+    setValue("url", "");
+  };
+
+  const getUrlFieldLabel = () => {
+    if (!platform) return "URL";
+    if (platform === "email") return "Email Address";
+    if (platform === "document") return "Document URL";
+    if (platform === "custom") return "URL";
+    return "Username";
+  };
+
+  const getUrlFieldType = () => {
+    if (platform === "email") return "email";
+    if (platform === "custom" || platform === "document") return "url";
+    return "text";
+  };
+
+  const getUrlFieldPlaceholder = () => {
+    if (platform === "email") return "your@email.com";
+    if (platform === "custom" || platform === "document") return "https://example.com";
+    return "username";
   };
 
   return (
@@ -117,52 +116,36 @@ export function LinkFormInputs({ register, errors, watch, setValue }: LinkFormIn
         {errors.platform && <p className="text-red-500 text-xs mt-1">{errors.platform.message}</p>}
       </div>
 
-      {platform === "custom" ? (
-        <Input
-          label="URL"
-          type="url"
-          placeholder="https://"
-          error={errors.url?.message?.toString()}
-          {...register("url")}
-        />
-      ) : platform === "email" ? (
-        <Input
-          label="Email Address"
-          type="email"
-          placeholder="your@email.com"
-          error={errors.username?.message?.toString()}
-          {...register("username")}
-        />
-      ) : platform ? (
-        <div>
-          <label className="block text-sm font-medium mb-1">
-            {platform === "document" ? "Document URL" : "Username"}
-          </label>
-          <div
-            className={`flex items-center border rounded-md overflow-hidden ${
-              errors.username ? "border-red-500" : "border-gray-300"
-            }`}
-          >
-            {platform !== "document" && (
+      {platform &&
+        (platform === "custom" || platform === "email" || platform === "document" ? (
+          <Input
+            label={getUrlFieldLabel()}
+            type={getUrlFieldType()}
+            placeholder={getUrlFieldPlaceholder()}
+            error={errors.url?.message?.toString()}
+            {...register("url")}
+          />
+        ) : (
+          <div>
+            <label className="block text-sm font-medium mb-1">{getUrlFieldLabel()}</label>
+            <div
+              className={`flex items-center border rounded-md overflow-hidden ${
+                errors.url ? "border-red-500" : "border-gray-300"
+              }`}
+            >
               <span className="bg-gray-100 px-3 py-2 text-gray-500 text-sm border-r">
                 {getPlatformUrl(platform as PlatformId, "").replace("{{username}}", "")}
               </span>
-            )}
-            <input
-              type="text"
-              {...register("username")}
-              className={`flex-grow px-3 py-2 focus:outline-none ${errors.username ? "bg-red-50" : ""}`}
-              placeholder={platform === "document" ? "https://example.com/doc" : "username"}
-            />
+              <input
+                type="text"
+                {...register("url")}
+                className={`flex-grow px-3 py-2 focus:outline-none ${errors.url ? "bg-red-50" : ""}`}
+                placeholder="username"
+              />
+            </div>
+            {errors.url && <p className="text-red-500 text-xs mt-1">{errors.url.message}</p>}
           </div>
-          {errors.username && (
-            <p className="text-red-500 text-xs mt-1">{errors.username.message}</p>
-          )}
-        </div>
-      ) : null}
-
-      {/* Hidden URL field for non-custom platforms */}
-      <input type="hidden" {...register("url")} />
+        ))}
 
       <Input
         label="Label"
@@ -187,20 +170,32 @@ export function LinkForm({ onAdd }: LinkFormProps) {
     resolver: zodResolver(linkFormSchema),
     defaultValues: {
       platform: "",
-      username: "",
       url: "",
       label: "",
     },
   });
 
   const onSubmit = (data: FormData) => {
+    const platform = data.platform as PlatformId;
+    let finalUrl = data.url;
+
+    // For social platforms, construct the full URL
+    if (platform && platform !== "custom" && platform !== "email" && platform !== "document") {
+      finalUrl = getPlatformUrl(platform, data.url);
+    }
+
+    // For email platform, add mailto: prefix if not present
+    if (platform === "email" && !finalUrl.startsWith("mailto:")) {
+      finalUrl = `mailto:${finalUrl}`;
+    }
+
     onAdd({
       id: 0,
       type: "link",
       order: 0,
       config: {
-        platform: data.platform as PlatformId,
-        url: data.url,
+        platform,
+        url: finalUrl,
         label: data.label,
       },
     });
