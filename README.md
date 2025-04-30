@@ -2,6 +2,65 @@
 
 New pure React implementation of OneLink.
 
+## Project Architecture
+
+This project is structured as a monorepo using [Turborepo](https://turbo.build/repo) for efficient build and dependency management. The monorepo structure enables better code sharing, consistent tooling, and parallel task execution.
+
+### Repository Structure
+
+```
+amped-bio-new/
+├── apps/
+│   ├── client/         # React frontend application
+│   │   ├── src/        # Frontend source code
+│   │   ├── scripts/    # Client-specific scripts
+│   │   └── ...
+│   │
+│   └── server/         # Express backend API
+│       ├── src/        # Server source code
+│       ├── prisma/     # Database schema and migrations
+│       └── ...
+│
+├── pnpm-workspace.yaml # pnpm workspace configuration
+├── turbo.json          # Turborepo configuration
+└── package.json        # Root package.json for workspace management
+```
+
+### Client Architecture
+
+The client app (`apps/client`) is a React application built with:
+
+- **Vite** - Fast and optimized frontend tooling
+- **TypeScript** - Type safety across the codebase
+- **React Router** - Client-side routing
+- **Tailwind CSS** - Utility-first CSS framework for styling
+- **Zustand** - State management
+- **React Query** - Data fetching and caching
+
+Key directories:
+- `src/components/` - Reusable UI components
+- `src/pages/` - Page components and routes
+- `src/store/` - State management and stores
+- `src/api/` - API client and type definitions
+- `src/hooks/` - Custom React hooks
+
+### Server Architecture
+
+The server app (`apps/server`) is a Node.js application built with:
+
+- **Express** - Web framework for handling HTTP requests
+- **TypeScript** - Type safety across the codebase
+- **Prisma** - ORM for database access
+- **Zod** - Schema validation for requests and responses
+
+Key directories:
+- `src/controllers/` - Request handlers for different resources
+- `src/routes/` - API route definitions
+- `src/middleware/` - Express middleware for auth, validation, etc.
+- `src/schemas/` - Zod schemas for validation
+- `src/services/` - Business logic and data access
+- `src/utils/` - Utility functions
+
 ## Getting Started
 
 Follow these instructions to get a copy of the project up and running on your local machine for development and testing purposes.
@@ -10,8 +69,7 @@ Follow these instructions to get a copy of the project up and running on your lo
 
 Make sure you have the following installed:
 - [Node.js](https://nodejs.org/) (version 22.9.0 or later)
-- [npm](https://www.npmjs.com/) (version 6.x or later)
-- [yarn](https://yarnpkg.com/)
+- [pnpm](https://pnpm.io/) (version 8.15.4 or later)
 
 ### Installation
 
@@ -23,34 +81,39 @@ Make sure you have the following installed:
     ```sh
     cd OneLink-new
     ```
-3. Install the dependencies:
+3. Install dependencies for all workspaces:
     ```sh
-    yarn
-    ```
-4. Generate Prisma config:
-    ```sh
-    npx prisma generate
-    ```
-5. Navigate to the server directory:
-    ```sh
-    cd OneLink-new/server
-    ```
-6. Install the server dependencies:
-    ```sh
-    yarn
+    pnpm install
     ```
 
-### Running the Application
+### Development Workflow
 
-To start the front end, run:
+Run all applications in development mode:
 ```sh
-cd Onelink; yarn run dev
+pnpm dev
 ```
 
-To start the webserver, run:
+Run only the client:
 ```sh
-cd Onelink/server; yarn run dev
+pnpm --filter client dev
 ```
 
-The front end will be available at `http://localhost:5173`.
-The webserver will be available at `http://localhost:43000`.
+Run only the server:
+```sh
+pnpm --filter server dev
+```
+
+Build all applications:
+```sh
+pnpm build
+```
+
+The client will be available at `http://localhost:5173`.
+The server API will be available at `http://localhost:43000`.
+
+## Turborepo Features
+
+- **Caching** - Intelligent build caching avoids redundant work
+- **Parallelization** - Tasks run in parallel when possible
+- **Task Dependencies** - Proper order of execution based on task dependencies
+- **Remote Caching** - Optional remote caching for CI/CD environments

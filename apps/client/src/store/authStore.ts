@@ -47,7 +47,7 @@ export const useAuthStore = create<AuthState>()(
           const { user, token } = await registerNewUser({ onelink, email, password });
           // Save token to localStorage for axios to use
           localStorage.setItem("amped-bio-auth-token", token);
-          set({ authUser: { ...user } });
+          set({ authUser: user });
           return user;
         } catch (error) {
           set({ error: (error as Error).message });

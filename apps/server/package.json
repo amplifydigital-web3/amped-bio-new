@@ -1,5 +1,5 @@
 {
-  "name": "amped_bio_server",
+  "name": "server",
   "version": "1.0.0",
   "private": true,
   "engines": {
@@ -12,7 +12,7 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
-    "@prisma/client": "6.2.1",
+    "@prisma/client": "6.7.0",
     "@react-email/components": "^0.0.36",
     "axios": "^1.8.3",
     "bcrypt": "^5.1.1",
