@@ -64,6 +64,7 @@ export const authController = {
       res.status(201).json({
         success: true,
         user: { id: result.id, email, onelink },
+        token: generateToken({ id: result.id, email }),
       });
     } catch (error) {
       console.error("error", error);
