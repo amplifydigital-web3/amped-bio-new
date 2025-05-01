@@ -14,7 +14,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "generate-thumbnails": "tsx scripts/generate-video-thumbnails.ts",
-    "download-convert-videos": "tsx scripts/download-convert-videos.ts"
+    "download-convert-videos": "tsx scripts/download-convert-videos.ts",
+    "cypress:open": "cypress open",
+    "cypress:run": "cypress run",
+    "test:e2e": "cypress run"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
@@ -59,10 +62,14 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
+    "@testing-library/cypress": "^10.0.3",
+    "@types/cypress": "^1.1.6",
+    "@types/jest": "^29.5.14",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.18",
+    "cypress": "^14.3.2",
     "eslint": "^9.9.1",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.1.3",

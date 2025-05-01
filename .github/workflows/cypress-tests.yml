@@ -1,0 +1,100 @@
+name: Auth Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  auth-tests:
+    runs-on: ubuntu-latest
+    
+    env:
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/amped_bio_test"
+      JWT_SECRET: "test-jwt-secret-for-ci"
+      NODE_ENV: "test"
+      VITE_API_URL: "http://localhost:3000/api"
+      CYPRESS_BASE_URL: "http://localhost:5173"
+      CYPRESS_specPattern: "**/auth.cy.ts"
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+      
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+      
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      
+      - name: Install dependencies
+        run: pnpm install
+      
+      - name: Start Docker services
+        run: docker-compose up -d
+      
+      - name: Install wait-for-it
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wait-for-it
+      
+      - name: Wait for database to be ready
+        run: wait-for-it -t 60 localhost:5432 -- echo "Database is up"
+      
+      - name: Run database migrations
+        run: |
+          cd apps/server
+          pnpm prisma generate
+          pnpm prisma migrate deploy
+      
+      - name: Build and start backend
+        run: |
+          cd apps/server
+          pnpm build
+          pnpm start &
+          wait-for-it -t 60 localhost:3000 -- echo "Backend is up"
+      
+      - name: Build client
+        run: |
+          cd apps/client
+          pnpm build
+      
+      - name: Start client
+        run: |
+          cd apps/client
+          pnpm preview &
+          wait-for-it -t 60 localhost:5173 -- echo "Frontend is up"
+      
+      - name: Run Auth tests
+        uses: cypress-io/github-action@v6
+        with:
+          working-directory: apps/client
+          browser: chrome
+          headed: false
+          spec: "**/auth.cy.ts"
+      
+      - name: Upload screenshots on failure
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: cypress-screenshots
+          path: apps/client/cypress/screenshots
+          if-no-files-found: ignore
