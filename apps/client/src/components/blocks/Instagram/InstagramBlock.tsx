@@ -1,7 +1,7 @@
 import { Instagram } from "lucide-react";
 import type { ThemeConfig } from "../../../types/editor";
-import InstagramEmbed from "./InstagramEmbed";
 import { MediaBlock } from "@/api/api.types";
+import { InstagramEmbed } from 'react-social-media-embed';
 
 interface InstagramBlockProps {
   block: MediaBlock;
@@ -22,37 +22,26 @@ export function InstagramBlock({ block, theme }: InstagramBlockProps) {
 
   return (
     <div className="w-full space-y-2">
-      <InstagramEmbed url={block.config.url} />
+      <div className="flex items-center space-x-2 px-3">
+        <Instagram className="w-4 h-4 text-[#E4405F]" />
+        <span
+          className="text-sm font-medium text-[#E4405F]"
+          style={{ fontFamily: theme.fontFamily }}
+        >
+          Instagram
+        </span>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <InstagramEmbed url={block.config.url} />
+      </div>
+      {/* Display content as description if available */}
+      {block.config.content && block.config.content.trim() !== "" && (
+        <div className="mt-2 px-3 py-2">
+          <p className="text-sm text-gray-700" style={{ fontFamily: theme.fontFamily }}>
+            {block.config.content}
+          </p>
+        </div>
+      )}
     </div>
   );
-
-  // return (
-  //   <div className="w-full space-y-2">
-  //     <div className="flex items-center space-x-2 px-3">
-  //       <Instagram className="w-4 h-4 text-[#E4405F]" />
-  //       <span
-  //         className="text-sm font-medium text-[#E4405F]"
-  //         style={{ fontFamily: theme.fontFamily }}
-  //       >
-  //         Instagram
-  //       </span>
-  //     </div>
-  //     <div className="w-full rounded-lg overflow-hidden bg-white shadow-lg">
-  //       <iframe
-  //         src={`${block.config.content}/embed`}
-  //         width="100%"
-  //         height="400"
-  //         frameBorder="0"
-  //         scrolling="no"
-  //         allowTransparency
-  //         allow="encrypted-media"
-  //         loading="lazy"
-  //         className="w-full"
-  //       />
-  //     </div>
-  //   </div>
-  // );
 }
-
-// https://www.instagram.com/reel/DBr2vzRyfgH/?igsh=MWMyM3Axa29kc2Z3bg==
-// https://www.instagram.com/p/DG1C12ep534/?igsh=MTltdjhodDF0MXo0dg==
