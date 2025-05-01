@@ -65,7 +65,7 @@ jobs:
 
       - name: Create test database
         run: |
-          docker exec $(docker ps -qf "name=mariadb") mysql -u amped_user -pamped_password -e "CREATE DATABASE IF NOT EXISTS amped_bio_test;"
+          docker exec $(docker ps -qf "name=mariadb") mysql -u amped_user -p amped_password -e "CREATE DATABASE IF NOT EXISTS amped_bio_test;"
 
       - name: Run database migrations
         run: |
