@@ -1,4 +1,4 @@
-name: Auth Tests
+name: Client Tests
 
 on:
   push:
@@ -15,8 +15,6 @@ jobs:
       JWT_SECRET: "test-jwt-secret-for-ci"
       NODE_ENV: "test"
       VITE_API_URL: "http://localhost:3000/api"
-      CYPRESS_BASE_URL: "http://localhost:5173"
-      CYPRESS_specPattern: "**/auth.cy.ts"
 
     steps:
       - name: Checkout repository
@@ -63,10 +61,6 @@ jobs:
       - name: Wait for database to be ready
         run: wait-for-it -t 60 localhost:3306 -- echo "Database is up"
 
-    #   - name: Create test database
-    #     run: |
-    #       docker exec $(docker ps -qf "name=mariadb") mysql -u amped_user -p amped_password -e "CREATE DATABASE IF NOT EXISTS amped_bio_test;"
-
       - name: Run database migrations
         run: |
           cd apps/server
@@ -91,18 +85,19 @@ jobs:
           pnpm preview &
           wait-for-it -t 60 localhost:5173 -- echo "Frontend is up"
 
-      - name: Run Auth tests
-        uses: cypress-io/github-action@v6
-        with:
-          working-directory: apps/client
-          browser: chrome
-          headed: false
-          spec: "**/auth.cy.ts"
+      - name: Install Playwright Browsers
+        run: |
+          cd apps/client
+          pnpm exec playwright install --with-deps
+        
+      - name: Run Playwright tests
+        run: |
+          cd apps/client
+          pnpm exec playwright test
 
-      - name: Upload screenshots on failure
-        uses: actions/upload-artifact@v4
-        if: failure()
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
         with:
-          name: cypress-screenshots
-          path: apps/client/cypress/screenshots
-          if-no-files-found: ignore
+          name: playwright-report
+          path: apps/client/playwright-report/
+          retention-days: 30
