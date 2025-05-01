@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/amped_bio_test"
+      DATABASE_URL: "mysql://amped_user:amped_password@localhost:3306/amped_bio_test"
       JWT_SECRET: "test-jwt-secret-for-ci"
       NODE_ENV: "test"
       VITE_API_URL: "http://localhost:3000/api"
@@ -61,7 +61,11 @@ jobs:
           sudo apt-get install -y wait-for-it
 
       - name: Wait for database to be ready
-        run: wait-for-it -t 60 localhost:5432 -- echo "Database is up"
+        run: wait-for-it -t 60 localhost:3306 -- echo "Database is up"
+
+      - name: Create test database
+        run: |
+          docker exec $(docker ps -qf "name=mariadb") mysql -u amped_user -pamped_password -e "CREATE DATABASE IF NOT EXISTS amped_bio_test;"
 
       - name: Run database migrations
         run: |
