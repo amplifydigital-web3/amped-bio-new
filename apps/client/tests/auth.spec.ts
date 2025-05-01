@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Authentication', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('https://localhost:5173');
   });
 
   test('should open the auth modal when clicking sign in', async ({ page }) => {
