@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Authentication', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('https://localhost:5173');
+    await page.goto('/');
   });
 
   test('should open the auth modal when clicking sign in', async ({ page }) => {
@@ -129,40 +129,9 @@ test.describe('Authentication', () => {
     await expect(page.getByLabel('URL status indicator')).toBeVisible();
   });
 
-  // Tests that require authentication
-  test.describe('Authentication with mock API', () => {
+  // Tests that require authentication - using real API
+  test.describe('Authentication with real API', () => {
     test.beforeEach(async ({ page }) => {
-      // Intercept authentication API requests
-      await page.route('**/api/auth/login', async route => {
-        await route.fulfill({
-          status: 200,
-          body: JSON.stringify({
-            user: {
-              id: '123',
-              email: 'test@example.com',
-              onelink: 'test-user',
-              name: 'Test User'
-            },
-            token: 'mock-jwt-token'
-          })
-        });
-      });
-      
-      await page.route('**/api/auth/register', async route => {
-        await route.fulfill({
-          status: 200,
-          body: JSON.stringify({
-            user: {
-              id: '123',
-              email: 'new@example.com',
-              onelink: 'new-user',
-              name: 'New User'
-            },
-            token: 'mock-jwt-token'
-          })
-        });
-      });
-
       await page.goto('/');
     });
     
@@ -170,18 +139,22 @@ test.describe('Authentication', () => {
       // Open auth modal
       await page.getByRole('button', { name: 'Sign In' }).click();
       
-      // Fill in login form
+      // Fill in login form with test credentials
       await page.getByLabel('Email', { exact: true }).or(page.getByRole('textbox', { name: 'email' })).fill('test@example.com');
       await page.getByLabel('Password', { exact: true }).or(page.getByRole('textbox', { name: 'password' })).fill('password123');
       
       // Submit form
       await page.getByRole('button', { name: 'Sign In', exact: true }).filter({ has: page.locator('form') }).click();
       
-      // Check for successful login indication
-      await expect(page.getByLabel('User menu')).toBeVisible();
+      // Check for successful login indication - waiting for navigation to complete
+      await expect(page.getByLabel('User menu')).toBeVisible({ timeout: 5000 });
     });
     
     test('should handle successful registration', async ({ page }) => {
+      // Generate unique email to avoid conflicts
+      const uniqueEmail = `test-${Date.now()}@example.com`;
+      const uniqueUrl = `test-user-${Date.now()}`;
+      
       // Open auth modal
       await page.getByRole('button', { name: 'Sign In' }).click();
       
@@ -189,32 +162,22 @@ test.describe('Authentication', () => {
       await page.getByText('Create an account').click();
       
       // Fill in registration form
-      await page.getByLabel('Email', { exact: true }).or(page.getByRole('textbox', { name: 'email' })).fill('new@example.com');
-      await page.getByLabel('Password', { exact: true }).or(page.getByRole('textbox', { name: 'password' })).fill('password123');
-      await page.getByLabel('Amped.Bio Unique URL').fill('new-user');
+      await page.getByLabel('Email', { exact: true }).or(page.getByRole('textbox', { name: 'email' })).fill(uniqueEmail);
+      await page.getByLabel('Password', { exact: true }).or(page.getByRole('textbox', { name: 'password' })).fill('Password123!');
+      await page.getByLabel('Amped.Bio Unique URL').fill(uniqueUrl);
       
       // Submit form
       await page.getByRole('button', { name: 'Sign Up', exact: true }).filter({ has: page.locator('form') }).click();
       
       // Check for successful registration indication
-      await expect(page.getByLabel('User menu')).toBeVisible();
+      await expect(page.getByLabel('User menu')).toBeVisible({ timeout: 5000 });
     });
     
     test('should handle login errors', async ({ page }) => {
-      // Override the route for error case
-      await page.route('**/api/auth/login', async route => {
-        await route.fulfill({
-          status: 401,
-          body: JSON.stringify({
-            error: 'Invalid credentials'
-          })
-        });
-      });
-      
       // Open auth modal
       await page.getByRole('button', { name: 'Sign In' }).click();
       
-      // Fill in login form
+      // Fill in login form with invalid credentials
       await page.getByLabel('Email', { exact: true }).or(page.getByRole('textbox', { name: 'email' })).fill('test@example.com');
       await page.getByLabel('Password', { exact: true }).or(page.getByRole('textbox', { name: 'password' })).fill('wrong-password');
       
@@ -222,7 +185,24 @@ test.describe('Authentication', () => {
       await page.getByRole('button', { name: 'Sign In', exact: true }).filter({ has: page.locator('form') }).click();
       
       // Check for error message
-      await expect(page.getByText('Invalid credentials')).toBeVisible();
+      await expect(page.getByText('Invalid credentials').or(page.getByText('Invalid email or password'))).toBeVisible({ timeout: 5000 });
+    });
+    
+    test('should handle password reset request', async ({ page }) => {
+      // Open auth modal
+      await page.getByRole('button', { name: 'Sign In' }).click();
+      
+      // Click forgot password link
+      await page.getByText('Forgot password?').click();
+      
+      // Fill in email
+      await page.getByLabel('Email', { exact: true }).or(page.getByRole('textbox', { name: 'email' })).fill('test@example.com');
+      
+      // Submit form
+      await page.getByRole('button', { name: 'Send Reset Link' }).click();
+      
+      // Check for confirmation message
+      await expect(page.getByText('Password reset link sent').or(page.getByText('Check your email'))).toBeVisible({ timeout: 5000 });
     });
   });
 });
