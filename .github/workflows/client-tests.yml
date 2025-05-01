@@ -92,8 +92,7 @@ jobs:
         
       - name: Run Playwright tests
         run: |
-          cd apps/client
-          pnpm exec playwright test
+          pnpm run e2e:test
 
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
