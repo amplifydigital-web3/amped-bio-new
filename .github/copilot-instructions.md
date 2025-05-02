@@ -3,3 +3,4 @@ Use only zod to create schemas.
 Prefer to use tailwind classes to do style instead of creating css files.
 Write UI texts only in english.
 Create functions, classes, variables only with english names.
+We use pnpm.

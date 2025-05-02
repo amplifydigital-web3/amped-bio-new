@@ -4,3 +4,20 @@ services:
     ports:
       - "1025:1025"
       - "1080:1080"
+  
+  mariadb:
+    image: mariadb:10.5.28
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: amped_bio
+      MYSQL_USER: amped_user
+      MYSQL_PASSWORD: amped_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./init-scripts:/docker-entrypoint-initdb.d
+
+volumes:
+  mariadb_data:

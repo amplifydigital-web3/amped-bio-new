@@ -117,3 +117,56 @@ The server API will be available at `http://localhost:43000`.
 - **Parallelization** - Tasks run in parallel when possible
 - **Task Dependencies** - Proper order of execution based on task dependencies
 - **Remote Caching** - Optional remote caching for CI/CD environments
+
+## Local GitHub Actions Testing
+
+You can test GitHub Actions workflows locally using [Act](https://github.com/nektos/act), which simulates the GitHub Actions environment on your local machine.
+
+### Prerequisites
+
+1. Install Act:
+   ```sh
+   # macOS
+   brew install act
+   
+   # Linux
+   curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+   ```
+
+2. Make sure Docker is installed and running on your machine.
+
+### Running Actions Locally
+
+To run all GitHub Actions workflows:
+```sh
+act
+```
+
+To run a specific workflow (e.g., client tests):
+```sh
+act -j auth-tests
+```
+
+To run a workflow with a specific event:
+```sh
+act push
+```
+
+To see what would be run without actually running it:
+```sh
+act -n
+```
+
+To run with specific workflow file:
+```sh
+act -W .github/workflows/client-tests.yml
+```
+
+### Environment Variables
+
+If your workflows require environment variables, you can provide them using a `.env` file or directly in the command:
+```sh
+act -s MY_SECRET=value
+```
+
+For more options and information, check the [Act documentation](https://github.com/nektos/act#usage).
