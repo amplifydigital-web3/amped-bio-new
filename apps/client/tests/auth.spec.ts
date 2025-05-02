@@ -98,36 +98,53 @@ test.describe('Authentication', () => {
     await expect(page.getByText('URL must be at least 3 characters')).toBeVisible();
   });
 
-  // test('should validate password requirements on registration', async ({ page }) => {
-  //   // Open auth modal
-  //   await page.getByRole('button', { name: 'Sign In' }).click();
+  test('should validate password requirements on registration', async ({ page }) => {
+    // Open auth modal
+    await page.getByRole('button', { name: 'Sign In' }).click();
     
-  //   // Switch to register form
-  //   await page.getByTestId('switch-to-register').click();
+    // Switch to register form
+    await page.getByTestId('switch-to-register').click();
     
-  //   // Enter a weak password
-  //   await page.getByTestId('register-email').fill(generateUniqueEmail('validation'));
-  //   await page.getByTestId('register-password').fill('12345');
-  //   await page.getByTestId('register-password').blur();
+    // Enter a weak password
+    await page.getByTestId('register-email').fill(generateUniqueEmail('validation'));
+    await page.getByTestId('register-password').fill('12345');
+    await page.getByTestId('register-password').blur();
     
-  //   // Check password validation error
-  //   await expect(page.getByText('Password must be at least 8 characters long')).toBeVisible();
+    // Check password validation error for minimum length
+    await expect(page.getByText('Password must be at least 8 characters long')).toBeVisible();
     
-  //   // Enter a longer password without uppercase letter
-  //   await page.getByTestId('register-password').fill('12345678');
-  //   await page.getByTestId('register-password').blur();
+    // Enter a longer password without uppercase letter
+    await page.getByTestId('register-password').fill('12345678');
+    await page.getByTestId('register-password').blur();
     
-  //   // Check password validation error for uppercase requirement
-  //   await expect(page.getByText('Password must contain at least one uppercase letter')).toBeVisible();
+    // Check password validation error for uppercase requirement
+    await expect(page.getByText('Password must contain at least one uppercase letter')).toBeVisible();
     
-  //   // Enter a strong password
-  //   await page.getByTestId('register-password').fill(testUser.password);
-  //   await page.getByTestId('register-password').blur();
+    // Enter a password without a lowercase letter
+    await page.getByTestId('register-password').fill('12345678A');
+    await page.getByTestId('register-password').blur();
     
-  //   // Check password strength indicator
-  //   await expect(page.getByText('Password requirements:')).toBeVisible();
-  //   await expect(page.getByText('At least 8 characters')).toBeVisible();
-  // });
+    // Check for lowercase requirement error
+    await expect(page.getByText('Password must contain at least one lowercase letter')).toBeVisible();
+    
+    // Enter a password without a number
+    await page.getByTestId('register-password').fill('PasswordAB');
+    await page.getByTestId('register-password').blur();
+    
+    // Check for number requirement error
+    await expect(page.getByText('Password must contain at least one number')).toBeVisible();
+    
+    // Enter a strong password that meets all requirements
+    await page.getByTestId('register-password').fill('Password123');
+    await page.getByTestId('register-password').blur();
+    
+    // Check password strength indicator shows all requirements
+    await expect(page.getByText('Password requirements:')).toBeVisible();
+    await expect(page.getByText('At least 8 characters')).toBeVisible();
+    await expect(page.getByText('At least one uppercase letter')).toBeVisible();
+    await expect(page.getByText('At least one lowercase letter')).toBeVisible();
+    await expect(page.getByText('At least one number')).toBeVisible();
+  });
 
   test('should show forgot password form', async ({ page }) => {
     // Open auth modal
@@ -178,6 +195,7 @@ test.describe('Authentication', () => {
   });
 
   test.describe('Authentication with real API', () => {
+    test.describe.configure({ mode: 'serial' });
     // Generate shared test credentials before all tests
     test.beforeAll(() => {
       // Generate unique email and onelink for all tests in this describe block
