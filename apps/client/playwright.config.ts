@@ -71,11 +71,11 @@ export default defineConfig({
   ],
 
   /* Run your local dev server before starting the tests */
-  webServer: {
-    command: 'pnpm run dev',
-    url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
-    stdout: 'pipe',
-    stderr: 'pipe',
-  },
+  // webServer: {
+  //   command: 'pnpm run dev',
+  //   url: 'http://localhost:5173',
+  //   reuseExistingServer: !process.env.CI,
+  //   stdout: 'pipe',
+  //   stderr: 'pipe',
+  // },
 });
