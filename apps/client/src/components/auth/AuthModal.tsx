@@ -264,10 +264,11 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
       role="dialog"
       aria-modal="true"
       aria-labelledby="auth-modal-title"
+      data-testid="auth-modal"
     >
       <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
         <div className="flex items-center justify-between mb-6">
-          <h2 id="auth-modal-title" className="text-xl font-semibold">
+          <h2 id="auth-modal-title" className="text-xl font-semibold" data-testid="auth-modal-title" aria-label="auth-modal-title">
             {form === "register" && "Create Account"}
             {form === "login" && "Sign In"}
             {form === "reset" && "Reset Password"}
@@ -276,19 +277,21 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
             onClick={onCancel}
             className="p-1 text-gray-500 hover:text-gray-700"
             aria-label="Close authentication modal"
+            data-testid="auth-modal-close"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {form === "login" && (
-          <form onSubmit={handleSubmitLogin(onSubmitLogin)} className="space-y-4">
+          <form onSubmit={handleSubmitLogin(onSubmitLogin)} className="space-y-4" data-testid="login-form">
             <Input
               label="Email"
               type="email"
               error={loginErrors.email?.message}
               required
-              aria-label="Email address"
+              aria-label="Email"
+              data-testid="login-email"
               autoComplete="email"
               {...registerLogin("email")}
             />
@@ -299,6 +302,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 error={loginErrors.password?.message}
                 required
                 aria-label="Password"
+                data-testid="login-password"
                 autoComplete="current-password"
                 {...registerLogin("password")}
               />
@@ -307,6 +311,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 className="absolute right-3 top-9 text-gray-500 hover:text-gray-700"
                 onClick={() => setShowLoginPassword(!showLoginPassword)}
                 aria-label={showLoginPassword ? "Hide password" : "Show password"}
+                data-testid="login-toggle-password"
               >
                 {showLoginPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
@@ -317,6 +322,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               disabled={loading}
               aria-disabled={loading}
               aria-label="Sign In"
+              data-testid="login-submit"
             >
               {loading ? (
                 <span className="flex items-center justify-center">
@@ -331,7 +337,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
         )}
 
         {form === "register" && (
-          <form onSubmit={handleSubmitSignUp(onSubmitRegister)} className="space-y-4">
+          <form onSubmit={handleSubmitSignUp(onSubmitRegister)} className="space-y-4" data-testid="register-form">
             <div className="relative">
               <Input
                 label="Amped.Bio Unique URL"
@@ -339,6 +345,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 error={registerErrors.onelink?.message}
                 required
                 aria-label="Amped.Bio Unique URL"
+                data-testid="register-onelink"
                 autoComplete="username"
                 placeholder="your-url"
                 {...registerSignUp("onelink")}
@@ -349,7 +356,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               </div>
             </div>
             {onelinkInput && (
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600" data-testid="public-url-preview">
                 Public URL:{" "}
                 <a
                   href={getOnelinkPublicUrl(onelinkInput)}
@@ -366,7 +373,8 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               type="email"
               error={registerErrors.email?.message}
               required
-              aria-label="Email address"
+              aria-label="Email"
+              data-testid="register-email"
               autoComplete="email"
               {...registerSignUp("email")}
             />
@@ -378,6 +386,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                   error={registerErrors.password?.message}
                   required
                   aria-label="Password"
+                  data-testid="register-password"
                   autoComplete="new-password"
                   {...registerSignUp("password")}
                 />
@@ -386,6 +395,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                   className="absolute right-3 top-9 text-gray-500 hover:text-gray-700"
                   onClick={() => setShowRegisterPassword(!showRegisterPassword)}
                   aria-label={showRegisterPassword ? "Hide password" : "Show password"}
+                  data-testid="register-toggle-password"
                 >
                   {showRegisterPassword ? (
                     <EyeOff className="h-5 w-5" />
@@ -402,6 +412,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               disabled={loading || urlStatus === "Unavailable" || !isValid || !onelinkInput}
               aria-disabled={loading || urlStatus === "Unavailable" || !isValid || !onelinkInput}
               aria-label="Create Account"
+              data-testid="register-submit"
             >
               {loading ? (
                 <span className="flex items-center justify-center">
@@ -413,7 +424,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               )}
             </Button>
             {urlStatus === "Unavailable" && onelinkInput && (
-              <p className="text-xs text-center text-red-600">
+              <p className="text-xs text-center text-red-600" data-testid="url-unavailable-message">
                 This URL is already taken. Please choose another one.
               </p>
             )}
@@ -421,7 +432,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
         )}
 
         {form === "reset" && (
-          <form onSubmit={handleSubmitReset(onSubmitReset)} className="space-y-4">
+          <form onSubmit={handleSubmitReset(onSubmitReset)} className="space-y-4" data-testid="reset-form">
             <div className="mb-2">
               <p className="text-sm text-gray-600 mb-4">
                 Enter your email address below and we'll send you instructions to reset your
@@ -433,7 +444,8 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               type="email"
               error={resetErrors.email?.message}
               required
-              aria-label="Email address"
+              aria-label="Email"
+              data-testid="reset-email"
               autoComplete="email"
               {...registerReset("email")}
             />
@@ -442,7 +454,8 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               className="w-full relative"
               disabled={loading}
               aria-disabled={loading}
-              aria-label="Reset Password"
+              aria-label="Send Reset Instructions"
+              data-testid="reset-submit"
             >
               {loading ? (
                 <span className="flex items-center justify-center">
@@ -460,6 +473,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 to="/auth/reset-password/"
                 className="inline-block mt-2 text-blue-600 hover:text-blue-700 hover:underline font-medium"
                 aria-label="Use reset token"
+                data-testid="use-reset-token"
               >
                 Use your reset token here →
               </Link>
@@ -475,7 +489,8 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 type="button"
                 onClick={() => switchForm("login")}
                 className="text-blue-600 hover:text-blue-700 ml-2"
-                aria-label={"Switch to sign in"}
+                aria-label="Switch to sign in"
+                data-testid="switch-to-login"
               >
                 {"Sign In"}
               </button>
@@ -488,7 +503,8 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 type="button"
                 onClick={() => switchForm("register")}
                 className="text-blue-600 hover:text-blue-700 ml-2"
-                aria-label={"Switch to sign up"}
+                aria-label="Switch to sign up"
+                data-testid="switch-to-register"
               >
                 {"Sign Up"}
               </button>
@@ -501,7 +517,8 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               type="button"
               onClick={() => switchForm("reset")}
               className="text-blue-600 hover:text-blue-700 ml-2"
-              aria-label={"Forgot Password"}
+              aria-label="Forgot Password"
+              data-testid="forgot-password"
             >
               {"Forgot Password"}
             </button>
