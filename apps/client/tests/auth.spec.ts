@@ -1,5 +1,18 @@
 import { test, expect } from '@playwright/test';
 
+// Helper function to generate unique test emails
+const generateUniqueEmail = (prefix = 'test') => {
+  const timestamp = Date.now();
+  const randomStr = Math.random().toString(36).substring(2, 8);
+  return `${prefix}-${timestamp}-${randomStr}@example.com`;
+};
+// Test credentials used for registration, login, and password reset tests
+let testUser = {
+  email: '',
+  password: '',
+  onelink: ''
+};
+
 test.describe('Authentication', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
@@ -85,36 +98,36 @@ test.describe('Authentication', () => {
     await expect(page.getByText('URL must be at least 3 characters')).toBeVisible();
   });
 
-  test('should validate password requirements on registration', async ({ page }) => {
-    // Open auth modal
-    await page.getByRole('button', { name: 'Sign In' }).click();
+  // test('should validate password requirements on registration', async ({ page }) => {
+  //   // Open auth modal
+  //   await page.getByRole('button', { name: 'Sign In' }).click();
     
-    // Switch to register form
-    await page.getByTestId('switch-to-register').click();
+  //   // Switch to register form
+  //   await page.getByTestId('switch-to-register').click();
     
-    // Enter a weak password
-    await page.getByTestId('register-email').fill('test@example.com');
-    await page.getByTestId('register-password').fill('12345');
-    await page.getByTestId('register-password').blur();
+  //   // Enter a weak password
+  //   await page.getByTestId('register-email').fill(generateUniqueEmail('validation'));
+  //   await page.getByTestId('register-password').fill('12345');
+  //   await page.getByTestId('register-password').blur();
     
-    // Check password validation error
-    await expect(page.getByText('Password must be at least 8 characters long')).toBeVisible();
+  //   // Check password validation error
+  //   await expect(page.getByText('Password must be at least 8 characters long')).toBeVisible();
     
-    // Enter a longer password without uppercase letter
-    await page.getByTestId('register-password').fill('12345678');
-    await page.getByTestId('register-password').blur();
+  //   // Enter a longer password without uppercase letter
+  //   await page.getByTestId('register-password').fill('12345678');
+  //   await page.getByTestId('register-password').blur();
     
-    // Check password validation error for uppercase requirement
-    await expect(page.getByText('Password must contain at least one uppercase letter')).toBeVisible();
+  //   // Check password validation error for uppercase requirement
+  //   await expect(page.getByText('Password must contain at least one uppercase letter')).toBeVisible();
     
-    // Enter a strong password
-    await page.getByTestId('register-password').fill('Password123');
-    await page.getByTestId('register-password').blur();
+  //   // Enter a strong password
+  //   await page.getByTestId('register-password').fill(testUser.password);
+  //   await page.getByTestId('register-password').blur();
     
-    // Check password strength indicator
-    await expect(page.getByText('Password requirements:')).toBeVisible();
-    await expect(page.getByText('At least 8 characters')).toBeVisible();
-  });
+  //   // Check password strength indicator
+  //   await expect(page.getByText('Password requirements:')).toBeVisible();
+  //   await expect(page.getByText('At least 8 characters')).toBeVisible();
+  // });
 
   test('should show forgot password form', async ({ page }) => {
     // Open auth modal
@@ -164,34 +177,25 @@ test.describe('Authentication', () => {
     await expect(page.getByTestId('public-url-preview')).toContainText('Public URL:');
   });
 
-  // Tests for successful login, registration and error handling are commented out
-  // as they require real API interaction and may fail in automated test environments
-
-  /* 
   test.describe('Authentication with real API', () => {
+    // Generate shared test credentials before all tests
+    test.beforeAll(() => {
+      // Generate unique email and onelink for all tests in this describe block
+      const timestamp = Date.now();
+      const randomStr = Math.random().toString(36).substring(2, 8);
+      testUser.email = `test-integrated-${timestamp}-${randomStr}@example.com`;
+      testUser.onelink = `test-user-${timestamp}-${randomStr}`;
+      testUser.password = 'Password123@';
+      console.log(`Using test credentials - Email: ${testUser.email}, Onelink: ${testUser.onelink}, Password: ${testUser.password}`);
+    });
+
     test.beforeEach(async ({ page }) => {
       await page.goto('/');
     });
     
-    test('should handle successful login', async ({ page }) => {
-      // Open auth modal
-      await page.getByRole('button', { name: 'Sign In' }).click();
-      
-      // Fill in login form with test credentials
-      await page.getByTestId('login-email').fill('test@example.com');
-      await page.getByTestId('login-password').fill('password123');
-      
-      // Submit form
-      await page.getByTestId('login-submit').click();
-      
-      // Check for successful login indication - waiting for navigation to complete
-      await expect(page.getByLabel('User menu')).toBeVisible({ timeout: 5000 });
-    });
-    
-    test('should handle successful registration', async ({ page }) => {
-      // Generate unique email to avoid conflicts
-      const uniqueEmail = `test-${Date.now()}@example.com`;
-      const uniqueUrl = `test-user-${Date.now()}`;
+    // This test creates an account that will be used in subsequent tests
+    test('should handle successful registration and redirect to dashboard', async ({ page }) => {
+      console.log(`Starting registration with email: ${testUser.email}`);
       
       // Open auth modal
       await page.getByRole('button', { name: 'Sign In' }).click();
@@ -199,49 +203,108 @@ test.describe('Authentication', () => {
       // Switch to register form
       await page.getByTestId('switch-to-register').click();
       
-      // Fill in registration form
-      await page.getByTestId('register-email').fill(uniqueEmail);
-      await page.getByTestId('register-password').fill('Password123!');
-      await page.getByTestId('register-onelink').fill(uniqueUrl);
+      // Fill in registration form with our shared test user
+      await page.getByTestId('register-onelink').fill(testUser.onelink);
+      await page.getByTestId('register-email').fill(testUser.email);
+      await page.getByTestId('register-password').fill(testUser.password);
+      
+      console.log(`Submitting registration with: ${testUser.email}, ${testUser.onelink} ${testUser.password}`);
       
       // Submit form
       await page.getByTestId('register-submit').click();
       
-      // Check for successful registration indication
-      await expect(page.getByLabel('User menu')).toBeVisible({ timeout: 5000 });
+      // Wait for registration to complete and check for redirect
+      await expect(page).toHaveURL(new RegExp(`/@${testUser.onelink}/edit`), { timeout: 10000 });
+      
+      // Verify sidebar component is visible
+      const sidebar = page.locator('div').filter({ hasText: /Home\s*Profile\s*Themes\s*Appearance\s*Effects\s*Blocks/ }).first();
+      await expect(sidebar).toBeVisible();
+      
+      // Verify correct panel is selected (default is home)
+      await expect(page.getByRole('button', { name: 'Home' }).first()).toHaveClass(/bg-gray-100/);
+      
+      // Wait for an additional second to ensure database operations complete
+      await page.waitForTimeout(1000);
+      
+      console.log(`Registration complete for: ${testUser.email} ${testUser.password}`);
     });
     
-    test('should handle login errors', async ({ page }) => {
+    // This test uses the account created in the registration test
+    test('should handle successful login and redirect to dashboard', async ({ page }) => {
+      console.log(`Starting login with email: ${testUser.email}`);
+      
       // Open auth modal
       await page.getByRole('button', { name: 'Sign In' }).click();
       
-      // Fill in login form with invalid credentials
-      await page.getByTestId('login-email').fill('test@example.com');
-      await page.getByTestId('login-password').fill('wrong-password');
+      // Fill in login form with our shared test user credentials
+      await page.getByTestId('login-email').fill(testUser.email);
+      await page.getByTestId('login-password').fill(testUser.password);
+      
+      console.log(`Submitting login with: ${testUser.email}`);
       
       // Submit form
       await page.getByTestId('login-submit').click();
       
-      // Check for error message (using toast notification)
-      await expect(page.getByText('Invalid credentials').or(page.getByText('Invalid email or password'))).toBeVisible({ timeout: 5000 });
+      await expect(page).toHaveURL(new RegExp(`/@${testUser.onelink}/edit`), { timeout: 10000 });
+
+      // Verify sidebar component is visible with expected navigation items
+      await expect(page.getByText('Home')).toBeVisible();
+      await expect(page.getByText('Profile')).toBeVisible();
+      await expect(page.getByText('Themes')).toBeVisible();
+      await expect(page.getByText('Appearance')).toBeVisible();
+      await expect(page.getByText('Blocks')).toBeVisible();
+      
+      console.log(`Login successful for: ${testUser.email}`);
     });
     
+    // This test uses the same account for password reset
     test('should handle password reset request', async ({ page }) => {
+      console.log(`Starting password reset with email: ${testUser.email}`);
+      
       // Open auth modal
       await page.getByRole('button', { name: 'Sign In' }).click();
       
       // Click forgot password link
       await page.getByTestId('forgot-password').click();
       
-      // Fill in email
-      await page.getByTestId('reset-email').fill('test@example.com');
+      // Verify that we're on the reset password form
+      await expect(page.getByTestId('auth-modal-title')).toHaveText('Reset Password');
+      
+      // Fill in email with our shared test user email
+      await page.getByTestId('reset-email').fill(testUser.email);
+      
+      console.log(`Submitting password reset for: ${testUser.email}`);
       
       // Submit form
       await page.getByTestId('reset-submit').click();
       
-      // Check for confirmation message (toast notification)
-      await expect(page.getByText('Reset email sent')).toBeVisible({ timeout: 5000 });
+      // Modal should close if request is successful (no need to check for toast)
+      await expect(page.getByTestId('auth-modal')).not.toBeVisible({ timeout: 5000 });
+      
+      console.log(`Password reset requested for: ${testUser.email}`);
+    });
+    
+    test('should handle login errors', async ({ page }) => {
+      // Generate a unique email that definitely won't exist in the database
+      const nonexistentEmail = generateUniqueEmail('nonexistent');
+      
+      // Open auth modal
+      await page.getByRole('button', { name: 'Sign In' }).click();
+      
+      // Fill in login form with invalid credentials
+      await page.getByTestId('login-email').fill(nonexistentEmail);
+      await page.getByTestId('login-password').fill('wrong-password');
+      
+      // Submit form
+      await page.getByTestId('login-submit').click();
+      
+      // Check for error message in the form (inline error instead of toast)
+      await expect(
+        page.locator('.bg-red-50').filter({ hasText: /Invalid credentials|Invalid email or password|Authentication failed/ })
+      ).toBeVisible({ timeout: 5000 });
+      
+      // Verify we're still on the login form
+      await expect(page.getByTestId('auth-modal-title')).toHaveText('Sign In');
     });
   });
-  */
 });

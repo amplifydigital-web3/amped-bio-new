@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Loader2, Eye, EyeOff, Check, X as XIcon } from "lucide-react";
+import { X, Loader2, Eye, EyeOff, Check, X as XIcon, AlertCircle } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
-import toast from "react-hot-toast";
 import type { AuthUser } from "../../types/auth";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -97,6 +96,11 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const navigate = useNavigate();
 
+  // Add error states for each form
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [registerError, setRegisterError] = useState<string | null>(null);
+  const [resetError, setResetError] = useState<string | null>(null);
+
   const [onelinkInput, setOnelinkInput] = useState("");
   const { urlStatus, isValid } = useOnelinkAvailability(onelinkInput);
 
@@ -188,14 +192,18 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     }
   }, [registerOnelink]);
 
-  // Custom form switcher that maintains email
+  // Custom form switcher that maintains email and clears errors
   const switchForm = (newForm: FormType) => {
+    setLoginError(null);
+    setRegisterError(null);
+    setResetError(null);
     setForm(newForm);
   };
 
   // Handle login form submission
   const onSubmitLogin = async (data: z.infer<typeof loginSchema>) => {
     setLoading(true);
+    setLoginError(null);
     try {
       const loginData: LoginData = {
         email: data.email,
@@ -203,7 +211,6 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
       };
 
       const user = await signIn(loginData.email, loginData.password);
-      toast.success("Welcome back!", { icon: "👋" });
       onClose(user);
 
       // Redirect the user to their edit page with panel state set to "home"
@@ -212,7 +219,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
         navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
       }
     } catch (error) {
-      toast.error((error as Error).message);
+      setLoginError((error as Error).message);
     } finally {
       setLoading(false);
     }
@@ -221,6 +228,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
   // Handle register form submission
   const onSubmitRegister = async (data: z.infer<typeof registerSchema>) => {
     setLoading(true);
+    setRegisterError(null);
     try {
       const registerData: RegisterData = {
         onelink: data.onelink,
@@ -229,7 +237,6 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
       };
 
       const user = await signUp(registerData.onelink, registerData.email, registerData.password);
-      toast.success("Account created successfully!");
       onClose(user);
 
       // Redirect to edit page with home panel selected
@@ -238,7 +245,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
         navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
       }
     } catch (error) {
-      toast.error((error as Error).message);
+      setRegisterError((error as Error).message);
     } finally {
       setLoading(false);
     }
@@ -247,12 +254,12 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
   // Handle password reset form submission
   const onSubmitReset = async (data: z.infer<typeof resetSchema>) => {
     setLoading(true);
+    setResetError(null);
     try {
-      const response = await resetPassword(data.email);
-      toast.success("Reset email sent!");
+      await resetPassword(data.email);
       onCancel();
     } catch (error) {
-      toast.error((error as Error).message);
+      setResetError((error as Error).message);
     } finally {
       setLoading(false);
     }
@@ -285,6 +292,12 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
 
         {form === "login" && (
           <form onSubmit={handleSubmitLogin(onSubmitLogin)} className="space-y-4" data-testid="login-form">
+            {loginError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
+                <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-red-600">{loginError}</p>
+              </div>
+            )}
             <Input
               label="Email"
               type="email"
@@ -338,6 +351,12 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
 
         {form === "register" && (
           <form onSubmit={handleSubmitSignUp(onSubmitRegister)} className="space-y-4" data-testid="register-form">
+            {registerError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
+                <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-red-600">{registerError}</p>
+              </div>
+            )}
             <div className="relative">
               <Input
                 label="Amped.Bio Unique URL"
@@ -439,6 +458,12 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 password.
               </p>
             </div>
+            {resetError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
+                <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-red-600">{resetError}</p>
+              </div>
+            )}
             <Input
               label="Email"
               type="email"
