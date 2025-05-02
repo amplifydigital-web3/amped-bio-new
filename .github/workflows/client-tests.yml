@@ -82,17 +82,6 @@ jobs:
             echo "Waiting for backend on port ${PORT:-3000}"
             wait-for-it -t 60 localhost:${PORT:-3000} -- echo "Backend is up"
 
-      - name: Build client
-        run: |
-          cd apps/client
-          pnpm build
-
-      - name: Start client
-        run: |
-          cd apps/client
-          pnpm preview &
-          wait-for-it -t 60 localhost:4173 -- echo "Frontend is up"
-
       - name: Install Playwright Browsers
         run: |
           cd apps/client
