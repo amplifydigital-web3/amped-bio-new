@@ -9,6 +9,7 @@ on:
 jobs:
   auth-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     # Global environment variables available to all steps
     env:
@@ -72,15 +73,21 @@ jobs:
           pnpm prisma generate
           pnpm prisma migrate deploy
 
-
-
       - name: Build and start backend
         run: |
           cd apps/server
           pnpm build
           pnpm start &
-            echo "Waiting for backend on port ${PORT:-3000}"
-            wait-for-it -t 60 localhost:${PORT:-3000} -- echo "Backend is up"
+          echo "Waiting for backend on port ${PORT:-3000}"
+          wait-for-it -t 60 localhost:${PORT:-3000} -- echo "Backend is up"
+      
+      - name: Build and start frontend
+        run: |
+          cd apps/client
+          pnpm build
+          pnpm exec vite preview --port 5173 &
+          echo "Waiting for frontend on port 5173"
+          wait-for-it -t 60 localhost:5173 -- echo "Frontend is up"
 
       - name: Install Playwright Browsers
         run: |
