@@ -53,7 +53,7 @@ export const useEditorStore = create<EditorStore>()(set => ({
     console.group(`🔍 Setting User: ${onelink}`);
     console.info("🚀 Loading user data...");
     try {
-      const { result: onlinkData } = await trpc.getOnelink.query({ onelink });
+      const { result: onlinkData } = await trpc.onelink.getOnelink.query({ onelink });
       if (!onlinkData) {
         console.info("❌ User not found:", onelink);
         console.groupEnd();

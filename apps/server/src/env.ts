@@ -45,4 +45,27 @@ export const env = cleanEnv(process.env, {
     default: "noreply@amped-bio.com",
     example: "noreply@yourdomain.com",
   }),
+  // AWS S3 Configuration for profile picture uploads
+  AWS_REGION: str({
+    desc: "AWS Region",
+    default: "us-east-1",
+    example: "us-west-2",
+  }),
+  AWS_ACCESS_KEY_ID: str({
+    desc: "AWS Access Key ID",
+    default: "your-access-key-id",
+  }),
+  AWS_SECRET_ACCESS_KEY: str({
+    desc: "AWS Secret Access Key",
+    default: "your-secret-access-key",
+  }),
+  AWS_S3_BUCKET_NAME: str({
+    desc: "AWS S3 Bucket Name for file uploads",
+    default: "amped-bio-uploads",
+  }),
+  AWS_S3_PUBLIC_URL: str({
+    desc: "Public URL for S3 bucket (can use CloudFront URL)",
+    default: "",
+    example: "https://assets.amped-bio.com",
+  }),
 });

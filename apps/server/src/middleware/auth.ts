@@ -1,12 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { env } from "../env";
-
-export type JWTUser = {
-  id: number;
-  email: string;
-  role: string;
-};
+import { JWTUser } from "../trpc/trpc";
 
 declare global {
   namespace Express {
