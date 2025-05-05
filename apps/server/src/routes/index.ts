@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Router } from "express";
 import authRoutes from "./auth.routes";
 import userRoutes from "./user.routes";
 import themeRoutes from "./theme.routes";
@@ -6,7 +6,7 @@ import blockRoutes from "./block.routes";
 import onelinkRoutes from "./onelink.routes";
 import adminRoutes from "./admin.routes";
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // Register all routes
 router.use("/auth", authRoutes);

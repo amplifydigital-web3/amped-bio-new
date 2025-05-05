@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Router } from "express";
 import { authController } from "../controllers/auth.controller";
 import { validate, ValidationTarget } from "../middleware/validation.middleware";
 import {
@@ -9,7 +9,7 @@ import {
   sendVerifyEmailSchema,
 } from "../schemas/auth.schema";
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // Auth routes
 router.post("/register", validate(registerSchema), authController.register);

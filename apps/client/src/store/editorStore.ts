@@ -21,6 +21,7 @@ import { useAuthStore } from "./authStore";
 import toast from "react-hot-toast";
 import { BlockType } from "@/api/api.types";
 import { formatOnelink, normalizeOnelink } from "@/utils/onelink";
+import { trpc } from "@/utils/trpc";
 
 interface EditorStore extends EditorState {
   changes: boolean;
@@ -45,8 +46,6 @@ interface EditorStore extends EditorState {
   setSelectedPoolId: (id: string | null) => void;
 }
 
-type EditorPersistOptions = PersistOptions<EditorStore>;
-
 export const useEditorStore = create<EditorStore>()(set => ({
   changes: false,
   ...initialState,
@@ -54,18 +53,18 @@ export const useEditorStore = create<EditorStore>()(set => ({
     console.group(`🔍 Setting User: ${onelink}`);
     console.info("🚀 Loading user data...");
     try {
-      const userData = await getOnelink(onelink);
-      if (!userData) {
+      const { result: onlinkData } = await trpc.getOnelink.query({ onelink });
+      if (!onlinkData) {
         console.info("❌ User not found:", onelink);
         console.groupEnd();
         return;
       }
-      const { user, theme, blocks: blocks_raw } = userData;
+      const { user, theme, blocks: blocks_raw } = onlinkData;
       const { name, email, description, image } = user;
       // Normalize the onelink (remove @) and also create a formatted version (with @)
       const normalizedOnelink = normalizeOnelink(onelink);
       const formattedOnelink = formatOnelink(onelink);
-      console.info("👤 User data loaded:", { name, email, blocks: blocks_raw });
+      console.info("👤 User data loaded:", { name, email, blocks: blocks_raw, theme });
 
       set({
         profile: {
@@ -73,18 +72,20 @@ export const useEditorStore = create<EditorStore>()(set => ({
           onelink: normalizedOnelink,
           onelinkFormatted: formattedOnelink,
           email,
-          bio: description,
-          photoUrl: image,
+          bio: description ?? "",
+          photoUrl: image ?? "",
         },
       });
       console.info("🎨 Setting theme...");
+      // @ts-ignore
       set({ theme: { ...initialState.theme, ...theme } });
       const blocks = blocks_raw.sort((a, b) => a.order - b.order);
       console.info(`📦 Setting ${blocks.length} blocks...`);
+      // @ts-ignore
       set({ blocks: blocks });
       console.info("✅ User setup complete");
       console.groupEnd();
-      return userData;
+      return onlinkData;
     } catch (error) {
       console.info("❌ Error getting user:", error);
       console.groupEnd();
