@@ -1,17 +1,18 @@
 import "express-async-errors";
 import { IDI } from "../types/di";
 import { Service } from "../types/service";
-import express from "express";
+import express, { Application } from "express";
 import helmet from "helmet";
 import cors from "cors";
 import { env } from "../env";
 import { Server } from "http";
 import router from "../routes";
+import { trpcMiddleware } from "../trpc/router";
 
 const logTag = "[API]";
 
 export class API implements Service {
-  public app;
+  public app: Application;
   private di: IDI;
 
   private server!: Server;
@@ -35,6 +36,9 @@ export class API implements Service {
 
     this.app.use(cors());
 
+    // Mount the tRPC middleware
+    this.app.use('/trpc', trpcMiddleware);
+    
     this.app.use("/api/", router);
 
     this.app.use(logErrors);

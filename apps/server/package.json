@@ -1,9 +1,16 @@
 {
-  "name": "server",
+  "name": "@ampedbio/server",
   "version": "1.0.0",
   "private": true,
   "engines": {
     "node": ">=22.9.0"
+  },
+  "main": "./dist/trpc/index.js",
+  "exports": {
+    "./trpc": {
+      "import": "./dist/trpc/index.js",
+      "types": "./dist/trpc/index.d.ts"
+    }
   },
   "scripts": {
     "start": "node dist/index.js",
@@ -15,6 +22,7 @@
     "@prisma/client": "6.7.0",
     "@react-email/components": "^0.0.36",
     "@react-email/render": "^1.0.6",
+    "@trpc/server": "^11.1.2",
     "axios": "^1.8.3",
     "bcrypt": "^5.1.1",
     "compression": "^1.8.0",
@@ -43,6 +51,6 @@
     "@types/react": "^18.3.5",
     "nodemon": "^3.0.3",
     "ts-node": "^10.9.2",
-    "typescript": "^5.3.3"
+    "typescript": "^5.7.2"
   }
 }

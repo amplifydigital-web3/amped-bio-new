@@ -1,10 +1,10 @@
-import express from "express";
+import express, { Router } from "express";
 import { userController } from "../controllers/user.controller";
 import { authMiddleware } from "../middleware/auth";
 import { validate, ValidationTarget } from "../middleware/validation.middleware";
 import { deleteUserSchema, editUserSchema } from "../schemas/user.schema";
 
-const router = express.Router();
+const router: Router = express.Router();
 
 router.put("/", authMiddleware(), validate(editUserSchema), userController.edit);
 router.get("/", authMiddleware(), userController.get);

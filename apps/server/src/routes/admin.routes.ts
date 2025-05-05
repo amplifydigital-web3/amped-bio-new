@@ -1,8 +1,8 @@
-import express from "express";
+import express, { Router } from "express";
 import { adminController } from "../controllers/admin.controller";
 import { authMiddleware } from "../middleware/auth";
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // Apply admin role requirement to all routes
 router.use(authMiddleware("admin"));

@@ -1,10 +1,10 @@
-import express from "express";
+import express, { Router } from "express";
 import { blockController } from "../controllers/block.controller";
 import { authMiddleware } from "../middleware/auth";
 import { validate } from "../middleware/validation.middleware";
 import { editBlocksSchema, addBlockSchema, blockIdParamSchema } from "../schemas/block.schema";
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // Block routes
 router.put("/", authMiddleware(), validate(editBlocksSchema), blockController.editBlocks);

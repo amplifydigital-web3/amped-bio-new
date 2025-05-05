@@ -1,10 +1,10 @@
-import express from "express";
+import express, { Router } from "express";
 import { themeController } from "../controllers/theme.controller";
 import { authMiddleware } from "../middleware/auth";
 import { validate, ValidationTarget } from "../middleware/validation.middleware";
 import { editThemeSchema } from "../schemas/theme.schema";
 
-const router = express.Router();
+const router: Router = express.Router();
 
 router.put(
   "/:id",
