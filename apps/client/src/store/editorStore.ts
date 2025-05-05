@@ -64,7 +64,7 @@ export const useEditorStore = create<EditorStore>()(set => ({
       // Normalize the onelink (remove @) and also create a formatted version (with @)
       const normalizedOnelink = normalizeOnelink(onelink);
       const formattedOnelink = formatOnelink(onelink);
-      console.info("👤 User data loaded:", { name, email, blocks: blocks_raw });
+      console.info("👤 User data loaded:", { name, email, blocks: blocks_raw, theme });
 
       set({
         profile: {
