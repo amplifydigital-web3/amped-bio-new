@@ -23,6 +23,7 @@
     "prisma:migrate:dev": "prisma migrate dev"
   },
   "dependencies": {
+    "@ampedbio/constants": "workspace:*",
     "@aws-sdk/client-s3": "^3.802.0",
     "@aws-sdk/s3-request-presigner": "^3.802.0",
     "@prisma/client": "6.7.0",
