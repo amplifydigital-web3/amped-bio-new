@@ -10,7 +10,7 @@ const baseURL = withRelatedProject({
 export const trpc = createTRPCClient<AppRouter>({
   links: [
     httpBatchLink({
-      url: `${baseURL}/trpc`,
+      url: `${import.meta.env.VITE_API_URL ?? baseURL}/trpc`,
     }),
   ],
 });
