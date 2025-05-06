@@ -1,7 +1,7 @@
 import type { Background } from "../types/editor";
 
 // Base S3 URL
-const s3BaseUrl = "https://amped-bio.s3.us-west-2.amazonaws.com/themes";
+const s3BaseUrl = "https://amped-bio.s3.amazonaws.com/themes";
 
 const awsS3 =
   import.meta.env?.AWS_S3_BACKGROUNDS ||
@@ -11,6 +11,9 @@ const thumbnailsPath = awsS3;
 
 const photosPath = import.meta.env?.AWS_S3_PHOTOS || 
   `${s3BaseUrl}/photos`;
+
+// Path for photo thumbnails
+const photoThumbnailsPath = `${s3BaseUrl}/photos`;
 
 export const gradients: Background[] = [
   {
@@ -46,24 +49,28 @@ export const photos: Background[] = [
     type: "image",
     value: `${photosPath}/mountain-sunset.jpg`,
     label: "Mountain Sunset",
+    thumbnail: `${photoThumbnailsPath}/mountain-sunset_thumbnail.jpg`,
   },
   {
     id: "image-starry-night",
     type: "image",
     value: `${photosPath}/starry-night.jpg`,
     label: "Starry Night",
+    thumbnail: `${photoThumbnailsPath}/starry-night_thumbnail.jpg`,
   },
   {
     id: "image-forest-path",
     type: "image",
     value: `${photosPath}/forest-path.jpg`,
     label: "Forest Path",
+    thumbnail: `${photoThumbnailsPath}/forest-path_thumbnail.jpg`,
   },
   {
     id: "image-northern-lights",
     type: "image",
     value: `${photosPath}/northern-lights.jpg`,
     label: "Northern Lights",
+    thumbnail: `${photoThumbnailsPath}/northern-lights_thumbnail.jpg`,
   },
   // Abstract & Patterns
   {
@@ -71,18 +78,21 @@ export const photos: Background[] = [
     type: "image",
     value: `${photosPath}/abstract-waves.jpg`,
     label: "Abstract Waves",
+    thumbnail: `${photoThumbnailsPath}/abstract-waves_thumbnail.jpg`,
   },
   {
     id: "image-liquid-art",
     type: "image",
     value: `${photosPath}/liquid-art.jpg`,
     label: "Liquid Art",
+    thumbnail: `${photoThumbnailsPath}/liquid-art_thumbnail.jpg`,
   },
   {
     id: "image-color-flow",
     type: "image",
     value: `${photosPath}/color-flow.jpg`,
     label: "Color Flow",
+    thumbnail: `${photoThumbnailsPath}/color-flow_thumbnail.jpg`,
   },
   // Urban & Architecture
   {
@@ -90,12 +100,14 @@ export const photos: Background[] = [
     type: "image",
     value: `${photosPath}/city-lights.jpg`,
     label: "City Lights",
+    thumbnail: `${photoThumbnailsPath}/city-lights_thumbnail.jpg`,
   },
   {
     id: "image-night-city",
     type: "image",
     value: `${photosPath}/night-city.jpg`,
     label: "Night City",
+    thumbnail: `${photoThumbnailsPath}/night-city_thumbnail.jpg`,
   },
   // Minimal & Clean
   {
@@ -103,12 +115,14 @@ export const photos: Background[] = [
     type: "image",
     value: `${photosPath}/minimal-white.jpg`,
     label: "Minimal White",
+    thumbnail: `${photoThumbnailsPath}/minimal-white_thumbnail.jpg`,
   },
   {
     id: "image-clean-lines",
     type: "image",
     value: `${photosPath}/clean-lines.jpg`,
     label: "Clean Lines",
+    thumbnail: `${photoThumbnailsPath}/clean-lines_thumbnail.jpg`,
   },
   // Technology
   {
@@ -116,12 +130,14 @@ export const photos: Background[] = [
     type: "image",
     value: `${photosPath}/tech-grid.jpg`,
     label: "Tech Grid",
+    thumbnail: `${photoThumbnailsPath}/tech-grid_thumbnail.jpg`,
   },
   {
     id: "image-digital-rain",
     type: "image",
     value: `${photosPath}/digital-rain.jpg`,
     label: "Digital Rain",
+    thumbnail: `${photoThumbnailsPath}/digital-rain_thumbnail.jpg`,
   },
   // Space & Cosmos
   {
@@ -129,12 +145,14 @@ export const photos: Background[] = [
     type: "image",
     value: `${photosPath}/galaxy.jpg`,
     label: "Galaxy",
+    thumbnail: `${photoThumbnailsPath}/galaxy_thumbnail.jpg`,
   },
   {
     id: "image-nebula",
     type: "image",
     value: `${photosPath}/nebula.jpg`,
     label: "Nebula",
+    thumbnail: `${photoThumbnailsPath}/nebula_thumbnail.jpg`,
   },
   // Artistic
   {
@@ -142,6 +160,7 @@ export const photos: Background[] = [
     type: "image",
     value: `${photosPath}/paint-splash.jpg`,
     label: "Paint Splash",
+    thumbnail: `${photoThumbnailsPath}/paint-splash_thumbnail.jpg`,
   },
   // Web3 & Crypto
   {
@@ -149,12 +168,14 @@ export const photos: Background[] = [
     type: "image",
     value: `${photosPath}/blockchain.jpg`,
     label: "Blockchain",
+    thumbnail: `${photoThumbnailsPath}/blockchain_thumbnail.jpg`,
   },
   {
     id: "image-crypto-art",
     type: "image",
     value: `${photosPath}/crypto-art.jpg`,
     label: "Crypto Art",
+    thumbnail: `${photoThumbnailsPath}/crypto-art_thumbnail.jpg`,
   },
   // Futuristic
   {
@@ -162,12 +183,14 @@ export const photos: Background[] = [
     type: "image",
     value: `${photosPath}/future-city.jpg`,
     label: "Future City",
+    thumbnail: `${photoThumbnailsPath}/future-city_thumbnail.jpg`,
   },
   {
     id: "image-neon-future",
     type: "image",
     value: `${photosPath}/neon-future.jpg`,
     label: "Neon Future",
+    thumbnail: `${photoThumbnailsPath}/neon-future_thumbnail.jpg`,
   },
 ];
 

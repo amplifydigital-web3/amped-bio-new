@@ -91,7 +91,7 @@ export const BackgroundPicker = memo(({ value, onChange }: BackgroundPickerProps
         onClick={() => onChange(bg)}
         className="relative aspect-video rounded-lg overflow-hidden group"
       >
-        <img src={bg.value} alt={bg.label} className="w-full h-full object-cover" />
+        <img src={bg.thumbnail} alt={bg.label} className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
           <span className="text-white text-sm font-medium">{bg.label}</span>
         </div>
