@@ -1,11 +1,16 @@
 import type { Background } from "../types/editor";
 
+// Base S3 URL
+const s3BaseUrl = "https://amped-bio.s3.us-west-2.amazonaws.com/themes";
+
 const awsS3 =
   import.meta.env?.AWS_S3_BACKGROUNDS ||
-  "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds";
+  `${s3BaseUrl}/backgrounds`;
 
-// Update thumbnailsPath to use S3 URL
 const thumbnailsPath = awsS3;
+
+const photosPath = import.meta.env?.AWS_S3_PHOTOS || 
+  `${s3BaseUrl}/photos`;
 
 export const gradients: Background[] = [
   {
@@ -39,129 +44,129 @@ export const photos: Background[] = [
   {
     id: "image-mountain-sunset",
     type: "image",
-    value: "https://images.unsplash.com/photo-1505765050516-f72dcac9c60e",
+    value: `${photosPath}/mountain-sunset.jpg`,
     label: "Mountain Sunset",
   },
   {
     id: "image-starry-night",
     type: "image",
-    value: "https://images.unsplash.com/photo-1470770903676-69b98201ea1c",
+    value: `${photosPath}/starry-night.jpg`,
     label: "Starry Night",
   },
   {
     id: "image-forest-path",
     type: "image",
-    value: "https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07",
+    value: `${photosPath}/forest-path.jpg`,
     label: "Forest Path",
   },
   {
     id: "image-northern-lights",
     type: "image",
-    value: "https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5",
+    value: `${photosPath}/northern-lights.jpg`,
     label: "Northern Lights",
   },
   // Abstract & Patterns
   {
     id: "image-abstract-waves",
     type: "image",
-    value: "https://images.unsplash.com/photo-1550859492-d5da9d8e45f3",
+    value: `${photosPath}/abstract-waves.jpg`,
     label: "Abstract Waves",
   },
   {
     id: "image-liquid-art",
     type: "image",
-    value: "https://images.unsplash.com/photo-1553356084-58ef4a67b2a7",
+    value: `${photosPath}/liquid-art.jpg`,
     label: "Liquid Art",
   },
   {
     id: "image-color-flow",
     type: "image",
-    value: "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?v=2",
+    value: `${photosPath}/color-flow.jpg`,
     label: "Color Flow",
   },
   // Urban & Architecture
   {
     id: "image-city-lights",
     type: "image",
-    value: "https://images.unsplash.com/photo-1449824913935-59a10b8d2000",
+    value: `${photosPath}/city-lights.jpg`,
     label: "City Lights",
   },
   {
     id: "image-night-city",
     type: "image",
-    value: "https://images.unsplash.com/photo-1444723121867-7a241cacace9",
+    value: `${photosPath}/night-city.jpg`,
     label: "Night City",
   },
   // Minimal & Clean
   {
     id: "image-minimal-white",
     type: "image",
-    value: "https://images.unsplash.com/photo-1507908708918-778587c9e563",
+    value: `${photosPath}/minimal-white.jpg`,
     label: "Minimal White",
   },
   {
     id: "image-clean-lines",
     type: "image",
-    value: "https://images.unsplash.com/photo-1557683311-eac922347aa1",
+    value: `${photosPath}/clean-lines.jpg`,
     label: "Clean Lines",
   },
   // Technology
   {
     id: "image-tech-grid",
     type: "image",
-    value: "https://images.unsplash.com/photo-1518770660439-4636190af475",
+    value: `${photosPath}/tech-grid.jpg`,
     label: "Tech Grid",
   },
   {
     id: "image-digital-rain",
     type: "image",
-    value: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5",
+    value: `${photosPath}/digital-rain.jpg`,
     label: "Digital Rain",
   },
   // Space & Cosmos
   {
     id: "image-galaxy",
     type: "image",
-    value: "https://images.unsplash.com/photo-1462332420958-a05d1e002413",
+    value: `${photosPath}/galaxy.jpg`,
     label: "Galaxy",
   },
   {
     id: "image-nebula",
     type: "image",
-    value: "https://images.unsplash.com/photo-1419242902214-272b3f66ee7a",
+    value: `${photosPath}/nebula.jpg`,
     label: "Nebula",
   },
   // Artistic
   {
     id: "image-paint-splash",
     type: "image",
-    value: "https://images.unsplash.com/photo-1543857778-c4a1a3e0b2eb",
+    value: `${photosPath}/paint-splash.jpg`,
     label: "Paint Splash",
   },
   // Web3 & Crypto
   {
     id: "image-blockchain",
     type: "image",
-    value: "https://images.unsplash.com/photo-1639762681485-074b7f938ba0",
+    value: `${photosPath}/blockchain.jpg`,
     label: "Blockchain",
   },
   {
     id: "image-crypto-art",
     type: "image",
-    value: "https://images.unsplash.com/photo-1644143379190-08a5f055de1d",
+    value: `${photosPath}/crypto-art.jpg`,
     label: "Crypto Art",
   },
   // Futuristic
   {
     id: "image-future-city",
     type: "image",
-    value: "https://images.unsplash.com/photo-1451187580459-43490279c0fa",
+    value: `${photosPath}/future-city.jpg`,
     label: "Future City",
   },
   {
     id: "image-neon-future",
     type: "image",
-    value: "https://images.unsplash.com/photo-1534972195531-d756b9bfa9f2",
+    value: `${photosPath}/neon-future.jpg`,
     label: "Neon Future",
   },
 ];
