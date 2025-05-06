@@ -16,7 +16,11 @@
     "start": "node dist/index.js",
     "dev": "nodemon --verbose -r dotenv/config src/index.ts",
     "build": "tsc",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy",
+    "prisma:studio": "prisma studio",
+    "prisma:migrate:dev": "prisma migrate dev"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.802.0",

@@ -3,19 +3,21 @@ import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { s3Service } from "../services/S3Service";
+import { ALLOWED_FILE_EXTENSIONS, ALLOWED_FILE_TYPES, MAX_FILE_SIZE } from "../constants/upload";
 
 const prisma = new PrismaClient();
 
 // Schema for requesting a presigned URL
 const requestPresignedUrlSchema = z.object({
   contentType: z.string().refine(
-    (value) => /^image\/(jpeg|jpg|png|webp)$/i.test(value),
-    { message: "Only JPEG, PNG and WebP image formats are supported" }
+    (value) => ALLOWED_FILE_TYPES.includes(value),
+    { message: `Only ${ALLOWED_FILE_EXTENSIONS.join(', ').toUpperCase()} image formats are supported` }
   ),
   fileExtension: z.string().refine(
-    (value) => ["jpg", "jpeg", "png", "webp"].includes(value.toLowerCase()),
-    { message: "File extension must be jpg, jpeg, png, or webp" }
+    (value) => ALLOWED_FILE_EXTENSIONS.includes(value.toLowerCase()),
+    { message: `File extension must be ${ALLOWED_FILE_EXTENSIONS.join(', ')}` }
   ),
+  fileSize: z.number().max(MAX_FILE_SIZE, { message: "File size must be less than 5MB" }),
 });
 
 // Schema for confirming successful upload
@@ -31,6 +33,14 @@ export const userRouter = router({
       const userId = ctx.user.id;
       
       try {
+        // Check file size
+        if (input.fileSize > MAX_FILE_SIZE) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "File size exceeds the 5MB limit",
+          });
+        }
+        
         // Use the S3Service to generate a presigned URL
         const { presignedUrl, fileKey } = await s3Service.getPresignedUploadUrl(
           userId,
@@ -99,7 +109,7 @@ export const userRouter = router({
         
         return {
           success: true,
-          profilePictureUrl: updatedUser.image
+          profilePictureUrl: updatedUser.image!
         };
       } catch (error) {
         console.error("Error updating profile picture:", error);

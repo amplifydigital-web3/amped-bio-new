@@ -111,6 +111,70 @@ pnpm build
 The client will be available at `http://localhost:5173`.
 The server API will be available at `http://localhost:43000`.
 
+## Database Management with Prisma
+
+The project uses [Prisma](https://www.prisma.io/) as an ORM for database access and migration management. All database schema changes should be made through Prisma migrations to ensure consistency across environments.
+
+### Setting Up the Database
+
+1. Make sure you have a PostgreSQL database running. You can use the included Docker Compose file:
+   ```sh
+   docker-compose up -d db
+   ```
+
+2. Set up your environment variables in `apps/server/.env`:
+   ```
+   DATABASE_URL="postgresql://username:password@localhost:5432/onelink?schema=public"
+   ```
+
+### Running Migrations
+
+To apply existing migrations to your database:
+
+```sh
+pnpm --filter server run prisma:migrate
+```
+
+### Creating New Migrations
+
+When you need to update the database schema:
+
+1. Update the schema in `apps/server/prisma/schema.prisma`
+2. Generate a migration with a descriptive name:
+   ```sh
+   pnpm --filter server run prisma:migrate:dev -- --name descriptive_migration_name
+   ```
+   This command will:
+   - Generate SQL migration files based on schema changes
+   - Apply the migration to your database
+   - Generate an updated Prisma client
+
+### Prisma Studio
+
+To explore and edit your database with a visual interface:
+
+```sh
+pnpm --filter server run prisma:studio
+```
+
+This will open Prisma Studio in your browser at `http://localhost:5555`.
+
+### Resetting the Database
+
+During development, you may need to reset your database:
+
+```sh
+pnpm --filter server npx prisma migrate reset
+```
+
+This command will:
+- Drop the database
+- Create a new database
+- Apply all migrations
+- Run seed scripts (if configured)
+
+> ⚠️ **Warning**: Never use `prisma migrate reset` in production as it deletes all data.
+
 ## Turborepo Features
 
 - **Caching** - Intelligent build caching avoids redundant work
