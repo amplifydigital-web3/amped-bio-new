@@ -32,10 +32,11 @@ import type { Background } from "../apps/client/src/types/editor";
 
 const execAsync = promisify(exec);
 
-// Directory to save photos and thumbnails
-const TEMP_DIR = path.join(os.tmpdir(), "photo-thumbnails");
+// Use a timestamp to ensure a unique directory for each run
+const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+const TEMP_DIR = path.join(os.tmpdir(), `photo-thumbnails-${timestamp}`);
 const PHOTOS_DIR = path.join(TEMP_DIR, "photos-with-thumbnails");
-const ZIP_OUTPUT = path.resolve(__dirname, "../photos-with-thumbnails.zip");
+const ZIP_OUTPUT = path.resolve(__dirname, `../photos-with-thumbnails-${timestamp}.zip`);
 
 interface ProcessResult {
   success: boolean;
@@ -50,9 +51,13 @@ function extractFilenameFromUrl(url: string): string {
   // Remove query parameters from URL
   const urlWithoutParams = url.split("?")[0];
   
-  // Get filename from URL
+  // Get the path portion from URL
   const parts = urlWithoutParams.split("/");
-  let filename = parts[parts.length - 1];
+  const lastPart = parts[parts.length - 1];
+  
+  // For Unsplash URLs, they typically have a random ID as the last part
+  // We'll use this ID as the filename
+  let filename = lastPart;
   
   // If filename doesn't have an extension, add .jpg
   if (!filename.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
@@ -228,28 +233,33 @@ async function main(): Promise<void> {
 
       // Start all photo processes in this batch in parallel
       const processingPromises = batch.map(async (photo): Promise<ProcessResult> => {
-        const fileName = extractFilenameFromUrl(photo.value);
-        const fileNameWithoutExt = fileName.replace(/\.(jpg|jpeg|png|gif|webp)$/i, "");
-        const thumbnailName = `${fileNameWithoutExt}_thumbnail.jpg`;
+        // Extract filename directly from the URL, not using the label
+        const originalFilename = extractFilenameFromUrl(photo.value);
+        const fileExtension = path.extname(originalFilename);
+        const fileBaseName = path.basename(originalFilename, fileExtension);
+        const thumbnailFilename = `${fileBaseName}_thumbnail${fileExtension}`;
 
-        const localPhotoPath = path.join(PHOTOS_DIR, fileName);
-        const localThumbnailPath = path.join(PHOTOS_DIR, thumbnailName);
+        console.log(`URL: ${photo.value}`);
+        console.log(`Extracted filename: ${originalFilename}`);
+
+        const localPhotoPath = path.join(PHOTOS_DIR, originalFilename);
+        const localThumbnailPath = path.join(PHOTOS_DIR, thumbnailFilename);
 
         try {
-          console.log(`Processing photo: ${photo.label} (${fileName})`);
+          console.log(`Processing photo: ${originalFilename}`);
           // Download photo
           await downloadFile(photo.value, localPhotoPath);
           
           // Generate thumbnail
           await generateThumbnail(localPhotoPath, localThumbnailPath);
 
-          console.log(`✓ Successfully processed: ${photo.label}`);
-          downloadedPhotos.push(fileName);
-          generatedThumbnails.push(thumbnailName);
-          return { success: true, name: fileName };
+          console.log(`✓ Successfully processed: ${originalFilename}`);
+          downloadedPhotos.push(originalFilename);
+          generatedThumbnails.push(thumbnailFilename);
+          return { success: true, name: originalFilename };
         } catch (error) {
-          console.error(`✕ Error processing ${fileName} (${photo.value}):`, error);
-          return { success: false, name: fileName, url: photo.value };
+          console.error(`✕ Error processing ${originalFilename} (${photo.value}):`, error);
+          return { success: false, name: originalFilename, url: photo.value };
         }
       });
 

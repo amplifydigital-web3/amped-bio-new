@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, memo } from "react";
-import { Check, Upload, ExternalLink } from "lucide-react";
+import { Check, ExternalLink } from "lucide-react";
 import type { Background } from "../../../types/editor";
 import { gradients, photos, videos, backgroundColors } from "../../../utils/backgrounds";
 import CollapsiblePanelWrapper from "../CollapsiblePanelWrapper";
