@@ -24,33 +24,6 @@ class S3Service {
       }
     };
 
-    // Add custom endpoint if provided (for local development with S3Mock or other S3-compatible services)
-    if (env.AWS_S3_ENDPOINT.length > 0) {
-      clientOptions.endpoint = env.AWS_S3_ENDPOINT;
-      clientOptions.forcePathStyle = true; // Required for S3-compatible services
-    }
-    
-    // If custom public URL is provided and no custom endpoint is set,
-    // configure the S3 client to properly generate presigned URLs
-    if (env.AWS_S3_PUBLIC_URL && !env.AWS_S3_ENDPOINT.length) {
-      try {
-        const urlObj = new URL(env.AWS_S3_PUBLIC_URL);
-        // Set endpoint to use the host from the public URL
-        clientOptions.endpoint = `https://${urlObj.host}`;
-        
-        // Determine if the URL already contains the bucket name
-        const hostParts = urlObj.host.split('.');
-        const hasBucketInHost = hostParts[0] === this.bucketName;
-        
-        // Use path style if the bucket is not in the hostname
-        clientOptions.forcePathStyle = !hasBucketInHost;
-      } catch (error) {
-        console.warn('[WARN] Failed to parse AWS_S3_PUBLIC_URL', error);
-      }
-    }
-    
-    this.s3Client = new S3Client(clientOptions);
-
     // Set the base URL for public access to files
     if (env.AWS_S3_PUBLIC_URL) {
       // Use the specified public URL directly without modification
@@ -60,12 +33,35 @@ class S3Service {
       this.publicBaseUrl = `https://${this.bucketName}.s3.amazonaws.com`;
     }
 
+    // Add custom endpoint if provided (for local development with S3Mock or other S3-compatible services)
+    if (env.AWS_S3_ENDPOINT.length > 0) {
+      clientOptions.endpoint = env.AWS_S3_ENDPOINT;
+      clientOptions.forcePathStyle = true; // Required for S3-compatible services
+    } 
+    // When using a custom public URL, configure S3 client to use it as endpoint
+    else if (env.AWS_S3_PUBLIC_URL) {
+      try {
+        const urlObj = new URL(env.AWS_S3_PUBLIC_URL);
+        
+        // Important: Use forcePathStyle=true to prevent AWS SDK from prefixing the bucket name
+        clientOptions.forcePathStyle = true;
+        clientOptions.endpoint = `https://${urlObj.host}`;
+        
+        console.info('[INFO] Using custom endpoint from AWS_S3_PUBLIC_URL', 
+          JSON.stringify({ endpoint: clientOptions.endpoint }));
+      } catch (error) {
+        console.warn('[WARN] Failed to parse AWS_S3_PUBLIC_URL', error);
+      }
+    }
+    
+    this.s3Client = new S3Client(clientOptions);
+
     console.info('[INFO] S3Service initialized', JSON.stringify({ 
       bucketName: this.bucketName, 
       region: this.bucketRegion,
       publicBaseUrl: this.publicBaseUrl,
-      customEndpoint: env.AWS_S3_ENDPOINT || 'none',
-      forcePathStyle: clientOptions.forcePathStyle
+      customEndpoint: clientOptions.endpoint || 'default AWS',
+      forcePathStyle: clientOptions.forcePathStyle || false
     }));
   }
 
@@ -150,15 +146,22 @@ class S3Service {
         expiresIn: 300, // URL expires in 5 minutes
       });
 
-      // Log the full URL for debugging
-      console.info('[INFO] Generated presigned upload URL', JSON.stringify({ 
-        fileKey, 
-        userId, 
-        category,
-        contentType,
-        presignedUrlHost: new URL(presignedUrl).host,
-        expiresIn: '5 minutes'
-      }));
+      try {
+        // Parse URL to log details for debugging
+        const urlObj = new URL(presignedUrl);
+        console.info('[INFO] Generated presigned upload URL', JSON.stringify({ 
+          fileKey, 
+          userId, 
+          category,
+          contentType,
+          presignedUrlHost: urlObj.host,
+          presignedUrlOrigin: urlObj.origin,
+          bucketInPath: urlObj.pathname.includes(`/${this.bucketName}/`),
+          expiresIn: '5 minutes'
+        }));
+      } catch (error) {
+        console.warn('[WARN] Failed to parse presigned URL for logging', error);
+      }
 
       return {
         presignedUrl,
