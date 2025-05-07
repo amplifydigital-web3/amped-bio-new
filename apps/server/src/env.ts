@@ -42,7 +42,7 @@ export const env = cleanEnv(process.env, {
   }),
   SMTP_FROM_EMAIL: str({
     desc: "Email address to use as sender",
-    default: "noreply@amped-bio.com",
+    default: "noreply@amped.bio",
     example: "noreply@yourdomain.com",
   }),
   // AWS S3 Configuration for profile picture uploads
@@ -63,7 +63,7 @@ export const env = cleanEnv(process.env, {
   AWS_S3_PUBLIC_URL: str({
     desc: "Public URL for S3 bucket (can use CloudFront URL)",
     default: "",
-    example: "https://assets.amped-bio.com",
+    example: "https://assets.amped.bio",
   }),
   AWS_S3_ENDPOINT: str({
     desc: "Custom S3 endpoint URL (for S3-compatible services like MinIO or S3Mock)",

@@ -102,7 +102,7 @@ export function URLPicker() {
         <div className="relative w-full">
           <div className="flex items-center w-full">
             <div className="bg-gray-100 text-gray-500 px-3 py-2 rounded-l-md border-y border-l border-gray-300 text-sm whitespace-nowrap">
-              amped-bio.com/@
+              amped.bio/@
             </div>
             <input
               type="text"
