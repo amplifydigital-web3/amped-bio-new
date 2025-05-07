@@ -4,12 +4,13 @@ import crypto from 'crypto';
 import { env } from '../env';
 import { ALLOWED_FILE_TYPES, MAX_FILE_SIZE } from '@ampedbio/constants';
 
+export type FileCategory = 'profiles' | 'backgrounds' | 'media' | 'files';
 
 class S3Service {
   private s3Client: S3Client;
   private bucketName: string;
   private bucketRegion: string;
-  private profilePictureBaseUrl: string;
+  private publicBaseUrl: string;
 
   constructor() {
     this.bucketRegion = env.AWS_REGION;
@@ -31,16 +32,14 @@ class S3Service {
     
     this.s3Client = new S3Client(clientOptions);
 
-    // Set the base URL for public access to profile pictures
+    // Set the base URL for public access to files
+    // AWS_S3_PUBLIC_URL should be "https://amped-bio.s3.amazonaws.com"
     if (env.AWS_S3_PUBLIC_URL) {
-      // Use the specified public URL (e.g., CDN or custom domain)
-      this.profilePictureBaseUrl = env.AWS_S3_PUBLIC_URL;
-    } else if (env.AWS_S3_ENDPOINT) {
-      // Use the S3 endpoint as the base URL
-      this.profilePictureBaseUrl = `${env.AWS_S3_ENDPOINT}/${this.bucketName}`;
+      // Use the specified public URL (e.g., "https://amped-bio.s3.amazonaws.com")
+      this.publicBaseUrl = env.AWS_S3_PUBLIC_URL;
     } else {
-      // Fallback - should never reach here if properly configured
-      throw new Error('Storage configuration is incomplete. Please set AWS_S3_ENDPOINT or AWS_S3_PUBLIC_URL.');
+      // Default S3 URL format: https://[bucket-name].s3.[region].amazonaws.com
+      this.publicBaseUrl = `https://${this.bucketName}.s3.${this.bucketRegion}.amazonaws.com`;
     }
   }
 
@@ -68,18 +67,25 @@ class S3Service {
   }
 
   /**
-   * Generate a unique file key for an uploaded profile picture
+   * Generate a unique file key for an uploaded file
    */
-  generateUniqueFileKey(userId: number, fileExtension: string): string {
+  generateUniqueFileKey(category: FileCategory, userId: number, fileExtension: string): string {
     const timestamp = Date.now();
     const randomString = crypto.randomBytes(8).toString('hex');
-    return `profile-pictures/${userId}/${timestamp}-${randomString}.${fileExtension}`;
+    
+    // Use simple folder structure using just the category name
+    return `${category}/${timestamp}-${randomString}-${userId}.${fileExtension}`;
   }
 
   /**
    * Get a pre-signed URL for client-side file upload
    */
-  async getPresignedUploadUrl(userId: number, contentType: string, fileExtension: string): Promise<{
+  async getPresignedUploadUrl(
+    category: FileCategory,
+    userId: number, 
+    contentType: string, 
+    fileExtension: string
+  ): Promise<{
     presignedUrl: string;
     fileKey: string;
   }> {
@@ -89,7 +95,7 @@ class S3Service {
       throw new Error(validation.message);
     }
     
-    const fileKey = this.generateUniqueFileKey(userId, fileExtension);
+    const fileKey = this.generateUniqueFileKey(category, userId, fileExtension);
     
     const putObjectCommand = new PutObjectCommand({
       Bucket: this.bucketName,
@@ -110,9 +116,9 @@ class S3Service {
   }
 
   /**
-   * Delete a previous profile picture from S3
+   * Delete a file from S3
    */
-  async deleteProfilePicture(fileKey: string): Promise<void> {
+  async deleteFile(fileKey: string): Promise<void> {
     const deleteObjectCommand = new DeleteObjectCommand({
       Bucket: this.bucketName,
       Key: fileKey,
@@ -122,10 +128,10 @@ class S3Service {
   }
 
   /**
-   * Get the full public URL for a profile picture
+   * Get the full public URL for a file
    */
-  getProfilePictureUrl(fileKey: string): string {
-    return `${this.profilePictureBaseUrl}/${fileKey}`;
+  getFileUrl(fileKey: string): string {
+    return `${this.publicBaseUrl}/${fileKey}`;
   }
 
   /**
@@ -143,7 +149,10 @@ class S3Service {
       return pathParts.join('/');
     } catch (error) {
       // If it's not a valid URL, it might already be just a key
-      if (url.startsWith('profile-pictures/')) {
+      if (url.startsWith('profiles/') || 
+          url.startsWith('backgrounds/') || 
+          url.startsWith('media/') ||
+          url.startsWith('files/')) {
         return url;
       }
       return null;

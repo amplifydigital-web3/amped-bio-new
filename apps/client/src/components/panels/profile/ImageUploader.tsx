@@ -89,7 +89,8 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
       const presignedData = await trpc.user.requestPresignedUrl.mutate({
         contentType: fileType,
         fileExtension: fileExtension,
-        fileSize: editedFile.size
+        fileSize: editedFile.size,
+        category: "profiles"
       });
 
       // Create a cancel token source for this upload
@@ -109,7 +110,8 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
       
       // Confirm upload with the server
       const result = await trpc.user.confirmProfilePictureUpload.mutate({
-        fileKey: presignedData.fileKey
+        fileKey: presignedData.fileKey,
+        category: "profiles"
       });
       
       // Update the profile with the new image URL
