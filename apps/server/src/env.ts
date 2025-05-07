@@ -48,16 +48,13 @@ export const env = cleanEnv(process.env, {
   // AWS S3 Configuration for profile picture uploads
   AWS_REGION: str({
     desc: "AWS Region",
-    default: "us-west-2",
-    example: "us-east-1",
+    example: "us-west-2",
   }),
   AWS_ACCESS_KEY_ID: str({
     desc: "AWS Access Key ID",
-    default: "S3RVER", // Default value that works with S3Mock
   }),
   AWS_SECRET_ACCESS_KEY: str({
     desc: "AWS Secret Access Key",
-    default: "S3RVER", // Default value that works with S3Mock
   }),
   AWS_S3_BUCKET_NAME: str({
     desc: "AWS S3 Bucket Name for file uploads",
@@ -70,7 +67,6 @@ export const env = cleanEnv(process.env, {
   }),
   AWS_S3_ENDPOINT: str({
     desc: "Custom S3 endpoint URL (for S3-compatible services like MinIO or S3Mock)",
-    default: "http://localhost:9090", // Matches the port in docker-compose
-    example: "http://s3mock:9090",
+    example: "http://localhost:9090",
   }),
 });

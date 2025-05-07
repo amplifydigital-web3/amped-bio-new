@@ -97,7 +97,7 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
       cancelTokenRef.current = axios.CancelToken.source();
       
       // Upload file to S3 using the presigned URL with Axios
-      await axios.put(presignedData.presignedUrl, editedFile, {
+      const uploadResponse = await axios.put(presignedData.presignedUrl, editedFile, {
         headers: {
           'Content-Type': fileType
         },
@@ -107,6 +107,11 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
           setUploadProgress(percentCompleted);
         }
       });
+      
+      // Check if the upload was successful (S3 returns 200 on success)
+      if (uploadResponse.status !== 200) {
+        throw new Error(`Upload failed with status: ${uploadResponse.status}`);
+      }
       
       // Confirm upload with the server
       const result = await trpc.user.confirmProfilePictureUpload.mutate({

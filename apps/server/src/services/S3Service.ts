@@ -41,6 +41,13 @@ class S3Service {
       // Default S3 URL format: https://[bucket-name].s3.[region].amazonaws.com
       this.publicBaseUrl = `https://${this.bucketName}.s3.${this.bucketRegion}.amazonaws.com`;
     }
+
+    console.info('[INFO] S3Service initialized', JSON.stringify({ 
+      bucketName: this.bucketName, 
+      region: this.bucketRegion,
+      publicBaseUrl: this.publicBaseUrl,
+      customEndpoint: env.AWS_S3_ENDPOINT || 'none'
+    }));
   }
 
   /**
@@ -49,6 +56,10 @@ class S3Service {
   validateFile(contentType: string, fileSize?: number): { valid: boolean; message?: string } {
     // Check file type
     if (!ALLOWED_FILE_TYPES.includes(contentType)) {
+      console.info('[INFO] File validation failed: Invalid file type', JSON.stringify({ 
+        contentType, 
+        allowedTypes: ALLOWED_FILE_TYPES 
+      }));
       return { 
         valid: false, 
         message: `Invalid file type. Allowed types: ${ALLOWED_FILE_TYPES.join(', ')}` 
@@ -57,6 +68,10 @@ class S3Service {
 
     // Check file size if provided
     if (fileSize !== undefined && fileSize > MAX_FILE_SIZE) {
+      console.info('[INFO] File validation failed: File size exceeds limit', JSON.stringify({ 
+        fileSize, 
+        maxSize: MAX_FILE_SIZE 
+      }));
       return {
         valid: false,
         message: `File size exceeds the maximum allowed size of 5MB`
@@ -74,7 +89,10 @@ class S3Service {
     const randomString = crypto.randomBytes(8).toString('hex');
     
     // Use simple folder structure using just the category name
-    return `${category}/${timestamp}-${randomString}-${userId}.${fileExtension}`;
+    const fileKey = `${category}/${timestamp}-${randomString}-${userId}.${fileExtension}`;
+    
+    console.info('[INFO] Generated unique file key', JSON.stringify({ fileKey, category, userId }));
+    return fileKey;
   }
 
   /**
@@ -89,56 +107,87 @@ class S3Service {
     presignedUrl: string;
     fileKey: string;
   }> {
-    // Validate file type
-    const validation = this.validateFile(contentType);
-    if (!validation.valid) {
-      throw new Error(validation.message);
+    try {
+      // Validate file type
+      const validation = this.validateFile(contentType);
+      if (!validation.valid) {
+        console.error('[ERROR] Failed to generate presigned URL', validation.message, JSON.stringify({
+          category, userId, contentType
+        }));
+        throw new Error(validation.message);
+      }
+      
+      const fileKey = this.generateUniqueFileKey(category, userId, fileExtension);
+      
+      const putObjectCommand = new PutObjectCommand({
+        Bucket: this.bucketName,
+        Key: fileKey,
+        ContentType: contentType,
+        // Set the maximum size for this upload
+        ContentLength: MAX_FILE_SIZE
+      });
+
+      const presignedUrl = await getSignedUrl(this.s3Client, putObjectCommand, {
+        expiresIn: 300, // URL expires in 5 minutes
+      });
+
+      console.info('[INFO] Generated presigned upload URL', JSON.stringify({ 
+        fileKey, 
+        userId, 
+        category,
+        contentType,
+        expiresIn: '5 minutes'
+      }));
+
+      return {
+        presignedUrl,
+        fileKey,
+      };
+    } catch (error) {
+      console.error('[ERROR] Error generating presigned URL', 
+        error instanceof Error ? error.stack : error, 
+        JSON.stringify({ category, userId, contentType }));
+      throw error;
     }
-    
-    const fileKey = this.generateUniqueFileKey(category, userId, fileExtension);
-    
-    const putObjectCommand = new PutObjectCommand({
-      Bucket: this.bucketName,
-      Key: fileKey,
-      ContentType: contentType,
-      // Set the maximum size for this upload
-      ContentLength: MAX_FILE_SIZE
-    });
-
-    const presignedUrl = await getSignedUrl(this.s3Client, putObjectCommand, {
-      expiresIn: 300, // URL expires in 5 minutes
-    });
-
-    return {
-      presignedUrl,
-      fileKey,
-    };
   }
 
   /**
    * Delete a file from S3
    */
   async deleteFile(fileKey: string): Promise<void> {
-    const deleteObjectCommand = new DeleteObjectCommand({
-      Bucket: this.bucketName,
-      Key: fileKey,
-    });
+    try {
+      const deleteObjectCommand = new DeleteObjectCommand({
+        Bucket: this.bucketName,
+        Key: fileKey,
+      });
 
-    await this.s3Client.send(deleteObjectCommand);
+      await this.s3Client.send(deleteObjectCommand);
+      console.info('[INFO] File deleted successfully', JSON.stringify({ fileKey }));
+    } catch (error) {
+      console.error('[ERROR] Error deleting file', 
+        error instanceof Error ? error.stack : error, 
+        JSON.stringify({ fileKey }));
+      throw error;
+    }
   }
 
   /**
    * Get the full public URL for a file
    */
   getFileUrl(fileKey: string): string {
-    return `${this.publicBaseUrl}/${fileKey}`;
+    const url = `${this.publicBaseUrl}/${fileKey}`;
+    console.info('[INFO] Generated public file URL', JSON.stringify({ fileKey, url }));
+    return url;
   }
 
   /**
    * Extract file key from a full S3 URL
    */
   extractFileKeyFromUrl(url: string): string | null {
-    if (!url) return null;
+    if (!url) {
+      console.info('[INFO] Cannot extract file key from empty URL');
+      return null;
+    }
     
     try {
       // Try to extract the key from a full S3 URL
@@ -146,15 +195,23 @@ class S3Service {
       const pathParts = urlObject.pathname.split('/');
       // Remove the first empty string (from leading slash)
       pathParts.shift();
-      return pathParts.join('/');
+      const fileKey = pathParts.join('/');
+      
+      console.info('[INFO] Extracted file key from URL', JSON.stringify({ url, fileKey }));
+      return fileKey;
     } catch (error) {
       // If it's not a valid URL, it might already be just a key
       if (url.startsWith('profiles/') || 
           url.startsWith('backgrounds/') || 
           url.startsWith('media/') ||
           url.startsWith('files/')) {
+        console.info('[INFO] URL appears to be a file key already', JSON.stringify({ url }));
         return url;
       }
+      
+      console.error('[ERROR] Failed to extract file key from URL', 
+        error instanceof Error ? error.stack : error, 
+        JSON.stringify({ url }));
       return null;
     }
   }
