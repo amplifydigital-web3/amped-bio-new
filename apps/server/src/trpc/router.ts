@@ -1,8 +1,9 @@
 import { createExpressMiddleware } from '@trpc/server/adapters/express';
-import appRouter from "./onelink";
+import mergedRouter from "./index";
+import { createContext } from './trpc';
 
 // Create Express middleware adapter
 export const trpcMiddleware = createExpressMiddleware({
-  router: appRouter,
-  createContext: () => ({}),
+  router: mergedRouter,
+  createContext,
 });

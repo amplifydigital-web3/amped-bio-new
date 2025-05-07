@@ -16,9 +16,16 @@
     "start": "node dist/index.js",
     "dev": "nodemon --verbose -r dotenv/config src/index.ts",
     "build": "tsc",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy",
+    "prisma:studio": "prisma studio",
+    "prisma:migrate:dev": "prisma migrate dev"
   },
   "dependencies": {
+    "@ampedbio/constants": "workspace:*",
+    "@aws-sdk/client-s3": "^3.802.0",
+    "@aws-sdk/s3-request-presigner": "^3.802.0",
     "@prisma/client": "6.7.0",
     "@react-email/components": "^0.0.36",
     "@react-email/render": "^1.0.6",

@@ -42,7 +42,7 @@ CREATE TABLE `themes` (
 CREATE TABLE `blocks` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `user_id` INTEGER NOT NULL,
-    `block_type` VARCHAR(191) NOT NULL,
+    `type` VARCHAR(191) NOT NULL,
     `order` INTEGER NOT NULL DEFAULT 0,
     `clicks` INTEGER NOT NULL DEFAULT 0,
     `config` JSON NULL,

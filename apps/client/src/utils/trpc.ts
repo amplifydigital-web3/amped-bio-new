@@ -11,6 +11,12 @@ export const trpc = createTRPCClient<AppRouter>({
   links: [
     httpBatchLink({
       url: `${import.meta.env.VITE_API_URL ?? baseURL}/trpc`,
+      headers() {
+        const token = localStorage.getItem("amped-bio-auth-token");
+        return token ? {
+          Authorization: `Bearer ${token}`,
+        } : {};
+      },
     }),
   ],
 });

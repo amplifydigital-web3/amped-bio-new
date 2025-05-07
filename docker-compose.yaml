@@ -19,5 +19,21 @@ services:
       - mariadb_data:/var/lib/mysql
       - ./init-scripts:/docker-entrypoint-initdb.d
 
+  # S3Mock: Local S3 compatible service
+  # - API endpoint: http://localhost:9090
+  # - Web UI: http://localhost:9191
+  # - Default bucket: amped-bio
+  s3mock:
+    image: adobe/s3mock
+    ports:
+      - "9090:9090"  # S3 API endpoint
+      - "9191:9191"  # Web UI
+    environment:
+      - initialBuckets=amped-bio
+      - root=/data
+    volumes:
+      - s3mock_data:/data
+
 volumes:
   mariadb_data:
+  s3mock_data:
