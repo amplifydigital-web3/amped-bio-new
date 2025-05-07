@@ -22,6 +22,7 @@ import toast from "react-hot-toast";
 import { BlockType } from "@/api/api.types";
 import { formatOnelink, normalizeOnelink } from "@/utils/onelink";
 import { trpc } from "@/utils/trpc";
+import { exportThemeConfigAsJson, importThemeConfigFromJson } from "@/utils/theme";
 
 interface EditorStore extends EditorState {
   changes: boolean;
@@ -44,6 +45,8 @@ interface EditorStore extends EditorState {
   applyTheme: (theme: Theme) => void;
   selectedPoolId: string | null;
   setSelectedPoolId: (id: string | null) => void;
+  exportTheme: () => void;
+  importTheme: (file: File) => Promise<void>;
 }
 
 export const useEditorStore = create<EditorStore>()(set => ({
@@ -391,5 +394,47 @@ export const useEditorStore = create<EditorStore>()(set => ({
     set({ ...initialState, changes: false });
     console.info("✅ Reset to default state");
     console.groupEnd();
+  },
+  exportTheme: () => {
+    console.group("🎨 Exporting Theme Configuration");
+    const { theme } = useEditorStore.getState();
+    console.info("Theme config:", theme.config);
+    
+    try {
+      exportThemeConfigAsJson(theme);
+      toast.success("Theme configuration exported successfully");
+      console.info("✅ Theme configuration exported");
+    } catch (error) {
+      console.error("❌ Theme configuration export failed:", error);
+      toast.error("Failed to export theme configuration");
+    }
+    
+    console.groupEnd();
+  },
+  importTheme: async (file: File) => {
+    console.group("🎨 Importing Theme Configuration");
+    console.info("File:", file.name);
+    
+    try {
+      const importedThemeConfig = await importThemeConfigFromJson(file);
+      console.info("Imported theme config:", importedThemeConfig);
+      
+      set(state => ({
+        theme: {
+          ...state.theme,
+          config: importedThemeConfig,
+        },
+        changes: true,
+      }));
+      
+      toast.success("Theme configuration imported successfully");
+      console.info("✅ Theme configuration imported");
+      console.groupEnd();
+    } catch (error) {
+      console.error("❌ Theme configuration import failed:", error);
+      toast.error("Failed to import theme configuration");
+      console.groupEnd();
+      throw error; // Rethrow to handle in the UI
+    }
   },
 }));
