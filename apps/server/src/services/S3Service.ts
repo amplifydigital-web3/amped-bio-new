@@ -2,7 +2,8 @@ import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import crypto from 'crypto';
 import { env } from '../env';
-import { ALLOWED_FILE_TYPES, MAX_FILE_SIZE } from '../constants/upload';
+import { ALLOWED_FILE_TYPES, MAX_FILE_SIZE } from '@ampedbio/constants';
+
 
 class S3Service {
   private s3Client: S3Client;

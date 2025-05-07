@@ -2,7 +2,7 @@ import { useState, useRef, ChangeEvent } from "react";
 import { trpc } from "../../../utils/trpc";
 import axios, { CancelTokenSource } from "axios";
 import { PhotoEditor } from "./PhotoEditor";
-import { ALLOWED_FILE_EXTENSIONS, ALLOWED_FILE_TYPES, MAX_FILE_SIZE } from "../../../constants/upload";
+import { ALLOWED_FILE_EXTENSIONS, ALLOWED_FILE_TYPES, MAX_FILE_SIZE } from "@ampedbio/constants";
 
 interface ImageUploaderProps {
   imageUrl: string;

@@ -7,7 +7,11 @@
   },
   "scripts": {
     "build": "turbo build",
+    "build:packages": "turbo build --filter=\"@ampedbio/constants\"",
+    "build:apps": "turbo build --filter=\"@ampedbio/client\" --filter=\"@ampedbio/server\"",
+    "prebuild": "pnpm build:packages",
     "dev": "turbo dev",
+    "predev": "pnpm build:packages",
     "lint": "turbo lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,md}\"",
