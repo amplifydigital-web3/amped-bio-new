@@ -25,7 +25,7 @@ class S3Service {
     };
 
     // Add custom endpoint if provided (for local development with S3Mock or other S3-compatible services)
-    if (env.AWS_S3_ENDPOINT) {
+    if (env.AWS_S3_ENDPOINT.length > 0) {
       clientOptions.endpoint = env.AWS_S3_ENDPOINT;
       clientOptions.forcePathStyle = true; // Required for S3-compatible services
     }

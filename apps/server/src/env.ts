@@ -67,6 +67,7 @@ export const env = cleanEnv(process.env, {
   }),
   AWS_S3_ENDPOINT: str({
     desc: "Custom S3 endpoint URL (for S3-compatible services like MinIO or S3Mock)",
+    default: "",
     example: "http://localhost:9090",
   }),
 });
