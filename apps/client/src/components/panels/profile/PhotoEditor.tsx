@@ -6,7 +6,7 @@ import "react-image-crop/dist/ReactCrop.css";
 
 interface PhotoEditorProps {
   imageUrl: string;
-  onSave: (editedImage: string) => void;
+  onComplete: (editedImage: string) => void;
   onCancel: () => void;
 }
 
@@ -26,7 +26,7 @@ function centerAspectCrop(mediaWidth: number, mediaHeight: number, aspect: numbe
   );
 }
 
-export function PhotoEditor({ imageUrl, onSave, onCancel }: PhotoEditorProps) {
+export function PhotoEditor({ imageUrl, onComplete, onCancel }: PhotoEditorProps) {
   const [crop, setCrop] = useState<Crop>();
   const [zoom, setZoom] = useState(1);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -60,17 +60,21 @@ export function PhotoEditor({ imageUrl, onSave, onCancel }: PhotoEditorProps) {
     const sourceHeight = (crop.height * scaleY * image.height) / 100;
 
     // Apply zoom
-    ctx.save();
-    ctx.scale(zoom, zoom);
-
-    // Draw the cropped image
-    ctx.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, size, size);
-
-    ctx.restore();
+    ctx.drawImage(
+      image,
+      sourceX,
+      sourceY,
+      sourceWidth,
+      sourceHeight,
+      0,
+      0,
+      size,
+      size
+    );
 
     // Convert canvas to data URL and save with 80% quality
     const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
-    onSave(dataUrl);
+    onComplete(dataUrl);
   };
 
   return (

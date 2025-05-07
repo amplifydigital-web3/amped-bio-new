@@ -1,8 +1,7 @@
 import { useState, useRef, ChangeEvent } from "react";
 import { trpc } from "../../../utils/trpc";
-import axios, { CancelTokenSource } from "axios";
-import { PhotoEditor } from "./PhotoEditor";
 import { ALLOWED_FILE_EXTENSIONS, ALLOWED_FILE_TYPES, MAX_FILE_SIZE } from "@ampedbio/constants";
+import { PhotoEditor } from "./PhotoEditor";
 
 interface ImageUploaderProps {
   imageUrl: string;
@@ -11,15 +10,11 @@ interface ImageUploaderProps {
 
 export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cancelTokenRef = useRef<CancelTokenSource | null>(null);
-  
-  // New state for photo editor
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [showPhotoEditor, setShowPhotoEditor] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [editingImageUrl, setEditingImageUrl] = useState<string>("");
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const handleFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -47,123 +42,132 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
     // Clear previous error
     setError(null);
     
-    // Store the file for later use
+    // Create a preview URL for the photo editor
+    const objectUrl = URL.createObjectURL(file);
+    setPreviewUrl(objectUrl);
     setSelectedFile(file);
-    
-    // Create URL for the image to edit
-    const imageUrl = URL.createObjectURL(file);
-    setEditingImageUrl(imageUrl);
-    
-    // Open the photo editor
-    setIsEditorOpen(true);
+    setShowPhotoEditor(true);
   };
 
-  const handleEditorSave = async (editedImageUrl: string) => {
-    // Close editor
-    setIsEditorOpen(false);
+  const handleEditCancel = () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setPreviewUrl(null);
+    setSelectedFile(null);
+    setShowPhotoEditor(false);
+  };
+
+  const handleEditComplete = async (editedImageDataUrl: string) => {
+    setShowPhotoEditor(false);
     
-    // Start upload process with edited image
+    // Clean up the preview URL
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+
+    // Convert data URL to File object
+    const dataUrlParts = editedImageDataUrl.split(',');
+    const byteString = atob(dataUrlParts[1]);
+    const mimeType = dataUrlParts[0].split(':')[1].split(';')[0];
+    
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) {
+      ia[i] = byteString.charCodeAt(i);
+    }
+    
+    // Create file name with correct extension based on mime type
+    let fileExtension = 'jpg';
+    if (mimeType === 'image/png') fileExtension = 'png';
+    if (mimeType === 'image/gif') fileExtension = 'gif';
+    
+    const editedFile = new File([ab], `profile-photo.${fileExtension}`, { type: mimeType });
+    
+    // Upload the edited file
+    await handleUpload(editedFile);
+  };
+
+  const handleUpload = async (file: File) => {
+    // Start upload process
     setIsUploading(true);
-    setUploadProgress(0);
 
     try {
-      // Convert data URL to Blob
-      const response = await fetch(editedImageUrl);
+      const fileType = file.type;
+      const fileExtension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
       
-      const blob = await response.blob();
-      
-      // Create a file from the blob with the original file name and type
-      const fileType = selectedFile?.type || "image/jpeg";
-      const fileName = selectedFile?.name || "edited-image.jpg";
-      const editedFile = new File([blob], fileName, { type: fileType });
-      
-      // Check file size again after editing
-      if (editedFile.size > MAX_FILE_SIZE) {
-        throw new Error("The edited image exceeds the maximum size of 5MB");
-      }
-      
-      // Get file extension
-      const fileExtension = fileName.split(".").pop()?.toLowerCase() || "jpg";
+      console.log("Preparing to upload file with:", {
+        contentType: fileType,
+        fileExtension,
+        fileName: file.name,
+        fileSize: file.size
+      });
       
       // Request presigned URL from server
       const presignedData = await trpc.user.requestPresignedUrl.mutate({
         contentType: fileType,
         fileExtension: fileExtension,
-        fileSize: editedFile.size,
+        fileSize: file.size,
         category: "profiles"
       });
-
-      // Create a cancel token source for this upload
-      cancelTokenRef.current = axios.CancelToken.source();
       
-      // Upload file to S3 using the presigned URL with Axios
-      const uploadResponse = await axios.put(presignedData.presignedUrl, editedFile, {
-        headers: {
-          'Content-Type': fileType
-        },
-        cancelToken: cancelTokenRef.current.token,
-        onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total!);
-          setUploadProgress(percentCompleted);
+      console.log("Server response - presigned URL data:", presignedData);
+      
+      try {
+        // Use the successful approach from s3uploadpresigned.ts script
+        console.log("Starting S3 upload with presigned URL...");
+        
+        const uploadResponse = await fetch(presignedData.presignedUrl, {
+          method: 'PUT',
+          body: file, // Use the raw file object
+          headers: {
+            'Content-Type': fileType
+          }
+        });
+        
+        if (!uploadResponse.ok) {
+          const errorText = await uploadResponse.text();
+          console.error("S3 upload failed with response:", errorText);
+          throw new Error(`Upload failed with status: ${uploadResponse.status}`);
         }
-      });
-      
-      // Check if the upload was successful (S3 returns 200 on success)
-      if (uploadResponse.status !== 200) {
-        throw new Error(`Upload failed with status: ${uploadResponse.status}`);
+        
+        console.log("S3 upload completed successfully:", uploadResponse.status);
+        
+        // Confirm upload with the server
+        const result = await trpc.user.confirmProfilePictureUpload.mutate({
+          fileKey: presignedData.fileKey,
+          category: "profiles"
+        });
+        
+        console.log("Server response - upload confirmation:", result);
+        
+        // Update the profile with the new image URL
+        onImageChange(result.profilePictureUrl);
+        
+      } catch (uploadError: any) {
+        console.error("S3 upload error:", uploadError);
+        console.error("Upload error details:", {
+          message: uploadError?.message,
+          response: uploadError?.response?.data || uploadError?.response
+        });
+        throw new Error(`Failed to upload image: ${uploadError.message}`);
       }
-      
-      // Confirm upload with the server
-      const result = await trpc.user.confirmProfilePictureUpload.mutate({
-        fileKey: presignedData.fileKey,
-        category: "profiles"
-      });
-      
-      // Update the profile with the new image URL
-      onImageChange(result.profilePictureUrl);
-      
     } catch (error: any) {
-      if (axios.isCancel(error)) {
-        setError("Upload was cancelled");
-      } else {
-        console.error("Error in upload process:", error);
-        setError(error?.message || "Failed to upload image");
-      }
+      console.error("Error in upload process:", error);
+      console.error("Error details:", {
+        message: error?.message,
+        response: error?.response?.data,
+        status: error?.response?.status
+      });
+      setError(error?.message || "Failed to upload image");
     } finally {
       setIsUploading(false);
-      cancelTokenRef.current = null;
-      // Clean up URL object to avoid memory leaks
-      URL.revokeObjectURL(editingImageUrl);
-      setEditingImageUrl("");
-      setSelectedFile(null);
-    }
-  };
-  
-  const handleEditorCancel = () => {
-    setIsEditorOpen(false);
-    // Clean up URL object to avoid memory leaks
-    URL.revokeObjectURL(editingImageUrl);
-    setEditingImageUrl("");
-    setSelectedFile(null);
-  };
-
-  const handleCancelUpload = () => {
-    if (cancelTokenRef.current) {
-      cancelTokenRef.current.cancel("Upload cancelled by user");
-      cancelTokenRef.current = null;
     }
   };
 
   return (
     <div className="space-y-6">
-      {isEditorOpen && editingImageUrl && (
-        <PhotoEditor
-          imageUrl={editingImageUrl}
-          onSave={handleEditorSave}
-          onCancel={handleEditorCancel}
-        />
-      )}
-      
       <div className="flex items-center space-x-6">
         {/* Current Profile Image */}
         <div className="relative h-24 w-24 rounded-full overflow-hidden bg-gray-100 border border-gray-200">
@@ -184,14 +188,6 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
               </svg>
             </div>
           )}
-          
-          {isUploading && (
-            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-              <div className="text-white text-xs font-medium">
-                {uploadProgress}%
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Upload Controls */}
@@ -207,21 +203,11 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading || isEditorOpen}
+              disabled={isUploading}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isUploading ? "Uploading..." : "Change photo"}
             </button>
-            
-            {isUploading && (
-              <button
-                type="button"
-                onClick={handleCancelUpload}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-              >
-                Cancel
-              </button>
-            )}
           </div>
           <p className="text-xs text-gray-500">
             {ALLOWED_FILE_EXTENSIONS.join(', ').toUpperCase()}. Max {MAX_FILE_SIZE / (1024 * 1024)}MB.
@@ -233,6 +219,13 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
           )}
         </div>
       </div>
+      {showPhotoEditor && previewUrl && (
+        <PhotoEditor
+          imageUrl={previewUrl}
+          onCancel={handleEditCancel}
+          onComplete={handleEditComplete}
+        />
+      )}
     </div>
   );
 }

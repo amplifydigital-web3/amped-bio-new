@@ -243,6 +243,9 @@ importers:
       '@trpc/server':
         specifier: ^11.1.2
         version: 11.1.2(typescript@5.8.3)
+      aws-sdk:
+        specifier: ^2.1692.0
+        version: 2.1692.0
       axios:
         specifier: ^1.8.3
         version: 1.9.0
@@ -322,6 +325,9 @@ importers:
       ts-node:
         specifier: ^10.9.2
         version: 10.9.2(@types/node@20.17.32)(typescript@5.8.3)
+      tsx:
+        specifier: ^4.19.3
+        version: 4.19.4
       typescript:
         specifier: ^5.7.2
         version: 5.8.3
@@ -330,7 +336,7 @@ importers:
     devDependencies:
       tsup:
         specifier: ^8.0.0
-        version: 8.4.0(typescript@5.8.3)
+        version: 8.4.0(tsx@4.19.4)(typescript@5.8.3)
       typescript:
         specifier: ^5.0.0
         version: 5.8.3
@@ -6084,6 +6090,23 @@ packages:
       possible-typed-array-names: 1.1.0
     dev: false
 
+  /aws-sdk@2.1692.0:
+    resolution: {integrity: sha512-x511uiJ/57FIsbgUe5csJ13k3uzu25uWQE+XqfBis/sB0SFoiElJWXRkgEAUh0U6n40eT3ay5Ue4oPkRMu1LYw==}
+    engines: {node: '>= 10.0.0'}
+    requiresBuild: true
+    dependencies:
+      buffer: 4.9.2
+      events: 1.1.1
+      ieee754: 1.1.13
+      jmespath: 0.16.0
+      querystring: 0.2.0
+      sax: 1.2.1
+      url: 0.10.3
+      util: 0.12.5
+      uuid: 8.0.0
+      xml2js: 0.6.2
+    dev: false
+
   /axios@1.9.0:
     resolution: {integrity: sha512-re4CqKTJaURpzbLHtIi6XpDv20/CnpXOtjRY5/CU32L8gU8ek9UIivcfvSWvmKEngmVbrUtPpdDwWDWL7DNHvg==}
     dependencies:
@@ -6191,6 +6214,14 @@ packages:
 
   /buffer-equal-constant-time@1.0.1:
     resolution: {integrity: sha512-zRpUiDwd/xk6ADqPMATG8vc9VPrkck7T07OIx0gnjmJAnHnTVXNQG3vfvWNuiZIkwu9KrKdA1iJKfsfTVxE6NA==}
+    dev: false
+
+  /buffer@4.9.2:
+    resolution: {integrity: sha512-xq+q3SRMOxGivLhBNaUdC64hDTQwejJ+H0T/NB1XMtTVEwNTrfFF3gAxiyW0Bu/xWEGhjVKgUcMhCrUy2+uCWg==}
+    dependencies:
+      base64-js: 1.5.1
+      ieee754: 1.2.1
+      isarray: 1.0.0
     dev: false
 
   /buffer@6.0.3:
@@ -7133,6 +7164,11 @@ packages:
     resolution: {integrity: sha512-GWkBvjiSZK87ELrYOSESUYeVIc9mvLLf/nXalMOS5dYrgZq9o5OVkbZAVM06CVxYsCwH9BDZFPlQTlPA1j4ahA==}
     dev: false
 
+  /events@1.1.1:
+    resolution: {integrity: sha512-kEcvvCBByWXGnZy6JUlgAp2gBIUjfCAV6P6TgT1/aaQKcmuAEC4OZTV1I4EWQLz2gxZw76atuVyvHhTxvi0Flw==}
+    engines: {node: '>=0.4.x'}
+    dev: false
+
   /events@3.3.0:
     resolution: {integrity: sha512-mQw+2fkQbALzQ7V0MY0IqdnXNOeTtP4r0lN9z7AAawCXgqea7bDii20AYrIBrFd/Hx0M2Ocz6S111CaFkUcb0Q==}
     engines: {node: '>=0.8.x'}
@@ -7667,6 +7703,10 @@ packages:
     resolution: {integrity: sha512-8Sb3veuYCyrZL+VBt9LJfZjLUPWVvqn8tG28VqYNFCo43KHcKuq+b4EiXGeuaLAQWL2YmyDgMp2aSpH9JHsEQg==}
     dev: false
 
+  /ieee754@1.1.13:
+    resolution: {integrity: sha512-4vf7I2LYV/HaWerSo3XmlMkp5eZ83i+/CDluXi/IGTs/O1sejBNhTtnxzmRZfvOUqj7lZjqHkeTvpgSFDlWZTg==}
+    dev: false
+
   /ieee754@1.2.1:
     resolution: {integrity: sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA==}
     dev: false
@@ -7881,6 +7921,11 @@ packages:
   /jiti@1.21.7:
     resolution: {integrity: sha512-/imKNG4EbWNrVjoNC/1H5/9GFy+tqjGBHCaSsN+P2RnPqjsLmv6UD3Ej+Kj8nBWaRAwyk7kK5ZUc+OEatnTR3A==}
     hasBin: true
+
+  /jmespath@0.16.0:
+    resolution: {integrity: sha512-9FzQjJ7MATs1tSpnco1K6ayiYE3figslrXA72G2HQ/n76RzvYlofyi5QM+iX4YRs/pu3yzxlVQSST23+dMDknw==}
+    engines: {node: '>= 0.6.0'}
+    dev: false
 
   /joycon@3.1.1:
     resolution: {integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==}
@@ -8758,7 +8803,7 @@ packages:
       ts-node: 10.9.2(@types/node@20.17.32)(typescript@5.8.3)
       yaml: 2.7.1
 
-  /postcss-load-config@6.0.1:
+  /postcss-load-config@6.0.1(tsx@4.19.4):
     resolution: {integrity: sha512-oPtTM4oerL+UXmx+93ytZVN82RrlY/wPUV8IeDxFrzIjXOLF1pN+EmKPLbubvKHT2HC20xXsCAH2Z+CKV6Oz/g==}
     engines: {node: '>= 18'}
     peerDependencies:
@@ -8777,6 +8822,7 @@ packages:
         optional: true
     dependencies:
       lilconfig: 3.1.3
+      tsx: 4.19.4
     dev: true
 
   /postcss-nested@6.2.0(postcss@8.5.3):
@@ -8942,6 +8988,10 @@ packages:
       once: 1.4.0
     dev: false
 
+  /punycode@1.3.2:
+    resolution: {integrity: sha512-RofWgt/7fL5wP1Y7fxE7/EmTLzQVnB0ycyibJ0OOHIlJqTNzglYFxVwETOcIoJqJmpDXJ9xImDv+Fq34F/d4Dw==}
+    dev: false
+
   /punycode@2.3.1:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
@@ -8972,6 +9022,12 @@ packages:
       filter-obj: 1.1.0
       split-on-first: 1.1.0
       strict-uri-encode: 2.0.0
+    dev: false
+
+  /querystring@0.2.0:
+    resolution: {integrity: sha512-X/xY82scca2tau62i9mDyU9K+I+djTMUsvwf7xnUX5GLvVzgJybOJf4Y6o9Zx3oJK/LSXg5tTZBjwzqVPaPO2g==}
+    engines: {node: '>=0.4.x'}
+    deprecated: The querystring API is considered Legacy. new code should use the URLSearchParams API instead.
     dev: false
 
   /queue-microtask@1.2.3:
@@ -9399,6 +9455,10 @@ packages:
 
   /safer-buffer@2.1.2:
     resolution: {integrity: sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==}
+    dev: false
+
+  /sax@1.2.1:
+    resolution: {integrity: sha512-8I2a3LovHTOpm7NV5yOyO8IHqgVsfK4+UuySrXU8YXkSRX7k6hCV9b3HrkKCr3nMpgj+0bmocaJJWpvp1oc7ZA==}
     dev: false
 
   /scheduler@0.23.2:
@@ -10237,7 +10297,7 @@ packages:
       '@tsparticles/updater-wobble': 3.8.1
     dev: false
 
-  /tsup@8.4.0(typescript@5.8.3):
+  /tsup@8.4.0(tsx@4.19.4)(typescript@5.8.3):
     resolution: {integrity: sha512-b+eZbPCjz10fRryaAA7C8xlIHnf8VnsaRqydheLIqwG/Mcpfk8Z5zp3HayX7GaTygkigHl5cBUs+IhcySiIexQ==}
     engines: {node: '>=18'}
     hasBin: true
@@ -10264,7 +10324,7 @@ packages:
       esbuild: 0.25.3
       joycon: 3.1.1
       picocolors: 1.1.1
-      postcss-load-config: 6.0.1
+      postcss-load-config: 6.0.1(tsx@4.19.4)
       resolve-from: 5.0.0
       rollup: 4.40.1
       source-map: 0.8.0-beta.0
@@ -10499,6 +10559,13 @@ packages:
     dependencies:
       punycode: 2.3.1
 
+  /url@0.10.3:
+    resolution: {integrity: sha512-hzSUW2q06EqL1gKM/a+obYHLIO6ct2hwPuviqTTOcfFVc61UbfJ2Q32+uGL/HCPxKqrdGB5QUwIe7UqlDgwsOQ==}
+    dependencies:
+      punycode: 1.3.2
+      querystring: 0.2.0
+    dev: false
+
   /use-callback-ref@1.3.3(@types/react@18.3.20)(react@18.3.1):
     resolution: {integrity: sha512-jQL3lRnocaFtu3V00JToYz/4QkNWswxijDaCVNZRiRTO3HQDLsdu1ZtmIUvV4yPp+rvWm5j0y0TG/S61cuijTg==}
     engines: {node: '>=10'}
@@ -10579,6 +10646,11 @@ packages:
   /utils-merge@1.0.1:
     resolution: {integrity: sha512-pMZTvIkT1d+TFGvDOqodOclx0QWkkgi6Tdoa8gC8ffGAAqz9pzPTZWAybbsHHoED/ztMtkv/VoYTYyShUn81hA==}
     engines: {node: '>= 0.4.0'}
+    dev: false
+
+  /uuid@8.0.0:
+    resolution: {integrity: sha512-jOXGuXZAWdsTH7eZLtyXMqUb9EcWMGZNbL9YcGBJl4MH4nrxHmZJhEHvyLFrkxo+28uLb/NYRcStH48fnD0Vzw==}
+    hasBin: true
     dev: false
 
   /uuid@8.3.2:
@@ -10919,6 +10991,19 @@ packages:
         optional: true
       utf-8-validate:
         optional: true
+    dev: false
+
+  /xml2js@0.6.2:
+    resolution: {integrity: sha512-T4rieHaC1EXcES0Kxxj4JWgaUQHDk+qwHcYOCFHfiwKz7tOVPLq7Hjq9dM1WCMhylqMEfP7hMcOIChvotiZegA==}
+    engines: {node: '>=4.0.0'}
+    dependencies:
+      sax: 1.2.1
+      xmlbuilder: 11.0.1
+    dev: false
+
+  /xmlbuilder@11.0.1:
+    resolution: {integrity: sha512-fDlsI/kFEx7gLvbecc0/ohLG50fugQp8ryHzMTuW9vSa1GJ0XYWKnhsUx7oie3G98+r56aTQIUB4kht42R3JvA==}
+    engines: {node: '>=4.0'}
     dev: false
 
   /xmlhttprequest-ssl@2.1.2:
