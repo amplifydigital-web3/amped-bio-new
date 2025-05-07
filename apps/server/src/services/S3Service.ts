@@ -24,58 +24,18 @@ class S3Service {
       }
     };
 
-    // Set the base URL for public access to files
-    if (env.AWS_S3_PUBLIC_URL) {
-      // Use the specified public URL directly without modification
-      this.publicBaseUrl = env.AWS_S3_PUBLIC_URL;
-    } else {
-      // Only use bucket name and region if no public URL is provided
-      this.publicBaseUrl = `https://${this.bucketName}.s3.amazonaws.com`;
-    }
+    // Set the standard S3 public URL format
+    this.publicBaseUrl = `https://${this.bucketName}.s3.amazonaws.com`;
 
     // Add custom endpoint if provided (for local development with S3Mock or other S3-compatible services)
     if (env.AWS_S3_ENDPOINT.length > 0) {
+      // Configure the API endpoint for the client
       clientOptions.endpoint = env.AWS_S3_ENDPOINT;
       clientOptions.forcePathStyle = true; // Required for S3-compatible services
-    } 
-    // When using a custom public URL, configure S3 client accordingly
-    else if (env.AWS_S3_PUBLIC_URL) {
-      try {
-        const urlObj = new URL(env.AWS_S3_PUBLIC_URL);
-        
-        // For S3 endpoints like s3.amazonaws.com, we need to specify the bucket in a different way
-        // to prevent the SDK from generating URLs with duplicate bucket names
-        if (urlObj.host.includes('s3.amazonaws.com')) {
-          // Don't use forcePathStyle when the URL already has correct style
-          // This helps AWS SDK construct correct URLs without adding bucket name in path
-          clientOptions.forcePathStyle = false;
-          
-          // If the URL doesn't include the bucket in the host but is a standard S3 URL,
-          // we need to adjust the endpoint configuration
-          if (!urlObj.host.startsWith(this.bucketName)) {
-            // For standard S3 URLs that don't include bucket in host,
-            // using a virtual-hosted style URL
-            const bucketDomain = `${this.bucketName}.s3.amazonaws.com`;
-            clientOptions.endpoint = `https://${bucketDomain}`;
-          } else {
-            // Standard host already includes bucket
-            clientOptions.endpoint = `https://${urlObj.host}`;
-          }
-        } else {
-          // For custom domains or other S3-compatible services,
-          // use the host as is and enable path style
-          clientOptions.endpoint = `https://${urlObj.host}`;
-          clientOptions.forcePathStyle = true;
-        }
-        
-        console.info('[INFO] Configured S3 client for custom endpoint', 
-          JSON.stringify({ 
-            endpoint: clientOptions.endpoint,
-            forcePathStyle: clientOptions.forcePathStyle
-          }));
-      } catch (error) {
-        console.warn('[WARN] Failed to parse AWS_S3_PUBLIC_URL', error);
-      }
+      
+      // For local development with custom endpoints, adjust the public URL format accordingly
+      // but keep the bucket name in the path
+      this.publicBaseUrl = `${env.AWS_S3_ENDPOINT}/${this.bucketName}`;
     }
     
     this.s3Client = new S3Client(clientOptions);
@@ -248,12 +208,6 @@ class S3Service {
       const pathParts = urlObject.pathname.split('/');
       // Remove the first empty string (from leading slash)
       pathParts.shift();
-      
-      // Check if the bucket name is in the path (common with some S3 URL formats)
-      // and remove it if it's present
-      if (pathParts.length > 0 && pathParts[0] === this.bucketName) {
-        pathParts.shift();
-      }
       
       const fileKey = pathParts.join('/');
       
