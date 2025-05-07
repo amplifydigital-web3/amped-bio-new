@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand, type S3ClientConfig } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import crypto from 'crypto';
 import { env } from '../env';
@@ -16,7 +16,7 @@ class S3Service {
     this.bucketRegion = env.AWS_REGION;
     this.bucketName = env.AWS_S3_BUCKET_NAME;
     
-    const clientOptions: any = {
+    const clientOptions: S3ClientConfig = {
       region: this.bucketRegion,
       credentials: {
         accessKeyId: env.AWS_ACCESS_KEY_ID,
@@ -30,30 +30,33 @@ class S3Service {
       clientOptions.forcePathStyle = true; // Required for S3-compatible services
     }
     
+    // If custom public URL is provided and no custom endpoint is set,
+    // configure the S3 client to properly generate presigned URLs
+    if (env.AWS_S3_PUBLIC_URL && !env.AWS_S3_ENDPOINT.length) {
+      try {
+        const urlObj = new URL(env.AWS_S3_PUBLIC_URL);
+        // Set endpoint to use the host from the public URL
+        clientOptions.endpoint = `https://${urlObj.host}`;
+        
+        // Determine if the URL already contains the bucket name
+        const hostParts = urlObj.host.split('.');
+        const hasBucketInHost = hostParts[0] === this.bucketName;
+        
+        // Use path style if the bucket is not in the hostname
+        clientOptions.forcePathStyle = !hasBucketInHost;
+      } catch (error) {
+        console.warn('[WARN] Failed to parse AWS_S3_PUBLIC_URL', error);
+      }
+    }
+    
     this.s3Client = new S3Client(clientOptions);
 
     // Set the base URL for public access to files
-    // AWS_S3_PUBLIC_URL should be "https://amped-bio.s3.amazonaws.com"
     if (env.AWS_S3_PUBLIC_URL) {
-      // Use the specified public URL (e.g., "https://amped-bio.s3.amazonaws.com")
+      // Use the specified public URL directly without modification
       this.publicBaseUrl = env.AWS_S3_PUBLIC_URL;
-      
-      // If custom public URL is provided, configure the S3 client to use matching endpoint
-      // This ensures presigned URLs match the same format as public URLs
-      if (!env.AWS_S3_ENDPOINT.length) {
-        try {
-          const urlObj = new URL(env.AWS_S3_PUBLIC_URL);
-          // Override endpoint to use the same host as the public URL
-          clientOptions.endpoint = `https://${urlObj.host}`;
-          clientOptions.forcePathStyle = false;
-          // Recreate the client with the new options
-          this.s3Client = new S3Client(clientOptions);
-        } catch (error) {
-          console.warn('[WARN] Failed to parse AWS_S3_PUBLIC_URL', error);
-        }
-      }
     } else {
-      // Default S3 URL format without region: https://[bucket-name].s3.amazonaws.com
+      // Only use bucket name and region if no public URL is provided
       this.publicBaseUrl = `https://${this.bucketName}.s3.amazonaws.com`;
     }
 
@@ -61,7 +64,8 @@ class S3Service {
       bucketName: this.bucketName, 
       region: this.bucketRegion,
       publicBaseUrl: this.publicBaseUrl,
-      customEndpoint: env.AWS_S3_ENDPOINT || 'none'
+      customEndpoint: env.AWS_S3_ENDPOINT || 'none',
+      forcePathStyle: clientOptions.forcePathStyle
     }));
   }
 
@@ -146,11 +150,13 @@ class S3Service {
         expiresIn: 300, // URL expires in 5 minutes
       });
 
+      // Log the full URL for debugging
       console.info('[INFO] Generated presigned upload URL', JSON.stringify({ 
         fileKey, 
         userId, 
         category,
         contentType,
+        presignedUrlHost: new URL(presignedUrl).host,
         expiresIn: '5 minutes'
       }));
 
@@ -190,7 +196,12 @@ class S3Service {
    * Get the full public URL for a file
    */
   getFileUrl(fileKey: string): string {
-    const url = `${this.publicBaseUrl}/${fileKey}`;
+    // Handle case where publicBaseUrl might already have a trailing slash
+    const baseUrl = this.publicBaseUrl.endsWith('/') 
+      ? this.publicBaseUrl.slice(0, -1) 
+      : this.publicBaseUrl;
+      
+    const url = `${baseUrl}/${fileKey}`;
     console.info('[INFO] Generated public file URL', JSON.stringify({ fileKey, url }));
     return url;
   }
