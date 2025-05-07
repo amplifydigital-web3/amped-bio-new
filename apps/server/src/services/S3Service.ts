@@ -38,8 +38,8 @@ class S3Service {
       // Use the specified public URL (e.g., "https://amped-bio.s3.amazonaws.com")
       this.publicBaseUrl = env.AWS_S3_PUBLIC_URL;
     } else {
-      // Default S3 URL format: https://[bucket-name].s3.[region].amazonaws.com
-      this.publicBaseUrl = `https://${this.bucketName}.s3.${this.bucketRegion}.amazonaws.com`;
+      // Default S3 URL format without region: https://[bucket-name].s3.amazonaws.com
+      this.publicBaseUrl = `https://${this.bucketName}.s3.amazonaws.com`;
     }
 
     console.info('[INFO] S3Service initialized', JSON.stringify({ 
