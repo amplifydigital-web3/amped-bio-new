@@ -37,6 +37,21 @@ class S3Service {
     if (env.AWS_S3_PUBLIC_URL) {
       // Use the specified public URL (e.g., "https://amped-bio.s3.amazonaws.com")
       this.publicBaseUrl = env.AWS_S3_PUBLIC_URL;
+      
+      // If custom public URL is provided, configure the S3 client to use matching endpoint
+      // This ensures presigned URLs match the same format as public URLs
+      if (!env.AWS_S3_ENDPOINT.length) {
+        try {
+          const urlObj = new URL(env.AWS_S3_PUBLIC_URL);
+          // Override endpoint to use the same host as the public URL
+          clientOptions.endpoint = `https://${urlObj.host}`;
+          clientOptions.forcePathStyle = false;
+          // Recreate the client with the new options
+          this.s3Client = new S3Client(clientOptions);
+        } catch (error) {
+          console.warn('[WARN] Failed to parse AWS_S3_PUBLIC_URL', error);
+        }
+      }
     } else {
       // Default S3 URL format without region: https://[bucket-name].s3.amazonaws.com
       this.publicBaseUrl = `https://${this.bucketName}.s3.amazonaws.com`;
