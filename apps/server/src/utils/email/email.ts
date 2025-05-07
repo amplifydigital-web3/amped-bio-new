@@ -50,7 +50,7 @@ const sendEmail = async (options: EmailOptions) => {
   console.log(`👥 Preparing email for ${recipients.length} recipient(s):`, recipients);
 
   const mailOptions = {
-    from: env.SMTP_FROM_EMAIL || "noreply@amped-bio.com",
+    from: env.SMTP_FROM_EMAIL || "noreply@amped.bio",
     to: recipients.join(","),
     subject: options.subject,
     html: options.html_body,

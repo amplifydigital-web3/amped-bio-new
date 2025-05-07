@@ -6,7 +6,7 @@ import { checkOnelinkAvailability } from "@/api/api";
 // Constants
 const ONELINK_MIN_LENGTH = 3; // Min length without @ symbol
 export const ONELINK_REGEX = /^[a-z0-9_-]+$/i;
-const BASE_URL = "https://amped-bio.com";
+const BASE_URL = "https://amped.bio";
 
 // Types
 export type OnelinkStatus =
