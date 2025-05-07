@@ -187,29 +187,45 @@ class S3Service {
    * @param key - Object path/key in the bucket
    * @param operation - S3 operation type
    * @param expiresIn - URL expiration time in seconds (default: 300)
+   * @param contentType - Content-Type header to include in signature calculation (for uploads)
    * @returns Promise<string> - Signed URL
    */
-  async getSignedUrl(key: string, operation: S3Operation, expiresIn: number = 300): Promise<string> {
+  async getSignedUrl(
+    key: string, 
+    operation: S3Operation, 
+    expiresIn: number = 300, 
+    contentType?: string
+  ): Promise<string> {
     try {
       console.debug('[DEBUG] Creating signed URL for operation:', JSON.stringify({
         operation,
         bucket: this.bucketName,
         key,
-        expiresIn
+        expiresIn,
+        contentType
       }));
 
-      const url = await this.s3.getSignedUrlPromise(operation, {
+      // Use a generic Record type instead of AWS.S3.PresignedUrlRequest
+      const params: Record<string, any> = {
         Bucket: this.bucketName,
         Key: key,
         Expires: expiresIn
-      });
+      };
+
+      // Add Content-Type to signature calculation for PUT operations
+      if (operation === 'putObject' && contentType) {
+        params.ContentType = contentType;
+      }
+
+      const url = await this.s3.getSignedUrlPromise(operation, params);
 
       console.info('[INFO] Generated signed URL for operation', JSON.stringify({
         operation,
         key,
         expiresIn,
+        contentType,
         urlLength: url.length,
-        url,
+        url: url.substring(0, 100) + '...' // Log partial URL for security
       }));
 
       return url;
@@ -247,7 +263,7 @@ class S3Service {
       const fileKey = this.generateUniqueFileKey(category, userId, fileExtension);
       
       // Get a signed URL for putting an object
-      const presignedUrl = await this.getSignedUrl(fileKey, 'putObject', 300);
+      const presignedUrl = await this.getSignedUrl(fileKey, 'putObject', 300, contentType);
 
       return {
         presignedUrl,  // This URL is for upload only and is temporary
