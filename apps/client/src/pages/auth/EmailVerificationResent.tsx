@@ -1,13 +1,11 @@
 import { useState, useEffect } from "react";
 import { useLocation, Link, useNavigate } from "react-router-dom";
-import { resendVerificationEmail } from "../../api/api";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { EmailVerificationResponse } from "../../api/api.types";
 import { Loader } from "lucide-react";
 import { AuthHeader } from "../../components/auth/AuthHeader";
-import logoSVG from "../../assets/AMPLIFY_FULL_K.svg";
+import { trpc } from "@/utils/trpc";
 
 // Define the validation schema using Zod
 const emailSchema = z.object({
@@ -79,8 +77,9 @@ export function EmailVerificationResent() {
     }
 
     // Use the API function to resend verification email
-    resendVerificationEmail(emailParam)
-      .then((data: EmailVerificationResponse) => {
+    trpc.auth.sendVerifyEmail
+      .mutate({ email: emailParam })
+      .then(data => {
         if (data.success) {
           setStatus("success");
           setMessage(data.message || "Verification email has been sent");
@@ -99,7 +98,9 @@ export function EmailVerificationResent() {
     setStatus("loading");
 
     try {
-      const response: EmailVerificationResponse = await resendVerificationEmail(data.email);
+      const response = await trpc.auth.sendVerifyEmail.mutate({
+        email: data.email,
+      });
 
       if (response.success) {
         setStatus("success");

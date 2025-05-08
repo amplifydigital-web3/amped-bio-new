@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useLocation, Link, useNavigate } from "react-router-dom";
-import { verifyEmail } from "../../api/api";
-import type { VerifyEmailResponse } from "../../api/api.types";
 import { Loader } from "lucide-react";
 import { AuthHeader } from "../../components/auth/AuthHeader";
+import { trpc } from "@/utils/trpc";
 
 export function EmailVerification() {
   const { token } = useParams();
@@ -44,8 +43,8 @@ export function EmailVerification() {
     }
 
     // Use the API function to verify the email
-    verifyEmail(token, email)
-      .then((data: VerifyEmailResponse) => {
+    trpc.auth.verifyEmail.mutate({token, email})
+      .then((data) => {
         if (data.success) {
           setStatus("success");
           if (data.onelink) setOnelink(data.onelink);

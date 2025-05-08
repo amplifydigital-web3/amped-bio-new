@@ -101,6 +101,9 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [resetError, setResetError] = useState<string | null>(null);
 
+  // Add success state for reset password form
+  const [resetSuccess, setResetSuccess] = useState(false);
+
   const [onelinkInput, setOnelinkInput] = useState("");
   const { urlStatus, isValid } = useOnelinkAvailability(onelinkInput);
 
@@ -197,6 +200,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     setLoginError(null);
     setRegisterError(null);
     setResetError(null);
+    setResetSuccess(false);
     setForm(newForm);
   };
 
@@ -255,9 +259,14 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
   const onSubmitReset = async (data: z.infer<typeof resetSchema>) => {
     setLoading(true);
     setResetError(null);
+    setResetSuccess(false);
     try {
-      await resetPassword(data.email);
-      onCancel();
+      const response = await resetPassword(data.email);
+      if (response.success) {
+        setResetSuccess(true);
+      } else {
+        setResetError(response.message || "Failed to reset password");
+      }
     } catch (error) {
       setResetError((error as Error).message);
     } finally {
@@ -452,57 +461,71 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
 
         {form === "reset" && (
           <form onSubmit={handleSubmitReset(onSubmitReset)} className="space-y-4" data-testid="reset-form">
-            <div className="mb-2">
-              <p className="text-sm text-gray-600 mb-4">
-                Enter your email address below and we'll send you instructions to reset your
-                password.
-              </p>
-            </div>
+            {!resetSuccess && (
+              <div className="mb-2">
+                <p className="text-sm text-gray-600 mb-4">
+                  Enter your email address below and we'll send you instructions to reset your
+                  password.
+                </p>
+              </div>
+            )}
             {resetError && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
                 <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
                 <p className="text-sm text-red-600">{resetError}</p>
               </div>
             )}
-            <Input
-              label="Email"
-              type="email"
-              error={resetErrors.email?.message}
-              required
-              aria-label="Email"
-              data-testid="reset-email"
-              autoComplete="email"
-              {...registerReset("email")}
-            />
-            <Button
-              type="submit"
-              className="w-full relative"
-              disabled={loading}
-              aria-disabled={loading}
-              aria-label="Send Reset Instructions"
-              data-testid="reset-submit"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center">
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin text-white/80" />
-                  Sending Email...
-                </span>
-              ) : (
-                "Send Reset Instructions"
-              )}
-            </Button>
-
-            <div className="text-center text-sm text-gray-600 mt-4 p-3 border border-gray-200 rounded-md bg-gray-50">
-              <p>Already have a password reset token?</p>
-              <Link
-                to="/auth/reset-password/"
-                className="inline-block mt-2 text-blue-600 hover:text-blue-700 hover:underline font-medium"
-                aria-label="Use reset token"
-                data-testid="use-reset-token"
-              >
-                Use your reset token here →
-              </Link>
-            </div>
+            {resetSuccess ? (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-md flex items-start gap-2">
+                <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-green-600">
+                  Instructions to reset your password have been sent to your email.
+                </p>
+              </div>
+            ) : (
+              <>
+                <Input
+                  label="Email"
+                  type="email"
+                  error={resetErrors.email?.message}
+                  required
+                  aria-label="Email"
+                  data-testid="reset-email"
+                  autoComplete="email"
+                  {...registerReset("email")}
+                />
+                <Button
+                  type="submit"
+                  className="w-full relative"
+                  disabled={loading}
+                  aria-disabled={loading}
+                  aria-label="Send Reset Instructions"
+                  data-testid="reset-submit"
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center">
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin text-white/80" />
+                      Sending Email...
+                    </span>
+                  ) : (
+                    "Send Reset Instructions"
+                  )}
+                </Button>
+              </>
+            )}
+            {!resetSuccess && (
+              <div className="text-center text-sm text-gray-600 mt-4 p-3 border border-gray-200 rounded-md bg-gray-50">
+                <p>Already have a password reset token?</p>
+                <Link
+                  to="/auth/reset-password/"
+                  className="inline-block mt-2 text-blue-600 hover:text-blue-700 hover:underline font-medium"
+                  aria-label="Use reset token"
+                  data-testid="use-reset-token"
+                >
+                  Use your reset token here →
+                </Link>
+              </div>
+            )}
           </form>
         )}
 

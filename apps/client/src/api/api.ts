@@ -3,13 +3,7 @@ import type { Theme } from "../types/editor";
 import { withRelatedProject } from "@vercel/related-projects";
 import { normalizeOnelink } from "@/utils/onelink";
 import type {
-  LoginData,
-  RegisterData,
   DeleteData,
-  AuthResponse,
-  EmailVerificationResponse,
-  PasswordResetResponse,
-  VerifyEmailResponse,
   BlockResponse,
   AddBlockData,
   OnelinkRedemptionResponse,
@@ -56,81 +50,6 @@ async function apiRequest<T>(requestFn: () => Promise<any>, successMessage: stri
       throw error;
     }
   }
-}
-
-// Authentication APIs
-export async function login(authData: LoginData): Promise<AuthResponse> {
-  return apiRequest<AuthResponse>(() => api.post("/auth/login", authData), "Login successful:");
-}
-
-export async function registerNewUser(userData: RegisterData): Promise<AuthResponse> {
-  return apiRequest<AuthResponse>(
-    () => api.post("/auth/register", userData),
-    "New User created successfully:"
-  );
-}
-
-// Helper for POST requests with email parameter
-async function emailBasedPostRequest<T>(
-  endpoint: string,
-  email: string,
-  successMessage: string
-): Promise<T> {
-  return apiRequest<T>(() => api.post(endpoint, { email }), successMessage);
-}
-
-export async function resendEmailVerification(email: string): Promise<EmailVerificationResponse> {
-  return emailBasedPostRequest<EmailVerificationResponse>(
-    "/auth/sendEmailVerification",
-    email,
-    "Verification email sent:"
-  );
-}
-
-export async function passwordResetRequest(email: string): Promise<PasswordResetResponse> {
-  return emailBasedPostRequest<PasswordResetResponse>(
-    "/auth/passwordResetRequest",
-    email,
-    "Password reset email sent:"
-  );
-}
-
-export async function resendVerificationEmail(email: string): Promise<EmailVerificationResponse> {
-  return emailBasedPostRequest<EmailVerificationResponse>(
-    "/auth/sendEmailVerification",
-    email,
-    "Email verification resent:"
-  );
-}
-
-export async function requestPasswordReset(email: string): Promise<PasswordResetResponse> {
-  return emailBasedPostRequest<PasswordResetResponse>(
-    "/auth/passwordResetRequest",
-    email,
-    "Password reset request response:"
-  );
-}
-
-// These endpoints still use GET as they are retrieving information, not performing actions
-export async function verifyEmail(token: string, email: string): Promise<VerifyEmailResponse> {
-  return apiRequest<VerifyEmailResponse>(
-    () => api.get(`/auth/verifyEmail/${token}?email=${encodeURIComponent(email)}`),
-    "Email verification response:"
-  );
-}
-
-export async function processPasswordReset(
-  token: string,
-  password: string
-): Promise<PasswordResetResponse> {
-  return apiRequest<PasswordResetResponse>(
-    () =>
-      api.post("/auth/passwordReset", {
-        token,
-        newPassword: password,
-      }),
-    "Password reset response:"
-  );
 }
 
 // User APIs

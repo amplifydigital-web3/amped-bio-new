@@ -35,13 +35,6 @@ export type EmailVerificationRequest = {
   email: string;
 };
 
-export type EmailVerificationResponse = {
-  success: boolean;
-  message: string;
-  results?: any;
-  email?: string;
-};
-
 export type PasswordResetRequest = {
   email: string;
 };
@@ -57,13 +50,6 @@ export type ProcessPasswordResetRequest = {
   token: string;
   password: string;
   confirmPassword: string;
-};
-
-export type VerifyEmailResponse = {
-  success: boolean;
-  message: string;
-  onelink?: string;
-  email?: string;
 };
 
 // Block-related types

@@ -296,8 +296,13 @@ test.describe('Authentication', () => {
       // Submit form
       await page.getByTestId('reset-submit').click();
       
-      // Modal should close if request is successful (no need to check for toast)
-      await expect(page.getByTestId('auth-modal')).not.toBeVisible({ timeout: 5000 });
+      // Check for the success message in the modal
+      await expect(
+        page.getByText('Instructions to reset your password have been sent to your email')
+      ).toBeVisible({ timeout: 5000 });
+      
+      // Verify the modal is still visible but showing success state
+      await expect(page.getByTestId('auth-modal')).toBeVisible();
       
       console.log(`Password reset requested for: ${testUser.email}`);
     });

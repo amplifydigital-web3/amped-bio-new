@@ -14,7 +14,6 @@ jobs:
     # Global environment variables available to all steps
     env:
       NODE_ENV: "test"
-      VITE_API_URL: "http://localhost:3000"
 
     steps:
       - name: Checkout repository
