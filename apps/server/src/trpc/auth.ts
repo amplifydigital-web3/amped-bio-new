@@ -188,7 +188,9 @@ export const authRouter = router({
       // Hash new password
       const hashedPassword = await hashPassword(newPassword);
 
-      if (user.password === hashedPassword) {
+      const isSamePassword = await comparePasswords(newPassword, user.password);
+
+      if (isSamePassword) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "New password must be different than old password",
