@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist, PersistOptions } from "zustand/middleware";
-import { login, registerNewUser, passwordResetRequest } from "../api/api";
 import type { AuthUser } from "../types/auth";
+import { trpc } from "../utils/trpc";
 
 type AuthState = {
   authUser: AuthUser | null;
@@ -9,7 +9,7 @@ type AuthState = {
   signIn: (email: string, password: string) => Promise<AuthUser>;
   signUp: (onelink: string, email: string, password: string) => Promise<AuthUser>;
   signOut: () => Promise<void>;
-  resetPassword: (email: string) => Promise<string>;
+  resetPassword: (email: string) => Promise<{ success: boolean; message: string }>;
   updateAuthUser: (userData: Partial<AuthUser>) => void;
 };
 
@@ -24,17 +24,21 @@ export const useAuthStore = create<AuthState>()(
     set => ({
       authUser: null,
       error: null,
-      token: null,
 
       signIn: async (email: string, password: string) => {
         try {
           set({ error: null });
-          const { user, token } = await login({ email, password });
-          // Save token to localStorage for axios to use
-          localStorage.setItem("amped-bio-auth-token", token);
-          set({ authUser: user });
+          const response = await trpc.auth.login.mutate({ email, password });
+          
+          if (!response.success) {
+            throw new Error("Login failed");
+          }
+          
+          // Save token to localStorage for tRPC to use
+          localStorage.setItem("amped-bio-auth-token", response.token);
+          set({ authUser: response.user });
 
-          return user;
+          return response.user;
         } catch (error) {
           set({ error: (error as Error).message });
           throw error;
@@ -44,11 +48,16 @@ export const useAuthStore = create<AuthState>()(
       signUp: async (onelink: string, email: string, password: string) => {
         try {
           set({ error: null });
-          const { user, token } = await registerNewUser({ onelink, email, password });
-          // Save token to localStorage for axios to use
-          localStorage.setItem("amped-bio-auth-token", token);
-          set({ authUser: user });
-          return user;
+          const response = await trpc.auth.register.mutate({ onelink, email, password });
+          
+          if (!response.success) {
+            throw new Error("Registration failed");
+          }
+          
+          // Save token to localStorage for tRPC to use
+          localStorage.setItem("amped-bio-auth-token", response.token);
+          set({ authUser: response.user });
+          return response.user;
         } catch (error) {
           set({ error: (error as Error).message });
           throw error;
@@ -65,13 +74,20 @@ export const useAuthStore = create<AuthState>()(
           throw error;
         }
       },
+      
       resetPassword: async (email: string) => {
         try {
-          const res = await passwordResetRequest(email);
-          return res.message;
+          const response = await trpc.auth.passwordResetRequest.mutate({ email });
+          // The response will be sent back to the AuthModal component
+          // to handle both success and error cases
+          return response;
         } catch (error) {
           set({ error: (error as Error).message });
-          throw error;
+          // Return error object instead of throwing so the modal can show it
+          return {
+            success: false,
+            message: (error as Error).message || "Password reset request failed"
+          };
         }
       },
 

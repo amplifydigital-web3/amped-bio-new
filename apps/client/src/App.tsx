@@ -9,7 +9,6 @@ import { AppKitProvider } from "./components/connect/components/AppKitProvider";
 import {
   EmailVerification,
   EmailVerificationResent,
-  PasswordResetRequest,
   PasswordReset,
 } from "./pages/auth";
 
@@ -54,7 +53,6 @@ function App() {
             {/* Authentication Routes */}
             <Route path="/auth/verify-email/:token?" element={<EmailVerification />} />
             <Route path="/auth/resend-verification" element={<EmailVerificationResent />} />
-            <Route path="/auth/reset-password-request" element={<PasswordResetRequest />} />
             <Route path="/auth/reset-password/:token?" element={<PasswordReset />} />
           </Routes>
         </BrowserRouter>
