@@ -1,5 +1,5 @@
-import React from "react";
-import { Plus } from "lucide-react";
+import React, { useState } from "react";
+import { Plus, CheckCircle } from "lucide-react";
 import { PlatformId, getPlatformUrl, platforms } from "@/utils/platforms";
 import { LinkBlock } from "@/api/api.types";
 import { useForm } from "react-hook-form";
@@ -22,7 +22,7 @@ export const linkFormSchema = z
   })
   .superRefine((data, ctx) => {
     const platform = data.platform;
-    const url = data.url;
+    let url = data.url.trim();
 
     if (platform === "email") {
       // Email validation using Zod's built-in email validator
@@ -36,7 +36,9 @@ export const linkFormSchema = z
     } else if (platform === "custom" || platform === "document") {
       // URL validation for custom and document platforms
       try {
-        new URL(url);
+        // If URL doesn't have a protocol, add a temporary one for validation
+        const urlToValidate = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+        new URL(urlToValidate);
       } catch (e) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -54,6 +56,27 @@ export const linkFormSchema = z
         });
       }
     }
+  })
+  .transform((data) => {
+    // Add protocol and formatting during schema transformation
+    let url = data.url.trim();
+    const platform = data.platform;
+    
+    // Format URLs based on platform type
+    if (platform === "email" && !url.startsWith("mailto:")) {
+      url = `mailto:${url}`;
+    } else if ((platform === "custom" || platform === "document") && !url.match(/^https?:\/\//i)) {
+      url = `https://${url}`;
+    } else if (platform && platform !== "custom" && platform !== "email" && platform !== "document") {
+      // For social platforms, use the platform's URL format
+      url = getPlatformUrl(platform as PlatformId, url);
+    }
+    
+    return {
+      ...data,
+      url,
+      label: data.label.trim()
+    };
   });
 
 type FormData = z.infer<typeof linkFormSchema>;
@@ -68,11 +91,13 @@ interface LinkFormInputsProps {
 
 export function LinkFormInputs({ register, errors, watch, setValue }: LinkFormInputsProps) {
   const platform = watch("platform") as PlatformId | "";
+  const [urlPreview, setUrlPreview] = useState<string | null>(null);
 
   const handlePlatformChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value as PlatformId;
     setValue("platform", value);
     setValue("url", "");
+    setUrlPreview(null);
   };
 
   const getUrlFieldLabel = () => {
@@ -91,8 +116,22 @@ export function LinkFormInputs({ register, errors, watch, setValue }: LinkFormIn
 
   const getUrlFieldPlaceholder = () => {
     if (platform === "email") return "your@email.com";
-    if (platform === "custom" || platform === "document") return "https://example.com";
+    if (platform === "custom") return "example.com or https://example.com";
+    if (platform === "document") return "docs.example.com/file.pdf";
     return "username";
+  };
+
+  const handleUrlBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (!value) return;
+
+    if ((platform === "custom" || platform === "document") && !value.match(/^https?:\/\//i)) {
+      setUrlPreview(`Will be saved as: https://${value}`);
+    } else if (platform === "email" && !value.startsWith("mailto:") && value.includes("@")) {
+      setUrlPreview(`Will be saved with mailto: prefix`);
+    } else {
+      setUrlPreview(null);
+    }
   };
 
   return (
@@ -118,13 +157,23 @@ export function LinkFormInputs({ register, errors, watch, setValue }: LinkFormIn
 
       {platform &&
         (platform === "custom" || platform === "email" || platform === "document" ? (
-          <Input
-            label={getUrlFieldLabel()}
-            type={getUrlFieldType()}
-            placeholder={getUrlFieldPlaceholder()}
-            error={errors.url?.message?.toString()}
-            {...register("url")}
-          />
+          <div className="space-y-1">
+            <Input
+              label={getUrlFieldLabel()}
+              type={getUrlFieldType()}
+              placeholder={getUrlFieldPlaceholder()}
+              error={errors.url?.message?.toString()}
+              {...register("url", {
+                onBlur: handleUrlBlur
+              })}
+            />
+            {urlPreview && !errors.url && (
+              <p className="text-green-600 text-xs flex items-center">
+                <CheckCircle className="w-3 h-3 mr-1" /> 
+                {urlPreview}
+              </p>
+            )}
+          </div>
         ) : (
           <div>
             <label className="block text-sm font-medium mb-1">{getUrlFieldLabel()}</label>
@@ -176,27 +225,15 @@ export function LinkForm({ onAdd }: LinkFormProps) {
   });
 
   const onSubmit = (data: FormData) => {
-    const platform = data.platform as PlatformId;
-    let finalUrl = data.url;
-
-    // For social platforms, construct the full URL
-    if (platform && platform !== "custom" && platform !== "email" && platform !== "document") {
-      finalUrl = getPlatformUrl(platform, data.url);
-    }
-
-    // For email platform, add mailto: prefix if not present
-    if (platform === "email" && !finalUrl.startsWith("mailto:")) {
-      finalUrl = `mailto:${finalUrl}`;
-    }
-
+    // The URL formatting is now handled in the schema transformation
     onAdd({
       id: 0,
       type: "link",
       order: 0,
       config: {
-        platform,
-        url: finalUrl,
-        label: data.label,
+        platform: data.platform as PlatformId,
+        url: data.url, // Already formatted by the schema
+        label: data.label, // Already trimmed by the schema
       },
     });
 
