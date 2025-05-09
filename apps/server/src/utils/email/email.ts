@@ -3,8 +3,12 @@ import { render } from "@react-email/render";
 import verifyEmailTemplate from "./VerifyEmailTemplate";
 import resetPasswordTemplate from "./ResetPasswordTemplate";
 import { env } from "../../env";
+import { withRelatedProject } from "@vercel/related-projects";
 
-const baseURL = env.VERCEL_PROJECT_PRODUCTION_URL;
+const baseURL = withRelatedProject({
+  projectName: "amped-bio",
+  defaultHost: env.VERCEL_PROJECT_PRODUCTION_URL ?? "http://localhost:43000",
+});
 
 type EmailOptions = {
   to: string | string[];
