@@ -1,7 +1,33 @@
 import { create } from "zustand";
-import { persist, PersistOptions } from "zustand/middleware";
+import { persist } from "zustand/middleware";
 import type { AuthUser } from "../types/auth";
 import { trpc } from "../utils/trpc";
+
+// Helper function to check JWT token validity
+const isTokenValid = (): boolean => {
+  try {
+    const token = localStorage.getItem("amped-bio-auth-token");
+    if (!token) return false;
+    
+    // JWT structure: header.payload.signature
+    const payload = token.split('.')[1];
+    if (!payload) return false;
+    
+    // Decode base64
+    const decodedPayload = JSON.parse(atob(payload));
+    
+    // Check if token has expiration and is still valid
+    if (decodedPayload && decodedPayload.exp) {
+      // exp is in seconds, Date.now() is in milliseconds
+      return decodedPayload.exp * 1000 > Date.now();
+    }
+    
+    return false;
+  } catch (error) {
+    console.error("Error validating token:", error);
+    return false;
+  }
+};
 
 type AuthState = {
   authUser: AuthUser | null;
@@ -11,12 +37,6 @@ type AuthState = {
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ success: boolean; message: string }>;
   updateAuthUser: (userData: Partial<AuthUser>) => void;
-};
-
-type AuthPersistOptions = PersistOptions<AuthState>;
-
-const persistOptions: AuthPersistOptions = {
-  name: "auth-storage",
 };
 
 export const useAuthStore = create<AuthState>()(
@@ -65,14 +85,9 @@ export const useAuthStore = create<AuthState>()(
       },
 
       signOut: async () => {
-        try {
-          set({ error: null, authUser: null });
-          // Remove token from localStorage when signing out
-          localStorage.removeItem("amped-bio-auth-token");
-        } catch (error) {
-          set({ error: (error as Error).message });
-          throw error;
-        }
+        set({ error: null, authUser: null });
+        // Remove token from localStorage when signing out
+        localStorage.removeItem("amped-bio-auth-token");
       },
       
       resetPassword: async (email: string) => {
@@ -97,6 +112,33 @@ export const useAuthStore = create<AuthState>()(
         }));
       },
     }),
-    persistOptions
+    {
+      name: "auth-storage",
+      onRehydrateStorage: () => {
+        // This function runs before rehydration
+        return (restoredState, error) => {
+          // This callback runs after rehydration
+          if (error) {
+            console.error("Error rehydrating auth state:", error);
+          } else if (restoredState) {
+            // Check if token is valid
+            const tokenValid = isTokenValid();
+            
+            console.log("Auth state loaded from storage:", {
+              isAuthenticated: !!restoredState.authUser && tokenValid,
+              user: restoredState.authUser,
+              tokenValid
+            });
+            
+            // If token is invalid but we have a user in state, clear the auth state
+            if (!tokenValid && restoredState.authUser) {
+              console.warn("JWT token expired, signing out user");
+              
+              restoredState.signOut();
+            }
+          }
+        };
+      }
+    }
   )
 );

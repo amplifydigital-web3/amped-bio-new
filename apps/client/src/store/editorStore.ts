@@ -7,7 +7,6 @@ import type {
   Background,
   GalleryImage,
 } from "../types/editor";
-import { PersistOptions } from "zustand/middleware";
 import {
   editUser,
   editTheme,
@@ -49,7 +48,7 @@ interface EditorStore extends EditorState {
   importTheme: (file: File) => Promise<void>;
 }
 
-export const useEditorStore = create<EditorStore>()(set => ({
+export const useEditorStore = create<EditorStore>()((set) => ({
   changes: false,
   ...initialState,
   setUser: async (onelink: string) => {
