@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Editor } from "./pages/Editor";
 import { View } from "./pages/View";
+import { Admin } from "./pages/Admin";
 import { initParticlesEngine } from "@tsparticles/react";
 //import { loadSlim } from '@tsparticles/slim';
 import { loadAll } from "@tsparticles/all";
@@ -11,6 +12,9 @@ import {
   EmailVerificationResent,
   PasswordReset,
 } from "./pages/auth";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "./utils/trpc";
+import { Toaster } from 'react-hot-toast';
 
 function App() {
   const [init, setInit] = useState(false);
@@ -42,21 +46,27 @@ function App() {
 
   if (init) {
     return (
-      <AppKitProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/:onelink/edit" element={<Editor />} />
-            <Route path="/:onelink" element={<View />} />
-            <Route path="/register" element={<View />} />
-            <Route path="/" element={<View />} />
+      <>
+        <QueryClientProvider client={queryClient}>
+          <AppKitProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/:onelink/edit" element={<Editor />} />
+                <Route path="/:onelink" element={<View />} />
+                <Route path="/register" element={<View />} />
+                <Route path="/" element={<View />} />
+                <Route path="/admin" element={<Admin />} />
 
-            {/* Authentication Routes */}
-            <Route path="/auth/verify-email/:token?" element={<EmailVerification />} />
-            <Route path="/auth/resend-verification" element={<EmailVerificationResent />} />
-            <Route path="/auth/reset-password/:token?" element={<PasswordReset />} />
-          </Routes>
-        </BrowserRouter>
-      </AppKitProvider>
+                {/* Authentication Routes */}
+                <Route path="/auth/verify-email/:token?" element={<EmailVerification />} />
+                <Route path="/auth/resend-verification" element={<EmailVerificationResent />} />
+                <Route path="/auth/reset-password/:token?" element={<PasswordReset />} />
+              </Routes>
+            </BrowserRouter>
+          </AppKitProvider>
+        </QueryClientProvider>
+        <Toaster />
+      </>
     );
   }
   return <></>;

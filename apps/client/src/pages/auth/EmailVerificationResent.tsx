@@ -5,7 +5,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader } from "lucide-react";
 import { AuthHeader } from "../../components/auth/AuthHeader";
-import { trpc } from "@/utils/trpc";
+import { trpcClient } from "@/utils/trpc";
 
 // Define the validation schema using Zod
 const emailSchema = z.object({
@@ -77,7 +77,7 @@ export function EmailVerificationResent() {
     }
 
     // Use the API function to resend verification email
-    trpc.auth.sendVerifyEmail
+    trpcClient.auth.sendVerifyEmail
       .mutate({ email: emailParam })
       .then(data => {
         if (data.success) {
@@ -98,7 +98,7 @@ export function EmailVerificationResent() {
     setStatus("loading");
 
     try {
-      const response = await trpc.auth.sendVerifyEmail.mutate({
+      const response = await trpcClient.auth.sendVerifyEmail.mutate({
         email: data.email,
       });
 

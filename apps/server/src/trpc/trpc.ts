@@ -72,10 +72,15 @@ const hasRole = (requiredRoles: string[]) =>
       });
     }
 
-    const userRole = ctx.user.role || "";
+    const userRoleString = ctx.user.role || "";
+    // Split the roles by comma and trim each role
+    const userRoles = userRoleString.split(',').map(role => role.trim()).filter(Boolean);
 
-    // If roles are specified, check if user has required role
-    if (requiredRoles.length > 0 && !requiredRoles.includes(userRole)) {
+    // Check if the user has any of the required roles
+    const hasRequiredRole = requiredRoles.length === 0 || 
+      requiredRoles.some(role => userRoles.includes(role));
+
+    if (!hasRequiredRole) {
       throw new TRPCError({
         code: 'FORBIDDEN',
         message: 'Forbidden: Insufficient permissions',

@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { AuthUser } from "../types/auth";
-import { trpc } from "../utils/trpc";
+import { trpcClient } from "../utils/trpc";
 
 // Helper function to check JWT token validity
 const isTokenValid = (): boolean => {
@@ -48,7 +48,7 @@ export const useAuthStore = create<AuthState>()(
       signIn: async (email: string, password: string) => {
         try {
           set({ error: null });
-          const response = await trpc.auth.login.mutate({ email, password });
+          const response = await trpcClient.auth.login.mutate({ email, password });
           
           if (!response.success) {
             throw new Error("Login failed");
@@ -68,7 +68,7 @@ export const useAuthStore = create<AuthState>()(
       signUp: async (onelink: string, email: string, password: string) => {
         try {
           set({ error: null });
-          const response = await trpc.auth.register.mutate({ onelink, email, password });
+          const response = await trpcClient.auth.register.mutate({ onelink, email, password });
           
           if (!response.success) {
             throw new Error("Registration failed");
@@ -92,7 +92,7 @@ export const useAuthStore = create<AuthState>()(
       
       resetPassword: async (email: string) => {
         try {
-          const response = await trpc.auth.passwordResetRequest.mutate({ email });
+          const response = await trpcClient.auth.passwordResetRequest.mutate({ email });
           // The response will be sent back to the AuthModal component
           // to handle both success and error cases
           return response;

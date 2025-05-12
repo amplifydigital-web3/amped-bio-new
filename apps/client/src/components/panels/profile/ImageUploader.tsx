@@ -1,5 +1,5 @@
 import { useState, useRef, ChangeEvent } from "react";
-import { trpc } from "../../../utils/trpc";
+import { trpcClient } from "../../../utils/trpc";
 import { ALLOWED_FILE_EXTENSIONS, ALLOWED_FILE_TYPES, MAX_FILE_SIZE } from "@ampedbio/constants";
 import { PhotoEditor } from "./PhotoEditor";
 
@@ -105,7 +105,7 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
       });
       
       // Request presigned URL from server
-      const presignedData = await trpc.user.requestPresignedUrl.mutate({
+      const presignedData = await trpcClient.user.requestPresignedUrl.mutate({
         contentType: fileType,
         fileExtension: fileExtension,
         fileSize: file.size,
@@ -135,7 +135,7 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
         console.log("S3 upload completed successfully:", uploadResponse.status);
         
         // Confirm upload with the server
-        const result = await trpc.user.confirmProfilePictureUpload.mutate({
+        const result = await trpcClient.user.confirmProfilePictureUpload.mutate({
           fileKey: presignedData.fileKey,
           category: "profiles"
         });
