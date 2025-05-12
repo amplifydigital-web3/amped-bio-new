@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useLocation, Link, useNavigate } from "react-router-dom";
 import { Loader } from "lucide-react";
 import { AuthHeader } from "../../components/auth/AuthHeader";
-import { trpc } from "@/utils/trpc";
+import { trpcClient } from "@/utils/trpc";
 
 export function EmailVerification() {
   const { token } = useParams();
@@ -43,7 +43,7 @@ export function EmailVerification() {
     }
 
     // Use the API function to verify the email
-    trpc.auth.verifyEmail.mutate({token, email})
+    trpcClient.auth.verifyEmail.mutate({token, email})
       .then((data) => {
         if (data.success) {
           setStatus("success");

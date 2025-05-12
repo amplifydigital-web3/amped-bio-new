@@ -74,7 +74,7 @@ export const authRouter = router({
       return {
         success: true,
         user: { id: result.id, email, onelink },
-        token: generateToken({ id: result.id, email }),
+        token: generateToken({ id: result.id, email, role: result.role }),
       };
     }),
 
@@ -112,7 +112,7 @@ export const authRouter = router({
       return {
         success: true,
         user: { id: user.id, email: user.email, onelink: user.onelink!, emailVerified },
-        token: generateToken({ id: user.id, email: user.email }),
+        token: generateToken({ id: user.id, email: user.email, role: user.role }),
       };
     }),
 
