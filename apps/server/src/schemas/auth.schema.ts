@@ -1,11 +1,16 @@
 import { z } from "zod";
+import { ONELINK_MIN_LENGTH, ONELINK_REGEX } from "@ampedbio/constants";
 
 export const registerSchema = z.object({
   onelink: z
     .string()
-    .min(3, "URL must be at least 3 characters")
-    .regex(/^[a-zA-Z0-9_-]+$/, "URL can only contain letters, numbers, underscores and hyphens")
-    .refine(value => !value.includes("@"), "URL cannot contain @"),
+    .transform((value) => value.startsWith('@') ? value.substring(1) : value) // Normalize by removing @ prefix if present
+    .pipe(
+      z.string()
+        .min(ONELINK_MIN_LENGTH, `URL must be at least ${ONELINK_MIN_LENGTH} characters`)
+        .regex(ONELINK_REGEX, "URL can only contain letters, numbers, underscores and hyphens")
+        .refine((value) => !value.includes("@"), "URL cannot contain @")
+    ),
   email: z.string().email(),
   password: z.string().min(8),
 });

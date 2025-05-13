@@ -1,17 +1,23 @@
 import { z } from "zod";
+import { ONELINK_MIN_LENGTH, ONELINK_REGEX } from "@ampedbio/constants";
 
+// Create a base schema for onelink validation
+export const onelinkBaseSchema = z
+  .string()
+  .transform((value) => value.startsWith('@') ? value.substring(1) : value) // Normalize by removing @ prefix if present
+  .pipe(
+    z.string()
+      .min(ONELINK_MIN_LENGTH, `URL must be at least ${ONELINK_MIN_LENGTH} characters`)
+      .regex(ONELINK_REGEX, "URL can only contain letters, numbers, underscores and hyphens")
+  );
+
+// Use the base schema in specific contexts
 export const onelinkParamSchema = z.object({
-  onelink: z
-    .string()
-    .min(4, "URL must be at least 4 characters")
-    .regex(/^[a-zA-Z0-9_-]+$/, "URL can only contain letters, numbers, underscores and hyphens"),
+  onelink: onelinkBaseSchema,
 });
 
 export const redeemOnelinkSchema = z.object({
-  newOnelink: z
-    .string()
-    .min(4, "URL must be at least 4 characters")
-    .regex(/^[a-zA-Z0-9_-]+$/, "URL can only contain letters, numbers, underscores and hyphens"),
+  newOnelink: onelinkBaseSchema,
 });
 
 export type OnelinkParamInput = z.infer<typeof onelinkParamSchema>;
