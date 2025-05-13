@@ -7,7 +7,6 @@ import type {
   Background,
   GalleryImage,
 } from "../types/editor";
-import { PersistOptions } from "zustand/middleware";
 import {
   editUser,
   editTheme,
@@ -21,7 +20,7 @@ import { useAuthStore } from "./authStore";
 import toast from "react-hot-toast";
 import { BlockType } from "@/api/api.types";
 import { formatOnelink, normalizeOnelink } from "@/utils/onelink";
-import { trpc } from "@/utils/trpc";
+import { trpcClient } from "@/utils/trpc";
 import { exportThemeConfigAsJson, importThemeConfigFromJson } from "@/utils/theme";
 
 interface EditorStore extends EditorState {
@@ -49,14 +48,14 @@ interface EditorStore extends EditorState {
   importTheme: (file: File) => Promise<void>;
 }
 
-export const useEditorStore = create<EditorStore>()(set => ({
+export const useEditorStore = create<EditorStore>()((set) => ({
   changes: false,
   ...initialState,
   setUser: async (onelink: string) => {
     console.group(`🔍 Setting User: ${onelink}`);
     console.info("🚀 Loading user data...");
     try {
-      const { result: onlinkData } = await trpc.onelink.getOnelink.query({ onelink });
+      const { result: onlinkData } = await trpcClient.onelink.getOnelink.query({ onelink });
       if (!onlinkData) {
         console.info("❌ User not found:", onelink);
         console.groupEnd();

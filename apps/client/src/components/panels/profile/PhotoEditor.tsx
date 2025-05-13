@@ -79,11 +79,19 @@ export function PhotoEditor({ imageUrl, onComplete, onCancel }: PhotoEditorProps
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
-        <h3 className="text-lg font-semibold mb-4">Edit Photo</h3>
+      <div className="bg-white rounded-lg p-6 md:max-w-2xl w-full mx-0 md:mx-4 h-full md:h-auto flex flex-col">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">Edit Photo</h3>
+          <div className="flex space-x-3">
+            <Button variant="outline" onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave}>Save</Button>
+          </div>
+        </div>
 
-        <div className="space-y-6">
-          <div className="relative">
+        <div className="space-y-6 flex-grow flex flex-col">
+          <div className="relative flex-grow flex items-center justify-center">
             <ReactCrop
               crop={crop}
               onChange={(_, percentCrop) => setCrop(percentCrop)}
@@ -104,13 +112,6 @@ export function PhotoEditor({ imageUrl, onComplete, onCancel }: PhotoEditorProps
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700">Zoom</label>
             <Slider min={0.5} max={3} step={0.1} value={zoom} onChange={setZoom} />
-          </div>
-
-          <div className="flex justify-end space-x-3">
-            <Button variant="outline" onClick={onCancel}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave}>Save</Button>
           </div>
         </div>
 
