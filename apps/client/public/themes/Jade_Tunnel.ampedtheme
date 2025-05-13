@@ -1,0 +1,17 @@
+{
+  "buttonStyle": 1,
+  "containerStyle": 7,
+  "background": {
+    "type": "video",
+    "value": "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Jade_Tunnel.mp4"
+  },
+  "buttonColor": "#00dde0",
+  "containerColor": "#ffffff",
+  "fontFamily": "Montserrat",
+  "fontSize": "16px",
+  "fontColor": "#000000",
+  "transparency": 32,
+  "buttonEffect": 9,
+  "particlesEffect": 0,
+  "heroEffect": 7
+}

@@ -1,0 +1,17 @@
+{
+  "buttonStyle": 1,
+  "containerStyle": 4,
+  "background": {
+    "type": "video",
+    "value": "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Astral_Staircase.mp4"
+  },
+  "buttonColor": "#00b4f0",
+  "containerColor": "#ffffff",
+  "fontFamily": "Roboto",
+  "fontSize": "16px",
+  "fontColor": "#000000",
+  "transparency": 44,
+  "buttonEffect": 1,
+  "particlesEffect": 1,
+  "heroEffect": 2
+}

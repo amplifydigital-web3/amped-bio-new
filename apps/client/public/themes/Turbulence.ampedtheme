@@ -1,0 +1,17 @@
+{
+  "buttonStyle": 1,
+  "containerStyle": 9,
+  "background": {
+    "type": "video",
+    "value": "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Turbulence.mp4"
+  },
+  "buttonColor": "#000000",
+  "containerColor": "#000000",
+  "fontFamily": "Roboto",
+  "fontSize": "16px",
+  "fontColor": "#ffffff",
+  "transparency": 79,
+  "buttonEffect": 8,
+  "particlesEffect": 0,
+  "heroEffect": 2
+}

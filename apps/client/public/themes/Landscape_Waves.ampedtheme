@@ -1,0 +1,17 @@
+{
+  "buttonStyle": 0,
+  "containerStyle": 7,
+  "background": {
+    "type": "video",
+    "value": "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Landscape_Waves.mp4"
+  },
+  "buttonColor": "#ffffff",
+  "containerColor": "#36bf4d",
+  "fontFamily": "Roboto",
+  "fontSize": "16px",
+  "fontColor": "#000000",
+  "transparency": 32,
+  "buttonEffect": 8,
+  "particlesEffect": 5,
+  "heroEffect": 2
+}

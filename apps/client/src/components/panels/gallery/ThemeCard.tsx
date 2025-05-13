@@ -11,11 +11,22 @@ interface ThemeCardProps {
 export function ThemeCard({ theme, onApply }: ThemeCardProps) {
   const [showVerification, setShowVerification] = useState(false);
 
-  const handleApply = () => {
+  const handleApply = async () => {
     if (theme.locked && theme.nftRequirement) {
       setShowVerification(true);
     } else {
-      onApply(theme.theme);
+      try {
+        const response = await fetch(`/themes/${theme.name.replace(" ", "_")}.ampedtheme`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch theme: ${response.status}`);
+        }
+        const themeData = await response.json();
+        onApply(themeData);
+      } catch (error) {
+        console.error("Error fetching theme data:", error);
+        // Fallback to using the theme data we already have
+        onApply(theme.theme);
+      }
     }
   };
 

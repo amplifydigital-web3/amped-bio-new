@@ -1,0 +1,17 @@
+{
+  "buttonStyle": 1,
+  "containerStyle": 9,
+  "background": {
+    "type": "video",
+    "value": "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Snowflakes.mp4"
+  },
+  "buttonColor": "#b7ffad",
+  "containerColor": "#ffffff",
+  "fontFamily": "Inter",
+  "fontSize": "16px",
+  "fontColor": "#000000",
+  "transparency": 39,
+  "buttonEffect": 8,
+  "particlesEffect": 3,
+  "heroEffect": 2
+}

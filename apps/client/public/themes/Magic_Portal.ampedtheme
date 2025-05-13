@@ -1,0 +1,20 @@
+{
+  "buttonStyle": 6,
+  "containerStyle": 9,
+  "background": {
+    "id": "magic_portal",
+    "type": "video",
+    "value": "https://amped-bio.s3.amazonaws.com/themes/backgrounds/Magic_Portal.mp4",
+    "label": "Magic Portal",
+    "thumbnail": "https://amped-bio.s3.amazonaws.com/themes/backgrounds/Magic_Portal_thumbnail.jpg"
+  },
+  "buttonColor": "#3252d2",
+  "containerColor": "#ffffff",
+  "fontFamily": "Roboto",
+  "fontSize": "16px",
+  "fontColor": "#ffffff",
+  "transparency": 28,
+  "buttonEffect": 8,
+  "particlesEffect": 0,
+  "heroEffect": 7
+}

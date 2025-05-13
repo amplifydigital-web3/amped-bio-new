@@ -1,0 +1,17 @@
+{
+  "buttonStyle": 0,
+  "containerStyle": 9,
+  "background": {
+    "type": "video",
+    "value": "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Christmas_Ornaments.mp4"
+  },
+  "buttonColor": "#8b0404",
+  "containerColor": "#00ff04",
+  "fontFamily": "Roboto",
+  "fontSize": "18px",
+  "fontColor": "#ffffff",
+  "transparency": 50,
+  "buttonEffect": 9,
+  "particlesEffect": 8,
+  "heroEffect": 0
+}

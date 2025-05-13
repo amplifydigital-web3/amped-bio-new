@@ -1,0 +1,17 @@
+{
+  "buttonStyle": 2,
+  "containerStyle": 9,
+  "background": {
+    "type": "video",
+    "value": "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Nebula.mp4"
+  },
+  "buttonColor": "#000475",
+  "containerColor": "#0046b8",
+  "fontFamily": "Roboto",
+  "fontSize": "16px",
+  "fontColor": "#ffffff",
+  "transparency": 42,
+  "buttonEffect": 8,
+  "particlesEffect": 0,
+  "heroEffect": 2
+}

@@ -1,0 +1,20 @@
+{
+  "buttonStyle": 9,
+  "containerStyle": 0,
+  "background": {
+    "id": "plexus",
+    "type": "video",
+    "value": "https://amped-bio.s3.amazonaws.com/themes/backgrounds/Plexus.mp4",
+    "label": "Plexus",
+    "thumbnail": "https://amped-bio.s3.amazonaws.com/themes/backgrounds/Plexus_thumbnail.jpg"
+  },
+  "buttonColor": "#ffffff",
+  "containerColor": "#ffffff",
+  "fontFamily": "Roboto",
+  "fontSize": "16px",
+  "fontColor": "#000000",
+  "transparency": 62,
+  "buttonEffect": 8,
+  "particlesEffect": 0,
+  "heroEffect": 2
+}

@@ -1,0 +1,17 @@
+{
+  "buttonStyle": 7,
+  "containerStyle": 7,
+  "background": {
+    "type": "video",
+    "value": "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Big_Sky.mp4"
+  },
+  "buttonColor": "#0b9836",
+  "containerColor": "#8dadf7",
+  "fontFamily": "Roboto",
+  "fontSize": "18px",
+  "fontColor": "#ffffff",
+  "transparency": 44,
+  "buttonEffect": 1,
+  "particlesEffect": 0,
+  "heroEffect": 0
+}

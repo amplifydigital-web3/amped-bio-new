@@ -1,0 +1,17 @@
+{
+  "buttonStyle": 1,
+  "containerStyle": 9,
+  "background": {
+    "type": "video",
+    "value": "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Kyoto_Rain.mp4"
+  },
+  "buttonColor": "#aaa5f3",
+  "containerColor": "#ffffff",
+  "fontFamily": "Roboto",
+  "fontSize": "16px",
+  "fontColor": "#000000",
+  "transparency": 32,
+  "buttonEffect": 9,
+  "particlesEffect": 0,
+  "heroEffect": 2
+}

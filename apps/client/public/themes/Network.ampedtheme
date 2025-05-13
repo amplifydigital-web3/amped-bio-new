@@ -1,0 +1,20 @@
+{
+  "buttonStyle": 9,
+  "containerStyle": 0,
+  "background": {
+    "id": "network",
+    "type": "video",
+    "value": "https://amped-bio.s3.amazonaws.com/themes/backgrounds/Network.mp4",
+    "label": "Network",
+    "thumbnail": "https://amped-bio.s3.amazonaws.com/themes/backgrounds/Network_thumbnail.jpg"
+  },
+  "buttonColor": "#404040",
+  "containerColor": "#000000",
+  "fontFamily": "Roboto",
+  "fontSize": "16px",
+  "fontColor": "#ffffff",
+  "transparency": 78,
+  "buttonEffect": 8,
+  "particlesEffect": 0,
+  "heroEffect": 2
+}

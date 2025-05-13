@@ -1,0 +1,17 @@
+{
+  "buttonStyle": 1,
+  "containerStyle": 9,
+  "background": {
+    "type": "video",
+    "value": "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Savannah_Sunset.mp4"
+  },
+  "buttonColor": "#fafe16",
+  "containerColor": "#ffffff",
+  "fontFamily": "Inter",
+  "fontSize": "16px",
+  "fontColor": "#000000",
+  "transparency": 34,
+  "buttonEffect": 8,
+  "particlesEffect": 5,
+  "heroEffect": 2
+}

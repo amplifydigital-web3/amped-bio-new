@@ -1,0 +1,17 @@
+{
+  "buttonStyle": 1,
+  "containerStyle": 7,
+  "background": {
+    "type": "video",
+    "value": "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Dot_Matrix.mp4"
+  },
+  "buttonColor": "#ffd48a",
+  "containerColor": "#ffec70",
+  "fontFamily": "Open Sans",
+  "fontSize": "18px",
+  "fontColor": "#000000",
+  "transparency": 67,
+  "buttonEffect": 8,
+  "particlesEffect": 0,
+  "heroEffect": 2
+}

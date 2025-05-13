@@ -1,0 +1,17 @@
+{
+  "buttonStyle": 1,
+  "containerStyle": 7,
+  "background": {
+    "type": "video",
+    "value": "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Sunset_Beach.mp4"
+  },
+  "buttonColor": "#fb7013",
+  "containerColor": "#ffa742",
+  "fontFamily": "Roboto",
+  "fontSize": "16px",
+  "fontColor": "#000000",
+  "transparency": 36,
+  "buttonEffect": 8,
+  "particlesEffect": 0,
+  "heroEffect": 2
+}

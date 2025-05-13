@@ -1,0 +1,17 @@
+{
+  "buttonStyle": 1,
+  "containerStyle": 9,
+  "background": {
+    "type": "video",
+    "value": "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Forest_Sunbeams.mp4"
+  },
+  "buttonColor": "#17c442",
+  "containerColor": "#12ba3c",
+  "fontFamily": "Open Sans",
+  "fontSize": "16px",
+  "fontColor": "#000000",
+  "transparency": 43,
+  "buttonEffect": 8,
+  "particlesEffect": 5,
+  "heroEffect": 2
+}

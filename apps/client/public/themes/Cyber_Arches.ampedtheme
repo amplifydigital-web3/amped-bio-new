@@ -1,0 +1,17 @@
+{
+  "buttonStyle": 0,
+  "containerStyle": 4,
+  "background": {
+    "type": "video",
+    "value": "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Cyber_Arches.mp4"
+  },
+  "buttonColor": "#debc12",
+  "containerColor": "#c6c83c",
+  "fontFamily": "Montserrat",
+  "fontSize": "18px",
+  "fontColor": "#000000",
+  "transparency": 50,
+  "buttonEffect": 1,
+  "particlesEffect": 2,
+  "heroEffect": 9
+}
