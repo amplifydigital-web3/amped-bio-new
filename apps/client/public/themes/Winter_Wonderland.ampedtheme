@@ -1,0 +1,17 @@
+{
+  "buttonStyle": 8,
+  "containerStyle": 9,
+  "background": {
+    "type": "video",
+    "value": "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Winter_Wonderland.mp4"
+  },
+  "buttonColor": "#3252d2",
+  "containerColor": "#ffffff",
+  "fontFamily": "Roboto",
+  "fontSize": "16px",
+  "fontColor": "#ffffff",
+  "transparency": 28,
+  "buttonEffect": 8,
+  "particlesEffect": 0,
+  "heroEffect": 2
+}

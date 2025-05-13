@@ -1,0 +1,17 @@
+{
+  "buttonStyle": 9,
+  "containerStyle": 0,
+  "background": {
+    "type": "video",
+    "value": "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Neon_Tunnel.mp4"
+  },
+  "buttonColor": "#000000",
+  "containerColor": "#ff00d0",
+  "fontFamily": "Roboto",
+  "fontSize": "16px",
+  "fontColor": "#ffffff",
+  "transparency": 42,
+  "buttonEffect": 8,
+  "particlesEffect": 0,
+  "heroEffect": 0
+}

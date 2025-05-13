@@ -1,0 +1,17 @@
+{
+  "buttonStyle": 0,
+  "containerStyle": 0,
+  "background": {
+    "type": "video",
+    "value": "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Inferno.mp4"
+  },
+  "buttonColor": "#d6ba00",
+  "containerColor": "#ff7b00",
+  "fontFamily": "Open Sans",
+  "fontSize": "16px",
+  "fontColor": "#000000",
+  "transparency": 44,
+  "buttonEffect": 9,
+  "particlesEffect": 0,
+  "heroEffect": 2
+}

@@ -1,0 +1,17 @@
+{
+  "buttonStyle": 8,
+  "containerStyle": 5,
+  "background": {
+    "type": "video",
+    "value": "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Cube_Wall.mp4"
+  },
+  "buttonColor": "#296061",
+  "containerColor": "#3cc8bf",
+  "fontFamily": "Montserrat",
+  "fontSize": "18px",
+  "fontColor": "#ffffff",
+  "transparency": 50,
+  "buttonEffect": 4,
+  "particlesEffect": 0,
+  "heroEffect": 0
+}

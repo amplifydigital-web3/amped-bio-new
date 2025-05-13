@@ -1,0 +1,17 @@
+{
+  "buttonStyle": 1,
+  "containerStyle": 7,
+  "background": {
+    "type": "video",
+    "value": "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Midnight_Grove.mp4"
+  },
+  "buttonColor": "#292929",
+  "containerColor": "#000000",
+  "fontFamily": "Roboto",
+  "fontSize": "16px",
+  "fontColor": "#ffffff",
+  "transparency": 32,
+  "buttonEffect": 8,
+  "particlesEffect": 1,
+  "heroEffect": 2
+}

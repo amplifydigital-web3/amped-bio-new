@@ -1,0 +1,17 @@
+{
+  "buttonStyle": 1,
+  "containerStyle": 7,
+  "background": {
+    "type": "video",
+    "value": "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Beach_House.mp4"
+  },
+  "buttonColor": "#9ef4ff",
+  "containerColor": "#febebe",
+  "fontFamily": "Roboto",
+  "fontSize": "18px",
+  "fontColor": "#2e79b2",
+  "transparency": 44,
+  "buttonEffect": 1,
+  "particlesEffect": 0,
+  "heroEffect": 2
+}

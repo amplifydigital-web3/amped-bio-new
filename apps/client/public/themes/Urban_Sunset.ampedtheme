@@ -1,0 +1,20 @@
+{
+  "buttonStyle": 1,
+  "containerStyle": 9,
+  "background": {
+    "id": "urban_sunset",
+    "type": "video",
+    "value": "https://amped-bio.s3.amazonaws.com/themes/backgrounds/Urban_Sunset.mp4",
+    "label": "Urban Sunset",
+    "thumbnail": "https://amped-bio.s3.amazonaws.com/themes/backgrounds/Urban_Sunset_thumbnail.jpg"
+  },
+  "buttonColor": "#bd4200",
+  "containerColor": "#000000",
+  "fontFamily": "Roboto",
+  "fontSize": "16px",
+  "fontColor": "#ffffff",
+  "transparency": 22,
+  "buttonEffect": 8,
+  "particlesEffect": 0,
+  "heroEffect": 2
+}

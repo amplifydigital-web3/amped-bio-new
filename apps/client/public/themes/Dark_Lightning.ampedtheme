@@ -1,0 +1,17 @@
+{
+  "buttonStyle": 1,
+  "containerStyle": 9,
+  "background": {
+    "type": "video",
+    "value": "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Dark_Lightning.mp4"
+  },
+  "buttonColor": "#21204b",
+  "containerColor": "#000000",
+  "fontFamily": "Montserrat",
+  "fontSize": "18px",
+  "fontColor": "#ffffff",
+  "transparency": 50,
+  "buttonEffect": 8,
+  "particlesEffect": 0,
+  "heroEffect": 2
+}

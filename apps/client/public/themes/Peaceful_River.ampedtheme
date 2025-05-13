@@ -1,0 +1,17 @@
+{
+  "buttonStyle": 1,
+  "containerStyle": 9,
+  "background": {
+    "type": "video",
+    "value": "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Peaceful_River.mp4"
+  },
+  "buttonColor": "#3ccd89",
+  "containerColor": "#75cef5",
+  "fontFamily": "Roboto",
+  "fontSize": "16px",
+  "fontColor": "#0a332c",
+  "transparency": 34,
+  "buttonEffect": 8,
+  "particlesEffect": 0,
+  "heroEffect": 0
+}

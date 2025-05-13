@@ -1,0 +1,17 @@
+{
+  "buttonStyle": 1,
+  "containerStyle": 9,
+  "background": {
+    "type": "video",
+    "value": "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Torus.mp4"
+  },
+  "buttonColor": "#5ce4ff",
+  "containerColor": "#ffffff",
+  "fontFamily": "Roboto",
+  "fontSize": "16px",
+  "fontColor": "#000000",
+  "transparency": 32,
+  "buttonEffect": 8,
+  "particlesEffect": 2,
+  "heroEffect": 2
+}

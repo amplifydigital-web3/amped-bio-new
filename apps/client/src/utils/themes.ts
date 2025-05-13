@@ -788,5 +788,3 @@ export const collections: Collection[] = [
   cyberpunkCollection,
   winterCollection,
 ];
-
-export const marketplaceThemes = collections.flatMap(c => c.themes);

@@ -1,0 +1,20 @@
+{
+  "buttonStyle": 1,
+  "containerStyle": 9,
+  "background": {
+    "id": "plasma",
+    "type": "video",
+    "value": "https://amped-bio.s3.amazonaws.com/themes/backgrounds/Plasma.mp4",
+    "label": "Plasma",
+    "thumbnail": "https://amped-bio.s3.amazonaws.com/themes/backgrounds/Plasma_thumbnail.jpg"
+  },
+  "buttonColor": "#e05a00",
+  "containerColor": "#000000",
+  "fontFamily": "Roboto",
+  "fontSize": "16px",
+  "fontColor": "#ffffff",
+  "transparency": 33,
+  "buttonEffect": 8,
+  "particlesEffect": 0,
+  "heroEffect": 2
+}

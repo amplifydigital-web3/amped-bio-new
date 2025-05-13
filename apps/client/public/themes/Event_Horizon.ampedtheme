@@ -1,0 +1,17 @@
+{
+  "buttonStyle": 0,
+  "containerStyle": 9,
+  "background": {
+    "type": "video",
+    "value": "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Event_Horizon.mp4"
+  },
+  "buttonColor": "#ffffff",
+  "containerColor": "#955cff",
+  "fontFamily": "Open Sans",
+  "fontSize": "18px",
+  "fontColor": "#000000",
+  "transparency": 43,
+  "buttonEffect": 8,
+  "particlesEffect": 1,
+  "heroEffect": 7
+}

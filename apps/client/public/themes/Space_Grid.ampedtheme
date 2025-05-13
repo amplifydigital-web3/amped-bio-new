@@ -1,0 +1,17 @@
+{
+  "buttonStyle": 6,
+  "containerStyle": 0,
+  "background": {
+    "type": "video",
+    "value": "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Space_Grid.mp4"
+  },
+  "buttonColor": "#b7ffad",
+  "containerColor": "#ffffff",
+  "fontFamily": "Inter",
+  "fontSize": "16px",
+  "fontColor": "#000000",
+  "transparency": 36,
+  "buttonEffect": 8,
+  "particlesEffect": 2,
+  "heroEffect": 2
+}

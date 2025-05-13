@@ -1,0 +1,17 @@
+{
+  "buttonStyle": 1,
+  "containerStyle": 1,
+  "background": {
+    "type": "video",
+    "value": "https://amped-bio.s3.us-west-2.amazonaws.com/themes/backgrounds/Neon_Slide.mp4"
+  },
+  "buttonColor": "#4c4e46",
+  "containerColor": "#ffffff",
+  "fontFamily": "Roboto",
+  "fontSize": "16px",
+  "fontColor": "#ffffff",
+  "transparency": 19,
+  "buttonEffect": 8,
+  "particlesEffect": 0,
+  "heroEffect": 8
+}
