@@ -3,3 +3,4 @@
  */
 
 export * from './upload';
+export * from './onelink';
