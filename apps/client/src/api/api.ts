@@ -14,7 +14,7 @@ import type {
 
 const baseURL = withRelatedProject({
   projectName: "amped-bio-server",
-  defaultHost: "http://localhost:43000",
+  defaultHost: import.meta.env.VITE_API_URL ?? "http://localhost:43000",
 });
 
 // Create an Axios instance with default configuration

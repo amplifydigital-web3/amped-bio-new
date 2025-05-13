@@ -6,7 +6,7 @@ import { withRelatedProject } from '@vercel/related-projects';
 
 const baseURL = withRelatedProject({
   projectName: "amped-bio-server",
-  defaultHost: "http://localhost:43000",
+  defaultHost: import.meta.env.VITE_API_URL ?? "http://localhost:43000",
 });
 
 export const queryClient = new QueryClient();
