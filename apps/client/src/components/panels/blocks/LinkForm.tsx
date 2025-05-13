@@ -110,7 +110,7 @@ export function LinkFormInputs({ register, errors, watch, setValue }: LinkFormIn
 
   const getUrlFieldType = () => {
     if (platform === "email") return "email";
-    if (platform === "custom" || platform === "document") return "url";
+    if (platform === "custom" || platform === "document") return "text";
     return "text";
   };
 
