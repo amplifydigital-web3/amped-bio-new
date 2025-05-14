@@ -34,8 +34,9 @@ export function UserManagement() {
   const [role, setRole] = useState<string | undefined>(undefined);
   const [blocked, setBlocked] = useState<boolean | undefined>(undefined);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
 
-  // Get users with pagination
+  // Get users with pagination - only enabled when search or filters are applied
   const { data: userData, isLoading: isUsersLoading, refetch } = useQuery({
     ...trpc.admin.getUsers.queryOptions({
       page: currentPage,
@@ -43,7 +44,8 @@ export function UserManagement() {
       role,
       blocked,
       search: searchQuery.length >= 2 ? searchQuery : undefined,
-    })
+    }),
+    enabled: hasSearched || searchQuery.length >= 2 || role !== undefined || blocked !== undefined
   });
 
   // Search users as you type
@@ -61,16 +63,26 @@ export function UserManagement() {
     const value = e.target.value;
     // Always update the state to allow typing any characters
     setSearchQuery(value);
-  }, []);
+    
+    // Auto-search when user types 2 or more characters
+    if (value.length >= 2) {
+      setHasSearched(true);
+      refetch();
+    } else if (value.length === 0 && hasSearched) {
+      // Clear results if search is emptied
+      refetch();
+    }
+  }, [hasSearched, refetch]);
 
   // Handle search form submission
-  const handleSearchSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {
+  const handleSearchSubmit = useCallback((e: React.FormEvent<HTMLInputElement | HTMLFormElement>) => {
     e.preventDefault();
     
     // Only perform search if query is valid or empty
     try {
       if (searchQuery === "" || searchQuery.length >= 2) {
         setSearchError(null);
+        setHasSearched(true);
         refetch();
       } else {
         // Provide feedback that search requires at least 2 characters
@@ -89,8 +101,8 @@ export function UserManagement() {
     setBlocked(undefined);
     setCurrentPage(1);
     setSearchError(null);
-    refetch();
-  }, [refetch]);
+    setHasSearched(false);
+  }, []);
 
   // Handle page change
   const handlePageChange = useCallback((page: number) => {
@@ -102,7 +114,9 @@ export function UserManagement() {
     const value = e.target.value;
     setRole(value === "all" ? undefined : value);
     setCurrentPage(1);
-  }, []);
+    setHasSearched(true);
+    refetch();
+  }, [refetch]);
 
   // Handle blocked filter change
   const handleBlockedChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -111,7 +125,9 @@ export function UserManagement() {
       value === "all" ? undefined : value === "blocked" ? true : false
     );
     setCurrentPage(1);
-  }, []);
+    setHasSearched(true);
+    refetch();
+  }, [refetch]);
 
   return (
     <div className="flex-1 p-6 bg-gray-50 overflow-auto">
@@ -205,7 +221,15 @@ export function UserManagement() {
         </div>
 
         {/* Users Table */}
-        {isUsersLoading ? (
+        {!hasSearched && !searchQuery && role === undefined && blocked === undefined ? (
+          <div className="py-16 text-center">
+            <div className="text-gray-400 mb-4">
+              <Search className="h-12 w-12 mx-auto mb-4" />
+              <p className="text-lg">Enter a search query or apply filters to show users</p>
+              <p className="text-sm">Start typing in the search box above to find users</p>
+            </div>
+          </div>
+        ) : isUsersLoading ? (
           <div className="flex justify-center py-10">
             <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
           </div>
