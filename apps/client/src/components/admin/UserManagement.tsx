@@ -1,9 +1,15 @@
 import { useState, useCallback } from "react";
-import { trpc } from "../../utils/trpc";
-import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { trpc, trpcClient } from "../../utils/trpc";
+import { Search, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { formatUserRole, formatUserStatus, formatDate } from "../../utils/adminFormat";
+
+// Define schema for user edit form
+const editUserSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email("Invalid email address"),
+});
 
 // Schema for search query validation
 const searchQuerySchema = z.union([
@@ -26,15 +32,44 @@ type User = {
   };
 };
 
+type EditUserFormData = z.infer<typeof editUserSchema>;
+
 export function UserManagement() {
-  const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [limit] = useState(10);
   const [role, setRole] = useState<string | undefined>(undefined);
   const [blocked, setBlocked] = useState<boolean | undefined>(undefined);
+  const [searchQuery, setSearchQuery] = useState("");
   const [searchError, setSearchError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+
+  // Edit User Modal State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<{id: number, name: string, email: string} | null>(null);
+  const [editFormErrors, setEditFormErrors] = useState<{name?: string, email?: string, confirmation?: string}>({});
+  const [confirmationText, setConfirmationText] = useState("");
+
+  // Handle confirmation text change
+  const handleConfirmationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setConfirmationText(e.target.value);
+    
+    // Clear error if user is typing
+    if (editFormErrors.confirmation) {
+      setEditFormErrors({
+        ...editFormErrors,
+        confirmation: undefined
+      });
+    }
+  };
+
+  // Handle open edit modal with reset state
+  const handleOpenEditModal = (user: { id: number, name: string, email: string }) => {
+    setEditingUser(user);
+    setEditFormErrors({});
+    setConfirmationText("");
+    setIsEditModalOpen(true);
+  };
 
   // Get users with pagination - only enabled when search or filters are applied
   const { data: userData, isLoading: isUsersLoading, refetch } = useQuery({
@@ -57,6 +92,75 @@ export function UserManagement() {
     // Add retry: false to prevent unnecessary retries for invalid queries
     retry: false,
   });
+
+  // Handle edit form submission
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!editingUser) return;
+    
+    // Check confirmation text
+    if (confirmationText !== "UPDATE") {
+      setEditFormErrors({
+        ...editFormErrors,
+        confirmation: "You must type UPDATE to confirm changes"
+      });
+      return;
+    }
+    
+    try {
+      // Validate form inputs
+      const validatedData = editUserSchema.parse(editingUser);
+      
+      // Call the tRPC mutation to update the user
+      trpcClient.admin.updateUser.mutate({
+        id: editingUser.id,
+        name: validatedData.name,
+        email: validatedData.email
+      }).then(() => {
+        // Close modal and refresh data
+        setIsEditModalOpen(false);
+        setEditingUser(null);
+        setConfirmationText("");
+        refetch();
+      }).catch((error) => {
+        console.error("Failed to update user:", error);
+        setEditFormErrors({ 
+          email: error.message.includes("email") ? error.message : undefined 
+        });
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        // Format Zod errors into our error state shape
+        const formattedErrors = error.errors.reduce((acc, curr) => {
+          const path = curr.path[0] as string;
+          acc[path as keyof typeof acc] = curr.message;
+          return acc;
+        }, {} as {name?: string, email?: string, confirmation?: string});
+        
+        setEditFormErrors(formattedErrors);
+      }
+    }
+  };
+
+  // Handle input changes in edit form
+  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    if (editingUser) {
+      setEditingUser({
+        ...editingUser,
+        [name]: value
+      });
+      
+      // Clear the specific field error when user types
+      if (editFormErrors[name as keyof typeof editFormErrors]) {
+        setEditFormErrors({
+          ...editFormErrors,
+          [name]: undefined
+        });
+      }
+    }
+  };
 
   // Handle search input change
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -324,10 +428,7 @@ export function UserManagement() {
                         </button>
                         <button 
                           className="text-indigo-600 hover:text-indigo-900 mr-3"
-                          onClick={() => {
-                            // Open user edit form in a modal or navigate to edit page
-                            console.log(`Edit user ${user.id}`);
-                          }}
+                          onClick={() => handleOpenEditModal(user)}
                         >
                           Edit
                         </button>
@@ -335,12 +436,10 @@ export function UserManagement() {
                           className={`${user.block === 'yes' ? 'text-green-600 hover:text-green-900' : 'text-red-600 hover:text-red-900'}`}
                           onClick={() => {
                             // Toggle user block status
-                            console.log(`Toggle block status for user ${user.id}`);
-                            // In a real implementation, you'd call the updateUser mutation:
-                            // trpcClient.admin.updateUser.mutate({
-                            //   id: user.id,
-                            //   block: user.block === 'yes' ? 'no' : 'yes'
-                            // }).then(() => refetch());
+                            trpcClient.admin.updateUser.mutate({
+                              id: user.id,
+                              block: user.block === 'yes' ? 'no' : 'yes'
+                            }).then(() => refetch());
                           }}
                         >
                           {user.block === 'yes' ? 'Unblock' : 'Block'}
@@ -457,6 +556,188 @@ export function UserManagement() {
           </>
         )}
       </div>
+
+      {/* Edit User Modal */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+          <div className="relative bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold">Edit User</h3>
+              <button 
+                className="text-gray-500 hover:text-gray-700"
+                onClick={() => setIsEditModalOpen(false)}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleEditSubmit}>
+              <div className="mb-4">
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  id="name"
+                  name="name"
+                  value={editingUser?.name || ''}
+                  onChange={handleEditInputChange}
+                  className={`w-full px-3 py-2 border rounded-md ${editFormErrors.name ? 'border-red-500' : 'border-gray-300'}`}
+                />
+                {editFormErrors.name && (
+                  <p className="mt-1 text-sm text-red-600">{editFormErrors.name}</p>
+                )}
+              </div>
+              
+              <div className="mb-4">
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={editingUser?.email || ''}
+                  onChange={handleEditInputChange}
+                  className={`w-full px-3 py-2 border rounded-md ${editFormErrors.email ? 'border-red-500' : 'border-gray-300'}`}
+                />
+                {editFormErrors.email && (
+                  <p className="mt-1 text-sm text-red-600">{editFormErrors.email}</p>
+                )}
+              </div>
+
+              <div className="mb-6">
+                <label htmlFor="confirmation" className="block text-sm font-medium text-gray-700 mb-1">
+                  Type "UPDATE" to confirm changes
+                </label>
+                <input
+                  type="text"
+                  id="confirmation"
+                  name="confirmation"
+                  value={confirmationText}
+                  onChange={handleConfirmationChange}
+                  placeholder="UPDATE"
+                  className={`w-full px-3 py-2 border rounded-md ${editFormErrors.confirmation ? 'border-red-500' : 'border-gray-300'}`}
+                />
+                {editFormErrors.confirmation && (
+                  <p className="mt-1 text-sm text-red-600">{editFormErrors.confirmation}</p>
+                )}
+                
+                <div className="mt-3 text-sm bg-yellow-50 border border-yellow-100 p-2 rounded">
+                  <p className="font-medium text-yellow-800">You are about to edit:</p>
+                  <ul className="list-disc list-inside text-yellow-700 mt-1">
+                    <li>Name: <span className="font-medium">{editingUser?.name}</span></li>
+                    <li>Email: <span className="font-medium">{editingUser?.email}</span></li>
+                  </ul>
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg"
+                  onClick={() => setIsEditModalOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
+
+  // Edit User Modal Component
+  function EditUserModal({ 
+    isOpen, 
+    onClose, 
+    user, 
+    errors,
+    onChange,
+    onSubmit
+  }: { 
+    isOpen: boolean; 
+    onClose: () => void; 
+    user: { id: number; name: string; email: string; } | null;
+    errors: { name?: string; email?: string; };
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onSubmit: (e: React.FormEvent) => void;
+  }) {
+    if (!isOpen || !user) return null;
+
+    return (
+      <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+        <div className="relative bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-semibold">Edit User</h3>
+            <button 
+              className="text-gray-500 hover:text-gray-700"
+              onClick={onClose}
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          
+          <form onSubmit={onSubmit}>
+            <div className="mb-4">
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                Name
+              </label>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                value={user.name}
+                onChange={onChange}
+                className={`w-full px-3 py-2 border rounded-md ${errors.name ? 'border-red-500' : 'border-gray-300'}`}
+              />
+              {errors.name && (
+                <p className="mt-1 text-sm text-red-600">{errors.name}</p>
+              )}
+            </div>
+            
+            <div className="mb-6">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                value={user.email}
+                onChange={onChange}
+                className={`w-full px-3 py-2 border rounded-md ${errors.email ? 'border-red-500' : 'border-gray-300'}`}
+              />
+              {errors.email && (
+                <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+              )}
+            </div>
+            
+            <div className="flex justify-end space-x-3">
+              <button
+                type="button"
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg"
+                onClick={onClose}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+              >
+                Save Changes
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
 }
