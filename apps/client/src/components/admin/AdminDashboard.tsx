@@ -1,9 +1,9 @@
-import { AdminUserStats } from "./UserStats";
-import { AdminBlockStats } from "./BlockStats";
-import { AdminRewardStats } from "./RewardStats";
-import { AdminBlockDistribution } from "./BlockDistribution";
-import { AdminTopOnelinks } from "./TopOnelinks";
-import { AdminRecentUsers } from "./RecentUsers";
+import { AdminUserStats } from "./AdminUserStats";
+import { AdminBlockStats } from "./AdminBlockStats";
+import { AdminRewardStats } from "./AdminRewardStats";
+import { AdminBlockDistribution } from "./AdminBlockDistribution";
+import { AdminTopOnelinks } from "./AdminTopOnelinks";
+import { AdminRecentUsers } from "./AdminRecentUsers";
 
 interface AdminDashboardProps {
   userStats: {

@@ -1,6 +1,6 @@
 import { Users, Layers, Settings } from "lucide-react";
-import { AdminHeader, AdminPlaceholderContent } from "./Layout";
-import { AdminDashboard } from "./Dashboard";
+import { AdminHeader, AdminPlaceholderContent } from "./AdminLayout";
+import { AdminDashboard } from "./AdminDashboard";
 
 interface AdminContentContainerProps {
   activeMenu: string;
