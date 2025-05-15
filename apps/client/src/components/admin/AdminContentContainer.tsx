@@ -1,6 +1,7 @@
-import { Users, Layers, Settings } from "lucide-react";
+import { Layers, Settings } from "lucide-react";
 import { AdminHeader, AdminPlaceholderContent } from "./AdminLayout";
 import { AdminDashboard } from "./AdminDashboard";
+import { UserManagement } from "./UserManagement";
 
 interface AdminContentContainerProps {
   activeMenu: string;
@@ -37,7 +38,13 @@ export const AdminContentContainer = ({
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Top Header */}
-      <AdminHeader title="Admin Dashboard" />
+      <AdminHeader title={
+        activeMenu === "dashboard" ? "Admin Dashboard" : 
+        activeMenu === "users" ? "User Management" : 
+        activeMenu === "blocks" ? "Block Management" : 
+        activeMenu === "settings" ? "Admin Settings" : 
+        "Admin Dashboard"
+      } />
 
       {/* Content based on active menu */}
       {activeMenu === "dashboard" && (
@@ -52,11 +59,7 @@ export const AdminContentContainer = ({
       )}
 
       {activeMenu === "users" && (
-        <AdminPlaceholderContent
-          icon={<Users className="h-12 w-12 mx-auto mb-4 text-gray-400" />}
-          title="User Management Dashboard"
-          description="Complete user management interface will be implemented here"
-        />
+        <UserManagement />
       )}
 
       {activeMenu === "blocks" && (

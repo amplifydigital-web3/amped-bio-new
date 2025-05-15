@@ -1,6 +1,7 @@
 import { ArrowUpRight, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import toast from "react-hot-toast";
+import { obscureEmail } from "../../utils/email";
 
 interface User {
   id: string;
@@ -35,15 +36,7 @@ export const AdminRecentUsers = ({ recentUsers, totalUsers, onViewAllUsersClick 
     });
   };
 
-  // Obscure email function
-  const obscureEmail = (email: string) => {
-    const [username, domain] = email.split("@");
-    const obscuredUsername =
-      username.charAt(0) +
-      "•".repeat(Math.min(username.length - 1, 5)) +
-      (username.length > 6 ? username.charAt(username.length - 1) : "");
-    return `${obscuredUsername}@${domain}`;
-  };
+  // Email obscuring functionality moved to utils/email.ts
 
   // Handle onelink click
   const openOnelink = (onelink: string | null) => {

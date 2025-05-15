@@ -1,21 +1,16 @@
 import { useState, useCallback } from "react";
 import { trpc, trpcClient } from "../../utils/trpc";
-import { Search, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, X, Eye, EyeOff } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { formatUserRole, formatUserStatus, formatDate } from "../../utils/adminFormat";
+import { maskEmail } from "../../utils/email";
 
 // Define schema for user edit form
 const editUserSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().email("Invalid email address"),
 });
-
-// Schema for search query validation
-const searchQuerySchema = z.union([
-  z.literal(""), // Empty string is allowed
-  z.string().min(2, "Search query must be at least 2 characters").max(50, "Search query is too long")
-]);
 
 type User = {
   id: number;
@@ -35,7 +30,6 @@ type User = {
 type EditUserFormData = z.infer<typeof editUserSchema>;
 
 export function UserManagement() {
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [limit] = useState(10);
   const [role, setRole] = useState<string | undefined>(undefined);
@@ -43,6 +37,7 @@ export function UserManagement() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchError, setSearchError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [showEmails, setShowEmails] = useState(false);
 
   // Edit User Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -83,15 +78,6 @@ export function UserManagement() {
     enabled: hasSearched || searchQuery.length >= 2 || role !== undefined || blocked !== undefined
   });
 
-  // Search users as you type
-  const { data: searchResults, isLoading: isSearchLoading } = useQuery({
-    ...trpc.admin.searchUsers.queryOptions({
-      query: searchQuery.length >= 2 ? searchQuery : "",
-    }),
-    enabled: searchQuery.length >= 2,
-    // Add retry: false to prevent unnecessary retries for invalid queries
-    retry: false,
-  });
 
   // Handle edit form submission
   const handleEditSubmit = (e: React.FormEvent) => {
@@ -233,11 +219,37 @@ export function UserManagement() {
     refetch();
   }, [refetch]);
 
+  // Toggle email visibility
+  const toggleEmailVisibility = useCallback(() => {
+    setShowEmails(prev => !prev);
+  }, []);
+
   return (
     <div className="flex-1 p-6 bg-gray-50 overflow-auto">
       <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
         <h2 className="text-xl font-semibold mb-4">User Management</h2>
 
+        {/* Control Row - Search and Settings */}
+        <div className="flex justify-between items-center mb-4">
+          {/* Email Visibility Toggle */}
+          <button
+            onClick={toggleEmailVisibility}
+            className="flex items-center px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition-colors"
+          >
+            {showEmails ? (
+              <>
+                <EyeOff className="h-4 w-4 mr-1.5" />
+                <span>Hide Emails</span>
+              </>
+            ) : (
+              <>
+                <Eye className="h-4 w-4 mr-1.5" />
+                <span>Show Emails</span>
+              </>
+            )}
+          </button>
+        </div>
+        
         {/* Search and Filters Row */}
         <div className="flex flex-col md:flex-row gap-4 mb-6">
           {/* Search Bar */}
@@ -252,8 +264,6 @@ export function UserManagement() {
                     if (searchError) setSearchError(null);
                     handleSearchChange(e);
                   }}
-                  onFocus={() => setIsSearchFocused(true)}
-                  onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
                   placeholder="Search users by name or email"
                   className={`w-full px-4 py-2 rounded-lg border ${
                     searchError ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
@@ -270,25 +280,6 @@ export function UserManagement() {
                 <p className="mt-1 text-sm text-red-600">{searchError}</p>
               )}
             </form>
-
-            {/* Search results dropdown */}
-            {isSearchFocused && searchQuery.length >= 2 && searchResults && searchResults.length > 0 && (
-              <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-                {searchResults.map((user: User) => (
-                  <div 
-                    key={user.id} 
-                    className="p-2 hover:bg-gray-100 cursor-pointer"
-                    onClick={() => {
-                      setSearchQuery(user.name);
-                      refetch();
-                    }}
-                  >
-                    <div className="font-medium">{user.name}</div>
-                    <div className="text-sm text-gray-600">{user.email}</div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Filters */}
@@ -382,7 +373,7 @@ export function UserManagement() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {user.email}
+                        {showEmails ? user.email : maskEmail(user.email)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {user.onelink || '-'}
@@ -417,11 +408,9 @@ export function UserManagement() {
                         <button 
                           className="text-blue-600 hover:text-blue-900 mr-3"
                           onClick={() => {
-                            // Fetch and display user details in a modal or navigate to user detail page
-                            console.log(`View user ${user.id}`);
-                            // In a real implementation, you might open a modal here or navigate to a user details page
-                            // Example: navigate(`/admin/users/${user.id}`)
-                            // Or trigger fetching details with the getUserDetails tRPC call
+                            if (user.onelink) {
+                              window.open(`/@${user.onelink}`, "_blank");
+                            }
                           }}
                         >
                           View
