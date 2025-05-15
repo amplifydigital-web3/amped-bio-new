@@ -22,6 +22,10 @@ const UserFilterSchema = z.object({
   blocked: z.boolean().optional(),
 });
 
+const UserSearchSchema = z.object({
+  query: z.string().min(2, "Search query must be at least 2 characters"),
+});
+
 const BlockTypeFilterSchema = z.object({
   type: z.string().optional()
 });
@@ -484,5 +488,42 @@ export const adminRouter = router({
       }).sort((a, b) => b.totalClicks - a.totalClicks);
       
       return topOnelinks;
+    }),
+  
+  // Search users by email or name
+  searchUsers: adminProcedure
+    .input(UserSearchSchema)
+    .query(async ({ input }) => {
+      const { query } = input;
+      const limit = 10;
+      
+      const users = await prisma.user.findMany({
+        where: {
+          OR: [
+            { email: { contains: query } },
+            { name: { contains: query } }
+          ]
+        },
+        take: limit,
+        orderBy: { created_at: 'desc' },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          onelink: true,
+          role: true,
+          block: true,
+          image: true,
+          created_at: true,
+          _count: {
+            select: {
+              blocks: true,
+              themes: true
+            }
+          }
+        }
+      });
+      
+      return users;
     })
 });
