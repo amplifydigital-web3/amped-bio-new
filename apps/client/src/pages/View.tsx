@@ -113,7 +113,15 @@ export function View() {
   };
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-white">
+        <img src={AMPLIFY_FULL_K} alt="Amplify Logo" className="h-12 mb-6" />
+        <div className="relative">
+          <div className="h-12 w-12 rounded-full border-4 border-t-black border-r-gray-200 border-b-gray-200 border-l-gray-200 animate-spin"></div>
+        </div>
+        <p className="mt-4 text-gray-600 font-medium">Loading profile...</p>
+      </div>
+    );
   }
 
   return (
