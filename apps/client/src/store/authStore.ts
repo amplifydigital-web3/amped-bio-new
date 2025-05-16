@@ -37,6 +37,7 @@ type AuthState = {
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ success: boolean; message: string }>;
   updateAuthUser: (userData: Partial<AuthUser>) => void;
+  setAuthToken: (token: string | null) => void;
 };
 
 export const useAuthStore = create<AuthState>()(
@@ -44,6 +45,14 @@ export const useAuthStore = create<AuthState>()(
     set => ({
       authUser: null,
       error: null,
+
+      setAuthToken: (token: string | null): void => {
+        if (token) {
+          localStorage.setItem("amped-bio-auth-token", token);
+        } else {
+          localStorage.removeItem("amped-bio-auth-token");
+        }
+      },
 
       signIn: async (email: string, password: string) => {
         try {
@@ -54,8 +63,8 @@ export const useAuthStore = create<AuthState>()(
             throw new Error("Login failed");
           }
           
-          // Save token to localStorage for tRPC to use
-          localStorage.setItem("amped-bio-auth-token", response.token);
+          // Use store function to set token
+          useAuthStore.getState().setAuthToken(response.token);
           set({ authUser: response.user });
 
           return response.user;
@@ -74,8 +83,8 @@ export const useAuthStore = create<AuthState>()(
             throw new Error("Registration failed");
           }
           
-          // Save token to localStorage for tRPC to use
-          localStorage.setItem("amped-bio-auth-token", response.token);
+          // Use store function to set token
+          useAuthStore.getState().setAuthToken(response.token);
           set({ authUser: response.user });
           return response.user;
         } catch (error) {
@@ -86,8 +95,8 @@ export const useAuthStore = create<AuthState>()(
 
       signOut: async () => {
         set({ error: null, authUser: null });
-        // Remove token from localStorage when signing out
-        localStorage.removeItem("amped-bio-auth-token");
+        // Use store function to remove token
+        useAuthStore.getState().setAuthToken(null);
       },
       
       resetPassword: async (email: string) => {

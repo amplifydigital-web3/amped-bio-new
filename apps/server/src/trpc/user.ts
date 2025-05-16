@@ -5,6 +5,7 @@ import { TRPCError } from "@trpc/server";
 import { s3Service, FileCategory } from "../services/S3Service";
 import { ALLOWED_FILE_EXTENSIONS, ALLOWED_FILE_TYPES, MAX_FILE_SIZE } from "@ampedbio/constants";
 import { sendEmailChangeVerification } from "../utils/email/email";
+import { generateToken } from "../utils/token";
 
 const prisma = new PrismaClient();
 
@@ -30,6 +31,11 @@ const confirmUploadSchema = z.object({
 
 // Schema for initiating email change
 const initiateEmailChangeSchema = z.object({
+  newEmail: z.string().email({ message: "Invalid email address format" }),
+});
+
+// Schema for resending email verification
+const resendEmailVerificationSchema = z.object({
   newEmail: z.string().email({ message: "Invalid email address format" }),
 });
 
@@ -75,13 +81,42 @@ export const userRouter = router({
             message: "Email address is already in use",
           });
         }
+        
+        // Check if the user has requested a code within the last minute
+        const latestCode = await prisma.confirmationCode.findFirst({
+          where: {
+            userId,
+            type: "EMAIL_CHANGE",
+            createdAt: {
+              gt: new Date(Date.now() - 60000), // 1 minute ago
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        });
+
+        if (latestCode) {
+          // Calculate when the user can retry (1 minute after last request)
+          const retryAfter = new Date(latestCode.createdAt);
+          retryAfter.setMinutes(retryAfter.getMinutes() + 1);
+          
+          throw new TRPCError({
+            code: "TOO_MANY_REQUESTS",
+            message: "Please wait before requesting a new verification code",
+            cause: {
+              code: "RATE_LIMIT_EMAIL_VERIFICATION",
+              retryAfter: retryAfter.toISOString()
+            }
+          });
+        }
 
         // Generate a 6-digit code
         const code = generateSixDigitCode();
 
-        // Set expiration (30 minutes from now)
+        // Set expiration (5 minutes from now)
         const expiresAt = new Date();
-        expiresAt.setMinutes(expiresAt.getMinutes() + 30);
+        expiresAt.setMinutes(expiresAt.getMinutes() + 5);
 
         // Delete any existing EMAIL_CHANGE codes for this user
         await prisma.confirmationCode.deleteMany({
@@ -287,7 +322,7 @@ export const userRouter = router({
         }
 
         // Update the user's email
-        await prisma.user.update({
+        const updatedUser = await prisma.user.update({
           where: { id: userId },
           data: {
             email: newEmail,
@@ -301,9 +336,17 @@ export const userRouter = router({
           data: { used: true },
         });
 
+        // Generate new JWT token with updated email
+        const token = generateToken({
+          id: userId,
+          email: newEmail,
+          role: updatedUser.role,
+        });
+
         return {
           success: true,
           message: "Email address has been successfully updated",
+          token, // Return the new token
         };
       } catch (error: any) {
         console.error("Error confirming email change:", error);
@@ -313,6 +356,105 @@ export const userRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to update email address",
+        });
+      }
+    }),
+
+  // Resend email verification code without deleting existing ones
+  resendEmailVerification: privateProcedure
+    .input(resendEmailVerificationSchema)
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user.id;
+      
+      try {
+        // Check if user exists
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+        });
+
+        if (!user) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "User not found",
+          });
+        }
+
+        // Check if the new email is already in use
+        const existingEmailUser = await prisma.user.findUnique({
+          where: { email: input.newEmail },
+        });
+
+        if (existingEmailUser) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "Email address is already in use",
+          });
+        }
+
+        // Check if the user has requested a code within the last minute
+        const latestCode = await prisma.confirmationCode.findFirst({
+          where: {
+            userId,
+            type: "EMAIL_CHANGE",
+            createdAt: {
+              gt: new Date(Date.now() - 60000), // 1 minute ago
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        });
+
+        if (latestCode) {
+          // Calculate when the user can retry (1 minute after last request)
+          const retryAfter = new Date(latestCode.createdAt);
+          retryAfter.setMinutes(retryAfter.getMinutes() + 1);
+          
+          throw new TRPCError({
+            code: "TOO_MANY_REQUESTS",
+            message: "Please wait before requesting a new verification code",
+            cause: {
+              code: "RATE_LIMIT_EMAIL_VERIFICATION",
+              retryAfter: retryAfter.toISOString()
+            }
+          });
+        }
+
+        // Generate a 6-digit code
+        const code = generateSixDigitCode();
+
+        // Set expiration (5 minutes from now)
+        const expiresAt = new Date();
+        expiresAt.setMinutes(expiresAt.getMinutes() + 5);
+
+        // Create a new confirmation code without deleting existing ones
+        await prisma.confirmationCode.create({
+          data: {
+            code,
+            type: "EMAIL_CHANGE",
+            userId,
+            expiresAt,
+          },
+        });
+
+        // Send verification email with the code
+        await sendEmailChangeVerification(user.email, input.newEmail, code);
+
+        return {
+          success: true,
+          message: "New verification code sent to your email",
+          expiresAt,
+        };
+      } catch (error: any) {
+
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+
+        console.error("Error resending email verification:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to resend email verification code",
         });
       }
     }),
