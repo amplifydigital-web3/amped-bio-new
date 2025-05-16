@@ -29,12 +29,7 @@ export const processPasswordResetSchema = z.object({
   newPassword: z.string().min(8),
 });
 
-export const sendVerifyEmailSchema = z.object({
-  email: z.string().email(),
-});
-
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type PasswordResetRequestInput = z.infer<typeof passwordResetRequestSchema>;
 export type ProcessPasswordResetInput = z.infer<typeof processPasswordResetSchema>;
-export type SendVerifyEmailInput = z.infer<typeof sendVerifyEmailSchema>;

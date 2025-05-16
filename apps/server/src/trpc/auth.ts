@@ -1,9 +1,9 @@
-import { router, publicProcedure, privateProcedure } from "./trpc";
+import { router, publicProcedure } from "./trpc";
 import { z } from "zod";
 import { PrismaClient } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import crypto from "crypto";
-import { sendEmailVerification, sendPasswordResetEmail } from "../utils/email/email";
+import { sendPasswordResetEmail } from "../utils/email/email";
 import { hashPassword, comparePasswords } from "../utils/password";
 import { generateToken } from "../utils/token";
 import {
@@ -11,7 +11,6 @@ import {
   loginSchema,
   passwordResetRequestSchema,
   processPasswordResetSchema,
-  sendVerifyEmailSchema,
 } from "../schemas/auth.schema";
 
 const prisma = new PrismaClient();
@@ -63,12 +62,12 @@ export const authRouter = router({
       });
 
       // Send verification email
-      try {
-        await sendEmailVerification(email, remember_token);
-      } catch (error) {
-        console.error("Error sending verification email:", error);
-        // We continue even if email fails
-      }
+      // try {
+      //   await sendEmailVerification(email, remember_token);
+      // } catch (error) {
+      //   console.error("Error sending verification email:", error);
+      //   // We continue even if email fails
+      // }
 
       // Return user data and token
       return {
@@ -212,57 +211,6 @@ export const authRouter = router({
       };
     }),
 
-  // Send verification email
-  sendVerifyEmail: publicProcedure
-    .input(sendVerifyEmailSchema)
-    .mutation(async ({ input }) => {
-      const { email } = input;
-
-      // Find user
-      const user = await prisma.user.findUnique({
-        where: { email },
-      });
-
-      if (!user) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "User not found",
-        });
-      }
-
-      // Generate verification token
-      const remember_token = crypto.randomBytes(32).toString("hex");
-
-      // Update user with token
-      const updatedUser = await prisma.user.update({
-        where: { id: user.id },
-        data: { remember_token },
-      });
-
-      if (!updatedUser.remember_token) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Error generating token",
-        });
-      }
-
-      // Send verification email
-      try {
-        await sendEmailVerification(email, remember_token);
-      } catch (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Error sending email",
-        });
-      }
-
-      return {
-        success: true,
-        message: "Email sent",
-        results: "Email verification sent",
-        email,
-      };
-    }),
 
   // Verify email
   verifyEmail: publicProcedure
