@@ -6,6 +6,7 @@ import { s3Service, FileCategory } from "../services/S3Service";
 import { ALLOWED_FILE_EXTENSIONS, ALLOWED_FILE_TYPES, MAX_FILE_SIZE } from "@ampedbio/constants";
 import { sendEmailChangeVerification } from "../utils/email/email";
 import { generateToken } from "../utils/token";
+import crypto from "crypto";
 
 const prisma = new PrismaClient();
 
