@@ -42,7 +42,7 @@ export function Layout(props: LayoutProps) {
   const panelWidth = isWidePanel ? "md:w-[800px]" : "md:w-[400px]";
 
   // Determine if we should hide the preview panel
-  const hidePreview = activePanel === "home" || activePanel === "reward";
+  const hidePreview = activePanel === "home" || activePanel === "reward" || activePanel === "account";
 
   return (
     <div className="flex h-screen bg-gray-50">

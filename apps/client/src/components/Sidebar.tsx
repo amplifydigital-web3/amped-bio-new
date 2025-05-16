@@ -1,4 +1,5 @@
 import React, { useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useEditorStore } from "../store/editorStore";
 import {
   User,
@@ -11,6 +12,7 @@ import {
   Trophy,
   AtSign,
   Home,
+  Settings,
 } from "lucide-react";
 import { exportSettings } from "../utils/export";
 import { importSettings } from "../utils/import";
@@ -24,6 +26,7 @@ const allNavItems = [
   { id: "effects", icon: Sparkles, label: "Effects", alwaysShow: true },
   { id: "blocks", icon: LayoutGrid, label: "Blocks", alwaysShow: true },
   { id: "reward", icon: Sparkle, label: "Reward", alwaysShow: false },
+  { id: "account", icon: Settings, label: "Account", alwaysShow: true },
   {
     id: "creatorpool",
     icon: CoinsIcon,
@@ -44,6 +47,15 @@ export function Sidebar() {
   const setActivePanel = useEditorStore(state => state.setActivePanel);
   const editorState = useEditorStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
+
+  const handlePanelClick = (id: string) => {
+    if (id === "account") {
+      navigate("/account");
+    } else {
+      setActivePanel(id);
+    }
+  };
 
   const handleExport = () => {
     exportSettings({
@@ -79,7 +91,7 @@ export function Sidebar() {
           return (
             <button
               key={id}
-              onClick={() => isEnabled && setActivePanel(id)}
+              onClick={() => isEnabled && handlePanelClick(id)}
               className={`w-12 h-12 flex flex-col items-center justify-center rounded-lg transition-colors relative mx-1 md:mx-0 md:mb-2
                 ${
                   isEnabled

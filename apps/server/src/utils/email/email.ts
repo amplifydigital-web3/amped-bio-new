@@ -2,6 +2,7 @@ import nodemailer from "nodemailer";
 import { render } from "@react-email/render";
 import verifyEmailTemplate from "./VerifyEmailTemplate";
 import resetPasswordTemplate from "./ResetPasswordTemplate";
+import emailChangeTemplate from "./EmailChangeTemplate";
 import { env } from "../../env";
 import { withRelatedProject } from "@vercel/related-projects";
 
@@ -111,6 +112,22 @@ export const sendPasswordResetEmail = async (email: string, token: string) => {
   return sendEmail({
     to: email,
     subject: "Amped.Bio Password Reset",
+    html_body: htmlContent,
+  });
+};
+
+export const sendEmailChangeVerification = async (email: string, newEmail: string, code: string) => {
+  console.log(`🔄 Generating email change verification code for ${email} -> ${newEmail}`);
+
+  console.log("🎨 Rendering email change template...");
+  const emailComponent = emailChangeTemplate({ code, newEmail });
+  const htmlContent = await render(emailComponent);
+  console.log("✅ Email template rendered successfully");
+
+  console.log("📨 Sending email change verification code...");
+  return sendEmail({
+    to: newEmail, // Send to the new email address
+    subject: "Amped.Bio Email Change Verification",
     html_body: htmlContent,
   });
 };

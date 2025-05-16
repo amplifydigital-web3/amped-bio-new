@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { LogOut, User } from "lucide-react";
+import { LogOut, User, Settings } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { useEditorStore } from "../../store/editorStore";
 import { AuthModal } from "./AuthModal";
@@ -54,6 +54,10 @@ export function UserMenu() {
   const handleNavtoHome = () => {
     return nav(`/@${authUser?.onelink}`);
   };
+  
+  const handleNavigateToAccount = () => {
+    return nav(`/account`);
+  };
 
   if (authUser === null) {
     return (
@@ -79,6 +83,10 @@ export function UserMenu() {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
+        <DropdownMenuItem onClick={handleNavigateToAccount}>
+          <Settings className="w-4 h-4 mr-2" />
+          <span>My Account</span>
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
           <LogOut className="w-4 h-4 mr-2" />
           <span>Sign Out</span>

@@ -37,7 +37,17 @@ export const createContext = ({ req }: CreateExpressContextOptions): Context => 
  * Initialization of tRPC backend
  * Should be done only once per backend!
  */
-const t = initTRPC.context<Context>().create();
+const t = initTRPC.context<Context>().create({
+  errorFormatter({ shape, error }) {
+    return {
+      ...shape,
+      data: {
+        ...shape.data,
+        cause: error.cause,
+      },
+    };
+  },
+});
 
 /**
  * Export reusable router and procedure helpers
