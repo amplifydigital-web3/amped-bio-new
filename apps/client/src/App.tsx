@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Editor } from "./pages/Editor";
 import { View } from "./pages/View";
 import { Admin } from "./pages/Admin";
+import { Account } from "./pages/Account";
 import { initParticlesEngine } from "@tsparticles/react";
 //import { loadSlim } from '@tsparticles/slim';
 import { loadAll } from "@tsparticles/all";
@@ -56,6 +57,7 @@ function App() {
                 <Route path="/register" element={<View />} />
                 <Route path="/" element={<View />} />
                 <Route path="/admin" element={<Admin />} />
+                <Route path="/account" element={<Account />} />
 
                 {/* Authentication Routes */}
                 <Route path="/auth/verify-email/:token?" element={<EmailVerification />} />
