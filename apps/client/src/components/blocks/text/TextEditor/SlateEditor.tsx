@@ -1,4 +1,4 @@
-import React, { MouseEvent, useCallback, useMemo, useState, useEffect } from 'react'
+import React, { MouseEvent, useCallback, useMemo, useState, useEffect, ReactNode } from 'react'
 import {
   Descendant,
   Editor,
@@ -15,21 +15,16 @@ import {
   useSlate,
   withReact,
 } from 'slate-react'
-import { Button, Toolbar } from './SlateComponents'
+import { Button, Toolbar, Menu } from './SlateComponents'
 import {
   Bold,
   Italic,
   Underline,
-  Code,
-  Heading1,
-  Heading2,
-  Quote,
-  List,
-  ListOrdered,
   AlignLeft,
   AlignCenter, 
   AlignRight,
-  AlignJustify
+  AlignJustify,
+  ChevronDown,
 } from 'lucide-react'
 import {
   CustomEditor,
@@ -57,12 +52,10 @@ const debounce = <F extends (...args: any[]) => any>(
   return debounced as (...args: Parameters<F>) => ReturnType<F>;
 };
 
-const LIST_TYPES = ['numbered-list', 'bulleted-list'] as const
 const TEXT_ALIGN_TYPES = ['left', 'center', 'right', 'justify'] as const
 
 type AlignType = (typeof TEXT_ALIGN_TYPES)[number]
-type ListType = (typeof LIST_TYPES)[number]
-type CustomElementFormat = CustomElementType | AlignType | ListType
+type CustomElementFormat = CustomElementType | AlignType
 
 interface RichTextEditorProps {
   initialValue?: string;
@@ -85,7 +78,6 @@ const slateToHtml = (nodes: Descendant[]): string => {
       // Determine the HTML tag based on element type
       switch (element.type) {
         case 'block-quote': tag = 'blockquote'; break;
-        case 'bulleted-list': tag = 'ul'; break;
         case 'heading-one': tag = 'h1'; break;
         case 'heading-two': tag = 'h2'; break;
         case 'list-item': tag = 'li'; break;
@@ -131,14 +123,20 @@ const TextEditor = ({
   )
   const editor = useMemo(() => withHistory(withReact(createEditor())), [])
   const [value, setValue] = useState<Descendant[]>(htmlToSlate(initialValue ?? ""));
+  // Track the last saved content
+  const [lastSavedContent, setLastSavedContent] = useState<string>(initialValue ?? "");
   
   // Set up debounced save function with HTML conversion
   const debouncedSave = useMemo(
     () => onSave ? debounce((val: Descendant[]) => {
       const htmlContent = slateToHtml(val);
-      onSave(htmlContent);
+      // Only call onSave if content has changed
+      if (htmlContent !== lastSavedContent) {
+        onSave(htmlContent);
+        setLastSavedContent(htmlContent);
+      }
     }, debounceTime) : undefined,
-    [onSave, debounceTime]
+    [onSave, debounceTime, lastSavedContent]
   );
 
   // Call the debouncedSave function when value changes
@@ -155,19 +153,19 @@ const TextEditor = ({
       onChange={setValue}
     >
       <Toolbar>
-        <MarkButton format="bold" icon={<Bold className="w-4 h-4" />} />
-        <MarkButton format="italic" icon={<Italic className="w-4 h-4" />} />
-        <MarkButton format="underline" icon={<Underline className="w-4 h-4" />} />
-        <MarkButton format="code" icon={<Code className="w-4 h-4" />} />
-        <BlockButton format="heading-one" icon={<Heading1 className="w-4 h-4" />} />
-        <BlockButton format="heading-two" icon={<Heading2 className="w-4 h-4" />} />
-        <BlockButton format="block-quote" icon={<Quote className="w-4 h-4" />} />
-        <BlockButton format="numbered-list" icon={<ListOrdered className="w-4 h-4" />} />
-        <BlockButton format="bulleted-list" icon={<List className="w-4 h-4" />} />
-        <BlockButton format="left" icon={<AlignLeft className="w-4 h-4" />} />
-        <BlockButton format="center" icon={<AlignCenter className="w-4 h-4" />} />
-        <BlockButton format="right" icon={<AlignRight className="w-4 h-4" />} />
-        <BlockButton format="justify" icon={<AlignJustify className="w-4 h-4" />} />
+        {/* Text formatting dropdown group */}
+        <MarkButtonGroup />
+        
+        {/* Alignment dropdown group */}
+        <BlockButtonDropdown 
+          icon={<AlignLeft className="w-4 h-4" />}
+          label="Alignment"
+        >
+          <BlockButton format="left" icon={<AlignLeft className="w-4 h-4" />} label="Left" />
+          <BlockButton format="center" icon={<AlignCenter className="w-4 h-4" />} label="Center" />
+          <BlockButton format="right" icon={<AlignRight className="w-4 h-4" />} label="Right" />
+          <BlockButton format="justify" icon={<AlignJustify className="w-4 h-4" />} label="Justify" />
+        </BlockButtonDropdown>
       </Toolbar>
       <Editable
         renderElement={renderElement}
@@ -175,10 +173,59 @@ const TextEditor = ({
         placeholder="Enter some rich text…"
         spellCheck
         autoFocus
+        className="min-h-[200px] p-2"
       />
     </Slate>
   )
 }
+
+// New dropdown component for block buttons
+interface BlockButtonDropdownProps {
+  icon: ReactNode;
+  label: string;
+  children: ReactNode;
+}
+
+const BlockButtonDropdown = ({ icon, label, children }: BlockButtonDropdownProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  return (
+    <div className="relative">
+      <Button 
+        onMouseDown={(e: MouseEvent) => {
+          e.preventDefault();
+          setIsOpen(!isOpen);
+        }}
+        className="flex items-center gap-1"
+      >
+        {icon}
+        <ChevronDown className="w-3 h-3" />
+      </Button>
+      
+      {isOpen && (
+        <div 
+          className="absolute top-full left-0 mt-1 bg-white shadow-lg rounded border border-gray-200 z-10 min-w-[150px]"
+          onMouseLeave={() => setIsOpen(false)}
+        >
+          <div className="p-1 flex flex-col gap-1">
+            {children}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Group for mark buttons (bold, italic, etc.)
+const MarkButtonGroup = () => {
+  return (
+    <div className="flex gap-1">
+      <MarkButton format="bold" icon={<Bold className="w-4 h-4" />} />
+      <MarkButton format="italic" icon={<Italic className="w-4 h-4" />} />
+      <MarkButton format="underline" icon={<Underline className="w-4 h-4" />} />
+    </div>
+  );
+};
 
 const toggleBlock = (editor: CustomEditor, format: CustomElementFormat) => {
   const isActive = isBlockActive(
@@ -186,16 +233,8 @@ const toggleBlock = (editor: CustomEditor, format: CustomElementFormat) => {
     format,
     isAlignType(format) ? 'align' : 'type'
   )
-  const isList = isListType(format)
 
-  Transforms.unwrapNodes(editor, {
-    match: n =>
-      !Editor.isEditor(n) &&
-      SlateElement.isElement(n) &&
-      isListType(n.type) &&
-      !isAlignType(format),
-    split: true,
-  })
+  // Remove list-related unwrapping logic
   let newProperties: Partial<SlateElement>
   if (isAlignType(format)) {
     newProperties = {
@@ -203,15 +242,10 @@ const toggleBlock = (editor: CustomEditor, format: CustomElementFormat) => {
     }
   } else {
     newProperties = {
-      type: isActive ? 'paragraph' : isList ? 'list-item' : format,
+      type: isActive ? 'paragraph' : format,
     }
   }
   Transforms.setNodes<SlateElement>(editor, newProperties)
-
-  if (!isActive && isList) {
-    const block = { type: format, children: [] }
-    Transforms.wrapNodes(editor, block)
-  }
 }
 
 const toggleMark = (editor: CustomEditor, format: CustomTextKey) => {
@@ -267,12 +301,6 @@ const Element = ({ attributes, children, element }: RenderElementProps) => {
           {children}
         </blockquote>
       )
-    case 'bulleted-list':
-      return (
-        <ul style={style} {...attributes}>
-          {children}
-        </ul>
-      )
     case 'heading-one':
       return (
         <h1 style={style} {...attributes}>
@@ -284,18 +312,6 @@ const Element = ({ attributes, children, element }: RenderElementProps) => {
         <h2 style={style} {...attributes}>
           {children}
         </h2>
-      )
-    case 'list-item':
-      return (
-        <li style={style} {...attributes}>
-          {children}
-        </li>
-      )
-    case 'numbered-list':
-      return (
-        <ol style={style} {...attributes}>
-          {children}
-        </ol>
       )
     default:
       return (
@@ -329,9 +345,10 @@ const Leaf = ({ attributes, children, leaf }: RenderLeafProps) => {
 interface BlockButtonProps {
   format: CustomElementFormat
   icon: React.ReactNode
+  label?: string
 }
 
-const BlockButton = ({ format, icon }: BlockButtonProps) => {
+const BlockButton = ({ format, icon, label }: BlockButtonProps) => {
   const editor = useSlate()
   return (
     <Button
@@ -344,8 +361,10 @@ const BlockButton = ({ format, icon }: BlockButtonProps) => {
         event.preventDefault()
         toggleBlock(editor, format)
       }}
+      className="flex items-center gap-2 w-full px-2 py-1 justify-start"
     >
       {icon}
+      {label && <span className="text-sm">{label}</span>}
     </Button>
   )
 }
@@ -374,51 +393,10 @@ const isAlignType = (format: CustomElementFormat): format is AlignType => {
   return TEXT_ALIGN_TYPES.includes(format as AlignType)
 }
 
-const isListType = (format: CustomElementFormat): format is ListType => {
-  return LIST_TYPES.includes(format as ListType)
-}
-
 const isAlignElement = (
   element: CustomElement
 ): element is CustomElementWithAlign => {
   return 'align' in element
 }
-
-// Rename initialValue to defaultInitialValue
-const defaultInitialValue: Descendant[] = [
-  {
-    type: 'paragraph',
-    children: [
-      { text: 'This is editable ' },
-      { text: 'rich', bold: true },
-      { text: ' text, ' },
-      { text: 'much', italic: true },
-      { text: ' better than a ' },
-      { text: '<textarea>', code: true },
-      { text: '!' },
-    ],
-  },
-  {
-    type: 'paragraph',
-    children: [
-      {
-        text: "Since it's rich text, you can do things like turn a selection of text ",
-      },
-      { text: 'bold', bold: true },
-      {
-        text: ', or add a semantically rendered block quote in the middle of the page, like this:',
-      },
-    ],
-  },
-  {
-    type: 'block-quote',
-    children: [{ text: 'A wise quote.' }],
-  },
-  {
-    type: 'paragraph',
-    align: 'center',
-    children: [{ text: 'Try it out for yourself!' }],
-  },
-]
 
 export default TextEditor

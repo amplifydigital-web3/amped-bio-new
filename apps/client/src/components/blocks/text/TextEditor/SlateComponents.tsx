@@ -112,12 +112,9 @@ export const Toolbar = React.forwardRef<HTMLDivElement, PropsWithChildren<BasePr
       ref={ref}
       className={cx(
         className,
+        "flex items-center gap-2 p-2 mb-4 border-b border-gray-200",
         css({
           position: 'relative',
-          padding: '1px 18px 17px',
-          margin: '0 -20px',
-          borderBottom: '2px solid #eee',
-          marginBottom: '20px',
           display: 'flex',
           flexWrap: 'nowrap',
           overflowX: 'auto',
