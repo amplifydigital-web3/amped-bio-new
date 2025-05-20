@@ -55,11 +55,25 @@ const mediaConfigSchema = z.object({
 
 const textConfigSchema = z.object({
   // platform: z.string(),
-  content: z.string().min(0, "Content is required"),
+  content: z.string()
+    .min(0, "Content is required")
+    .refine(
+      (html) => {
+        // Skip validation if empty
+        if (!html) return true;
+        
+        // Simple regex to validate HTML containing only allowed tags
+        // This checks that all opening tags are either p, a, or span
+        const allowedTagsRegex = /<(?!\/?(p|a|span|strong|em|u|b|i|s)\b)[^>]+>/i;
+        
+        // If the regex matches any non-allowed tags, validation fails
+        return !allowedTagsRegex.test(html);
+      },
+      {
+        message: "HTML content can only contain paragraph (<p>), anchor (<a>), and span (<span>) tags"
+      }
+    ),
 });
-
-// Generic config schema that's used when we don't know the block type yet
-const genericConfigSchema = z.object({}).catchall(z.any());
 
 // Schema for a single block
 export const blockSchema = z.object({

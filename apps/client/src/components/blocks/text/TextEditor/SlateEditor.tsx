@@ -1,0 +1,424 @@
+import React, { MouseEvent, useCallback, useMemo, useState, useEffect } from 'react'
+import {
+  Descendant,
+  Editor,
+  Element as SlateElement,
+  Transforms,
+  createEditor,
+} from 'slate'
+import { withHistory } from 'slate-history'
+import {
+  Editable,
+  RenderElementProps,
+  RenderLeafProps,
+  Slate,
+  useSlate,
+  withReact,
+} from 'slate-react'
+import { Button, Toolbar } from './SlateComponents'
+import {
+  Bold,
+  Italic,
+  Underline,
+  Code,
+  Heading1,
+  Heading2,
+  Quote,
+  List,
+  ListOrdered,
+  AlignLeft,
+  AlignCenter, 
+  AlignRight,
+  AlignJustify
+} from 'lucide-react'
+import {
+  CustomEditor,
+  CustomElement,
+  CustomElementType,
+  CustomElementWithAlign,
+  CustomTextKey,
+} from './custom-types'
+import { htmlToSlate } from './SlateRenderer'
+
+// Debounce utility function
+const debounce = <F extends (...args: any[]) => any>(
+  func: F,
+  waitFor: number
+) => {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+
+  const debounced = (...args: Parameters<F>) => {
+    if (timeout !== null) {
+      clearTimeout(timeout);
+    }
+    timeout = setTimeout(() => func(...args), waitFor);
+  };
+
+  return debounced as (...args: Parameters<F>) => ReturnType<F>;
+};
+
+const LIST_TYPES = ['numbered-list', 'bulleted-list'] as const
+const TEXT_ALIGN_TYPES = ['left', 'center', 'right', 'justify'] as const
+
+type AlignType = (typeof TEXT_ALIGN_TYPES)[number]
+type ListType = (typeof LIST_TYPES)[number]
+type CustomElementFormat = CustomElementType | AlignType | ListType
+
+interface RichTextEditorProps {
+  initialValue?: string;
+  onSave?: (value: string) => void;  // Changed from Descendant[] to string
+  debounceTime?: number;
+}
+
+// Function to convert Slate nodes to HTML string
+const slateToHtml = (nodes: Descendant[]): string => {
+  return nodes.map(node => {
+    if (Editor.isEditor(node)) {
+      return '';
+    }
+    
+    if (!('text' in node)) {
+      const element = node as CustomElement;
+      let tag = 'p';
+      let attrs = '';
+      
+      // Determine the HTML tag based on element type
+      switch (element.type) {
+        case 'block-quote': tag = 'blockquote'; break;
+        case 'bulleted-list': tag = 'ul'; break;
+        case 'heading-one': tag = 'h1'; break;
+        case 'heading-two': tag = 'h2'; break;
+        case 'list-item': tag = 'li'; break;
+        case 'numbered-list': tag = 'ol'; break;
+      }
+      
+      // Handle alignment
+      if (isAlignElement(element) && element.align) {
+        attrs = ` style="text-align: ${element.align}"`;
+      }
+      
+      // Recursively convert children
+      const children = element.children
+        .map(child => slateToHtml([child]))
+        .join('');
+        
+      return `<${tag}${attrs}>${children}</${tag}>`;
+    }
+    
+    // Handle text nodes with formatting
+    let text = node.text;
+    if (node.bold) text = `<strong>${text}</strong>`;
+    if (node.italic) text = `<em>${text}</em>`;
+    if (node.underline) text = `<u>${text}</u>`;
+    if (node.code) text = `<code>${text}</code>`;
+    
+    return text;
+  }).join('');
+};
+
+const TextEditor = ({ 
+  initialValue, 
+  onSave,
+  debounceTime = 1000 
+}: RichTextEditorProps) => {
+  const renderElement = useCallback(
+    (props: RenderElementProps) => <Element {...props} />,
+    []
+  )
+  const renderLeaf = useCallback(
+    (props: RenderLeafProps) => <Leaf {...props} />,
+    []
+  )
+  const editor = useMemo(() => withHistory(withReact(createEditor())), [])
+  const [value, setValue] = useState<Descendant[]>(htmlToSlate(initialValue ?? ""));
+  
+  // Set up debounced save function with HTML conversion
+  const debouncedSave = useMemo(
+    () => onSave ? debounce((val: Descendant[]) => {
+      const htmlContent = slateToHtml(val);
+      onSave(htmlContent);
+    }, debounceTime) : undefined,
+    [onSave, debounceTime]
+  );
+
+  // Call the debouncedSave function when value changes
+  useEffect(() => {
+    if (debouncedSave) {
+      debouncedSave(value);
+    }
+  }, [value, debouncedSave]);
+
+  return (
+    <Slate 
+      editor={editor} 
+      initialValue={value}
+      onChange={setValue}
+    >
+      <Toolbar>
+        <MarkButton format="bold" icon={<Bold className="w-4 h-4" />} />
+        <MarkButton format="italic" icon={<Italic className="w-4 h-4" />} />
+        <MarkButton format="underline" icon={<Underline className="w-4 h-4" />} />
+        <MarkButton format="code" icon={<Code className="w-4 h-4" />} />
+        <BlockButton format="heading-one" icon={<Heading1 className="w-4 h-4" />} />
+        <BlockButton format="heading-two" icon={<Heading2 className="w-4 h-4" />} />
+        <BlockButton format="block-quote" icon={<Quote className="w-4 h-4" />} />
+        <BlockButton format="numbered-list" icon={<ListOrdered className="w-4 h-4" />} />
+        <BlockButton format="bulleted-list" icon={<List className="w-4 h-4" />} />
+        <BlockButton format="left" icon={<AlignLeft className="w-4 h-4" />} />
+        <BlockButton format="center" icon={<AlignCenter className="w-4 h-4" />} />
+        <BlockButton format="right" icon={<AlignRight className="w-4 h-4" />} />
+        <BlockButton format="justify" icon={<AlignJustify className="w-4 h-4" />} />
+      </Toolbar>
+      <Editable
+        renderElement={renderElement}
+        renderLeaf={renderLeaf}
+        placeholder="Enter some rich text…"
+        spellCheck
+        autoFocus
+      />
+    </Slate>
+  )
+}
+
+const toggleBlock = (editor: CustomEditor, format: CustomElementFormat) => {
+  const isActive = isBlockActive(
+    editor,
+    format,
+    isAlignType(format) ? 'align' : 'type'
+  )
+  const isList = isListType(format)
+
+  Transforms.unwrapNodes(editor, {
+    match: n =>
+      !Editor.isEditor(n) &&
+      SlateElement.isElement(n) &&
+      isListType(n.type) &&
+      !isAlignType(format),
+    split: true,
+  })
+  let newProperties: Partial<SlateElement>
+  if (isAlignType(format)) {
+    newProperties = {
+      align: isActive ? undefined : format,
+    }
+  } else {
+    newProperties = {
+      type: isActive ? 'paragraph' : isList ? 'list-item' : format,
+    }
+  }
+  Transforms.setNodes<SlateElement>(editor, newProperties)
+
+  if (!isActive && isList) {
+    const block = { type: format, children: [] }
+    Transforms.wrapNodes(editor, block)
+  }
+}
+
+const toggleMark = (editor: CustomEditor, format: CustomTextKey) => {
+  const isActive = isMarkActive(editor, format)
+
+  if (isActive) {
+    Editor.removeMark(editor, format)
+  } else {
+    Editor.addMark(editor, format, true)
+  }
+}
+
+const isBlockActive = (
+  editor: CustomEditor,
+  format: CustomElementFormat,
+  blockType: 'type' | 'align' = 'type'
+) => {
+  const { selection } = editor
+  if (!selection) return false
+
+  const [match] = Array.from(
+    Editor.nodes(editor, {
+      at: Editor.unhangRange(editor, selection),
+      match: n => {
+        if (!Editor.isEditor(n) && SlateElement.isElement(n)) {
+          if (blockType === 'align' && isAlignElement(n)) {
+            return n.align === format
+          }
+          return n.type === format
+        }
+        return false
+      },
+    })
+  )
+
+  return !!match
+}
+
+const isMarkActive = (editor: CustomEditor, format: CustomTextKey) => {
+  const marks = Editor.marks(editor)
+  return marks ? marks[format] === true : false
+}
+
+const Element = ({ attributes, children, element }: RenderElementProps) => {
+  const style: React.CSSProperties = {}
+  if (isAlignElement(element)) {
+    style.textAlign = element.align as AlignType
+  }
+  switch (element.type) {
+    case 'block-quote':
+      return (
+        <blockquote style={style} {...attributes}>
+          {children}
+        </blockquote>
+      )
+    case 'bulleted-list':
+      return (
+        <ul style={style} {...attributes}>
+          {children}
+        </ul>
+      )
+    case 'heading-one':
+      return (
+        <h1 style={style} {...attributes}>
+          {children}
+        </h1>
+      )
+    case 'heading-two':
+      return (
+        <h2 style={style} {...attributes}>
+          {children}
+        </h2>
+      )
+    case 'list-item':
+      return (
+        <li style={style} {...attributes}>
+          {children}
+        </li>
+      )
+    case 'numbered-list':
+      return (
+        <ol style={style} {...attributes}>
+          {children}
+        </ol>
+      )
+    default:
+      return (
+        <p style={style} {...attributes}>
+          {children}
+        </p>
+      )
+  }
+}
+
+const Leaf = ({ attributes, children, leaf }: RenderLeafProps) => {
+  if (leaf.bold) {
+    children = <strong>{children}</strong>
+  }
+
+  if (leaf.code) {
+    children = <code>{children}</code>
+  }
+
+  if (leaf.italic) {
+    children = <em>{children}</em>
+  }
+
+  if (leaf.underline) {
+    children = <u>{children}</u>
+  }
+
+  return <span {...attributes}>{children}</span>
+}
+
+interface BlockButtonProps {
+  format: CustomElementFormat
+  icon: React.ReactNode
+}
+
+const BlockButton = ({ format, icon }: BlockButtonProps) => {
+  const editor = useSlate()
+  return (
+    <Button
+      active={isBlockActive(
+        editor,
+        format,
+        isAlignType(format) ? 'align' : 'type'
+      )}
+      onMouseDown={(event: MouseEvent<HTMLSpanElement>) => {
+        event.preventDefault()
+        toggleBlock(editor, format)
+      }}
+    >
+      {icon}
+    </Button>
+  )
+}
+
+interface MarkButtonProps {
+  format: CustomTextKey
+  icon: React.ReactNode
+}
+
+const MarkButton = ({ format, icon }: MarkButtonProps) => {
+  const editor = useSlate()
+  return (
+    <Button
+      active={isMarkActive(editor, format)}
+      onMouseDown={(event: MouseEvent<HTMLSpanElement>) => {
+        event.preventDefault()
+        toggleMark(editor, format)
+      }}
+    >
+      {icon}
+    </Button>
+  )
+}
+
+const isAlignType = (format: CustomElementFormat): format is AlignType => {
+  return TEXT_ALIGN_TYPES.includes(format as AlignType)
+}
+
+const isListType = (format: CustomElementFormat): format is ListType => {
+  return LIST_TYPES.includes(format as ListType)
+}
+
+const isAlignElement = (
+  element: CustomElement
+): element is CustomElementWithAlign => {
+  return 'align' in element
+}
+
+// Rename initialValue to defaultInitialValue
+const defaultInitialValue: Descendant[] = [
+  {
+    type: 'paragraph',
+    children: [
+      { text: 'This is editable ' },
+      { text: 'rich', bold: true },
+      { text: ' text, ' },
+      { text: 'much', italic: true },
+      { text: ' better than a ' },
+      { text: '<textarea>', code: true },
+      { text: '!' },
+    ],
+  },
+  {
+    type: 'paragraph',
+    children: [
+      {
+        text: "Since it's rich text, you can do things like turn a selection of text ",
+      },
+      { text: 'bold', bold: true },
+      {
+        text: ', or add a semantically rendered block quote in the middle of the page, like this:',
+      },
+    ],
+  },
+  {
+    type: 'block-quote',
+    children: [{ text: 'A wise quote.' }],
+  },
+  {
+    type: 'paragraph',
+    align: 'center',
+    children: [{ text: 'Try it out for yourself!' }],
+  },
+]
+
+export default TextEditor
