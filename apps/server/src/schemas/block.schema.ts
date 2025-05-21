@@ -53,13 +53,57 @@ const mediaConfigSchema = z.object({
   content: z.string().optional(),
 });
 
-const textConfigSchema = z.object({
-  // platform: z.string(),
-  content: z.string().min(0, "Content is required"),
-});
+// Define allowed HTML tags
+const allowedHtmlTags = [
+  "p",
+  "a",
+  "span",
+  "strong",
+  "em",
+  "u",
+  "b",
+  "i",
+  "s",
+] as const;
 
-// Generic config schema that's used when we don't know the block type yet
-const genericConfigSchema = z.object({}).catchall(z.any());
+const textConfigSchema = z.object({
+  content: z.string()
+    .min(0, "Content is required")
+    .refine(
+      (html) => {
+        // Skip validation if empty
+        if (!html) return true;
+        
+        // Build regex pattern from allowed tags array
+        const tagPattern = allowedHtmlTags.join("|");
+        const allowedTagsRegex = new RegExp(`<(?!\/?(${tagPattern})\\b)[^>]+>`, "i");
+        
+        // If the regex matches any non-allowed tags, validation fails
+        return !allowedTagsRegex.test(html);
+      },
+      {
+        message: `HTML content can only contain the following tags: ${allowedHtmlTags.map(tag => `<${tag}>`).join(", ")}`
+      }
+    )
+    .refine(
+      (html) => {
+        // Block JavaScript in various forms
+        const jsPatterns = [
+          /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/i, // <script> tags
+          /javascript:/i, // javascript: protocol
+          /on\w+\s*=/i, // event handlers like onclick=
+          /eval\s*\(/i, // eval() calls
+          /Function\s*\(/i, // Function constructor
+          /\[\s*\[\s*\[\s*\[\s*\[\s*.*\]\s*\]\s*\]\s*\]\s*\]/i, // Obfuscated pattern with multiple brackets
+        ];
+        
+        return !jsPatterns.some(pattern => pattern.test(html));
+      },
+      {
+        message: "JavaScript content is not allowed in the HTML"
+      }
+    ),
+});
 
 // Schema for a single block
 export const blockSchema = z.object({

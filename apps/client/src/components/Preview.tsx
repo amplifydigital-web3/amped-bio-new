@@ -11,7 +11,8 @@ import {
 } from "../utils/styles";
 import { getPlatformIcon } from "../utils/platforms";
 import { MediaBlock } from "./blocks/MediaBlock";
-import { TextBlock } from "./blocks/TextBlock";
+import { TextBlock } from "./blocks/text/TextBlock";
+import { isHTML } from "@/utils/htmlutils";
 
 // Helper function to extract the root domain from a URL
 const extractRootDomain = (url: string): string => {
@@ -25,6 +26,7 @@ const extractRootDomain = (url: string): string => {
     return url;
   }
 };
+
 
 interface PreviewProps {
   isEditing: boolean;
@@ -149,16 +151,28 @@ export function Preview(props: PreviewProps) {
                     </p>
                   )} */}
                   {profile.bio && (
-                    <p
-                      className="text-lg max-w-2xl mx-auto leading-relaxed"
-                      style={{
-                        fontFamily: theme.fontFamily,
-                        color: theme.fontColor,
-                        opacity: 0.9,
-                      }}
-                    >
-                      {profile.bio}
-                    </p>
+                    isHTML(profile.bio) ? (
+                      <p
+                        className="text-lg max-w-2xl mx-auto leading-relaxed"
+                        style={{
+                          fontFamily: theme.fontFamily,
+                          color: theme.fontColor,
+                          opacity: 0.9,
+                        }}
+                        dangerouslySetInnerHTML={{ __html: profile.bio }}
+                      />
+                    ) : (
+                      <p
+                        className="text-lg max-w-2xl mx-auto leading-relaxed"
+                        style={{
+                          fontFamily: theme.fontFamily,
+                          color: theme.fontColor,
+                          opacity: 0.9,
+                        }}
+                      >
+                        {profile.bio}
+                      </p>
+                    )
                   )}
                 </div>
               </div>

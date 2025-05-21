@@ -1,6 +1,6 @@
+import SlateEditor from "@/components/blocks/text/TextEditor/SlateEditor";
 import type { UserProfile } from "../../../types/editor";
 import { Input } from "@/components/ui/Input";
-import { Textarea } from "@/components/ui/Textarea";
 
 interface ProfileFormProps {
   profile: UserProfile;
@@ -24,12 +24,12 @@ export function ProfileForm({ profile, onUpdate }: ProfileFormProps) {
         placeholder="Your professional title or tagline"
       /> */}
 
-      <Textarea
-        label="Bio"
-        value={profile.bio}
-        onChange={e => onUpdate("bio", e.target.value)}
-        placeholder="Tell your story..."
-        rows={4}
+      <SlateEditor
+        // label="Bio"
+        initialValue={profile.bio}
+        onSave={e => onUpdate("bio", e)}
+        // placeholder="Tell your story..."
+        // rows={4}
       />
     </div>
   );

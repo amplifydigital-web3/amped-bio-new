@@ -10,6 +10,7 @@ import { Resolver, SubmitHandler, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LinkFormInputs, linkFormSchema } from "./LinkForm";
 import { useCallback, useMemo } from "react";
+import SlateEditor from "@/components/blocks/text/TextEditor/SlateEditor";
 
 // Helper function to validate YouTube URLs
 const isValidYouTubeUrl = (url: string): boolean => {
@@ -204,14 +205,15 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
           )}
 
           {block.type === "text" && (
-            <Textarea
-              label="Content"
-              placeholder="Enter your text content"
-              rows={4}
-              // @ts-ignore
-              error={errors.content?.message?.toString()}
-              {...register("content")}
-            />
+            <>
+              <SlateEditor
+              initialValue={block.config.content}
+                // @ts-ignore
+                error={errors.content?.message?.toString()}
+                onSave={e => setValue("content", e)}
+              />
+              <input type="hidden" {...register("content")} value={watch('content')} />
+            </>
           )}
 
           <div className="flex justify-end space-x-3">
