@@ -48,14 +48,15 @@ interface EditorStore extends EditorState {
   importTheme: (file: File) => Promise<void>;
 }
 
-export const useEditorStore = create<EditorStore>()((set) => ({
+export const useEditorStore = create<EditorStore>()(set => ({
   changes: false,
   ...initialState,
   setUser: async (onelink: string) => {
     console.group(`🔍 Setting User: ${onelink}`);
     console.info("🚀 Loading user data...");
     try {
-      const { result: onlinkData } = await trpcClient.onelink.getOnelink.query({ onelink });
+      const onlinkData = await trpcClient.onelink.getOnelink.query({ onelink });
+
       if (!onlinkData) {
         console.info("❌ User not found:", onelink);
         console.groupEnd();
@@ -398,7 +399,7 @@ export const useEditorStore = create<EditorStore>()((set) => ({
     console.group("🎨 Exporting Theme Configuration");
     const { theme } = useEditorStore.getState();
     console.info("Theme config:", theme.config);
-    
+
     try {
       exportThemeConfigAsJson(theme);
       toast.success("Theme configuration exported successfully");
@@ -407,17 +408,17 @@ export const useEditorStore = create<EditorStore>()((set) => ({
       console.error("❌ Theme configuration export failed:", error);
       toast.error("Failed to export theme configuration");
     }
-    
+
     console.groupEnd();
   },
   importTheme: async (file: File) => {
     console.group("🎨 Importing Theme Configuration");
     console.info("File:", file.name);
-    
+
     try {
       const importedThemeConfig = await importThemeConfigFromJson(file);
       console.info("Imported theme config:", importedThemeConfig);
-      
+
       set(state => ({
         theme: {
           ...state.theme,
@@ -425,7 +426,7 @@ export const useEditorStore = create<EditorStore>()((set) => ({
         },
         changes: true,
       }));
-      
+
       toast.success("Theme configuration imported successfully");
       console.info("✅ Theme configuration imported");
       console.groupEnd();

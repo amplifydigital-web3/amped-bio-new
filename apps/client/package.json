@@ -74,6 +74,7 @@
     "@ampedbio/server": "workspace:*",
     "@eslint/js": "^9.9.1",
     "@playwright/test": "^1.52.0",
+    "@trpc/server": "^11.1.2",
     "@types/jest": "^29.5.14",
     "@types/node": "^20.11.16",
     "@types/react": "^18.3.5",
