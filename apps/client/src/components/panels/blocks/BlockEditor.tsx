@@ -212,7 +212,7 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
                 error={errors.content?.message?.toString()}
                 onSave={e => setValue("content", e)}
               />
-              <input type="hidden" {...register("content")} value={block.config.content} />
+              <input type="hidden" {...register("content")} value={watch('content')} />
             </>
           )}
 
