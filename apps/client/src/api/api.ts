@@ -73,13 +73,14 @@ export async function editUser(userData: {
 
 export async function getUser(userData: { token: string }) {
   console.log("Get user:", userData);
-  return apiRequest<any>(
+  const response = await apiRequest<any>(
     () =>
       api.get("/user", {
         headers: { "Cache-Control": "no-cache", Pragma: "no-cache", Expires: "0" },
       }),
     "User get:"
-  ).then(data => data.result);
+  );
+  return response.result;
 }
 
 export async function deleteUser(userData: DeleteData) {
