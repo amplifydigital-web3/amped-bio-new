@@ -361,6 +361,38 @@ class S3Service {
       return null;
     }
   }
+
+  /**
+   * Check if a file key belongs to a specific theme and user
+   * This is used to determine if we should delete the old background when a new one is uploaded
+   * @param fileKey - The file key to check
+   * @param themeId - The theme ID to check for
+   * @param userId - The user ID to check for
+   * @returns boolean - True if the file key belongs to the specified theme and user
+   */
+  isThemeOwnerFile(fileKey: string, themeId: number, userId: number): boolean {
+    if (!fileKey) return false;
+    
+    // Check if it's a background category file
+    if (!fileKey.startsWith('backgrounds/')) return false;
+    
+    // Check if it contains both the theme ID and user ID
+    const hasThemeId = fileKey.includes(`theme_${themeId}_`);
+    const hasUserId = fileKey.includes(`-${userId}.`);
+    
+    const result = hasThemeId && hasUserId;
+    
+    console.info('[INFO] Checking if file belongs to theme and user', JSON.stringify({
+      fileKey,
+      themeId,
+      userId,
+      hasThemeId,
+      hasUserId,
+      result
+    }));
+    
+    return result;
+  }
 }
 
 export const s3Service = new S3Service();

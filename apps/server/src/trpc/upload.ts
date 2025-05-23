@@ -269,10 +269,18 @@ export const uploadRouter = router({
           },
         });
         
-        // Delete the previous background video if it exists (as a cleanup task)
+        // Delete the previous background video if it exists and belongs to this theme/user
         if (previousFileKey && previousFileKey !== input.fileKey) {
           try {
-            await s3Service.deleteFile(previousFileKey);
+            // Only delete if the file belongs to this theme and user
+            if (s3Service.isThemeOwnerFile(previousFileKey, input.themeId, userId)) {
+              console.info('[INFO] Deleting previous theme background video that belongs to user', 
+                JSON.stringify({ previousFileKey, themeId: input.themeId, userId }));
+              await s3Service.deleteFile(previousFileKey);
+            } else {
+              console.info('[INFO] Skipping deletion of previous background that may not belong to user',
+                JSON.stringify({ previousFileKey, themeId: input.themeId, userId }));
+            }
           } catch (deleteError) {
             // Just log the error but don't fail the whole operation
             console.warn('Failed to delete previous background video:', deleteError);
@@ -355,10 +363,18 @@ export const uploadRouter = router({
           },
         });
         
-        // Delete the previous background image/video if it exists (as a cleanup task)
+        // Delete the previous background image/video if it exists and belongs to this theme/user
         if (previousFileKey && previousFileKey !== input.fileKey) {
           try {
-            await s3Service.deleteFile(previousFileKey);
+            // Only delete if the file belongs to this theme and user
+            if (s3Service.isThemeOwnerFile(previousFileKey, input.themeId, userId)) {
+              console.info('[INFO] Deleting previous theme background image that belongs to user', 
+                JSON.stringify({ previousFileKey, themeId: input.themeId, userId }));
+              await s3Service.deleteFile(previousFileKey);
+            } else {
+              console.info('[INFO] Skipping deletion of previous background that may not belong to user',
+                JSON.stringify({ previousFileKey, themeId: input.themeId, userId }));
+            }
           } catch (deleteError) {
             // Just log the error but don't fail the whole operation
             console.warn('Failed to delete previous background:', deleteError);
