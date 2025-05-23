@@ -105,7 +105,7 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
       });
       
       // Request presigned URL from server
-      const presignedData = await trpcClient.user.requestPresignedUrl.mutate({
+      const presignedData = await trpcClient.upload.requestPresignedUrl.mutate({
         contentType: fileType,
         fileExtension: fileExtension,
         fileSize: file.size,
@@ -115,7 +115,6 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
       console.log("Server response - presigned URL data:", presignedData);
       
       try {
-        // Use the successful approach from s3uploadpresigned.ts script
         console.log("Starting S3 upload with presigned URL...");
         
         const uploadResponse = await fetch(presignedData.presignedUrl, {
@@ -135,7 +134,7 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
         console.log("S3 upload completed successfully:", uploadResponse.status);
         
         // Confirm upload with the server
-        const result = await trpcClient.user.confirmProfilePictureUpload.mutate({
+        const result = await trpcClient.upload.confirmProfilePictureUpload.mutate({
           fileKey: presignedData.fileKey,
           category: "profiles"
         });

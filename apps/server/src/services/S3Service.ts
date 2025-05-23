@@ -170,15 +170,21 @@ class S3Service {
    * Generate a unique file key for an uploaded file
    * The file key should NOT include the bucket name - that's specified separately in S3 operations
    */
-  generateUniqueFileKey(category: FileCategory, userId: number, fileExtension: string): string {
+  generateUniqueFileKey(category: FileCategory, userId: number, fileExtension: string, themeId?: number): string {
     const timestamp = Date.now();
     const randomString = crypto.randomBytes(8).toString('hex');
     
-    // Use simple folder structure using just the category name
-    // No bucket name needed in the file key - S3 handles that separately
-    const fileKey = `${category}/${timestamp}-${randomString}-${userId}.${fileExtension}`;
+    let fileKey: string;
     
-    console.info('[INFO] Generated unique file key', JSON.stringify({ fileKey, category, userId }));
+    if (category === 'backgrounds' && themeId) {
+      // For theme background videos, include the theme ID in the file key
+      fileKey = `${category}/theme_${themeId}_${timestamp}-${randomString}-${userId}.${fileExtension}`;
+    } else {
+      // For other file categories, use the standard format
+      fileKey = `${category}/${timestamp}-${randomString}-${userId}.${fileExtension}`;
+    }
+    
+    console.info('[INFO] Generated unique file key', JSON.stringify({ fileKey, category, userId, themeId }));
     return fileKey;
   }
 
