@@ -137,7 +137,7 @@ export const uploadRouter = router({
         
         // Use the S3Service to generate a presigned URL with a custom file key 
         // that includes the theme ID
-        const fileKey = `backgrounds/theme_${input.themeId}_${Date.now()}.${input.fileExtension}`;
+        const fileKey = `user-uploads/backgrounds/theme_${input.themeId}_${Date.now()}.${input.fileExtension}`;
         const presignedUrl = await s3Service.getSignedUrl(fileKey, 'putObject', 300, input.contentType);
         
         return {
@@ -189,7 +189,7 @@ export const uploadRouter = router({
         
         // Use the S3Service to generate a presigned URL with a custom file key 
         // that includes the theme ID
-        const fileKey = `backgrounds/theme_${input.themeId}_${Date.now()}.${input.fileExtension}`;
+        const fileKey = `user-uploads/backgrounds/theme_${input.themeId}_${Date.now()}.${input.fileExtension}`;
         const presignedUrl = await s3Service.getSignedUrl(fileKey, 'putObject', 300, input.contentType);
         
         return {

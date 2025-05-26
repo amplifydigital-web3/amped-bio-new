@@ -16,9 +16,11 @@ export const isCustomUserBackground = (url: string | null): boolean => {
   if (!fileKey) return false;
   
   // Check for the pattern used for user uploaded backgrounds
-  // The pattern is typically: backgrounds/theme_{themeId}_{timestamp}.{ext}
+  // Pattern can be either:
+  // 1. backgrounds/theme_{themeId}_{timestamp}.{ext} (old format)
+  // 2. user-uploads/backgrounds/theme_{themeId}_{timestamp}.{ext} (new format)
   return (
-    fileKey.startsWith('backgrounds/theme_') && 
+    (fileKey.startsWith('backgrounds/theme_') || fileKey.startsWith('user-uploads/backgrounds/theme_')) && 
     // Additional check: Make sure it's not one of our standard backgrounds
     !fileKey.includes('/themes/backgrounds/')
   );
