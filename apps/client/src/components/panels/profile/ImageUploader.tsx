@@ -1,6 +1,6 @@
 import { useState, useRef, ChangeEvent } from "react";
 import { trpcClient } from "../../../utils/trpc";
-import { ALLOWED_FILE_EXTENSIONS, ALLOWED_FILE_TYPES, MAX_FILE_SIZE } from "@ampedbio/constants";
+import { ALLOWED_AVATAR_FILE_EXTENSIONS, ALLOWED_AVATAR_FILE_TYPES, MAX_AVATAR_FILE_SIZE } from "@ampedbio/constants";
 import { PhotoEditor } from "./PhotoEditor";
 
 interface ImageUploaderProps {
@@ -21,20 +21,20 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
     if (!file) return;
 
     // Validate file type
-    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-      setError(`Only ${ALLOWED_FILE_EXTENSIONS.join(', ').toUpperCase()} images are allowed`);
+    if (!ALLOWED_AVATAR_FILE_TYPES.includes(file.type)) {
+      setError(`Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(', ').toUpperCase()} images are allowed`);
       return;
     }
 
     // Validate file extension
     const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
-    if (!ALLOWED_FILE_EXTENSIONS.includes(fileExtension)) {
-      setError(`Only ${ALLOWED_FILE_EXTENSIONS.join(', ')} file extensions are allowed`);
+    if (!ALLOWED_AVATAR_FILE_EXTENSIONS.includes(fileExtension)) {
+      setError(`Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(', ')} file extensions are allowed`);
       return;
     }
 
     // Validate file size (max 5MB)
-    if (file.size > MAX_FILE_SIZE) {
+    if (file.size > MAX_AVATAR_FILE_SIZE) {
       setError("File size must be less than 5MB");
       return;
     }
@@ -105,7 +105,7 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
       });
       
       // Request presigned URL from server
-      const presignedData = await trpcClient.user.requestPresignedUrl.mutate({
+      const presignedData = await trpcClient.upload.requestAvatarPresignedUrl.mutate({
         contentType: fileType,
         fileExtension: fileExtension,
         fileSize: file.size,
@@ -115,7 +115,6 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
       console.log("Server response - presigned URL data:", presignedData);
       
       try {
-        // Use the successful approach from s3uploadpresigned.ts script
         console.log("Starting S3 upload with presigned URL...");
         
         const uploadResponse = await fetch(presignedData.presignedUrl, {
@@ -135,7 +134,7 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
         console.log("S3 upload completed successfully:", uploadResponse.status);
         
         // Confirm upload with the server
-        const result = await trpcClient.user.confirmProfilePictureUpload.mutate({
+        const result = await trpcClient.upload.confirmProfilePictureUpload.mutate({
           fileKey: presignedData.fileKey,
           category: "profiles"
         });
@@ -197,7 +196,7 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
               type="file"
               ref={fileInputRef}
               className="hidden"
-              accept={ALLOWED_FILE_TYPES.join(',')}
+              accept={ALLOWED_AVATAR_FILE_TYPES.join(',')}
               onChange={handleFileSelect}
             />
             <button
@@ -210,7 +209,7 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
             </button>
           </div>
           <p className="text-xs text-gray-500">
-            {ALLOWED_FILE_EXTENSIONS.join(', ').toUpperCase()}. Max {MAX_FILE_SIZE / (1024 * 1024)}MB.
+            {ALLOWED_AVATAR_FILE_EXTENSIONS.join(', ').toUpperCase()}. Max {MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB.
           </p>
           {error && (
             <p className="text-xs text-red-600">

@@ -68,6 +68,8 @@ export const mockData = {
       message: "New verification code sent to your email",
       expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
     },
+  },
+  upload: {
     requestPresignedUrl: {
       presignedUrl: "https://demo-upload-url.com",
       fileKey: "demo-upload-key",
