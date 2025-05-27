@@ -4,7 +4,7 @@ import type { Background } from "../../../types/editor";
 import { gradients, photos, videos, backgroundColors } from "../../../utils/backgrounds";
 import CollapsiblePanelWrapper from "../CollapsiblePanelWrapper";
 import { trpcClient } from "../../../utils/trpc";
-import { ALLOWED_FILE_EXTENSIONS, ALLOWED_FILE_TYPES, MAX_FILE_SIZE } from "@ampedbio/constants";
+import { ALLOWED_BACKGROUND_FILE_EXTENSIONS, ALLOWED_BACKGROUND_FILE_TYPES, MAX_BACKGROUND_FILE_SIZE } from "@ampedbio/constants";
 
 interface BackgroundPickerProps {
   value: Background;
@@ -16,7 +16,9 @@ interface BackgroundPickerProps {
 const extractMediaUrl = (result: any, fallback: string): string => {
   if (typeof result === 'object' && result !== null) {
     // Try different potential response structures
-    if ('backgroundVideoUrl' in result && typeof result.backgroundVideoUrl === 'string') {
+    if ('backgroundUrl' in result && typeof result.backgroundUrl === 'string') {
+      return result.backgroundUrl;
+    } else if ('backgroundVideoUrl' in result && typeof result.backgroundVideoUrl === 'string') {
       return result.backgroundVideoUrl;
     } else if ('backgroundImageUrl' in result && typeof result.backgroundImageUrl === 'string') {
       return result.backgroundImageUrl;
@@ -73,21 +75,21 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
       }
 
       // Validate file type (MIME type)
-      if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-        setUploadError(`Unsupported file type. Allowed types: ${ALLOWED_FILE_EXTENSIONS.join(', ').toUpperCase()}`);
+      if (!ALLOWED_BACKGROUND_FILE_TYPES.includes(file.type)) {
+        setUploadError(`Unsupported file type. Allowed types: ${ALLOWED_BACKGROUND_FILE_TYPES.join(', ').toUpperCase()}`);
         return;
       }
 
       // Validate file extension
       const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
-      if (!ALLOWED_FILE_EXTENSIONS.includes(fileExtension)) {
-        setUploadError(`Unsupported file extension. Allowed extensions: ${ALLOWED_FILE_EXTENSIONS.join(', ')}`);
+      if (!ALLOWED_BACKGROUND_FILE_EXTENSIONS.includes(fileExtension)) {
+        setUploadError(`Unsupported file extension. Allowed extensions: ${ALLOWED_BACKGROUND_FILE_EXTENSIONS.join(', ')}`);
         return;
       }
 
       // Validate file size
-      if (file.size > MAX_FILE_SIZE) {
-        setUploadError(`File too large. Maximum size: ${MAX_FILE_SIZE / (1024 * 1024)}MB`);
+      if (file.size > MAX_BACKGROUND_FILE_SIZE) {
+        setUploadError(`File too large. Maximum size: ${MAX_BACKGROUND_FILE_SIZE / (1024 * 1024)}MB`);
         return;
       }
 
@@ -97,22 +99,13 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
         // Log upload attempt
         console.log(`Uploading ${isVideo ? 'video' : 'image'}: ${file.name} (${file.size} bytes, ${file.type}) for theme ID: ${themeId}`);
         
-        // Request presigned URL from server based on file type
-        const presignedData = isVideo ?
-          // For video files
-          await trpcClient.upload.requestThemeBackgroundVideoUrl.mutate({
-            contentType: file.type,
-            fileExtension: fileExtension,
-            fileSize: file.size,
-            themeId: themeId // Use the actual theme ID
-          }) :
-          // For image files
-          await trpcClient.upload.requestThemeBackgroundImageUrl.mutate({
-            contentType: file.type,
-            fileExtension: fileExtension,
-            fileSize: file.size,
-            themeId: themeId // Use the actual theme ID
-          });
+        // Request presigned URL from server
+        const presignedData = await trpcClient.upload.requestThemeBackgroundUrl.mutate({
+          contentType: file.type,
+          fileExtension: fileExtension,
+          fileSize: file.size,
+          themeId: themeId // Use the actual theme ID
+        });
         
         console.log(`Received presigned URL from server for ${isVideo ? 'video' : 'image'}:`, presignedData);
         
@@ -133,18 +126,12 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
         
         console.log("File successfully uploaded to S3");
         
-        // Confirm upload with the server based on file type
-        const result = isVideo ?
-          // For video files
-          await trpcClient.upload.confirmThemeBackgroundVideoUpload.mutate({
-            fileKey: presignedData.fileKey,
-            themeId: themeId // Use the actual theme ID
-          }) :
-          // For image files
-          await trpcClient.upload.confirmThemeBackgroundImageUpload.mutate({
-            fileKey: presignedData.fileKey,
-            themeId: themeId // Use the actual theme ID
-          });
+        // Confirm upload with the server
+        const result = await trpcClient.upload.confirmThemeBackgroundUpload.mutate({
+          fileKey: presignedData.fileKey,
+          themeId: themeId, // Use the actual theme ID
+          mediaType: isVideo ? 'video' : 'image'
+        });
         
         console.log("Upload confirmed by server:", result);
         
@@ -168,7 +155,7 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
         } else if (errorMessage.includes("Network Error")) {
           setUploadError("Network error. Please check your connection and try again.");
         } else if (errorMessage.includes("413") || errorMessage.includes("Payload Too Large")) {
-          setUploadError(`File exceeds server limit. Maximum size: ${MAX_FILE_SIZE / (1024 * 1024)}MB`);
+          setUploadError(`File exceeds server limit. Maximum size: ${MAX_BACKGROUND_FILE_SIZE / (1024 * 1024)}MB`);
         } else {
           setUploadError(errorMessage);
         }
@@ -344,7 +331,7 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
                   <Upload className="w-6 h-6 text-gray-400 mb-2" />
                   <span className="text-sm text-gray-500">Upload image or video</span>
                   <p className="text-xs text-gray-400 mt-1">
-                    Images: {['jpg', 'jpeg', 'png', 'svg'].join(', ').toUpperCase()} | Videos: {['mp4', 'mov', 'avi', 'webm'].join(', ').toUpperCase()} (Max {MAX_FILE_SIZE / (1024 * 1024)}MB)
+                    Images: {['jpg', 'jpeg', 'png', 'svg'].join(', ').toUpperCase()} | Videos: {['mp4', 'mov', 'avi', 'webm'].join(', ').toUpperCase()} (Max {MAX_BACKGROUND_FILE_SIZE / (1024 * 1024)}MB)
                   </p>
                 </>
               )}

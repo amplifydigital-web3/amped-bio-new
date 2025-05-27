@@ -1,11 +1,18 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand, ListBucketsCommand, GetObjectCommand, type S3ClientConfig } from '@aws-sdk/client-s3';
+import { S3Client, DeleteObjectCommand, ListBucketsCommand, type S3ClientConfig } from '@aws-sdk/client-s3';
 // Remove the s3-request-presigner import as we're not using it anymore
 import AWS from 'aws-sdk'; // Import AWS SDK for the getSignedUrlPromise method
 import crypto from 'crypto';
 import { env } from '../env';
-import { ALLOWED_FILE_TYPES, MAX_FILE_SIZE } from '@ampedbio/constants';
+import { 
+  ALLOWED_AVATAR_FILE_TYPES, 
+  ALLOWED_BACKGROUND_FILE_TYPES,
+  ALLOWED_AVATAR_FILE_EXTENSIONS,
+  ALLOWED_BACKGROUND_FILE_EXTENSIONS,
+  MAX_AVATAR_FILE_SIZE,
+  MAX_BACKGROUND_FILE_SIZE
+} from '@ampedbio/constants';
 
-export type FileCategory = 'profiles' | 'backgrounds' | 'media' | 'files';
+export type FileCategory = 'profiles' | 'backgrounds';
 export type S3Operation = 'getObject' | 'putObject' | 'deleteObject';
 
 export interface GenerateFileKeyParams {
@@ -143,30 +150,55 @@ class S3Service {
   }
 
   /**
-   * Validate file type and size
+   * Validate file type and size based on the file category
    */
-  validateFile(contentType: string, fileSize?: number): { valid: boolean; message?: string } {
+  validateFile(contentType: string, category: FileCategory, fileSize?: number): { valid: boolean; message?: string } {
+    // Get allowed file types and size limit based on category
+    let allowedTypes: string[];
+    let maxSize: number;
+    let allowedExtensions: string[];
+    
+    // Set validation rules based on file category
+    if (category === 'profiles') {
+      allowedTypes = ALLOWED_AVATAR_FILE_TYPES;
+      maxSize = MAX_AVATAR_FILE_SIZE;
+      allowedExtensions = ALLOWED_AVATAR_FILE_EXTENSIONS;
+    } else if (category === 'backgrounds') {
+      allowedTypes = ALLOWED_BACKGROUND_FILE_TYPES;
+      maxSize = MAX_BACKGROUND_FILE_SIZE;
+      allowedExtensions = ALLOWED_BACKGROUND_FILE_EXTENSIONS;
+    } else {
+      // Invalid category
+      return {
+        valid: false,
+        message: `Invalid file category: ${category}. Allowed categories are 'profiles' and 'backgrounds'.`
+      }
+    }
+
     // Check file type
-    if (!ALLOWED_FILE_TYPES.includes(contentType)) {
+    if (!allowedTypes.includes(contentType)) {
       console.info('[INFO] File validation failed: Invalid file type', JSON.stringify({ 
+        category,
         contentType, 
-        allowedTypes: ALLOWED_FILE_TYPES 
+        allowedTypes 
       }));
       return { 
         valid: false, 
-        message: `Invalid file type. Allowed types: ${ALLOWED_FILE_TYPES.join(', ')}` 
+        message: `Invalid file type for ${category}. Allowed types: ${allowedTypes.join(', ')}` 
       };
     }
 
     // Check file size if provided
-    if (fileSize !== undefined && fileSize > MAX_FILE_SIZE) {
+    if (fileSize !== undefined && fileSize > maxSize) {
+      const maxSizeMB = maxSize / (1024 * 1024);
       console.info('[INFO] File validation failed: File size exceeds limit', JSON.stringify({ 
+        category,
         fileSize, 
-        maxSize: MAX_FILE_SIZE 
+        maxSize 
       }));
       return {
         valid: false,
-        message: `File size exceeds the maximum allowed size of 5MB`
+        message: `File size exceeds the maximum allowed size of ${maxSizeMB}MB for ${category}`
       };
     }
 
@@ -269,8 +301,8 @@ class S3Service {
     fileKey: string;       // File identifier to be stored in the database
   }> {
     try {
-      // Validate file type
-      const validation = this.validateFile(contentType);
+      // Validate file type based on category
+      const validation = this.validateFile(contentType, category);
       if (!validation.valid) {
         console.error('[ERROR] Failed to generate presigned URL', validation.message, JSON.stringify({
           category, userId, contentType

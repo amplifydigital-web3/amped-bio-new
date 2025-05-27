@@ -3,49 +3,38 @@ import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { s3Service, FileCategory } from "../services/S3Service";
-import { ALLOWED_FILE_EXTENSIONS, ALLOWED_FILE_TYPES, MAX_FILE_SIZE } from "@ampedbio/constants";
+import { 
+  
+  ALLOWED_AVATAR_FILE_EXTENSIONS, ALLOWED_AVATAR_FILE_TYPES, MAX_AVATAR_FILE_SIZE,
+  ALLOWED_BACKGROUND_FILE_EXTENSIONS, ALLOWED_BACKGROUND_FILE_TYPES, MAX_BACKGROUND_FILE_SIZE } from "@ampedbio/constants";
 
 const prisma = new PrismaClient();
 
 // Schema for requesting a presigned URL
 const requestPresignedUrlSchema = z.object({
   contentType: z.string().refine(
-    (value) => ALLOWED_FILE_TYPES.includes(value),
-    { message: `Only ${ALLOWED_FILE_EXTENSIONS.join(', ').toUpperCase()} formats are supported` }
+    (value) => ALLOWED_AVATAR_FILE_TYPES.includes(value),
+    { message: `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(', ').toUpperCase()} formats are supported` }
   ),
   fileExtension: z.string().refine(
-    (value) => ALLOWED_FILE_EXTENSIONS.includes(value.toLowerCase()),
-    { message: `File extension must be ${ALLOWED_FILE_EXTENSIONS.join(', ')}` }
+    (value) => ALLOWED_AVATAR_FILE_EXTENSIONS.includes(value.toLowerCase()),
+    { message: `File extension must be ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(', ')}` }
   ),
-  fileSize: z.number().max(MAX_FILE_SIZE, { message: `File size must be less than ${MAX_FILE_SIZE / (1024 * 1024)}MB` }),
+  fileSize: z.number().max(MAX_AVATAR_FILE_SIZE, { message: `File size must be less than ${MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB` }),
   category: z.enum(['profiles', 'backgrounds', 'media', 'files']).default('profiles')
 });
 
-// Schema for requesting a presigned URL for a theme background video
-const requestThemeBackgroundVideoUrlSchema = z.object({
+// Schema for requesting a presigned URL for a theme background (image or video)
+const requestThemeBackgroundUrlSchema = z.object({
   contentType: z.string().refine(
-    (value) => ALLOWED_FILE_TYPES.includes(value) && value.startsWith('video/'),
-    { message: `Only ${['mp4', 'mov', 'avi', 'webm'].join(', ').toUpperCase()} video formats are supported` }
+    (value) => ALLOWED_BACKGROUND_FILE_TYPES.includes(value) && (value.startsWith('image/') || value.startsWith('video/')),
+    { message: `Only ${ALLOWED_BACKGROUND_FILE_EXTENSIONS.join(', ').toUpperCase()} formats are supported` }
   ),
   fileExtension: z.string().refine(
-    (value) => ['mp4', 'mov', 'avi', 'webm'].includes(value.toLowerCase()),
-    { message: `File extension must be one of: mp4, mov, avi, webm` }
+    (value) => ALLOWED_BACKGROUND_FILE_EXTENSIONS.includes(value.toLowerCase()),
+    { message: `File extension must be ${ALLOWED_BACKGROUND_FILE_EXTENSIONS.join(', ')}` }
   ),
-  fileSize: z.number().max(MAX_FILE_SIZE, { message: `File size must be less than ${MAX_FILE_SIZE / (1024 * 1024)}MB` }),
-  themeId: z.number()
-});
-
-// Schema for requesting a presigned URL for a theme background image
-const requestThemeBackgroundImageUrlSchema = z.object({
-  contentType: z.string().refine(
-    (value) => ALLOWED_FILE_TYPES.includes(value) && value.startsWith('image/'),
-    { message: `Only ${['jpg', 'jpeg', 'png', 'svg'].join(', ').toUpperCase()} image formats are supported` }
-  ),
-  fileExtension: z.string().refine(
-    (value) => ['jpg', 'jpeg', 'png', 'svg'].includes(value.toLowerCase()),
-    { message: `File extension must be one of: jpg, jpeg, png, svg` }
-  ),
-  fileSize: z.number().max(MAX_FILE_SIZE, { message: `File size must be less than ${MAX_FILE_SIZE / (1024 * 1024)}MB` }),
+  fileSize: z.number().max(MAX_BACKGROUND_FILE_SIZE, { message: `File size must be less than ${MAX_BACKGROUND_FILE_SIZE / (1024 * 1024)}MB` }),
   themeId: z.number()
 });
 
@@ -55,31 +44,26 @@ const confirmUploadSchema = z.object({
   category: z.enum(['profiles', 'backgrounds', 'media', 'files']).default('profiles')
 });
 
-// Schema for confirming successful theme background video upload
-const confirmThemeBackgroundVideoSchema = z.object({
+// Schema for confirming successful theme background upload (image or video)
+const confirmThemeBackgroundSchema = z.object({
   fileKey: z.string().min(1),
-  themeId: z.number()
-});
-
-// Schema for confirming successful theme background image upload
-const confirmThemeBackgroundImageSchema = z.object({
-  fileKey: z.string().min(1),
-  themeId: z.number()
+  themeId: z.number(),
+  mediaType: z.enum(['image', 'video'])
 });
 
 export const uploadRouter = router({
   // Generate a presigned URL for uploading profile picture
-  requestPresignedUrl: privateProcedure
+  requestAvatarPresignedUrl: privateProcedure
     .input(requestPresignedUrlSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id;
       
       try {
         // Check file size
-        if (input.fileSize > MAX_FILE_SIZE) {
+        if (input.fileSize > MAX_AVATAR_FILE_SIZE) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "File size exceeds the 5MB limit",
+            message: `File size exceeds the ${MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB limit`,
           });
         }
         
@@ -105,18 +89,18 @@ export const uploadRouter = router({
       }
     }),
     
-  // Generate a presigned URL for uploading theme background video
-  requestThemeBackgroundVideoUrl: privateProcedure
-    .input(requestThemeBackgroundVideoUrlSchema)
+  // Generate a presigned URL for uploading theme background (image or video)
+  requestThemeBackgroundUrl: privateProcedure
+    .input(requestThemeBackgroundUrlSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id;
       
       try {
         // Check file size
-        if (input.fileSize > MAX_FILE_SIZE) {
+        if (input.fileSize > MAX_BACKGROUND_FILE_SIZE) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: `File size exceeds the ${MAX_FILE_SIZE / (1024 * 1024)}MB limit`,
+            message: `File size exceeds the ${MAX_BACKGROUND_FILE_SIZE / (1024 * 1024)}MB limit`,
           });
         }
         
@@ -135,57 +119,8 @@ export const uploadRouter = router({
           });
         }
         
-        // Use the S3Service to generate a presigned URL with a custom file key 
-        // that includes the theme ID
-        const fileKey = `user-uploads/backgrounds/theme_${input.themeId}_${Date.now()}.${input.fileExtension}`;
-        const presignedUrl = await s3Service.getSignedUrl(fileKey, 'putObject', 300, input.contentType);
-        
-        return {
-          presignedUrl,
-          fileKey,
-          expiresIn: 300, // Seconds
-        };
-      } catch (error) {
-        console.error("Error generating presigned URL for theme background video:", error);
-        if (error instanceof TRPCError) {
-          throw error;
-        }
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to generate upload URL",
-        });
-      }
-    }),
-  
-  // Generate a presigned URL for uploading theme background image
-  requestThemeBackgroundImageUrl: privateProcedure
-    .input(requestThemeBackgroundImageUrlSchema)
-    .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.id;
-      
-      try {
-        // Check file size
-        if (input.fileSize > MAX_FILE_SIZE) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: `File size exceeds the ${MAX_FILE_SIZE / (1024 * 1024)}MB limit`,
-          });
-        }
-        
-        // Verify that the theme belongs to the user
-        const theme = await prisma.theme.findUnique({
-          where: {
-            id: input.themeId,
-            user_id: userId
-          }
-        });
-        
-        if (!theme) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Theme not found or you don't have permission to modify it",
-          });
-        }
+        // Get the media type based on content type
+        const isVideo = input.contentType.startsWith('video/');
         
         // Use the S3Service to generate a presigned URL with a custom file key 
         // that includes the theme ID
@@ -195,10 +130,11 @@ export const uploadRouter = router({
         return {
           presignedUrl,
           fileKey,
+          mediaType: isVideo ? 'video' : 'image',
           expiresIn: 300, // Seconds
         };
       } catch (error) {
-        console.error("Error generating presigned URL for theme background image:", error);
+        console.error("Error generating presigned URL for theme background:", error);
         if (error instanceof TRPCError) {
           throw error;
         }
@@ -209,9 +145,9 @@ export const uploadRouter = router({
       }
     }),
     
-  // Confirm successful upload and update theme with the video URL
-  confirmThemeBackgroundVideoUpload: privateProcedure
-    .input(confirmThemeBackgroundVideoSchema)
+  // Confirm successful upload and update theme with the background URL (image or video)
+  confirmThemeBackgroundUpload: privateProcedure
+    .input(confirmThemeBackgroundSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id;
       
@@ -231,103 +167,8 @@ export const uploadRouter = router({
           });
         }
 
-        // Get the public URL for the background video
-        const backgroundVideoUrl = s3Service.getFileUrl(input.fileKey);
-        
-        // Parse the current theme config
-        let themeConfig = theme.config as Record<string, any> || {};
-        
-        // If there's an existing video background, we might want to delete it later
-        let previousFileKey: string | null = null;
-        
-        if (themeConfig.background && 
-            themeConfig.background.type === "video" &&
-            themeConfig.background.value) {
-          previousFileKey = s3Service.extractFileKeyFromUrl(themeConfig.background.value);
-        }
-        
-        // Update the theme configuration with the new video
-        themeConfig = {
-          ...themeConfig,
-          background: {
-            // Keep any other background properties if they exist
-            ...(themeConfig.background || {}),
-            // Override with new values
-            type: "video",
-            value: backgroundVideoUrl,
-          }
-        };
-        
-        // Update theme in database
-        const updatedTheme = await prisma.theme.update({
-          where: { 
-            id: input.themeId 
-          },
-          data: {
-            config: themeConfig,
-            updated_at: new Date()
-          },
-        });
-        
-        // Delete the previous background video if it exists and belongs to this theme/user
-        if (previousFileKey && previousFileKey !== input.fileKey) {
-          try {
-            // Only delete if the file belongs to this theme and user
-            if (s3Service.isThemeOwnerFile(previousFileKey, input.themeId, userId)) {
-              console.info('[INFO] Deleting previous theme background video that belongs to user', 
-                JSON.stringify({ previousFileKey, themeId: input.themeId, userId }));
-              await s3Service.deleteFile(previousFileKey);
-            } else {
-              console.info('[INFO] Skipping deletion of previous background that may not belong to user',
-                JSON.stringify({ previousFileKey, themeId: input.themeId, userId }));
-            }
-          } catch (deleteError) {
-            // Just log the error but don't fail the whole operation
-            console.warn('Failed to delete previous background video:', deleteError);
-          }
-        }
-        
-        return {
-          success: true,
-          backgroundVideoUrl,
-          theme: updatedTheme
-        };
-      } catch (error) {
-        console.error("Error updating theme background video:", error);
-        if (error instanceof TRPCError) {
-          throw error;
-        }
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to update theme background video",
-        });
-      }
-    }),
-    
-  // Confirm successful upload and update theme with the image URL
-  confirmThemeBackgroundImageUpload: privateProcedure
-    .input(confirmThemeBackgroundImageSchema)
-    .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.id;
-      
-      try {
-        // Get the theme
-        const theme = await prisma.theme.findUnique({
-          where: {
-            id: input.themeId,
-            user_id: userId
-          }
-        });
-
-        if (!theme) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'Theme not found or you don\'t have permission to modify it',
-          });
-        }
-
-        // Get the public URL for the background image
-        const backgroundImageUrl = s3Service.getFileUrl(input.fileKey);
+        // Get the public URL for the background
+        const backgroundUrl = s3Service.getFileUrl(input.fileKey);
         
         // Parse the current theme config
         let themeConfig = theme.config as Record<string, any> || {};
@@ -335,20 +176,19 @@ export const uploadRouter = router({
         // If there's an existing background, we might want to delete it later
         let previousFileKey: string | null = null;
         
-        if (themeConfig.background && 
-            themeConfig.background.value) {
+        if (themeConfig.background && themeConfig.background.value) {
           previousFileKey = s3Service.extractFileKeyFromUrl(themeConfig.background.value);
         }
         
-        // Update the theme configuration with the new image
+        // Update the theme configuration with the new background
         themeConfig = {
           ...themeConfig,
           background: {
             // Keep any other background properties if they exist
             ...(themeConfig.background || {}),
             // Override with new values
-            type: "image",
-            value: backgroundImageUrl,
+            type: input.mediaType,
+            value: backgroundUrl,
           }
         };
         
@@ -363,12 +203,12 @@ export const uploadRouter = router({
           },
         });
         
-        // Delete the previous background image/video if it exists and belongs to this theme/user
+        // Delete the previous background if it exists and belongs to this theme/user
         if (previousFileKey && previousFileKey !== input.fileKey) {
           try {
             // Only delete if the file belongs to this theme and user
             if (s3Service.isThemeOwnerFile(previousFileKey, input.themeId, userId)) {
-              console.info('[INFO] Deleting previous theme background image that belongs to user', 
+              console.info('[INFO] Deleting previous theme background that belongs to user', 
                 JSON.stringify({ previousFileKey, themeId: input.themeId, userId }));
               await s3Service.deleteFile(previousFileKey);
             } else {
@@ -383,17 +223,17 @@ export const uploadRouter = router({
         
         return {
           success: true,
-          backgroundImageUrl,
+          backgroundUrl,
           theme: updatedTheme
         };
       } catch (error) {
-        console.error("Error updating theme background image:", error);
+        console.error("Error updating theme background:", error);
         if (error instanceof TRPCError) {
           throw error;
         }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to update theme background image",
+          message: "Failed to update theme background",
         });
       }
     }),
