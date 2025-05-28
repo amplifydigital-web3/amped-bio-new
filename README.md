@@ -99,8 +99,8 @@ To run the full development environment (client + server):
 # Install dependencies
 pnpm install
 
-# Start development environment
-pnpm dev
+# Start full development environment (client + server)
+pnpm dev:full
 ```
 
 ### Client-Only Development
@@ -119,12 +119,17 @@ For more details on client-only mode, see [CLIENT_ONLY.md](docs/CLIENT_ONLY.md).
 
 ### Development Workflow
 
-Run all applications in development mode:
+Run client-only development (default):
 ```sh
 pnpm dev
 ```
 
-Run only the client:
+Run full stack development (client + server):
+```sh
+pnpm dev:full
+```
+
+Run only the client explicitly:
 ```sh
 pnpm --filter client dev
 ```
@@ -265,3 +270,22 @@ act -s MY_SECRET=value
 ```
 
 For more options and information, check the [Act documentation](https://github.com/nektos/act#usage).
+
+## Using Bolt for Development
+
+[Bolt](https://boltjs.com/) is an development tool that can be used with this project to automatically run `pnpm install` and `pnpm dev` commands. The project is configured so that when using Bolt:
+
+1. Only the client application will be started (not the server)
+2. Required packages will be pre-built before starting the client
+
+This setup provides a faster development experience when you're focused on frontend work. To use Bolt with this project:
+
+1. Install Bolt if you haven't already
+2. Open the project in Bolt
+3. Bolt will automatically run the optimized client-only development setup
+
+If you need to run both client and server while using Bolt, you can manually run:
+
+```sh
+pnpm dev:full
+```
