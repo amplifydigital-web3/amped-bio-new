@@ -21,6 +21,9 @@ amped-bio-new/
 │       ├── prisma/     # Database schema and migrations
 │       └── ...
 │
+├── docs/               # Documentation files
+│   └── CLIENT_ONLY.md  # Guide for client-only mode
+│
 ├── pnpm-workspace.yaml # pnpm workspace configuration
 ├── turbo.json          # Turborepo configuration
 └── package.json        # Root package.json for workspace management
@@ -85,6 +88,34 @@ Make sure you have the following installed:
     ```sh
     pnpm install
     ```
+
+## Development
+
+### Full Stack Development
+
+To run the full development environment (client + server):
+
+```bash
+# Install dependencies
+pnpm install
+
+# Start development environment
+pnpm dev
+```
+
+### Client-Only Development
+
+To run only the client application without needing the server:
+
+```bash
+# Install only client-related dependencies
+pnpm client-only:install
+
+# Run client in demo mode (no server required)
+pnpm client-only
+```
+
+For more details on client-only mode, see [CLIENT_ONLY.md](docs/CLIENT_ONLY.md).
 
 ### Development Workflow
 
