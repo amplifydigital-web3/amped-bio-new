@@ -19,7 +19,7 @@ const baseURL = withRelatedProject({
 
 // Create an Axios instance with default configuration
 const api = axios.create({
-  baseURL: `${baseURL}/api`,
+  baseURL: `${import.meta.env.VITE_API_URL ?? baseURL}/api`,
 });
 
 // Add interceptor to automatically add authentication token to requests
