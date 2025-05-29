@@ -157,7 +157,7 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
   );
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="fixed top-0 left-0 w-screen h-screen overflow-y-auto bg-black/50 flex items-center justify-center z-50 outline-none">
       <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">

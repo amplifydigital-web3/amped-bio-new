@@ -1,6 +1,6 @@
 import { useState, useRef, ChangeEvent } from "react";
 import { trpcClient } from "../../../utils/trpc";
-import { ALLOWED_FILE_EXTENSIONS, ALLOWED_FILE_TYPES, MAX_FILE_SIZE } from "@ampedbio/constants";
+import { ALLOWED_AVATAR_FILE_EXTENSIONS, ALLOWED_AVATAR_FILE_TYPES, MAX_AVATAR_FILE_SIZE } from "@ampedbio/constants";
 import { PhotoEditor } from "./PhotoEditor";
 
 interface ImageUploaderProps {
@@ -9,33 +9,33 @@ interface ImageUploaderProps {
 }
 
 export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [showPhotoEditor, setShowPhotoEditor] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [showPhotoEditor, setShowPhotoEditor] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const handleFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     // Validate file type
-    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-      setError(`Only ${ALLOWED_FILE_EXTENSIONS.join(', ').toUpperCase()} images are allowed`);
+    if (!ALLOWED_AVATAR_FILE_TYPES.includes(file.type)) {
+      setError(`Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(', ').toUpperCase()} images are allowed`);
       return;
     }
 
     // Validate file extension
     const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
-    if (!ALLOWED_FILE_EXTENSIONS.includes(fileExtension)) {
-      setError(`Only ${ALLOWED_FILE_EXTENSIONS.join(', ')} file extensions are allowed`);
+    if (!ALLOWED_AVATAR_FILE_EXTENSIONS.includes(fileExtension)) {
+      setError(`Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(', ')} file extensions are allowed`);
       return;
     }
 
     // Validate file size (max 5MB)
-    if (file.size > MAX_FILE_SIZE) {
-      setError("File size must be less than 5MB");
+    if (file.size > MAX_AVATAR_FILE_SIZE) {
+      setError(`File size must be less than ${(MAX_AVATAR_FILE_SIZE / (1024 * 1024)).toFixed(2)}MB`);
       return;
     }
 
@@ -90,14 +90,15 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
   };
 
   const handleUpload = async (file: File) => {
-    // Start upload process
     setIsUploading(true);
+    setError(null); // Clear previous errors
+    let presignedDataForLogging: { presignedUrl: string; fileKey: string } | null = null;
 
     try {
       const fileType = file.type;
       const fileExtension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
       
-      console.log("Preparing to upload file with:", {
+      console.log("Preparing to upload profile image with:", {
         contentType: fileType,
         fileExtension,
         fileName: file.name,
@@ -105,19 +106,18 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
       });
       
       // Request presigned URL from server
-      const presignedData = await trpcClient.user.requestPresignedUrl.mutate({
+      const presignedData = await trpcClient.upload.requestAvatarPresignedUrl.mutate({
         contentType: fileType,
         fileExtension: fileExtension,
         fileSize: file.size,
         category: "profiles"
       });
+      presignedDataForLogging = presignedData;
       
-      console.log("Server response - presigned URL data:", presignedData);
+      console.log("Server response - presigned URL data for profile image:", presignedData);
       
       try {
-        // Use the successful approach from s3uploadpresigned.ts script
-        console.log("Starting S3 upload with presigned URL...");
-        
+        console.log("Starting S3 upload for profile image with presigned URL:", presignedData.presignedUrl.substring(0, 100) + "...");
         const uploadResponse = await fetch(presignedData.presignedUrl, {
           method: 'PUT',
           body: file, // Use the raw file object
@@ -128,39 +128,72 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
         
         if (!uploadResponse.ok) {
           const errorText = await uploadResponse.text();
-          console.error("S3 upload failed with response:", errorText);
-          throw new Error(`Upload failed with status: ${uploadResponse.status}`);
+          const errorDetails = {
+            status: uploadResponse.status,
+            statusText: uploadResponse.statusText,
+            url: presignedData.presignedUrl.substring(0, 100) + "...",
+            responseBody: errorText,
+          };
+          console.error("S3 profile image upload failed with HTTP error:", errorDetails);
+          throw new Error(`S3 Upload HTTP Error: ${uploadResponse.status} ${uploadResponse.statusText}. Response: ${errorText.substring(0, 200)}`);
         }
         
-        console.log("S3 upload completed successfully:", uploadResponse.status);
+        console.log("S3 profile image upload completed successfully:", uploadResponse.status);
         
         // Confirm upload with the server
-        const result = await trpcClient.user.confirmProfilePictureUpload.mutate({
+        const result = await trpcClient.upload.confirmProfilePictureUpload.mutate({
           fileKey: presignedData.fileKey,
           category: "profiles"
         });
         
-        console.log("Server response - upload confirmation:", result);
+        console.log("Server response - profile image upload confirmation:", result);
         
         // Update the profile with the new image URL
         onImageChange(result.profilePictureUrl);
         
-      } catch (uploadError: any) {
-        console.error("S3 upload error:", uploadError);
-        console.error("Upload error details:", {
-          message: uploadError?.message,
-          response: uploadError?.response?.data || uploadError?.response
+      } catch (uploadError: any) { 
+        let detailedMessage = `Failed to upload profile image to S3.`;
+        if (uploadError && uploadError.message?.startsWith('S3 Upload HTTP Error:')) {
+            detailedMessage += ` Details: ${uploadError.message}`;
+        } else { 
+            detailedMessage += ` Network error during upload: ${(uploadError && uploadError.message) ? uploadError.message : 'Unknown fetch error'}. Check browser console for CORS or network issues. URL (partial): ${presignedDataForLogging?.presignedUrl.substring(0,100)}...`;
+        }
+        console.error("S3 direct profile image upload error:", {
+            message: (uploadError && uploadError.message) ? uploadError.message : 'Unknown fetch error',
+            stack: (uploadError && uploadError.stack) ? uploadError.stack : 'No stack available',
+            url: presignedDataForLogging?.presignedUrl.substring(0,100)+"...",
+            fileKey: presignedDataForLogging?.fileKey,
         });
-        throw new Error(`Failed to upload image: ${uploadError.message}`);
+        throw new Error(detailedMessage); 
       }
-    } catch (error: any) {
-      console.error("Error in upload process:", error);
-      console.error("Error details:", {
-        message: error?.message,
-        response: error?.response?.data,
-        status: error?.response?.status
+    } catch (error: any) { 
+      let finalUserMessage = "Failed to upload profile image.";
+      let logMessage = "Error in overall profile image upload process.";
+
+      if (error && error.message?.startsWith('Failed to upload profile image to S3.')) {
+        finalUserMessage = error.message; 
+        logMessage = `Upload to S3 failed for profile image: ${error.message}`;
+      } else if (presignedDataForLogging === null && error && error.message) { 
+        finalUserMessage = `Failed to prepare profile image upload: ${error.message}`;
+        logMessage = `Error requesting presigned URL for profile image: ${error.message}`;
+      } else if (error && error.message) {
+        finalUserMessage = `An unexpected error occurred during profile image upload: ${error.message}`;
+        logMessage = `Unexpected error in profile image upload process: ${error.message}`;
+      } else {
+        finalUserMessage = "An unexpected error occurred during profile image upload.";
+        logMessage = "Unexpected error in profile image upload process with no message.";
+      }
+      
+      console.error(logMessage, {
+        originalErrorMessage: (error && error.message) ? error.message : 'No message available',
+        originalErrorStack: (error && error.stack) ? error.stack : 'No stack available',
+        presignedUrlAttempted: presignedDataForLogging?.presignedUrl.substring(0,100)+"...",
+        fileKeyAttempted: presignedDataForLogging?.fileKey,
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: file.size,
       });
-      setError(error?.message || "Failed to upload image");
+      setError(finalUserMessage);
     } finally {
       setIsUploading(false);
     }
@@ -197,7 +230,7 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
               type="file"
               ref={fileInputRef}
               className="hidden"
-              accept={ALLOWED_FILE_TYPES.join(',')}
+              accept={ALLOWED_AVATAR_FILE_TYPES.join(',')}
               onChange={handleFileSelect}
             />
             <button
@@ -210,7 +243,7 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
             </button>
           </div>
           <p className="text-xs text-gray-500">
-            {ALLOWED_FILE_EXTENSIONS.join(', ').toUpperCase()}. Max {MAX_FILE_SIZE / (1024 * 1024)}MB.
+            {ALLOWED_AVATAR_FILE_EXTENSIONS.join(', ').toUpperCase()}. Max {MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB.
           </p>
           {error && (
             <p className="text-xs text-red-600">

@@ -1,12 +1,26 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand, ListBucketsCommand, GetObjectCommand, type S3ClientConfig } from '@aws-sdk/client-s3';
+import { S3Client, DeleteObjectCommand, ListBucketsCommand, type S3ClientConfig } from '@aws-sdk/client-s3';
 // Remove the s3-request-presigner import as we're not using it anymore
 import AWS from 'aws-sdk'; // Import AWS SDK for the getSignedUrlPromise method
 import crypto from 'crypto';
 import { env } from '../env';
-import { ALLOWED_FILE_TYPES, MAX_FILE_SIZE } from '@ampedbio/constants';
+import { 
+  ALLOWED_AVATAR_FILE_TYPES, 
+  ALLOWED_BACKGROUND_FILE_TYPES,
+  ALLOWED_AVATAR_FILE_EXTENSIONS,
+  ALLOWED_BACKGROUND_FILE_EXTENSIONS,
+  MAX_AVATAR_FILE_SIZE,
+  MAX_BACKGROUND_FILE_SIZE
+} from '@ampedbio/constants';
 
-export type FileCategory = 'profiles' | 'backgrounds' | 'media' | 'files';
+export type FileCategory = 'profiles' | 'backgrounds';
 export type S3Operation = 'getObject' | 'putObject' | 'deleteObject';
+
+export interface GenerateFileKeyParams {
+  category: FileCategory;
+  userId: number;
+  fileExtension: string;
+  themeId?: number;
+}
 
 class S3Service {
   private s3Client: S3Client; // For newer AWS SDK operations
@@ -136,30 +150,55 @@ class S3Service {
   }
 
   /**
-   * Validate file type and size
+   * Validate file type and size based on the file category
    */
-  validateFile(contentType: string, fileSize?: number): { valid: boolean; message?: string } {
+  validateFile(contentType: string, category: FileCategory, fileSize?: number): { valid: boolean; message?: string } {
+    // Get allowed file types and size limit based on category
+    let allowedTypes: string[];
+    let maxSize: number;
+    let allowedExtensions: string[];
+    
+    // Set validation rules based on file category
+    if (category === 'profiles') {
+      allowedTypes = ALLOWED_AVATAR_FILE_TYPES;
+      maxSize = MAX_AVATAR_FILE_SIZE;
+      allowedExtensions = ALLOWED_AVATAR_FILE_EXTENSIONS;
+    } else if (category === 'backgrounds') {
+      allowedTypes = ALLOWED_BACKGROUND_FILE_TYPES;
+      maxSize = MAX_BACKGROUND_FILE_SIZE;
+      allowedExtensions = ALLOWED_BACKGROUND_FILE_EXTENSIONS;
+    } else {
+      // Invalid category
+      return {
+        valid: false,
+        message: `Invalid file category: ${category}. Allowed categories are 'profiles' and 'backgrounds'.`
+      }
+    }
+
     // Check file type
-    if (!ALLOWED_FILE_TYPES.includes(contentType)) {
+    if (!allowedTypes.includes(contentType)) {
       console.info('[INFO] File validation failed: Invalid file type', JSON.stringify({ 
+        category,
         contentType, 
-        allowedTypes: ALLOWED_FILE_TYPES 
+        allowedTypes 
       }));
       return { 
         valid: false, 
-        message: `Invalid file type. Allowed types: ${ALLOWED_FILE_TYPES.join(', ')}` 
+        message: `Invalid file type for ${category}. Allowed types: ${allowedTypes.join(', ')}` 
       };
     }
 
     // Check file size if provided
-    if (fileSize !== undefined && fileSize > MAX_FILE_SIZE) {
+    if (fileSize !== undefined && fileSize > maxSize) {
+      const maxSizeMB = maxSize / (1024 * 1024);
       console.info('[INFO] File validation failed: File size exceeds limit', JSON.stringify({ 
+        category,
         fileSize, 
-        maxSize: MAX_FILE_SIZE 
+        maxSize 
       }));
       return {
         valid: false,
-        message: `File size exceeds the maximum allowed size of 5MB`
+        message: `File size exceeds the maximum allowed size of ${maxSizeMB}MB for ${category}`
       };
     }
 
@@ -170,15 +209,26 @@ class S3Service {
    * Generate a unique file key for an uploaded file
    * The file key should NOT include the bucket name - that's specified separately in S3 operations
    */
-  generateUniqueFileKey(category: FileCategory, userId: number, fileExtension: string): string {
+  generateUniqueFileKey({ category, userId, fileExtension, themeId }: GenerateFileKeyParams): string {
+    // Validate required parameters for backgrounds
+    if (category === 'backgrounds' && !themeId) {
+      throw new Error('themeId is required for backgrounds category');
+    }
+
     const timestamp = Date.now();
     const randomString = crypto.randomBytes(8).toString('hex');
     
-    // Use simple folder structure using just the category name
-    // No bucket name needed in the file key - S3 handles that separately
-    const fileKey = `${category}/${timestamp}-${randomString}-${userId}.${fileExtension}`;
+    let fileKey: string;
     
-    console.info('[INFO] Generated unique file key', JSON.stringify({ fileKey, category, userId }));
+    if (category === 'backgrounds' && themeId) {
+      // For theme background uploads, store in user-uploads directory with theme ID in the file key
+      fileKey = `user-uploads/backgrounds/theme_${themeId}_${timestamp}-${randomString}-${userId}.${fileExtension}`;
+    } else {
+      // For other file categories, use the standard format
+      fileKey = `${category}/${timestamp}-${randomString}-${userId}.${fileExtension}`;
+    }
+    
+    console.info('[INFO] Generated unique file key', JSON.stringify({ fileKey, category, userId, themeId }));
     return fileKey;
   }
 
@@ -245,22 +295,23 @@ class S3Service {
     category: FileCategory,
     userId: number, 
     contentType: string, 
-    fileExtension: string
+    fileExtension: string,
+    themeId?: number
   ): Promise<{
     presignedUrl: string;  // Temporary URL for upload only
     fileKey: string;       // File identifier to be stored in the database
   }> {
     try {
-      // Validate file type
-      const validation = this.validateFile(contentType);
+      // Validate file type based on category
+      const validation = this.validateFile(contentType, category);
       if (!validation.valid) {
         console.error('[ERROR] Failed to generate presigned URL', validation.message, JSON.stringify({
-          category, userId, contentType
+          category, userId, contentType, themeId
         }));
         throw new Error(validation.message);
       }
       
-      const fileKey = this.generateUniqueFileKey(category, userId, fileExtension);
+      const fileKey = this.generateUniqueFileKey({ category, userId, fileExtension, themeId });
       
       // Get a signed URL for putting an object
       const presignedUrl = await this.getSignedUrl(fileKey, 'putObject', 300, contentType);
@@ -272,7 +323,7 @@ class S3Service {
     } catch (error) {
       console.error('[ERROR] Error generating presigned URL', 
         error instanceof Error ? error.stack : error, 
-        JSON.stringify({ category, userId, contentType }));
+        JSON.stringify({ category, userId, contentType, themeId }));
       throw error;
     }
   }
@@ -343,6 +394,7 @@ class S3Service {
       // If it's not a valid URL, it might already be just a key
       if (url.startsWith('profiles/') || 
           url.startsWith('backgrounds/') || 
+          url.startsWith('user-uploads/backgrounds/') || 
           url.startsWith('media/') ||
           url.startsWith('files/')) {
         console.info('[INFO] URL appears to be a file key already', JSON.stringify({ url }));
@@ -354,6 +406,38 @@ class S3Service {
         JSON.stringify({ url }));
       return null;
     }
+  }
+
+  /**
+   * Check if a file key belongs to a specific theme and user
+   * This is used to determine if we should delete the old background when a new one is uploaded
+   * @param fileKey - The file key to check
+   * @param themeId - The theme ID to check for
+   * @param userId - The user ID to check for
+   * @returns boolean - True if the file key belongs to the specified theme and user
+   */
+  isThemeOwnerFile(fileKey: string, themeId: number, userId: number): boolean {
+    if (!fileKey) return false;
+    
+    // Check if it's a background category file (either in the old or new location)
+    if (!fileKey.startsWith('backgrounds/') && !fileKey.startsWith('user-uploads/backgrounds/')) return false;
+    
+    // Check if it contains both the theme ID and user ID
+    const hasThemeId = fileKey.includes(`theme_${themeId}_`);
+    const hasUserId = fileKey.includes(`-${userId}.`);
+    
+    const result = hasThemeId && hasUserId;
+    
+    console.info('[INFO] Checking if file belongs to theme and user', JSON.stringify({
+      fileKey,
+      themeId,
+      userId,
+      hasThemeId,
+      hasUserId,
+      result
+    }));
+    
+    return result;
   }
 }
 
