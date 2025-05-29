@@ -119,8 +119,16 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
         
         if (!uploadResponse.ok) {
           const errorText = await uploadResponse.text();
-          console.error("S3 upload failed:", errorText);
-          throw new Error(`Upload failed with status: ${uploadResponse.status}`);
+          const errorDetails = {
+            status: uploadResponse.status,
+            statusText: uploadResponse.statusText,
+            url: presignedData.presignedUrl.substring(0, 100) + "...", // Log partial URL for security
+            responseBody: errorText,
+            requestHeaders: { 'Content-Type': file.type } // Log request headers
+          };
+          console.error("S3 upload failed with HTTP error:", errorDetails);
+          // Include more details from the server if available (e.g. XML error response from S3)
+          throw new Error(`Upload failed with status: ${uploadResponse.status} ${uploadResponse.statusText}. Server response: ${errorText.substring(0, 200)}`);
         }
         
         console.log("File successfully uploaded to S3");
@@ -128,10 +136,10 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
         // Confirm upload with the server
         const result = await trpcClient.upload.confirmThemeBackgroundUpload.mutate({
           fileKey: presignedData.fileKey,
-          mediaType: isVideo ? 'video' : 'image'
+          mediaType: presignedData.mediaType as 'image' | 'video', // Added type assertion
         });
-        
-        console.log("Upload confirmed by server:", result);
+
+        console.log("Server confirmed background upload:", result);
         
         // Extract URL using helper function - this will extract the URL whether it's an image or video
         const fileUrl = extractMediaUrl(result, presignedData.fileKey);
