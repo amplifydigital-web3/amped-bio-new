@@ -295,7 +295,8 @@ class S3Service {
     category: FileCategory,
     userId: number, 
     contentType: string, 
-    fileExtension: string
+    fileExtension: string,
+    themeId?: number
   ): Promise<{
     presignedUrl: string;  // Temporary URL for upload only
     fileKey: string;       // File identifier to be stored in the database
@@ -305,12 +306,12 @@ class S3Service {
       const validation = this.validateFile(contentType, category);
       if (!validation.valid) {
         console.error('[ERROR] Failed to generate presigned URL', validation.message, JSON.stringify({
-          category, userId, contentType
+          category, userId, contentType, themeId
         }));
         throw new Error(validation.message);
       }
       
-      const fileKey = this.generateUniqueFileKey({ category, userId, fileExtension });
+      const fileKey = this.generateUniqueFileKey({ category, userId, fileExtension, themeId });
       
       // Get a signed URL for putting an object
       const presignedUrl = await this.getSignedUrl(fileKey, 'putObject', 300, contentType);
@@ -322,7 +323,7 @@ class S3Service {
     } catch (error) {
       console.error('[ERROR] Error generating presigned URL', 
         error instanceof Error ? error.stack : error, 
-        JSON.stringify({ category, userId, contentType }));
+        JSON.stringify({ category, userId, contentType, themeId }));
       throw error;
     }
   }
