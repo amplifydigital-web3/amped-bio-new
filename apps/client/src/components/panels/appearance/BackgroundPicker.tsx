@@ -104,7 +104,6 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
           contentType: file.type,
           fileExtension: fileExtension,
           fileSize: file.size,
-          themeId: themeId // Use the actual theme ID
         });
         
         console.log(`Received presigned URL from server for ${isVideo ? 'video' : 'image'}:`, presignedData);
