@@ -7,7 +7,7 @@ import { trpcClient } from "../../../utils/trpc";
 import { ALLOWED_BACKGROUND_FILE_EXTENSIONS, ALLOWED_BACKGROUND_FILE_TYPES, MAX_BACKGROUND_FILE_SIZE } from "@ampedbio/constants";
 
 interface BackgroundPickerProps {
-  value: Background;
+  value?: Background;
   onChange: (background: Background) => void;
   themeId?: number;
 }
@@ -177,7 +177,7 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
         <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
           <span className="text-white text-sm font-medium">{bg.label}</span>
         </div>
-        {value.value === bg.value && (
+        {value?.value === bg.value && (
           <div className="absolute inset-0 ring-2 ring-blue-500">
             <div className="absolute top-2 right-2 bg-blue-500 rounded-full p-1">
               <Check className="w-4 h-4 text-white" />
@@ -199,7 +199,7 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
           <span className="text-white text-sm font-medium drop-shadow-md">{bg.label}</span>
         </div>
-        {value.value === bg.value && (
+        {value?.value === bg.value && (
           <div className="absolute inset-0 ring-2 ring-blue-500">
             <div className="absolute top-2 right-2 bg-blue-500 rounded-full p-1">
               <Check className="w-4 h-4 text-white" />
@@ -221,7 +221,7 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
         <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
           <span className="text-white text-sm font-medium">{bg.label}</span>
         </div>
-        {value.value === bg.value && (
+        {value?.value === bg.value && (
           <div className="absolute inset-0 ring-2 ring-blue-500">
             <div className="absolute top-2 right-2 bg-blue-500 rounded-full p-1">
               <Check className="w-4 h-4 text-white" />
@@ -251,7 +251,7 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
         <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
           <span className="text-white text-sm font-medium">{bg.label}</span>
         </div>
-        {value.value === bg.value && (
+        {value?.value === bg.value && (
           <div className="absolute inset-0 ring-2 ring-blue-500">
             <div className="absolute top-2 right-2 bg-blue-500 rounded-full p-1">
               <Check className="w-4 h-4 text-white" />
