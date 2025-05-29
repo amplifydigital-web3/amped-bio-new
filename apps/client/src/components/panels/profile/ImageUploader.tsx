@@ -35,7 +35,7 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
 
     // Validate file size (max 5MB)
     if (file.size > MAX_AVATAR_FILE_SIZE) {
-      setError("File size must be less than 5MB");
+      setError(`File size must be less than ${(MAX_AVATAR_FILE_SIZE / (1024 * 1024)).toFixed(2)}MB`);
       return;
     }
 
