@@ -21,7 +21,7 @@ export type Background = {
 export type ThemeConfig = {
   buttonStyle?: number;
   containerStyle?: number;
-  background: Background;
+  background?: Background;
   buttonColor?: string;
   containerColor?: string;
   fontFamily?: string;

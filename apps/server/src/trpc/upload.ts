@@ -138,7 +138,7 @@ export const uploadRouter = router({
               user_id: userId,
               name: `${userFound!.onelink}'s theme`,
               share_level: "private",
-              share_config: false,
+              share_config: {},
               config: {},
             },
           });
@@ -204,7 +204,7 @@ export const uploadRouter = router({
               user_id: userId,
               name: `${userFound.onelink}'s theme`,
               share_level: "private",
-              share_config: false,
+              share_config: {},
               config: {},
             },
           });

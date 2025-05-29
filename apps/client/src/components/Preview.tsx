@@ -46,7 +46,7 @@ export function Preview(props: PreviewProps) {
       <div
         className={cn(
           "flex-1 overflow-auto relative",
-          theme.background.type === "color" && !theme.background.value.includes("gradient")
+          theme?.background?.type === "color" && !theme?.background?.value.includes("gradient")
             ? "bg-gray-100"
             : ""
         )}
@@ -56,16 +56,16 @@ export function Preview(props: PreviewProps) {
           className="fixed inset-0 w-full h-full z-[1]"
           style={{
             backgroundColor:
-              theme.background.type === "color" && !theme.background.value.includes("gradient")
-                ? theme.background.value
+              theme?.background?.type === "color" && !theme?.background?.value.includes("gradient")
+                ? theme?.background?.value
                 : undefined,
             background:
-              theme.background.type === "color" && theme.background.value.includes("gradient")
-                ? theme.background.value
+              theme?.background?.type === "color" && theme?.background?.value.includes("gradient")
+                ? theme?.background?.value
                 : undefined,
           }}
         >
-          {theme.background.type === "video" ? (
+          {theme?.background?.type === "video" ? (
             <video
               src={theme.background.value}
               className="w-full h-full object-cover"
@@ -74,7 +74,7 @@ export function Preview(props: PreviewProps) {
               loop
               playsInline
             />
-          ) : theme.background.type === "image" ? (
+          ) : theme.background?.type === "image" ? (
             <div
               className="w-full h-full bg-no-repeat bg-center"
               style={{
