@@ -128,7 +128,6 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
         // Confirm upload with the server
         const result = await trpcClient.upload.confirmThemeBackgroundUpload.mutate({
           fileKey: presignedData.fileKey,
-          themeId: themeId, // Use the actual theme ID
           mediaType: isVideo ? 'video' : 'image'
         });
         

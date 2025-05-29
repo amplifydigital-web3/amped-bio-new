@@ -68,7 +68,6 @@ const confirmUploadSchema = z.object({
 const confirmThemeBackgroundSchema = z.object({
   fileKey: z.string().min(1),
   mediaType: z.enum(["image", "video"]),
-  themeId: z.number().int().min(1, { message: "Theme ID must be a positive integer" }),
 });
 
 export const uploadRouter = router({
@@ -189,20 +188,43 @@ export const uploadRouter = router({
       const userId = ctx.user.id;
 
       try {
-        // Get the theme
-        const theme = await prisma.theme.findUnique({
+        // Get the user to find their theme ID
+        const userFound = await prisma.user.findUniqueOrThrow({
+          where: { id: userId },
+          select: { theme: true, onelink: true },
+        });
+
+        // If user has no theme, create one (same logic as in requestThemeBackgroundUrl)
+        let themeId = userFound.theme;
+
+        if (userFound.theme === null) {
+          // create theme
+          const theme = await prisma.theme.create({
+            data: {
+              user_id: userId,
+              name: `${userFound.onelink}'s theme`,
+              share_level: "private",
+              share_config: false,
+              config: {},
+            },
+          });
+
+          themeId = theme.id.toString();
+
+          await prisma.user.update({
+            where: { id: userId },
+            data: { theme: themeId },
+          });
+        }
+
+        // Get the theme with numeric ID
+        const themeIdNum = Number(themeId);
+        const theme = await prisma.theme.findUniqueOrThrow({
           where: {
-            id: input.themeId,
+            id: themeIdNum,
             user_id: userId,
           },
         });
-
-        if (!theme) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Theme not found or you don't have permission to modify it",
-          });
-        }
 
         // Get the public URL for the background
         const backgroundUrl = s3Service.getFileUrl(input.fileKey);
@@ -232,7 +254,7 @@ export const uploadRouter = router({
         // Update theme in database
         const updatedTheme = await prisma.theme.update({
           where: {
-            id: input.themeId,
+            id: themeIdNum,
           },
           data: {
             config: themeConfig,
@@ -244,16 +266,16 @@ export const uploadRouter = router({
         if (previousFileKey && previousFileKey !== input.fileKey) {
           try {
             // Only delete if the file belongs to this theme and user
-            if (s3Service.isThemeOwnerFile(previousFileKey, input.themeId, userId)) {
+            if (s3Service.isThemeOwnerFile(previousFileKey, themeIdNum, userId)) {
               console.info(
                 "[INFO] Deleting previous theme background that belongs to user",
-                JSON.stringify({ previousFileKey, themeId: input.themeId, userId })
+                JSON.stringify({ previousFileKey, themeId: themeIdNum, userId })
               );
               await s3Service.deleteFile(previousFileKey);
             } else {
               console.info(
                 "[INFO] Skipping deletion of previous background that may not belong to user",
-                JSON.stringify({ previousFileKey, themeId: input.themeId, userId })
+                JSON.stringify({ previousFileKey, themeId: themeIdNum, userId })
               );
             }
           } catch (deleteError) {
