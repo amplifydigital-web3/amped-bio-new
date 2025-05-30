@@ -2,11 +2,14 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Run dev env",
+      "name": "Run demo mode",
       "type": "node-terminal",
       "request": "launch",
       "command": "pnpm i && pnpm dev",
-      "cwd": "${workspaceFolder}"
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "VITE_DEMO_MODE": "true"
+      }
     },
     {
       "name": "Install dependencies",
@@ -20,7 +23,10 @@
       "type": "node-terminal",
       "request": "launch",
       "command": "pnpm dev",
-      "cwd": "${workspaceFolder}"
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "VITE_DEMO_MODE": "true"
+      }
     },
     {
       "name": "Debug Server",
@@ -30,7 +36,8 @@
       "outFiles": ["${workspaceFolder}/apps/server/dist/**/*.js"],
       "runtimeArgs": ["--loader", "ts-node/esm"],
       "env": {
-        "NODE_ENV": "development"
+        "NODE_ENV": "development",
+        "VITE_DEMO_MODE": "true"
       },
       "console": "integratedTerminal",
       "skipFiles": ["<node_internals>/**"]
