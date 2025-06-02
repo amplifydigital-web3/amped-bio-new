@@ -266,7 +266,11 @@ export const uploadRouter = router({
         if (previousFileKey && previousFileKey !== input.fileKey) {
           try {
             // Only delete if the file belongs to this theme and user
-            if (s3Service.isThemeOwnerFile(previousFileKey, themeIdNum, userId)) {
+            if (s3Service.isThemeOwnerFile({ 
+              fileKey: previousFileKey, 
+              themeId: themeIdNum, 
+              userId 
+            })) {
               console.info(
                 "[INFO] Deleting previous theme background that belongs to user",
                 JSON.stringify({ previousFileKey, themeId: themeIdNum, userId })

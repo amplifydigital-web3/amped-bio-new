@@ -55,7 +55,11 @@ export const themeController = {
         
         // Check if the file belongs to this user and theme, and delete it if it does
         if (backgroundFileKey && 
-            s3Service.isThemeOwnerFile(backgroundFileKey, Number(id), user_id)) {
+            s3Service.isThemeOwnerFile({ 
+              fileKey: backgroundFileKey, 
+              themeId: Number(id), 
+              userId: user_id 
+            })) {
           try {
             console.info('[INFO] Deleting previous theme background during theme update', 
               JSON.stringify({ backgroundFileKey, themeId: Number(id), userId: user_id }));
