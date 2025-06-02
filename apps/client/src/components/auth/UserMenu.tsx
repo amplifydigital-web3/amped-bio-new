@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { LogOut, User, Settings } from "lucide-react";
+import { LogOut, User, Settings, CoinsIcon } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { useEditorStore } from "../../store/editorStore";
 import { AuthModal } from "./AuthModal";
@@ -16,15 +16,17 @@ import {
 import { useAmplifyConnect } from "../connect/hooks/useAmplifyConnect";
 import { useNavigate } from "react-router-dom";
 import { formatOnelink } from "@/utils/onelink";
+import { WalletModal } from "../wallet/WalletModal";
 
 export function UserMenu() {
   const amplifyConnect = useAmplifyConnect();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showWalletModal, setShowWalletModal] = useState(false);
   const { authUser, signOut } = useAuthStore();
   const { profile, setUser, setDefault } = useEditorStore();
   const nav = useNavigate();
 
-  const handleSignIn = user => {
+  const handleSignIn = (user) => {
     setShowAuthModal(false);
     setUser(user.onelink);
 
@@ -54,7 +56,7 @@ export function UserMenu() {
   const handleNavtoHome = () => {
     return nav(`/@${authUser?.onelink}`);
   };
-  
+
   const handleNavigateToAccount = () => {
     return nav(`/account`);
   };
@@ -62,12 +64,18 @@ export function UserMenu() {
   if (authUser === null) {
     return (
       <>
-        <Button onClick={() => setShowAuthModal(true)} className="flex items-center space-x-2">
+        <Button
+          onClick={() => setShowAuthModal(true)}
+          className="flex items-center space-x-2"
+        >
           <User className="w-4 h-4" />
           <span>Sign In</span>
         </Button>
         {showAuthModal && (
-          <AuthModal onClose={user => handleSignIn(user)} onCancel={() => handleCancelAuth()} />
+          <AuthModal
+            onClose={(user) => handleSignIn(user)}
+            onCancel={() => handleCancelAuth()}
+          />
         )}
       </>
     );
@@ -87,6 +95,10 @@ export function UserMenu() {
           <Settings className="w-4 h-4 mr-2" />
           <span>My Account</span>
         </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setShowWalletModal(true)}>
+          <CoinsIcon className="w-4 h-4 mr-2 text-yellow-500" />
+          <span>My Wallet</span>
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
           <LogOut className="w-4 h-4 mr-2" />
           <span>Sign Out</span>
@@ -94,12 +106,7 @@ export function UserMenu() {
         <DropdownMenuItem onClick={amplifyConnect.handleClick}>
           <span>
             {amplifyConnect.account.address
-              ? `${amplifyConnect.account.address.substring(
-                  0,
-                  4
-                )}...${amplifyConnect.account.address.substring(
-                  amplifyConnect.account.address.length - 4
-                )}`
+              ? `${amplifyConnect.account.address.substring(0, 4)}...${amplifyConnect.account.address.substring(amplifyConnect.account.address.length - 4)}`
               : "Connect Web3 Wallet"}
           </span>
         </DropdownMenuItem>
@@ -109,6 +116,9 @@ export function UserMenu() {
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>
+      {showWalletModal && (
+        <WalletModal onClose={() => setShowWalletModal(false)} />
+      )}
     </DropdownMenu>
   );
 }
