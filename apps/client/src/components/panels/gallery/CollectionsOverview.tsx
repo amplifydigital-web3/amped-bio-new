@@ -63,7 +63,7 @@ export function CollectionsOverview({ onCollectionSelect }: CollectionsOverviewP
               <img
                 src={style.image}
                 alt={collection.name}
-                className="absolute inset-0 w-full h-full object-cover opacity-50"
+                className="absolute inset-0 w-full h-full object-cover object-center opacity-50"
               />
 
               {/* Pattern Overlay */}
@@ -87,7 +87,7 @@ export function CollectionsOverview({ onCollectionSelect }: CollectionsOverviewP
 
             {/* Collection Info */}
             <div className="p-6">
-              <p className="text-gray-600 mb-4">{collection.description}</p>
+              <p className="text-sm text-gray-600 mb-4">{collection.description}</p>
 
               {/* Hover Overlay */}
               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">

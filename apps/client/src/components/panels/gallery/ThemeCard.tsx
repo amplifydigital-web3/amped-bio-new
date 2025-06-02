@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Lock } from "lucide-react";
 import type { MarketplaceTheme } from "../../../types/editor";
 import { NFTVerificationModal } from "./NFTVerificationModal";
+import { HoverPopover } from "../../ui/Popover";
 
 interface ThemeCardProps {
   theme: MarketplaceTheme;
@@ -59,7 +60,21 @@ export function ThemeCard({ theme, onApply }: ThemeCardProps) {
         </div>
         <div className="p-4">
           <h3 className="font-medium text-gray-900 truncate">{theme.name}</h3>
-          <p className="text-sm text-gray-500 line-clamp-2 mt-1">{theme.description}</p>
+          <HoverPopover
+            trigger={
+              <p className="text-sm text-gray-500 line-clamp-2 mt-1 cursor-help">
+                {theme.description}
+              </p>
+            }
+            side="top"
+            align="start"
+            className="w-80"
+          >
+            <div className="space-y-2">
+              <h4 className="font-medium text-gray-900">{theme.name}</h4>
+              <p className="text-sm text-gray-600">{theme.description}</p>
+            </div>
+          </HoverPopover>
         </div>
       </div>
 

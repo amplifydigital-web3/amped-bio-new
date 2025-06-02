@@ -717,7 +717,7 @@ const modernCollection: Collection = {
   id: "abstract",
   name: "Abstract & Modern",
   description:
-    "Step into a visually striking universe where art meets technology. The Abstract & Modern collection features a curated set of dynamic video themes that blend geometric elegance, fluid motion, and vibrant lightplay. From the immersive depths of Jade Tunnel and Neon Tunnel to the hypnotic pulses of Fractal Flower and Dot Matrix, each piece evokes a futuristic atmosphere. This collection turns space into experience with a seamless fusion of light, structure, and energy.",
+    "Dynamic video themes blending geometric elegance, fluid motion, and vibrant lightplay for a futuristic atmosphere.",
   collaborator: {
     name: "Alex Design",
     avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop",
@@ -734,7 +734,7 @@ const natureCollection: Collection = {
   id: "nature",
   name: "Nature & Organic",
   description:
-    "Immerse yourself in the soothing rhythms of the natural world with the Nature & Organic collection. From the golden glow of Savannah Sunset to the gentle drift of Kyoto Rain, each video theme captures serene, atmospheric moments that evoke calm and connection. Whether it's the quiet charm of Kitten, the mystical allure of Moonlight Campfire, or the vibrant bloom of Sakura, this collection brings the beauty of earth, sky, and life into a tranquil escape.",
+    "Soothing natural world themes from golden sunsets to gentle rain, bringing earth's beauty into tranquil escape.",
   collaborator: {
     name: "Emma Nature",
     avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=64&h=64&fit=crop",
@@ -751,7 +751,7 @@ const cyberpunkCollection: Collection = {
   id: "cyber",
   name: "Cyberpunk & Fantasy",
   description:
-    "Enter a realm where futuristic cities pulse with neon light and arcane energies swirl through digital dreamscapes. The Cyberpunk & Fantasy collection fuses high-tech aesthetics with otherworldly wonder—featuring glowing Cyber Corridors, mysterious Magic Portals, and the electric tension of Dark Lightning. From the surreal geometry of Ellipse to the sprawling glow of Night City, each video theme conjures immersive sci-fi and fantasy realms. Welcome to a world where the line between magic and machine blurs.",
+    "Futuristic cities with neon lights and digital dreamscapes where high-tech meets otherworldly wonder and magic.",
   collaborator: {
     name: "Neo Digital",
     avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=64&h=64&fit=crop",
@@ -768,7 +768,7 @@ const winterCollection: Collection = {
   id: "winter",
   name: "Winter Holidays",
   description:
-    "Celebrate the magic of the season with the Winter Holidays collection—a cozy blend of festive cheer and winter wonder. Sparkling Snowflakes, classic Christmas Ornaments, and the nostalgic charm of a Sleigh Ride set the mood for joyful gatherings. From the serene beauty of Winter Wonderland to the whimsical charm of a swirling Snow Globe, these video themes evoke warmth, wonder, and holiday spirit.",
+    "Festive holiday themes with sparkling snowflakes, ornaments, and winter wonder evoking warmth and seasonal spirit.",
   collaborator: {
     name: "Marina Waves",
     avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=64&h=64&fit=crop",
