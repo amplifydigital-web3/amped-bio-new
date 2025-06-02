@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, memo, useState, useRef } from "react";
-import { Check, Upload, Loader2 } from "lucide-react";
+import { Check, Upload, Loader2, ExternalLink } from "lucide-react";
 import type { Background } from "../../../types/editor";
 import { gradients, photos, videos, backgroundColors } from "../../../utils/backgrounds";
 import CollapsiblePanelWrapper from "../CollapsiblePanelWrapper";
@@ -46,6 +46,7 @@ const extractMediaUrl = (result: any, fallback: string): string => {
 export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPickerProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [customURL, setCustomURL] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = useCallback(
@@ -172,7 +173,15 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
     [onChange, themeId]
   );
 
-
+  const handleURLUpload = useCallback((type: "video" | "image") => {
+    if (!customURL) return;
+    onChange({
+      type,
+      value: customURL,
+      label: "Custom Background",
+    });
+    setCustomURL(""); // Clear the input after setting
+  }, [customURL, onChange]);
 
   const gradientsMemoized = useMemo(() => {
     return gradients.map(bg => (
@@ -363,6 +372,41 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
                 {uploadError}
               </p>
             )}
+          </div>
+        </div>
+      </CollapsiblePanelWrapper>
+
+      {/* Custom URL Upload */}
+      <CollapsiblePanelWrapper initialOpen={false} title="Custom Background">
+        <div className="block m-2">
+          <div className="w-full flex items-center gap-1 mb-1">
+            <ExternalLink className="w-6 h-6 text-gray-400" />
+            <span className="text-sm text-gray-500">Set image or video URL</span>
+          </div>
+          <div className="flex flex-col items-center gap-2">
+            <input
+              type="text"
+              placeholder="Enter image or video URL"
+              value={customURL}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              onChange={e => setCustomURL(e.target.value)}
+            />
+            <div className="w-full flex items-center gap-2">
+              <button
+                onClick={() => handleURLUpload("image")}
+                className="w-full px-1 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!customURL}
+              >
+                Set as Image
+              </button>
+              <button
+                onClick={() => handleURLUpload("video")}
+                className="w-full px-1 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!customURL}
+              >
+                Set as Video
+              </button>
+            </div>
           </div>
         </div>
       </CollapsiblePanelWrapper>
