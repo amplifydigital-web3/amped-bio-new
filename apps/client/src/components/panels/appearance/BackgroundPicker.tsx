@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, memo, useState, useRef } from "react";
-import { Check, Upload, Loader2 } from "lucide-react";
+import { Check, Upload, Loader2, ExternalLink } from "lucide-react";
 import type { Background } from "../../../types/editor";
 import { gradients, photos, videos, backgroundColors } from "../../../utils/backgrounds";
 import CollapsiblePanelWrapper from "../CollapsiblePanelWrapper";
@@ -46,6 +46,7 @@ const extractMediaUrl = (result: any, fallback: string): string => {
 export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPickerProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [customURL, setCustomURL] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = useCallback(
@@ -172,7 +173,15 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
     [onChange, themeId]
   );
 
-
+  const handleURLUpload = useCallback((type: "video" | "image") => {
+    if (!customURL) return;
+    onChange({
+      type,
+      value: customURL,
+      label: "Custom Background",
+    });
+    setCustomURL(""); // Clear the input after setting
+  }, [customURL, onChange]);
 
   const gradientsMemoized = useMemo(() => {
     return gradients.map(bg => (
@@ -342,6 +351,12 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
                 </>
               )}
             </div>
+            <div className="mt-2">
+              <div className="rounded-md bg-yellow-50 border border-yellow-200 px-3 py-2 flex items-start gap-2">
+                <svg className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <span className="text-xs text-yellow-800">If you have already uploaded a background image or video, uploading a new file will permanently replace your current background. This action cannot be undone.</span>
+              </div>
+            </div>
             
             <input
               ref={fileInputRef}
@@ -357,6 +372,39 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
                 {uploadError}
               </p>
             )}
+
+            {/* Custom URL Section */}
+            <div className="w-full border-t border-gray-200 pt-3 mt-3">
+              <div className="w-full flex items-center gap-1 mb-2">
+                <ExternalLink className="w-4 h-4 text-gray-400" />
+                <span className="text-sm text-gray-500">Or set image or video URL</span>
+              </div>
+              <div className="flex flex-col items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Enter image or video URL"
+                  value={customURL}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  onChange={e => setCustomURL(e.target.value)}
+                />
+                <div className="w-full flex items-center gap-2">
+                  <button
+                    onClick={() => handleURLUpload("image")}
+                    className="w-full px-1 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={!customURL}
+                  >
+                    Set as Image
+                  </button>
+                  <button
+                    onClick={() => handleURLUpload("video")}
+                    className="w-full px-1 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={!customURL}
+                  >
+                    Set as Video
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </CollapsiblePanelWrapper>

@@ -22,6 +22,12 @@ export interface GenerateFileKeyParams {
   themeId?: number;
 }
 
+export interface IsThemeOwnerFileParams {
+  fileKey: string;
+  themeId: number;
+  userId: number;
+}
+
 class S3Service {
   private s3Client: S3Client; // For newer AWS SDK operations
   private s3: AWS.S3; // For signed URL generation using the v2 API
@@ -411,16 +417,18 @@ class S3Service {
   /**
    * Check if a file key belongs to a specific theme and user
    * This is used to determine if we should delete the old background when a new one is uploaded
-   * @param fileKey - The file key to check
-   * @param themeId - The theme ID to check for
-   * @param userId - The user ID to check for
+   * @param params - Object containing fileKey, themeId, and userId
    * @returns boolean - True if the file key belongs to the specified theme and user
    */
-  isThemeOwnerFile(fileKey: string, themeId: number, userId: number): boolean {
+  isThemeOwnerFile(params: IsThemeOwnerFileParams): boolean {
+    const { fileKey, themeId, userId } = params;
+    
     if (!fileKey) return false;
     
     // Check if it's a background category file (either in the old or new location)
-    if (!fileKey.startsWith('backgrounds/') && !fileKey.startsWith('user-uploads/backgrounds/')) return false;
+    // Handle cases where fileKey might include bucket name as prefix
+    if (!fileKey.includes('/backgrounds/') && !fileKey.includes('/user-uploads/backgrounds/') && 
+        !fileKey.startsWith('backgrounds/') && !fileKey.startsWith('user-uploads/backgrounds/')) return false;
     
     // Check if it contains both the theme ID and user ID
     const hasThemeId = fileKey.includes(`theme_${themeId}_`);

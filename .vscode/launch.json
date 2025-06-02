@@ -1,0 +1,46 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run demo mode",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "pnpm i && pnpm dev",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "VITE_DEMO_MODE": "true"
+      }
+    },
+    {
+      "name": "Install dependencies",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "pnpm i",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Start dev server",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "pnpm dev",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "VITE_DEMO_MODE": "true"
+      }
+    },
+    {
+      "name": "Debug Server",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/apps/server/src/index.ts",
+      "outFiles": ["${workspaceFolder}/apps/server/dist/**/*.js"],
+      "runtimeArgs": ["--loader", "ts-node/esm"],
+      "env": {
+        "NODE_ENV": "development",
+        "VITE_DEMO_MODE": "true"
+      },
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ]
+}
