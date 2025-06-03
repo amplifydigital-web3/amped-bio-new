@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { LogOut, User, Settings } from "lucide-react";
+import { LogOut, User, Settings, Wallet } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { useEditorStore } from "../../store/editorStore";
 import { AuthModal } from "./AuthModal";
@@ -83,6 +83,10 @@ export function UserMenu() {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
+        <DropdownMenuItem onClick={() => nav(`/${formatOnelink(authUser.onelink)}/edit`)}>
+          <User className="w-4 h-4 mr-2" />
+          <span>Edit Profile</span>
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={handleNavigateToAccount}>
           <Settings className="w-4 h-4 mr-2" />
           <span>My Account</span>
@@ -92,6 +96,7 @@ export function UserMenu() {
           <span>Sign Out</span>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={amplifyConnect.handleClick}>
+          <Wallet className="w-4 h-4 mr-2" />
           <span>
             {amplifyConnect.account.address
               ? `${amplifyConnect.account.address.substring(
