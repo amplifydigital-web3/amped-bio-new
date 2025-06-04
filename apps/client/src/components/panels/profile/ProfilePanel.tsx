@@ -128,6 +128,14 @@ export function ProfilePanel() {
             <div className="space-y-2">
               <h2 className="text-lg font-semibold text-gray-900">Theme Management</h2>
               <p className="text-sm text-gray-500">Export or import your theme configuration</p>
+              <a
+                href="https://amplifydigital.freshdesk.com/support/solutions/articles/154000227742-how-to-export-and-import-themes-in-amped-bio"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block mt-2 text-sm text-blue-600 hover:underline"
+              >
+                How to export and import themes (Knowledge Base)
+              </a>
             </div>
 
             <div className="space-y-6">
