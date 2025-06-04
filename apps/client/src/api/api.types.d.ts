@@ -1,4 +1,5 @@
 import { PlatformId as LinkBlockPlatform } from "@/utils/platforms";
+import { mediaPlataforms } from "@ampedbio/constants";
 
 export type LoginData = {
   email: string;
@@ -101,16 +102,7 @@ export type LinkBlock = BaseBlock<
   { platform: LinkBlockPlatform; url: string; label: string }
 >;
 
-export type MediaBlockPlatform =
-  | "spotify"
-  | "instagram"
-  | "youtube"
-  | "twitter"
-  | "token-price"
-  | "nft-collection"
-  | "uniswap"
-  | "substack"
-  | "creator-pool";
+export type MediaBlockPlatform = typeof mediaPlataforms[number];
 
 export type MediaBlock = BaseBlock<
   "media",

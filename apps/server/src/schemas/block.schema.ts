@@ -1,43 +1,5 @@
 import { z } from "zod";
-
-// Define allowed platforms
-const allowedPlatforms = [
-  "twitter",
-  "telegram",
-  "discord",
-  "instagram",
-  "lens",
-  "facebook",
-  "tiktok",
-  "element",
-  "github",
-  "linkedin",
-  "medium",
-  "mirror",
-  "warpcast",
-  "zora",
-  "opensea",
-  "youtube",
-  "patreon",
-  "onlyfans",
-  "appstore",
-  "playstore",
-  "email",
-  "document",
-  "custom",
-] as const;
-
-const mediaPlataforms = [
-  "spotify",
-  "instagram",
-  "youtube",
-  "twitter",
-  "token-price",
-  "nft-collection",
-  "uniswap",
-  "substack",
-  "creator-pool",
-] as const;
+import { allowedPlatforms, mediaPlataforms } from "@ampedbio/constants";
 
 // Define configuration schemas for each block type
 const linkConfigSchema = z.object({
