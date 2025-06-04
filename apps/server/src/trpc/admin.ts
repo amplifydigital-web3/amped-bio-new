@@ -38,6 +38,16 @@ const UserUpdateSchema = z.object({
   block: z.enum(["yes", "no"]).optional(),
 });
 
+// Theme creation schema
+const ThemeCreateSchema = z.object({
+  share_level: z.string().optional(),
+  share_config: z.any().optional(),
+  name: z.string().optional(),
+  description: z.string().optional(), // add description
+  config: z.any().optional(),
+  category: z.string().nullable()
+});
+
 export const adminRouter = router({
   // User Management
   getUsers: adminProcedure
@@ -525,5 +535,29 @@ export const adminRouter = router({
       });
       
       return users;
-    })
+    }),
+    
+  createTheme: adminProcedure
+    .input(ThemeCreateSchema)
+    .mutation(async ({ input }) => {
+      try {
+        const theme = await prisma.theme.create({
+          data: {
+            user_id: null, // Ensure admin themes have user_id as null
+            share_level: input.share_level ?? 'private',
+            share_config: input.share_config,
+            name: input.name,
+            description: input.description, // pass description
+            config: input.config,
+            category: input.category
+          }
+        });
+        return theme;
+      } catch (error) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to create theme'
+        });
+      }
+    }),
 });

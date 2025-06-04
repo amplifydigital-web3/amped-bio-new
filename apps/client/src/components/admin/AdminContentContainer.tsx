@@ -2,6 +2,7 @@ import { Layers, Settings } from "lucide-react";
 import { AdminHeader, AdminPlaceholderContent } from "./AdminLayout";
 import { AdminDashboard } from "./AdminDashboard";
 import { UserManagement } from "./UserManagement";
+import { AdminThemeManager } from "./AdminThemeManager";
 
 interface AdminContentContainerProps {
   activeMenu: string;
@@ -76,6 +77,10 @@ export const AdminContentContainer = ({
           title="Admin Settings"
           description="Settings panel will be implemented here"
         />
+      )}
+
+      {activeMenu === "themes" && (
+        <AdminThemeManager />
       )}
     </div>
   );

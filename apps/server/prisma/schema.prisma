@@ -37,16 +37,18 @@ model User {
 
 model Theme {
   id                  Int       @id @default(autoincrement())
-  user_id             Int
+  user_id             Int?      
   share_level         String    @default("private")
   share_config        Json?
   name                String?
+  description         String?   @db.LongText
   config              Json?
+  category            String?   // Theme category
   created_at          DateTime  @default(now())
   updated_at          DateTime? @updatedAt
   
   // Relations
-  user                User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user                User?     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("themes")
 }

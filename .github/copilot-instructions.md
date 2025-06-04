@@ -5,3 +5,4 @@ Write UI texts only in english.
 Create functions, classes, variables only with english names.
 We use pnpm, turborepo and pnpm-workspace.
 At our server we are implementing trpc to replace express REST.
+To run prisma commands you need to use the filter `--filter=server` to run them only in the server package.

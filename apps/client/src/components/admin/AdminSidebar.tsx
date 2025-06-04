@@ -16,6 +16,7 @@ export const AdminSidebar = ({ activeMenu, setActiveMenu }: AdminSidebarProps) =
     { id: "dashboard", icon: BarChart3, label: "Dashboard" },
     { id: "users", icon: Users, label: "Users" },
     { id: "blocks", icon: Layers, label: "Blocks" },
+    { id: "themes", icon: Hexagon, label: "Themes" }, // Added Themes section
     { id: "settings", icon: Settings, label: "Settings" },
   ];
 
