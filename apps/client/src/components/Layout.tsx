@@ -21,6 +21,24 @@ interface LayoutProps {
   onelink: string;
 }
 
+type PanelType = 
+  | "home" 
+  | "profile" 
+  | "reward" 
+  | "gallery" 
+  | "appearance" 
+  | "effects" 
+  | "blocks" 
+  | "creatorpool" 
+  | "leaderboard" 
+  | "rns" 
+  | "account";
+
+interface PanelConfig {
+  layout: "single" | "two-column";
+  width: "standard" | "wide" | "full";
+}
+
 export function Layout(props: LayoutProps) {
   const { onelink } = props;
   const activePanel = useEditorStore(state => state.activePanel);
@@ -31,18 +49,35 @@ export function Layout(props: LayoutProps) {
   // FOR TESTING
   const usr = useAuthStore(state => state.authUser);
 
-  // Determine if we should use wider panel layout
-  const isWidePanel =
-    activePanel === "gallery" ||
-    activePanel === "creatorpool" ||
-    activePanel === "leaderboard" ||
-    activePanel === "rns" ||
-    activePanel === "reward" ||
-    activePanel === "home";
-  const panelWidth = isWidePanel ? "md:w-[800px]" : "md:w-[400px]";
+  // Define layout configuration for each panel
+  const panelConfigs: Record<PanelType, PanelConfig> = {
+    // Single column pages (full width)
+    home: { layout: "single", width: "full" },
+    reward: { layout: "single", width: "full" },
+    account: { layout: "single", width: "full" },
+    
+    // Two column pages with wide panels (for data-heavy content)
+    creatorpool: { layout: "two-column", width: "wide" },
+    leaderboard: { layout: "two-column", width: "wide" },
+    rns: { layout: "two-column", width: "wide" },
+    
+    // Two column pages with standard panels (for editing/configuration)
+    gallery: { layout: "two-column", width: "standard" },
+    profile: { layout: "two-column", width: "standard" },
+    appearance: { layout: "two-column", width: "standard" },
+    effects: { layout: "two-column", width: "standard" },
+    blocks: { layout: "two-column", width: "standard" },
+  };
 
-  // Determine if we should hide the preview panel
-  const hidePreview = activePanel === "home" || activePanel === "reward" || activePanel === "account";
+  const currentConfig = panelConfigs[activePanel as PanelType] || { layout: "two-column", width: "standard" };
+  const isSingleColumn = currentConfig.layout === "single";
+  const isWidePanel = currentConfig.width === "wide";
+  
+  // Consistent panel widths - increased by 50px
+  const panelWidth = isWidePanel ? "md:w-[850px]" : "md:w-[450px]";
+  
+  // Show preview only for two-column layouts
+  const showPreview = !isSingleColumn;
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -75,8 +110,13 @@ export function Layout(props: LayoutProps) {
           </div>
 
           <div className="flex-1 flex flex-col md:flex-row min-h-0">
+            {/* Panel Container */}
             <div
-              className={`w-full ${hidePreview ? "md:w-full" : `border-b md:border-b-0 md:border-r ${panelWidth}`} border-gray-200 bg-white overflow-y-auto flex-shrink-0 z-[10] max-h-full`}
+              className={`w-full ${
+                isSingleColumn 
+                  ? "md:w-full" 
+                  : `border-b md:border-b-0 md:border-r ${panelWidth}`
+              } border-gray-200 bg-white overflow-y-auto flex-shrink-0 z-[10] max-h-full`}
               style={{ height: "calc(100vh - 64px)" }}
             >
               {activePanel === "home" && <HomePanel />}
@@ -90,8 +130,10 @@ export function Layout(props: LayoutProps) {
               {activePanel === "leaderboard" && <LeaderboardPanel />}
               {activePanel === "rns" && <RNSPanel />}
             </div>
-            {!hidePreview && (
-              <div className="hidden md:flex md:flex-col md:flex-1 overflow-y-auto relative z-[5]">
+            
+            {/* Preview Container - Only shown for two-column layouts */}
+            {showPreview && (
+              <div className="hidden md:flex md:flex-col md:flex-1 overflow-y-auto relative z-[5] bg-gray-100">
                 <Preview isEditing={true} onelink={onelink} />
               </div>
             )}
