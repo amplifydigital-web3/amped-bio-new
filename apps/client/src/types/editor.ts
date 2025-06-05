@@ -61,9 +61,6 @@ export interface MarketplaceTheme {
   name: string;
   description: string;
   thumbnail: string;
-  author: string;
-  downloads: number;
-  rating: number;
   tags: string[];
   theme: ThemeConfig;
   locked?: boolean;
