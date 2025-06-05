@@ -19,34 +19,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { SlSocialSpotify } from "react-icons/sl";
-import { FaXTwitter } from "react-icons/fa6";
+import { FaTiktok, FaXTwitter } from "react-icons/fa6";
 import { type IconType } from "react-icons/lib";
-
-export const allowedPlatforms = [
-  "twitter",
-  "telegram",
-  "discord",
-  "instagram",
-  "lens",
-  "facebook",
-  "tiktok",
-  "element",
-  "github",
-  "linkedin",
-  "medium",
-  "mirror",
-  "warpcast",
-  "zora",
-  "opensea",
-  "youtube",
-  "patreon",
-  "onlyfans",
-  "appstore",
-  "playstore",
-  "email",
-  "document",
-  "custom",
-] as const;
+import { allowedPlatforms } from "@ampedbio/constants";
 
 export type PlatformId = (typeof allowedPlatforms)[number];
 
@@ -106,7 +81,7 @@ const platformsInfo: PlatformInfo[] = [
   {
     id: "tiktok",
     name: "TikTok",
-    icon: Video,
+    icon: FaTiktok,
     color: "#000000",
   },
   {
