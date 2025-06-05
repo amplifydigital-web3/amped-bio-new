@@ -33,6 +33,13 @@ const blockTypes: {
       { id: "instagram", name: "Instagram", icon: getPlatformIcon("instagram"), type: "media" },
       { id: "youtube", name: "YouTube", icon: getPlatformIcon("youtube"), type: "media" },
       { id: "twitter", name: "X Post", icon: getPlatformIcon("twitter"), type: "media" },
+      {
+        id: "facebook",
+        name: "Facebook Post",
+        icon: getPlatformIcon("facebook"),
+        type: "media",
+      },
+      { id: "tiktok", name: "TikTok", icon: getPlatformIcon("tiktok"), type: "media" },
     ],
   },
   // {
