@@ -4,15 +4,18 @@ import { ImageUploader } from "./ImageUploader";
 import { useEditorStore } from "../../../store/editorStore";
 import { URLPicker } from "./URLPicker";
 import { Download, Upload } from "lucide-react";
+import { EmailChangeDialog } from "@/components/dialogs/EmailChangeDialog";
+import { useAuthStore } from "@/store/authStore";
 
 export function ProfilePanel() {
   const profile = useEditorStore(state => state.profile);
-  const theme = useEditorStore(state => state.theme);
   const setProfile = useEditorStore(state => state.setProfile);
   const exportTheme = useEditorStore(state => state.exportTheme);
   const importTheme = useEditorStore(state => state.importTheme);
   const [activeTab, setActiveTab] = useState("general");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { authUser } = useAuthStore();
+  const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
 
   const handleProfileUpdate = (field: string, value: string) => {
     setProfile({ ...profile, [field]: value });
@@ -53,33 +56,13 @@ export function ProfilePanel() {
           </button>
           <button
             className={`px-3 py-2 text-sm font-medium rounded-md ${
-              activeTab === "photo"
+              activeTab === "account"
                 ? "bg-gray-100 text-gray-900"
                 : "text-gray-500 hover:text-gray-700"
             }`}
-            onClick={() => setActiveTab("photo")}
+            onClick={() => setActiveTab("account")}
           >
-            Profile Photo
-          </button>
-          <button
-            className={`px-3 py-2 text-sm font-medium rounded-md ${
-              activeTab === "url"
-                ? "bg-gray-100 text-gray-900"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-            onClick={() => setActiveTab("url")}
-          >
-            URL Settings
-          </button>
-          <button
-            className={`px-3 py-2 text-sm font-medium rounded-md ${
-              activeTab === "theme"
-                ? "bg-gray-100 text-gray-900"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-            onClick={() => setActiveTab("theme")}
-          >
-            Theme Management
+            Account
           </button>
         </nav>
       </div>
@@ -94,87 +77,51 @@ export function ProfilePanel() {
               </p>
             </div>
 
-            <ProfileForm profile={profile} onUpdate={handleProfileUpdate} />
-          </>
-        )}
-
-        {activeTab === "photo" && (
-          <>
-            <div className="space-y-2">
-              <h2 className="text-lg font-semibold text-gray-900">Profile Photo</h2>
-              <p className="text-sm text-gray-500">Upload or update your profile photo</p>
-            </div>
-
+            {/* Profile Photo Uploader - already here */}
             <ImageUploader
               imageUrl={profile.photoUrl || ""}
               onImageChange={url => handleProfileUpdate("photoUrl", url)}
             />
-          </>
-        )}
 
-        {activeTab === "url" && (
-          <>
-            <div className="space-y-2">
-              <h2 className="text-lg font-semibold text-gray-900">URL Settings</h2>
-              <p className="text-sm text-gray-500">Configure your profile URL</p>
-            </div>
-
-            <URLPicker />
-          </>
-        )}
-
-        {activeTab === "theme" && (
-          <>
-            <div className="space-y-2">
-              <h2 className="text-lg font-semibold text-gray-900">Theme Management</h2>
-              <p className="text-sm text-gray-500">Export or import your theme configuration</p>
-              <a
-                href="https://amplifydigital.freshdesk.com/support/solutions/articles/154000227742-how-to-export-and-import-themes-in-amped-bio"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block mt-2 text-sm text-blue-600 hover:underline"
-              >
-                How to export and import themes (Knowledge Base)
-              </a>
-            </div>
-
+            {/* Name and Bio Form, with URL settings input below name */}
             <div className="space-y-6">
-              <div className="bg-white p-6 rounded-lg border border-gray-200 space-y-4">
-                <h3 className="font-medium text-gray-900">Export Theme Configuration</h3>
-                <p className="text-sm text-gray-500">
-                  Download your current theme configuration as an AmpedTheme file (.ampedtheme)
-                </p>
-                <button
-                  onClick={handleExportTheme}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-                >
-                  <Download size={16} />
-                  <span>Export Configuration</span>
-                </button>
-              </div>
-
-              <div className="bg-white p-6 rounded-lg border border-gray-200 space-y-4">
-                <h3 className="font-medium text-gray-900">Import Theme Configuration</h3>
-                <p className="text-sm text-gray-500">
-                  Upload an AmpedTheme configuration file (.ampedtheme) to apply it to your profile
-                </p>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleImportTheme}
-                  accept=".ampedtheme"
-                  className="hidden"
-                />
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-                >
-                  <Upload size={16} />
-                  <span>Import Configuration</span>
-                </button>
+              <ProfileForm profile={profile} onUpdate={handleProfileUpdate} />
+              {/* URL input and info box with no extra spacing */}
+              <div>
+                <URLPicker />
+                {/* The info box is rendered by URLPicker, so no extra spacing here */}
               </div>
             </div>
           </>
+        )}
+        {activeTab === "account" && authUser && (
+          <div className="max-w-2xl mx-auto">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+              <h2 className="text-lg font-medium text-gray-800 mb-4">Profile Details</h2>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Email</p>
+                  <div className="flex items-center mt-1">
+                    <p className="text-base font-medium text-gray-900">{authUser.email}</p>
+                    <button
+                      onClick={() => setIsEmailDialogOpen(true)}
+                      className="ml-3 text-sm text-blue-600 hover:text-blue-800"
+                    >
+                      Change
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Account ID</p>
+                  <p className="mt-1 text-base font-medium text-gray-900">{authUser.id}</p>
+                </div>
+              </div>
+            </div>
+            <EmailChangeDialog
+              isOpen={isEmailDialogOpen}
+              onClose={() => setIsEmailDialogOpen(false)}
+            />
+          </div>
         )}
       </div>
     </div>

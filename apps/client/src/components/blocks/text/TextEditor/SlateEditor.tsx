@@ -173,7 +173,7 @@ const TextEditor = ({
         placeholder="Enter some rich text…"
         spellCheck
         autoFocus
-        className="min-h-[200px] p-2"
+        className="min-h-[200px] p-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all"
       />
     </Slate>
   )

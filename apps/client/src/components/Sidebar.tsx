@@ -12,7 +12,6 @@ import {
   Trophy,
   AtSign,
   Home,
-  Settings,
 } from "lucide-react";
 import { exportSettings } from "../utils/export";
 import { importSettings } from "../utils/import";
@@ -26,7 +25,6 @@ const allNavItems = [
   { id: "effects", icon: Sparkles, label: "Effects", alwaysShow: true },
   { id: "blocks", icon: LayoutGrid, label: "Blocks", alwaysShow: true },
   { id: "reward", icon: Sparkle, label: "Reward", alwaysShow: false },
-  { id: "account", icon: Settings, label: "Account", alwaysShow: true },
   {
     id: "creatorpool",
     icon: CoinsIcon,
