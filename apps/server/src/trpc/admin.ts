@@ -45,7 +45,14 @@ const ThemeCreateSchema = z.object({
   name: z.string().optional(),
   description: z.string().optional(), // add description
   config: z.any().optional(),
-  category: z.string().nullable()
+  category_id: z.number().nullable().optional()
+});
+
+// Theme category schemas
+const ThemeCategoryCreateSchema = z.object({
+  name: z.string().min(1, "Category name is required"),
+  title: z.string().min(1, "Category title is required"),
+  category: z.string().min(1, "Category identifier is required")
 });
 
 export const adminRouter = router({
@@ -543,13 +550,13 @@ export const adminRouter = router({
       try {
         const theme = await prisma.theme.create({
           data: {
-            user_id: null, // Ensure admin themes have user_id as null
+            user_id: undefined, // Admin themes have no user_id
             share_level: input.share_level ?? 'private',
             share_config: input.share_config,
             name: input.name,
-            description: input.description, // pass description
+            description: input.description,
             config: input.config,
-            category: input.category
+            category_id: input.category_id
           }
         });
         return theme;
@@ -557,6 +564,49 @@ export const adminRouter = router({
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to create theme'
+        });
+      }
+    }),
+    
+  // Theme Category Management
+  getThemeCategories: adminProcedure
+    .query(async () => {
+      try {
+        const categories = await prisma.themeCategory.findMany({
+          orderBy: { created_at: 'desc' },
+          include: {
+            _count: {
+              select: {
+                themes: true
+              }
+            }
+          }
+        });
+        return categories;
+      } catch (error) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch theme categories'
+        });
+      }
+    }),
+    
+  createThemeCategory: adminProcedure
+    .input(ThemeCategoryCreateSchema)
+    .mutation(async ({ input }) => {
+      try {
+        const category = await prisma.themeCategory.create({
+          data: {
+            name: input.name,
+            title: input.title,
+            category: input.category
+          }
+        });
+        return category;
+      } catch (error) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to create theme category'
         });
       }
     }),

@@ -6,6 +6,7 @@ Create functions, classes, variables only with english names.
 We use pnpm, turborepo and pnpm-workspace.
 At our server we are implementing trpc to replace express REST.
 To run prisma commands you need to use the filter `--filter=server` to run them only in the server package.
+After change prisma schema and create a new migration run `pnpm --filter server run prisma:generate`
 Use only lucide-react for icons or react-icons if the icon is not available in lucide-react.
 Use only tailwind for styles.
 When user asks you to create an alert or a warning, use the tailwind classes and add a icon from lucide.

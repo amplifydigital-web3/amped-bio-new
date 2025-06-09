@@ -1,122 +1,329 @@
 import { useState } from "react";
 import { z } from "zod";
 import { trpc } from "../../utils/trpc";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Plus, List } from "lucide-react";
 
 const themeSchema = z.object({
-  name: z.string().min(1, "Theme name is required"), // required for admin
-  description: z.string().optional(), // optional description
+  name: z.string().min(1, "Theme name is required"),
+  description: z.string().optional(),
   share_level: z.string().optional(),
   share_config: z.any().optional(),
   config: z.any().optional(),
-  category: z.string().nullable().optional(),
+  category_id: z.number().nullable().optional(),
+});
+
+const categorySchema = z.object({
+  name: z.string().min(1, "Category name is required"),
+  title: z.string().min(1, "Category title is required"),
+  category: z.string().min(1, "Category identifier is required"),
 });
 
 type ThemeForm = z.infer<typeof themeSchema>;
+type CategoryForm = z.infer<typeof categorySchema>;
 
 export function AdminThemeManager() {
-  const [form, setForm] = useState<ThemeForm>({
+  const [activeTab, setActiveTab] = useState<"themes" | "categories">("themes");
+  
+  const [themeForm, setThemeForm] = useState<ThemeForm>({
     name: "",
     description: "",
     share_level: "private",
     share_config: {},
     config: {},
-    category: null,
+    category_id: null,
   });
+  
+  const [categoryForm, setCategoryForm] = useState<CategoryForm>({
+    name: "",
+    title: "",
+    category: "",
+  });
+  
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const mutation = useMutation(trpc.admin.createTheme.mutationOptions());
+  // Queries and mutations
+  const { data: categories, refetch: refetchCategories } = useQuery(
+    trpc.admin.getThemeCategories.queryOptions()
+  );
+  
+  const themeMutation = useMutation(trpc.admin.createTheme.mutationOptions());
+  const categoryMutation = useMutation(trpc.admin.createThemeCategory.mutationOptions());
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+  const handleThemeChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const value = e.target.name === "category_id" ? 
+      (e.target.value === "" ? null : Number(e.target.value)) : 
+      e.target.value;
+    setThemeForm({ ...themeForm, [e.target.name]: value });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleCategoryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCategoryForm({ ...categoryForm, [e.target.name]: e.target.value });
+  };
+
+  const handleThemeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
-    // Always send category as string or null
-    const parsed = themeSchema.safeParse({
-      ...form,
-      category: form.category === undefined ? null : form.category,
-    });
+    
+    const parsed = themeSchema.safeParse(themeForm);
     if (!parsed.success) {
       setError(parsed.error.errors[0].message);
       return;
     }
-    // Ensure category is string or null
-    const input = { ...parsed.data, category: parsed.data.category === undefined ? null : parsed.data.category };
+    
     try {
-      await mutation.mutateAsync(input);
+      await themeMutation.mutateAsync(parsed.data);
       setSuccess("Theme created successfully");
-      setForm({ name: "", description: "", share_level: "private", share_config: {}, config: {}, category: null });
+      setThemeForm({ 
+        name: "", 
+        description: "", 
+        share_level: "private", 
+        share_config: {}, 
+        config: {}, 
+        category_id: null 
+      });
     } catch (err: any) {
       setError(err?.message || "Failed to create theme");
     }
   };
 
+  const handleCategorySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+    
+    const parsed = categorySchema.safeParse(categoryForm);
+    if (!parsed.success) {
+      setError(parsed.error.errors[0].message);
+      return;
+    }
+    
+    try {
+      await categoryMutation.mutateAsync(parsed.data);
+      setSuccess("Category created successfully");
+      setCategoryForm({ name: "", title: "", category: "" });
+      refetchCategories();
+    } catch (err: any) {
+      setError(err?.message || "Failed to create category");
+    }
+  };
+
   return (
-    <div className="max-w-xl mx-auto bg-white p-8 rounded-lg border border-gray-200 shadow">
-      <h2 className="text-2xl font-bold mb-4">Create New Theme</h2>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium mb-1" htmlFor="name">Theme Name</label>
-          <input
-            id="name"
-            name="name"
-            value={form.name}
-            onChange={handleChange}
-            className="w-full px-3 py-2 border rounded-md border-gray-300"
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1" htmlFor="description">Description</label>
-          <textarea
-            id="description"
-            name="description"
-            value={form.description}
-            onChange={handleChange}
-            className="w-full px-3 py-2 border rounded-md border-gray-300"
-            rows={2}
-            placeholder="Theme description (optional)"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1" htmlFor="share_level">Share Level</label>
-          <select
-            id="share_level"
-            name="share_level"
-            value={form.share_level}
-            onChange={handleChange}
-            className="w-full px-3 py-2 border rounded-md border-gray-300"
+    <div className="max-w-4xl mx-auto bg-white rounded-lg border border-gray-200 shadow">
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200">
+        <nav className="flex space-x-8 px-6" aria-label="Tabs">
+          <button
+            onClick={() => setActiveTab("themes")}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === "themes"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            }`}
           >
-            <option value="private">Private</option>
-            <option value="public">Public</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1" htmlFor="category">Category</label>
-          <input
-            id="category"
-            name="category"
-            value={form.category || ""}
-            onChange={handleChange}
-            className="w-full px-3 py-2 border rounded-md border-gray-300"
-          />
-        </div>
-        {/* You can add more fields for config/share_config as needed */}
-        <button
-          type="submit"
-          className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
-          disabled={mutation.status === 'pending'}
-        >
-          {mutation.status === 'pending' ? "Creating..." : "Create Theme"}
-        </button>
-      </form>
-      {error && <div className="text-red-600 text-sm mt-2">{error}</div>}
-      {success && <div className="text-green-600 text-sm mt-2">{success}</div>}
+            <Plus className="h-4 w-4 inline mr-2" />
+            Create Theme
+          </button>
+          <button
+            onClick={() => setActiveTab("categories")}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === "categories"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            }`}
+          >
+            <List className="h-4 w-4 inline mr-2" />
+            Manage Categories
+          </button>
+        </nav>
+      </div>
+
+      <div className="p-6">
+        {/* Theme Creation Tab */}
+        {activeTab === "themes" && (
+          <div>
+            <h2 className="text-2xl font-bold mb-4">Create New Theme</h2>
+            <form onSubmit={handleThemeSubmit} className="space-y-4 max-w-xl">
+              <div>
+                <label className="block text-sm font-medium mb-1" htmlFor="theme-name">
+                  Theme Name
+                </label>
+                <input
+                  id="theme-name"
+                  name="name"
+                  value={themeForm.name}
+                  onChange={handleThemeChange}
+                  className="w-full px-3 py-2 border rounded-md border-gray-300"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1" htmlFor="theme-description">
+                  Description
+                </label>
+                <textarea
+                  id="theme-description"
+                  name="description"
+                  value={themeForm.description}
+                  onChange={handleThemeChange}
+                  className="w-full px-3 py-2 border rounded-md border-gray-300"
+                  rows={2}
+                  placeholder="Theme description (optional)"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1" htmlFor="theme-share-level">
+                  Share Level
+                </label>
+                <select
+                  id="theme-share-level"
+                  name="share_level"
+                  value={themeForm.share_level}
+                  onChange={handleThemeChange}
+                  className="w-full px-3 py-2 border rounded-md border-gray-300"
+                >
+                  <option value="private">Private</option>
+                  <option value="public">Public</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1" htmlFor="theme-category">
+                  Category
+                </label>
+                <select
+                  id="theme-category"
+                  name="category_id"
+                  value={themeForm.category_id || ""}
+                  onChange={handleThemeChange}
+                  className="w-full px-3 py-2 border rounded-md border-gray-300"
+                >
+                  <option value="">No Category</option>
+                  {categories?.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <button
+                type="submit"
+                className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
+                disabled={themeMutation.status === 'pending'}
+              >
+                {themeMutation.status === 'pending' ? "Creating..." : "Create Theme"}
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* Category Management Tab */}
+        {activeTab === "categories" && (
+          <div>
+            <h2 className="text-2xl font-bold mb-4">Manage Categories</h2>
+            
+            {/* Category Creation Form */}
+            <div className="mb-8">
+              <h3 className="text-lg font-semibold mb-3">Create New Category</h3>
+              <form onSubmit={handleCategorySubmit} className="space-y-4 max-w-xl">
+                <div>
+                  <label className="block text-sm font-medium mb-1" htmlFor="category-name">
+                    Category Name
+                  </label>
+                  <input
+                    id="category-name"
+                    name="name"
+                    value={categoryForm.name}
+                    onChange={handleCategoryChange}
+                    className="w-full px-3 py-2 border rounded-md border-gray-300"
+                    placeholder="e.g., Business"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1" htmlFor="category-title">
+                    Category Title
+                  </label>
+                  <input
+                    id="category-title"
+                    name="title"
+                    value={categoryForm.title}
+                    onChange={handleCategoryChange}
+                    className="w-full px-3 py-2 border rounded-md border-gray-300"
+                    placeholder="e.g., Business Themes"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1" htmlFor="category-identifier">
+                    Category Identifier
+                  </label>
+                  <input
+                    id="category-identifier"
+                    name="category"
+                    value={categoryForm.category}
+                    onChange={handleCategoryChange}
+                    className="w-full px-3 py-2 border rounded-md border-gray-300"
+                    placeholder="e.g., business (lowercase, no spaces)"
+                    required
+                  />
+                </div>
+                
+                <button
+                  type="submit"
+                  className="w-full py-2 px-4 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold"
+                  disabled={categoryMutation.status === 'pending'}
+                >
+                  {categoryMutation.status === 'pending' ? "Creating..." : "Create Category"}
+                </button>
+              </form>
+            </div>
+
+            {/* Categories List */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3">Existing Categories</h3>
+              {categories && categories.length > 0 ? (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {categories.map((category) => (
+                    <div
+                      key={category.id}
+                      className="p-4 border border-gray-200 rounded-lg"
+                    >
+                      <h4 className="font-semibold text-gray-900">{category.title}</h4>
+                      <p className="text-sm text-gray-600 mt-1">Name: {category.name}</p>
+                      <p className="text-sm text-gray-600">ID: {category.category}</p>
+                      <p className="text-sm text-gray-500 mt-2">
+                        {category._count?.themes || 0} themes
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500">No categories created yet.</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Error and Success Messages */}
+        {error && (
+          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-red-600 text-sm">{error}</p>
+          </div>
+        )}
+        {success && (
+          <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
+            <p className="text-green-600 text-sm">{success}</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
