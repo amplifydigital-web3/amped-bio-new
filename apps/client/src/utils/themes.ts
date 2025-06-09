@@ -15,9 +15,6 @@ const modernThemes: MarketplaceTheme[] = [
     name: "Bubbles",
     description: "Dynamic bubble animations with a sleek modern feel",
     thumbnail: `${thumbnailsPath}/Bubbles_thumbnail.jpg`,
-    author: "Alex Design",
-    downloads: 12500,
-    rating: 4.8,
     tags: ["minimal", "modern", "abstract"],
     theme: {
       background: {
@@ -31,9 +28,6 @@ const modernThemes: MarketplaceTheme[] = [
     name: "Cube Wall",
     description: "Geometric cube patterns with depth and dimension",
     thumbnail: `${thumbnailsPath}/Cube_Wall_thumbnail.jpg`,
-    author: "Alex Design",
-    downloads: 9800,
-    rating: 4.7,
     tags: ["geometric", "modern", "abstract"],
     theme: {
       background: {
@@ -47,9 +41,6 @@ const modernThemes: MarketplaceTheme[] = [
     name: "Dot Matrix",
     description: "Elegant dot patterns with smooth animations",
     thumbnail: `${thumbnailsPath}/Dot_Matrix_thumbnail.jpg`,
-    author: "Alex Design",
-    downloads: 8900,
-    rating: 4.6,
     tags: ["dots", "modern", "minimal"],
     theme: {
       background: {
@@ -63,9 +54,6 @@ const modernThemes: MarketplaceTheme[] = [
     name: "Event Horizon",
     description: "Abstract cosmic event with mesmerizing visuals",
     thumbnail: `${thumbnailsPath}/Event_Horizon_thumbnail.jpg`,
-    author: "Alex Design",
-    downloads: 10300,
-    rating: 4.8,
     tags: ["space", "modern", "abstract"],
     theme: {
       background: {
@@ -79,9 +67,6 @@ const modernThemes: MarketplaceTheme[] = [
     name: "Fractal Flower",
     description: "Hypnotic fractal patterns blooming with color",
     thumbnail: `${thumbnailsPath}/Fractal_Flower_thumbnail.jpg`,
-    author: "Alex Design",
-    downloads: 11200,
-    rating: 4.7,
     tags: ["fractals", "modern", "colorful"],
     theme: {
       background: {
@@ -95,9 +80,6 @@ const modernThemes: MarketplaceTheme[] = [
     name: "Inferno",
     description: "Dynamic fire-like abstract visuals with deep warmth",
     thumbnail: `${thumbnailsPath}/Inferno_thumbnail.jpg`,
-    author: "Alex Design",
-    downloads: 9400,
-    rating: 4.5,
     tags: ["fire", "modern", "warm"],
     theme: {
       background: {
@@ -111,9 +93,6 @@ const modernThemes: MarketplaceTheme[] = [
     name: "Jade Tunnel",
     description: "Immersive tunnel experience with jade green hues",
     thumbnail: `${thumbnailsPath}/Jade_Tunnel_thumbnail.jpg`,
-    author: "Alex Design",
-    downloads: 9100,
-    rating: 4.6,
     tags: ["tunnel", "modern", "immersive"],
     theme: {
       background: {
@@ -127,9 +106,6 @@ const modernThemes: MarketplaceTheme[] = [
     name: "Landscape Waves",
     description: "Flowing waves of abstract landscape forms",
     thumbnail: `${thumbnailsPath}/Landscape_Waves_thumbnail.jpg`,
-    author: "Alex Design",
-    downloads: 8300,
-    rating: 4.5,
     tags: ["waves", "modern", "landscape"],
     theme: {
       background: {
@@ -143,9 +119,6 @@ const modernThemes: MarketplaceTheme[] = [
     name: "Neon Slide",
     description: "Smooth sliding neon elements in motion",
     thumbnail: `${thumbnailsPath}/Neon_Slide_thumbnail.jpg`,
-    author: "Alex Design",
-    downloads: 10700,
-    rating: 4.7,
     tags: ["neon", "modern", "motion"],
     theme: {
       background: {
@@ -159,9 +132,6 @@ const modernThemes: MarketplaceTheme[] = [
     name: "Neon Stars",
     description: "Glowing neon star patterns in cosmic space",
     thumbnail: `${thumbnailsPath}/Neon_Stars_thumbnail.jpg`,
-    author: "Alex Design",
-    downloads: 11800,
-    rating: 4.8,
     tags: ["stars", "modern", "space"],
     theme: {
       background: {
@@ -175,9 +145,6 @@ const modernThemes: MarketplaceTheme[] = [
     name: "Neon Tunnel",
     description: "Immersive tunnel with vibrant neon lighting",
     thumbnail: `${thumbnailsPath}/Neon_Tunnel_thumbnail.jpg`,
-    author: "Alex Design",
-    downloads: 12300,
-    rating: 4.9,
     tags: ["tunnel", "modern", "neon"],
     theme: {
       background: {
@@ -191,9 +158,6 @@ const modernThemes: MarketplaceTheme[] = [
     name: "Space Grid",
     description: "Futuristic grid patterns in cosmic space",
     thumbnail: `${thumbnailsPath}/Space_Grid_thumbnail.jpg`,
-    author: "Alex Design",
-    downloads: 9600,
-    rating: 4.6,
     tags: ["grid", "modern", "space"],
     theme: {
       background: {
@@ -207,9 +171,6 @@ const modernThemes: MarketplaceTheme[] = [
     name: "Sparkle",
     description: "Elegant sparkling particles in gentle motion",
     thumbnail: `${thumbnailsPath}/Sparkle_thumbnail.jpg`,
-    author: "Alex Design",
-    downloads: 10500,
-    rating: 4.7,
     tags: ["sparkle", "modern", "particles"],
     theme: {
       background: {
@@ -223,9 +184,6 @@ const modernThemes: MarketplaceTheme[] = [
     name: "Spotlight",
     description: "Dynamic spotlight effects with smooth transitions",
     thumbnail: `${thumbnailsPath}/Spotlight_thumbnail.jpg`,
-    author: "Alex Design",
-    downloads: 8800,
-    rating: 4.5,
     tags: ["light", "modern", "spotlight"],
     theme: {
       background: {
@@ -239,9 +197,6 @@ const modernThemes: MarketplaceTheme[] = [
     name: "Torus",
     description: "Mesmerizing torus geometric form in motion",
     thumbnail: `${thumbnailsPath}/Torus_thumbnail.jpg`,
-    author: "Alex Design",
-    downloads: 9200,
-    rating: 4.6,
     tags: ["geometric", "modern", "3D"],
     theme: {
       background: {
@@ -255,9 +210,6 @@ const modernThemes: MarketplaceTheme[] = [
     name: "Turbulence",
     description: "Fluid dynamics creating abstract turbulent patterns",
     thumbnail: `${thumbnailsPath}/Turbulence_thumbnail.jpg`,
-    author: "Alex Design",
-    downloads: 8700,
-    rating: 4.5,
     tags: ["fluid", "modern", "abstract"],
     theme: {
       background: {
@@ -275,9 +227,6 @@ const natureThemes: MarketplaceTheme[] = [
     name: "Beach House",
     description: "Serene coastal view with gentle waves",
     thumbnail: `${thumbnailsPath}/Beach_House_thumbnail.jpg`,
-    author: "Emma Nature",
-    downloads: 8700,
-    rating: 4.6,
     tags: ["nature", "beach", "water"],
     theme: {
       background: {
@@ -291,9 +240,6 @@ const natureThemes: MarketplaceTheme[] = [
     name: "Big Sky",
     description: "Expansive sky view with stunning cloud formations",
     thumbnail: `${thumbnailsPath}/Big_Sky_thumbnail.jpg`,
-    author: "Emma Nature",
-    downloads: 7200,
-    rating: 4.5,
     tags: ["nature", "sky", "clouds"],
     theme: {
       background: {
@@ -307,9 +253,6 @@ const natureThemes: MarketplaceTheme[] = [
     name: "Forest Sunbeams",
     description: "Magical forest with sunlight filtering through trees",
     thumbnail: `${thumbnailsPath}/Forest_Sunbeams_thumbnail.jpg`,
-    author: "Emma Nature",
-    downloads: 8900,
-    rating: 4.7,
     tags: ["nature", "forest", "sunlight"],
     theme: {
       background: {
@@ -323,9 +266,6 @@ const natureThemes: MarketplaceTheme[] = [
     name: "Kitten",
     description: "Adorable kitten with playful charm",
     thumbnail: `${thumbnailsPath}/Kitten_thumbnail.jpg`,
-    author: "Emma Nature",
-    downloads: 9500,
-    rating: 4.9,
     tags: ["nature", "animal", "cute"],
     theme: {
       background: {
@@ -339,9 +279,6 @@ const natureThemes: MarketplaceTheme[] = [
     name: "Kyoto Rain",
     description: "Atmospheric rainy scene in tranquil Kyoto",
     thumbnail: `${thumbnailsPath}/Kyoto_Rain_thumbnail.jpg`,
-    author: "Emma Nature",
-    downloads: 7800,
-    rating: 4.6,
     tags: ["nature", "rain", "japan"],
     theme: {
       background: {
@@ -355,9 +292,6 @@ const natureThemes: MarketplaceTheme[] = [
     name: "Sakura",
     description: "Beautiful cherry blossoms in full bloom",
     thumbnail: `${thumbnailsPath}/Sakura_thumbnail.jpg`,
-    author: "Emma Nature",
-    downloads: 8300,
-    rating: 4.7,
     tags: ["nature", "flowers", "spring"],
     theme: {
       background: {
@@ -371,9 +305,6 @@ const natureThemes: MarketplaceTheme[] = [
     name: "Midnight Grove",
     description: "Mystical forest at night with enchanting atmosphere",
     thumbnail: `${thumbnailsPath}/Midnight_Grove_thumbnail.jpg`,
-    author: "Emma Nature",
-    downloads: 7900,
-    rating: 4.6,
     tags: ["nature", "forest", "night"],
     theme: {
       background: {
@@ -387,9 +318,6 @@ const natureThemes: MarketplaceTheme[] = [
     name: "Moonlight Campfire",
     description: "Cozy campfire under the moonlit sky",
     thumbnail: `${thumbnailsPath}/Moonlight_Campfire_thumbnail.jpg`,
-    author: "Emma Nature",
-    downloads: 8100,
-    rating: 4.7,
     tags: ["nature", "night", "fire"],
     theme: {
       background: {
@@ -403,9 +331,6 @@ const natureThemes: MarketplaceTheme[] = [
     name: "Mushrooms",
     description: "Enchanting mushrooms with magical forest ambiance",
     thumbnail: `${thumbnailsPath}/Mushrooms_thumbnail.jpg`,
-    author: "Emma Nature",
-    downloads: 7300,
-    rating: 4.5,
     tags: ["nature", "mushrooms", "forest"],
     theme: {
       background: {
@@ -419,9 +344,6 @@ const natureThemes: MarketplaceTheme[] = [
     name: "Nebula",
     description: "Cosmic nebula with vibrant space colors",
     thumbnail: `${thumbnailsPath}/Nebula_thumbnail.jpg`,
-    author: "Emma Nature",
-    downloads: 9100,
-    rating: 4.8,
     tags: ["nature", "space", "cosmos"],
     theme: {
       background: {
@@ -435,9 +357,6 @@ const natureThemes: MarketplaceTheme[] = [
     name: "Peaceful River",
     description: "Gentle flowing river with calming natural sounds",
     thumbnail: `${thumbnailsPath}/Peaceful_River_thumbnail.jpg`,
-    author: "Emma Nature",
-    downloads: 8200,
-    rating: 4.6,
     tags: ["nature", "water", "river"],
     theme: {
       background: {
@@ -451,9 +370,6 @@ const natureThemes: MarketplaceTheme[] = [
     name: "Poolside",
     description: "Relaxing poolside view with sparkling water",
     thumbnail: `${thumbnailsPath}/Poolside_thumbnail.jpg`,
-    author: "Emma Nature",
-    downloads: 7600,
-    rating: 4.5,
     tags: ["nature", "pool", "relax"],
     theme: {
       background: {
@@ -467,9 +383,6 @@ const natureThemes: MarketplaceTheme[] = [
     name: "Savannah Sunset",
     description: "Golden sunset over the vast African savannah",
     thumbnail: `${thumbnailsPath}/Savannah_Sunset_thumbnail.jpg`,
-    author: "Emma Nature",
-    downloads: 8700,
-    rating: 4.7,
     tags: ["nature", "sunset", "africa"],
     theme: {
       background: {
@@ -483,9 +396,6 @@ const natureThemes: MarketplaceTheme[] = [
     name: "Stormy Sky",
     description: "Dramatic clouds with atmospheric storm energy",
     thumbnail: `${thumbnailsPath}/Stormy_Sky_thumbnail.jpg`,
-    author: "Emma Nature",
-    downloads: 7500,
-    rating: 4.6,
     tags: ["nature", "storm", "clouds"],
     theme: {
       background: {
@@ -499,9 +409,6 @@ const natureThemes: MarketplaceTheme[] = [
     name: "Sunset Beach",
     description: "Beautiful sunset over tropical beach paradise",
     thumbnail: `${thumbnailsPath}/Sunset_Beach_thumbnail.jpg`,
-    author: "Emma Nature",
-    downloads: 9800,
-    rating: 4.9,
     tags: ["nature", "beach", "sunset"],
     theme: {
       background: {
@@ -515,9 +422,6 @@ const natureThemes: MarketplaceTheme[] = [
     name: "Tokyo Spring",
     description: "Vibrant spring scenes from Tokyo with blossoms",
     thumbnail: `${thumbnailsPath}/Tokyo_Spring_thumbnail.jpg`,
-    author: "Emma Nature",
-    downloads: 8500,
-    rating: 4.7,
     tags: ["nature", "japan", "spring"],
     theme: {
       background: {
@@ -535,25 +439,19 @@ const cyberpunkThemes: MarketplaceTheme[] = [
     name: "Astral Staircase",
     description: "Mesmerizing staircase to another dimension",
     thumbnail: `${thumbnailsPath}/Astral_Staircase_thumbnail.jpg`,
-    author: "Neo Digital",
-    downloads: 11200,
-    rating: 4.9,
     tags: ["cyberpunk", "space", "futuristic"],
     theme: {
       background: {
         type: "video",
         value: `${awsS3}/Astral_Staircase.mp4`,
       },
-    },
+    }, 
   },
   {
     id: "cyber-arches",
     name: "Cyber Arches",
     description: "Futuristic architectural arches with neon lighting",
     thumbnail: `${thumbnailsPath}/Cyber_Arches_thumbnail.jpg`,
-    author: "Neo Digital",
-    downloads: 9400,
-    rating: 4.7,
     tags: ["cyberpunk", "architecture", "neon"],
     theme: {
       background: {
@@ -567,9 +465,6 @@ const cyberpunkThemes: MarketplaceTheme[] = [
     name: "Cyber Corridor",
     description: "High-tech corridor with flowing digital elements",
     thumbnail: `${thumbnailsPath}/Cyber_Corridor_thumbnail.jpg`,
-    author: "Neo Digital",
-    downloads: 10300,
-    rating: 4.8,
     tags: ["cyberpunk", "tech", "digital"],
     theme: {
       background: {
@@ -583,9 +478,6 @@ const cyberpunkThemes: MarketplaceTheme[] = [
     name: "Dark Lightning",
     description: "Electric energy with dark atmospheric visuals",
     thumbnail: `${thumbnailsPath}/Dark_Lightning_thumbnail.jpg`,
-    author: "Neo Digital",
-    downloads: 8700,
-    rating: 4.6,
     tags: ["cyberpunk", "energy", "dark"],
     theme: {
       background: {
@@ -599,9 +491,6 @@ const cyberpunkThemes: MarketplaceTheme[] = [
     name: "Night City",
     description: "Futuristic cityscape with neon lights",
     thumbnail: `${thumbnailsPath}/Night_City_thumbnail.jpg`,
-    author: "Neo Digital",
-    downloads: 12500,
-    rating: 4.9,
     tags: ["cyberpunk", "city", "night"],
     theme: {
       background: {
@@ -615,14 +504,115 @@ const cyberpunkThemes: MarketplaceTheme[] = [
     name: "Neo",
     description: "Digital matrix-inspired visual effect",
     thumbnail: `${thumbnailsPath}/Neo_thumbnail.jpg`,
-    author: "Neo Digital",
-    downloads: 9800,
-    rating: 4.7,
     tags: ["cyberpunk", "matrix", "digital"],
     theme: {
       background: {
         type: "video",
         value: `${awsS3}/Neo.mp4`,
+      },
+    },
+  },
+  {
+    id: "cyber-magic-portal",
+    name: "Magic Portal",
+    description: "Enigmatic portal with swirling cosmic energy",
+    thumbnail: `${thumbnailsPath}/Magic_Portal_thumbnail.jpg`,
+    tags: ["cyberpunk"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Magic_Portal.mp4`,
+      },
+    }
+  },
+  {
+    id: "cyber-ellipse",
+    name: "Ellipse",
+    description: "Mesmerizing ellipse patterns with futuristic visuals",
+    thumbnail: `${thumbnailsPath}/Ellipse_thumbnail.jpg`,
+    tags: ["cyberpunk", "abstract", "futuristic"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Ellipse.mp4`,
+      },
+    },
+  },
+  {
+    id: "cyber-network",
+    name: "Network",
+    description: "Complex network of interconnected digital nodes",
+    thumbnail: `${thumbnailsPath}/Network_thumbnail.jpg`,
+    tags: ["cyberpunk", "tech", "digital"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Network.mp4`,
+      },
+    },
+  },
+  {
+    id: "cyber-plasma",
+    name: "Plasma",
+    description: "Dynamic plasma effect with vibrant energy",
+    thumbnail: `${thumbnailsPath}/Plasma_thumbnail.jpg`,
+    tags: ["cyberpunk", "energy", "abstract"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Plasma.mp4`,
+      },
+    },
+  },
+  {
+    id: "cyber-plexus",
+    name: "Plexus",
+    description: "Intricate plexus structure with glowing connections",
+    thumbnail: `${thumbnailsPath}/Plexus_thumbnail.jpg`,
+    tags: ["cyberpunk", "abstract", "tech"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Plexus.mp4`,
+      },
+    },
+  },
+  {
+    id: "cyber-redshift",
+    name: "Redshift",
+    description: "Shifting red hues with cosmic redshift effect",
+    thumbnail: `${thumbnailsPath}/Redshift_thumbnail.jpg`,
+    tags: ["cyberpunk", "space", "abstract"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Redshift.mp4`,
+      },
+    },
+  },
+  {
+    id: "cyber-rings",
+    name: "Rings",
+    description: "Interlocking rings with futuristic design",
+    thumbnail: `${thumbnailsPath}/Rings_thumbnail.jpg`,
+    tags: ["cyberpunk", "geometric", "futuristic"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Rings.mp4`,
+      },
+    },
+  },
+  {
+    id: "cyber-urban-sunset",
+    name: "Urban Sunset",
+    description: "Sunset over a futuristic urban landscape",
+    thumbnail: `${thumbnailsPath}/Urban_Sunset_thumbnail.jpg`,
+    tags: ["cyberpunk", "city", "sunset"],
+    theme: {
+      background: {
+        type: "video",
+        value: `${awsS3}/Urban_Sunset.mp4`,
       },
     },
   },
@@ -635,9 +625,6 @@ const winterThemes: MarketplaceTheme[] = [
     name: "Christmas Ornaments",
     description: "Festive holiday ornaments with seasonal charm",
     thumbnail: `${thumbnailsPath}/Christmas_Ornaments_thumbnail.jpg`,
-    author: "Marina Waves",
-    downloads: 7800,
-    rating: 4.6,
     tags: ["winter", "christmas", "holiday"],
     theme: {
       background: {
@@ -651,9 +638,6 @@ const winterThemes: MarketplaceTheme[] = [
     name: "Sleigh Ride",
     description: "Nostalgic winter sleigh ride through snowy landscape",
     thumbnail: `${thumbnailsPath}/Sleigh_Ride_thumbnail.jpg`,
-    author: "Marina Waves",
-    downloads: 6500,
-    rating: 4.5,
     tags: ["winter", "sleigh", "snow"],
     theme: {
       background: {
@@ -667,9 +651,6 @@ const winterThemes: MarketplaceTheme[] = [
     name: "Snow Globe",
     description: "Magical snow globe with whimsical winter scene",
     thumbnail: `${thumbnailsPath}/Snow_Globe_thumbnail.jpg`,
-    author: "Marina Waves",
-    downloads: 8900,
-    rating: 4.7,
     tags: ["winter", "globe", "magical"],
     theme: {
       background: {
@@ -683,9 +664,6 @@ const winterThemes: MarketplaceTheme[] = [
     name: "Snowflakes",
     description: "Beautiful falling snowflakes with winter tranquility",
     thumbnail: `${thumbnailsPath}/Snowflakes_thumbnail.jpg`,
-    author: "Marina Waves",
-    downloads: 9200,
-    rating: 4.8,
     tags: ["winter", "snow", "gentle"],
     theme: {
       background: {
@@ -699,9 +677,6 @@ const winterThemes: MarketplaceTheme[] = [
     name: "Winter Wonderland",
     description: "Serene winter landscape with magical atmosphere",
     thumbnail: `${thumbnailsPath}/Winter_Wonderland_thumbnail.jpg`,
-    author: "Marina Waves",
-    downloads: 10500,
-    rating: 4.9,
     tags: ["winter", "landscape", "wonderland"],
     theme: {
       background: {
@@ -782,9 +757,4 @@ const winterCollection: Collection = {
 };
 
 // Export collections and themes
-export const collections: Collection[] = [
-  modernCollection,
-  natureCollection,
-  cyberpunkCollection,
-  winterCollection,
-];
+export const collections: Collection[] = [modernCollection, natureCollection, cyberpunkCollection, winterCollection];

@@ -1,6 +1,6 @@
 import type { ThemeConfig } from "../../types/editor";
 import { SpotifyBlock } from "./SpotifyBlock";
-import { InstagramBlock } from "./Instagram/InstagramBlock";
+import { InstagramBlock } from "./InstagramBlock";
 import { YouTubeBlock } from "./YouTubeBlock";
 import { TwitterBlock } from "./TwitterBlock";
 import { TokenPriceBlock } from "./TokenPriceBlock";
@@ -9,6 +9,8 @@ import { UniswapBlock } from "./UniswapBlock";
 import { SubstackBlock } from "./SubstackBlock";
 import { CreatorPoolBlock } from "./CreatorPoolBlock";
 import { MediaBlock as MediaBlockType } from "@/api/api.types";
+import { FacebookBlock } from "./FacebookBlock";
+import { TiktokBlock } from "./TiktokBlock";
 
 interface MediaBlockProps {
   block: MediaBlockType;
@@ -35,6 +37,10 @@ export function MediaBlock({ block, theme }: MediaBlockProps) {
       return <SubstackBlock block={block} theme={theme} />;
     case "creator-pool":
       return <CreatorPoolBlock block={block} theme={theme} />;
+    case "facebook":
+      return <FacebookBlock block={block} theme={theme} />;
+    case "tiktok":
+      return <TiktokBlock block={block} theme={theme} />;
     default:
       return null;
   }
