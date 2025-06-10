@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { s3Service, FileCategory } from "../services/S3Service";
+import { uploadedFileService } from "../services/UploadedFileService";
 import {
   ALLOWED_AVATAR_FILE_EXTENSIONS,
   ALLOWED_AVATAR_FILE_TYPES,
@@ -61,13 +62,45 @@ const requestThemeBackgroundUrlSchema = z.object({
 // Schema for confirming successful upload
 const confirmUploadSchema = z.object({
   fileKey: z.string().min(1),
+  fileId: z.number().positive(), // File ID from the presigned URL request
+  fileName: z.string().min(1), // Actual filename from client
   category: z.enum(["profiles", "backgrounds", "media", "files"]).default("profiles"),
 });
 
 // Schema for confirming successful theme background upload (image or video)
 const confirmThemeBackgroundSchema = z.object({
   fileKey: z.string().min(1),
+  fileId: z.number().positive(), // File ID from the presigned URL request
+  fileName: z.string().min(1), // Actual filename from client
   mediaType: z.enum(["image", "video"]),
+});
+
+// Schema for theme category image upload (admin only)
+const requestThemeCategoryImageSchema = z.object({
+  categoryId: z.number().positive(),
+  contentType: z
+    .string()
+    .refine(value => ALLOWED_AVATAR_FILE_TYPES.includes(value), {
+      message: `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()} formats are supported`,
+    }),
+  fileExtension: z
+    .string()
+    .refine(value => ALLOWED_AVATAR_FILE_EXTENSIONS.includes(value.toLowerCase()), {
+      message: `File extension must be ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ")}`,
+    }),
+  fileSize: z
+    .number()
+    .max(MAX_AVATAR_FILE_SIZE, {
+      message: `File size must be less than ${MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB`,
+    }),
+});
+
+// Schema for confirming theme category image upload
+const confirmThemeCategoryImageSchema = z.object({
+  categoryId: z.number().positive(),
+  fileKey: z.string().min(1),
+  fileId: z.number().positive(), // File ID from the presigned URL request
+  fileName: z.string().min(1), // Actual filename from client
 });
 
 export const uploadRouter = router({
@@ -94,9 +127,20 @@ export const uploadRouter = router({
           input.fileExtension
         );
 
+        // Create uploaded file record immediately when presigned URL is generated
+        const uploadedFile = await uploadedFileService.createUploadedFile({
+          s3Key: fileKey,
+          bucket: process.env.AWS_S3_BUCKET_NAME || "default-bucket",
+          fileName: `avatar_${Date.now()}.${input.fileExtension}`, // Generate a name since we don't have it yet
+          fileType: input.contentType,
+          size: input.fileSize,
+          userId: userId,
+        });
+
         return {
           presignedUrl,
           fileKey,
+          fileId: uploadedFile.id, // Return the file ID for tracking
           expiresIn: 300, // Seconds
         };
       } catch (error) {
@@ -163,9 +207,20 @@ export const uploadRouter = router({
           Number(themeId)
         );
 
+        // Create uploaded file record immediately when presigned URL is generated
+        const uploadedFile = await uploadedFileService.createUploadedFile({
+          s3Key: fileKey,
+          bucket: process.env.AWS_S3_BUCKET_NAME || "default-bucket",
+          fileName: `background_${Date.now()}.${input.fileExtension}`, // Generate a name since we don't have it yet
+          fileType: input.contentType,
+          size: input.fileSize,
+          userId: userId,
+        });
+
         return {
           presignedUrl,
           fileKey,
+          fileId: uploadedFile.id, // Return the file ID for tracking
           mediaType: isVideo ? "video" : "image",
           expiresIn: 300, // Seconds
         };
@@ -196,6 +251,30 @@ export const uploadRouter = router({
             message: "File not found in S3. Please upload the file first.",
           });
         }
+
+        // Get the uploaded file record and update it with final filename
+        const uploadedFile = await uploadedFileService.getFileById(input.fileId);
+        if (!uploadedFile || uploadedFile.user_id !== userId) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "File record not found or access denied.",
+          });
+        }
+
+        // Update the file record with the actual filename and mark as completed
+        await uploadedFileService.updateFileStatus({
+          id: input.fileId,
+          status: "COMPLETED",
+        });
+
+        // Also update the filename
+        await prisma.uploadedFile.update({
+          where: { id: input.fileId },
+          data: {
+            file_name: input.fileName,
+            updated_at: new Date(),
+          },
+        });
 
         // Get the user to find their theme ID
         const userFound = await prisma.user.findUniqueOrThrow({
@@ -243,9 +322,16 @@ export const uploadRouter = router({
 
         // If there's an existing background, we might want to delete it later
         let previousFileKey: string | null = null;
+        let previousFileId: number | null = null;
 
-        if (themeConfig.background && themeConfig.background.value) {
-          previousFileKey = s3Service.extractFileKeyFromUrl(themeConfig.background.value);
+        if (themeConfig.background) {
+          if (themeConfig.background.fileId) {
+            // New system - file ID reference
+            previousFileId = themeConfig.background.fileId;
+          } else if (themeConfig.background.value) {
+            // Legacy system - direct URL
+            previousFileKey = s3Service.extractFileKeyFromUrl(themeConfig.background.value);
+          }
         }
 
         // Update the theme configuration with the new background
@@ -256,7 +342,8 @@ export const uploadRouter = router({
             ...(themeConfig.background || {}),
             // Override with new values
             type: input.mediaType,
-            value: backgroundUrl,
+            value: null, // Set to null since we're using file ID now
+            fileId: input.fileId, // Use the provided file ID
           },
         };
 
@@ -271,10 +358,21 @@ export const uploadRouter = router({
           },
         });
 
-        // Delete the previous background if it exists and belongs to this theme/user
-        if (previousFileKey && previousFileKey !== input.fileKey) {
+        // Handle cleanup of previous background
+        if (previousFileId) {
+          // New system - mark previous file as deleted
           try {
-            // Only delete if the file belongs to this theme and user
+            await uploadedFileService.deleteFile(previousFileId);
+            const prevFile = await uploadedFileService.getFileById(previousFileId);
+            if (prevFile) {
+              await s3Service.deleteFile(prevFile.s3_key);
+            }
+          } catch (deleteError) {
+            console.warn("Failed to delete previous background file:", deleteError);
+          }
+        } else if (previousFileKey && previousFileKey !== input.fileKey) {
+          // Legacy system - delete if it belongs to this theme/user
+          try {
             if (s3Service.isThemeOwnerFile({ 
               fileKey: previousFileKey, 
               themeId: themeIdNum, 
@@ -292,14 +390,14 @@ export const uploadRouter = router({
               );
             }
           } catch (deleteError) {
-            // Just log the error but don't fail the whole operation
             console.warn("Failed to delete previous background:", deleteError);
           }
         }
 
         return {
           success: true,
-          backgroundUrl,
+          backgroundUrl: s3Service.getFileUrl(input.fileKey),
+          fileId: input.fileId,
           theme: updatedTheme,
         };
       } catch (error) {
@@ -330,6 +428,30 @@ export const uploadRouter = router({
           });
         }
 
+        // Get the uploaded file record and update it with final filename
+        const uploadedFile = await uploadedFileService.getFileById(input.fileId);
+        if (!uploadedFile || uploadedFile.user_id !== userId) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "File record not found or access denied.",
+          });
+        }
+
+        // Update the file record with the actual filename and mark as completed
+        await uploadedFileService.updateFileStatus({
+          id: input.fileId,
+          status: "COMPLETED",
+        });
+
+        // Also update the filename
+        await prisma.uploadedFile.update({
+          where: { id: input.fileId },
+          data: {
+            file_name: input.fileName,
+            updated_at: new Date(),
+          },
+        });
+
         // Get the user's current profile picture
         const user = await prisma.user.findUnique({
           where: { id: userId },
@@ -343,17 +465,18 @@ export const uploadRouter = router({
           });
         }
 
-        // Extract the file key from the previous image URL (if exists)
+        // Extract the file key from the previous image URL (if exists) - legacy system
         const previousFileKey = user.image ? s3Service.extractFileKeyFromUrl(user.image) : null;
 
         // Get the public URL for the new profile picture
         const profilePictureUrl = s3Service.getFileUrl(input.fileKey);
 
-        // Update user profile picture URL in database
-        const updatedUser = await prisma.user.update({
+        // Update user profile picture URL and file reference in database
+        await prisma.user.update({
           where: { id: userId },
           data: {
-            image: profilePictureUrl,
+            image: null, // Set to null since we're using file ID now
+            image_file_id: input.fileId, // Now types are updated
             updated_at: new Date(),
           },
         });
@@ -363,20 +486,243 @@ export const uploadRouter = router({
           try {
             await s3Service.deleteFile(previousFileKey);
           } catch (deleteError) {
-            // Just log the error but don't fail the whole operation
             console.warn("Failed to delete previous profile picture:", deleteError);
           }
         }
 
         return {
           success: true,
-          profilePictureUrl: updatedUser.image!,
+          profilePictureUrl: s3Service.getFileUrl(input.fileKey),
+          fileId: input.fileId,
         };
       } catch (error) {
         console.error("Error updating profile picture:", error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to update profile picture",
+        });
+      }
+    }),
+
+  // Generate a presigned URL for uploading theme category image (admin only)
+  requestThemeCategoryImagePresignedUrl: privateProcedure
+    .input(requestThemeCategoryImageSchema)
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user.id;
+
+      try {
+        // Check file size
+        if (input.fileSize > MAX_AVATAR_FILE_SIZE) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `File size exceeds the ${MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB limit`,
+          });
+        }
+
+        // Check if category exists and user is admin
+        const category = await prisma.themeCategory.findUnique({
+          where: { id: input.categoryId },
+        });
+
+        if (!category) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Category not found",
+          });
+        }
+
+        // Check if user has admin role (you might want to implement proper role checking)
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { role: true },
+        });
+
+        if (!user || user.role !== "admin") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Only admins can upload theme category images",
+          });
+        }
+
+        // Use the S3Service to generate a presigned URL
+        const { presignedUrl, fileKey } = await s3Service.getPresignedUploadUrl(
+          "profiles", // Use profiles category for theme category images
+          userId,
+          input.contentType,
+          input.fileExtension
+        );
+
+        // Create uploaded file record immediately when presigned URL is generated
+        const uploadedFile = await uploadedFileService.createUploadedFile({
+          s3Key: fileKey,
+          bucket: process.env.AWS_S3_BUCKET_NAME || "default-bucket",
+          fileName: `category_${input.categoryId}_${Date.now()}.${input.fileExtension}`, // Generate a name
+          fileType: input.contentType,
+          size: input.fileSize,
+          userId: 0, // Set user_id to 0 for admin files
+        });
+
+        return {
+          presignedUrl,
+          fileKey,
+          fileId: uploadedFile.id, // Return the file ID for tracking
+          expiresIn: 300, // Seconds
+        };
+      } catch (error) {
+        console.error("Error generating presigned URL for theme category image:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to generate upload URL for theme category image",
+        });
+      }
+    }),
+
+  // Confirm successful upload and update theme category with the new image
+  confirmThemeCategoryImageUpload: privateProcedure
+    .input(confirmThemeCategoryImageSchema)
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user.id;
+
+      try {
+        // Check if user has admin role
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { role: true },
+        });
+
+        if (!user || user.role !== "admin") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Only admins can upload theme category images",
+          });
+        }
+
+        // Verify that the file exists in S3 before proceeding
+        const fileExists = await s3Service.fileExists({ fileKey: input.fileKey });
+        if (!fileExists) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "File not found in S3. Please upload the file first.",
+          });
+        }
+
+        // Get the uploaded file record and verify it's an admin file
+        const uploadedFile = await uploadedFileService.getFileById(input.fileId);
+        if (!uploadedFile || uploadedFile.user_id !== 0) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "File record not found or not an admin file.",
+          });
+        }
+
+        // Update the file record with the actual filename and mark as completed
+        await uploadedFileService.updateFileStatus({
+          id: input.fileId,
+          status: "COMPLETED",
+        });
+
+        // Also update the filename
+        await prisma.uploadedFile.update({
+          where: { id: input.fileId },
+          data: {
+            file_name: input.fileName,
+            updated_at: new Date(),
+          },
+        });
+
+        // Get the category to find its current image
+        const category = await prisma.themeCategory.findUniqueOrThrow({
+          where: { id: input.categoryId },
+          select: { image: true },
+        });
+
+        // Extract the file key from the previous image URL (if exists) - legacy system
+        const previousFileKey = category.image ? s3Service.extractFileKeyFromUrl(category.image) : null;
+
+        // Update the category with the new image
+        await prisma.themeCategory.update({
+          where: { id: input.categoryId },
+          data: {
+            image: null, // Set to null since we're using file ID now
+            image_file_id: input.fileId, // Now types are updated
+            updated_at: new Date(),
+          },
+        });
+
+        // Delete the previous category image if it exists (as a cleanup task)
+        if (previousFileKey && previousFileKey !== input.fileKey) {
+          try {
+            await s3Service.deleteFile(previousFileKey);
+          } catch (deleteError) {
+            console.warn("Failed to delete previous category image:", deleteError);
+          }
+        }
+
+        return {
+          success: true,
+          fileId: input.fileId,
+          imageUrl: s3Service.getFileUrl(input.fileKey),
+        };
+      } catch (error) {
+        console.error("Error updating theme category image:", error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to update theme category image",
+        });
+      }
+    }),
+
+  // Get file information by ID (for resolving file URLs)
+  getFileInfo: privateProcedure
+    .input(z.object({
+      fileId: z.number().positive(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.user.id;
+
+      try {
+        const file = await uploadedFileService.getFileById(input.fileId);
+        
+        if (!file) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "File not found",
+          });
+        }
+
+        // Check if user can access this file
+        const canAccess = await uploadedFileService.canUserAccessFile(input.fileId, userId);
+        if (!canAccess) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Access denied to this file",
+          });
+        }
+
+        return {
+          id: file.id,
+          fileName: file.file_name,
+          fileType: file.file_type,
+          size: file.size ? Number(file.size) : null,
+          url: s3Service.getFileUrl(file.s3_key),
+          status: file.status,
+          uploadedAt: file.uploaded_at,
+          isServerFile: file.user_id === null,
+        };
+      } catch (error) {
+        console.error("Error getting file info:", error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to get file information",
         });
       }
     }),

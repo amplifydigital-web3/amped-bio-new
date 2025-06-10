@@ -22,7 +22,8 @@ model User {
   auth_as             Int?
   provider            String?
   provider_id         String?
-  image               String?   @db.LongText
+  image               String?   @db.LongText // Keep for backward compatibility
+  image_file_id       Int?      // New field for uploaded file reference
   reward_business_id  String?
   created_at          DateTime  @default(now())
   updated_at          DateTime? @updatedAt
@@ -31,6 +32,8 @@ model User {
   themes              Theme[]
   blocks              Block[]
   confirmationCodes   ConfirmationCode[]
+  uploadedFiles       UploadedFile[]
+  profileImage        UploadedFile? @relation("UserProfileImage", fields: [image_file_id], references: [id], onDelete: SetNull)
 
   @@map("users")
 }
@@ -40,11 +43,14 @@ model ThemeCategory {
   name                String    @unique
   title               String
   category            String
+  image               String?   @db.LongText // Keep for backward compatibility
+  image_file_id       Int?      // New field for uploaded file reference
   created_at          DateTime  @default(now())
   updated_at          DateTime? @updatedAt
   
-  // Relat ions
+  // Relations
   themes              Theme[]
+  categoryImage       UploadedFile? @relation("ThemeCategoryImage", fields: [image_file_id], references: [id], onDelete: SetNull)
 
   @@map("theme_categories")
 }
@@ -105,4 +111,34 @@ model ConfirmationCode {
   
   @@index([code])
   @@map("confirmation_codes")
+}
+
+enum FileStatus {
+  PENDING
+  COMPLETED
+  DELETED
+}
+
+model UploadedFile {
+  id                  Int       @id @default(autoincrement())
+  s3_key              String    @db.VarChar(255)
+  bucket              String    @db.VarChar(100)
+  file_name           String    @db.VarChar(255)
+  file_type           String?   @db.VarChar(100)
+  size                BigInt?
+  user_id             Int?      // Nullable for admin/server files
+  uploaded_at         DateTime  @default(now())
+  status              FileStatus @default(PENDING)
+  created_at          DateTime  @default(now())
+  updated_at          DateTime? @updatedAt
+  
+  // Relations
+  user                User?     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  userProfileImage    User[]    @relation("UserProfileImage")
+  themeCategoryImage  ThemeCategory[] @relation("ThemeCategoryImage")
+  
+  @@index([s3_key])
+  @@index([user_id])
+  @@index([status])
+  @@map("uploaded_files")
 }

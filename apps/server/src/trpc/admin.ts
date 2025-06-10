@@ -2,6 +2,7 @@ import { adminProcedure, router } from "./trpc";
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { getFileUrl } from "../utils/fileUrlResolver";
 
 const prisma = new PrismaClient();
 
@@ -51,7 +52,8 @@ const ThemeCreateSchema = z.object({
 const ThemeCategoryCreateSchema = z.object({
   name: z.string().min(1, "Category name is required"),
   title: z.string().min(1, "Category title is required"),
-  category: z.string().min(1, "Category identifier is required")
+  category: z.string().min(1, "Category identifier is required"),
+  image_file_id: z.number().positive().optional() // Optional image file ID for uploaded image
 });
 
 export const adminRouter = router({
@@ -94,6 +96,7 @@ export const adminRouter = router({
           created_at: true,
           updated_at: true,
           image: true,
+          image_file_id: true,
           reward_business_id: true,
           _count: {
             select: {
@@ -104,11 +107,19 @@ export const adminRouter = router({
         }
       });
       
+      // Resolve image URLs for all users
+      const usersWithResolvedImages = await Promise.all(
+        users.map(async (user) => ({
+          ...user,
+          image: await getFileUrl({ imageField: user.image, imageFileId: user.image_file_id })
+        }))
+      );
+      
       // Get total count for pagination
       const totalUsers = await prisma.user.count({ where });
       
       return {
-        users,
+        users: usersWithResolvedImages,
         pagination: {
           total: totalUsers,
           pages: Math.ceil(totalUsers / limit),
@@ -147,8 +158,14 @@ export const adminRouter = router({
           message: "User not found"
         });
       }
+
+      // Resolve the user's image URL
+      const resolvedImageUrl = await getFileUrl({ imageField: user.image, imageFileId: user.image_file_id });
       
-      return user;
+      return {
+        ...user,
+        image: resolvedImageUrl
+      };
     }),
     
   updateUser: adminProcedure
@@ -573,7 +590,15 @@ export const adminRouter = router({
       try {
         const categories = await prisma.themeCategory.findMany({
           orderBy: { created_at: 'desc' },
-          include: {
+          select: {
+            id: true,
+            name: true,
+            title: true,
+            category: true,
+            image: true,
+            image_file_id: true,
+            created_at: true,
+            updated_at: true,
             _count: {
               select: {
                 themes: true
@@ -581,7 +606,16 @@ export const adminRouter = router({
             }
           }
         });
-        return categories;
+
+        // Resolve image URLs for all categories
+        const categoriesWithResolvedImages = await Promise.all(
+          categories.map(async (category) => ({
+            ...category,
+            image: await getFileUrl({ imageField: category.image, imageFileId: category.image_file_id })
+          }))
+        );
+
+        return categoriesWithResolvedImages;
       } catch (error) {
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
@@ -598,7 +632,8 @@ export const adminRouter = router({
           data: {
             name: input.name,
             title: input.title,
-            category: input.category
+            category: input.category,
+            image_file_id: input.image_file_id || null // Set image_file_id if provided
           }
         });
         return category;
