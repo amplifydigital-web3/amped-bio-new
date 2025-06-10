@@ -188,6 +188,15 @@ export const uploadRouter = router({
       const userId = ctx.user.id;
 
       try {
+        // Verify that the file exists in S3 before proceeding
+        const fileExists = await s3Service.fileExists({ fileKey: input.fileKey });
+        if (!fileExists) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "File not found in S3. Please upload the file first.",
+          });
+        }
+
         // Get the user to find their theme ID
         const userFound = await prisma.user.findUniqueOrThrow({
           where: { id: userId },
@@ -312,6 +321,15 @@ export const uploadRouter = router({
       const userId = ctx.user.id;
 
       try {
+        // Verify that the file exists in S3 before proceeding
+        const fileExists = await s3Service.fileExists({ fileKey: input.fileKey });
+        if (!fileExists) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "File not found in S3. Please upload the file first.",
+          });
+        }
+
         // Get the user's current profile picture
         const user = await prisma.user.findUnique({
           where: { id: userId },
