@@ -40,7 +40,6 @@ const UserUpdateSchema = z.object({
 
 // Theme creation schema
 const ThemeCreateSchema = z.object({
-  share_level: z.string().optional(),
   share_config: z.any().optional(),
   name: z.string().optional(),
   description: z.string().optional(), // add description
@@ -551,7 +550,7 @@ export const adminRouter = router({
         const theme = await prisma.theme.create({
           data: {
             user_id: undefined, // Admin themes have no user_id
-            share_level: input.share_level ?? 'private',
+            share_level: 'public', // Admin themes are always public
             share_config: input.share_config,
             name: input.name,
             description: input.description,

@@ -7,7 +7,6 @@ import { Plus, List } from "lucide-react";
 const themeSchema = z.object({
   name: z.string().min(1, "Theme name is required"),
   description: z.string().optional(),
-  share_level: z.string().optional(),
   share_config: z.any().optional(),
   config: z.any().optional(),
   category_id: z.number().nullable().optional(),
@@ -28,7 +27,6 @@ export function AdminThemeManager() {
   const [themeForm, setThemeForm] = useState<ThemeForm>({
     name: "",
     description: "",
-    share_level: "private",
     share_config: {},
     config: {},
     category_id: null,
@@ -79,7 +77,6 @@ export function AdminThemeManager() {
       setThemeForm({ 
         name: "", 
         description: "", 
-        share_level: "private", 
         share_config: {}, 
         config: {}, 
         category_id: null 
@@ -173,22 +170,6 @@ export function AdminThemeManager() {
                   rows={2}
                   placeholder="Theme description (optional)"
                 />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-1" htmlFor="theme-share-level">
-                  Share Level
-                </label>
-                <select
-                  id="theme-share-level"
-                  name="share_level"
-                  value={themeForm.share_level}
-                  onChange={handleThemeChange}
-                  className="w-full px-3 py-2 border rounded-md border-gray-300"
-                >
-                  <option value="private">Private</option>
-                  <option value="public">Public</option>
-                </select>
               </div>
               
               <div>
