@@ -1,5 +1,5 @@
 import { useState, useRef, ChangeEvent } from "react";
-import { Image as ImageIcon, Upload, AlertCircle, X } from "lucide-react";
+import { Image as ImageIcon, Upload, X } from "lucide-react";
 import { ALLOWED_AVATAR_FILE_EXTENSIONS, ALLOWED_AVATAR_FILE_TYPES, MAX_AVATAR_FILE_SIZE } from "@ampedbio/constants";
 
 interface CategoryImageSelectorProps {

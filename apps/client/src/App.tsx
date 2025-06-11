@@ -2,8 +2,15 @@ import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Editor } from "./pages/Editor";
 import { View } from "./pages/View";
-import { Admin } from "./pages/Admin";
 import { Account } from "./pages/Account";
+import { AdminLayout } from "./pages/admin/AdminLayout";
+import { 
+  AdminDashboard, 
+  AdminUsers, 
+  AdminThemes, 
+  AdminBlocks, 
+  AdminSettings 
+} from "./pages/admin";
 import { initParticlesEngine } from "@tsparticles/react";
 //import { loadSlim } from '@tsparticles/slim';
 import { loadAll } from "@tsparticles/all";
@@ -56,7 +63,16 @@ function App() {
                 <Route path="/:onelink" element={<View />} />
                 <Route path="/register" element={<View />} />
                 <Route path="/" element={<View />} />
-                <Route path="/admin" element={<Admin />} />
+                
+                {/* Admin Routes with nested routing */}
+                <Route path="/admin" element={<AdminLayout />}>
+                  <Route index element={<AdminDashboard />} />
+                  <Route path="users" element={<AdminUsers />} />
+                  <Route path="themes" element={<AdminThemes />} />
+                  <Route path="blocks" element={<AdminBlocks />} />
+                  <Route path="settings" element={<AdminSettings />} />
+                </Route>
+                
                 <Route path="/account" element={<Account />} />
 
                 {/* Authentication Routes */}

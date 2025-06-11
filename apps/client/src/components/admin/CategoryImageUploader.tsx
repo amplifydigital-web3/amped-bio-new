@@ -1,5 +1,5 @@
 import { useState, useRef, ChangeEvent } from "react";
-import { Image as ImageIcon, Upload, AlertCircle } from "lucide-react";
+import { Image as ImageIcon, Upload } from "lucide-react";
 import { trpcClient } from "../../utils/trpc";
 import { ALLOWED_AVATAR_FILE_EXTENSIONS, ALLOWED_AVATAR_FILE_TYPES, MAX_AVATAR_FILE_SIZE } from "@ampedbio/constants";
 
@@ -17,7 +17,6 @@ export function CategoryImageUploader({
   onError 
 }: CategoryImageUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -26,14 +25,10 @@ export function CategoryImageUploader({
 
     // Reset file input
     e.target.value = '';
-    
-    // Clear previous error
-    setError(null);
 
     // Validate file type
     if (!ALLOWED_AVATAR_FILE_TYPES.includes(file.type)) {
       const errorMsg = `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(', ').toUpperCase()} images are allowed`;
-      setError(errorMsg);
       onError?.(errorMsg);
       return;
     }
@@ -42,7 +37,6 @@ export function CategoryImageUploader({
     const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
     if (!ALLOWED_AVATAR_FILE_EXTENSIONS.includes(fileExtension)) {
       const errorMsg = `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(', ')} file extensions are allowed`;
-      setError(errorMsg);
       onError?.(errorMsg);
       return;
     }
@@ -50,7 +44,6 @@ export function CategoryImageUploader({
     // Validate file size (max 5MB)
     if (file.size > MAX_AVATAR_FILE_SIZE) {
       const errorMsg = `File size must be less than ${(MAX_AVATAR_FILE_SIZE / (1024 * 1024)).toFixed(2)}MB`;
-      setError(errorMsg);
       onError?.(errorMsg);
       return;
     }
@@ -60,7 +53,6 @@ export function CategoryImageUploader({
 
   const handleUpload = async (file: File) => {
     setIsUploading(true);
-    setError(null);
 
     try {
       const fileType = file.type;
@@ -121,7 +113,6 @@ export function CategoryImageUploader({
     } catch (error: any) {
       console.error("Error uploading category image:", error);
       const errorMessage = error?.message || "Failed to upload category image";
-      setError(errorMessage);
       onError?.(errorMessage);
     } finally {
       setIsUploading(false);
@@ -188,14 +179,6 @@ export function CategoryImageUploader({
       <p className="text-xs text-gray-500">
         {ALLOWED_AVATAR_FILE_EXTENSIONS.join(', ').toUpperCase()}. Max {MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB.
       </p>
-      
-      {/* Error Display */}
-      {error && (
-        <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-md">
-          <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
-          <p className="text-sm text-red-600">{error}</p>
-        </div>
-      )}
     </div>
   );
 }

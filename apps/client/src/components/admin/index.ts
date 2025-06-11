@@ -10,4 +10,7 @@ export * from "./AdminDashboard";
 export * from "./AdminContentContainer";
 export * from "./AdminLoadingStates";
 export * from "./UserManagement";
+export * from "./AdminBreadcrumb";
+export * from "./AdminQuickActions";
+export * from "./AdminNotification";
 export * from "./types";

@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 import { obscureEmail } from "../../utils/email";
 
 interface User {
-  id: string;
+  id: number;
   name: string;
   email: string;
   onelink: string | null;

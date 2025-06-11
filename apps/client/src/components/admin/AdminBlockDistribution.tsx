@@ -1,6 +1,6 @@
 interface AdminBlockDistributionProps {
   blockTypeDistribution: Record<string, number>;
-  mostPopularBlockType: string;
+  mostPopularBlockType: string | null;
   averageBlocksPerUser: number;
 }
 

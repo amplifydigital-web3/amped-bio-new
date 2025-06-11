@@ -529,6 +529,7 @@ export const uploadRouter = router({
           input.fileExtension
         );
 
+        // TODO create service to clean up old category images
         // Create uploaded file record immediately when presigned URL is generated
         const uploadedFile = await uploadedFileService.createUploadedFile({
           s3Key: fileKey,
@@ -554,7 +555,7 @@ export const uploadRouter = router({
     }),
 
   // Confirm successful upload and update theme category with the new image
-  confirmThemeCategoryImageUpload: privateProcedure
+  confirmThemeCategoryImageUpload: adminProcedure
     .input(confirmThemeCategoryImageSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id;
@@ -565,13 +566,6 @@ export const uploadRouter = router({
           where: { id: userId },
           select: { role: true },
         });
-
-        if (!user || user.role !== "admin") {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Only admins can upload theme category images",
-          });
-        }
 
         // Verify that the file exists in S3 before proceeding
         // Get the uploaded file record and verify it's an admin file first

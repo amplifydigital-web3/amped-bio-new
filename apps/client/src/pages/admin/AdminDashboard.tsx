@@ -1,17 +1,20 @@
+import { useQuery } from "@tanstack/react-query";
+import { trpc } from "../../utils/trpc";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { trpc } from "../utils/trpc";
-import { useQuery } from "@tanstack/react-query";
 import {
-  AdminSidebar,
-  AdminContentContainer,
+  AdminUserStats,
+  AdminBlockStats,
+  AdminRewardStats,
+  AdminBlockDistribution,
+  AdminTopOnelinks,
+  AdminRecentUsers,
   AdminLoadingSpinner,
   AdminLoadingError
-} from "../components/admin";
+} from "../../components/admin";
+import { AdminQuickActions } from "../../components/admin/AdminQuickActions";
 
-// Admin dashboard using TRPC for data
-export function Admin() {
-  const [activeMenu, setActiveMenu] = useState("dashboard");
+export function AdminDashboard() {
   const [blockTypeDistribution, setBlockTypeDistribution] = useState<Record<string, number>>({});
   const navigate = useNavigate();
 
@@ -58,6 +61,11 @@ export function Admin() {
   // Determine if any data is still loading
   const loading = isDashboardLoading || isTopOnelinksLoading || isUsersLoading || isBlockStatsLoading;
 
+  // Handle refresh
+  const handleRefresh = () => {
+    window.location.reload();
+  };
+
   // Handle retry on load failure
   const handleRetry = () => {
     window.location.reload();
@@ -71,26 +79,50 @@ export function Admin() {
     return <AdminLoadingError onRetry={handleRetry} />;
   }
 
-  // Prepare the data needed for the dashboard
-  const dashboardData = {
-    userStats,
-    blockStats,
-    blockTypeDistribution,
-    topOnelinks,
-    recentUsers
-  };
-
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Admin Sidebar */}
-      <AdminSidebar activeMenu={activeMenu} setActiveMenu={setActiveMenu} />
+    <div className="flex-1 overflow-auto space-y-6">
+      <AdminQuickActions
+        title="Dashboard Overview"
+        description="Monitor system performance and user activity"
+        onRefresh={handleRefresh}
+        isLoading={loading}
+      />
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Users Stats */}
+        <AdminUserStats 
+          totalUsers={userStats.totalUsers} 
+          newThisWeek={userStats.newThisWeek} 
+        />
 
-      {/* Main Content Container */}
-      <AdminContentContainer 
-        activeMenu={activeMenu}
-        setActiveMenu={setActiveMenu}
-        dashboardData={dashboardData}
-        loading={false}
+        {/* Blocks Stats */}
+        <AdminBlockStats 
+          totalBlocks={blockStats.totalBlocks}
+          blocksCreatedToday={blockStats.blocksCreatedToday}
+        />
+
+        {/* Reward Program Stats */}
+        <AdminRewardStats
+          rewardProgramUsers={userStats.rewardProgramUsers}
+          rewardProgramPercentage={userStats.rewardProgramPercentage}
+        />
+      </div>
+
+      {/* Block Distribution */}
+      <AdminBlockDistribution 
+        blockTypeDistribution={blockTypeDistribution}
+        mostPopularBlockType={blockStats.mostPopularBlockType}
+        averageBlocksPerUser={blockStats.averageBlocksPerUser}
+      />
+
+      {/* Top Performing Onelinks */}
+      <AdminTopOnelinks topOnelinks={topOnelinks} />
+
+      {/* Recent Users */}
+      <AdminRecentUsers 
+        recentUsers={recentUsers} 
+        totalUsers={userStats.totalUsers}
+        onViewAllUsersClick={() => navigate("/admin/users")}
       />
     </div>
   );

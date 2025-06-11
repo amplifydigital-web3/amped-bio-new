@@ -26,7 +26,7 @@ interface AdminDashboardProps {
     blockCount: number;
   }>;
   recentUsers: Array<{
-    id: string;
+    id: number;
     name: string;
     email: string;
     onelink: string | null;
