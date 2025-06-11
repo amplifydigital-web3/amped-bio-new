@@ -72,12 +72,13 @@ export const mockData = {
   upload: {
     requestPresignedUrl: {
       presignedUrl: "https://demo-upload-url.com",
-      fileKey: "demo-upload-key",
+      fileId: 1,
       expiresIn: 300,
     },
     confirmProfilePictureUpload: {
       success: true,
       profilePictureUrl: "https://i.pravatar.cc/300",
+      fileId: 1,
     },
   },
   onelink: {

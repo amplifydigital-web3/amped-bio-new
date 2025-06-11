@@ -1,4 +1,4 @@
-import { privateProcedure, router } from "./trpc";
+import { adminProcedure, privateProcedure, router } from "./trpc";
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
@@ -61,7 +61,6 @@ const requestThemeBackgroundUrlSchema = z.object({
 
 // Schema for confirming successful upload
 const confirmUploadSchema = z.object({
-  fileKey: z.string().min(1),
   fileId: z.number().positive(), // File ID from the presigned URL request
   fileName: z.string().min(1), // Actual filename from client
   category: z.enum(["profiles", "backgrounds", "media", "files"]).default("profiles"),
@@ -69,7 +68,6 @@ const confirmUploadSchema = z.object({
 
 // Schema for confirming successful theme background upload (image or video)
 const confirmThemeBackgroundSchema = z.object({
-  fileKey: z.string().min(1),
   fileId: z.number().positive(), // File ID from the presigned URL request
   fileName: z.string().min(1), // Actual filename from client
   mediaType: z.enum(["image", "video"]),
@@ -98,7 +96,6 @@ const requestThemeCategoryImageSchema = z.object({
 // Schema for confirming theme category image upload
 const confirmThemeCategoryImageSchema = z.object({
   categoryId: z.number().positive(),
-  fileKey: z.string().min(1),
   fileId: z.number().positive(), // File ID from the presigned URL request
   fileName: z.string().min(1), // Actual filename from client
 });
@@ -139,7 +136,6 @@ export const uploadRouter = router({
 
         return {
           presignedUrl,
-          fileKey,
           fileId: uploadedFile.id, // Return the file ID for tracking
           expiresIn: 300, // Seconds
         };
@@ -219,7 +215,6 @@ export const uploadRouter = router({
 
         return {
           presignedUrl,
-          fileKey,
           fileId: uploadedFile.id, // Return the file ID for tracking
           mediaType: isVideo ? "video" : "image",
           expiresIn: 300, // Seconds
@@ -243,21 +238,25 @@ export const uploadRouter = router({
       const userId = ctx.user.id;
 
       try {
-        // Verify that the file exists in S3 before proceeding
-        const fileExists = await s3Service.fileExists({ fileKey: input.fileKey });
-        if (!fileExists) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "File not found in S3. Please upload the file first.",
-          });
-        }
-
-        // Get the uploaded file record and update it with final filename
+        // Get the uploaded file record first to get the fileKey
         const uploadedFile = await uploadedFileService.getFileById(input.fileId);
         if (!uploadedFile || uploadedFile.user_id !== userId) {
           throw new TRPCError({
             code: "NOT_FOUND",
             message: "File record not found or access denied.",
+          });
+        }
+
+        // Get fileKey and bucket from database
+        const fileKey = uploadedFile.s3_key;
+        const bucket = uploadedFile.bucket;
+
+        // Verify that the file exists in S3 before proceeding
+        const fileExists = await s3Service.fileExists({ fileKey, bucket });
+        if (!fileExists) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "File not found in S3. Please upload the file first.",
           });
         }
 
@@ -276,37 +275,21 @@ export const uploadRouter = router({
           },
         });
 
-        // Get the user to find their theme ID
+        // Get the user's theme ID (should already exist since requestThemeBackgroundUrl creates it)
         const userFound = await prisma.user.findUniqueOrThrow({
           where: { id: userId },
-          select: { theme: true, onelink: true },
+          select: { theme: true },
         });
 
-        // If user has no theme, create one (same logic as in requestThemeBackgroundUrl)
-        let themeId = userFound.theme;
-
-        if (userFound.theme === null) {
-          // create theme
-          const theme = await prisma.theme.create({
-            data: {
-              user_id: userId,
-              name: `${userFound.onelink}'s theme`,
-              share_level: "private",
-              share_config: {},
-              config: {},
-            },
-          });
-
-          themeId = theme.id.toString();
-
-          await prisma.user.update({
-            where: { id: userId },
-            data: { theme: themeId },
+        if (!userFound.theme) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "User theme not found. Please request a new upload URL first.",
           });
         }
 
         // Get the theme with numeric ID
-        const themeIdNum = Number(themeId);
+        const themeIdNum = Number(userFound.theme);
         const theme = await prisma.theme.findUniqueOrThrow({
           where: {
             id: themeIdNum,
@@ -315,7 +298,7 @@ export const uploadRouter = router({
         });
 
         // Get the public URL for the background
-        const backgroundUrl = s3Service.getFileUrl(input.fileKey);
+        const backgroundUrl = s3Service.getFileUrl(fileKey);
 
         // Parse the current theme config
         let themeConfig = (theme.config as Record<string, any>) || {};
@@ -370,7 +353,7 @@ export const uploadRouter = router({
           } catch (deleteError) {
             console.warn("Failed to delete previous background file:", deleteError);
           }
-        } else if (previousFileKey && previousFileKey !== input.fileKey) {
+        } else if (previousFileKey && previousFileKey !== fileKey) {
           // Legacy system - delete if it belongs to this theme/user
           try {
             if (s3Service.isThemeOwnerFile({ 
@@ -396,7 +379,7 @@ export const uploadRouter = router({
 
         return {
           success: true,
-          backgroundUrl: s3Service.getFileUrl(input.fileKey),
+          backgroundUrl: s3Service.getFileUrl(fileKey),
           fileId: input.fileId,
           theme: updatedTheme,
         };
@@ -419,21 +402,25 @@ export const uploadRouter = router({
       const userId = ctx.user.id;
 
       try {
-        // Verify that the file exists in S3 before proceeding
-        const fileExists = await s3Service.fileExists({ fileKey: input.fileKey });
-        if (!fileExists) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "File not found in S3. Please upload the file first.",
-          });
-        }
-
-        // Get the uploaded file record and update it with final filename
+        // Get the uploaded file record first to get the fileKey
         const uploadedFile = await uploadedFileService.getFileById(input.fileId);
         if (!uploadedFile || uploadedFile.user_id !== userId) {
           throw new TRPCError({
             code: "NOT_FOUND",
             message: "File record not found or access denied.",
+          });
+        }
+
+        // Get fileKey and bucket from database
+        const fileKey = uploadedFile.s3_key;
+        const bucket = uploadedFile.bucket;
+
+        // Verify that the file exists in S3 before proceeding
+        const fileExists = await s3Service.fileExists({ fileKey, bucket });
+        if (!fileExists) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "File not found in S3. Please upload the file first.",
           });
         }
 
@@ -469,7 +456,7 @@ export const uploadRouter = router({
         const previousFileKey = user.image ? s3Service.extractFileKeyFromUrl(user.image) : null;
 
         // Get the public URL for the new profile picture
-        const profilePictureUrl = s3Service.getFileUrl(input.fileKey);
+        const profilePictureUrl = s3Service.getFileUrl(fileKey);
 
         // Update user profile picture URL and file reference in database
         await prisma.user.update({
@@ -482,7 +469,7 @@ export const uploadRouter = router({
         });
 
         // Delete the previous profile picture if it exists (as a cleanup task)
-        if (previousFileKey && previousFileKey !== input.fileKey) {
+        if (previousFileKey && previousFileKey !== fileKey) {
           try {
             await s3Service.deleteFile(previousFileKey);
           } catch (deleteError) {
@@ -492,7 +479,7 @@ export const uploadRouter = router({
 
         return {
           success: true,
-          profilePictureUrl: s3Service.getFileUrl(input.fileKey),
+          profilePictureUrl: s3Service.getFileUrl(fileKey),
           fileId: input.fileId,
         };
       } catch (error) {
@@ -508,7 +495,7 @@ export const uploadRouter = router({
     }),
 
   // Generate a presigned URL for uploading theme category image (admin only)
-  requestThemeCategoryImagePresignedUrl: privateProcedure
+  requestThemeCategoryImagePresignedUrl: adminProcedure
     .input(requestThemeCategoryImageSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id;
@@ -534,19 +521,6 @@ export const uploadRouter = router({
           });
         }
 
-        // Check if user has admin role (you might want to implement proper role checking)
-        const user = await prisma.user.findUnique({
-          where: { id: userId },
-          select: { role: true },
-        });
-
-        if (!user || user.role !== "admin") {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Only admins can upload theme category images",
-          });
-        }
-
         // Use the S3Service to generate a presigned URL
         const { presignedUrl, fileKey } = await s3Service.getPresignedUploadUrl(
           "profiles", // Use profiles category for theme category images
@@ -562,12 +536,11 @@ export const uploadRouter = router({
           fileName: `category_${input.categoryId}_${Date.now()}.${input.fileExtension}`, // Generate a name
           fileType: input.contentType,
           size: input.fileSize,
-          userId: 0, // Set user_id to 0 for admin files
+          userId: null, // Set user_id to null for admin/server files
         });
 
         return {
           presignedUrl,
-          fileKey,
           fileId: uploadedFile.id, // Return the file ID for tracking
           expiresIn: 300, // Seconds
         };
@@ -601,20 +574,25 @@ export const uploadRouter = router({
         }
 
         // Verify that the file exists in S3 before proceeding
-        const fileExists = await s3Service.fileExists({ fileKey: input.fileKey });
+        // Get the uploaded file record and verify it's an admin file first
+        const uploadedFile = await uploadedFileService.getFileById(input.fileId);
+        if (!uploadedFile || uploadedFile.user_id !== null) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "File record not found or not an admin file.",
+          });
+        }
+
+        // Get fileKey and bucket from database
+        const fileKey = uploadedFile.s3_key;
+        const bucket = uploadedFile.bucket;
+
+        // Now verify that the file exists in S3 before proceeding
+        const fileExists = await s3Service.fileExists({ fileKey, bucket });
         if (!fileExists) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "File not found in S3. Please upload the file first.",
-          });
-        }
-
-        // Get the uploaded file record and verify it's an admin file
-        const uploadedFile = await uploadedFileService.getFileById(input.fileId);
-        if (!uploadedFile || uploadedFile.user_id !== 0) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "File record not found or not an admin file.",
           });
         }
 
@@ -653,7 +631,7 @@ export const uploadRouter = router({
         });
 
         // Delete the previous category image if it exists (as a cleanup task)
-        if (previousFileKey && previousFileKey !== input.fileKey) {
+        if (previousFileKey && previousFileKey !== fileKey) {
           try {
             await s3Service.deleteFile(previousFileKey);
           } catch (deleteError) {
@@ -664,7 +642,7 @@ export const uploadRouter = router({
         return {
           success: true,
           fileId: input.fileId,
-          imageUrl: s3Service.getFileUrl(input.fileKey),
+          imageUrl: s3Service.getFileUrl(fileKey),
         };
       } catch (error) {
         console.error("Error updating theme category image:", error);

@@ -53,7 +53,7 @@ const ThemeCategoryCreateSchema = z.object({
   name: z.string().min(1, "Category name is required"),
   title: z.string().min(1, "Category title is required"),
   category: z.string().min(1, "Category identifier is required"),
-  image_file_id: z.number().positive().optional() // Optional image file ID for uploaded image
+  description: z.string().max(240, "Description must not exceed 240 characters").optional()
 });
 
 export const adminRouter = router({
@@ -595,6 +595,7 @@ export const adminRouter = router({
             name: true,
             title: true,
             category: true,
+            description: true,
             image: true,
             image_file_id: true,
             created_at: true,
@@ -633,14 +634,34 @@ export const adminRouter = router({
             name: input.name,
             title: input.title,
             category: input.category,
-            image_file_id: input.image_file_id || null // Set image_file_id if provided
+            description: input.description
           }
         });
         return category;
-      } catch (error) {
+      } catch (error: any) {
+        console.error('Failed to create theme category:', error);
+        
+        // Handle Prisma unique constraint violations
+        if (error.code === 'P2002') {
+          const field = error.meta?.target || 'field';
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: `A category with this ${field} already exists. Please choose a different ${field}.`
+          });
+        }
+        
+        // Handle other database errors
+        if (error.code && error.code.startsWith('P')) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: `Database error: ${error.message}`
+          });
+        }
+        
+        // Generic fallback
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to create theme category'
+          message: `Failed to create theme category: ${error.message || 'Unknown error'}`
         });
       }
     }),

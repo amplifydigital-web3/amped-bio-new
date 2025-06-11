@@ -136,14 +136,15 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
         
         // Confirm upload with the server
         const result = await trpcClient.upload.confirmThemeBackgroundUpload.mutate({
-          fileKey: presignedData.fileKey,
+          fileId: presignedData.fileId,
+          fileName: file.name,
           mediaType: presignedData.mediaType as 'image' | 'video', // Added type assertion
         });
 
         console.log("Server confirmed background upload:", result);
         
         // Extract URL using helper function - this will extract the URL whether it's an image or video
-        const fileUrl = extractMediaUrl(result, presignedData.fileKey);
+        const fileUrl = extractMediaUrl(result, "fallback_url");
         
         // Update the background with the new URL, setting the correct type based on the file type
         onChange({

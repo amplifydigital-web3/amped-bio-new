@@ -8,7 +8,7 @@ export interface CreateUploadedFileParams {
   fileName: string;
   fileType?: string;
   size?: number;
-  userId?: number; // Nullable for admin/server files
+  userId?: number | null; // Nullable for admin/server files
 }
 
 export interface UpdateFileStatusParams {
