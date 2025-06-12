@@ -476,7 +476,7 @@ export function AdminThemeManager() {
                       <div className="mt-4 pt-4 border-t border-gray-200">
                         <CategoryImageUploader
                           categoryId={category.id}
-                          currentImageUrl={category.image || undefined}
+                          currentImageUrl={undefined}
                           onImageUpload={(_imageUrl, _fileId) => {
                             setSuccess(`Image updated for ${category.title}`);
                             refetchCategories();
