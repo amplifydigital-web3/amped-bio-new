@@ -9,7 +9,6 @@ import type {
 } from "../types/editor";
 import {
   editUser,
-  editTheme,
   editBlocks,
   deleteBlock,
   getOnelink,
@@ -44,7 +43,7 @@ interface EditorStore extends EditorState {
   applyTheme: (theme: Theme) => void;
   selectedPoolId: string | null;
   setSelectedPoolId: (id: string | null) => void;
-  exportTheme: () => void;
+  exportTheme: (customFilename?: string) => void;
   importTheme: (file: File) => Promise<void>;
 }
 
@@ -328,12 +327,14 @@ export const useEditorStore = create<EditorStore>()(set => ({
       }
 
       console.info("🎨 Saving theme...");
-      const theme_status = await editTheme({
+      const theme_status = await trpcClient.theme.editTheme.mutate({
         id: theme.id,
-        name: theme.name,
-        share_level: theme.share_level,
-        share_config: theme.share_config,
-        config: theme.config,
+        theme: {
+          name: theme.name,
+          share_level: theme.share_level,
+          share_config: theme.share_config,
+          config: theme.config,
+        },
       });
 
       console.info("Theme status:", theme_status);
@@ -395,13 +396,13 @@ export const useEditorStore = create<EditorStore>()(set => ({
     console.info("✅ Reset to default state");
     console.groupEnd();
   },
-  exportTheme: () => {
+  exportTheme: (customFilename?: string) => {
     console.group("🎨 Exporting Theme Configuration");
     const { theme } = useEditorStore.getState();
     console.info("Theme config:", theme.config);
 
     try {
-      exportThemeConfigAsJson(theme);
+      exportThemeConfigAsJson(theme, customFilename);
       toast.success("Theme configuration exported successfully");
       console.info("✅ Theme configuration exported");
     } catch (error) {

@@ -91,26 +91,7 @@ export async function deleteUser(userData: DeleteData) {
   );
 }
 
-// Theme and Block APIs
-export async function editTheme(theme: Theme) {
-  const { id } = theme;
-  console.log("Editing Theme:", id);
-  const res = await apiRequest<{
-    result: {
-      id: number;
-      user_id: number;
-      name: string;
-      share_level: string;
-      share_config: Map<string, any> | null;
-      config: Map<string, any> | null;
-      created_at: Date;
-      updated_at: Date | null;
-    };
-  }>(() => api.put(`/user/theme/${id}`, { theme }), "Theme updated successfully:");
-
-  return res.result;
-}
-
+// Theme and Block APIs - Theme APIs migrated to tRPC
 export async function editBlocks(blocks: BlockType[]) {
   console.log("Editing user blocks");
   return apiRequest(() => api.put("/user/blocks", { blocks }), "User updated successfully:");

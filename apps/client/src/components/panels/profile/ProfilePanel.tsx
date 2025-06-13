@@ -19,7 +19,13 @@ export function ProfilePanel() {
   };
 
   const handleExportTheme = () => {
-    exportTheme();
+    const filename = prompt("Enter a name for your theme file:", "My Theme");
+    if (filename !== null) {
+      // User clicked OK (filename could be empty string or actual value)
+      const cleanFilename = (filename.trim() || "My Theme").replace(/\s+/g, "-");
+      exportTheme(cleanFilename);
+    }
+    // If user clicked Cancel, do nothing
   };
 
   const handleImportTheme = async (e: React.ChangeEvent<HTMLInputElement>) => {

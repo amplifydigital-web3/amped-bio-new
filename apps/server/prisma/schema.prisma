@@ -65,12 +65,14 @@ model Theme {
   description         String?   @db.LongText
   config              Json?
   category_id         Int?      // Theme category reference
+  thumbnail_file_id   Int?      // New field for uploaded file reference
   created_at          DateTime  @default(now())
   updated_at          DateTime? @updatedAt
   
   // Relations
   user                User?         @relation(fields: [user_id], references: [id], onDelete: Cascade)
   category            ThemeCategory? @relation(fields: [category_id], references: [id], onDelete: SetNull)
+  thumbnailImage      UploadedFile? @relation("ThemeThumbnailImage", fields: [thumbnail_file_id], references: [id], onDelete: SetNull)
 
   @@map("themes")
 }
@@ -137,6 +139,7 @@ model UploadedFile {
   user                User?     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   userProfileImage    User[]    @relation("UserProfileImage")
   themeCategoryImage  ThemeCategory[] @relation("ThemeCategoryImage")
+  themeThumbnailImage Theme[]   @relation("ThemeThumbnailImage")
   
   @@index([s3_key])
   @@index([user_id])

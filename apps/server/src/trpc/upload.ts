@@ -100,6 +100,33 @@ const confirmThemeCategoryImageSchema = z.object({
   fileName: z.string().min(1), // Actual filename from client
 });
 
+// Schema for theme thumbnail upload (admin only)
+const requestThemeThumbnailSchema = z.object({
+  themeId: z.number().positive(),
+  contentType: z
+    .string()
+    .refine(value => ALLOWED_AVATAR_FILE_TYPES.includes(value), {
+      message: `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()} formats are supported`,
+    }),
+  fileExtension: z
+    .string()
+    .refine(value => ALLOWED_AVATAR_FILE_EXTENSIONS.includes(value.toLowerCase()), {
+      message: `File extension must be ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ")}`,
+    }),
+  fileSize: z
+    .number()
+    .max(MAX_AVATAR_FILE_SIZE, {
+      message: `File size must be less than ${MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB`,
+    }),
+});
+
+// Schema for confirming theme thumbnail upload
+const confirmThemeThumbnailSchema = z.object({
+  themeId: z.number().positive(),
+  fileId: z.number().positive(), // File ID from the presigned URL request
+  fileName: z.string().min(1), // Actual filename from client
+});
+
 export const uploadRouter = router({
   // Generate a presigned URL for uploading profile picture
   requestAvatarPresignedUrl: privateProcedure
@@ -561,13 +588,6 @@ export const uploadRouter = router({
       const userId = ctx.user.id;
 
       try {
-        // Check if user has admin role
-        const user = await prisma.user.findUnique({
-          where: { id: userId },
-          select: { role: true },
-        });
-
-        // Verify that the file exists in S3 before proceeding
         // Get the uploaded file record and verify it's an admin file first
         const uploadedFile = await uploadedFileService.getFileById(input.fileId);
         if (!uploadedFile || uploadedFile.user_id !== null) {
@@ -695,6 +715,157 @@ export const uploadRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to get file information",
+        });
+      }
+    }),
+
+  // Generate a presigned URL for uploading theme thumbnail (admin only)
+  requestThemeThumbnailPresignedUrl: adminProcedure
+    .input(requestThemeThumbnailSchema)
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user.id;
+
+      try {
+        // Check file size
+        if (input.fileSize > MAX_AVATAR_FILE_SIZE) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `File size exceeds the ${MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB limit`,
+          });
+        }
+
+        // Check if theme exists
+        const theme = await prisma.theme.findUnique({
+          where: { id: input.themeId },
+        });
+
+        if (!theme) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Theme not found",
+          });
+        }
+
+        // Use the S3Service to generate a presigned URL
+        const { presignedUrl, fileKey } = await s3Service.getPresignedUploadUrl(
+          "profiles", // Use profiles category for theme thumbnails
+          userId,
+          input.contentType,
+          input.fileExtension
+        );
+
+        // Create uploaded file record immediately when presigned URL is generated
+        const uploadedFile = await uploadedFileService.createUploadedFile({
+          s3Key: fileKey,
+          bucket: process.env.AWS_S3_BUCKET_NAME || "default-bucket",
+          fileName: `theme_thumbnail_${input.themeId}_${Date.now()}.${input.fileExtension}`, // Generate a name
+          fileType: input.contentType,
+          size: input.fileSize,
+          userId: null, // Set user_id to null for admin/server files
+        });
+
+        return {
+          presignedUrl,
+          fileId: uploadedFile.id, // Return the file ID for tracking
+          expiresIn: 300, // Seconds
+        };
+      } catch (error) {
+        console.error("Error generating presigned URL for theme thumbnail:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to generate upload URL for theme thumbnail",
+        });
+      }
+    }),
+
+  // Confirm successful upload and update theme with the new thumbnail
+  confirmThemeThumbnailUpload: adminProcedure
+    .input(confirmThemeThumbnailSchema)
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user.id;
+
+      try {
+        // Get the uploaded file record and verify it's an admin file first
+        const uploadedFile = await uploadedFileService.getFileById(input.fileId);
+        if (!uploadedFile || uploadedFile.user_id !== null) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "File record not found or not an admin file.",
+          });
+        }
+
+        // Get fileKey and bucket from database
+        const fileKey = uploadedFile.s3_key;
+        const bucket = uploadedFile.bucket;
+
+        // Now verify that the file exists in S3 before proceeding
+        const fileExists = await s3Service.fileExists({ fileKey, bucket });
+        if (!fileExists) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "File not found in S3. Please upload the file first.",
+          });
+        }
+
+        // Update the file record with the actual filename and mark as completed
+        await uploadedFileService.updateFileStatus({
+          id: input.fileId,
+          status: "COMPLETED",
+        });
+
+        // Also update the filename
+        await prisma.uploadedFile.update({
+          where: { id: input.fileId },
+          data: {
+            file_name: input.fileName,
+            updated_at: new Date(),
+          },
+        });
+
+        // Get the theme to find its current thumbnail
+        const theme = await prisma.theme.findUniqueOrThrow({
+          where: { id: input.themeId },
+          select: { thumbnail_file_id: true },
+        });
+
+        // Get the previous thumbnail file ID
+        const previousFileId = theme.thumbnail_file_id;
+
+        // Update the theme with the new thumbnail
+        await prisma.theme.update({
+          where: { id: input.themeId },
+          data: {
+            thumbnail_file_id: input.fileId,
+            updated_at: new Date(),
+          },
+        });
+
+        // Delete the previous thumbnail if it exists (as a cleanup task)
+        if (previousFileId && previousFileId !== input.fileId) {
+          try {
+            await uploadedFileService.deleteFile(previousFileId);
+            const prevFile = await uploadedFileService.getFileById(previousFileId);
+            if (prevFile) {
+              await s3Service.deleteFile(prevFile.s3_key);
+            }
+          } catch (deleteError) {
+            console.warn("Failed to delete previous theme thumbnail:", deleteError);
+          }
+        }
+
+        return {
+          success: true,
+          fileId: input.fileId,
+          thumbnailUrl: s3Service.getFileUrl(fileKey),
+        };
+      } catch (error) {
+        console.error("Error updating theme thumbnail:", error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to update theme thumbnail",
         });
       }
     }),

@@ -11,3 +11,4 @@ Use only lucide-react for icons or react-icons if the icon is not available in l
 Use only tailwind for styles.
 When user asks you to create an alert or a warning, use the tailwind classes and add a icon from lucide.
 If you want something both in the server and client, use the package "constants" located in `packages/constants` to put the code there. 
+NEVER screate scripts to test some part of the code, just do what the user asks you to do.

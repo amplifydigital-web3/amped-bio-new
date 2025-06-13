@@ -5,3 +5,4 @@
 export * from './upload';
 export * from './onelink';
 export * from './platforms';
+export * from './theme';

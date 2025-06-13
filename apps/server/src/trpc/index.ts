@@ -4,6 +4,7 @@ import { authRouter } from "./auth";
 import appRouter from "./onelink";
 import { adminRouter } from "./admin";
 import { uploadRouter } from "./upload";
+import { themeRouter } from "./theme";
 
 // Merge all routers
 const mergedRouter = router({
@@ -12,6 +13,7 @@ const mergedRouter = router({
   auth: authRouter,
   admin: adminRouter,
   upload: uploadRouter,
+  theme: themeRouter,
 });
 
 export type AppRouter = typeof mergedRouter;
