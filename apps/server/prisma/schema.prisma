@@ -44,7 +44,6 @@ model ThemeCategory {
   title               String
   category            String
   description         String?   // Description field
-  image               String?   @db.LongText // Keep for backward compatibility
   image_file_id       Int?      // New field for uploaded file reference
   created_at          DateTime  @default(now())
   updated_at          DateTime? @updatedAt

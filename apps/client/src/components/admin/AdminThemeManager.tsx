@@ -9,6 +9,80 @@ import { CategoryImageUploader } from "./CategoryImageUploader";
 import { CategoryImageSelector } from "./CategoryImageSelector";
 import { ThemeThumbnailSelector } from "./ThemeThumbnailSelector";
 import { importThemeConfigFromJson } from "../../utils/theme";
+import { generateVideoThumbnailFromUrl } from "../../utils/videoThumbnail";
+import { toast } from "react-hot-toast";
+
+// Utility function to reduce image quality to 75%
+const reduceImageQuality = (file: File, quality: number = 0.75): Promise<File> => {
+  return new Promise((resolve, reject) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    
+    img.onload = () => {
+      // Set canvas dimensions to match the image
+      canvas.width = img.width;
+      canvas.height = img.height;
+      
+      // Draw the image on canvas
+      ctx?.drawImage(img, 0, 0);
+      
+      // Convert to blob with reduced quality
+      canvas.toBlob((blob) => {
+        if (blob) {
+          // Create a new file with the same name but reduced quality
+          const reducedFile = new File([blob], file.name, {
+            type: file.type,
+            lastModified: Date.now(),
+          });
+          resolve(reducedFile);
+        } else {
+          reject(new Error('Failed to reduce image quality'));
+        }
+      }, file.type, quality);
+    };
+    
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = URL.createObjectURL(file);
+  });
+};
+
+// Utility function to create thumbnail from theme background image URL
+const createThumbnailFromImageUrl = async (imageUrl: string): Promise<File | null> => {
+  try {
+    // Fetch the image from the URL
+    const response = await fetch(imageUrl);
+    if (!response.ok) throw new Error('Failed to fetch image');
+    
+    const blob = await response.blob();
+    const file = new File([blob], 'theme-background.jpg', { type: blob.type });
+    
+    // Reduce quality to 75%
+    const thumbnailFile = await reduceImageQuality(file, 0.75);
+    return thumbnailFile;
+  } catch (error) {
+    console.error('Error creating thumbnail from image URL:', error);
+    return null;
+  }
+};
+
+// Utility function to create thumbnail from video URL
+const createThumbnailFromVideoUrl = async (videoUrl: string): Promise<File | null> => {
+  try {
+    const result = await generateVideoThumbnailFromUrl(videoUrl, {
+      width: 400,
+      height: 300,
+      quality: 0.75,
+      timeStamp: 1,
+      format: 'image/jpeg'
+    });
+    
+    return result?.file || null;
+  } catch (error) {
+    console.warn('Error creating thumbnail from video URL:', error);
+    return null;
+  }
+};
 
 const themeSchema = z.object({
   name: z.string().min(1, "Theme name is required").max(100, "Theme name must be less than 100 characters"),
@@ -276,7 +350,39 @@ export function AdminThemeManager() {
       themeForm.setValue("config", themeConfig);
       themeForm.setValue("name", fileName);
       
-      setSuccess(`✅ Theme configuration imported and validated successfully from ${file.name}`);
+      // Check if the theme has a background and create thumbnail
+      if (themeConfig.background?.value) {
+        if (themeConfig.background.type === "image") {
+          toast.loading('Creating thumbnail from background image...');
+          const thumbnailFile = await createThumbnailFromImageUrl(themeConfig.background.value);
+          toast.dismiss();
+          
+          if (thumbnailFile) {
+            setSelectedThumbnailFile(thumbnailFile);
+            toast.success('Theme imported and thumbnail generated successfully!');
+          } else {
+            toast.success('Theme imported! Please select a thumbnail manually for better results.');
+          }
+        } else if (themeConfig.background.type === "video") {
+          toast.loading('Creating thumbnail from background video...');
+          const thumbnailFile = await createThumbnailFromVideoUrl(themeConfig.background.value);
+          toast.dismiss();
+          
+          if (thumbnailFile) {
+            setSelectedThumbnailFile(thumbnailFile);
+            toast.success('Theme imported and thumbnail generated successfully!');
+          } else {
+            toast('Theme imported! Please select a thumbnail manually for better video preview.', {
+              icon: '📸',
+              duration: 4000
+            });
+          }
+        } else {
+          toast.success('Theme imported! Please select a thumbnail manually.');
+        }
+      } else {
+        toast.success('Theme imported! Please select a thumbnail manually.');
+      }
       
       // Reset the file input to allow selecting the same file again
       e.target.value = "";
@@ -296,7 +402,9 @@ export function AdminThemeManager() {
     setIsAccordionOpen(false);
     // Clear the config from the form as well
     themeForm.setValue("config", {});
-    setSuccess("Imported configuration cleared");
+    // Clear the thumbnail if it was automatically generated from imported theme
+    setSelectedThumbnailFile(null);
+    setSuccess("Imported configuration and thumbnail cleared");
   }, [themeForm]);
 
   return (
@@ -516,11 +624,21 @@ export function AdminThemeManager() {
                 </div>
                 
                 {/* Thumbnail Selector */}
-                <ThemeThumbnailSelector
-                  selectedFile={selectedThumbnailFile}
-                  onFileSelect={handleThumbnailFileSelect}
-                  onError={handleImageError}
-                />
+                <div>
+                  <ThemeThumbnailSelector
+                    selectedFile={selectedThumbnailFile}
+                    onFileSelect={handleThumbnailFileSelect}
+                    onError={handleImageError}
+                  />
+                  {selectedThumbnailFile && importedThemeConfig?.background?.type === "image" && (
+                    <div className="mt-2 flex items-center space-x-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+                      <ImageIcon className="h-4 w-4 text-blue-600" />
+                      <span className="text-blue-800">
+                        Thumbnail generated automatically from theme background image (75% quality)
+                      </span>
+                    </div>
+                  )}
+                </div>
                 
                 <button
                   type="submit"
@@ -596,9 +714,10 @@ export function AdminThemeManager() {
                   <input
                     id="category-identifier"
                     type="text"
-                    className={`w-full px-3 py-2 border rounded-md ${
+                    className={`w-full px-3 py-2 border rounded-md lowercase ${
                       categoryForm.formState.errors.category ? "border-red-500" : "border-gray-300"
                     }`}
+                    style={{ textTransform: 'lowercase' }}
                     placeholder="e.g., business (lowercase, no spaces)"
                     {...categoryForm.register("category")}
                     onChange={createInputHandler(categoryForm.register("category"))}

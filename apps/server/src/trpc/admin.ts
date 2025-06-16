@@ -596,7 +596,6 @@ export const adminRouter = router({
             title: true,
             category: true,
             description: true,
-            image: true,
             image_file_id: true,
             created_at: true,
             updated_at: true,
@@ -612,7 +611,7 @@ export const adminRouter = router({
         const categoriesWithResolvedImages = await Promise.all(
           categories.map(async (category) => ({
             ...category,
-            image: await getFileUrl({ imageField: category.image, imageFileId: category.image_file_id })
+            image: await getFileUrl({ imageField: null, imageFileId: category.image_file_id })
           }))
         );
 

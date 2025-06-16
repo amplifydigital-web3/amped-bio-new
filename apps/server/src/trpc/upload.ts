@@ -17,21 +17,17 @@ const prisma = new PrismaClient();
 
 // Schema for requesting a presigned URL
 const requestPresignedUrlSchema = z.object({
-  contentType: z
-    .string()
-    .refine(value => ALLOWED_AVATAR_FILE_TYPES.includes(value), {
-      message: `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()} formats are supported`,
-    }),
+  contentType: z.string().refine(value => ALLOWED_AVATAR_FILE_TYPES.includes(value), {
+    message: `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()} formats are supported`,
+  }),
   fileExtension: z
     .string()
     .refine(value => ALLOWED_AVATAR_FILE_EXTENSIONS.includes(value.toLowerCase()), {
       message: `File extension must be ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ")}`,
     }),
-  fileSize: z
-    .number()
-    .max(MAX_AVATAR_FILE_SIZE, {
-      message: `File size must be less than ${MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB`,
-    }),
+  fileSize: z.number().max(MAX_AVATAR_FILE_SIZE, {
+    message: `File size must be less than ${MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB`,
+  }),
   category: z.enum(["profiles", "backgrounds", "media", "files"]).default("profiles"),
 });
 
@@ -52,11 +48,9 @@ const requestThemeBackgroundUrlSchema = z.object({
     .refine(value => ALLOWED_BACKGROUND_FILE_EXTENSIONS.includes(value.toLowerCase()), {
       message: `File extension must be ${ALLOWED_BACKGROUND_FILE_EXTENSIONS.join(", ")}`,
     }),
-  fileSize: z
-    .number()
-    .max(MAX_BACKGROUND_FILE_SIZE, {
-      message: `File size must be less than ${MAX_BACKGROUND_FILE_SIZE / (1024 * 1024)}MB`,
-    }),
+  fileSize: z.number().max(MAX_BACKGROUND_FILE_SIZE, {
+    message: `File size must be less than ${MAX_BACKGROUND_FILE_SIZE / (1024 * 1024)}MB`,
+  }),
 });
 
 // Schema for confirming successful upload
@@ -76,21 +70,17 @@ const confirmThemeBackgroundSchema = z.object({
 // Schema for theme category image upload (admin only)
 const requestThemeCategoryImageSchema = z.object({
   categoryId: z.number().positive(),
-  contentType: z
-    .string()
-    .refine(value => ALLOWED_AVATAR_FILE_TYPES.includes(value), {
-      message: `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()} formats are supported`,
-    }),
+  contentType: z.string().refine(value => ALLOWED_AVATAR_FILE_TYPES.includes(value), {
+    message: `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()} formats are supported`,
+  }),
   fileExtension: z
     .string()
     .refine(value => ALLOWED_AVATAR_FILE_EXTENSIONS.includes(value.toLowerCase()), {
       message: `File extension must be ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ")}`,
     }),
-  fileSize: z
-    .number()
-    .max(MAX_AVATAR_FILE_SIZE, {
-      message: `File size must be less than ${MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB`,
-    }),
+  fileSize: z.number().max(MAX_AVATAR_FILE_SIZE, {
+    message: `File size must be less than ${MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB`,
+  }),
 });
 
 // Schema for confirming theme category image upload
@@ -103,21 +93,17 @@ const confirmThemeCategoryImageSchema = z.object({
 // Schema for theme thumbnail upload (admin only)
 const requestThemeThumbnailSchema = z.object({
   themeId: z.number().positive(),
-  contentType: z
-    .string()
-    .refine(value => ALLOWED_AVATAR_FILE_TYPES.includes(value), {
-      message: `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()} formats are supported`,
-    }),
+  contentType: z.string().refine(value => ALLOWED_AVATAR_FILE_TYPES.includes(value), {
+    message: `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()} formats are supported`,
+  }),
   fileExtension: z
     .string()
     .refine(value => ALLOWED_AVATAR_FILE_EXTENSIONS.includes(value.toLowerCase()), {
       message: `File extension must be ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ")}`,
     }),
-  fileSize: z
-    .number()
-    .max(MAX_AVATAR_FILE_SIZE, {
-      message: `File size must be less than ${MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB`,
-    }),
+  fileSize: z.number().max(MAX_AVATAR_FILE_SIZE, {
+    message: `File size must be less than ${MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB`,
+  }),
 });
 
 // Schema for confirming theme thumbnail upload
@@ -383,11 +369,13 @@ export const uploadRouter = router({
         } else if (previousFileKey && previousFileKey !== fileKey) {
           // Legacy system - delete if it belongs to this theme/user
           try {
-            if (s3Service.isThemeOwnerFile({ 
-              fileKey: previousFileKey, 
-              themeId: themeIdNum, 
-              userId 
-            })) {
+            if (
+              s3Service.isThemeOwnerFile({
+                fileKey: previousFileKey,
+                themeId: themeIdNum,
+                userId,
+              })
+            ) {
               console.info(
                 "[INFO] Deleting previous theme background that belongs to user",
                 JSON.stringify({ previousFileKey, themeId: themeIdNum, userId })
@@ -625,33 +613,14 @@ export const uploadRouter = router({
           },
         });
 
-        // Get the category to find its current image
-        const category = await prisma.themeCategory.findUniqueOrThrow({
-          where: { id: input.categoryId },
-          select: { image: true },
-        });
-
-        // Extract the file key from the previous image URL (if exists) - legacy system
-        const previousFileKey = category.image ? s3Service.extractFileKeyFromUrl(category.image) : null;
-
         // Update the category with the new image
         await prisma.themeCategory.update({
           where: { id: input.categoryId },
           data: {
-            image: null, // Set to null since we're using file ID now
             image_file_id: input.fileId, // Now types are updated
             updated_at: new Date(),
           },
         });
-
-        // Delete the previous category image if it exists (as a cleanup task)
-        if (previousFileKey && previousFileKey !== fileKey) {
-          try {
-            await s3Service.deleteFile(previousFileKey);
-          } catch (deleteError) {
-            console.warn("Failed to delete previous category image:", deleteError);
-          }
-        }
 
         return {
           success: true,
@@ -672,15 +641,17 @@ export const uploadRouter = router({
 
   // Get file information by ID (for resolving file URLs)
   getFileInfo: privateProcedure
-    .input(z.object({
-      fileId: z.number().positive(),
-    }))
+    .input(
+      z.object({
+        fileId: z.number().positive(),
+      })
+    )
     .query(async ({ ctx, input }) => {
       const userId = ctx.user.id;
 
       try {
         const file = await uploadedFileService.getFileById(input.fileId);
-        
+
         if (!file) {
           throw new TRPCError({
             code: "NOT_FOUND",
