@@ -664,4 +664,185 @@ export const adminRouter = router({
         });
       }
     }),
+    
+  getThemes: adminProcedure
+    .input(z.object({
+      ...PaginationSchema.shape,
+      category_id: z.number().optional(),
+      search: z.string().optional(),
+    }))
+    .query(async ({ input }) => {
+      const { page, limit, category_id, search } = input;
+      const skip = (page - 1) * limit;
+      
+      // Build filter conditions - only admin themes (user_id is null)
+      const where = {
+        user_id: null, // Only admin themes
+        ...(category_id ? { category_id } : {}),
+        ...(search ? {
+          OR: [
+            { name: { contains: search } },
+            { description: { contains: search } }
+          ]
+        } : {})
+      };
+      
+      try {
+        // Get themes with pagination
+        const themes = await prisma.theme.findMany({
+          skip,
+          take: limit,
+          where,
+          orderBy: { updated_at: 'desc' },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+                image_file_id: true,
+              }
+            },
+            category: {
+              select: {
+                id: true,
+                name: true,
+                title: true,
+              }
+            },
+            thumbnailImage: true,
+          }
+        });
+
+        // Resolve image URLs for all themes and users
+        const themesWithResolvedImages = await Promise.all(
+          themes.map(async (theme) => ({
+            ...theme,
+            user: theme.user ? {
+              ...theme.user,
+              image: await getFileUrl({ imageField: theme.user.image, imageFileId: theme.user.image_file_id }),
+            } : null,
+            thumbnailImage: theme.thumbnailImage ? {
+              ...theme.thumbnailImage,
+              url: await getFileUrl({ imageField: null, imageFileId: theme.thumbnailImage.id }),
+            } : null,
+          }))
+        );
+
+        // Get total count for pagination
+        const totalThemes = await prisma.theme.count({ where });
+        
+        return {
+          themes: themesWithResolvedImages,
+          pagination: {
+            total: totalThemes,
+            pages: Math.ceil(totalThemes / limit),
+            page,
+            limit
+          }
+        };
+      } catch (error) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch themes'
+        });
+      }
+    }),
+
+  deleteTheme: adminProcedure
+    .input(z.object({
+      id: z.number()
+    }))
+    .mutation(async ({ input }) => {
+      const { id } = input;
+      
+      try {
+        // First, check if the theme exists
+        const theme = await prisma.theme.findUnique({
+          where: { id },
+          select: {
+            id: true,
+            name: true,
+            user_id: true
+          }
+        });
+
+        if (!theme) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Theme not found'
+          });
+        }
+
+        // Check if any users are currently using this theme
+        // This checks both the theme field (for theme name/identifier) and user-created themes
+        const usersUsingTheme = await prisma.user.findMany({
+          where: {
+            OR: [
+              { theme: theme.name }, // Users using theme by name
+              { theme: id.toString() } // Users using theme by ID
+            ]
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            onelink: true
+          }
+        });
+
+        if (usersUsingTheme.length > 0) {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: `Cannot delete theme. It is currently being used by ${usersUsingTheme.length} user(s). Please ensure no users are using this theme before deleting it.`,
+            cause: {
+              usersUsingTheme: usersUsingTheme
+            }
+          });
+        }
+
+        // Delete the theme
+        const deletedTheme = await prisma.theme.delete({
+          where: { id },
+          select: {
+            id: true,
+            name: true,
+            description: true
+          }
+        });
+
+        return {
+          success: true,
+          message: `Theme "${deletedTheme.name}" has been successfully deleted`,
+          deletedTheme
+        };
+      } catch (error: any) {
+        // Re-throw TRPCError as is
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        
+        // Handle Prisma errors
+        if (error.code === 'P2025') {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Theme not found'
+          });
+        }
+        
+        // Handle other database errors
+        if (error.code && error.code.startsWith('P')) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Database error: ${error.message}`
+          });
+        }
+        
+        // Generic fallback
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to delete theme: ${error.message || 'Unknown error'}`
+        });
+      }
+    }),
 });

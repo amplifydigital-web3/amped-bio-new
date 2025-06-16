@@ -1,13 +1,14 @@
 import { useState, useCallback } from "react";
 import { trpc } from "../../utils/trpc";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, List, AlertCircle, Eye } from "lucide-react";
+import { Plus, List, AlertCircle, Eye, Grid } from "lucide-react";
 import { CreateThemeTab } from "./CreateThemeTab";
 import { CreateCategoryTab } from "./CreateCategoryTab";
 import { ViewCategoriesTab } from "./ViewCategoriesTab";
+import { ViewThemesTab } from "./ViewThemesTab";
 
 export function AdminThemeManager() {
-  const [activeTab, setActiveTab] = useState<"themes" | "categories" | "view-categories">("themes");
+  const [activeTab, setActiveTab] = useState<"themes" | "categories" | "view-categories" | "view-themes">("themes");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -66,6 +67,17 @@ export function AdminThemeManager() {
               <Eye className="h-4 w-4 inline mr-2" />
               View Categories
             </button>
+            <button
+              onClick={() => setActiveTab("view-themes")}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === "view-themes"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              <Grid className="h-4 w-4 inline mr-2" />
+              View Admin Themes
+            </button>
           </nav>
         </div>
       </div>
@@ -97,6 +109,14 @@ export function AdminThemeManager() {
                 onError={handleError}
                 onSuccess={handleSuccess}
                 refetchCategories={refetchCategories}
+              />
+            )}
+
+            {/* View Themes Tab */}
+            {activeTab === "view-themes" && (
+              <ViewThemesTab
+                onSuccess={handleSuccess}
+                onError={handleError}
               />
             )}
 
