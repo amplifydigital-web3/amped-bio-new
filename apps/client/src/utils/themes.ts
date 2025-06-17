@@ -693,15 +693,7 @@ const modernCollection: Collection = {
   name: "Abstract & Modern",
   description:
     "Dynamic video themes blending geometric elegance, fluid motion, and vibrant lightplay for a futuristic atmosphere.",
-  collaborator: {
-    name: "Alex Design",
-    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop",
-    url: "https://x.com/alexdesign",
-    bio: "UI/UX Designer specializing in minimal interfaces",
-  },
   themeCount: modernThemes.length,
-  downloads: 24680,
-  rating: 4.8,
   themes: modernThemes,
 };
 
@@ -710,15 +702,7 @@ const natureCollection: Collection = {
   name: "Nature & Organic",
   description:
     "Soothing natural world themes from golden sunsets to gentle rain, bringing earth's beauty into tranquil escape.",
-  collaborator: {
-    name: "Emma Nature",
-    avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=64&h=64&fit=crop",
-    url: "https://x.com/emmanature",
-    bio: "Environmental artist and digital designer",
-  },
   themeCount: natureThemes.length,
-  downloads: 18450,
-  rating: 4.7,
   themes: natureThemes,
 };
 
@@ -727,15 +711,7 @@ const cyberpunkCollection: Collection = {
   name: "Cyberpunk & Fantasy",
   description:
     "Futuristic cities with neon lights and digital dreamscapes where high-tech meets otherworldly wonder and magic.",
-  collaborator: {
-    name: "Neo Digital",
-    avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=64&h=64&fit=crop",
-    url: "https://x.com/neodigital",
-    bio: "Digital artist exploring the intersection of art and technology",
-  },
   themeCount: cyberpunkThemes.length,
-  downloads: 21340,
-  rating: 4.9,
   themes: cyberpunkThemes,
 };
 
@@ -744,15 +720,7 @@ const winterCollection: Collection = {
   name: "Winter Holidays",
   description:
     "Festive holiday themes with sparkling snowflakes, ornaments, and winter wonder evoking warmth and seasonal spirit.",
-  collaborator: {
-    name: "Marina Waves",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=64&h=64&fit=crop",
-    url: "https://x.com/marinawaves",
-    bio: "Marine photographer and digital creator",
-  },
   themeCount: winterThemes.length,
-  downloads: 15780,
-  rating: 4.6,
   themes: winterThemes,
 };
 

@@ -293,6 +293,67 @@ export const mockData = {
       updated_at: new Date().toISOString(),
     },
     getThemeCategories: [],
+    getCollections: [
+      {
+        id: "1",
+        name: "Demo Server Collection",
+        description: "A sample server collection with demo themes",
+        themeCount: 2,
+        themes: [],
+        isServer: true,
+        categoryImage: null,
+      },
+    ],
+    getThemesByCategory: {
+      category: {
+        id: 1,
+        name: "Demo Server Collection",
+        description: "A sample server collection with demo themes",
+        categoryImage: null,
+      },
+      themes: [
+        {
+          id: 100,
+          name: "Demo Server Theme 1",
+          description: "A sample theme from the server",
+          config: {
+            background: {
+              type: "gradient",
+              value: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+            },
+            primaryColor: "#ffffff",
+            secondaryColor: "#f8f9fa",
+            fontFamily: "Inter, sans-serif",
+          },
+          thumbnailImage: {
+            id: 1,
+            url: "https://images.unsplash.com/photo-1507721999472-8ed4421c4af2?w=400",
+          },
+          share_level: "public",
+          user: null,
+        },
+        {
+          id: 101,
+          name: "Demo Server Theme 2",
+          description: "Another sample theme from the server",
+          config: {
+            background: {
+              type: "gradient",
+              value: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            },
+            primaryColor: "#ffffff",
+            secondaryColor: "#f8f9fa",
+            fontFamily: "Inter, sans-serif",
+          },
+          thumbnailImage: {
+            id: 2,
+            url: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400",
+          },
+          share_level: "public",
+          user: null,
+        },
+      ],
+    },
     createThemeCategory: {
       id: 1,
       name: "Business",

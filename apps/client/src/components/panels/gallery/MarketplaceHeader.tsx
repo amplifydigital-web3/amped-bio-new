@@ -4,10 +4,10 @@ import { LayoutGrid, List, Search } from "lucide-react";
 interface MarketplaceHeaderProps {
   view: "grid" | "list";
   filter: string;
-  sort: "popular" | "newest" | "rating";
+  sort: "popular" | "newest";
   onViewChange: (view: "grid" | "list") => void;
   onFilterChange: (filter: string) => void;
-  onSortChange: (sort: "popular" | "newest" | "rating") => void;
+  onSortChange: (sort: "popular" | "newest") => void;
 }
 
 export function MarketplaceHeader({
@@ -40,12 +40,11 @@ export function MarketplaceHeader({
         </div>
         <select
           value={sort}
-          onChange={(e) => onSortChange(e.target.value as 'popular' | 'newest' | 'rating')}
+          onChange={(e) => onSortChange(e.target.value as 'popular' | 'newest')}
           className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         >
           <option value="popular">Most Popular</option>
           <option value="newest">Newest</option>
-          <option value="rating">Top Rated</option>
         </select>
       </div> */}
     </div>

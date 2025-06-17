@@ -39,7 +39,7 @@ interface EditorStore extends EditorState {
   removeFromGallery: (url: string) => void;
   setMarketplaceView: (view: "grid" | "list") => void;
   setMarketplaceFilter: (filter: string) => void;
-  setMarketplaceSort: (sort: "popular" | "newest" | "rating") => void;
+  setMarketplaceSort: (sort: "popular" | "newest") => void;
   applyTheme: (theme: Theme) => void;
   selectedPoolId: string | null;
   setSelectedPoolId: (id: string | null) => void;

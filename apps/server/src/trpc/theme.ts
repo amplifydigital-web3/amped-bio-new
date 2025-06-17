@@ -389,4 +389,53 @@ export const themeRouter = router({
         });
       }
     }),
+
+  // Get all collections/theme categories (public access)
+  getCollections: publicProcedure.query(async () => {
+    try {
+      const categories = await prisma.themeCategory.findMany({
+        orderBy: {
+          name: "asc",
+        },
+        include: {
+          categoryImage: true,
+          _count: {
+            select: {
+              themes: {
+                where: {
+                  share_level: {
+                    not: "private", // Only count public/shared themes
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      // Resolve image URLs for all categories and transform to Collection format
+      const collectionsWithResolvedImages = await Promise.all(
+        categories.map(async (category) => ({
+          id: category.id.toString(),
+          name: category.name,
+          description: category.description || "",
+          themeCount: category._count.themes,
+          themes: [], // Themes will be loaded separately when needed
+          isServer: true,
+          categoryImage: category.categoryImage ? {
+            ...category.categoryImage,
+            url: await getFileUrl({ imageField: null, imageFileId: category.categoryImage.id }),
+          } : null,
+        }))
+      );
+
+      return collectionsWithResolvedImages;
+    } catch (error) {
+      console.error("error", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Server error",
+      });
+    }
+  }),
 });

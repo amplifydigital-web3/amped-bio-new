@@ -67,22 +67,18 @@ export interface MarketplaceTheme {
   nftRequirement?: NFTRequirement;
 }
 
-export interface Collaborator {
-  name: string;
-  avatar: string;
-  url: string;
-  bio: string;
-}
-
 export interface Collection {
   id: string;
   name: string;
   description: string;
-  collaborator: Collaborator;
   themeCount: number;
-  downloads: number;
-  rating: number;
   themes: MarketplaceTheme[];
+  isServer?: boolean;
+  categoryImage?: {
+    id: number;
+    url: string | null;
+    [key: string]: any;
+  } | null;
 }
 
 export type EditorState = {
@@ -93,7 +89,7 @@ export type EditorState = {
   gallery: GalleryImage[];
   marketplaceView: "grid" | "list";
   marketplaceFilter: string;
-  marketplaceSort: "popular" | "newest" | "rating";
+  marketplaceSort: "popular" | "newest";
   connectedWallet?: string;
   selectedPoolId: string | null;
 };

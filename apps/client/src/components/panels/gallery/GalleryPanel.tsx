@@ -1,12 +1,14 @@
 import React, { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { trpc } from "../../../utils/trpc/trpc";
 import { useEditorStore } from "../../../store/editorStore";
+import { useCollections } from "../../../hooks/useCollections";
 import { MarketplaceHeader } from "./MarketplaceHeader";
 import { CollectionNav } from "./CollectionNav";
 import { CollectionHeader } from "./CollectionHeader";
 import { MarketplaceGrid } from "./MarketplaceGrid";
 import { MarketplaceList } from "./MarketplaceList";
 import { CollectionsOverview } from "./CollectionsOverview";
-import { collections } from "../../../utils/themes";
 
 export function GalleryPanel() {
   const [activeCollection, setActiveCollection] = useState("");
@@ -19,30 +21,68 @@ export function GalleryPanel() {
   const applyTheme = useEditorStore(state => state.applyTheme);
   const updateThemeConfig = useEditorStore(state => state.updateThemeConfig);
 
+  // Get collections (merged server + hardcoded)
+  const { collections } = useCollections();
+  
+  // Find the current collection
   const currentCollection = collections.find(c => c.id === activeCollection);
-  const filteredThemes = currentCollection
-    ? currentCollection.themes
-    : collections.flatMap(c => c.themes);
+  
+  // For server collections, fetch themes from the server
+  const isServerCollection = currentCollection?.isServer;
+  const { data: serverThemes, isLoading: isLoadingServerThemes } = useQuery({
+    ...trpc.theme.getThemesByCategory.queryOptions({
+      id: parseInt(activeCollection)
+    }),
+    enabled: isServerCollection && !!activeCollection,
+  });
+
+  // Determine which themes to show
+  const getFilteredThemes = () => {
+    if (!activeCollection) {
+      // Show all themes from all collections
+      return collections.flatMap(c => c.themes);
+    }
+    
+    if (isServerCollection && serverThemes) {
+      // For server collections, use themes from server
+      // Convert server theme format to marketplace theme format
+      return serverThemes.themes.map((theme: any) => ({
+        id: theme.id.toString(),
+        name: theme.name,
+        description: theme.description || "",
+        thumbnail: theme.thumbnailImage?.url || "",
+        tags: [] as string[], // Server themes don't have tags
+        theme: theme.config || {}
+      }));
+    }
+    
+    // For hardcoded collections, use existing themes
+    return currentCollection?.themes || [];
+  };
+
+  const filteredThemes = getFilteredThemes();
 
   const displayThemes = filteredThemes
     .filter(
       theme =>
         filter === "" ||
         theme.name.toLowerCase().includes(filter.toLowerCase()) ||
-        theme.tags.some(tag => tag.toLowerCase().includes(filter.toLowerCase()))
+        (theme.tags && theme.tags.some(tag => tag.toLowerCase().includes(filter.toLowerCase())))
     )
     .sort((a, b) => {
       switch (sort) {
         case "popular":
-          return b.downloads - a.downloads;
-        case "rating":
-          return b.rating - a.rating;
+          // Sort by name as a fallback since we don't have download data
+          return a.name.localeCompare(b.name);
         case "newest":
           return b.id.localeCompare(a.id);
         default:
           return 0;
       }
     });
+
+  // Show loading state when fetching server themes
+  const isLoading = isServerCollection && isLoadingServerThemes;
 
   return (
     <div className="h-full flex flex-col">
@@ -62,8 +102,12 @@ export function GalleryPanel() {
           <CollectionsOverview onCollectionSelect={setActiveCollection} />
         ) : (
           <div className="p-6">
-            <CollectionHeader collection={currentCollection!} />
-            {view === "grid" ? (
+            <CollectionHeader collection={currentCollection} />
+            {isLoading ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="text-lg text-gray-600">Loading themes...</div>
+              </div>
+            ) : view === "grid" ? (
               <MarketplaceGrid themes={displayThemes} onApply={updateThemeConfig} />
             ) : (
               <MarketplaceList themes={displayThemes} onApply={updateThemeConfig} />

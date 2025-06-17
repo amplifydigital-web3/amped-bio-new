@@ -3,10 +3,23 @@ import { Sparkles } from "lucide-react";
 import type { Collection } from "../../../types/editor";
 
 interface CollectionHeaderProps {
-  collection: Collection;
+  collection?: Collection;
 }
 
 export function CollectionHeader({ collection }: CollectionHeaderProps) {
+  // Early return if no collection is provided
+  if (!collection) {
+    return (
+      <div className="relative mb-32">
+        <div className="relative h-[500px] bg-gradient-to-r from-gray-500 to-gray-600 overflow-hidden rounded-2xl flex items-center justify-center">
+          <h1 className="text-7xl font-bold text-white tracking-tight drop-shadow-lg">
+            Loading Collection...
+          </h1>
+        </div>
+      </div>
+    );
+  }
+
   // Collection-specific styles and images
   const styles = {
     abstract: {
@@ -65,7 +78,25 @@ export function CollectionHeader({ collection }: CollectionHeaderProps) {
     },
   };
 
-  const style = styles[collection.id as keyof typeof styles] || styles.abstract;
+  // Get style based on collection ID, with fallback for server collections
+  const getStyleKey = (collectionId: string): keyof typeof styles => {
+    // For server collections (numeric IDs), map based on collection name
+    if (collection?.isServer) {
+      const name = collection.name?.toLowerCase() || '';
+      if (name.includes('abstract') || name.includes('modern')) return 'abstract';
+      if (name.includes('nature') || name.includes('organic')) return 'nature';
+      if (name.includes('cyber') || name.includes('tech')) return 'cyber';
+      if (name.includes('winter') || name.includes('snow')) return 'winter';
+      return 'abstract'; // default fallback
+    }
+    
+    // For client collections, use ID directly
+    return (collectionId as keyof typeof styles) in styles 
+      ? (collectionId as keyof typeof styles) 
+      : 'abstract';
+  };
+
+  const style = styles[getStyleKey(collection?.id || 'abstract')];
 
   return (
     <div className="relative mb-32">
@@ -76,7 +107,7 @@ export function CollectionHeader({ collection }: CollectionHeaderProps) {
         {/* Background Image with Overlay */}
         <img
           src={style.image}
-          alt={collection.name}
+          alt={collection?.name || 'Collection'}
           className={`absolute inset-0 w-full h-full object-cover ${style.overlayOpacity}`}
         />
 
@@ -106,7 +137,7 @@ export function CollectionHeader({ collection }: CollectionHeaderProps) {
         <div className="absolute inset-0 flex items-center justify-center text-center p-6">
           <div className="space-y-6">
             <h1 className="text-7xl font-bold text-white tracking-tight drop-shadow-lg">
-              {collection.name}
+              {collection?.name || 'Collection'}
             </h1>
             <div className="flex items-center justify-center gap-2">
               <Sparkles className="w-6 h-6 text-white" />
@@ -119,7 +150,7 @@ export function CollectionHeader({ collection }: CollectionHeaderProps) {
         <div className="absolute bottom-0 left-0 right-0 bg-black/20 backdrop-blur-sm">
           <div className="max-w-4xl mx-auto px-8 py-6 flex items-center justify-center">
             <div className="text-center text-white">
-              <p className="text-4xl font-bold">{collection.themeCount}</p>
+              <p className="text-4xl font-bold">{collection?.themeCount || 0}</p>
               <p className="text-sm opacity-90">Unique Themes</p>
             </div>
           </div>
@@ -132,7 +163,7 @@ export function CollectionHeader({ collection }: CollectionHeaderProps) {
           <div className="flex items-start gap-8">
             {/* Collection Description */}
             <div className="flex-1 min-w-0">
-              <p className="text-xl text-gray-900 leading-relaxed mb-6">{collection.description}</p>
+              <p className="text-xl text-gray-900 leading-relaxed mb-6">{collection?.description || ''}</p>
             </div>
           </div>
         </div>
