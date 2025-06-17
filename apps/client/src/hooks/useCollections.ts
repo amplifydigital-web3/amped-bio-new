@@ -20,7 +20,6 @@ function mergeCollections(serverCollections: Collection[], localCollections: Col
         name: serverCollection.name,
         description: serverCollection.description,
         themeCount: serverCollection.themeCount,
-        themes: [], // Themes will be loaded when the collection is selected
         isServer: true,
         categoryImage: serverCollection.categoryImage,
       });

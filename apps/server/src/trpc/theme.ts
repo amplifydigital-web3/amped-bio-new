@@ -27,6 +27,11 @@ const themeObjectSchema = z.object({
   config: themeConfigSchema.optional(),
 });
 
+// Schema for applying server theme to user
+const applyServerThemeSchema = z.object({
+  themeId: z.number(),
+});
+
 export const themeRouter = router({
   // Edit/Create theme (authenticated users only)
   editTheme: privateProcedure
@@ -420,7 +425,6 @@ export const themeRouter = router({
           name: category.name,
           description: category.description || "",
           themeCount: category._count.themes,
-          themes: [], // Themes will be loaded separately when needed
           isServer: true,
           categoryImage: category.categoryImage ? {
             ...category.categoryImage,
@@ -438,4 +442,62 @@ export const themeRouter = router({
       });
     }
   }),
+
+  // Apply server theme to user (authenticated users only)
+  applyServerTheme: privateProcedure
+    .input(applyServerThemeSchema)
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user.id;
+      const { themeId } = input;
+
+      try {
+        // Check if the theme exists and is a server theme (user_id === null)
+        const theme = await prisma.theme.findUnique({
+          where: {
+            id: Number(themeId),
+          },
+        });
+
+        if (theme === null) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: `Theme not found: ${themeId}`,
+          });
+        }
+
+        if (theme.user_id !== null) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Only server themes can be applied to users",
+          });
+        }
+
+        // Update user's theme
+        const updatedUser = await prisma.user.update({
+          where: {
+            id: userId,
+          },
+          data: {
+            theme: themeId.toString(),
+            updated_at: new Date(),
+          },
+        });
+
+        return {
+          success: true,
+          message: "Theme applied successfully",
+          themeId,
+          themeName: theme.name,
+        };
+      } catch (error) {
+        console.error("Error applying server theme:", error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to apply theme",
+        });
+      }
+    }),
 });

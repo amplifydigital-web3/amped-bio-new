@@ -35,6 +35,7 @@ export type ThemeConfig = {
 
 export type Theme = {
   id: number;
+  user_id?: number | null;
   name: string;
   share_level: string;
   share_config: object;
@@ -46,16 +47,6 @@ export interface GalleryImage {
   type: string;
 }
 
-export interface NFTRequirement {
-  contractAddress: string;
-  chainId: number;
-  minBalance: number;
-  name: string;
-  image: string;
-  price: string;
-  marketplace: string;
-}
-
 export interface MarketplaceTheme {
   id: string;
   name: string;
@@ -64,7 +55,7 @@ export interface MarketplaceTheme {
   tags: string[];
   theme: ThemeConfig;
   locked?: boolean;
-  nftRequirement?: NFTRequirement;
+  user_id?: number | null; // For server themes, null means admin theme
 }
 
 export interface Collection {
@@ -72,7 +63,7 @@ export interface Collection {
   name: string;
   description: string;
   themeCount: number;
-  themes: MarketplaceTheme[];
+  themes?: MarketplaceTheme[]; // Optional - only present for hardcoded collections
   isServer?: boolean;
   categoryImage?: {
     id: number;

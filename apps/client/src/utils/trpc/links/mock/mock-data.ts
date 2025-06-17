@@ -208,6 +208,12 @@ export const mockData = {
         updated_at: new Date().toISOString(),
       },
     ],
+    applyServerTheme: {
+      success: true,
+      message: "Theme applied successfully",
+      themeId: 1,
+      themeName: "Demo Server Theme",
+    },
   },
   admin: {
     updateUser: {
@@ -299,7 +305,6 @@ export const mockData = {
         name: "Demo Server Collection",
         description: "A sample server collection with demo themes",
         themeCount: 2,
-        themes: [],
         isServer: true,
         categoryImage: null,
       },

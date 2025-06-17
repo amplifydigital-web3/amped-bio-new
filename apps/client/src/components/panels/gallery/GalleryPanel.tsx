@@ -33,14 +33,14 @@ export function GalleryPanel() {
     ...trpc.theme.getThemesByCategory.queryOptions({
       id: parseInt(activeCollection)
     }),
-    enabled: isServerCollection && !!activeCollection,
+    enabled: !!(isServerCollection && activeCollection && !isNaN(parseInt(activeCollection))),
   });
 
   // Determine which themes to show
   const getFilteredThemes = () => {
     if (!activeCollection) {
-      // Show all themes from all collections
-      return collections.flatMap(c => c.themes);
+      // Show all themes from all collections (only hardcoded collections have themes)
+      return collections.flatMap(c => c.themes || []);
     }
     
     if (isServerCollection && serverThemes) {
@@ -52,7 +52,8 @@ export function GalleryPanel() {
         description: theme.description || "",
         thumbnail: theme.thumbnailImage?.url || "",
         tags: [] as string[], // Server themes don't have tags
-        theme: theme.config || {}
+        theme: theme.config || {},
+        user_id: theme.user?.id || null // null means admin theme (user_id = 0)
       }));
     }
     

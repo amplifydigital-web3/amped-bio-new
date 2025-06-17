@@ -1,5 +1,5 @@
 import React from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, AlertTriangle } from "lucide-react";
 import type { MarketplaceTheme } from "../../../types/editor";
 
 interface MarketplaceListProps {
@@ -19,7 +19,15 @@ export function MarketplaceList({ themes, onApply }: MarketplaceListProps) {
             <img src={theme.thumbnail} alt={theme.name} className="w-full h-full object-cover" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-medium text-gray-900">{theme.name}</h3>
+            <div className="flex items-center space-x-2">
+              <h3 className="font-medium text-gray-900">{theme.name}</h3>
+              {theme.user_id === null && (
+                <div className="bg-orange-100 px-2 py-1 rounded-full flex items-center space-x-1">
+                  <AlertTriangle className="w-3 h-3 text-orange-600" />
+                  <span className="text-xs text-orange-700 font-medium">Not Customizable</span>
+                </div>
+              )}
+            </div>
             <p className="text-sm text-gray-500 mt-1">{theme.description}</p>
           </div>
           <button
