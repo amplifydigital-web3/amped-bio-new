@@ -19,7 +19,7 @@ import {
   MAX_BACKGROUND_FILE_SIZE,
 } from "@ampedbio/constants";
 
-export type FileCategory = "profiles" | "backgrounds";
+export type FileCategory = "profiles" | "backgrounds" | "category";
 export type S3Operation = "getObject" | "putObject" | "deleteObject";
 
 export interface GenerateFileKeyParams {
@@ -44,6 +44,14 @@ export interface GetTempFileUrlParams {
 export interface FileExistsParams {
   fileKey: string;
   bucket?: string; // Optional bucket, defaults to the default bucket
+}
+
+export interface GenerateServerFileKeyParams {
+  category: FileCategory | "category";
+  fileExtension: string;
+  categoryId?: number;
+  themeId?: number;
+  isThumbnail?: boolean;
 }
 
 class S3Service {
@@ -306,6 +314,56 @@ class S3Service {
     console.info(
       "[INFO] Generated unique file key",
       JSON.stringify({ fileKey, category, userId, themeId })
+    );
+    return fileKey;
+  }
+
+  /**
+   * Generate a unique file key for server/admin uploaded files
+   * These files are stored in the "server-uploads" directory and don't belong to specific users
+   */
+  generateServerFileKey({
+    category,
+    fileExtension,
+    categoryId,
+    themeId,
+    isThumbnail = false,
+  }: GenerateServerFileKeyParams): string {
+    // Validate required parameters for specific categories
+    if (category === "category" && !categoryId) {
+      throw new Error("categoryId is required for category uploads");
+    }
+    if (category === "backgrounds" && !themeId) {
+      throw new Error("themeId is required for backgrounds category");
+    }
+
+    // Only background files can have thumbnails
+    if (isThumbnail && category !== "backgrounds") {
+      throw new Error("Thumbnails are only allowed for background files");
+    }
+
+    const timestamp = Date.now();
+    const randomString = crypto.randomBytes(8).toString("hex");
+    
+    // Add thumbnail suffix if it's a thumbnail
+    const thumbnailSuffix = isThumbnail ? "_thumbnail" : "";
+
+    let fileKey: string;
+
+    if (category === "category" && categoryId) {
+      // For theme category image uploads
+      fileKey = `server-uploads/categories/category_${categoryId}_${timestamp}-${randomString}${thumbnailSuffix}.${fileExtension}`;
+    } else if (category === "backgrounds" && themeId) {
+      // For admin theme background uploads
+      fileKey = `server-uploads/backgrounds/theme_${themeId}_${timestamp}-${randomString}${thumbnailSuffix}.${fileExtension}`;
+    } else {
+      // For other server file categories
+      fileKey = `server-uploads/${category}/${timestamp}-${randomString}${thumbnailSuffix}.${fileExtension}`;
+    }
+
+    console.info(
+      "[INFO] Generated server file key",
+      JSON.stringify({ fileKey, category, categoryId, themeId, isThumbnail })
     );
     return fileKey;
   }
@@ -653,6 +711,54 @@ class S3Service {
         "[ERROR] Failed to generate temporary file URL",
         error instanceof Error ? error.stack : error,
         JSON.stringify({ bucket, fileKey, expiresIn })
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Get a pre-signed URL for server/admin file upload
+   * This URL is used for uploading files that belong to the server (like category images, admin themes, etc.)
+   */
+  async getServerPresignedUploadUrl(
+    category: FileCategory ,
+    contentType: string,
+    fileExtension: string,
+    categoryId?: number,
+    themeId?: number,
+    isThumbnail?: boolean
+  ): Promise<{
+    presignedUrl: string; // Temporary URL for upload only
+    fileKey: string; // File identifier to be stored in the database
+  }> {
+    try {
+      // Validate file type based on category
+      const fileCategory = category === "category" ? "profiles" : category;
+      const validation = this.validateFile(contentType, fileCategory as FileCategory);
+      if (!validation.valid) {
+        throw new Error(validation.message || "File validation failed");
+      }
+
+      const fileKey = this.generateServerFileKey({ 
+        category, 
+        fileExtension, 
+        categoryId, 
+        themeId,
+        isThumbnail
+      });
+
+      // Get a signed URL for putting an object
+      const presignedUrl = await this.getSignedUrl(fileKey, "putObject", 300, contentType);
+
+      return {
+        presignedUrl,
+        fileKey,
+      };
+    } catch (error) {
+      console.error(
+        "[ERROR] Error generating server presigned URL",
+        error instanceof Error ? error.stack : error,
+        JSON.stringify({ category, contentType, categoryId, themeId, isThumbnail })
       );
       throw error;
     }

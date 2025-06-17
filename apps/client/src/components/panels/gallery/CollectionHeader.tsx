@@ -96,7 +96,15 @@ export function CollectionHeader({ collection }: CollectionHeaderProps) {
       : 'abstract';
   };
 
-  const style = styles[getStyleKey(collection?.id || 'abstract')];
+  const baseStyle = styles[getStyleKey(collection?.id || 'abstract')];
+  
+  // For server collections, use the category image if available, otherwise fallback to hardcoded image
+  const style = {
+    ...baseStyle,
+    image: collection?.isServer && collection?.categoryImage?.url 
+      ? collection.categoryImage.url 
+      : baseStyle.image
+  };
 
   return (
     <div className="relative mb-32">

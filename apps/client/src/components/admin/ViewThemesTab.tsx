@@ -39,7 +39,11 @@ export function ViewThemesTab({ onSuccess, onError }: ViewThemesTabProps) {
   const deleteThemeMutation = useMutation({
     mutationFn: (themeId: number) => trpcClient.admin.deleteTheme.mutate({ id: themeId }),
     onSuccess: (data: any) => {
-      onSuccess(data?.message || "Theme deleted successfully");
+      const filesDeleted = data?.deletedFiles || 0;
+      const message = filesDeleted > 0 
+        ? `${data?.message || "Theme deleted successfully"} (${filesDeleted} file${filesDeleted > 1 ? 's' : ''} also removed)`
+        : data?.message || "Theme deleted successfully";
+      onSuccess(message);
       refetch(); // Refresh the themes list
       setDeleteModal({ isOpen: false, theme: null });
     },
@@ -342,10 +346,16 @@ export function ViewThemesTab({ onSuccess, onError }: ViewThemesTabProps) {
               <p className="text-sm text-gray-700 mb-2">
                 Are you sure you want to delete the theme <strong>"{deleteModal.theme.name || 'Untitled Theme'}"</strong>?
               </p>
-              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-3">
                 <p className="text-sm text-yellow-800">
                   <strong>Warning:</strong> This theme will only be deleted if no users are currently using it. 
                   If users are using this theme, the deletion will be prevented.
+                </p>
+              </div>
+              <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                <p className="text-sm text-red-800">
+                  <strong>Files to be deleted:</strong> This action will permanently delete the theme's thumbnail and background images from the server. 
+                  This cannot be undone.
                 </p>
               </div>
             </div>

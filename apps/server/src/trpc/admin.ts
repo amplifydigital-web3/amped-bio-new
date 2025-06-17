@@ -3,6 +3,8 @@ import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { getFileUrl } from "../utils/fileUrlResolver";
+import { uploadedFileService } from "../services/UploadedFileService";
+import { s3Service } from "../services/S3Service";
 
 const prisma = new PrismaClient();
 
@@ -757,13 +759,15 @@ export const adminRouter = router({
       const { id } = input;
       
       try {
-        // First, check if the theme exists
+        // First, check if the theme exists and get all related file information
         const theme = await prisma.theme.findUnique({
           where: { id },
           select: {
             id: true,
             name: true,
-            user_id: true
+            user_id: true,
+            thumbnail_file_id: true,
+            config: true
           }
         });
 
@@ -801,7 +805,61 @@ export const adminRouter = router({
           });
         }
 
-        // Delete the theme
+        // Collect files to delete
+        const filesToDelete: number[] = [];
+        let deletionErrors: string[] = [];
+
+        // Add thumbnail file ID if it exists
+        if (theme.thumbnail_file_id) {
+          filesToDelete.push(theme.thumbnail_file_id);
+        }
+
+        // Check for background file in theme config
+        if (theme.config && typeof theme.config === 'object') {
+          const config = theme.config as any;
+          if (config.background?.fileId && typeof config.background.fileId === 'number') {
+            filesToDelete.push(config.background.fileId);
+          }
+        }
+
+        // Delete all associated files from S3 and database
+        for (const fileId of filesToDelete) {
+          try {
+            // Get file information first
+            const uploadedFile = await uploadedFileService.getFileById(fileId);
+            
+            if (uploadedFile) {
+              // Delete from S3
+              await s3Service.deleteFile(uploadedFile.s3_key);
+              
+              // Mark file as deleted in database
+              await uploadedFileService.deleteFile(fileId);
+              
+              console.info(`[INFO] Successfully deleted file for theme ${id}:`, {
+                fileId,
+                s3Key: uploadedFile.s3_key
+              });
+            }
+          } catch (fileDeleteError: any) {
+            const errorMessage = `Failed to delete file ${fileId}: ${fileDeleteError.message || 'Unknown error'}`;
+            deletionErrors.push(errorMessage);
+            console.error(`[ERROR] ${errorMessage}`, fileDeleteError);
+          }
+        }
+
+        // If there were any file deletion errors, fail the entire operation
+        if (deletionErrors.length > 0) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to delete theme files: ${deletionErrors.join('; ')}`,
+            cause: {
+              deletionErrors,
+              filesAttempted: filesToDelete
+            }
+          });
+        }
+
+        // Delete the theme from database
         const deletedTheme = await prisma.theme.delete({
           where: { id },
           select: {
@@ -814,7 +872,8 @@ export const adminRouter = router({
         return {
           success: true,
           message: `Theme "${deletedTheme.name}" has been successfully deleted`,
-          deletedTheme
+          deletedTheme,
+          deletedFiles: filesToDelete.length
         };
       } catch (error: any) {
         // Re-throw TRPCError as is

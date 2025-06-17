@@ -15,7 +15,6 @@ import {
 
 const prisma = new PrismaClient();
 
-// Schema for requesting a presigned URL
 const requestPresignedUrlSchema = z.object({
   contentType: z.string().refine(value => ALLOWED_AVATAR_FILE_TYPES.includes(value), {
     message: `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()} formats are supported`,
@@ -31,7 +30,6 @@ const requestPresignedUrlSchema = z.object({
   category: z.enum(["profiles", "backgrounds", "media", "files"]).default("profiles"),
 });
 
-// Schema for requesting a presigned URL for a theme background (image or video)
 const requestThemeBackgroundUrlSchema = z.object({
   contentType: z
     .string()
@@ -53,21 +51,18 @@ const requestThemeBackgroundUrlSchema = z.object({
   }),
 });
 
-// Schema for confirming successful upload
 const confirmUploadSchema = z.object({
   fileId: z.number().positive(), // File ID from the presigned URL request
   fileName: z.string().min(1), // Actual filename from client
   category: z.enum(["profiles", "backgrounds", "media", "files"]).default("profiles"),
 });
 
-// Schema for confirming successful theme background upload (image or video)
 const confirmThemeBackgroundSchema = z.object({
   fileId: z.number().positive(), // File ID from the presigned URL request
   fileName: z.string().min(1), // Actual filename from client
   mediaType: z.enum(["image", "video"]),
 });
 
-// Schema for theme category image upload (admin only)
 const requestThemeCategoryImageSchema = z.object({
   categoryId: z.number().positive(),
   contentType: z.string().refine(value => ALLOWED_AVATAR_FILE_TYPES.includes(value), {
@@ -83,14 +78,12 @@ const requestThemeCategoryImageSchema = z.object({
   }),
 });
 
-// Schema for confirming theme category image upload
 const confirmThemeCategoryImageSchema = z.object({
   categoryId: z.number().positive(),
   fileId: z.number().positive(), // File ID from the presigned URL request
   fileName: z.string().min(1), // Actual filename from client
 });
 
-// Schema for theme thumbnail upload (admin only)
 const requestThemeThumbnailSchema = z.object({
   themeId: z.number().positive(),
   contentType: z.string().refine(value => ALLOWED_AVATAR_FILE_TYPES.includes(value), {
@@ -106,7 +99,6 @@ const requestThemeThumbnailSchema = z.object({
   }),
 });
 
-// Schema for confirming theme thumbnail upload
 const confirmThemeThumbnailSchema = z.object({
   themeId: z.number().positive(),
   fileId: z.number().positive(), // File ID from the presigned URL request
@@ -114,14 +106,12 @@ const confirmThemeThumbnailSchema = z.object({
 });
 
 export const uploadRouter = router({
-  // Generate a presigned URL for uploading profile picture
   requestAvatarPresignedUrl: privateProcedure
     .input(requestPresignedUrlSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id;
 
       try {
-        // Check file size
         if (input.fileSize > MAX_AVATAR_FILE_SIZE) {
           throw new TRPCError({
             code: "BAD_REQUEST",
@@ -129,7 +119,6 @@ export const uploadRouter = router({
           });
         }
 
-        // Use the S3Service to generate a presigned URL
         const { presignedUrl, fileKey } = await s3Service.getPresignedUploadUrl(
           input.category as FileCategory,
           userId,
@@ -137,11 +126,10 @@ export const uploadRouter = router({
           input.fileExtension
         );
 
-        // Create uploaded file record immediately when presigned URL is generated
         const uploadedFile = await uploadedFileService.createUploadedFile({
           s3Key: fileKey,
           bucket: process.env.AWS_S3_BUCKET_NAME || "default-bucket",
-          fileName: `avatar_${Date.now()}.${input.fileExtension}`, // Generate a name since we don't have it yet
+          fileName: `avatar_${Date.now()}.${input.fileExtension}`,
           fileType: input.contentType,
           size: input.fileSize,
           userId: userId,
@@ -149,8 +137,8 @@ export const uploadRouter = router({
 
         return {
           presignedUrl,
-          fileId: uploadedFile.id, // Return the file ID for tracking
-          expiresIn: 300, // Seconds
+          fileId: uploadedFile.id,
+          expiresIn: 300,
         };
       } catch (error) {
         console.error("Error generating presigned URL:", error);
@@ -161,14 +149,12 @@ export const uploadRouter = router({
       }
     }),
 
-  // Generate a presigned URL for uploading theme background (image or video)
   requestThemeBackgroundUrl: privateProcedure
     .input(requestThemeBackgroundUrlSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id;
 
       try {
-        // Check file size
         if (input.fileSize > MAX_BACKGROUND_FILE_SIZE) {
           throw new TRPCError({
             code: "BAD_REQUEST",
@@ -181,11 +167,9 @@ export const uploadRouter = router({
           select: { theme: true, onelink: true },
         });
 
-        // TODO when we have theme marketplace user cannot set theme background to other themes
         let themeId = userFound?.theme;
 
         if (userFound?.theme === null) {
-          // create theme
           const theme = await prisma.theme.create({
             data: {
               user_id: userId,
@@ -216,11 +200,10 @@ export const uploadRouter = router({
           Number(themeId)
         );
 
-        // Create uploaded file record immediately when presigned URL is generated
         const uploadedFile = await uploadedFileService.createUploadedFile({
           s3Key: fileKey,
           bucket: process.env.AWS_S3_BUCKET_NAME || "default-bucket",
-          fileName: `background_${Date.now()}.${input.fileExtension}`, // Generate a name since we don't have it yet
+          fileName: `background_${Date.now()}.${input.fileExtension}`,
           fileType: input.contentType,
           size: input.fileSize,
           userId: userId,
@@ -228,9 +211,9 @@ export const uploadRouter = router({
 
         return {
           presignedUrl,
-          fileId: uploadedFile.id, // Return the file ID for tracking
+          fileId: uploadedFile.id,
           mediaType: isVideo ? "video" : "image",
-          expiresIn: 300, // Seconds
+          expiresIn: 300,
         };
       } catch (error) {
         console.error("Error generating presigned URL for theme background:", error);
@@ -536,12 +519,12 @@ export const uploadRouter = router({
           });
         }
 
-        // Use the S3Service to generate a presigned URL
-        const { presignedUrl, fileKey } = await s3Service.getPresignedUploadUrl(
-          "profiles", // Use profiles category for theme category images
-          userId,
+        // Use the S3Service to generate a server presigned URL for category images
+        const { presignedUrl, fileKey } = await s3Service.getServerPresignedUploadUrl(
+          "category",
           input.contentType,
-          input.fileExtension
+          input.fileExtension,
+          input.categoryId
         );
 
         // TODO create service to clean up old category images
@@ -569,14 +552,12 @@ export const uploadRouter = router({
       }
     }),
 
-  // Confirm successful upload and update theme category with the new image
   confirmThemeCategoryImageUpload: adminProcedure
     .input(confirmThemeCategoryImageSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id;
 
       try {
-        // Get the uploaded file record and verify it's an admin file first
         const uploadedFile = await uploadedFileService.getFileById(input.fileId);
         if (!uploadedFile || uploadedFile.user_id !== null) {
           throw new TRPCError({
@@ -585,11 +566,9 @@ export const uploadRouter = router({
           });
         }
 
-        // Get fileKey and bucket from database
         const fileKey = uploadedFile.s3_key;
         const bucket = uploadedFile.bucket;
 
-        // Now verify that the file exists in S3 before proceeding
         const fileExists = await s3Service.fileExists({ fileKey, bucket });
         if (!fileExists) {
           throw new TRPCError({
@@ -598,13 +577,16 @@ export const uploadRouter = router({
           });
         }
 
-        // Update the file record with the actual filename and mark as completed
+        const currentCategory = await prisma.themeCategory.findUnique({
+          where: { id: input.categoryId },
+          select: { image_file_id: true },
+        });
+
         await uploadedFileService.updateFileStatus({
           id: input.fileId,
           status: "COMPLETED",
         });
 
-        // Also update the filename
         await prisma.uploadedFile.update({
           where: { id: input.fileId },
           data: {
@@ -613,14 +595,25 @@ export const uploadRouter = router({
           },
         });
 
-        // Update the category with the new image
         await prisma.themeCategory.update({
           where: { id: input.categoryId },
           data: {
-            image_file_id: input.fileId, // Now types are updated
+            image_file_id: input.fileId,
             updated_at: new Date(),
           },
         });
+
+        if (currentCategory?.image_file_id) {
+          try {
+            await uploadedFileService.deleteFile(currentCategory.image_file_id);
+            const prevFile = await uploadedFileService.getFileById(currentCategory.image_file_id);
+            if (prevFile) {
+              await s3Service.deleteFile(prevFile.s3_key);
+            }
+          } catch (deleteError) {
+            console.warn("Failed to delete previous category image:", deleteError);
+          }
+        }
 
         return {
           success: true,
@@ -717,12 +710,14 @@ export const uploadRouter = router({
           });
         }
 
-        // Use the S3Service to generate a presigned URL
-        const { presignedUrl, fileKey } = await s3Service.getPresignedUploadUrl(
-          "profiles", // Use profiles category for theme thumbnails
-          userId,
+        // Use the S3Service to generate a server presigned URL for theme thumbnails
+        const { presignedUrl, fileKey } = await s3Service.getServerPresignedUploadUrl(
+          "backgrounds", // Use backgrounds category for theme thumbnails since thumbnails are only allowed for backgrounds
           input.contentType,
-          input.fileExtension
+          input.fileExtension,
+          undefined, // categoryId not needed for thumbnails
+          input.themeId, // themeId for organization
+          true // isThumbnail = true
         );
 
         // Create uploaded file record immediately when presigned URL is generated

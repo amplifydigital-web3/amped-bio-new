@@ -2,8 +2,9 @@ import { Lock, AlertTriangle } from "lucide-react";
 import type { MarketplaceTheme } from "../../../types/editor";
 import { HoverPopover } from "../../ui/Popover";
 import { trpc } from "../../../utils/trpc";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
+import { useEditorStore } from "../../../store/editorStore";
 
 interface ThemeCardProps {
   theme: MarketplaceTheme;
@@ -11,13 +12,22 @@ interface ThemeCardProps {
 }
 
 export function ThemeCard({ theme, onApply }: ThemeCardProps) {
+  const queryClient = useQueryClient();
+  const profile = useEditorStore(state => state.profile);
+  const setUser = useEditorStore(state => state.setUser);
+  
   // Mutation for applying server theme
   const applyServerTheme = useMutation({
     ...trpc.theme.applyServerTheme.mutationOptions(),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       toast.success(`${data.themeName} applied successfully!`);
       // Also apply the theme config to the editor
       onApply(theme.theme);
+      
+      // Refetch the current user data to get the updated theme in the store
+      if (profile?.onelink) {
+        await setUser(profile.onelink);
+      }
     },
     onError: (error) => {
       toast.error(`Failed to apply theme: ${error.message}`);
