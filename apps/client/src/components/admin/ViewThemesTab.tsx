@@ -23,12 +23,12 @@ export function ViewThemesTab({ onSuccess, onError }: ViewThemesTabProps) {
 
   // Get theme categories for filtering
   const { data: categories } = useQuery(
-    trpc.admin.getThemeCategories.queryOptions()
+    trpc.admin.themes.getThemeCategories.queryOptions()
   );
 
   // Get themes with filtering and pagination
   const { data: themesData, isLoading, refetch } = useQuery(
-    trpc.admin.getThemes.queryOptions({
+    trpc.admin.themes.getThemes.queryOptions({
       page: currentPage,
       limit,
       search: searchTerm || undefined,
@@ -38,7 +38,7 @@ export function ViewThemesTab({ onSuccess, onError }: ViewThemesTabProps) {
 
   // Delete theme mutation
   const deleteThemeMutation = useMutation({
-    mutationFn: (themeId: number) => trpcClient.admin.deleteTheme.mutate({ id: themeId }),
+    mutationFn: (themeId: number) => trpcClient.admin.themes.deleteTheme.mutate({ id: themeId }),
     onSuccess: (data: any) => {
       const filesDeleted = data?.deletedFiles || 0;
       const message = filesDeleted > 0 

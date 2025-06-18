@@ -91,39 +91,6 @@ export const themeGalleryRouter = router({
     }
   }),
 
-  // Get all theme categories (public access for gallery navigation)
-  getThemeCategories: publicProcedure.query(async () => {
-    try {
-      const categories = await prisma.themeCategory.findMany({
-        orderBy: {
-          name: "asc",
-        },
-        include: {
-          categoryImage: true,
-        },
-      });
-
-      // Resolve image URLs for all categories
-      const categoriesWithResolvedImages = await Promise.all(
-        categories.map(async (category) => ({
-          ...category,
-          categoryImage: category.categoryImage ? {
-            ...category.categoryImage,
-            url: await getFileUrl({ legacyImageField: null, imageFileId: category.categoryImage.id }),
-          } : null,
-        }))
-      );
-
-      return categoriesWithResolvedImages;
-    } catch (error) {
-      console.error("error", error);
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Server error",
-      });
-    }
-  }),
-
   // Get themes by category ID (public access for gallery browsing)
   getThemesByCategory: publicProcedure
     .input(categoryIdSchema)
@@ -214,6 +181,9 @@ export const themeGalleryRouter = router({
   getCollections: publicProcedure.query(async () => {
     try {
       const categories = await prisma.themeCategory.findMany({
+        where: {
+          visible: true, // Only return visible categories for public access
+        },
         orderBy: {
           name: "asc",
         },

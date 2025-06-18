@@ -9,7 +9,8 @@ import {
   DateRangeSchema, 
   PaginationSchema, 
   ThemeCreateSchema, 
-  ThemeCategoryCreateSchema 
+  ThemeCategoryCreateSchema,
+  ThemeCategoryToggleVisibilitySchema
 } from "./schemas";
 
 const prisma = new PrismaClient();
@@ -117,6 +118,7 @@ export const themesRouter = router({
             title: true,
             category: true,
             description: true,
+            visible: true,
             image_file_id: true,
             created_at: true,
             updated_at: true,
@@ -420,6 +422,45 @@ export const themesRouter = router({
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: `Failed to delete theme: ${error.message || 'Unknown error'}`
+        });
+      }
+    }),
+
+  toggleThemeCategoryVisibility: adminProcedure
+    .input(ThemeCategoryToggleVisibilitySchema)
+    .mutation(async ({ input }) => {
+      const { id, visible } = input;
+      
+      try {
+        const updatedCategory = await prisma.themeCategory.update({
+          where: { id },
+          data: { visible },
+          select: {
+            id: true,
+            name: true,
+            title: true,
+            visible: true
+          }
+        });
+
+        return {
+          success: true,
+          message: `Category "${updatedCategory.title}" visibility updated to ${visible ? 'visible' : 'hidden'}`,
+          category: updatedCategory
+        };
+      } catch (error: any) {
+        console.error('Failed to update theme category visibility:', error);
+        
+        if (error.code === 'P2025') {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Theme category not found'
+          });
+        }
+        
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to update category visibility: ${error.message || 'Unknown error'}`
         });
       }
     }),

@@ -44,6 +44,7 @@ model ThemeCategory {
   title               String
   category            String
   description         String?   // Description field
+  visible             Boolean   @default(false) // Admin can control visibility
   image_file_id       Int?      // New field for uploaded file reference
   created_at          DateTime  @default(now())
   updated_at          DateTime? @updatedAt

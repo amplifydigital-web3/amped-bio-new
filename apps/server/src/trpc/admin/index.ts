@@ -3,6 +3,7 @@ import { usersRouter } from "./users";
 import { blocksRouter } from "./blocks";
 import { themesRouter } from "./themes";
 import { dashboardRouter } from "./dashboard";
+import { filesRouter } from "./files";
 
 export const adminRouter = router({
   // User Management
@@ -16,4 +17,7 @@ export const adminRouter = router({
   
   // Dashboard Statistics
   dashboard: dashboardRouter,
+  
+  // File Management
+  files: filesRouter,
 });

@@ -46,7 +46,7 @@ export function FileManagement() {
     error,
     refetch 
   } = useQuery(
-    trpc.admin.getFiles.queryOptions({
+    trpc.admin.files.getFiles.queryOptions({
       page: currentPage,
       limit: pageSize,
       search: searchTerm || undefined,
@@ -57,11 +57,11 @@ export function FileManagement() {
 
   // Delete file mutation
   const deleteFileMutation = useMutation({
-    ...trpc.admin.deleteFile.mutationOptions(),
+    ...trpc.admin.files.deleteFile.mutationOptions(),
     onSuccess: (data) => {
       toast.success(data.message);
       queryClient.invalidateQueries({
-        queryKey: trpc.admin.getFiles.queryKey(),
+        queryKey: trpc.admin.files.getFiles.queryKey(),
       });
     },
     onError: (error) => {
@@ -180,7 +180,7 @@ export function FileManagement() {
   const handlePreviewFile = async (file: FileData) => {
     try {
       const previewData = await queryClient.fetchQuery(
-        trpc.admin.getFilePreviewUrl.queryOptions({ fileId: file.id })
+        trpc.admin.files.getFilePreviewUrl.queryOptions({ fileId: file.id })
       );
       // Open preview in a new window/tab
       window.open(previewData.previewUrl, '_blank');
@@ -192,7 +192,7 @@ export function FileManagement() {
   const handleDownloadFile = async (file: FileData) => {
     try {
       const downloadData = await queryClient.fetchQuery(
-        trpc.admin.getFileDownloadUrl.queryOptions({ fileId: file.id })
+        trpc.admin.files.getFileDownloadUrl.queryOptions({ fileId: file.id })
       );
       // Create a temporary link and trigger download
       const link = document.createElement('a');

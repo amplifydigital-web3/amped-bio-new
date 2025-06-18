@@ -50,3 +50,20 @@ export const ThemeCategoryCreateSchema = z.object({
   category: z.string().min(1, "Category identifier is required"),
   description: z.string().max(240, "Description must not exceed 240 characters").optional()
 });
+
+export const ThemeCategoryToggleVisibilitySchema = z.object({
+  id: z.number(),
+  visible: z.boolean()
+});
+
+// File management schemas
+export const FileFilterSchema = z.object({
+  search: z.string().optional(),
+  status: z.enum(["PENDING", "COMPLETED", "DELETED"]).optional(),
+  fileType: z.enum(["image", "video", "document", "other"]).optional(),
+  userId: z.number().optional(),
+});
+
+export const FileActionSchema = z.object({
+  fileId: z.number(),
+});

@@ -223,7 +223,6 @@ export const mockData = {
       },
       thumbnailImage: null,
     },
-    getThemeCategories: [],
     getCollections: [
       {
         id: "1",
@@ -362,7 +361,6 @@ export const mockData = {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
-    getThemeCategories: [],
     getCollections: [
       {
         id: "1",
@@ -432,6 +430,33 @@ export const mockData = {
       image: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+    },
+    themes: {
+      createThemeCategory: {
+        id: 4,
+        name: "tech",
+        title: "Technology",
+        category: "tech",
+        description: "Modern themes for tech professionals",
+        visible: false,
+        image_file_id: null,
+        image: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        _count: {
+          themes: 0
+        }
+      },
+      toggleThemeCategoryVisibility: {
+        success: true,
+        message: "Category visibility updated successfully",
+        category: {
+          id: 1,
+          name: "business",
+          title: "Business",
+          visible: true
+        }
+      }
     },
   },
 };

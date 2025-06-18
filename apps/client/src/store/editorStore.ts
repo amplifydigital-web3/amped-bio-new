@@ -422,6 +422,14 @@ export const useEditorStore = create<EditorStore>()(set => ({
     const { theme } = useEditorStore.getState();
     console.info("Theme config:", theme.config);
 
+    // Check if the user is using a server theme (user_id = null)
+    if (theme.user_id === null) {
+      console.warn("❌ Export blocked: Cannot export server theme");
+      toast.error("Cannot export themes from other user. Please create or select your own theme first.");
+      console.groupEnd();
+      return;
+    }
+
     try {
       exportThemeConfigAsJson(theme, customFilename);
       toast.success("Theme configuration exported successfully");
@@ -436,6 +444,16 @@ export const useEditorStore = create<EditorStore>()(set => ({
   importTheme: async (file: File) => {
     console.group("🎨 Importing Theme Configuration");
     console.info("File:", file.name);
+
+    const { theme } = useEditorStore.getState();
+    
+    // Check if the user is using a server theme (user_id = null)
+    if (theme.user_id === null) {
+      console.warn("❌ Import blocked: Cannot import over other user theme");
+      toast.error("Cannot import themes while using a server theme. Please create or select your own theme first.");
+      console.groupEnd();
+      throw new Error("Cannot import themes while using a server theme");
+    }
 
     try {
       const importedThemeConfig = await importThemeConfigFromJson(file);

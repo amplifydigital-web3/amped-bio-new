@@ -146,10 +146,10 @@ export function CreateThemeTab({ onError, onSuccess }: CreateThemeTabProps) {
 
   // Queries and mutations
   const { data: categories } = useQuery(
-    trpc.admin.getThemeCategories.queryOptions()
+    trpc.admin.themes.getThemeCategories.queryOptions()
   );
   
-  const themeMutation = useMutation(trpc.admin.createTheme.mutationOptions());
+  const themeMutation = useMutation(trpc.admin.themes.createTheme.mutationOptions());
 
   const handleThemeSubmit = async (data: ThemeForm) => {
     onError('');

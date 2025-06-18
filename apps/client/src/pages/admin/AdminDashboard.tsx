@@ -20,19 +20,19 @@ export function AdminDashboard() {
 
   // Fetch data using TanStack Query with TRPC
   const { data: dashboardStats, isLoading: isDashboardLoading } = useQuery(
-    trpc.admin.getDashboardStats.queryOptions()
+    trpc.admin.dashboard.getDashboardStats.queryOptions()
   );
 
   const { data: topOnelinksData, isLoading: isTopOnelinksLoading } = useQuery(
-    trpc.admin.getTopOnelinks.queryOptions({ limit: 5 })
+    trpc.admin.users.getTopOnelinks.queryOptions({ limit: 5 })
   );
 
   const { data: usersData, isLoading: isUsersLoading } = useQuery(
-    trpc.admin.getUsers.queryOptions({ page: 1, limit: 5 })
+    trpc.admin.users.getUsers.queryOptions({ page: 1, limit: 5 })
   );
 
   const { data: blockStatsData, isLoading: isBlockStatsLoading } = useQuery(
-    trpc.admin.getBlockStats.queryOptions({})
+    trpc.admin.blocks.getBlockStats.queryOptions({})
   );
 
   // Process the block type distribution data whenever blockStatsData changes

@@ -14,7 +14,7 @@ export function AdminThemeManager() {
 
   // Queries
   const { refetch: refetchCategories } = useQuery(
-    trpc.admin.getThemeCategories.queryOptions()
+    trpc.admin.themes.getThemeCategories.queryOptions()
   );
 
   // Clear error and success messages

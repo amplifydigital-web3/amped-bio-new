@@ -53,7 +53,7 @@ export function CreateCategoryTab({ onError, onSuccess, refetchCategories }: Cre
     };
   }, [clearErrorMessages]);
 
-  const categoryMutation = useMutation(trpc.admin.createThemeCategory.mutationOptions());
+  const categoryMutation = useMutation(trpc.admin.themes.createThemeCategory.mutationOptions());
 
   const handleCategorySubmit = async (data: CategoryForm) => {
     onError('');

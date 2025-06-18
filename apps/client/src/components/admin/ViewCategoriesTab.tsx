@@ -1,7 +1,8 @@
 import { trpc } from "../../utils/trpc";
-import { useQuery } from "@tanstack/react-query";
-import { List, Image as ImageIcon } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { List, Image as ImageIcon, Eye, EyeOff } from "lucide-react";
 import { CategoryImageUploader } from "./CategoryImageUploader";
+import { Switch } from "../ui/Switch";
 
 interface ViewCategoriesTabProps {
   onError: (error: string) => void;
@@ -12,8 +13,26 @@ interface ViewCategoriesTabProps {
 export function ViewCategoriesTab({ onError, onSuccess, refetchCategories }: ViewCategoriesTabProps) {
   // Queries
   const { data: categories } = useQuery(
-    trpc.admin.getThemeCategories.queryOptions()
+    trpc.admin.themes.getThemeCategories.queryOptions()
   );
+
+  // Mutations
+  const toggleVisibilityMutation = useMutation(
+    trpc.admin.themes.toggleThemeCategoryVisibility.mutationOptions()
+  );
+
+  const handleToggleVisibility = async (categoryId: number, visible: boolean, categoryTitle: string) => {
+    try {
+      await toggleVisibilityMutation.mutateAsync({
+        id: categoryId,
+        visible: visible
+      });
+      onSuccess(`Category "${categoryTitle}" is now ${visible ? 'visible' : 'hidden'}`);
+      refetchCategories();
+    } catch (error: any) {
+      onError(`Failed to update visibility for "${categoryTitle}": ${error.message}`);
+    }
+  };
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
@@ -52,7 +71,22 @@ export function ViewCategoriesTab({ onError, onSuccess, refetchCategories }: Vie
                   
                   {/* Category Details */}
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-gray-900 text-sm truncate">{category.title}</h4>
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-semibold text-gray-900 text-sm truncate">{category.title}</h4>
+                      <div className="flex items-center space-x-2">
+                        {category.visible ? (
+                          <Eye className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <EyeOff className="w-4 h-4 text-gray-400" />
+                        )}
+                        <Switch
+                          checked={category.visible}
+                          onChange={(visible) => handleToggleVisibility(category.id, visible, category.title)}
+                          disabled={toggleVisibilityMutation.isPending}
+                          size="sm"
+                        />
+                      </div>
+                    </div>
                     {category.description && (
                       <p className="text-xs text-gray-700 mt-1 italic break-words">"{category.description}"</p>
                     )}
@@ -61,6 +95,11 @@ export function ViewCategoriesTab({ onError, onSuccess, refetchCategories }: Vie
                       <p className="text-xs text-gray-600">ID: <span className="font-mono text-xs">{category.category}</span></p>
                       <p className="text-xs text-gray-500">
                         {category._count?.themes || 0} themes
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Status: <span className={`font-medium ${category.visible ? 'text-green-600' : 'text-gray-500'}`}>
+                          {category.visible ? 'Visible' : 'Hidden'}
+                        </span>
                       </p>
                     </div>
                   </div>

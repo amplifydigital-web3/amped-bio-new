@@ -3,7 +3,7 @@ import { ProfileForm } from "./ProfileForm";
 import { ImageUploader } from "./ImageUploader";
 import { useEditorStore } from "../../../store/editorStore";
 import { URLPicker } from "./URLPicker";
-import { Download, Upload } from "lucide-react";
+import { Download, Upload, AlertTriangle } from "lucide-react";
 
 export function ProfilePanel() {
   const profile = useEditorStore(state => state.profile);
@@ -13,6 +13,9 @@ export function ProfilePanel() {
   const importTheme = useEditorStore(state => state.importTheme);
   const [activeTab, setActiveTab] = useState("general");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Check if theme is from server (user_id = null)
+  const isServerTheme = theme.user_id === null;
 
   const handleProfileUpdate = (field: string, value: string) => {
     setProfile({ ...profile, [field]: value });
@@ -144,6 +147,20 @@ export function ProfilePanel() {
               </a>
             </div>
 
+            {isServerTheme && (
+              <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg flex items-start space-x-3">
+                <AlertTriangle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="text-sm font-medium text-orange-800">Protected Theme</h3>
+                  <p className="text-sm text-orange-700 mt-1">
+                  You're currently using another user's theme. You cannot export this theme or import
+                  a new theme over it. To use these features, you must first create your own theme
+                  or select a personal theme from your collection.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-6">
               <div className="bg-white p-6 rounded-lg border border-gray-200 space-y-4">
                 <h3 className="font-medium text-gray-900">Export Theme Configuration</h3>
@@ -152,11 +169,21 @@ export function ProfilePanel() {
                 </p>
                 <button
                   onClick={handleExportTheme}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                  disabled={isServerTheme}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${
+                    isServerTheme 
+                      ? "bg-gray-300 text-gray-500 cursor-not-allowed" 
+                      : "bg-blue-500 text-white hover:bg-blue-600"
+                  }`}
                 >
                   <Download size={16} />
                   <span>Export Configuration</span>
                 </button>
+                {isServerTheme && (
+                  <p className="text-xs text-gray-500">
+                    Export is disabled while using a server theme
+                  </p>
+                )}
               </div>
 
               <div className="bg-white p-6 rounded-lg border border-gray-200 space-y-4">
@@ -170,14 +197,25 @@ export function ProfilePanel() {
                   onChange={handleImportTheme}
                   accept=".ampedtheme"
                   className="hidden"
+                  disabled={isServerTheme}
                 />
                 <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                  onClick={() => !isServerTheme && fileInputRef.current?.click()}
+                  disabled={isServerTheme}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${
+                    isServerTheme 
+                      ? "bg-gray-300 text-gray-500 cursor-not-allowed" 
+                      : "bg-blue-500 text-white hover:bg-blue-600"
+                  }`}
                 >
                   <Upload size={16} />
                   <span>Import Configuration</span>
                 </button>
+                {isServerTheme && (
+                  <p className="text-xs text-gray-500">
+                    Import is disabled while using a server theme
+                  </p>
+                )}
               </div>
             </div>
           </>
