@@ -3,6 +3,7 @@ import { AdminHeader, AdminPlaceholderContent } from "./AdminLayout";
 import { AdminDashboard } from "./AdminDashboard";
 import { UserManagement } from "./UserManagement";
 import { AdminThemeManager } from "./AdminThemeManager";
+import { FileManagement } from "./FileManagement";
 
 interface AdminContentContainerProps {
   activeMenu: string;
@@ -43,6 +44,8 @@ export const AdminContentContainer = ({
         activeMenu === "dashboard" ? "Admin Dashboard" : 
         activeMenu === "users" ? "User Management" : 
         activeMenu === "blocks" ? "Block Management" : 
+        activeMenu === "themes" ? "Theme Management" :
+        activeMenu === "files" ? "File Management" :
         activeMenu === "settings" ? "Admin Settings" : 
         "Admin Dashboard"
       } />
@@ -81,6 +84,10 @@ export const AdminContentContainer = ({
 
       {activeMenu === "themes" && (
         <AdminThemeManager />
+      )}
+
+      {activeMenu === "files" && (
+        <FileManagement />
       )}
     </div>
   );

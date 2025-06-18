@@ -9,6 +9,7 @@ import {
   AdminUsers, 
   AdminThemes, 
   AdminBlocks, 
+  AdminFiles,
   AdminSettings 
 } from "./pages/admin";
 import { initParticlesEngine } from "@tsparticles/react";
@@ -70,6 +71,7 @@ function App() {
                   <Route path="users" element={<AdminUsers />} />
                   <Route path="themes" element={<AdminThemes />} />
                   <Route path="blocks" element={<AdminBlocks />} />
+                  <Route path="files" element={<AdminFiles />} />
                   <Route path="settings" element={<AdminSettings />} />
                 </Route>
                 

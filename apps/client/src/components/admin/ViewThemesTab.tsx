@@ -11,13 +11,14 @@ interface ViewThemesTabProps {
 interface DeleteModalState {
   isOpen: boolean;
   theme: any | null;
+  confirmationText: string;
 }
 
 export function ViewThemesTab({ onSuccess, onError }: ViewThemesTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<number | undefined>(undefined);
   const [currentPage, setCurrentPage] = useState(1);
-  const [deleteModal, setDeleteModal] = useState<DeleteModalState>({ isOpen: false, theme: null });
+  const [deleteModal, setDeleteModal] = useState<DeleteModalState>({ isOpen: false, theme: null, confirmationText: "" });
   const limit = 10;
 
   // Get theme categories for filtering
@@ -45,7 +46,7 @@ export function ViewThemesTab({ onSuccess, onError }: ViewThemesTabProps) {
         : data?.message || "Theme deleted successfully";
       onSuccess(message);
       refetch(); // Refresh the themes list
-      setDeleteModal({ isOpen: false, theme: null });
+      setDeleteModal({ isOpen: false, theme: null, confirmationText: "" });
     },
     onError: (error: any) => {
       const errorMessage = error?.message || "Failed to delete theme";
@@ -54,7 +55,7 @@ export function ViewThemesTab({ onSuccess, onError }: ViewThemesTabProps) {
       } else {
         onSuccess(`Error: ${errorMessage}`);
       }
-      setDeleteModal({ isOpen: false, theme: null });
+      setDeleteModal({ isOpen: false, theme: null, confirmationText: "" });
     },
   });
 
@@ -72,7 +73,7 @@ export function ViewThemesTab({ onSuccess, onError }: ViewThemesTabProps) {
   };
 
   const handleDeleteClick = (theme: any) => {
-    setDeleteModal({ isOpen: true, theme });
+    setDeleteModal({ isOpen: true, theme, confirmationText: "" });
   };
 
   const handleDeleteConfirm = () => {
@@ -82,8 +83,14 @@ export function ViewThemesTab({ onSuccess, onError }: ViewThemesTabProps) {
   };
 
   const handleDeleteCancel = () => {
-    setDeleteModal({ isOpen: false, theme: null });
+    setDeleteModal({ isOpen: false, theme: null, confirmationText: "" });
   };
+
+  const handleConfirmationTextChange = (value: string) => {
+    setDeleteModal(prev => ({ ...prev, confirmationText: value }));
+  };
+
+  const isDeleteConfirmed = deleteModal.confirmationText.toLowerCase() === "delete";
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Unknown';
@@ -352,11 +359,26 @@ export function ViewThemesTab({ onSuccess, onError }: ViewThemesTabProps) {
                   If users are using this theme, the deletion will be prevented.
                 </p>
               </div>
-              <div className="bg-red-50 border border-red-200 rounded-md p-3">
+              <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
                 <p className="text-sm text-red-800">
                   <strong>Files to be deleted:</strong> This action will permanently delete the theme's thumbnail and background images from the server. 
                   This cannot be undone.
                 </p>
+              </div>
+              
+              <div className="mb-4">
+                <label htmlFor="confirmation-input" className="block text-sm font-medium text-gray-700 mb-2">
+                  To confirm deletion, type <span className="font-bold text-red-600">"delete"</span> in the field below:
+                </label>
+                <input
+                  id="confirmation-input"
+                  type="text"
+                  value={deleteModal.confirmationText}
+                  onChange={(e) => handleConfirmationTextChange(e.target.value)}
+                  placeholder="Type 'delete' to confirm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  disabled={deleteThemeMutation.isPending}
+                />
               </div>
             </div>
 
@@ -370,8 +392,12 @@ export function ViewThemesTab({ onSuccess, onError }: ViewThemesTabProps) {
               </button>
               <button
                 onClick={handleDeleteConfirm}
-                disabled={deleteThemeMutation.isPending}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 flex items-center gap-2"
+                disabled={deleteThemeMutation.isPending || !isDeleteConfirmed}
+                className={`px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 flex items-center gap-2 ${
+                  isDeleteConfirmed && !deleteThemeMutation.isPending
+                    ? "bg-red-600 hover:bg-red-700"
+                    : "bg-gray-400 cursor-not-allowed"
+                }`}
               >
                 {deleteThemeMutation.isPending ? (
                   <>
