@@ -115,16 +115,6 @@ export async function addBlock(block: AddBlockData): Promise<BlockResponse> {
   );
 }
 
-// Onelink APIs
-export async function getOnelink(onelink: string) {
-  const normalizedOnelink = normalizeOnelink(onelink);
-  console.log("Get onelink:", normalizedOnelink);
-  return apiRequest<OnelinkResponse>(
-    () => api.get(`/onelink/${normalizedOnelink}`),
-    "Onelink retrieved successfully:"
-  ).then(data => data.result);
-}
-
 export async function checkOnelinkAvailability(onelink: string): Promise<boolean> {
   const normalizedOnelink = normalizeOnelink(onelink);
   console.log("Check onelink:", normalizedOnelink);

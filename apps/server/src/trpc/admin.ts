@@ -125,7 +125,7 @@ export const adminRouter = router({
       const usersWithResolvedImages = await Promise.all(
         users.map(async (user) => ({
           ...user,
-          image: await getFileUrl({ imageField: user.image, imageFileId: user.image_file_id })
+          image: await getFileUrl({ legacyImageField: user.image, imageFileId: user.image_file_id })
         }))
       );
       
@@ -174,7 +174,7 @@ export const adminRouter = router({
       }
 
       // Resolve the user's image URL
-      const resolvedImageUrl = await getFileUrl({ imageField: user.image, imageFileId: user.image_file_id });
+      const resolvedImageUrl = await getFileUrl({ legacyImageField: user.image, imageFileId: user.image_file_id });
       
       return {
         ...user,
@@ -625,7 +625,7 @@ export const adminRouter = router({
         const categoriesWithResolvedImages = await Promise.all(
           categories.map(async (category) => ({
             ...category,
-            image: await getFileUrl({ imageField: null, imageFileId: category.image_file_id })
+            image: await getFileUrl({ legacyImageField: null, imageFileId: category.image_file_id })
           }))
         );
 
@@ -734,11 +734,11 @@ export const adminRouter = router({
             ...theme,
             user: theme.user ? {
               ...theme.user,
-              image: await getFileUrl({ imageField: theme.user.image, imageFileId: theme.user.image_file_id }),
+              image: await getFileUrl({ legacyImageField: theme.user.image, imageFileId: theme.user.image_file_id }),
             } : null,
             thumbnailImage: theme.thumbnailImage ? {
               ...theme.thumbnailImage,
-              url: await getFileUrl({ imageField: null, imageFileId: theme.thumbnailImage.id }),
+              url: await getFileUrl({ legacyImageField: null, imageFileId: theme.thumbnailImage.id }),
             } : null,
           }))
         );

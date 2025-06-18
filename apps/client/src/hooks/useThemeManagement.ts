@@ -19,7 +19,7 @@ export function useThemeManagement() {
   // Edit/Create theme mutation
   const editThemeMutation = useMutation({
     ...trpc.theme.editTheme.mutationOptions(),
-    onSuccess: (data) => {
+    onSuccess: () => {
       toast.success("Theme saved successfully!");
       // Invalidate and refetch themes
       queryClient.invalidateQueries({
@@ -46,9 +46,9 @@ export function useThemeManagement() {
     },
   });
 
-  // Get specific theme
+  // Get specific theme (for public viewing)
   const getTheme = (id: number) => {
-    return useQuery(trpc.theme.getTheme.queryOptions({ id }));
+    return useQuery(trpc.themeGallery.getTheme.queryOptions({ id }));
   };
 
   return {

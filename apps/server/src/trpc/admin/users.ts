@@ -66,7 +66,7 @@ export const usersRouter = router({
       const usersWithResolvedImages = await Promise.all(
         users.map(async (user) => ({
           ...user,
-          image: await getFileUrl({ imageField: user.image, imageFileId: user.image_file_id })
+          image: await getFileUrl({ legacyImageField: user.image, imageFileId: user.image_file_id })
         }))
       );
       
@@ -115,7 +115,7 @@ export const usersRouter = router({
       }
 
       // Resolve the user's image URL
-      const resolvedImageUrl = await getFileUrl({ imageField: user.image, imageFileId: user.image_file_id });
+      const resolvedImageUrl = await getFileUrl({ legacyImageField: user.image, imageFileId: user.image_file_id });
       
       return {
         ...user,

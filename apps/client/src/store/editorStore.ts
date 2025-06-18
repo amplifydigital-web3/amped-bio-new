@@ -11,7 +11,6 @@ import {
   editUser,
   editBlocks,
   deleteBlock,
-  getOnelink,
   addBlock as apiAddBlock,
 } from "../api/api";
 import initialState from "./defaults";
@@ -34,6 +33,7 @@ interface EditorStore extends EditorState {
   updateThemeConfig: (theme: Partial<ThemeConfig>) => void;
   setActivePanel: (panel: string) => void;
   setBackground: (background: Background) => void;
+  setBackgroundForUpload: (background: Background) => void; // New function for uploads
   saveChanges: () => Promise<void>;
   setDefault: () => void;
   addToGallery: (image: GalleryImage) => void;
@@ -261,6 +261,20 @@ export const useEditorStore = create<EditorStore>()(set => ({
       themeChanges: true, // Mark that theme-specific changes occurred
     }));
     console.info("✅ Background updated");
+    console.groupEnd();
+  },
+  setBackgroundForUpload: (background: Background) => {
+    console.group("📁 Setting Background for Upload");
+    console.info("Background:", background);
+    set(state => ({
+      theme: {
+        ...state.theme,
+        config: { ...state.theme.config, background },
+      },
+      changes: true,
+      // Note: NOT setting themeChanges to true for uploads
+    }));
+    console.info("✅ Background updated for upload (no theme change marked)");
     console.groupEnd();
   },
   addToGallery: image => {

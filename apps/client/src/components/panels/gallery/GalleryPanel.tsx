@@ -44,7 +44,7 @@ export function GalleryPanel() {
   // For server collections, fetch themes from the server
   const isServerCollection = currentCollection?.isServer;
   const { data: serverThemes, isLoading: isLoadingServerThemes } = useQuery({
-    ...trpc.theme.getThemesByCategory.queryOptions({
+    ...trpc.themeGallery.getThemesByCategory.queryOptions({
       id: parseInt(activeCollection)
     }),
     enabled: !!(isServerCollection && activeCollection && !isNaN(parseInt(activeCollection))),

@@ -11,6 +11,7 @@ import {
   ALLOWED_BACKGROUND_FILE_EXTENSIONS,
   ALLOWED_BACKGROUND_FILE_TYPES,
   MAX_BACKGROUND_FILE_SIZE,
+  ThemeConfig,
 } from "@ampedbio/constants";
 
 const prisma = new PrismaClient();
@@ -297,7 +298,7 @@ export const uploadRouter = router({
         const backgroundUrl = s3Service.getFileUrl(fileKey);
 
         // Parse the current theme config
-        let themeConfig = (theme.config as Record<string, any>) || {};
+        let themeConfig: ThemeConfig = (theme.config as ThemeConfig) || {};
 
         // If there's an existing background, we might want to delete it later
         let previousFileKey: string | null = null;
@@ -332,7 +333,7 @@ export const uploadRouter = router({
             id: themeIdNum,
           },
           data: {
-            config: themeConfig,
+            config: themeConfig as any, // Cast to any for Prisma JsonValue compatibility
             updated_at: new Date(),
           },
         });

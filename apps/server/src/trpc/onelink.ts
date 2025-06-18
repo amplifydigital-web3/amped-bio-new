@@ -3,6 +3,7 @@ import { onelinkParamSchema } from "../schemas/onelink.schema";
 import { PrismaClient } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import { getFileUrl } from "../utils/fileUrlResolver";
+import { ThemeConfig } from "@ampedbio/constants";
 
 const prisma = new PrismaClient();
 
@@ -40,6 +41,20 @@ const appRouter = router({
           id: Number(theme_id),
         },
       });
+
+      const themeConfig = theme?.config as ThemeConfig | undefined;
+
+      if (themeConfig && themeConfig.background?.fileId) {
+        themeConfig.background.value = await getFileUrl({
+          legacyImageField: null,
+          imageFileId: themeConfig.background.fileId,
+        })
+
+        console.info(`🎨 Resolved theme background file URL: ${themeConfig.background.value}`);
+
+        theme!.config = themeConfig;
+      }
+
       console.info(`🎨 Theme fetch result: ${theme ? "✅ Found" : "❌ Not found"}`);
 
       console.info(`📦 Fetching blocks for user ID: ${user_id}`);
@@ -51,7 +66,7 @@ const appRouter = router({
       console.info(`📦 Blocks fetched: ${blocks.length} blocks found`);
 
       // Resolve user image URL using the helper function
-      const resolvedImageUrl = await getFileUrl({ imageField: image, imageFileId: image_file_id });
+      const resolvedImageUrl = await getFileUrl({ legacyImageField: image, imageFileId: image_file_id });
 
       const result = { user: { name, email, description, image: resolvedImageUrl }, theme, blocks };
       console.info("🔄 Preparing response with user data, theme, and blocks");

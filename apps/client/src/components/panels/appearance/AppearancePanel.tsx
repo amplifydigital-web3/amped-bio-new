@@ -11,6 +11,7 @@ export function AppearancePanel() {
   const themeId = useEditorStore(state => state.theme.id);
   const updateThemeConfig = useEditorStore(state => state.updateThemeConfig);
   const setBackground = useEditorStore(state => state.setBackground);
+  const setBackgroundForUpload = useEditorStore(state => state.setBackgroundForUpload);
 
   // Check if theme is not customizable (admin theme)
   const isNotCustomizable = theme.user_id === null;
@@ -42,7 +43,12 @@ export function AppearancePanel() {
         </div>
       ) : (
         <>
-          <BackgroundPicker value={themeConfig.background} onChange={setBackground} themeId={themeId} />
+          <BackgroundPicker 
+            value={themeConfig.background} 
+            onChange={setBackground} 
+            onUploadChange={setBackgroundForUpload}
+            themeId={themeId} 
+          />
 
           <ContainerStylePicker
             value={containerStyle}

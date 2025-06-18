@@ -9,6 +9,7 @@ import { ALLOWED_BACKGROUND_FILE_EXTENSIONS, ALLOWED_BACKGROUND_FILE_TYPES, MAX_
 interface BackgroundPickerProps {
   value?: Background;
   onChange: (background: Background) => void;
+  onUploadChange?: (background: Background) => void;
   themeId?: number;
 }
 
@@ -43,7 +44,7 @@ const extractMediaUrl = (result: any, fallback: string): string => {
   return fallback;
 };
 
-export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPickerProps) => {
+export const BackgroundPicker = memo(({ value, onChange, onUploadChange, themeId }: BackgroundPickerProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [customURL, setCustomURL] = useState("");
@@ -147,11 +148,15 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
         const fileUrl = extractMediaUrl(result, "fallback_url");
         
         // Update the background with the new URL, setting the correct type based on the file type
-        onChange({
-          type: isImage ? "image" : "video",
+        const backgroundUpdate = {
+          type: isImage ? ("image" as const) : ("video" as const),
           value: fileUrl,
           label: file.name,
-        });
+        };
+        
+        // Use onUploadChange if provided, otherwise use onChange
+        const changeHandler = onUploadChange || onChange;
+        changeHandler(backgroundUpdate);
         
       } catch (e) {
         console.error("Error uploading background:", e);
@@ -171,7 +176,7 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
         setIsUploading(false);
       }
     },
-    [onChange, themeId]
+    [onChange, onUploadChange, themeId]
   );
 
   const handleURLUpload = useCallback((type: "video" | "image") => {

@@ -132,7 +132,7 @@ export const themesRouter = router({
         const categoriesWithResolvedImages = await Promise.all(
           categories.map(async (category) => ({
             ...category,
-            image: await getFileUrl({ imageField: null, imageFileId: category.image_file_id })
+            image: await getFileUrl({ legacyImageField: null, imageFileId: category.image_file_id })
           }))
         );
 
@@ -241,11 +241,11 @@ export const themesRouter = router({
             ...theme,
             user: theme.user ? {
               ...theme.user,
-              image: await getFileUrl({ imageField: theme.user.image, imageFileId: theme.user.image_file_id }),
+              image: await getFileUrl({ legacyImageField: theme.user.image, imageFileId: theme.user.image_file_id }),
             } : null,
             thumbnailImage: theme.thumbnailImage ? {
               ...theme.thumbnailImage,
-              url: await getFileUrl({ imageField: null, imageFileId: theme.thumbnailImage.id }),
+              url: await getFileUrl({ legacyImageField: null, imageFileId: theme.thumbnailImage.id }),
             } : null,
           }))
         );

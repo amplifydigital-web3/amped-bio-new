@@ -1,20 +1,28 @@
-import { privateProcedure, publicProcedure, router } from "./trpc";
+/**
+ * THEME MANAGEMENT ROUTER
+ * 
+ * This router handles user theme management operations:
+ * - Creating and editing user's own themes
+ * - Deleting user's own themes  
+ * - Getting user's theme list for their dashboard
+ * - Applying themes to user profile
+ * 
+ * All methods require authentication and work with the authenticated user's themes.
+ * For public theme browsing/gallery operations, see themeGallery.ts
+ */
+
+import { privateProcedure, router } from "./trpc";
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { s3Service } from "../services/S3Service";
-import { themeConfigSchema } from "@ampedbio/constants";
+import { themeConfigSchema, type ThemeConfig } from "@ampedbio/constants";
 import { getFileUrl } from "../utils/fileUrlResolver";
 
 const prisma = new PrismaClient();
 
 // Schema for theme ID parameter
 const themeIdSchema = z.object({
-  id: z.number(),
-});
-
-// Schema for category ID parameter
-const categoryIdSchema = z.object({
   id: z.number(),
 });
 
@@ -34,7 +42,11 @@ const applyThemeSchema = z.object({
 });
 
 export const themeRouter = router({
-  // Edit/Create theme (authenticated users only)
+  // =============================================================================
+  // USER THEME MANAGEMENT METHODS (authenticated users managing their own themes)
+  // =============================================================================
+
+  // Edit/Create user's own theme (authenticated users only)
   editTheme: privateProcedure
     .input(
       z.object({
@@ -156,68 +168,7 @@ export const themeRouter = router({
       }
     }),
 
-  // Get theme by ID (public access)
-  getTheme: publicProcedure.input(themeIdSchema).query(async ({ input }) => {
-    const { id } = input;
-
-    try {
-      const result = await prisma.theme.findUnique({
-        where: {
-          id: Number(id),
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              image: true,
-              image_file_id: true,
-            },
-          },
-          thumbnailImage: true,
-        },
-      });
-
-      if (result === null) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: `Theme not found: ${id}`,
-        });
-      }
-
-      // Resolve image URLs
-      const resolvedUserImage = result.user 
-        ? await getFileUrl({ imageField: result.user.image, imageFileId: result.user.image_file_id })
-        : null;
-
-      const resolvedThumbnailImage = result.thumbnailImage 
-        ? await getFileUrl({ imageField: null, imageFileId: result.thumbnailImage.id })
-        : null;
-
-      return {
-        ...result,
-        user: result.user ? {
-          ...result.user,
-          image: resolvedUserImage,
-        } : null,
-        thumbnailImage: result.thumbnailImage ? {
-          ...result.thumbnailImage,
-          url: resolvedThumbnailImage,
-        } : null,
-      };
-    } catch (error) {
-      console.error("error", error);
-      if (error instanceof TRPCError) {
-        throw error;
-      }
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Server error",
-      });
-    }
-  }),
-
-  // Delete theme (authenticated users only)
+  // Delete user's own theme (authenticated users only)
   deleteTheme: privateProcedure.input(themeIdSchema).mutation(async ({ ctx, input }) => {
     const { id } = input;
     const user_id = ctx.user.id;
@@ -257,7 +208,7 @@ export const themeRouter = router({
     }
   }),
 
-  // Get user's themes (authenticated users only)
+  // Get user's own themes (authenticated users only - for theme management dashboard)
   getUserThemes: privateProcedure.query(async ({ ctx }) => {
     const user_id = ctx.user.id;
 
@@ -280,179 +231,12 @@ export const themeRouter = router({
           ...theme,
           thumbnailImage: theme.thumbnailImage ? {
             ...theme.thumbnailImage,
-            url: await getFileUrl({ imageField: null, imageFileId: theme.thumbnailImage.id }),
+            url: await getFileUrl({ legacyImageField: null, imageFileId: theme.thumbnailImage.id }),
           } : null,
         }))
       );
 
       return themesWithResolvedImages;
-    } catch (error) {
-      console.error("error", error);
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Server error",
-      });
-    }
-  }),
-
-  // Get all theme categories (public access)
-  getThemeCategories: publicProcedure.query(async () => {
-    try {
-      const categories = await prisma.themeCategory.findMany({
-        orderBy: {
-          name: "asc",
-        },
-        include: {
-          categoryImage: true,
-        },
-      });
-
-      // Resolve image URLs for all categories
-      const categoriesWithResolvedImages = await Promise.all(
-        categories.map(async (category) => ({
-          ...category,
-          categoryImage: category.categoryImage ? {
-            ...category.categoryImage,
-            url: await getFileUrl({ imageField: null, imageFileId: category.categoryImage.id }),
-          } : null,
-        }))
-      );
-
-      return categoriesWithResolvedImages;
-    } catch (error) {
-      console.error("error", error);
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Server error",
-      });
-    }
-  }),
-
-  // Get themes by category ID (public access)
-  getThemesByCategory: publicProcedure
-    .input(categoryIdSchema)
-    .query(async ({ input }) => {
-      const { id } = input;
-
-      try {
-        const category = await prisma.themeCategory.findUnique({
-          where: {
-            id: Number(id),
-          },
-          include: {
-            categoryImage: true,
-          },
-        });
-
-        if (category === null) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: `Theme category not found: ${id}`,
-          });
-        }
-
-        const themes = await prisma.theme.findMany({
-          where: {
-            category_id: Number(id),
-            share_level: {
-              not: "private", // Only return public/shared themes
-            },
-          },
-          orderBy: {
-            updated_at: "desc",
-          },
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                image: true,
-                image_file_id: true,
-              },
-            },
-            thumbnailImage: true,
-          },
-        });
-
-        // Resolve image URLs for all themes and users
-        const themesWithResolvedImages = await Promise.all(
-          themes.map(async (theme) => ({
-            ...theme,
-            user: theme.user ? {
-              ...theme.user,
-              image: await getFileUrl({ imageField: theme.user.image, imageFileId: theme.user.image_file_id }),
-            } : null,
-            thumbnailImage: theme.thumbnailImage ? {
-              ...theme.thumbnailImage,
-              url: await getFileUrl({ imageField: null, imageFileId: theme.thumbnailImage.id }),
-            } : null,
-          }))
-        );
-
-        // Resolve category image URL
-        const resolvedCategoryImageFile = category.categoryImage ? {
-          ...category.categoryImage,
-          url: await getFileUrl({ imageField: null, imageFileId: category.categoryImage.id }),
-        } : null;
-
-        return {
-          category: {
-            ...category,
-            categoryImage: resolvedCategoryImageFile,
-          },
-          themes: themesWithResolvedImages,
-        };
-      } catch (error) {
-        console.error("error", error);
-        if (error instanceof TRPCError) {
-          throw error;
-        }
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Server error",
-        });
-      }
-    }),
-
-  // Get all collections/theme categories (public access)
-  getCollections: publicProcedure.query(async () => {
-    try {
-      const categories = await prisma.themeCategory.findMany({
-        orderBy: {
-          name: "asc",
-        },
-        include: {
-          categoryImage: true,
-          _count: {
-            select: {
-              themes: {
-                where: {
-                  share_level: {
-                    not: "private", // Only count public/shared themes
-                  },
-                },
-              },
-            },
-          },
-        },
-      });
-
-      // Resolve image URLs for all categories and transform to Collection format
-      const collectionsWithResolvedImages = await Promise.all(
-        categories.map(async (category) => ({
-          id: category.id.toString(),
-          name: category.name,
-          description: category.description || "",
-          themeCount: category._count.themes,
-          isServer: true,
-          categoryImage: category.categoryImage ? {
-            ...category.categoryImage,
-            url: await getFileUrl({ imageField: null, imageFileId: category.categoryImage.id }),
-          } : null,
-        }))
-      );
-
-      return collectionsWithResolvedImages;
     } catch (error) {
       console.error("error", error);
       throw new TRPCError({
@@ -470,6 +254,50 @@ export const themeRouter = router({
       const { themeId, theme } = input;
 
       try {
+        // Get current user to check for existing theme
+        const currentUser = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { theme: true }
+        });
+
+        // If user has a current theme, check if it belongs to them and has a background file to delete
+        if (currentUser?.theme) {
+          const currentThemeId = parseInt(currentUser.theme);
+          const currentTheme = await prisma.theme.findUnique({
+            where: { id: currentThemeId },
+            select: { config: true, user_id: true }
+          });
+
+          // Only delete file if the theme belongs to the current user and has a background file
+          if (currentTheme?.config && currentTheme.user_id === userId) {
+            try {
+              const themeConfig = currentTheme.config as ThemeConfig;
+              const backgroundFileId = themeConfig?.background?.fileId;
+
+              if (backgroundFileId) {
+                const uploadedFile = await prisma.uploadedFile.findUnique({
+                  where: { id: backgroundFileId },
+                  select: { s3_key: true, status: true }
+                });
+
+                if (uploadedFile && uploadedFile.status !== 'DELETED') {
+                  // Delete from S3
+                  await s3Service.deleteFile(uploadedFile.s3_key);
+                  
+                  // Update database status to DELETED
+                  await prisma.uploadedFile.update({
+                    where: { id: backgroundFileId },
+                    data: { status: 'DELETED', updated_at: new Date() }
+                  });
+                }
+              }
+            } catch (deleteError) {
+              console.error("Error deleting current theme background file:", deleteError);
+              // Continue with theme application even if deletion fails
+            }
+          }
+        }
+
         let themeToApply;
         let themeIdToStore = themeId;
 

@@ -1,33 +1,10 @@
-export interface Background {
-  id?: string;
-  type: "color" | "image" | "video";
-  value: string;
-  label?: string;
-  thumbnail?: string;
-}
-
-export interface ThemeConfig {
-  buttonStyle?: number;
-  containerStyle?: number;
-  background?: Background;
-  buttonColor?: string;
-  containerColor?: string;
-  fontFamily?: string;
-  fontSize?: string;
-  fontColor?: string;
-  transparency?: number;
-  buttonEffect?: number;
-  particlesEffect?: number;
-  heroEffect?: number;
-}
-
 export interface MarketplaceTheme {
   id: string;
   name: string;
   description: string;
   thumbnail: string;
   tags: string[];
-  theme: ThemeConfig;
+  theme: import('./theme').ThemeConfig;
   user_id?: number | null; // For server themes, null means admin theme
 }
 
