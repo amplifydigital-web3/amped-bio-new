@@ -1,4 +1,4 @@
-interface Background {
+export interface Background {
   id?: string;
   type: "color" | "image" | "video";
   value: string;
@@ -6,7 +6,7 @@ interface Background {
   thumbnail?: string;
 }
 
-interface ThemeConfig {
+export interface ThemeConfig {
   buttonStyle?: number;
   containerStyle?: number;
   background?: Background;
@@ -21,14 +21,14 @@ interface ThemeConfig {
   heroEffect?: number;
 }
 
-interface MarketplaceTheme {
+export interface MarketplaceTheme {
   id: string;
   name: string;
   description: string;
   thumbnail: string;
   tags: string[];
   theme: ThemeConfig;
-  locked?: boolean;
+  user_id?: number | null; // For server themes, null means admin theme
 }
 
 export interface Collection {

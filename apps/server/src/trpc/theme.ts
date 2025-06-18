@@ -27,9 +27,10 @@ const themeObjectSchema = z.object({
   config: themeConfigSchema.optional(),
 });
 
-// Schema for applying server theme to user
-const applyServerThemeSchema = z.object({
+// Schema for applying theme to user
+const applyThemeSchema = z.object({
   themeId: z.number(),
+  theme: themeObjectSchema.optional(),
 });
 
 export const themeRouter = router({
@@ -49,14 +50,8 @@ export const themeRouter = router({
       const { name, description, share_level, share_config, config } = theme;
 
       try {
-        const existingTheme = await prisma.theme.findUnique({
-          where: {
-            id: Number(id),
-            user_id: user_id,
-          },
-        });
-
-        if (existingTheme === null || Number(id) === 0) {
+        // If id is 0, create a new theme
+        if (Number(id) === 0) {
           const result = await prisma.theme.create({
             data: {
               user_id,
@@ -70,6 +65,30 @@ export const themeRouter = router({
 
           return result;
         }
+
+        // Check if the theme exists first
+        const themeExists = await prisma.theme.findUnique({
+          where: {
+            id: Number(id),
+          },
+        });
+
+        if (themeExists === null) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: `Theme not found: ${id}`,
+          });
+        }
+
+        // Check if the theme belongs to the user
+        if (themeExists.user_id !== user_id) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You don't have permission to edit this theme",
+          });
+        }
+
+        const existingTheme = themeExists;
 
         // Check if there's an existing background in the theme config that needs to be deleted
         const existingConfig = (existingTheme.config as Record<string, any>) || {};
@@ -443,33 +462,91 @@ export const themeRouter = router({
     }
   }),
 
-  // Apply server theme to user (authenticated users only)
-  applyServerTheme: privateProcedure
-    .input(applyServerThemeSchema)
+  // Apply theme to user (authenticated users only)
+  applyTheme: privateProcedure
+    .input(applyThemeSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id;
-      const { themeId } = input;
+      const { themeId, theme } = input;
 
       try {
-        // Check if the theme exists and is a server theme (user_id === null)
-        const theme = await prisma.theme.findUnique({
-          where: {
-            id: Number(themeId),
-          },
-        });
+        let themeToApply;
+        let themeIdToStore = themeId;
 
-        if (theme === null) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: `Theme not found: ${themeId}`,
-          });
-        }
+        if (themeId === 0) {
+          // Hardcoded theme - user passed theme data
+          if (!theme) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Theme data is required when themeId is 0",
+            });
+          }
 
-        if (theme.user_id !== null) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Only server themes can be applied to users",
+          // Check if user already has a theme
+          const existingUserTheme = await prisma.theme.findFirst({
+            where: {
+              user_id: userId,
+            },
           });
+
+          if (existingUserTheme) {
+            // Update existing user theme
+            const updatedTheme = await prisma.theme.update({
+              where: {
+                id: existingUserTheme.id,
+              },
+              data: {
+                name: theme.name,
+                description: theme.description,
+                share_level: theme.share_level,
+                share_config: theme.share_config as any,
+                config: theme.config as any,
+                updated_at: new Date(),
+              },
+            });
+            
+            themeToApply = updatedTheme;
+            themeIdToStore = updatedTheme.id;
+          } else {
+            // Create new theme for user
+            const newTheme = await prisma.theme.create({
+              data: {
+                user_id: userId,
+                name: theme.name,
+                description: theme.description,
+                share_level: theme.share_level,
+                share_config: theme.share_config as any,
+                config: theme.config as any,
+              },
+            });
+            
+            themeToApply = newTheme;
+            themeIdToStore = newTheme.id;
+          }
+        } else {
+          // Marketplace theme - check if it exists and is a server theme
+          const existingTheme = await prisma.theme.findUnique({
+            where: {
+              id: Number(themeId),
+            },
+          });
+
+          if (existingTheme === null) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: `Theme not found: ${themeId}`,
+            });
+          }
+
+          if (existingTheme.user_id !== null) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Only marketplace themes can be applied",
+            });
+          }
+
+          themeToApply = existingTheme;
+          themeIdToStore = themeId;
         }
 
         // Update user's theme
@@ -478,7 +555,7 @@ export const themeRouter = router({
             id: userId,
           },
           data: {
-            theme: themeId.toString(),
+            theme: themeIdToStore.toString(),
             updated_at: new Date(),
           },
         });
@@ -486,11 +563,11 @@ export const themeRouter = router({
         return {
           success: true,
           message: "Theme applied successfully",
-          themeId,
-          themeName: theme.name,
+          themeId: themeIdToStore,
+          themeName: themeToApply.name,
         };
       } catch (error) {
-        console.error("Error applying server theme:", error);
+        console.error("Error applying theme:", error);
         if (error instanceof TRPCError) {
           throw error;
         }

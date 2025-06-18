@@ -208,7 +208,7 @@ export const mockData = {
         updated_at: new Date().toISOString(),
       },
     ],
-    applyServerTheme: {
+    applyTheme: {
       success: true,
       message: "Theme applied successfully",
       themeId: 1,

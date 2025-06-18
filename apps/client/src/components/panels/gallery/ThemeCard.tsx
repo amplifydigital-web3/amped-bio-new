@@ -1,4 +1,4 @@
-import { Lock, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import type { MarketplaceTheme } from "../../../types/editor";
 import { HoverPopover } from "../../ui/Popover";
 import { trpc } from "../../../utils/trpc";
@@ -16,9 +16,9 @@ export function ThemeCard({ theme, onApply }: ThemeCardProps) {
   const profile = useEditorStore(state => state.profile);
   const setUser = useEditorStore(state => state.setUser);
   
-  // Mutation for applying server theme
-  const applyServerTheme = useMutation({
-    ...trpc.theme.applyServerTheme.mutationOptions(),
+  // Mutation for applying theme
+  const applyTheme = useMutation({
+    ...trpc.theme.applyTheme.mutationOptions(),
     onSuccess: async (data) => {
       toast.success(`${data.themeName} applied successfully!`);
       // Also apply the theme config to the editor
@@ -35,20 +35,14 @@ export function ThemeCard({ theme, onApply }: ThemeCardProps) {
   });
 
   const handleApply = async () => {
-    if (theme.locked) {
-      // Theme is locked but no longer requires NFT verification
-      console.log("Theme is locked");
-      return;
-    }
-    
     // Check if this is a server theme (user_id === null) and should use tRPC
     const isServerTheme = theme.user_id === null;
     
     if (isServerTheme) {
-      // Use tRPC to apply server theme to user
+      // Use tRPC to apply marketplace theme to user
       const themeId = parseInt(theme.id);
       if (!isNaN(themeId)) {
-        applyServerTheme.mutate({ themeId });
+        applyTheme.mutate({ themeId });
         return;
       }
     }
@@ -59,6 +53,20 @@ export function ThemeCard({ theme, onApply }: ThemeCardProps) {
         throw new Error(`Failed to fetch theme: ${response.status}`);
       }
       const themeData = await response.json();
+      
+      // For hardcoded themes, use themeId = 0 and pass the theme data
+      applyTheme.mutate({ 
+        themeId: 0, 
+        theme: {
+          name: theme.name,
+          description: theme.description || "",
+          share_level: "public",
+          share_config: {},
+          config: themeData
+        }
+      });
+      
+      // Also apply immediately to editor
       onApply(themeData);
     } catch (error) {
       console.error("Error fetching theme data:", error);
@@ -74,26 +82,17 @@ export function ThemeCard({ theme, onApply }: ThemeCardProps) {
           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
             <button
               onClick={handleApply}
-              disabled={applyServerTheme.isPending}
+              disabled={applyTheme.isPending}
               className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {theme.locked && <Lock className="w-4 h-4" />}
               <span>
-                {applyServerTheme.isPending 
+                {applyTheme.isPending 
                   ? "Applying..." 
-                  : theme.locked 
-                    ? "Unlock Theme" 
-                    : "Apply Theme"
+                  : "Apply Theme"
                 }
               </span>
             </button>
           </div>
-          {theme.locked && (
-            <div className="absolute top-2 right-2 bg-black/50 px-2 py-1 rounded-full flex items-center space-x-1">
-              <Lock className="w-3 h-3 text-white" />
-              <span className="text-xs text-white">Locked</span>
-            </div>
-          )}
           {theme.user_id === null && (
             <div className="absolute top-2 left-2 bg-orange-500/90 px-2 py-1 rounded-full flex items-center space-x-1">
               <AlertTriangle className="w-3 h-3 text-white" />

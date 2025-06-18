@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { trpc } from "../../../utils/trpc/trpc";
 import { useEditorStore } from "../../../store/editorStore";
 import { useCollections } from "../../../hooks/useCollections";
+import type { MarketplaceTheme } from "../../../types/editor";
 import { MarketplaceHeader } from "./MarketplaceHeader";
 import { CollectionNav } from "./CollectionNav";
 import { CollectionHeader } from "./CollectionHeader";
@@ -20,6 +21,19 @@ export function GalleryPanel() {
   const setSort = useEditorStore(state => state.setMarketplaceSort);
   const applyTheme = useEditorStore(state => state.applyTheme);
   const updateThemeConfig = useEditorStore(state => state.updateThemeConfig);
+
+  // Wrapper function to handle theme application without marking as changed
+  const handleThemeApply = (themeConfig: MarketplaceTheme["theme"]) => {
+    // Create a Theme object from the theme config for applyTheme
+    const themeToApply = {
+      id: 0, // Temporary ID for applied themes
+      name: "Applied Theme",
+      share_level: "public",
+      share_config: {},
+      config: themeConfig
+    };
+    applyTheme(themeToApply);
+  };
 
   // Get collections (merged server + hardcoded)
   const { collections } = useCollections();
@@ -109,9 +123,9 @@ export function GalleryPanel() {
                 <div className="text-lg text-gray-600">Loading themes...</div>
               </div>
             ) : view === "grid" ? (
-              <MarketplaceGrid themes={displayThemes} onApply={updateThemeConfig} />
+              <MarketplaceGrid themes={displayThemes} onApply={handleThemeApply} />
             ) : (
-              <MarketplaceList themes={displayThemes} onApply={updateThemeConfig} />
+              <MarketplaceList themes={displayThemes} onApply={handleThemeApply} />
             )}
           </div>
         )}
