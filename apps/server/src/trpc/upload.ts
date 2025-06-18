@@ -294,9 +294,6 @@ export const uploadRouter = router({
           },
         });
 
-        // Get the public URL for the background
-        const backgroundUrl = s3Service.getFileUrl(fileKey);
-
         // Parse the current theme config
         let themeConfig: ThemeConfig = (theme.config as ThemeConfig) || {};
 
