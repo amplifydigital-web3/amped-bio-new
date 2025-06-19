@@ -91,26 +91,7 @@ export async function deleteUser(userData: DeleteData) {
   );
 }
 
-// Theme and Block APIs
-export async function editTheme(theme: Theme) {
-  const { id } = theme;
-  console.log("Editing Theme:", id);
-  const res = await apiRequest<{
-    result: {
-      id: number;
-      user_id: number;
-      name: string;
-      share_level: string;
-      share_config: Map<string, any> | null;
-      config: Map<string, any> | null;
-      created_at: Date;
-      updated_at: Date | null;
-    };
-  }>(() => api.put(`/user/theme/${id}`, { theme }), "Theme updated successfully:");
-
-  return res.result;
-}
-
+// Theme and Block APIs - Theme APIs migrated to tRPC
 export async function editBlocks(blocks: BlockType[]) {
   console.log("Editing user blocks");
   return apiRequest(() => api.put("/user/blocks", { blocks }), "User updated successfully:");
@@ -132,16 +113,6 @@ export async function addBlock(block: AddBlockData): Promise<BlockResponse> {
     () => api.post("/user/blocks", block),
     "Block added successfully:"
   );
-}
-
-// Onelink APIs
-export async function getOnelink(onelink: string) {
-  const normalizedOnelink = normalizeOnelink(onelink);
-  console.log("Get onelink:", normalizedOnelink);
-  return apiRequest<OnelinkResponse>(
-    () => api.get(`/onelink/${normalizedOnelink}`),
-    "Onelink retrieved successfully:"
-  ).then(data => data.result);
 }
 
 export async function checkOnelinkAvailability(onelink: string): Promise<boolean> {

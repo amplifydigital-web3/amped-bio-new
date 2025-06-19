@@ -1,4 +1,5 @@
 import { BaseBlock, BlockType } from "@/api/api.types";
+import type { Collection, MarketplaceTheme, ThemeConfig, Background } from "@ampedbio/constants";
 
 export type UserProfile = {
   name: string;
@@ -10,80 +11,22 @@ export type UserProfile = {
   photoCmp?: string;
 };
 
-export type Background = {
-  id?: string;
-  type: "color" | "image" | "video";
-  value: string;
-  label?: string;
-  thumbnail?: string;
-};
-
-export type ThemeConfig = {
-  buttonStyle?: number;
-  containerStyle?: number;
-  background?: Background;
-  buttonColor?: string;
-  containerColor?: string;
-  fontFamily?: string;
-  fontSize?: string;
-  fontColor?: string;
-  transparency?: number;
-  buttonEffect?: number;
-  particlesEffect?: number;
-  heroEffect?: number;
-};
-
-export type Theme = {
-  id: number;
-  name: string;
-  share_level: string;
-  share_config: object;
-  config: ThemeConfig;
-};
+// Re-export types from constants package for convenience
+export type { Collection, MarketplaceTheme, ThemeConfig, Background };
 
 export interface GalleryImage {
   url: string;
   type: string;
 }
 
-export interface NFTRequirement {
-  contractAddress: string;
-  chainId: number;
-  minBalance: number;
+export type Theme = {
+  id: number;
+  user_id?: number | null;
   name: string;
-  image: string;
-  price: string;
-  marketplace: string;
-}
-
-export interface MarketplaceTheme {
-  id: string;
-  name: string;
-  description: string;
-  thumbnail: string;
-  tags: string[];
-  theme: ThemeConfig;
-  locked?: boolean;
-  nftRequirement?: NFTRequirement;
-}
-
-export interface Collaborator {
-  name: string;
-  avatar: string;
-  url: string;
-  bio: string;
-}
-
-export interface Collection {
-  id: string;
-  name: string;
-  description: string;
-  collaborator: Collaborator;
-  themeCount: number;
-  downloads: number;
-  rating: number;
-  themes: MarketplaceTheme[];
-}
+  share_level: string;
+  share_config: object;
+  config: ThemeConfig;
+};
 
 export type EditorState = {
   profile: UserProfile;
@@ -93,7 +36,7 @@ export type EditorState = {
   gallery: GalleryImage[];
   marketplaceView: "grid" | "list";
   marketplaceFilter: string;
-  marketplaceSort: "popular" | "newest" | "rating";
+  marketplaceSort: "popular" | "newest";
   connectedWallet?: string;
   selectedPoolId: string | null;
 };

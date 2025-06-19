@@ -12,6 +12,7 @@ import {
   passwordResetRequestSchema,
   processPasswordResetSchema,
 } from "../schemas/auth.schema";
+import { env } from "../env";
 
 const prisma = new PrismaClient();
 
@@ -50,6 +51,15 @@ export const authRouter = router({
       const hashedPassword = await hashPassword(password);
       const remember_token = crypto.randomBytes(32).toString("hex");
 
+    
+      let userRole = "user";
+      
+      if (env.isDevelopment) {
+        const totalUsersCount = await prisma.user.count();
+        const isFirstUser = totalUsersCount === 0;
+        userRole = isFirstUser ? "user,admin" : "user";
+      }
+
       // Create user
       const result = await prisma.user.create({
         data: {
@@ -58,6 +68,7 @@ export const authRouter = router({
           email,
           password: hashedPassword,
           remember_token,
+          role: userRole,
         },
       });
 

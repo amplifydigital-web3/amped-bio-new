@@ -70,7 +70,7 @@
     "tsparticles-slim": "^2.12.0",
     "viem": "^2.22.10",
     "wagmi": "^2.14.8",
-    "zod": "^3.24.3",
+    "zod": "^3.25.64",
     "zustand": "^4.5.2"
   },
   "devDependencies": {

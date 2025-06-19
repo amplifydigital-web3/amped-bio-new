@@ -72,12 +72,13 @@ export const mockData = {
   upload: {
     requestPresignedUrl: {
       presignedUrl: "https://demo-upload-url.com",
-      fileKey: "demo-upload-key",
+      fileId: 1,
       expiresIn: 300,
     },
     confirmProfilePictureUpload: {
       success: true,
       profilePictureUrl: "https://i.pravatar.cc/300",
+      fileId: 1,
     },
   },
   onelink: {
@@ -149,6 +150,134 @@ export const mockData = {
       ] as BlockType[],
     },
   },
+  theme: {
+    editTheme: {
+      id: 1,
+      user_id: demoUser.id,
+      name: "Demo Theme",
+      share_level: "private",
+      share_config: {},
+      config: {
+        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        primaryColor: "#ffffff",
+        secondaryColor: "#f8f9fa",
+        fontFamily: "Inter, sans-serif",
+      },
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    deleteTheme: {
+      id: 1,
+      user_id: demoUser.id,
+      name: "Demo Theme",
+      share_level: "private",
+      share_config: {},
+      config: {},
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    getUserThemes: [
+      {
+        id: 1,
+        user_id: demoUser.id,
+        name: "Demo Theme",
+        share_level: "private",
+        share_config: {},
+        config: {
+          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+          primaryColor: "#ffffff",
+          secondaryColor: "#f8f9fa",
+          fontFamily: "Inter, sans-serif",
+        },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ],
+    applyTheme: {
+      success: true,
+      message: "Theme applied successfully",
+      themeId: 1,
+      themeName: "Demo Server Theme",
+    },
+  },
+  themeGallery: {
+    getTheme: {
+      id: 1,
+      user_id: demoUser.id,
+      name: "Demo Public Theme",
+      share_level: "public", 
+      share_config: {},
+      config: {
+        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        primaryColor: "#ffffff",
+        secondaryColor: "#f8f9fa",
+        fontFamily: "Inter, sans-serif",
+      },
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      user: {
+        id: demoUser.id,
+        name: demoUser.name,
+        image: demoUser.image,
+        image_file_id: null,
+      },
+      thumbnailImage: null,
+    },
+    getCollections: [
+      {
+        id: "1",
+        name: "Demo Server Collection",
+        description: "A sample server collection with demo themes",
+        themeCount: 2,
+        isServer: true,
+        categoryImage: null,
+      },
+    ],
+    getThemesByCategory: {
+      category: {
+        id: 1,
+        name: "Demo Server Collection",
+        description: "A sample server collection with demo themes",
+        categoryImage: null,
+      },
+      themes: [
+        {
+          id: 1,
+          user_id: null,
+          name: "Demo Server Theme 1",
+          share_level: "public",
+          share_config: {},
+          config: {
+            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            primaryColor: "#ffffff",
+            secondaryColor: "#f8f9fa",
+            fontFamily: "Inter, sans-serif",
+          },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          user: null,
+          thumbnailImage: null,
+        },
+        {
+          id: 2,
+          user_id: null,
+          name: "Demo Server Theme 2",
+          share_level: "public",
+          share_config: {},
+          config: {
+            background: "linear-gradient(45deg, #ff6b6b 0%, #ffd93d 100%)",
+            primaryColor: "#ffffff",
+            secondaryColor: "#f8f9fa",
+            fontFamily: "Inter, sans-serif",
+          },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          user: null,
+          thumbnailImage: null,
+        },
+      ],
+    },
+  },
   admin: {
     updateUser: {
       id: demoUser.id,
@@ -216,6 +345,118 @@ export const mockData = {
         averageBlocksPerUser: 4,
         mostPopularBlockType: "SOCIAL",
       },
+    },
+    createTheme: {
+      id: 1,
+      user_id: null,
+      name: "Demo Admin Theme",
+      share_level: "public",
+      share_config: {},
+      config: {
+        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        primaryColor: "#ffffff",
+        secondaryColor: "#f8f9fa",
+        fontFamily: "Inter, sans-serif",
+      },
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    getCollections: [
+      {
+        id: "1",
+        name: "Demo Server Collection",
+        description: "A sample server collection with demo themes",
+        themeCount: 2,
+        isServer: true,
+        categoryImage: null,
+      },
+    ],
+    getThemesByCategory: {
+      category: {
+        id: 1,
+        name: "Demo Server Collection",
+        description: "A sample server collection with demo themes",
+        categoryImage: null,
+      },
+      themes: [
+        {
+          id: 100,
+          name: "Demo Server Theme 1",
+          description: "A sample theme from the server",
+          config: {
+            background: {
+              type: "gradient",
+              value: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+            },
+            primaryColor: "#ffffff",
+            secondaryColor: "#f8f9fa",
+            fontFamily: "Inter, sans-serif",
+          },
+          thumbnailImage: {
+            id: 1,
+            url: "https://images.unsplash.com/photo-1507721999472-8ed4421c4af2?w=400",
+          },
+          share_level: "public",
+          user: null,
+        },
+        {
+          id: 101,
+          name: "Demo Server Theme 2",
+          description: "Another sample theme from the server",
+          config: {
+            background: {
+              type: "gradient",
+              value: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            },
+            primaryColor: "#ffffff",
+            secondaryColor: "#f8f9fa",
+            fontFamily: "Inter, sans-serif",
+          },
+          thumbnailImage: {
+            id: 2,
+            url: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400",
+          },
+          share_level: "public",
+          user: null,
+        },
+      ],
+    },
+    createThemeCategory: {
+      id: 1,
+      name: "Business",
+      title: "Business Themes",
+      category: "business",
+      description: "Professional themes for business use",
+      image: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    themes: {
+      createThemeCategory: {
+        id: 4,
+        name: "tech",
+        title: "Technology",
+        category: "tech",
+        description: "Modern themes for tech professionals",
+        visible: false,
+        image_file_id: null,
+        image: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        _count: {
+          themes: 0
+        }
+      },
+      toggleThemeCategoryVisibility: {
+        success: true,
+        message: "Category visibility updated successfully",
+        category: {
+          id: 1,
+          name: "business",
+          title: "Business",
+          visible: true
+        }
+      }
     },
   },
 };

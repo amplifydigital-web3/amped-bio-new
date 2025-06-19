@@ -22,31 +22,54 @@ model User {
   auth_as             Int?
   provider            String?
   provider_id         String?
-  image               String?   @db.LongText
+  image               String?   @db.LongText // Keep for backward compatibility
+  image_file_id       Int?
   reward_business_id  String?
   created_at          DateTime  @default(now())
   updated_at          DateTime? @updatedAt
 
-  // Relations
   themes              Theme[]
   blocks              Block[]
   confirmationCodes   ConfirmationCode[]
+  uploadedFiles       UploadedFile[]
+  profileImage        UploadedFile? @relation("UserProfileImage", fields: [image_file_id], references: [id], onDelete: SetNull)
 
   @@map("users")
 }
 
-model Theme {
+model ThemeCategory {
   id                  Int       @id @default(autoincrement())
-  user_id             Int
-  share_level         String    @default("private")
-  share_config        Json?
-  name                String?
-  config              Json?
+  name                String    @unique
+  title               String
+  category            String
+  description         String?
+  visible             Boolean   @default(false)
+  image_file_id       Int?
   created_at          DateTime  @default(now())
   updated_at          DateTime? @updatedAt
   
-  // Relations
-  user                User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  themes              Theme[]
+  categoryImage       UploadedFile? @relation("ThemeCategoryImage", fields: [image_file_id], references: [id], onDelete: SetNull)
+
+  @@map("theme_categories")
+}
+
+model Theme {
+  id                  Int       @id @default(autoincrement())
+  user_id             Int?      // if it is null it is a system theme
+  share_level         String    @default("private")
+  share_config        Json?
+  name                String?
+  description         String?   @db.LongText
+  config              Json?
+  category_id         Int?
+  thumbnail_file_id   Int?
+  created_at          DateTime  @default(now())
+  updated_at          DateTime? @updatedAt
+  
+  user                User?         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  category            ThemeCategory? @relation(fields: [category_id], references: [id], onDelete: SetNull)
+  thumbnailImage      UploadedFile? @relation("ThemeThumbnailImage", fields: [thumbnail_file_id], references: [id], onDelete: SetNull)
 
   @@map("themes")
 }
@@ -61,7 +84,6 @@ model Block {
   created_at          DateTime  @default(now())
   updated_at          DateTime? @updatedAt
   
-  // Relations
   user                User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("blocks")
@@ -83,9 +105,38 @@ model ConfirmationCode {
   createdAt   DateTime             @default(now())
   updatedAt   DateTime?            @updatedAt
   
-  // Relations
   user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@index([code])
   @@map("confirmation_codes")
+}
+
+enum FileStatus {
+  PENDING
+  COMPLETED
+  DELETED
+}
+
+model UploadedFile {
+  id                  Int       @id @default(autoincrement())
+  s3_key              String    @db.VarChar(255)
+  bucket              String    @db.VarChar(100)
+  file_name           String    @db.VarChar(255)
+  file_type           String?   @db.VarChar(100)
+  size                BigInt?
+  user_id             Int? // Nullable for admin/server files
+  uploaded_at         DateTime  @default(now())
+  status              FileStatus @default(PENDING)
+  created_at          DateTime  @default(now())
+  updated_at          DateTime? @updatedAt
+  
+  user                User?     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  userProfileImage    User[]    @relation("UserProfileImage")
+  themeCategoryImage  ThemeCategory[] @relation("ThemeCategoryImage")
+  themeThumbnailImage Theme[]   @relation("ThemeThumbnailImage")
+  
+  @@index([s3_key])
+  @@index([user_id])
+  @@index([status])
+  @@map("uploaded_files")
 }

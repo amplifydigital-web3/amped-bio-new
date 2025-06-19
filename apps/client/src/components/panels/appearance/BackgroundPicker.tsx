@@ -4,6 +4,7 @@ import type { Background } from "../../../types/editor";
 import { gradients, photos, videos, backgroundColors } from "../../../utils/backgrounds";
 import CollapsiblePanelWrapper from "../CollapsiblePanelWrapper";
 import { trpcClient } from "../../../utils/trpc";
+import { useEditorStore } from "../../../store/editorStore";
 import { ALLOWED_BACKGROUND_FILE_EXTENSIONS, ALLOWED_BACKGROUND_FILE_TYPES, MAX_BACKGROUND_FILE_SIZE } from "@ampedbio/constants";
 
 interface BackgroundPickerProps {
@@ -12,42 +13,15 @@ interface BackgroundPickerProps {
   themeId?: number;
 }
 
-// Helper function to extract media URL from server response
-const extractMediaUrl = (result: any, fallback: string): string => {
-  if (typeof result === 'object' && result !== null) {
-    // Try different potential response structures
-    if ('backgroundUrl' in result && typeof result.backgroundUrl === 'string') {
-      return result.backgroundUrl;
-    } else if ('backgroundVideoUrl' in result && typeof result.backgroundVideoUrl === 'string') {
-      return result.backgroundVideoUrl;
-    } else if ('backgroundImageUrl' in result && typeof result.backgroundImageUrl === 'string') {
-      return result.backgroundImageUrl;
-    } else if ('url' in result && typeof result.url === 'string') {
-      return result.url;
-    } else if ('theme' in result && 
-              typeof result.theme === 'object' && 
-              result.theme !== null && 
-              'config' in result.theme) {
-      const config = result.theme.config;
-      if (typeof config === 'object' && 
-          config !== null && 
-          'background' in config && 
-          typeof config.background === 'object' &&
-          config.background !== null &&
-          'value' in config.background) {
-        return String(config.background.value);
-      }
-    }
-  }
-  // Fallback
-  return fallback;
-};
-
 export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPickerProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [customURL, setCustomURL] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Get profile and setUser from store for refetching theme data after upload
+  const profile = useEditorStore(state => state.profile);
+  const setUser = useEditorStore(state => state.setUser);
 
   const handleFileUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,21 +110,21 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
         
         // Confirm upload with the server
         const result = await trpcClient.upload.confirmThemeBackgroundUpload.mutate({
-          fileKey: presignedData.fileKey,
+          fileId: presignedData.fileId,
+          fileName: file.name,
           mediaType: presignedData.mediaType as 'image' | 'video', // Added type assertion
         });
 
         console.log("Server confirmed background upload:", result);
         
-        // Extract URL using helper function - this will extract the URL whether it's an image or video
-        const fileUrl = extractMediaUrl(result, presignedData.fileKey);
-        
-        // Update the background with the new URL, setting the correct type based on the file type
-        onChange({
-          type: isImage ? "image" : "video",
-          value: fileUrl,
-          label: file.name,
-        });
+        // Instead of calling onChange/onUploadChange, refetch the theme data like the gallery does
+        if (profile?.onelink) {
+          console.log("Refetching theme data after background upload...");
+          await setUser(profile.onelink);
+          console.log("Theme data refetched successfully");
+        } else {
+          console.warn("No profile onelink available for theme refetch");
+        }
         
       } catch (e) {
         console.error("Error uploading background:", e);
@@ -170,7 +144,7 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
         setIsUploading(false);
       }
     },
-    [onChange, themeId]
+    [profile, setUser, themeId]
   );
 
   const handleURLUpload = useCallback((type: "video" | "image") => {
@@ -190,7 +164,7 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
         onClick={() => onChange(bg)}
         className="relative aspect-video rounded-lg overflow-hidden group"
       >
-        <img src={bg.value} alt={bg.label} className="w-full h-full object-cover" />
+        <img src={bg.value || ''} alt={bg.label} className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
           <span className="text-white text-sm font-medium">{bg.label}</span>
         </div>
@@ -211,7 +185,7 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
         key={bg.value}
         onClick={() => onChange(bg)}
         className="relative h-24 rounded-lg overflow-hidden group"
-        style={{ background: bg.value }}
+        style={{ background: bg.value || '' }}
       >
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
           <span className="text-white text-sm font-medium drop-shadow-md">{bg.label}</span>
@@ -321,6 +295,14 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
       <CollapsiblePanelWrapper initialOpen={false} title="Upload Custom Background">
         <div className="block m-2">
           <div className="w-full flex flex-col gap-3">
+            {/* Show indicator when current background has fileId */}
+            {value?.fileId && (
+              <div className="rounded-md bg-green-50 border border-green-200 px-3 py-2 flex items-center gap-2">
+                <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+                <span className="text-sm text-green-800">Current background is uploaded by you</span>
+              </div>
+            )}
+            
             <div 
               className={`w-full h-24 border-2 border-dashed rounded-lg flex flex-col items-center justify-center ${
                 isUploading ? 'border-blue-300 cursor-default' : 

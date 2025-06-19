@@ -1,4 +1,4 @@
-import { BarChart3, Users, Layers, Settings, LogOut, Home, Hexagon } from "lucide-react";
+import { BarChart3, Users, Layers, Settings, LogOut, Home, Hexagon, FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../store/authStore";
 
@@ -16,6 +16,8 @@ export const AdminSidebar = ({ activeMenu, setActiveMenu }: AdminSidebarProps) =
     { id: "dashboard", icon: BarChart3, label: "Dashboard" },
     { id: "users", icon: Users, label: "Users" },
     { id: "blocks", icon: Layers, label: "Blocks" },
+    { id: "themes", icon: Hexagon, label: "Themes" },
+    { id: "files", icon: FileText, label: "Files" },
     { id: "settings", icon: Settings, label: "Settings" },
   ];
 

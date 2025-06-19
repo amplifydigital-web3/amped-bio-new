@@ -68,7 +68,7 @@ export function UserManagement() {
 
   // Get users with pagination - only enabled when search or filters are applied
   const { data: userData, isLoading: isUsersLoading, refetch } = useQuery({
-    ...trpc.admin.getUsers.queryOptions({
+    ...trpc.admin.users.getUsers.queryOptions({
       page: currentPage,
       limit,
       role,
@@ -99,7 +99,7 @@ export function UserManagement() {
       const validatedData = editUserSchema.parse(editingUser);
       
       // Call the tRPC mutation to update the user
-      trpcClient.admin.updateUser.mutate({
+      trpcClient.admin.users.updateUser.mutate({
         id: editingUser.id,
         name: validatedData.name,
         email: validatedData.email
@@ -425,7 +425,7 @@ export function UserManagement() {
                           className={`${user.block === 'yes' ? 'text-green-600 hover:text-green-900' : 'text-red-600 hover:text-red-900'}`}
                           onClick={() => {
                             // Toggle user block status
-                            trpcClient.admin.updateUser.mutate({
+                            trpcClient.admin.users.updateUser.mutate({
                               id: user.id,
                               block: user.block === 'yes' ? 'no' : 'yes'
                             }).then(() => refetch());

@@ -185,6 +185,16 @@ When you need to update the database schema:
    - Apply the migration to your database
    - Generate an updated Prisma client
 
+### Generating Prisma Client
+
+To regenerate the Prisma client after schema changes:
+
+```sh
+pnpm --filter server run prisma:generate
+```
+
+This command regenerates the Prisma client with the latest schema definitions.
+
 ### Prisma Studio
 
 To explore and edit your database with a visual interface:

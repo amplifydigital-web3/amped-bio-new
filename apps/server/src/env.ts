@@ -1,6 +1,12 @@
 import { cleanEnv, str, port, bool } from "envalid";
 
 export const env = cleanEnv(process.env, {
+  NODE_ENV: str({
+    desc: "The environment the app is running in",
+    choices: ["development", "production", "test"],
+    default: "development",
+    example: "development",
+  }),
   JWT_SECRET: str({
     desc: "Secret key for JWT token generation and verification",
     default: "your-default-jwt-secret-for-development",

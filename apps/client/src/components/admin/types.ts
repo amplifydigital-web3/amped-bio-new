@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // User schema
 export const UserSchema = z.object({
-  id: z.string(),
+  id: z.number(),
   name: z.string(),
   email: z.string().email(),
   onelink: z.string().nullable(),
