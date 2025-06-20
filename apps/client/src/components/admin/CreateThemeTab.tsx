@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { trpc, trpcClient } from "../../utils/trpc";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Upload, AlertCircle, Image as ImageIcon, FileText, ChevronDown, ChevronRight } from "lucide-react";
+import { Upload, AlertCircle, Image as ImageIcon, FileText, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import { ThemeThumbnailSelector } from "./ThemeThumbnailSelector";
 import { importThemeConfigFromJson } from "../../utils/theme";
 import { generateVideoThumbnailFromUrl } from "../../utils/videoThumbnail";
@@ -93,11 +93,10 @@ const themeSchema = z.object({
 type ThemeForm = z.infer<typeof themeSchema>;
 
 interface CreateThemeTabProps {
-  onError: (error: string) => void;
-  onSuccess: (message: string) => void;
+  // No props needed anymore - using toast notifications
 }
 
-export function CreateThemeTab({ onError, onSuccess }: CreateThemeTabProps) {
+export function CreateThemeTab({}: CreateThemeTabProps) {
   const [selectedThumbnailFile, setSelectedThumbnailFile] = useState<File | null>(null);
   
   // Import theme file state
@@ -119,8 +118,8 @@ export function CreateThemeTab({ onError, onSuccess }: CreateThemeTabProps) {
 
   // Clear error messages when user starts typing
   const clearErrorMessages = useCallback(() => {
-    onError('');
-  }, [onError]);
+    // Toast notifications are handled automatically
+  }, []);
 
   // Create handlers that combine form registration with error clearing
   const createInputHandler = useCallback((registerFn: any) => {
@@ -152,9 +151,6 @@ export function CreateThemeTab({ onError, onSuccess }: CreateThemeTabProps) {
   const themeMutation = useMutation(trpc.admin.themes.createTheme.mutationOptions());
 
   const handleThemeSubmit = async (data: ThemeForm) => {
-    onError('');
-    onSuccess('');
-    
     try {
       // Step 1: Create the theme
       const newTheme = await themeMutation.mutateAsync(data);
@@ -163,12 +159,12 @@ export function CreateThemeTab({ onError, onSuccess }: CreateThemeTabProps) {
       if (selectedThumbnailFile) {
         try {
           await uploadThemeThumbnail(newTheme.id, selectedThumbnailFile);
-          onSuccess("Theme created successfully with thumbnail!");
+          toast.success("Theme created successfully with thumbnail!");
         } catch (thumbnailError: any) {
-          onError(`Theme created but thumbnail upload failed: ${thumbnailError.message}`);
+          toast.error(`Theme created but thumbnail upload failed: ${thumbnailError.message}`);
         }
       } else {
-        onSuccess("Theme created successfully!");
+        toast.success("Theme created successfully!");
       }
       
       // Only reset form and files on success
@@ -177,7 +173,7 @@ export function CreateThemeTab({ onError, onSuccess }: CreateThemeTabProps) {
       handleClearImportedConfig();
       
     } catch (err: any) {
-      onError(err?.message || "Failed to create theme");
+      toast.error(err?.message || "Failed to create theme");
       // Do not reset form or files on error - keep user input
     }
   };
@@ -222,16 +218,13 @@ export function CreateThemeTab({ onError, onSuccess }: CreateThemeTabProps) {
   }, [clearErrorMessages]);
 
   const handleImageError = (error: string) => {
-    onError(error);
+    toast.error(error);
   };
 
   // Handle theme file import
   const handleImportTheme = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    onError('');
-    onSuccess('');
 
     try {
       // Validate and parse the theme configuration
@@ -289,11 +282,11 @@ export function CreateThemeTab({ onError, onSuccess }: CreateThemeTabProps) {
       // Reset the file input to allow selecting the same file again
       e.target.value = "";
     } catch (err: any) {
-      onError(`❌ Failed to import theme: ${err.message || "Invalid .ampedtheme file format"}`);
+      toast.error(`❌ Failed to import theme: ${err.message || "Invalid .ampedtheme file format"}`);
       // Reset the file input
       e.target.value = "";
     }
-  }, [themeForm, onError, onSuccess]);
+  }, [themeForm]);
 
   const handleImportButtonClick = useCallback(() => {
     fileInputRef.current?.click();
@@ -306,8 +299,8 @@ export function CreateThemeTab({ onError, onSuccess }: CreateThemeTabProps) {
     themeForm.setValue("config", {});
     // Clear the thumbnail if it was automatically generated from imported theme
     setSelectedThumbnailFile(null);
-    onSuccess("Imported configuration and thumbnail cleared");
-  }, [themeForm, onSuccess]);
+    toast.success("Imported configuration and thumbnail cleared");
+  }, [themeForm]);
 
   return (
     <div className="space-y-6">
@@ -528,9 +521,12 @@ export function CreateThemeTab({ onError, onSuccess }: CreateThemeTabProps) {
           
           <button
             type="submit"
-            className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             disabled={themeMutation.status === 'pending'}
           >
+            {themeMutation.status === 'pending' && (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            )}
             {themeMutation.status === 'pending' ? (
               selectedThumbnailFile ? "Creating theme and uploading thumbnail..." : "Creating theme..."
             ) : (

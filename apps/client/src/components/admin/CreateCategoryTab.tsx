@@ -4,6 +4,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { trpc, trpcClient } from "../../utils/trpc";
 import { useMutation } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
+import { toast } from "react-hot-toast";
 import { CategoryImageSelector } from "./CategoryImageSelector";
 
 const categorySchema = z.object({
@@ -19,12 +21,10 @@ const categorySchema = z.object({
 type CategoryForm = z.infer<typeof categorySchema>;
 
 interface CreateCategoryTabProps {
-  onError: (error: string) => void;
-  onSuccess: (message: string) => void;
   refetchCategories: () => void;
 }
 
-export function CreateCategoryTab({ onError, onSuccess, refetchCategories }: CreateCategoryTabProps) {
+export function CreateCategoryTab({ refetchCategories }: CreateCategoryTabProps) {
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
 
   // React Hook Form for category creation
@@ -41,9 +41,8 @@ export function CreateCategoryTab({ onError, onSuccess, refetchCategories }: Cre
 
   // Clear error messages when user starts typing
   const clearErrorMessages = useCallback(() => {
-    onError('');
-    onSuccess('');
-  }, [onError, onSuccess]);
+    // Toast notifications are handled automatically
+  }, []);
 
   // Create handlers that combine form registration with error clearing
   const createInputHandler = useCallback((registerFn: any) => {
@@ -56,9 +55,6 @@ export function CreateCategoryTab({ onError, onSuccess, refetchCategories }: Cre
   const categoryMutation = useMutation(trpc.admin.themes.createThemeCategory.mutationOptions());
 
   const handleCategorySubmit = async (data: CategoryForm) => {
-    onError('');
-    onSuccess('');
-    
     try {
       // Step 1: Create the category
       const newCategory = await categoryMutation.mutateAsync(data);
@@ -67,12 +63,12 @@ export function CreateCategoryTab({ onError, onSuccess, refetchCategories }: Cre
       if (selectedImageFile) {
         try {
           await uploadCategoryImage(newCategory.id, selectedImageFile);
-          onSuccess("Category created successfully with image!");
+          toast.success("Category created successfully with image!");
         } catch (imageError: any) {
-          onError(`Category created but image upload failed: ${imageError.message}`);
+          toast.error(`Category created but image upload failed: ${imageError.message}`);
         }
       } else {
-        onSuccess("Category created successfully!");
+        toast.success("Category created successfully!");
       }
       
       // Only reset form and image on success
@@ -81,7 +77,7 @@ export function CreateCategoryTab({ onError, onSuccess, refetchCategories }: Cre
       refetchCategories();
       
     } catch (err: any) {
-      onError(err?.message || "Failed to create category");
+      toast.error(err?.message || "Failed to create category");
       // Do not reset form or image on error - keep user input
     }
   };
@@ -126,7 +122,7 @@ export function CreateCategoryTab({ onError, onSuccess, refetchCategories }: Cre
   }, [clearErrorMessages]);
 
   const handleImageError = (error: string) => {
-    onError(error);
+    toast.error(error);
   };
 
   return (
@@ -230,9 +226,12 @@ export function CreateCategoryTab({ onError, onSuccess, refetchCategories }: Cre
           
           <button
             type="submit"
-            className="w-full py-3 px-4 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full py-3 px-4 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
             disabled={categoryMutation.status === 'pending'}
           >
+            {categoryMutation.status === 'pending' && (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            )}
             {categoryMutation.status === 'pending' ? (
               selectedImageFile ? "Creating category and uploading image..." : "Creating category..."
             ) : (

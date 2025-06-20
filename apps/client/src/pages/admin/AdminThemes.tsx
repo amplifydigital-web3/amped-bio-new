@@ -1,9 +1,15 @@
+import { useState } from "react";
 import { AdminThemeManager } from "../../components/admin/AdminThemeManager";
 import { AdminQuickActions } from "../../components/admin/AdminQuickActions";
 
 export function AdminThemes() {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   const handleRefresh = () => {
-    window.location.reload();
+    setIsRefreshing(true);
+    setTimeout(() => {
+      window.location.reload();
+    }, 500); // Small delay to show loading state
   };
 
   return (
@@ -12,6 +18,7 @@ export function AdminThemes() {
         title="Theme Management"
         description="Create and manage themes and categories"
         onRefresh={handleRefresh}
+        isLoading={isRefreshing}
       />
       
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm">

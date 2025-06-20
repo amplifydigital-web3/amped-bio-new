@@ -1,16 +1,15 @@
 import { trpc } from "../../utils/trpc";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { List, Image as ImageIcon, Eye, EyeOff } from "lucide-react";
+import { List, Image as ImageIcon, Eye, EyeOff, Loader2 } from "lucide-react";
 import { CategoryImageUploader } from "./CategoryImageUploader";
 import { Switch } from "../ui/Switch";
+import { toast } from "react-hot-toast";
 
 interface ViewCategoriesTabProps {
-  onError: (error: string) => void;
-  onSuccess: (message: string) => void;
   refetchCategories: () => void;
 }
 
-export function ViewCategoriesTab({ onError, onSuccess, refetchCategories }: ViewCategoriesTabProps) {
+export function ViewCategoriesTab({ refetchCategories }: ViewCategoriesTabProps) {
   // Queries
   const { data: categories } = useQuery(
     trpc.admin.themes.getThemeCategories.queryOptions()
@@ -27,10 +26,10 @@ export function ViewCategoriesTab({ onError, onSuccess, refetchCategories }: Vie
         id: categoryId,
         visible: visible
       });
-      onSuccess(`Category "${categoryTitle}" is now ${visible ? 'visible' : 'hidden'}`);
+      toast.success(`Category "${categoryTitle}" is now ${visible ? 'visible' : 'hidden'}`);
       refetchCategories();
     } catch (error: any) {
-      onError(`Failed to update visibility for "${categoryTitle}": ${error.message}`);
+      toast.error(`Failed to update visibility for "${categoryTitle}": ${error.message}`);
     }
   };
 
@@ -74,7 +73,9 @@ export function ViewCategoriesTab({ onError, onSuccess, refetchCategories }: Vie
                     <div className="flex items-center justify-between">
                       <h4 className="font-semibold text-gray-900 text-sm truncate">{category.title}</h4>
                       <div className="flex items-center space-x-2">
-                        {category.visible ? (
+                        {toggleVisibilityMutation.isPending ? (
+                          <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+                        ) : category.visible ? (
                           <Eye className="w-4 h-4 text-green-600" />
                         ) : (
                           <EyeOff className="w-4 h-4 text-gray-400" />
@@ -111,10 +112,10 @@ export function ViewCategoriesTab({ onError, onSuccess, refetchCategories }: Vie
                     categoryId={category.id}
                     currentImageUrl={undefined}
                     onImageUpload={(_imageUrl, _fileId) => {
-                      onSuccess(`Image updated for ${category.title}`);
+                      toast.success(`Image updated for ${category.title}`);
                       refetchCategories();
                     }}
-                    onError={(error) => onError(`Failed to update image for ${category.title}: ${error}`)}
+                    onError={(error) => toast.error(`Failed to update image for ${category.title}: ${error}`)}
                   />
                 </div>
               </div>

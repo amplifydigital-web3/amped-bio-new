@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { trpc, trpcClient } from "../../utils/trpc/trpc";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Search, Eye, Edit, Trash2, Users, Calendar, Folder, Image, AlertTriangle, X } from "lucide-react";
+import { Search, Eye, Edit, Trash2, Users, Calendar, Folder, Image, AlertTriangle, X, Loader2 } from "lucide-react";
+import { toast } from "react-hot-toast";
 
 interface ViewThemesTabProps {
-  onSuccess: (message: string) => void;
-  onError?: (message: string) => void;
+  // No props needed anymore - using toast notifications
 }
 
 interface DeleteModalState {
@@ -14,11 +14,13 @@ interface DeleteModalState {
   confirmationText: string;
 }
 
-export function ViewThemesTab({ onSuccess, onError }: ViewThemesTabProps) {
+export function ViewThemesTab({}: ViewThemesTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<number | undefined>(undefined);
   const [currentPage, setCurrentPage] = useState(1);
   const [deleteModal, setDeleteModal] = useState<DeleteModalState>({ isOpen: false, theme: null, confirmationText: "" });
+  const [previewLoading, setPreviewLoading] = useState<number | null>(null);
+  const [editLoading, setEditLoading] = useState<number | null>(null);
   const limit = 10;
 
   // Get theme categories for filtering
@@ -44,17 +46,13 @@ export function ViewThemesTab({ onSuccess, onError }: ViewThemesTabProps) {
       const message = filesDeleted > 0 
         ? `${data?.message || "Theme deleted successfully"} (${filesDeleted} file${filesDeleted > 1 ? 's' : ''} also removed)`
         : data?.message || "Theme deleted successfully";
-      onSuccess(message);
+      toast.success(message);
       refetch(); // Refresh the themes list
       setDeleteModal({ isOpen: false, theme: null, confirmationText: "" });
     },
     onError: (error: any) => {
       const errorMessage = error?.message || "Failed to delete theme";
-      if (onError) {
-        onError(errorMessage);
-      } else {
-        onSuccess(`Error: ${errorMessage}`);
-      }
+      toast.error(errorMessage);
       setDeleteModal({ isOpen: false, theme: null, confirmationText: "" });
     },
   });
@@ -235,31 +233,51 @@ export function ViewThemesTab({ onSuccess, onError }: ViewThemesTabProps) {
                   <div className="flex justify-end mt-4 gap-2">
                     <button
                       onClick={() => {
-                        // TODO: Implement preview functionality
-                        onSuccess("Preview functionality coming soon!");
+                        setPreviewLoading(theme.id);
+                        setTimeout(() => {
+                          setPreviewLoading(null);
+                          toast.success("Preview functionality coming soon!");
+                        }, 1000);
                       }}
-                      className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                      className="p-1 text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                       title="Preview theme"
+                      disabled={previewLoading === theme.id}
                     >
-                      <Eye className="w-4 h-4" />
+                      {previewLoading === theme.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
                     </button>
                     <button
                       onClick={() => {
-                        // TODO: Implement edit functionality
-                        onSuccess("Edit functionality coming soon!");
+                        setEditLoading(theme.id);
+                        setTimeout(() => {
+                          setEditLoading(null);
+                          toast.success("Edit functionality coming soon!");
+                        }, 1000);
                       }}
-                      className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                      className="p-1 text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                       title="Edit theme"
+                      disabled={editLoading === theme.id}
                     >
-                      <Edit className="w-4 h-4" />
+                      {editLoading === theme.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Edit className="w-4 h-4" />
+                      )}
                     </button>
                     <button
                       onClick={() => handleDeleteClick(theme)}
-                      className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                      className="p-1 text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                       title="Delete theme"
                       disabled={deleteThemeMutation.isPending}
                     >
-                      <Trash2 className="w-4 h-4" />
+                      {deleteThemeMutation.isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -278,9 +296,10 @@ export function ViewThemesTab({ onSuccess, onError }: ViewThemesTabProps) {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setCurrentPage(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="px-3 py-1 text-sm border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                disabled={currentPage === 1 || isLoading}
+                className="px-3 py-1 text-sm border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 flex items-center gap-1"
               >
+                {isLoading && currentPage > 1 && <Loader2 className="h-3 w-3 animate-spin" />}
                 Previous
               </button>
               
@@ -301,12 +320,14 @@ export function ViewThemesTab({ onSuccess, onError }: ViewThemesTabProps) {
                     <button
                       key={pageNum}
                       onClick={() => setCurrentPage(pageNum)}
-                      className={`px-3 py-1 text-sm border rounded ${
+                      disabled={isLoading}
+                      className={`px-3 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 ${
                         currentPage === pageNum
                           ? "bg-blue-600 text-white border-blue-600"
                           : "border-gray-300 hover:bg-gray-50"
                       }`}
                     >
+                      {isLoading && currentPage === pageNum && <Loader2 className="h-3 w-3 animate-spin" />}
                       {pageNum}
                     </button>
                   );
@@ -315,10 +336,11 @@ export function ViewThemesTab({ onSuccess, onError }: ViewThemesTabProps) {
               
               <button
                 onClick={() => setCurrentPage(currentPage + 1)}
-                disabled={currentPage === pagination.pages}
-                className="px-3 py-1 text-sm border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                disabled={currentPage === pagination.pages || isLoading}
+                className="px-3 py-1 text-sm border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 flex items-center gap-1"
               >
                 Next
+                {isLoading && currentPage < pagination.pages && <Loader2 className="h-3 w-3 animate-spin" />}
               </button>
             </div>
           </div>
