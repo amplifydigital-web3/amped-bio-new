@@ -1,8 +1,8 @@
-import { trpc } from "../../utils/trpc";
+import { trpc } from "../../../utils/trpc";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { List, Image as ImageIcon, Eye, EyeOff, Loader2 } from "lucide-react";
 import { CategoryImageUploader } from "./CategoryImageUploader";
-import { Switch } from "../ui/Switch";
+import { Switch } from "../../ui/Switch";
 import { toast } from "react-hot-toast";
 
 interface ViewCategoriesTabProps {

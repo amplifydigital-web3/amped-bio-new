@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { trpc } from "../../utils/trpc";
+import { trpc } from "../../../utils/trpc";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, List, Eye, Grid } from "lucide-react";
 import { CreateThemeTab } from "./CreateThemeTab";

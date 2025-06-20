@@ -12,7 +12,7 @@ import {
   AdminLoadingSpinner,
   AdminLoadingError
 } from "../../components/admin";
-import { AdminQuickActions } from "../../components/admin/AdminQuickActions";
+import { AdminQuickActions } from "../../components/admin";
 
 export function AdminDashboard() {
   const [blockTypeDistribution, setBlockTypeDistribution] = useState<Record<string, number>>({});

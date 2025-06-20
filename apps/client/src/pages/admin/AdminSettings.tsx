@@ -1,6 +1,6 @@
 import { Settings } from "lucide-react";
-import { AdminPlaceholderContent } from "../../components/admin/AdminLayout";
-import { AdminQuickActions } from "../../components/admin/AdminQuickActions";
+import { AdminPlaceholderContent } from "../../components/admin";
+import { AdminQuickActions } from "../../components/admin";
 
 export function AdminSettings() {
   const handleRefresh = () => {
