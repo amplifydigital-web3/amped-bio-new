@@ -1,10 +1,10 @@
 import { useState, useCallback } from "react";
-import { trpc, trpcClient } from "../../utils/trpc";
+import { trpc, trpcClient } from "../../../utils/trpc";
 import { Search, ChevronLeft, ChevronRight, X, Eye, EyeOff } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
-import { formatUserRole, formatUserStatus, formatDate } from "../../utils/adminFormat";
-import { maskEmail } from "../../utils/email";
+import { formatUserRole, formatUserStatus, formatDate } from "../../../utils/adminFormat";
+import { maskEmail } from "../../../utils/email";
 
 // Define schema for user edit form
 const editUserSchema = z.object({

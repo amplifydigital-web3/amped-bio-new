@@ -16,8 +16,8 @@ import {
   Trash2,
   X
 } from "lucide-react";
-import { FileData, FileStatus, FileType } from "./fileTypes";
-import { trpc } from "../../utils/trpc";
+import { FileData, FileStatus, FileType } from "../shared/fileTypes";
+import { trpc } from "../../../utils/trpc";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 

@@ -1,6 +1,6 @@
 import { BarChart3, Users, Layers, Settings, LogOut, Home, Hexagon, FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useAuthStore } from "../../store/authStore";
+import { useAuthStore } from "../../../store/authStore";
 
 interface AdminSidebarProps {
   activeMenu: string;

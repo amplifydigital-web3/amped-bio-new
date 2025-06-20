@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { trpc, trpcClient } from "../../utils/trpc/trpc";
+import { trpc, trpcClient } from "../../../utils/trpc";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Search, Eye, Edit, Trash2, Users, Calendar, Folder, Image, AlertTriangle, X, Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";

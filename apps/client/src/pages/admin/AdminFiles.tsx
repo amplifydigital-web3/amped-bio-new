@@ -1,5 +1,5 @@
 import { FileManagement } from "../../components/admin";
-import { AdminQuickActions } from "../../components/admin/AdminQuickActions";
+import { AdminQuickActions } from "../../components/admin";
 
 export function AdminFiles() {
   const handleRefresh = () => {

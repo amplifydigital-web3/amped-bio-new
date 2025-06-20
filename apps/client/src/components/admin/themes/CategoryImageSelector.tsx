@@ -1,18 +1,18 @@
 import { useState, useRef, ChangeEvent } from "react";
 import { Image as ImageIcon, Upload, X } from "lucide-react";
-import { ALLOWED_AVATAR_FILE_EXTENSIONS, ALLOWED_AVATAR_FILE_TYPES, MAX_AVATAR_FILE_SIZE } from "@ampedbio/constants";
+import { ALLOWED_AVATAR_FILE_EXTENSIONS, ALLOWED_AVATAR_FILE_TYPES, MAX_ADMIN_AVATAR_FILE_SIZE } from "@ampedbio/constants";
 
-interface ThemeThumbnailSelectorProps {
+interface CategoryImageSelectorProps {
   onFileSelect: (file: File | null) => void;
   onError?: (error: string) => void;
   selectedFile?: File | null;
 }
 
-export function ThemeThumbnailSelector({ 
+export function CategoryImageSelector({ 
   onFileSelect, 
   onError,
   selectedFile 
-}: ThemeThumbnailSelectorProps) {
+}: CategoryImageSelectorProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -43,9 +43,9 @@ export function ThemeThumbnailSelector({
       return;
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > MAX_AVATAR_FILE_SIZE) {
-      const errorMsg = `File size must be less than ${(MAX_AVATAR_FILE_SIZE / (1024 * 1024)).toFixed(2)}MB`;
+    // Validate file size (max 50MB for admin)
+    if (file.size > MAX_ADMIN_AVATAR_FILE_SIZE) {
+      const errorMsg = `File size must be less than ${(MAX_ADMIN_AVATAR_FILE_SIZE / (1024 * 1024)).toFixed(2)}MB`;
       onError?.(errorMsg);
       return;
     }
@@ -69,7 +69,7 @@ export function ThemeThumbnailSelector({
 
   return (
     <div className="space-y-3">
-      <label className="block text-sm font-medium text-gray-700">Theme Thumbnail (Optional)</label>
+      <label className="block text-sm font-medium text-gray-700">Category Image (Optional)</label>
       
       {/* Preview */}
       {previewUrl && (
@@ -106,12 +106,12 @@ export function ThemeThumbnailSelector({
           {selectedFile ? (
             <>
               <ImageIcon className="w-4 h-4 mr-2" />
-              Change Thumbnail
+              Change Image
             </>
           ) : (
             <>
               <Upload className="w-4 h-4 mr-2" />
-              Select Thumbnail
+              Select Image
             </>
           )}
         </button>
@@ -125,7 +125,7 @@ export function ThemeThumbnailSelector({
       
       {/* File Requirements */}
       <p className="text-xs text-gray-500">
-        {ALLOWED_AVATAR_FILE_EXTENSIONS.join(', ').toUpperCase()}. Max {MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB.
+        {ALLOWED_AVATAR_FILE_EXTENSIONS.join(', ').toUpperCase()}. Max {MAX_ADMIN_AVATAR_FILE_SIZE / (1024 * 1024)}MB.
       </p>
     </div>
   );

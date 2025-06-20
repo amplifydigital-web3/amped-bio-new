@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { AdminThemeManager } from "../../components/admin/AdminThemeManager";
-import { AdminQuickActions } from "../../components/admin/AdminQuickActions";
+import { AdminThemeManager } from "../../components/admin";
+import { AdminQuickActions } from "../../components/admin";
 
 export function AdminThemes() {
   const [isRefreshing, setIsRefreshing] = useState(false);

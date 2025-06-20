@@ -1,9 +1,9 @@
 import { Layers, Settings } from "lucide-react";
 import { AdminHeader, AdminPlaceholderContent } from "./AdminLayout";
-import { AdminDashboard } from "./AdminDashboard";
-import { UserManagement } from "./UserManagement";
-import { AdminThemeManager } from "./AdminThemeManager";
-import { FileManagement } from "./FileManagement";
+import { AdminDashboard } from "../dashboard/AdminDashboard";
+import { UserManagement } from "../users/UserManagement";
+import { AdminThemeManager } from "../themes/AdminThemeManager";
+import { FileManagement } from "../files/FileManagement";
 
 interface AdminContentContainerProps {
   activeMenu: string;

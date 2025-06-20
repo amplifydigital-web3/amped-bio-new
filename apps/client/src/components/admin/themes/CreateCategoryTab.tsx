@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { trpc, trpcClient } from "../../utils/trpc";
+import { trpc, trpcClient } from "../../../utils/trpc";
 import { useMutation } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
@@ -87,7 +87,7 @@ export function CreateCategoryTab({ refetchCategories }: CreateCategoryTabProps)
     const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
     
     // Request presigned URL
-    const presignedData = await trpcClient.upload.requestThemeCategoryImagePresignedUrl.mutate({
+    const presignedData = await trpcClient.admin.upload.requestThemeCategoryImagePresignedUrl.mutate({
       categoryId,
       contentType: fileType,
       fileExtension: fileExtension,
@@ -108,7 +108,7 @@ export function CreateCategoryTab({ refetchCategories }: CreateCategoryTabProps)
     }
     
     // Confirm upload
-    await trpcClient.upload.confirmThemeCategoryImageUpload.mutate({
+    await trpcClient.admin.upload.confirmThemeCategoryImageUpload.mutate({
       categoryId,
       fileId: presignedData.fileId,
       fileName: file.name,

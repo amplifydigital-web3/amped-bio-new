@@ -1,5 +1,5 @@
-import { UserManagement } from "../../components/admin/UserManagement";
-import { AdminQuickActions } from "../../components/admin/AdminQuickActions";
+import { UserManagement } from "../../components/admin";
+import { AdminQuickActions } from "../../components/admin";
 
 export function AdminUsers() {
   const handleRefresh = () => {

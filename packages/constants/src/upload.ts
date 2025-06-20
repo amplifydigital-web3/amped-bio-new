@@ -9,6 +9,12 @@ export const MAX_AVATAR_FILE_SIZE = 5 * 1024 * 1024;
 // Maximum file size for background uploads (10MB)
 export const MAX_BACKGROUND_FILE_SIZE = 10 * 1024 * 1024;
 
+// Maximum file size for admin avatar uploads (50MB)
+export const MAX_ADMIN_AVATAR_FILE_SIZE = 50 * 1024 * 1024;
+
+// Maximum file size for admin background uploads (50MB)
+export const MAX_ADMIN_BACKGROUND_FILE_SIZE = 50 * 1024 * 1024;
+
 // Allowed MIME types for avatar uploads (images only)
 export const ALLOWED_AVATAR_FILE_TYPES = [
   // Images

@@ -1,9 +1,9 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { BarChart3, Users, Layers, Settings, LogOut, Home, Hexagon, Files } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
-import { AdminHeader } from "../../components/admin/AdminLayout";
-import { AdminBreadcrumb } from "../../components/admin/AdminBreadcrumb";
-import { AdminNotificationContainer } from "../../components/admin/AdminNotification";
+import { AdminHeader } from "../../components/admin";
+import { AdminBreadcrumb } from "../../components/admin";
+import { AdminNotificationContainer } from "../../components/admin";
 import { useAdminKeyboardShortcuts } from "../../hooks/useAdminKeyboardShortcuts";
 
 export function AdminLayout() {

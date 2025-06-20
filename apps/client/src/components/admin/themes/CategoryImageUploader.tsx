@@ -1,21 +1,21 @@
 import { useState, useRef, ChangeEvent } from "react";
 import { Image as ImageIcon, Upload } from "lucide-react";
-import { trpcClient } from "../../utils/trpc";
-import { ALLOWED_AVATAR_FILE_EXTENSIONS, ALLOWED_AVATAR_FILE_TYPES, MAX_AVATAR_FILE_SIZE } from "@ampedbio/constants";
+import { trpcClient } from "../../../utils/trpc";
+import { ALLOWED_AVATAR_FILE_EXTENSIONS, ALLOWED_AVATAR_FILE_TYPES, MAX_ADMIN_AVATAR_FILE_SIZE } from "@ampedbio/constants";
 
-interface ThemeThumbnailUploaderProps {
-  themeId: number;
+interface CategoryImageUploaderProps {
+  categoryId: number;
   currentImageUrl?: string;
   onImageUpload: (imageUrl: string, fileId: number) => void;
   onError?: (error: string) => void;
 }
 
-export function ThemeThumbnailUploader({ 
-  themeId, 
+export function CategoryImageUploader({ 
+  categoryId, 
   currentImageUrl, 
   onImageUpload, 
   onError 
-}: ThemeThumbnailUploaderProps) {
+}: CategoryImageUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -41,9 +41,9 @@ export function ThemeThumbnailUploader({
       return;
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > MAX_AVATAR_FILE_SIZE) {
-      const errorMsg = `File size must be less than ${(MAX_AVATAR_FILE_SIZE / (1024 * 1024)).toFixed(2)}MB`;
+    // Validate file size (max 50MB for admin)
+    if (file.size > MAX_ADMIN_AVATAR_FILE_SIZE) {
+      const errorMsg = `File size must be less than ${(MAX_ADMIN_AVATAR_FILE_SIZE / (1024 * 1024)).toFixed(2)}MB`;
       onError?.(errorMsg);
       return;
     }
@@ -58,26 +58,26 @@ export function ThemeThumbnailUploader({
       const fileType = file.type;
       const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
       
-      console.log("Preparing to upload theme thumbnail with:", {
-        themeId,
+      console.log("Preparing to upload category image with:", {
+        categoryId,
         contentType: fileType,
         fileExtension,
         fileName: file.name,
         fileSize: file.size
       });
       
-      // Request presigned URL from server for theme thumbnail
-      const presignedData = await trpcClient.upload.requestThemeThumbnailPresignedUrl.mutate({
-        themeId,
+      // Request presigned URL from server for category image
+      const presignedData = await trpcClient.admin.upload.requestThemeCategoryImagePresignedUrl.mutate({
+        categoryId,
         contentType: fileType,
         fileExtension: fileExtension,
         fileSize: file.size,
       });
       
-      console.log("Server response - presigned URL data for theme thumbnail:", presignedData);
+      console.log("Server response - presigned URL data for category image:", presignedData);
       
       // Upload to S3
-      console.log("Starting S3 upload for theme thumbnail with presigned URL:", presignedData.presignedUrl.substring(0, 100) + "...");
+      console.log("Starting S3 upload for category image with presigned URL:", presignedData.presignedUrl.substring(0, 100) + "...");
       const uploadResponse = await fetch(presignedData.presignedUrl, {
         method: 'PUT',
         body: file,
@@ -88,7 +88,7 @@ export function ThemeThumbnailUploader({
       
       if (!uploadResponse.ok) {
         const errorText = await uploadResponse.text();
-        console.error("S3 theme thumbnail upload failed:", {
+        console.error("S3 category image upload failed:", {
           status: uploadResponse.status,
           statusText: uploadResponse.statusText,
           responseBody: errorText,
@@ -96,23 +96,23 @@ export function ThemeThumbnailUploader({
         throw new Error(`Upload failed with status: ${uploadResponse.status} ${uploadResponse.statusText}`);
       }
       
-      console.log("S3 theme thumbnail upload completed successfully:", uploadResponse.status);
+      console.log("S3 category image upload completed successfully:", uploadResponse.status);
       
       // Confirm upload with the server
-      const result = await trpcClient.upload.confirmThemeThumbnailUpload.mutate({
-        themeId,
+      const result = await trpcClient.admin.upload.confirmThemeCategoryImageUpload.mutate({
+        categoryId,
         fileId: presignedData.fileId,
         fileName: file.name,
       });
       
-      console.log("Server response - theme thumbnail upload confirmation:", result);
+      console.log("Server response - category image upload confirmation:", result);
       
       // Notify parent component
-      onImageUpload(result.thumbnailUrl, result.fileId);
+      onImageUpload(result.imageUrl, result.fileId);
       
     } catch (error: any) {
-      console.error("Error uploading theme thumbnail:", error);
-      const errorMessage = error?.message || "Failed to upload theme thumbnail";
+      console.error("Error uploading category image:", error);
+      const errorMessage = error?.message || "Failed to upload category image";
       onError?.(errorMessage);
     } finally {
       setIsUploading(false);
@@ -121,14 +121,14 @@ export function ThemeThumbnailUploader({
 
   return (
     <div className="space-y-3">
-      <label className="block text-sm font-medium text-gray-700">Theme Thumbnail</label>
+      <label className="block text-sm font-medium text-gray-700">Category Image</label>
       
       {/* Current Image Preview */}
       {currentImageUrl && (
         <div className="relative w-24 h-24 rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
           <img 
             src={currentImageUrl} 
-            alt="Theme Thumbnail" 
+            alt="Category" 
             className="w-full h-full object-cover"
           />
         </div>
@@ -162,12 +162,12 @@ export function ThemeThumbnailUploader({
               {currentImageUrl ? (
                 <>
                   <ImageIcon className="w-4 h-4 mr-2" />
-                  Change Thumbnail
+                  Change Image
                 </>
               ) : (
                 <>
                   <Upload className="w-4 h-4 mr-2" />
-                  Upload Thumbnail
+                  Upload Image
                 </>
               )}
             </>
@@ -177,7 +177,7 @@ export function ThemeThumbnailUploader({
       
       {/* File Requirements */}
       <p className="text-xs text-gray-500">
-        {ALLOWED_AVATAR_FILE_EXTENSIONS.join(', ').toUpperCase()}. Max {MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB.
+        {ALLOWED_AVATAR_FILE_EXTENSIONS.join(', ').toUpperCase()}. Max {MAX_ADMIN_AVATAR_FILE_SIZE / (1024 * 1024)}MB.
       </p>
     </div>
   );

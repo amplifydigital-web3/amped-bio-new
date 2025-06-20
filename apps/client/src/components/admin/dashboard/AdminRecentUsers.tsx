@@ -1,7 +1,7 @@
 import { ArrowUpRight, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import toast from "react-hot-toast";
-import { obscureEmail } from "../../utils/email";
+import { obscureEmail } from "../../../utils/email";
 
 interface User {
   id: number;

@@ -4,6 +4,7 @@ import { blocksRouter } from "./blocks";
 import { themesRouter } from "./themes";
 import { dashboardRouter } from "./dashboard";
 import { filesRouter } from "./files";
+import { adminUploadRouter } from "./upload";
 
 export const adminRouter = router({
   // User Management
@@ -20,4 +21,7 @@ export const adminRouter = router({
   
   // File Management
   files: filesRouter,
+  
+  // Upload Management (Admin Only)
+  upload: adminUploadRouter,
 });
