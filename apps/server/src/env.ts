@@ -16,9 +16,9 @@ export const env = cleanEnv(process.env, {
     default: 43000,
   }),
   VERCEL_PROJECT_PRODUCTION_URL: str({
-    desc: "URL for the site in production",
+    desc: "URL for the website in production",
     default: "http://localhost:5173",
-    example: "https://yourdomain.com",
+    example: "https://amped.bio",
   }),
   // New SMTP variables with MailDev defaults
   SMTP_HOST: str({

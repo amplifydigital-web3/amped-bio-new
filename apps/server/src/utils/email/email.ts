@@ -4,12 +4,8 @@ import verifyEmailTemplate from "./VerifyEmailTemplate";
 import resetPasswordTemplate from "./ResetPasswordTemplate";
 import emailChangeTemplate from "./EmailChangeTemplate";
 import { env } from "../../env";
-import { withRelatedProject } from "@vercel/related-projects";
 
-const baseURL = withRelatedProject({
-  projectName: "amped-bio",
-  defaultHost: env.VERCEL_PROJECT_PRODUCTION_URL ?? "http://localhost:43000",
-});
+const baseURL = env.VERCEL_PROJECT_PRODUCTION_URL;;
 
 type EmailOptions = {
   to: string | string[];
