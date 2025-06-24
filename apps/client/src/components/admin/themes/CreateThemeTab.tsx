@@ -150,7 +150,7 @@ const themeSchema = z.object({
   description: z.string().max(500, "Description must be less than 500 characters").optional(),
   share_config: z.any().optional(),
   config: z.any().optional(),
-  category_id: z.number().min(1, "Category is required"),
+  category_id: z.number().min(1, "Collection is required"),
 });
 
 type ThemeForm = z.infer<typeof themeSchema>;
@@ -823,18 +823,18 @@ export function CreateThemeTab({}: CreateThemeTabProps) {
           </div>
           
           <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="theme-category">
-              Category *
+            <label className="block text-sm font-medium mb-1" htmlFor="theme-collection">
+              Collection *
             </label>
             <select
-              id="theme-category"
+              id="theme-collection"
               className={`w-full px-3 py-2 border rounded-md ${
                 themeForm.formState.errors.category_id ? "border-red-500" : "border-gray-300"
               }`}
               value={themeForm.watch("category_id") ?? ""}
               onChange={handleCategorySelect}
             >
-              <option value="">Select a category</option>
+              <option value="">Select a collection</option>
               {categories?.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.title}
