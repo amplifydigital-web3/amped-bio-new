@@ -3,12 +3,12 @@ import { trpc } from "../../../utils/trpc";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, List, Eye, Grid } from "lucide-react";
 import { CreateThemeTab } from "./CreateThemeTab";
-import { CreateCategoryTab } from "./CreateCategoryTab";
-import { ViewCategoriesTab } from "./ViewCategoriesTab";
+import { CreateCollectionTab } from "./CreateCollectionTab";
+import { ViewCollectionsTab } from "./ViewCollectionsTab";
 import { ViewThemesTab } from "./ViewThemesTab";
 
 export function AdminThemeManager() {
-  const [activeTab, setActiveTab] = useState<"themes" | "categories" | "view-categories" | "view-themes">("themes");
+  const [activeTab, setActiveTab] = useState<"themes" | "collections" | "view-collections" | "view-themes">("themes");
 
   // Queries
   const { refetch: refetchCategories } = useQuery(
@@ -33,26 +33,26 @@ export function AdminThemeManager() {
               Create Theme
             </button>
             <button
-              onClick={() => setActiveTab("categories")}
+              onClick={() => setActiveTab("collections")}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === "categories"
+                activeTab === "collections"
                   ? "border-blue-500 text-blue-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
             >
               <List className="h-4 w-4 inline mr-2" />
-              Create Category
+              Create Collection
             </button>
             <button
-              onClick={() => setActiveTab("view-categories")}
+              onClick={() => setActiveTab("view-collections")}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === "view-categories"
+                activeTab === "view-collections"
                   ? "border-blue-500 text-blue-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
             >
               <Eye className="h-4 w-4 inline mr-2" />
-              View Categories
+              View Collections
             </button>
             <button
               onClick={() => setActiveTab("view-themes")}
@@ -78,16 +78,16 @@ export function AdminThemeManager() {
               <CreateThemeTab />
             )}
 
-            {/* Category Management Tab */}
-            {activeTab === "categories" && (
-              <CreateCategoryTab
+            {/* Collection Management Tab */}
+            {activeTab === "collections" && (
+              <CreateCollectionTab
                 refetchCategories={refetchCategories}
               />
             )}
 
-            {/* View Categories Tab */}
-            {activeTab === "view-categories" && (
-              <ViewCategoriesTab
+            {/* View Collections Tab */}
+            {activeTab === "view-collections" && (
+              <ViewCollectionsTab
                 refetchCategories={refetchCategories}
               />
             )}

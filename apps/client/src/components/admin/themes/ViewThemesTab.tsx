@@ -23,7 +23,7 @@ export function ViewThemesTab({}: ViewThemesTabProps) {
   const [editLoading, setEditLoading] = useState<number | null>(null);
   const limit = 10;
 
-  // Get theme categories for filtering
+  // Get theme collections for filtering
   const { data: categories } = useQuery(
     trpc.admin.themes.getThemeCategories.queryOptions()
   );
@@ -142,13 +142,13 @@ export function ViewThemesTab({}: ViewThemesTabProps) {
             />
           </div>
 
-          {/* Category Filter */}
+          {/* Collection Filter */}
           <select
             value={selectedCategory || ""}
             onChange={(e) => handleCategoryFilter(e.target.value ? Number(e.target.value) : undefined)}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            <option value="">All Categories</option>
+            <option value="">All Collections</option>
             {categories?.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.title}
