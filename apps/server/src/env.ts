@@ -9,7 +9,7 @@ export const env = cleanEnv(process.env, {
     desc: "Port for the server to listen on",
     default: 43000,
   }),
-  VERCEL_PROJECT_PRODUCTION_URL: str({
+  FRONTEND_URL: str({
     desc: "URL for the site in production",
     default: "http://localhost:5173",
     example: "https://yourdomain.com",
