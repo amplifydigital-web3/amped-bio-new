@@ -13,6 +13,7 @@ import {
   processPasswordResetSchema,
 } from "../schemas/auth.schema";
 import { env } from "../env";
+import { WalletService } from "../services/WalletService";
 
 const prisma = new PrismaClient();
 
@@ -71,6 +72,14 @@ export const authRouter = router({
           role: userRole,
         },
       });
+
+      // Create wallet for the new user
+      try {
+        await WalletService.createWalletForUser(result.id);
+      } catch (error) {
+        console.error("Error creating wallet for user:", error);
+        // We continue even if wallet creation fails
+      }
 
       // Send verification email
       // try {

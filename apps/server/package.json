@@ -46,6 +46,7 @@
     "prisma": "^6.2.1",
     "react": "^19",
     "react-dom": "^19",
+    "viem": "^2.22.10",
     "zod": "^3.25.64"
   },
   "devDependencies": {
