@@ -5,7 +5,7 @@ import resetPasswordTemplate from "./ResetPasswordTemplate";
 import emailChangeTemplate from "./EmailChangeTemplate";
 import { env } from "../../env";
 
-const baseURL = env.VERCEL_PROJECT_PRODUCTION_URL;;
+const baseURL = env.FRONTEND_URL;;
 
 type EmailOptions = {
   to: string | string[];
