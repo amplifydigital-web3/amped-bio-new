@@ -94,8 +94,7 @@ model Wallet {
   id                  Int       @id @default(autoincrement())
   user_id             Int       @unique
   address             String    @unique @db.VarChar(42)
-  public_key          String    @db.Text
-  private_key         String    @db.Text
+  mnemonic            String    @db.Text
   created_at          DateTime  @default(now())
   updated_at          DateTime? @updatedAt
   

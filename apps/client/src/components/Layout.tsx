@@ -13,6 +13,7 @@ import { CreatorPoolPanel } from "./panels/creatorpool/CreatorPoolPanel";
 import { LeaderboardPanel } from "./panels/leaderboard/LeaderboardPanel";
 import { RNSPanel } from "./panels/rns/RNSPanel";
 import { HomePanel } from "./panels/home/HomePanel";
+import { MyWalletPanel } from "./panels/wallet/MyWalletPanel";
 import { Eye } from "lucide-react";
 import RewardPanel from "./panels/reward/RewardPanel.tsx";
 import { useAuthStore } from "@/store/authStore.ts";
@@ -32,6 +33,7 @@ type PanelType =
   | "creatorpool" 
   | "leaderboard" 
   | "rns" 
+  | "wallet"
   | "account";
 
 interface PanelConfig {
@@ -54,6 +56,7 @@ export function Layout(props: LayoutProps) {
     // Single column pages (full width)
     home: { layout: "single", width: "full" },
     reward: { layout: "single", width: "full" },
+    wallet: { layout: "single", width: "full" },
     account: { layout: "single", width: "full" },
     
     // Two column pages with wide panels (for data-heavy content)
@@ -126,6 +129,7 @@ export function Layout(props: LayoutProps) {
               {activePanel === "appearance" && <AppearancePanel />}
               {activePanel === "effects" && <EffectsPanel />}
               {activePanel === "blocks" && <BlocksPanel />}
+              {activePanel === "wallet" && <MyWalletPanel />}
               {activePanel === "creatorpool" && <CreatorPoolPanel />}
               {activePanel === "leaderboard" && <LeaderboardPanel />}
               {activePanel === "rns" && <RNSPanel />}

@@ -74,8 +74,10 @@ export const authRouter = router({
       });
 
       // Create wallet for the new user
+      let walletAddress = null;
       try {
-        await WalletService.createWalletForUser(result.id);
+        const wallet = await WalletService.createWalletForUser(result.id);
+        walletAddress = wallet.address;
       } catch (error) {
         console.error("Error creating wallet for user:", error);
         // We continue even if wallet creation fails
@@ -92,7 +94,7 @@ export const authRouter = router({
       // Return user data and token
       return {
         success: true,
-        user: { id: result.id, email, onelink },
+        user: { id: result.id, email, onelink, walletAddress },
         token: generateToken({ id: result.id, email, role: result.role }),
       };
     }),
@@ -106,6 +108,9 @@ export const authRouter = router({
       // Find user
       const user = await prisma.user.findUnique({
         where: { email },
+        include: {
+          wallet: true,
+        },
       });
 
       if (!user) {
@@ -125,12 +130,24 @@ export const authRouter = router({
         });
       }
 
+      // Check if user has a wallet, if not create one
+      let walletAddress = user.wallet?.address || null;
+      if (!user.wallet) {
+        try {
+          const wallet = await WalletService.createWalletForUser(user.id);
+          walletAddress = wallet.address;
+        } catch (error) {
+          console.error("Error creating wallet for user during login:", error);
+          // We continue even if wallet creation fails
+        }
+      }
+
       const emailVerified = user.email_verified_at !== null;
 
       // Return user data and token
       return {
         success: true,
-        user: { id: user.id, email: user.email, onelink: user.onelink!, emailVerified },
+        user: { id: user.id, email: user.email, onelink: user.onelink!, emailVerified, walletAddress },
         token: generateToken({ id: user.id, email: user.email, role: user.role }),
       };
     }),

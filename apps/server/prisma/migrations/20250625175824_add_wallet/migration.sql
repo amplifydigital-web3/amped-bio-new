@@ -3,8 +3,7 @@ CREATE TABLE `wallets` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `user_id` INTEGER NOT NULL,
     `address` VARCHAR(42) NOT NULL,
-    `public_key` TEXT NOT NULL,
-    `private_key` TEXT NOT NULL,
+    `mnemonic` TEXT NOT NULL,
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updated_at` DATETIME(3) NULL,
 

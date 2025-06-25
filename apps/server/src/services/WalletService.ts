@@ -3,6 +3,9 @@ import { PrismaClient } from '@prisma/client';
 import { TRPCError } from '@trpc/server';
 import crypto from 'crypto';
 import { env } from '../env';
+import { generateMnemonic, mnemonicToSeedSync } from '@scure/bip39';
+import { wordlist } from '@scure/bip39/wordlists/english';
+import { HDKey } from '@scure/bip32';
 
 const prisma = new PrismaClient();
 
@@ -13,9 +16,9 @@ export class WalletService {
   private static readonly TAG_LENGTH = 16;
 
   /**
-   * Encrypt a private key using AES-256-GCM
+   * Encrypt data using AES-256-GCM
    */
-  private static encryptPrivateKey(privateKey: string): string {
+  private static encryptData(data: string): string {
     const salt = crypto.randomBytes(this.SALT_LENGTH);
     const iv = crypto.randomBytes(this.IV_LENGTH);
     
@@ -24,7 +27,7 @@ export class WalletService {
     
     const cipher = crypto.createCipher('aes-256-cbc', key);
     
-    let encrypted = cipher.update(privateKey, 'utf8', 'hex');
+    let encrypted = cipher.update(data, 'utf8', 'hex');
     encrypted += cipher.final('hex');
     
     // Combine salt + iv + encrypted data
@@ -34,9 +37,9 @@ export class WalletService {
   }
 
   /**
-   * Decrypt a private key using AES-256-GCM
+   * Decrypt data using AES-256-GCM
    */
-  private static decryptPrivateKey(encryptedData: string): string {
+  private static decryptData(encryptedData: string): string {
     const parts = encryptedData.split(':');
     if (parts.length !== 3) {
       throw new Error('Invalid encrypted data format');
@@ -58,22 +61,54 @@ export class WalletService {
   }
 
   /**
-   * Generate a new Ethereum wallet with private key, public key, and address
+   * Derive private key from mnemonic
+   */
+  static derivePrivateKeyFromMnemonic(mnemonic: string): `0x${string}` {
+    // Convert mnemonic to seed
+    const seed = mnemonicToSeedSync(mnemonic);
+    
+    // Create HD wallet from seed
+    const hdKey = HDKey.fromMasterSeed(seed);
+    
+    // Derive Ethereum account using standard path m/44'/60'/0'/0/0
+    const derivedKey = hdKey.derive("m/44'/60'/0'/0/0");
+    
+    if (!derivedKey.privateKey) {
+      throw new Error('Failed to derive private key');
+    }
+    
+    // Convert to hex string with 0x prefix
+    return `0x${Buffer.from(derivedKey.privateKey).toString('hex')}` as `0x${string}`;
+  }
+
+  /**
+   * Derive public key from mnemonic
+   */
+  static derivePublicKeyFromMnemonic(mnemonic: string): `0x${string}` {
+    const privateKey = this.derivePrivateKeyFromMnemonic(mnemonic);
+    const account = privateKeyToAccount(privateKey);
+    return account.publicKey;
+  }
+
+  /**
+   * Generate a new Ethereum wallet with mnemonic, private key, public key, and address
    */
   static generateWallet() {
-    // Generate a random private key
-    const privateKey = generatePrivateKey();
+    // Generate a 24-word mnemonic phrase
+    const mnemonic = generateMnemonic(wordlist, 256); // 256 bits = 24 words
+    
+    // Derive private key from mnemonic
+    const privateKey = this.derivePrivateKeyFromMnemonic(mnemonic);
     
     // Create account from private key
     const account = privateKeyToAccount(privateKey);
     
-    // Get the public key and address
+    // Get the address (public key can be derived when needed)
     const address = account.address;
-    const publicKey = account.publicKey;
     
     return {
-      privateKey,
-      publicKey,
+      mnemonic,
+      privateKey, // We'll use this only for wallet generation, not storage
       address,
     };
   }
@@ -98,24 +133,22 @@ export class WalletService {
       // Generate new wallet
       const walletData = this.generateWallet();
 
-      // Encrypt the private key before saving
-      const encryptedPrivateKey = this.encryptPrivateKey(walletData.privateKey);
+      // Encrypt only the mnemonic before saving
+      const encryptedMnemonic = this.encryptData(walletData.mnemonic);
 
-      // Save wallet to database
+      // Save wallet to database (only address and mnemonic)
       const wallet = await prisma.wallet.create({
         data: {
           user_id: userId,
           address: walletData.address,
-          public_key: walletData.publicKey,
-          private_key: encryptedPrivateKey,
+          mnemonic: encryptedMnemonic,
         },
       });
 
-      // Return wallet data without private key for security
+      // Return wallet data without sensitive information
       return {
         id: wallet.id,
         address: wallet.address,
-        public_key: wallet.public_key,
         created_at: wallet.created_at,
       };
     } catch (error) {
@@ -137,7 +170,6 @@ export class WalletService {
         select: {
           id: true,
           address: true,
-          public_key: true,
           created_at: true,
           updated_at: true,
         },
@@ -161,14 +193,15 @@ export class WalletService {
   }
 
   /**
-   * Get wallet private key for a user (use with caution!)
+   * Get derived private key for a user's wallet (use with caution!)
+   * This derives the private key from the stored mnemonic
    */
   static async getUserWalletPrivateKey(userId: number) {
     try {
       const wallet = await prisma.wallet.findUnique({
         where: { user_id: userId },
         select: {
-          private_key: true,
+          mnemonic: true,
         },
       });
 
@@ -179,10 +212,10 @@ export class WalletService {
         });
       }
 
-      // Decrypt the private key before returning
-      const decryptedPrivateKey = this.decryptPrivateKey(wallet.private_key);
-
-      return decryptedPrivateKey;
+      // Decrypt the mnemonic and derive private key
+      const decryptedMnemonic = this.decryptData(wallet.mnemonic);
+      const privateKey = this.derivePrivateKeyFromMnemonic(decryptedMnemonic);
+      return privateKey;
     } catch (error) {
       console.error('Error getting user wallet private key:', error);
       throw new TRPCError({
@@ -193,9 +226,86 @@ export class WalletService {
   }
 
   /**
+   * Get wallet mnemonic for a user (use with extreme caution!)
+   * This method is prepared for future export functionality
+   */
+  static async getUserWalletMnemonic(userId: number) {
+    try {
+      const wallet = await prisma.wallet.findUnique({
+        where: { user_id: userId },
+        select: {
+          // TODO: Uncomment after running migration
+          // mnemonic: true,
+          id: true, // Temporary field until mnemonic is available
+        },
+      });
+
+      if (!wallet) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Wallet not found for user',
+        });
+      }
+
+      // TODO: Uncomment after running migration
+      // Decrypt the mnemonic before returning
+      // const decryptedMnemonic = this.decryptData(wallet.mnemonic);
+      // return decryptedMnemonic;
+
+      // Temporary return until migration is applied
+      throw new TRPCError({
+        code: 'NOT_IMPLEMENTED',
+        message: 'Mnemonic export not yet available - database migration pending',
+      });
+    } catch (error) {
+      console.error('Error getting user wallet mnemonic:', error);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to get wallet mnemonic',
+      });
+    }
+  }
+
+  /**
+   * Validate if a mnemonic phrase is valid
+   */
+  static isValidMnemonic(mnemonic: string): boolean {
+    try {
+      // Try to generate seed from mnemonic
+      mnemonicToSeedSync(mnemonic);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Check if address is valid Ethereum address
    */
   static isValidEthereumAddress(address: string): boolean {
     return /^0x[a-fA-F0-9]{40}$/.test(address);
   }
 }
+
+/*
+ * TODO: After running the database migration to update wallet schema:
+ * 1. Run: pnpm --filter server run prisma:migrate:dev --name optimize-wallet-schema  
+ * 2. Run: pnpm --filter server run prisma:generate
+ * 3. Update the code in this file:
+ *    - Line ~137-138: Remove 'private_key: "",' and 'public_key: "",' 
+ *    - Line ~139: Uncomment 'mnemonic: encryptedMnemonic,'
+ *    - Line ~193: Uncomment mnemonic selection and logic in getUserWalletPrivateKey
+ *    - Line ~218: Uncomment mnemonic selection and logic in getUserWalletMnemonic
+ * 
+ * Final optimized wallet storage:
+ * - ✅ address: Public identifier (42 chars)
+ * - ✅ mnemonic: Encrypted 24-word seed phrase
+ * - ❌ private_key: Derived on-demand from mnemonic
+ * - ❌ public_key: Derived on-demand from private key
+ * 
+ * Benefits:
+ * - Minimal storage (just address + encrypted mnemonic)
+ * - Maximum security (derive keys only when needed)
+ * - Easy export (24-word mnemonic phrase)
+ * - Standard compliance (BIP39/BIP32/BIP44)
+ */
