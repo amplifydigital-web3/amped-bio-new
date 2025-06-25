@@ -92,7 +92,7 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
   const handleUpload = async (file: File) => {
     setIsUploading(true);
     setError(null); // Clear previous errors
-    let presignedDataForLogging: { presignedUrl: string; fileKey: string } | null = null;
+    let presignedDataForLogging: { presignedUrl: string; fileId: number } | null = null;
 
     try {
       const fileType = file.type;
@@ -142,7 +142,8 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
         
         // Confirm upload with the server
         const result = await trpcClient.upload.confirmProfilePictureUpload.mutate({
-          fileKey: presignedData.fileKey,
+          fileId: presignedData.fileId,
+          fileName: file.name,
           category: "profiles"
         });
         
@@ -162,7 +163,7 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
             message: (uploadError && uploadError.message) ? uploadError.message : 'Unknown fetch error',
             stack: (uploadError && uploadError.stack) ? uploadError.stack : 'No stack available',
             url: presignedDataForLogging?.presignedUrl.substring(0,100)+"...",
-            fileKey: presignedDataForLogging?.fileKey,
+            fileId: presignedDataForLogging?.fileId,
         });
         throw new Error(detailedMessage); 
       }
@@ -188,7 +189,7 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
         originalErrorMessage: (error && error.message) ? error.message : 'No message available',
         originalErrorStack: (error && error.stack) ? error.stack : 'No stack available',
         presignedUrlAttempted: presignedDataForLogging?.presignedUrl.substring(0,100)+"...",
-        fileKeyAttempted: presignedDataForLogging?.fileKey,
+        fileIdAttempted: presignedDataForLogging?.fileId,
         fileName: file.name,
         fileType: file.type,
         fileSize: file.size,

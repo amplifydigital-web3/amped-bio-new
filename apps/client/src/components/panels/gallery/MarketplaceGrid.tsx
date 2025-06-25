@@ -9,7 +9,7 @@ interface MarketplaceGridProps {
 
 export function MarketplaceGrid({ themes, onApply }: MarketplaceGridProps) {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 gap-4">
       {themes.map(theme => (
         <ThemeCard key={theme.id} theme={theme} onApply={onApply} />
       ))}

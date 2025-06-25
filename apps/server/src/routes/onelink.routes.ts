@@ -7,6 +7,7 @@ import { authMiddleware } from "../middleware/auth";
 const router: Router = express.Router();
 
 // Onelink routes
+// TODO delete these routes and controllers
 router.get(
   "/:onelink",
   validate(onelinkParamSchema, ValidationTarget.Params),

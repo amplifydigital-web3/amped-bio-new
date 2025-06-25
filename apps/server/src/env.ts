@@ -1,6 +1,12 @@
 import { cleanEnv, str, port, bool } from "envalid";
 
 export const env = cleanEnv(process.env, {
+  NODE_ENV: str({
+    desc: "The environment the app is running in",
+    choices: ["development", "production", "test"],
+    default: "development",
+    example: "development",
+  }),
   JWT_SECRET: str({
     desc: "Secret key for JWT token generation and verification",
     default: "your-default-jwt-secret-for-development",
@@ -10,9 +16,9 @@ export const env = cleanEnv(process.env, {
     default: 43000,
   }),
   FRONTEND_URL: str({
-    desc: "URL for the site in production",
+    desc: "URL for the website in production",
     default: "http://localhost:5173",
-    example: "https://yourdomain.com",
+    example: "https://amped.bio",
   }),
   // New SMTP variables with MailDev defaults
   SMTP_HOST: str({

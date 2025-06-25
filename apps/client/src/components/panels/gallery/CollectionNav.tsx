@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { ChevronDown, Search, X } from "lucide-react";
-import { collections } from "../../../utils/themes";
+import { useCollections } from "../../../hooks/useCollections";
 
 interface CollectionNavProps {
   activeCollection: string;
@@ -15,6 +15,9 @@ export function CollectionNav({ activeCollection, onCollectionChange }: Collecti
   const searchInputRef = useRef<HTMLInputElement>(null);
   const optionsRef = useRef<(HTMLButtonElement | null)[]>([]);
 
+  // Get collections from the hook (merged server + hardcoded)
+  const { collections, isLoading } = useCollections();
+
   const activeLabel = activeCollection
     ? collections.find(c => c.id === activeCollection)?.name
     : "Collections";
@@ -25,7 +28,7 @@ export function CollectionNav({ activeCollection, onCollectionChange }: Collecti
           c.name.toLowerCase().includes(searchQuery.toLowerCase())
         )
       : [{ id: "", name: "Collections" }, ...collections];
-  }, [searchQuery]);
+  }, [searchQuery, collections]);
 
   // Handle keyboard navigation
   useEffect(() => {
@@ -99,9 +102,12 @@ export function CollectionNav({ activeCollection, onCollectionChange }: Collecti
             onClick={() => setIsOpen(!isOpen)}
             aria-haspopup="listbox"
             aria-expanded={isOpen}
-            className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+            disabled={isLoading}
+            className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span className="font-medium text-gray-900 truncate">{activeLabel}</span>
+            <span className="font-medium text-gray-900 truncate">
+              {isLoading ? "Loading..." : activeLabel}
+            </span>
             <ChevronDown
               className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
             />

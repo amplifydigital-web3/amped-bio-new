@@ -1,7 +1,9 @@
 import { Layers, Settings } from "lucide-react";
 import { AdminHeader, AdminPlaceholderContent } from "./AdminLayout";
-import { AdminDashboard } from "./AdminDashboard";
-import { UserManagement } from "./UserManagement";
+import { AdminDashboard } from "../dashboard/AdminDashboard";
+import { UserManagement } from "../users/UserManagement";
+import { AdminThemeManager } from "../themes/AdminThemeManager";
+import { FileManagement } from "../files/FileManagement";
 
 interface AdminContentContainerProps {
   activeMenu: string;
@@ -42,6 +44,8 @@ export const AdminContentContainer = ({
         activeMenu === "dashboard" ? "Admin Dashboard" : 
         activeMenu === "users" ? "User Management" : 
         activeMenu === "blocks" ? "Block Management" : 
+        activeMenu === "themes" ? "Theme Management" :
+        activeMenu === "files" ? "File Management" :
         activeMenu === "settings" ? "Admin Settings" : 
         "Admin Dashboard"
       } />
@@ -76,6 +80,14 @@ export const AdminContentContainer = ({
           title="Admin Settings"
           description="Settings panel will be implemented here"
         />
+      )}
+
+      {activeMenu === "themes" && (
+        <AdminThemeManager />
+      )}
+
+      {activeMenu === "files" && (
+        <FileManagement />
       )}
     </div>
   );

@@ -1,10 +1,12 @@
-import React, { useCallback, useMemo, memo, useState, useRef } from "react";
-import { Check, Upload, Loader2, ExternalLink } from "lucide-react";
+import React, { useCallback, useMemo, memo, useState } from "react";
+import { Check, ExternalLink } from "lucide-react";
 import type { Background } from "../../../types/editor";
 import { gradients, photos, videos, backgroundColors } from "../../../utils/backgrounds";
 import CollapsiblePanelWrapper from "../CollapsiblePanelWrapper";
 import { trpcClient } from "../../../utils/trpc";
+import { useEditorStore } from "../../../store/editorStore";
 import { ALLOWED_BACKGROUND_FILE_EXTENSIONS, ALLOWED_BACKGROUND_FILE_TYPES, MAX_BACKGROUND_FILE_SIZE } from "@ampedbio/constants";
+import { FileUpload } from "../../ui/FileUpload";
 
 interface BackgroundPickerProps {
   value?: Background;
@@ -12,51 +14,17 @@ interface BackgroundPickerProps {
   themeId?: number;
 }
 
-// Helper function to extract media URL from server response
-const extractMediaUrl = (result: any, fallback: string): string => {
-  if (typeof result === 'object' && result !== null) {
-    // Try different potential response structures
-    if ('backgroundUrl' in result && typeof result.backgroundUrl === 'string') {
-      return result.backgroundUrl;
-    } else if ('backgroundVideoUrl' in result && typeof result.backgroundVideoUrl === 'string') {
-      return result.backgroundVideoUrl;
-    } else if ('backgroundImageUrl' in result && typeof result.backgroundImageUrl === 'string') {
-      return result.backgroundImageUrl;
-    } else if ('url' in result && typeof result.url === 'string') {
-      return result.url;
-    } else if ('theme' in result && 
-              typeof result.theme === 'object' && 
-              result.theme !== null && 
-              'config' in result.theme) {
-      const config = result.theme.config;
-      if (typeof config === 'object' && 
-          config !== null && 
-          'background' in config && 
-          typeof config.background === 'object' &&
-          config.background !== null &&
-          'value' in config.background) {
-        return String(config.background.value);
-      }
-    }
-  }
-  // Fallback
-  return fallback;
-};
-
 export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPickerProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [customURL, setCustomURL] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Get profile and setUser from store for refetching theme data after upload
+  const profile = useEditorStore(state => state.profile);
+  const setUser = useEditorStore(state => state.setUser);
 
   const handleFileUpload = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-
-      // Reset the file input to allow selecting the same file again
-      e.target.value = '';
-      
+    async (file: File) => {
       // Clear previous error
       setUploadError(null);
       
@@ -81,18 +49,8 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
         return;
       }
 
-      // Validate file extension
+      // Get file extension
       const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
-      if (!ALLOWED_BACKGROUND_FILE_EXTENSIONS.includes(fileExtension)) {
-        setUploadError(`Unsupported file extension. Allowed extensions: ${ALLOWED_BACKGROUND_FILE_EXTENSIONS.join(', ')}`);
-        return;
-      }
-
-      // Validate file size
-      if (file.size > MAX_BACKGROUND_FILE_SIZE) {
-        setUploadError(`File too large. Maximum size: ${MAX_BACKGROUND_FILE_SIZE / (1024 * 1024)}MB`);
-        return;
-      }
 
       try {
         setIsUploading(true);
@@ -136,21 +94,21 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
         
         // Confirm upload with the server
         const result = await trpcClient.upload.confirmThemeBackgroundUpload.mutate({
-          fileKey: presignedData.fileKey,
+          fileId: presignedData.fileId,
+          fileName: file.name,
           mediaType: presignedData.mediaType as 'image' | 'video', // Added type assertion
         });
 
         console.log("Server confirmed background upload:", result);
         
-        // Extract URL using helper function - this will extract the URL whether it's an image or video
-        const fileUrl = extractMediaUrl(result, presignedData.fileKey);
-        
-        // Update the background with the new URL, setting the correct type based on the file type
-        onChange({
-          type: isImage ? "image" : "video",
-          value: fileUrl,
-          label: file.name,
-        });
+        // Instead of calling onChange/onUploadChange, refetch the theme data like the gallery does
+        if (profile?.onelink) {
+          console.log("Refetching theme data after background upload...");
+          await setUser(profile.onelink);
+          console.log("Theme data refetched successfully");
+        } else {
+          console.warn("No profile onelink available for theme refetch");
+        }
         
       } catch (e) {
         console.error("Error uploading background:", e);
@@ -170,7 +128,7 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
         setIsUploading(false);
       }
     },
-    [onChange, themeId]
+    [profile, setUser, themeId]
   );
 
   const handleURLUpload = useCallback((type: "video" | "image") => {
@@ -190,7 +148,7 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
         onClick={() => onChange(bg)}
         className="relative aspect-video rounded-lg overflow-hidden group"
       >
-        <img src={bg.value} alt={bg.label} className="w-full h-full object-cover" />
+        <img src={bg.value || ''} alt={bg.label} className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
           <span className="text-white text-sm font-medium">{bg.label}</span>
         </div>
@@ -211,7 +169,7 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
         key={bg.value}
         onClick={() => onChange(bg)}
         className="relative h-24 rounded-lg overflow-hidden group"
-        style={{ background: bg.value }}
+        style={{ background: bg.value || '' }}
       >
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
           <span className="text-white text-sm font-medium drop-shadow-md">{bg.label}</span>
@@ -301,71 +259,35 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
         <div className="grid grid-cols-2 gap-3">{videosMemoized}</div>
       </CollapsiblePanelWrapper>
 
-      {/* Custom File Upload */}
-      {/* <CollapsiblePanelWrapper initialOpen={false} title="Custom Background">
-        <label className="block">
-          <div className="w-full h-24 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors">
-            <Upload className="w-6 h-6 text-gray-400 mb-2" />
-            <span className="text-sm text-gray-500">Upload image or video</span>
-          </div>
-          <input
-            type="file"
-            className="hidden"
-            accept="image/*,video/*"
-            onChange={handleFileUpload}
-          />
-        </label>
-      </CollapsiblePanelWrapper> */}
-
       {/* Custom Upload */}
       <CollapsiblePanelWrapper initialOpen={false} title="Upload Custom Background">
         <div className="block m-2">
           <div className="w-full flex flex-col gap-3">
-            <div 
-              className={`w-full h-24 border-2 border-dashed rounded-lg flex flex-col items-center justify-center ${
-                isUploading ? 'border-blue-300 cursor-default' : 
-                uploadError ? 'border-red-300 cursor-default' : 
-                themeId === undefined ? 'border-gray-300 cursor-not-allowed opacity-70' : 
-                'border-gray-300 hover:border-blue-500 cursor-pointer'
-              } transition-colors`} 
-              onClick={() => {
-                if (!isUploading && themeId !== undefined) {
-                  fileInputRef.current?.click();
-                } else if (themeId === undefined) {
-                  setUploadError("No theme selected. Cannot upload background.");
-                }
-              }}
-            >
-              {isUploading ? (
-                <div className="flex flex-col items-center gap-2">
-                  <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
-                  <span className="text-sm text-gray-600">Uploading file...</span>
-                </div>
-              ) : (
-                <>
-                  <Upload className="w-6 h-6 text-gray-400 mb-2" />
-                  <span className="text-sm text-gray-500">Upload image or video</span>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Images: {['jpg', 'jpeg', 'png', 'svg'].join(', ').toUpperCase()} | Videos: {['mp4', 'mov', 'avi', 'webm'].join(', ').toUpperCase()} (Max {MAX_BACKGROUND_FILE_SIZE / (1024 * 1024)}MB)
-                  </p>
-                </>
-              )}
-            </div>
+            {/* Show indicator when current background has fileId */}
+            {value?.fileId && (
+              <div className="rounded-md bg-green-50 border border-green-200 px-3 py-2 flex items-center gap-2">
+                <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+                <span className="text-sm text-green-800">Current background is uploaded by you</span>
+              </div>
+            )}
+            
+            <FileUpload
+              acceptedExtensions={ALLOWED_BACKGROUND_FILE_EXTENSIONS}
+              maxFileSize={MAX_BACKGROUND_FILE_SIZE}
+              onFileSelect={handleFileUpload}
+              onError={setUploadError}
+              disabled={themeId === undefined}
+              isLoading={isUploading}
+              title="Upload image or video"
+              description={`Images: ${['jpg', 'jpeg', 'png', 'svg'].join(', ').toUpperCase()} | Videos: ${['mp4', 'mov', 'avi', 'webm'].join(', ').toUpperCase()} (Max ${MAX_BACKGROUND_FILE_SIZE / (1024 * 1024)}MB)`}
+            />
+            
             <div className="mt-2">
               <div className="rounded-md bg-yellow-50 border border-yellow-200 px-3 py-2 flex items-start gap-2">
                 <svg className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 <span className="text-xs text-yellow-800">If you have already uploaded a background image or video, uploading a new file will permanently replace your current background. This action cannot be undone.</span>
               </div>
             </div>
-            
-            <input
-              ref={fileInputRef}
-              type="file"
-              className="hidden"
-              accept="video/mp4,video/quicktime,video/x-msvideo,video/webm,image/jpeg,image/jpg,image/png,image/svg+xml"
-              onChange={handleFileUpload}
-              disabled={isUploading || themeId === undefined}
-            />
             
             {uploadError && (
               <p className="text-xs text-red-600 mt-1">

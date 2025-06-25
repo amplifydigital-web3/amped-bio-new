@@ -9,10 +9,8 @@ import type {
 } from "../types/editor";
 import {
   editUser,
-  editTheme,
   editBlocks,
   deleteBlock,
-  getOnelink,
   addBlock as apiAddBlock,
 } from "../api/api";
 import initialState from "./defaults";
@@ -25,6 +23,7 @@ import { exportThemeConfigAsJson, importThemeConfigFromJson } from "@/utils/them
 
 interface EditorStore extends EditorState {
   changes: boolean;
+  themeChanges: boolean; // New flag specifically for theme changes (appearance/effects)
   setUser: (onelink: string) => Promise<any>;
   setProfile: (profile: UserProfile) => void;
   addBlock: (block: BlockType) => Promise<BlockType>; // Updated return type
@@ -34,22 +33,24 @@ interface EditorStore extends EditorState {
   updateThemeConfig: (theme: Partial<ThemeConfig>) => void;
   setActivePanel: (panel: string) => void;
   setBackground: (background: Background) => void;
+  setBackgroundForUpload: (background: Background) => void; // New function for uploads
   saveChanges: () => Promise<void>;
   setDefault: () => void;
   addToGallery: (image: GalleryImage) => void;
   removeFromGallery: (url: string) => void;
   setMarketplaceView: (view: "grid" | "list") => void;
   setMarketplaceFilter: (filter: string) => void;
-  setMarketplaceSort: (sort: "popular" | "newest" | "rating") => void;
+  setMarketplaceSort: (sort: "popular" | "newest") => void;
   applyTheme: (theme: Theme) => void;
   selectedPoolId: string | null;
   setSelectedPoolId: (id: string | null) => void;
-  exportTheme: () => void;
+  exportTheme: (customFilename?: string) => void;
   importTheme: (file: File) => Promise<void>;
 }
 
 export const useEditorStore = create<EditorStore>()(set => ({
   changes: false,
+  themeChanges: false, // Initialize themeChanges flag
   ...initialState,
   setUser: async (onelink: string) => {
     console.group(`🔍 Setting User: ${onelink}`);
@@ -236,6 +237,7 @@ export const useEditorStore = create<EditorStore>()(set => ({
     set(state => ({
       theme: { ...state.theme, config: { ...state.theme.config, ...config } },
       changes: true,
+      themeChanges: true, // Mark that theme-specific changes occurred
     }));
     console.info("✅ Theme config updated");
     console.groupEnd();
@@ -256,8 +258,23 @@ export const useEditorStore = create<EditorStore>()(set => ({
         config: { ...state.theme.config, background },
       },
       changes: true,
+      themeChanges: true, // Mark that theme-specific changes occurred
     }));
     console.info("✅ Background updated");
+    console.groupEnd();
+  },
+  setBackgroundForUpload: (background: Background) => {
+    console.group("📁 Setting Background for Upload");
+    console.info("Background:", background);
+    set(state => ({
+      theme: {
+        ...state.theme,
+        config: { ...state.theme.config, background },
+      },
+      changes: true,
+      // Note: NOT setting themeChanges to true for uploads
+    }));
+    console.info("✅ Background updated for upload (no theme change marked)");
     console.groupEnd();
   },
   addToGallery: image => {
@@ -302,7 +319,10 @@ export const useEditorStore = create<EditorStore>()(set => ({
   applyTheme: theme => {
     console.group("🎨 Applying Theme");
     console.info("Theme:", theme.name);
-    set({ theme });
+    set({ 
+      theme,
+      // Don't mark as changes since backend already applied the theme
+    });
     console.info("✅ Theme applied");
     console.groupEnd();
   },
@@ -317,7 +337,7 @@ export const useEditorStore = create<EditorStore>()(set => ({
   saveChanges: async () => {
     console.group("💾 Saving Changes");
     console.info("Starting save process...");
-    const { profile, theme, blocks } = useEditorStore.getState();
+    const { profile, theme, blocks, themeChanges } = useEditorStore.getState();
     const { authUser } = useAuthStore.getState();
     try {
       if (authUser === null || authUser.email !== profile.email) {
@@ -327,26 +347,34 @@ export const useEditorStore = create<EditorStore>()(set => ({
         return;
       }
 
-      console.info("🎨 Saving theme...");
-      const theme_status = await editTheme({
-        id: theme.id,
-        name: theme.name,
-        share_level: theme.share_level,
-        share_config: theme.share_config,
-        config: theme.config,
-      });
+      let theme_status_id = theme.id; // Default to current theme ID
 
-      console.info("Theme status:", theme_status);
-
-      console.info("Theme", theme);
+      // Only save theme if there are theme changes
+      if (themeChanges) {
+        console.info("🎨 Saving theme...");
+        const theme_status = await trpcClient.theme.editTheme.mutate({
+          id: theme.id,
+          theme: {
+            name: theme.name,
+            share_level: theme.share_level,
+            share_config: theme.share_config,
+            config: theme.config,
+          },
+        });
+        console.info("Theme status:", theme_status);
+        console.info("Theme", theme);
+        theme_status_id = theme_status.id;
+      } else {
+        console.info("🎨 Skipping theme save - no theme changes detected");
+      }
 
       console.info("📦 Saving blocks...");
       const blocks_status = await editBlocks(blocks);
 
-      if (theme.id !== theme_status.id) {
+      if (themeChanges && theme.id !== theme_status_id) {
         console.info("🆕 New theme created, updating ID");
         set(state => ({
-          theme: { ...state.theme, id: theme_status.id },
+          theme: { ...state.theme, id: theme_status_id },
         }));
       }
 
@@ -358,18 +386,12 @@ export const useEditorStore = create<EditorStore>()(set => ({
         description: profile.bio,
         image: profile.photoUrl || "",
         reward_business_id: "",
-        theme: theme_status.id,
+        theme: theme_status_id,
       });
 
       if (!status) {
         console.info("❌ User Save failed");
         console.info(status);
-        console.groupEnd();
-        return;
-      }
-      if (!theme_status) {
-        console.info("❌ Theme Save failed");
-        console.info(theme_status);
         console.groupEnd();
         return;
       }
@@ -381,7 +403,7 @@ export const useEditorStore = create<EditorStore>()(set => ({
       }
       console.info("✅ Save success");
       toast.success("Changes saved successfully");
-      set({ changes: false });
+      set({ changes: false, themeChanges: false }); // Reset both flags
       console.groupEnd();
     } catch (error) {
       console.info("❌ Save failed:", error);
@@ -391,17 +413,25 @@ export const useEditorStore = create<EditorStore>()(set => ({
   },
   setDefault: () => {
     console.group("🔄 Resetting to Default");
-    set({ ...initialState, changes: false });
+    set({ ...initialState, changes: false, themeChanges: false });
     console.info("✅ Reset to default state");
     console.groupEnd();
   },
-  exportTheme: () => {
+  exportTheme: (customFilename?: string) => {
     console.group("🎨 Exporting Theme Configuration");
     const { theme } = useEditorStore.getState();
     console.info("Theme config:", theme.config);
 
+    // Check if the user is using a server theme (user_id = null)
+    if (theme.user_id === null) {
+      console.warn("❌ Export blocked: Cannot export server theme");
+      toast.error("Cannot export themes from other user. Please create or select your own theme first.");
+      console.groupEnd();
+      return;
+    }
+
     try {
-      exportThemeConfigAsJson(theme);
+      exportThemeConfigAsJson(theme, customFilename);
       toast.success("Theme configuration exported successfully");
       console.info("✅ Theme configuration exported");
     } catch (error) {
@@ -415,6 +445,16 @@ export const useEditorStore = create<EditorStore>()(set => ({
     console.group("🎨 Importing Theme Configuration");
     console.info("File:", file.name);
 
+    const { theme } = useEditorStore.getState();
+    
+    // Check if the user is using a server theme (user_id = null)
+    if (theme.user_id === null) {
+      console.warn("❌ Import blocked: Cannot import over other user theme");
+      toast.error("Cannot import themes while using a server theme. Please create or select your own theme first.");
+      console.groupEnd();
+      throw new Error("Cannot import themes while using a server theme");
+    }
+
     try {
       const importedThemeConfig = await importThemeConfigFromJson(file);
       console.info("Imported theme config:", importedThemeConfig);
@@ -425,6 +465,7 @@ export const useEditorStore = create<EditorStore>()(set => ({
           config: importedThemeConfig,
         },
         changes: true,
+        themeChanges: true, // Mark that theme-specific changes occurred
       }));
 
       toast.success("Theme configuration imported successfully");

@@ -2,10 +2,15 @@ import { ButtonEffectsPicker } from "./ButtonEffectsPicker";
 import { ParticlesEffectPicker } from "./ParticlesEffectPicker";
 import { HeroEffectPicker } from "./HeroEffectPicker";
 import { useEditorStore } from "../../../store/editorStore";
+import { AlertTriangle } from "lucide-react";
 
 export function EffectsPanel() {
-  const theme = useEditorStore(state => state.theme.config);
+  const theme = useEditorStore(state => state.theme);
+  const themeConfig = theme.config;
   const updateThemeConfig = useEditorStore(state => state.updateThemeConfig);
+
+  // Check if theme is not customizable (admin theme)
+  const isNotCustomizable = theme.user_id === null;
 
   return (
     <div className="p-6 space-y-8">
@@ -16,20 +21,32 @@ export function EffectsPanel() {
         </p>
       </div>
 
-      <ButtonEffectsPicker
-        value={theme.buttonEffect}
-        onChange={effect => updateThemeConfig({ buttonEffect: effect })}
-      />
+      {isNotCustomizable ? (
+        <div className="flex items-center space-x-3 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+          <AlertTriangle className="w-5 h-5 text-orange-600 flex-shrink-0" />
+          <div>
+            <h3 className="text-sm font-medium text-orange-800">Theme Not Customizable</h3>
+            <p className="text-sm text-orange-700">This theme belongs to another user and cannot be customized. Choose a different theme to access effects options.</p>
+          </div>
+        </div>
+      ) : (
+        <>
+          <ButtonEffectsPicker
+            value={themeConfig.buttonEffect ?? 1}
+            onChange={effect => updateThemeConfig({ buttonEffect: effect })}
+          />
 
-      <ParticlesEffectPicker
-        value={theme.particlesEffect}
-        onChange={effect => updateThemeConfig({ particlesEffect: effect })}
-      />
+          <ParticlesEffectPicker
+            value={themeConfig.particlesEffect ?? 1}
+            onChange={effect => updateThemeConfig({ particlesEffect: effect })}
+          />
 
-      <HeroEffectPicker
-        value={theme.heroEffect}
-        onChange={effect => updateThemeConfig({ heroEffect: effect })}
-      />
+          <HeroEffectPicker
+            value={themeConfig.heroEffect ?? 1}
+            onChange={effect => updateThemeConfig({ heroEffect: effect })}
+          />
+        </>
+      )}
     </div>
   );
 }

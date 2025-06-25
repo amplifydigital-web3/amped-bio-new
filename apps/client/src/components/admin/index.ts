@@ -1,13 +1,17 @@
-export * from "./AdminSidebar";
-export * from "./AdminUserStats";
-export * from "./AdminBlockStats";
-export * from "./AdminRewardStats";
-export * from "./AdminBlockDistribution";
-export * from "./AdminTopOnelinks";
-export * from "./AdminRecentUsers";
-export * from "./AdminLayout";
-export * from "./AdminDashboard";
-export * from "./AdminContentContainer";
-export * from "./AdminLoadingStates";
-export * from "./UserManagement";
-export * from "./types";
+// Dashboard components
+export * from "./dashboard";
+
+// User management components
+export * from "./users";
+
+// File management components
+export * from "./files";
+
+// Theme management components
+export * from "./themes";
+
+// Block management components
+export * from "./blocks";
+
+// Shared/common components
+export * from "./shared";
