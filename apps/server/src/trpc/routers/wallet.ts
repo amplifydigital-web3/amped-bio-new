@@ -3,7 +3,7 @@ import { router, privateProcedure } from '../trpc';
 import { WalletService } from '../../services/WalletService';
 
 export const walletRouter = router({
-  // Send token (native REVO if tokenAddress is 0x0)
+  // Send token (native REVO if tokenAddress is 0x0, ERC-20 otherwise)
   sendToken: privateProcedure
     .input(z.object({
       toAddress: z.string().min(1, 'Recipient address is required'),
@@ -22,10 +22,22 @@ export const walletRouter = router({
         throw new Error('User wallet not found');
       }
 
-      const tokenType = input.tokenAddress === '0x0' ? 'Native REVO' : 'ERC-20 Token';
-      const tokenSymbol = input.tokenAddress === '0x0' ? 'REVO' : 'TOKEN';
+      // Validate address format
+      if (!WalletService.isValidEthereumAddress(input.toAddress)) {
+        throw new Error('Invalid recipient address format');
+      }
 
-      console.log('🚀 Token Transfer Request:');
+      // Validate amount is positive
+      const amount = parseFloat(input.amount);
+      if (amount <= 0) {
+        throw new Error('Amount must be greater than 0');
+      }
+
+      const isNativeToken = input.tokenAddress === '0x0';
+      const tokenType = isNativeToken ? 'Native REVO' : 'ERC-20 Token';
+      const tokenSymbol = isNativeToken ? 'REVO' : 'TOKEN';
+
+      console.log('🚀 ZKsync Token Transfer Request:');
       console.log(`  Type: ${tokenType}`);
       console.log(`  From User ID: ${user.id}`);
       console.log(`  From Email: ${user.email}`);
@@ -35,18 +47,35 @@ export const walletRouter = router({
       console.log(`  Amount: ${input.amount} ${tokenSymbol}`);
       if (input.gasPrice) console.log(`  Gas Price: ${input.gasPrice} gwei`);
       if (input.gasLimit) console.log(`  Gas Limit: ${input.gasLimit}`);
-      console.log('  Status: Simulated (no real transfer)');
+      console.log('  Transaction Type: EIP-712 (ZKsync)');
 
-      // Return mock response
+      // Send transaction based on token type
+      let result;
+      if (isNativeToken) {
+        // Send native REVO using ETH send method
+        result = await WalletService.sendETH(
+          user.id,
+          input.toAddress,
+          input.amount,
+          input.gasPrice,
+          input.gasLimit ? BigInt(input.gasLimit) : undefined
+        );
+      } else {
+        // Send ERC-20 token
+        result = await WalletService.sendToken(
+          user.id,
+          input.tokenAddress,
+          input.toAddress,
+          input.amount,
+          input.gasPrice,
+          input.gasLimit ? BigInt(input.gasLimit) : undefined
+        );
+      }
+
       return {
-        transactionHash: `0x${Math.random().toString(16).substring(2, 66)}`,
-        from: wallet.address,
-        to: input.toAddress,
-        tokenAddress: input.tokenAddress,
-        amount: input.amount,
-        transactionType: input.tokenAddress === '0x0' ? 'native' : 'erc20',
-        status: 'simulated',
-        message: `Mock transfer of ${input.amount} ${tokenSymbol} from ${wallet.address} to ${input.toAddress}`,
+        ...result,
+        status: 'confirmed',
+        message: `Successfully sent ${input.amount} ${tokenSymbol} to ${input.toAddress} via ZKsync`,
       };
     }),
 
@@ -82,34 +111,86 @@ export const walletRouter = router({
       };
     }),
 
-  // Test token transfer (simulated)
-  testSendToken: privateProcedure
+  // Get user's ETH balance
+  getETHBalance: privateProcedure
+    .query(async ({ ctx }) => {
+      const { user } = ctx;
+      
+      const balance = await WalletService.getUserETHBalance(user.id);
+      
+      return {
+        balance,
+        symbol: 'REVO',
+        formatted: `${balance} REVO`,
+      };
+    }),
+
+  // Send ETH (native REVO)
+  sendETH: privateProcedure
     .input(z.object({
       toAddress: z.string().min(1, 'Recipient address is required'),
-      tokenAddress: z.string().min(1, 'Token address is required'),
       amount: z.string().min(1, 'Amount is required'),
+      gasPrice: z.string().optional(),
+      gasLimit: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const { user } = ctx;
       
-      console.log('🧪 Test Token Transfer Request:');
-      console.log(`  User ID: ${user.id}`);
-      console.log(`  User Email: ${user.email}`);
-      console.log(`  To Address: ${input.toAddress}`);
-      console.log(`  Token Address: ${input.tokenAddress}`);
-      console.log(`  Amount: ${input.amount}`);
-      
-      if (input.tokenAddress === '0x0') {
-        console.log('  Token Type: Native REVO');
-      } else {
-        console.log('  Token Type: ERC-20 Token');
+      // Validate address format
+      if (!WalletService.isValidEthereumAddress(input.toAddress)) {
+        throw new Error('Invalid recipient address format');
       }
+
+      // Validate amount is positive
+      const amount = parseFloat(input.amount);
+      if (amount <= 0) {
+        throw new Error('Amount must be greater than 0');
+      }
+
+      console.log('🚀 ZKsync ETH Transfer Request:');
+      console.log(`  From User ID: ${user.id}`);
+      console.log(`  From Email: ${user.email}`);
+      console.log(`  To Address: ${input.toAddress}`);
+      console.log(`  Amount: ${input.amount} REVO`);
+      if (input.gasPrice) console.log(`  Gas Price: ${input.gasPrice} gwei`);
+      if (input.gasLimit) console.log(`  Gas Limit: ${input.gasLimit}`);
+      console.log('  Transaction Type: EIP-712 (ZKsync)');
+
+      const result = await WalletService.sendETH(
+        user.id,
+        input.toAddress,
+        input.amount,
+        input.gasPrice,
+        input.gasLimit ? BigInt(input.gasLimit) : undefined
+      );
+
+      return {
+        ...result,
+        status: 'confirmed',
+        message: `Successfully sent ${input.amount} REVO to ${input.toAddress} via ZKsync`,
+      };
+    }),
+
+  // Get user's ERC-20 token balance
+  getTokenBalance: privateProcedure
+    .input(z.object({
+      tokenAddress: z.string().min(1, 'Token address is required'),
+    }))
+    .query(async ({ ctx, input }) => {
+      const { user } = ctx;
+      
+      // Validate token address format
+      if (!WalletService.isValidEthereumAddress(input.tokenAddress)) {
+        throw new Error('Invalid token address format');
+      }
+
+      const balance = await WalletService.getUserTokenBalance(user.id, input.tokenAddress);
       
       return {
-        success: true,
-        message: `Test transfer of ${input.amount} ${input.tokenAddress === '0x0' ? 'REVO' : 'tokens'} to ${input.toAddress}`,
-        transactionType: input.tokenAddress === '0x0' ? 'native' : 'erc20',
-        simulation: true,
+        balance,
+        tokenAddress: input.tokenAddress,
+        symbol: 'TOKEN', // In production, you'd fetch this from the contract
+        formatted: `${balance} TOKEN`,
       };
     }),
 });

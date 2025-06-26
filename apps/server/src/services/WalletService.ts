@@ -1,4 +1,7 @@
 import { generatePrivateKey, privateKeyToAccount, privateKeyToAddress } from 'viem/accounts';
+import { createPublicClient, createWalletClient, http, formatEther, parseEther } from 'viem';
+import { defineChain } from 'viem';
+import { chainConfig } from 'viem/zksync';
 import { PrismaClient } from '@prisma/client';
 import { TRPCError } from '@trpc/server';
 import crypto from 'crypto';
@@ -7,8 +10,44 @@ import { generateMnemonic, mnemonicToSeedSync } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english';
 import { HDKey } from '@scure/bip32';
 
+// Define Revolution Chain using ZKsync configuration
+const revolutionChain = defineChain({
+  ...chainConfig,
+  id: parseInt(env.CHAIN_ID) || 324, // ZKsync mainnet default, or from env
+  name: 'Revolution Chain',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'REVO',
+    symbol: 'REVO',
+  },
+  rpcUrls: {
+    default: {
+      http: [env.RPC_URL],
+    },
+  },
+});
+
 const prisma = new PrismaClient();
 
+/**
+ * WalletService - ZKsync Integration
+ * 
+ * This service provides wallet functionality for the Revolution Chain,
+ * which is built on ZKsync technology. It uses Viem's ZKsync support
+ * for optimal compatibility and performance.
+ * 
+ * Key ZKsync features implemented:
+ * - EIP-712 transaction types for gas optimization
+ * - Native REVO and ERC-20 token transfers
+ * - ZKsync-specific chain configuration
+ * - Compatible with ZKsync's transaction serialization
+ * 
+ * Security features:
+ * - Encrypted mnemonic storage using AES-256-GCM
+ * - BIP39/BIP32/BIP44 standard compliance
+ * - Private keys derived on-demand from mnemonic
+ * - No permanent private key storage
+ */
 export class WalletService {
   private static readonly ALGORITHM = 'aes-256-gcm';
   private static readonly IV_LENGTH = 16;
@@ -285,27 +324,225 @@ export class WalletService {
   static isValidEthereumAddress(address: string): boolean {
     return /^0x[a-fA-F0-9]{40}$/.test(address);
   }
-}
 
-/*
- * TODO: After running the database migration to update wallet schema:
- * 1. Run: pnpm --filter server run prisma:migrate:dev --name optimize-wallet-schema  
- * 2. Run: pnpm --filter server run prisma:generate
- * 3. Update the code in this file:
- *    - Line ~137-138: Remove 'private_key: "",' and 'public_key: "",' 
- *    - Line ~139: Uncomment 'mnemonic: encryptedMnemonic,'
- *    - Line ~193: Uncomment mnemonic selection and logic in getUserWalletPrivateKey
- *    - Line ~218: Uncomment mnemonic selection and logic in getUserWalletMnemonic
- * 
- * Final optimized wallet storage:
- * - ✅ address: Public identifier (42 chars)
- * - ✅ mnemonic: Encrypted 24-word seed phrase
- * - ❌ private_key: Derived on-demand from mnemonic
- * - ❌ public_key: Derived on-demand from private key
- * 
- * Benefits:
- * - Minimal storage (just address + encrypted mnemonic)
- * - Maximum security (derive keys only when needed)
- * - Easy export (24-word mnemonic phrase)
- * - Standard compliance (BIP39/BIP32/BIP44)
- */
+  /**
+   * Get ETH balance for a user's wallet on ZKsync
+   */
+  static async getUserETHBalance(userId: number): Promise<string> {
+    try {
+      const wallet = await this.getUserWallet(userId);
+      
+      const publicClient = createPublicClient({
+        chain: revolutionChain,
+        transport: http(),
+      });
+
+      const balance = await publicClient.getBalance({
+        address: wallet.address as `0x${string}`,
+      });
+
+      return formatEther(balance);
+    } catch (error) {
+      console.error('Error getting user ETH balance on ZKsync:', error);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to get ETH balance on ZKsync',
+      });
+    }
+  }
+
+  /**
+   * Get ERC-20 token balance for a user's wallet on ZKsync
+   */
+  static async getUserTokenBalance(userId: number, tokenAddress: string): Promise<string> {
+    try {
+      const wallet = await this.getUserWallet(userId);
+      
+      const publicClient = createPublicClient({
+        chain: revolutionChain,
+        transport: http(),
+      });
+
+      // ERC-20 balanceOf function signature: balanceOf(address)
+      const balanceOfData = `0x70a08231${wallet.address.slice(2).padStart(64, '0')}`;
+
+      const result = await publicClient.call({
+        to: tokenAddress as `0x${string}`,
+        data: balanceOfData as `0x${string}`,
+      });
+
+      if (!result.data) {
+        throw new Error('Failed to get token balance');
+      }
+
+      // Convert hex result to decimal
+      const balance = BigInt(result.data);
+      
+      // For simplicity, assuming 18 decimals. In production, you'd want to call decimals() function
+      return formatEther(balance);
+    } catch (error) {
+      console.error('Error getting user token balance on ZKsync:', error);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to get token balance on ZKsync',
+      });
+    }
+  }
+
+  /**
+   * Send ETH from user's wallet to another address using ZKsync
+   */
+  static async sendETH(
+    userId: number, 
+    toAddress: string, 
+    amount: string,
+    gasPrice?: string,
+    gasLimit?: bigint
+  ): Promise<{
+    transactionHash: string;
+    from: string;
+    to: string;
+    amount: string;
+    gasUsed?: string;
+    transactionType: string;
+  }> {
+    try {
+      const wallet = await this.getUserWallet(userId);
+      const privateKey = await this.getUserWalletPrivateKey(userId);
+
+      // Create wallet client with ZKsync configuration
+      const walletClient = createWalletClient({
+        chain: revolutionChain,
+        transport: http(),
+        account: privateKeyToAccount(privateKey),
+      });
+
+      // Create public client for gas estimation
+      const publicClient = createPublicClient({
+        chain: revolutionChain,
+        transport: http(),
+      });
+
+      // Estimate gas if not provided
+      let estimatedGas = gasLimit;
+      if (!estimatedGas) {
+        estimatedGas = await publicClient.estimateGas({
+          account: wallet.address as `0x${string}`,
+          to: toAddress as `0x${string}`,
+          value: parseEther(amount),
+        });
+      }
+
+      // Send transaction using ZKsync's EIP-712 transaction type
+      const txHash = await walletClient.sendTransaction({
+        to: toAddress as `0x${string}`,
+        value: parseEther(amount),
+        gas: estimatedGas,
+        type: 'eip712', // ZKsync specific transaction type
+        // Note: ZKsync EIP-712 transactions use maxFeePerGas instead of gasPrice
+        maxFeePerGas: gasPrice ? parseEther(gasPrice) : undefined,
+      });
+
+      // Wait for transaction confirmation
+      const receipt = await publicClient.waitForTransactionReceipt({
+        hash: txHash,
+      });
+
+      return {
+        transactionHash: txHash,
+        from: wallet.address,
+        to: toAddress,
+        amount: amount,
+        gasUsed: receipt.gasUsed.toString(),
+        transactionType: 'eip712',
+      };
+    } catch (error) {
+      console.error('Error sending ETH on ZKsync:', error);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to send ETH transaction on ZKsync',
+      });
+    }
+  }
+
+  /**
+   * Send ERC-20 tokens from user's wallet to another address using ZKsync
+   */
+  static async sendToken(
+    userId: number,
+    tokenAddress: string,
+    toAddress: string,
+    amount: string,
+    gasPrice?: string,
+    gasLimit?: bigint
+  ): Promise<{
+    transactionHash: string;
+    from: string;
+    to: string;
+    tokenAddress: string;
+    amount: string;
+    gasUsed?: string;
+    transactionType: string;
+  }> {
+    try {
+      const wallet = await this.getUserWallet(userId);
+      const privateKey = await this.getUserWalletPrivateKey(userId);
+
+      // Create wallet client with ZKsync configuration
+      const walletClient = createWalletClient({
+        chain: revolutionChain,
+        transport: http(),
+        account: privateKeyToAccount(privateKey),
+      });
+
+      // Create public client for gas estimation
+      const publicClient = createPublicClient({
+        chain: revolutionChain,
+        transport: http(),
+      });
+
+      // ERC-20 transfer function signature: transfer(address,uint256)
+      const transferFunctionData = `0xa9059cbb${toAddress.slice(2).padStart(64, '0')}${BigInt(amount).toString(16).padStart(64, '0')}`;
+
+      // Estimate gas if not provided
+      let estimatedGas = gasLimit;
+      if (!estimatedGas) {
+        estimatedGas = await publicClient.estimateGas({
+          account: wallet.address as `0x${string}`,
+          to: tokenAddress as `0x${string}`,
+          data: transferFunctionData as `0x${string}`,
+        });
+      }
+
+      // Send ERC-20 token transfer transaction using ZKsync's EIP-712
+      const txHash = await walletClient.sendTransaction({
+        to: tokenAddress as `0x${string}`,
+        data: transferFunctionData as `0x${string}`,
+        gas: estimatedGas,
+        type: 'eip712', // ZKsync specific transaction type
+        maxFeePerGas: gasPrice ? parseEther(gasPrice) : undefined,
+      });
+
+      // Wait for transaction confirmation
+      const receipt = await publicClient.waitForTransactionReceipt({
+        hash: txHash,
+      });
+
+      return {
+        transactionHash: txHash,
+        from: wallet.address,
+        to: toAddress,
+        tokenAddress: tokenAddress,
+        amount: amount,
+        gasUsed: receipt.gasUsed.toString(),
+        transactionType: 'eip712',
+      };
+    } catch (error) {
+      console.error('Error sending ERC-20 token on ZKsync:', error);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to send ERC-20 token transaction on ZKsync',
+      });
+    }
+  }
+}
