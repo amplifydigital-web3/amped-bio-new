@@ -94,7 +94,8 @@ export function Sidebar() {
             <button
               key={id}
               onClick={() => isEnabled && handlePanelClick(id)}
-              className={`w-12 h-12 flex flex-col items-center justify-center rounded-lg transition-colors relative mx-1 md:mx-0 md:mb-2
+              className={`w-12 h-12 flex flex-col items-center justify-center rounded-lg relative mx-1 md:mx-0 md:mb-2
+                transition-all duration-200 ease-in-out transform hover:scale-105
                 ${
                   isEnabled
                     ? activePanel === id

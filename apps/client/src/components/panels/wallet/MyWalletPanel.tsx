@@ -1,7 +1,24 @@
 import { useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { useEditorStore } from "@/store/editorStore";
-import { Wallet, Copy, User, DollarSign, Gem, Coins, QrCode, ArrowDownLeft, ArrowUpRight, Plus, X, History, Clock } from "lucide-react";
+import {
+  Wallet,
+  Copy,
+  User,
+  DollarSign,
+  Gem,
+  Coins,
+  QrCode,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Plus,
+  X,
+  History,
+  Clock,
+  Check,
+  ArrowRight,
+  CreditCard,
+} from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,24 +27,34 @@ import { Button } from "@/components/ui/Button";
 import { GridPattern } from "@/components/ui/grid-pattern";
 import { ShimmerButton } from "@/components/ui/shimmer-button";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 export function MyWalletPanel() {
   const { authUser } = useAuthStore();
   const profile = useEditorStore(state => state.profile);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showProfileOptions, setShowProfileOptions] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "success">("idle");
+  const [showFundModal, setShowFundModal] = useState(false);
 
   // Placeholder wallet data
   const placeholderWallet = {
     id: 12345,
-    address: '0x742e4C4F6B5F3d4B8A1e9C2D8B3A4F5E6D7C8B9A',
-    created_at: new Date('2024-01-15').toISOString(),
+    address: "0x742e4C4F6B5F3d4B8A1e9C2D8B3A4F5E6D7C8B9A",
+    created_at: new Date("2024-01-15").toISOString(),
   };
 
   // Sample data for tokens (empty for now)
   const sampleTokens: any[] = [];
 
-  // Sample data for NFTs (empty for now) 
+  // Sample data for NFTs (empty for now)
   const sampleNFTs: any[] = [];
 
   // Sample transaction history data (empty for now)
@@ -36,13 +63,16 @@ export function MyWalletPanel() {
   const copyAddress = () => {
     if (placeholderWallet.address) {
       navigator.clipboard.writeText(placeholderWallet.address);
-      // You can add toast notification here if needed
-      console.log('Address copied to clipboard!');
+      setCopyStatus("success");
+      setTimeout(() => {
+        setCopyStatus("idle");
+      }, 1000);
+      console.log("Address copied to clipboard!");
     }
   };
 
   const formatAddress = (address: string) => {
-    if (!address) return '';
+    if (!address) return "";
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
@@ -61,7 +91,7 @@ export function MyWalletPanel() {
   const formatTransactionTime = (timestamp: Date) => {
     const now = new Date();
     const diffInHours = Math.floor((now.getTime() - timestamp.getTime()) / (1000 * 60 * 60));
-    
+
     if (diffInHours < 24) {
       return `${diffInHours}h ago`;
     } else {
@@ -86,27 +116,40 @@ export function MyWalletPanel() {
 
         <div className="space-y-6">
           {/* Profile Section */}
-          <Card 
-            className="bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-all cursor-pointer"
-            onClick={() => setShowProfileOptions(true)}
-          >
+          <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
-                  <Avatar className="h-16 w-16">
-                    <AvatarImage 
-                      src={profile.photoUrl || profile.photoCmp || ""} 
-                      alt="Profile" 
-                    />
+                  <Avatar
+                    className="h-16 w-16 cursor-pointer border border-gray-200 rounded-full"
+                    onClick={() => setShowProfileOptions(true)}
+                  >
+                    <AvatarImage src={profile.photoUrl || profile.photoCmp || ""} alt="Profile" />
                     <AvatarFallback>
                       <User className="w-8 h-8 text-gray-300" />
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <h2 className="text-lg font-semibold text-gray-900">
-                      @{authUser?.onelink || 'User'}
+                    <h2
+                      className="text-lg font-semibold text-gray-900 cursor-pointer"
+                      onClick={() => setShowProfileOptions(true)}
+                    >
+                      @{authUser?.onelink || "User"}
                     </h2>
-                    <p className="text-gray-600">{authUser?.email || 'No email'}</p>
+                    <div className="flex items-center space-x-1 mt-1">
+                      <span
+                        className="font-mono text-sm text-gray-600"
+                        title={placeholderWallet.address}
+                      >
+                        {formatAddress(placeholderWallet.address)}
+                      </span>
+                      <Button
+                        onClick={copyAddress}
+                        className="h-7 w-7 text-gray-500 hover:text-gray-800"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
                 <div className="text-right">
@@ -117,38 +160,8 @@ export function MyWalletPanel() {
             </CardContent>
           </Card>
 
-          {/* Wallet Address */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Wallet Address</CardTitle>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={copyAddress}
-                  className="flex items-center space-x-2"
-                >
-                  <Copy className="w-4 h-4" />
-                  <span>Copy</span>
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-sm text-gray-700">
-                    {formatAddress(placeholderWallet.address)}
-                  </span>
-                  <span className="font-mono text-xs text-gray-500">
-                    {placeholderWallet.address}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Balance */}
-          <Card>
+          <Card className="rounded-2xl">
             <CardHeader>
               <div className="flex items-center space-x-3">
                 <div className="bg-green-100 p-2 rounded-full">
@@ -160,31 +173,83 @@ export function MyWalletPanel() {
             <CardContent>
               <div className="text-3xl font-bold text-gray-900 mb-2">$0.00</div>
               <CardDescription className="mb-6">Your current wallet balance</CardDescription>
-              
+
               {/* Action Buttons */}
               <div className="grid grid-cols-3 gap-4">
+                <Dialog open={showFundModal} onOpenChange={setShowFundModal}>
+                  <DialogTrigger asChild>
+                    <Button
+                      className="h-20 flex flex-col items-center justify-center space-y-2 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 hover:border-green-300 transition-all duration-200 ease-in-out transform hover:scale-105"
+                      variant="outline"
+                    >
+                      <Plus className="w-8 h-8 p-2 bg-gray-50 rounded-lg" />
+                      <span className="text-sm font-medium">Fund</span>
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-sm rounded-2xl">
+                    <DialogHeader>
+                      <DialogTitle>Fund Wallet</DialogTitle>
+                      <DialogDescription>Choose a method to fund your wallet.</DialogDescription>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-4 py-4">
+                      <Button
+                        variant="outline"
+                        className="h-auto py-4 flex flex-col items-start space-y-1"
+                        onClick={() =>
+                          window.open(
+                            "https://bridge.dev.revolutionchain.io/bridge",
+                            "_blank",
+                            "width=600,height=700,left=200,top=200"
+                          )
+                        }
+                      >
+                        <DollarSign className="w-6 h-6" />
+                        <span className="font-medium">Bridge</span>
+                        <p className="text-xs text-gray-500">Transfer crypto from other networks</p>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-auto py-4 flex flex-col items-start space-y-1"
+                      >
+                        <CreditCard className="w-6 h-6" />
+                        <span className="font-medium">Onramp</span>
+                        <p className="text-xs text-gray-500">Buy crypto with fiat currency</p>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-auto py-4 flex flex-col items-start space-y-1"
+                      >
+                        <DollarSign className="w-6 h-6" />
+                        <span className="font-medium">MoonPay</span>
+                        <p className="text-xs text-gray-500">
+                          Buy crypto with various payment methods
+                        </p>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-auto py-4 flex flex-col items-start space-y-1"
+                      >
+                        <Coins className="w-6 h-6" />
+                        <span className="font-medium">Coinbase</span>
+                        <p className="text-xs text-gray-500">Connect your Coinbase account</p>
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
                 <Button
-                  onClick={() => console.log('Fund wallet')}
-                  className="h-20 flex flex-col items-center justify-center space-y-2 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 hover:border-green-300"
+                  onClick={() => console.log("Send crypto")}
+                  className="h-20 flex flex-col items-center justify-center space-y-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 hover:border-blue-300 transition-all duration-200 ease-in-out transform hover:scale-105"
                   variant="outline"
                 >
-                  <Plus className="w-6 h-6" />
-                  <span className="text-sm font-medium">Fund</span>
-                </Button>
-                <Button
-                  onClick={() => console.log('Send crypto')}
-                  className="h-20 flex flex-col items-center justify-center space-y-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 hover:border-blue-300"
-                  variant="outline"
-                >
-                  <ArrowUpRight className="w-6 h-6" />
+                  <ArrowUpRight className="w-8 h-8 p-2 bg-gray-50 rounded-lg" />
                   <span className="text-sm font-medium">Send</span>
                 </Button>
                 <Button
                   onClick={() => setShowReceiveModal(true)}
-                  className="h-20 flex flex-col items-center justify-center space-y-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200 hover:border-purple-300"
+                  className="h-20 flex flex-col items-center justify-center space-y-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200 hover:border-purple-300 transition-all duration-200 ease-in-out transform hover:scale-105"
                   variant="outline"
                 >
-                  <ArrowDownLeft className="w-6 h-6" />
+                  <ArrowDownLeft className="w-8 h-8 p-2 bg-gray-50 rounded-lg" />
                   <span className="text-sm font-medium">Receive</span>
                 </Button>
               </div>
@@ -192,7 +257,7 @@ export function MyWalletPanel() {
           </Card>
 
           {/* Wallet Info */}
-          <Card>
+          <Card className="rounded-2xl">
             <CardHeader>
               <CardTitle>Wallet Information</CardTitle>
             </CardHeader>
@@ -217,27 +282,36 @@ export function MyWalletPanel() {
           </Card>
 
           {/* Tokens, NFTs & History Section */}
-          <Card>
+          <Card className="rounded-2xl">
             <Tabs defaultValue="tokens" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="tokens" className="flex items-center space-x-2">
+              <TabsList className="flex justify-start w-fit">
+                <TabsTrigger
+                  value="tokens"
+                  className="flex items-center space-x-2 transition-all duration-200 ease-in-out"
+                >
                   <Coins className="w-4 h-4" />
                   <span>Tokens</span>
                 </TabsTrigger>
-                <TabsTrigger value="nfts" className="flex items-center space-x-2">
+                <TabsTrigger
+                  value="nfts"
+                  className="flex items-center space-x-2 transition-all duration-200 ease-in-out"
+                >
                   <Gem className="w-4 h-4" />
                   <span>NFTs</span>
                 </TabsTrigger>
-                <TabsTrigger value="history" className="flex items-center space-x-2">
+                <TabsTrigger
+                  value="history"
+                  className="flex items-center space-x-2 transition-all duration-200 ease-in-out"
+                >
                   <History className="w-4 h-4" />
                   <span>History</span>
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="tokens" className="mt-6">
+              <TabsContent value="tokens">
                 {sampleTokens.length > 0 ? (
                   <div className="space-y-3">
-                    {sampleTokens.map((token) => (
+                    {sampleTokens.map(token => (
                       <div
                         key={token.id}
                         className="flex justify-between items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
@@ -252,7 +326,9 @@ export function MyWalletPanel() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-gray-900 font-semibold">{token.balance} {token.symbol}</p>
+                          <p className="text-gray-900 font-semibold">
+                            {token.balance} {token.symbol}
+                          </p>
                           <p className="text-gray-500 text-sm">{token.value}</p>
                         </div>
                       </div>
@@ -287,7 +363,7 @@ export function MyWalletPanel() {
                         Fund account or receive assets to see them here.
                       </p>
                       <ShimmerButton
-                        onClick={() => console.log('Fund account')}
+                        onClick={() => console.log("Fund account")}
                         className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
                         shimmerColor="#60a5fa"
                       >
@@ -298,16 +374,25 @@ export function MyWalletPanel() {
                 )}
               </TabsContent>
 
-              <TabsContent value="nfts" className="mt-6">
+              <TabsContent value="nfts">
                 {sampleNFTs.length > 0 ? (
                   <div className="grid grid-cols-2 gap-4">
-                    {sampleNFTs.map((nft) => (
-                      <Card key={nft.id} className="overflow-hidden hover:shadow-md transition-shadow">
+                    {sampleNFTs.map(nft => (
+                      <Card
+                        key={nft.id}
+                        className="overflow-hidden hover:shadow-md transition-shadow"
+                      >
                         <div className="aspect-square">
-                          <img src={nft.image} alt={nft.name} className="w-full h-full object-cover" />
+                          <img
+                            src={nft.image}
+                            alt={nft.name}
+                            className="w-full h-full object-cover"
+                          />
                         </div>
                         <CardContent className="p-3">
-                          <h4 className="text-gray-900 font-semibold text-sm truncate">{nft.name}</h4>
+                          <h4 className="text-gray-900 font-semibold text-sm truncate">
+                            {nft.name}
+                          </h4>
                           <p className="text-gray-500 text-xs">{nft.collection}</p>
                         </CardContent>
                       </Card>
@@ -342,7 +427,7 @@ export function MyWalletPanel() {
                         Fund account or receive assets to see them here.
                       </p>
                       <ShimmerButton
-                        onClick={() => console.log('Fund account')}
+                        onClick={() => console.log("Fund account")}
                         className="bg-purple-600 hover:bg-purple-700 text-white border-purple-600"
                         shimmerColor="#a855f7"
                       >
@@ -353,21 +438,23 @@ export function MyWalletPanel() {
                 )}
               </TabsContent>
 
-              <TabsContent value="history" className="mt-6">
+              <TabsContent value="history">
                 {sampleTransactions.length > 0 ? (
                   <div className="space-y-3">
-                    {sampleTransactions.map((transaction) => (
+                    {sampleTransactions.map(transaction => (
                       <div
                         key={transaction.id}
                         className="flex justify-between items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                       >
                         <div className="flex items-center space-x-3">
-                          <div className={`w-10 h-10 flex items-center justify-center rounded-full ${
-                            transaction.type === 'received' 
-                              ? 'bg-green-100 text-green-600' 
-                              : 'bg-blue-100 text-blue-600'
-                          }`}>
-                            {transaction.type === 'received' ? (
+                          <div
+                            className={`w-10 h-10 flex items-center justify-center rounded-full ${
+                              transaction.type === "received"
+                                ? "bg-green-100 text-green-600"
+                                : "bg-blue-100 text-blue-600"
+                            }`}
+                          >
+                            {transaction.type === "received" ? (
                               <ArrowDownLeft className="w-5 h-5" />
                             ) : (
                               <ArrowUpRight className="w-5 h-5" />
@@ -375,19 +462,31 @@ export function MyWalletPanel() {
                           </div>
                           <div>
                             <div className="flex items-center space-x-2">
-                              <h4 className="text-gray-900 font-semibold capitalize">{transaction.type}</h4>
-                              <Badge 
-                                variant={transaction.status === 'completed' ? 'default' : 'secondary'}
-                                className={transaction.status === 'completed' 
-                                  ? 'bg-green-100 text-green-800 hover:bg-green-100' 
-                                  : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100'
+                              <h4 className="text-gray-900 font-semibold capitalize">
+                                {transaction.type}
+                              </h4>
+                              <Badge
+                                variant={
+                                  transaction.status === "completed" ? "default" : "secondary"
+                                }
+                                className={
+                                  transaction.status === "completed"
+                                    ? "bg-green-100 text-green-800 hover:bg-green-100"
+                                    : "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
                                 }
                               >
                                 {transaction.status}
                               </Badge>
                             </div>
                             <div className="flex items-center space-x-2 text-sm text-gray-500">
-                              <span>{transaction.type === 'received' ? 'From' : 'To'}: {formatTransactionAddress(transaction.type === 'received' ? transaction.from : transaction.to)}</span>
+                              <span>
+                                {transaction.type === "received" ? "From" : "To"}:{" "}
+                                {formatTransactionAddress(
+                                  transaction.type === "received"
+                                    ? transaction.from
+                                    : transaction.to
+                                )}
+                              </span>
                               <span>•</span>
                               <span>{formatTransactionTime(transaction.timestamp)}</span>
                             </div>
@@ -397,10 +496,13 @@ export function MyWalletPanel() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className={`font-semibold ${
-                            transaction.type === 'received' ? 'text-green-600' : 'text-gray-900'
-                          }`}>
-                            {transaction.type === 'received' ? '+' : '-'}{transaction.amount}
+                          <p
+                            className={`font-semibold ${
+                              transaction.type === "received" ? "text-green-600" : "text-gray-900"
+                            }`}
+                          >
+                            {transaction.type === "received" ? "+" : "-"}
+                            {transaction.amount}
                           </p>
                           <p className="text-gray-500 text-sm">{transaction.value}</p>
                         </div>
@@ -431,12 +533,14 @@ export function MyWalletPanel() {
                       <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
                         <History className="w-8 h-8 text-green-400" />
                       </div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">No Transactions here</h3>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                        No Transactions here
+                      </h3>
                       <p className="text-gray-500 text-sm mb-6 max-w-xs">
                         Fund account or receive assets to see them here.
                       </p>
                       <ShimmerButton
-                        onClick={() => console.log('Fund account')}
+                        onClick={() => console.log("Fund account")}
                         className="bg-green-600 hover:bg-green-700 text-white border-green-600"
                         shimmerColor="#22c55e"
                       >
@@ -450,11 +554,12 @@ export function MyWalletPanel() {
           </Card>
 
           {/* Security Notice */}
-          <Card className="bg-amber-50 border-amber-200">
+          <Card className="bg-amber-50 border-amber-200 rounded-2xl">
             <CardContent className="p-6">
               <h3 className="text-lg font-semibold text-amber-800 mb-2">Security Notice</h3>
               <p className="text-amber-700 text-sm">
-                Your wallet is securely encrypted and stored. Never share your private keys or recovery phrase with anyone.
+                Your wallet is securely encrypted and stored. Never share your private keys or
+                recovery phrase with anyone.
               </p>
             </CardContent>
           </Card>
@@ -463,7 +568,7 @@ export function MyWalletPanel() {
         {/* Profile Options Modal */}
         {showProfileOptions && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <Card className="max-w-sm w-full mx-4">
+            <Card className="max-w-sm w-full mx-4 rounded-2xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] duration-300">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Profile Options</CardTitle>
@@ -482,43 +587,43 @@ export function MyWalletPanel() {
                   variant="outline"
                   className="w-full justify-start"
                   onClick={() => {
-                    console.log('Edit Profile');
+                    console.log("Edit Profile");
                     setShowProfileOptions(false);
                   }}
                 >
                   <User className="w-4 h-4 mr-2" />
                   Edit Profile
                 </Button>
-                
+
                 <Button
                   variant="outline"
                   className="w-full justify-start"
                   onClick={() => {
-                    console.log('Account Settings');
+                    console.log("Account Settings");
                     setShowProfileOptions(false);
                   }}
                 >
                   <DollarSign className="w-4 h-4 mr-2" />
                   Account Settings
                 </Button>
-                
+
                 <Button
                   variant="outline"
                   className="w-full justify-start"
                   onClick={() => {
-                    console.log('Wallet Settings');
+                    console.log("Wallet Settings");
                     setShowProfileOptions(false);
                   }}
                 >
                   <Wallet className="w-4 h-4 mr-2" />
                   Wallet Settings
                 </Button>
-                
+
                 <Button
                   variant="outline"
                   className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
                   onClick={() => {
-                    console.log('Logout');
+                    console.log("Logout");
                     setShowProfileOptions(false);
                   }}
                 >
@@ -533,7 +638,7 @@ export function MyWalletPanel() {
         {/* Receive Modal */}
         {showReceiveModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <Card className="max-w-md w-full mx-4">
+            <Card className="max-w-md w-full mx-4 rounded-2xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] duration-300">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Receive Crypto</CardTitle>
@@ -560,30 +665,22 @@ export function MyWalletPanel() {
                 {/* Wallet Address */}
                 <div className="mb-6">
                   <h4 className="text-sm font-medium text-gray-600 mb-2">Wallet Address</h4>
-                  <div className="bg-gray-50 rounded-lg p-4 border">
+                  <div className="bg-gray-50 rounded-lg p-4 border flex items-center justify-between">
                     <p className="font-mono text-sm text-gray-900 break-all">
                       {placeholderWallet.address}
                     </p>
+                    <Button onClick={copyAddress} className="ml-2 flex-shrink-0 relative w-8 h-8 p-2 bg-gray-50 rounded-lg">
+                      <Copy
+                        className={`w-4 h-4 transition-opacity duration-300 ${copyStatus === "idle" ? "opacity-100" : "opacity-0"}`}
+                      />
+                      <Check
+                        className={`w-4 h-4 text-green-500 transition-opacity duration-300 absolute ${copyStatus === "success" ? "opacity-100" : "opacity-0"}`}
+                      />
+                    </Button>
                   </div>
                 </div>
 
-                {/* Copy Button */}
-                <Button
-                  onClick={copyAddress}
-                  className="w-full mb-4"
-                >
-                  <Copy className="w-4 h-4 mr-2" />
-                  Copy Address
-                </Button>
-
                 {/* Warning */}
-                <Card className="bg-amber-50 border-amber-200">
-                  <CardContent className="p-3">
-                    <p className="text-xs text-amber-700">
-                      Only send Ethereum and ERC-20 tokens to this address. Sending other cryptocurrencies may result in permanent loss.
-                    </p>
-                  </CardContent>
-                </Card>
               </CardContent>
             </Card>
           </div>
