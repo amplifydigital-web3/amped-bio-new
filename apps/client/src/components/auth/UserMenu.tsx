@@ -1,7 +1,5 @@
-"use client";
-
 import { useState } from "react";
-import { LogOut, User, Settings, Wallet } from "lucide-react";
+import { LogOut, User, Settings, ArrowRight, Wallet } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { useEditorStore } from "../../store/editorStore";
 import { AuthModal } from "./AuthModal";
@@ -13,12 +11,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAmplifyConnect } from "../connect/hooks/useAmplifyConnect";
 import { useNavigate } from "react-router-dom";
 import { formatOnelink } from "@/utils/onelink";
+import { cn } from "@/lib/utils";
 
 export function UserMenu() {
-  const amplifyConnect = useAmplifyConnect();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { authUser, signOut } = useAuthStore();
   const { profile, setUser, setDefault } = useEditorStore();
@@ -59,6 +56,12 @@ export function UserMenu() {
     return nav(`/account`);
   };
 
+  const handleNavigateToWallet = () => {
+    if (authUser?.onelink) {
+      return nav(`/${formatOnelink(authUser.onelink)}/edit`, { state: { panel: "wallet" } });
+    }
+  };
+
   if (authUser === null) {
     return (
       <>
@@ -76,16 +79,43 @@ export function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center space-x-2 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
-          {" "}
-          <User className="w-4 h-4" />
-          <span>{authUser.email}</span>
+        <button className={cn(
+          "group relative w-auto cursor-pointer overflow-hidden rounded-full border bg-white hover:bg-gray-50 p-2 px-4 text-center font-medium transition-all shadow-sm",
+        )}>
+          {/* Default state - visible content */}
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
+              {profile.photoUrl || profile.photoCmp ? (
+                <img 
+                  src={profile.photoUrl || profile.photoCmp || ""} 
+                  alt="Profile" 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <User className="w-4 h-4 text-gray-400" />
+              )}
+            </div>
+            <div className="flex flex-col items-start transition-all duration-300 group-hover:translate-x-2 group-hover:opacity-0">
+              <span className="text-sm font-semibold text-gray-900">$509.77</span>
+              <span className="text-xs text-gray-500">@{authUser.onelink}</span>
+            </div>
+          </div>
+          
+          {/* Hover state - hidden content that slides in */}
+          <div className="absolute top-0 left-0 z-10 flex h-full w-full translate-x-full items-center justify-center gap-2 bg-blue-600 text-white opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100 rounded-full">
+            <span className="text-sm font-medium">View Wallet</span>
+            <ArrowRight className="w-4 h-4" />
+          </div>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuItem onClick={() => nav(`/${formatOnelink(authUser.onelink)}/edit`)}>
           <User className="w-4 h-4 mr-2" />
           <span>Edit Profile</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleNavigateToWallet}>
+          <Wallet className="w-4 h-4 mr-2" />
+          <span>My Wallet</span>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={handleNavigateToAccount}>
           <Settings className="w-4 h-4 mr-2" />
@@ -94,19 +124,6 @@ export function UserMenu() {
         <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
           <LogOut className="w-4 h-4 mr-2" />
           <span>Sign Out</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={amplifyConnect.handleClick}>
-          <Wallet className="w-4 h-4 mr-2" />
-          <span>
-            {amplifyConnect.account.address
-              ? `${amplifyConnect.account.address.substring(
-                  0,
-                  4
-                )}...${amplifyConnect.account.address.substring(
-                  amplifyConnect.account.address.length - 4
-                )}`
-              : "Connect Web3 Wallet"}
-          </span>
         </DropdownMenuItem>
         {authUser.onelink !== profile.onelink && (
           <DropdownMenuItem onClick={handleNavtoHome}>

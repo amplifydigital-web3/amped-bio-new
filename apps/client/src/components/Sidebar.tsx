@@ -13,6 +13,7 @@ import {
   AtSign,
   Home,
   Settings,
+  Wallet,
 } from "lucide-react";
 import { exportSettings } from "../utils/export";
 import { importSettings } from "../utils/import";
@@ -25,6 +26,7 @@ const allNavItems = [
   { id: "appearance", icon: Palette, label: "Appearance", alwaysShow: true },
   { id: "effects", icon: Sparkles, label: "Effects", alwaysShow: true },
   { id: "blocks", icon: LayoutGrid, label: "Blocks", alwaysShow: true },
+  { id: "wallet", icon: Wallet, label: "My Wallet", alwaysShow: true },
   { id: "reward", icon: Sparkle, label: "Reward", alwaysShow: false },
   { id: "account", icon: Settings, label: "Account", alwaysShow: true },
   {
@@ -92,7 +94,8 @@ export function Sidebar() {
             <button
               key={id}
               onClick={() => isEnabled && handlePanelClick(id)}
-              className={`w-12 h-12 flex flex-col items-center justify-center rounded-lg transition-colors relative mx-1 md:mx-0 md:mb-2
+              className={`w-12 h-12 flex flex-col items-center justify-center rounded-lg relative mx-1 md:mx-0 md:mb-2
+                transition-all duration-200 ease-in-out transform hover:scale-105
                 ${
                   isEnabled
                     ? activePanel === id
