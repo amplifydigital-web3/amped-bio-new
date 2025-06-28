@@ -1,5 +1,5 @@
 {
-    "contextFileName": ".gemini/GEMINI.md",
+    "contextFileName": "GEMINI.md",
     "mcpServers": {
         "magicui": {
             "command": "npx",
