@@ -44,12 +44,7 @@ export function MyWalletPanel() {
   const [copyStatus, setCopyStatus] = useState<"idle" | "success">("idle");
   const [showFundModal, setShowFundModal] = useState(false);
 
-  // Placeholder wallet data
-  const placeholderWallet = {
-    id: 12345,
-    address: "0x742e4C4F6B5F3d4B8A1e9C2D8B3A4F5E6D7C8B9A",
-    created_at: new Date("2024-01-15").toISOString(),
-  };
+  const walletAddress = authUser!.walletAddress;
 
   // Sample data for tokens (empty for now)
   const sampleTokens: any[] = [];
@@ -61,8 +56,8 @@ export function MyWalletPanel() {
   const sampleTransactions: any[] = [];
 
   const copyAddress = () => {
-    if (placeholderWallet.address) {
-      navigator.clipboard.writeText(placeholderWallet.address);
+    if (walletAddress) {
+      navigator.clipboard.writeText(walletAddress);
       setCopyStatus("success");
       setTimeout(() => {
         setCopyStatus("idle");
@@ -139,9 +134,9 @@ export function MyWalletPanel() {
                     <div className="flex items-center space-x-1 mt-1">
                       <span
                         className="font-mono text-sm text-gray-600"
-                        title={placeholderWallet.address}
+                        title={walletAddress}
                       >
-                        {formatAddress(placeholderWallet.address)}
+                        {formatAddress(walletAddress)}
                       </span>
                       <Button
                         onClick={copyAddress}
@@ -175,7 +170,7 @@ export function MyWalletPanel() {
               <CardDescription className="mb-6">Your current wallet balance</CardDescription>
 
               {/* Action Buttons */}
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-5 gap-4">
                 <Dialog open={showFundModal} onOpenChange={setShowFundModal}>
                   <DialogTrigger asChild>
                     <Button
@@ -197,7 +192,8 @@ export function MyWalletPanel() {
                         className="h-auto py-4 flex flex-col items-start space-y-1"
                         onClick={() =>
                           window.open(
-                            "https://bridge.dev.revolutionchain.io/bridge",
+                            "https://bridge.dev.revolutionchain.io/bridge?address=" +
+                              walletAddress,
                             "_blank",
                             "width=600,height=700,left=200,top=200"
                           )
@@ -252,6 +248,24 @@ export function MyWalletPanel() {
                   <ArrowDownLeft className="w-8 h-8 p-2 bg-gray-50 rounded-lg" />
                   <span className="text-sm font-medium">Receive</span>
                 </Button>
+
+                <Button
+                  onClick={() => console.log("Stake crypto")}
+                  className="h-20 flex flex-col items-center justify-center space-y-2 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200 hover:border-yellow-300 transition-all duration-200 ease-in-out transform hover:scale-105"
+                  variant="outline"
+                >
+                  <Coins className="w-8 h-8 p-2 bg-gray-50 rounded-lg" />
+                  <span className="text-sm font-medium">Stake</span>
+                </Button>
+
+                <Button
+                  onClick={() => console.log("Unstake crypto")}
+                  className="h-20 flex flex-col items-center justify-center space-y-2 bg-red-50 hover:bg-red-100 text-red-700 border-red-200 hover:border-red-300 transition-all duration-200 ease-in-out transform hover:scale-105"
+                  variant="outline"
+                >
+                  <Gem className="w-8 h-8 p-2 bg-gray-50 rounded-lg" />
+                  <span className="text-sm font-medium">Unstake</span>
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -266,12 +280,12 @@ export function MyWalletPanel() {
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Created</span>
                   <span className="text-gray-900 font-medium">
-                    {new Date(placeholderWallet.created_at).toLocaleDateString()}
+                    {/* {new Date(placeholderWallet.created_at).toLocaleDateString()} */}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Wallet ID</span>
-                  <span className="text-gray-900 font-medium">#{placeholderWallet.id}</span>
+                  {/* <span className="text-gray-900 font-medium">#{placeholderWallet.id}</span> */}
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Network</span>
@@ -656,7 +670,7 @@ export function MyWalletPanel() {
                 {/* QR Code */}
                 <div className="bg-white p-4 rounded-lg border-2 border-gray-200 inline-block mb-6">
                   <img
-                    src={generateQRCode(placeholderWallet.address)}
+                    src={generateQRCode(walletAddress)}
                     alt="QR Code"
                     className="w-48 h-48"
                   />
@@ -667,7 +681,7 @@ export function MyWalletPanel() {
                   <h4 className="text-sm font-medium text-gray-600 mb-2">Wallet Address</h4>
                   <div className="bg-gray-50 rounded-lg p-4 border flex items-center justify-between">
                     <p className="font-mono text-sm text-gray-900 break-all">
-                      {placeholderWallet.address}
+                      {walletAddress}
                     </p>
                     <Button onClick={copyAddress} className="ml-2 flex-shrink-0 relative w-8 h-8 p-2 bg-gray-50 rounded-lg">
                       <Copy

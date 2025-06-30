@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { router, privateProcedure } from '../trpc';
-import { WalletService } from '../../services/WalletService';
+import { router, privateProcedure } from './trpc';
+import { WalletService } from '../services/WalletService';
 
 export const walletRouter = router({
   // Send token (native REVO if tokenAddress is 0x0, ERC-20 otherwise)

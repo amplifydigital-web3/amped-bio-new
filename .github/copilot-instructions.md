@@ -1,7 +1,5 @@
 # Project: Amped Bio
 
-# Project: Amped Bio
-
 # Core Mandates
 
 *   **Adherence to Conventions**: Always prioritize and strictly adhere to existing project conventions (naming, formatting, structure, architectural patterns). Analyze surrounding code, tests, and configuration first to ensure consistency.
@@ -20,6 +18,8 @@
 
 # Project Specifics
 
+*   **Client Location**: The client application is located in `apps/client`.
+*   **Server Location**: The server application is located in `apps/server`.
 *   **Shared Code**: Place all code intended for use by both the server and client in the `packages/constants` directory.
 *   **Backend API**: The server utilizes `tRPC` for type-safe API development, replacing traditional Express REST APIs.
 *   **Prisma Migrations**: After changing the Prisma schema and creating a new migration, run `pnpm --filter server run prisma:generate`.

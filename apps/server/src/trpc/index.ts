@@ -6,7 +6,7 @@ import { adminRouter } from "./admin/index";
 import { uploadRouter } from "./upload";
 import { themeRouter } from "./theme";
 import { themeGalleryRouter } from "./themeGallery";
-import { walletRouter } from "./routers/wallet";
+import { walletRouter } from "./wallet";
 
 // Merge all routers
 const mergedRouter = router({

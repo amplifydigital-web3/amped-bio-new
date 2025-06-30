@@ -1,5 +1,5 @@
 import { generatePrivateKey, privateKeyToAccount, privateKeyToAddress } from 'viem/accounts';
-import { createPublicClient, createWalletClient, http, formatEther, parseEther } from 'viem';
+import { createPublicClient, createWalletClient, http, formatEther, parseEther, Address } from 'viem';
 import { defineChain } from 'viem';
 import { chainConfig } from 'viem/zksync';
 import { PrismaClient } from '@prisma/client';
@@ -64,7 +64,7 @@ export class WalletService {
     // Derive key from environment variable and salt
     const key = crypto.pbkdf2Sync(env.WALLET_ENCRYPTION_KEY, salt, 10000, 32, 'sha512');
     
-    const cipher = crypto.createCipher('aes-256-cbc', key);
+    const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
     
     let encrypted = cipher.update(data, 'utf8', 'hex');
     encrypted += cipher.final('hex');
@@ -187,7 +187,7 @@ export class WalletService {
       // Return wallet data without sensitive information
       return {
         id: wallet.id,
-        address: wallet.address,
+        address: wallet.address as Address,
         created_at: wallet.created_at,
       };
     } catch (error) {

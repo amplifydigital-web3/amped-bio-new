@@ -14,6 +14,7 @@ import {
 } from "../schemas/auth.schema";
 import { env } from "../env";
 import { WalletService } from "../services/WalletService";
+import { Address } from "viem";
 
 const prisma = new PrismaClient();
 
@@ -74,13 +75,15 @@ export const authRouter = router({
       });
 
       // Create wallet for the new user
-      let walletAddress = null;
+      let walletAddress: Address | undefined;
       try {
         const wallet = await WalletService.createWalletForUser(result.id);
         walletAddress = wallet.address;
       } catch (error) {
-        console.error("Error creating wallet for user:", error);
-        // We continue even if wallet creation fails
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Error creating wallet for user",
+        }); 
       }
 
       // Send verification email
@@ -94,7 +97,7 @@ export const authRouter = router({
       // Return user data and token
       return {
         success: true,
-        user: { id: result.id, email, onelink, walletAddress },
+        user: { id: result.id, email, onelink, walletAddress: walletAddress! },
         token: generateToken({ id: result.id, email, role: result.role }),
       };
     }),
@@ -131,14 +134,16 @@ export const authRouter = router({
       }
 
       // Check if user has a wallet, if not create one
-      let walletAddress = user.wallet?.address || null;
+      let walletAddress = user.wallet?.address as Address;
       if (!user.wallet) {
         try {
           const wallet = await WalletService.createWalletForUser(user.id);
           walletAddress = wallet.address;
         } catch (error) {
-          console.error("Error creating wallet for user during login:", error);
-          // We continue even if wallet creation fails
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Error creating wallet for user",
+          });
         }
       }
 
@@ -147,7 +152,7 @@ export const authRouter = router({
       // Return user data and token
       return {
         success: true,
-        user: { id: user.id, email: user.email, onelink: user.onelink!, emailVerified, walletAddress },
+        user: { id: user.id, email: user.email, onelink: user.onelink!, emailVerified, walletAddress: walletAddress!},
         token: generateToken({ id: user.id, email: user.email, role: user.role }),
       };
     }),
