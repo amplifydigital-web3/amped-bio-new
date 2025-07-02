@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { useEditorStore } from "@/store/editorStore";
 import {
@@ -35,6 +35,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { trpc, trpcClient } from "@/utils/trpc";
+import { useQuery } from "@tanstack/react-query";
 
 export function MyWalletPanel() {
   const { authUser } = useAuthStore();
@@ -43,6 +45,12 @@ export function MyWalletPanel() {
   const [showProfileOptions, setShowProfileOptions] = useState(false);
   const [copyStatus, setCopyStatus] = useState<"idle" | "success">("idle");
   const [showFundModal, setShowFundModal] = useState(false);
+
+  const { data: walletBalanceData, isLoading: isBalanceLoading } = useQuery(
+    trpc.wallet.getETHBalance.queryOptions(),
+  );
+
+  
 
   const walletAddress = authUser!.walletAddress;
 
@@ -132,10 +140,7 @@ export function MyWalletPanel() {
                       @{authUser?.onelink || "User"}
                     </h2>
                     <div className="flex items-center space-x-1 mt-1">
-                      <span
-                        className="font-mono text-sm text-gray-600"
-                        title={walletAddress}
-                      >
+                      <span className="font-mono text-sm text-gray-600" title={walletAddress}>
                         {formatAddress(walletAddress)}
                       </span>
                       <Button
@@ -148,7 +153,11 @@ export function MyWalletPanel() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-2xl font-bold text-gray-900">$0.00</div>
+                  <div className="text-2xl font-bold text-gray-900">
+                    {isBalanceLoading
+                      ? "Loading..."
+                      : `${parseFloat(walletBalanceData?.balance ?? "0").toFixed(4)} ETH`}
+                  </div>
                   <p className="text-sm text-gray-600">Total Balance</p>
                 </div>
               </div>
@@ -166,7 +175,11 @@ export function MyWalletPanel() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-gray-900 mb-2">$0.00</div>
+              <div className="text-3xl font-bold text-gray-900 mb-2">
+                {isBalanceLoading
+                  ? "Loading..."
+                  : `${parseFloat(walletBalanceData?.balance ?? "0").toFixed(4)} ETH`}
+              </div>
               <CardDescription className="mb-6">Your current wallet balance</CardDescription>
 
               {/* Action Buttons */}
@@ -192,8 +205,7 @@ export function MyWalletPanel() {
                         className="h-auto py-4 flex flex-col items-start space-y-1"
                         onClick={() =>
                           window.open(
-                            "https://bridge.dev.revolutionchain.io/bridge?address=" +
-                              walletAddress,
+                            "https://bridge.dev.revolutionchain.io/bridge?address=" + walletAddress,
                             "_blank",
                             "width=600,height=700,left=200,top=200"
                           )
@@ -669,21 +681,18 @@ export function MyWalletPanel() {
               <CardContent className="text-center">
                 {/* QR Code */}
                 <div className="bg-white p-4 rounded-lg border-2 border-gray-200 inline-block mb-6">
-                  <img
-                    src={generateQRCode(walletAddress)}
-                    alt="QR Code"
-                    className="w-48 h-48"
-                  />
+                  <img src={generateQRCode(walletAddress)} alt="QR Code" className="w-48 h-48" />
                 </div>
 
                 {/* Wallet Address */}
                 <div className="mb-6">
                   <h4 className="text-sm font-medium text-gray-600 mb-2">Wallet Address</h4>
                   <div className="bg-gray-50 rounded-lg p-4 border flex items-center justify-between">
-                    <p className="font-mono text-sm text-gray-900 break-all">
-                      {walletAddress}
-                    </p>
-                    <Button onClick={copyAddress} className="ml-2 flex-shrink-0 relative w-8 h-8 p-2 bg-gray-50 rounded-lg">
+                    <p className="font-mono text-sm text-gray-900 break-all">{walletAddress}</p>
+                    <Button
+                      onClick={copyAddress}
+                      className="ml-2 flex-shrink-0 relative w-8 h-8 p-2 bg-gray-50 rounded-lg"
+                    >
                       <Copy
                         className={`w-4 h-4 transition-opacity duration-300 ${copyStatus === "idle" ? "opacity-100" : "opacity-0"}`}
                       />
