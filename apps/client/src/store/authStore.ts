@@ -58,13 +58,9 @@ export const useAuthStore = create<AuthState>()(
         try {
           set({ error: null });
           const response = await trpcClient.auth.login.mutate({ email, password });
-          
-          if (!response.success) {
-            throw new Error("Login failed");
-          }
-          
+  
           // Use store function to set token
-          useAuthStore.getState().setAuthToken(response.token);
+          useAuthStore.getState().setAuthToken(response.accessToken);
           set({ authUser: response.user });
 
           return response.user;
@@ -78,13 +74,9 @@ export const useAuthStore = create<AuthState>()(
         try {
           set({ error: null });
           const response = await trpcClient.auth.register.mutate({ onelink, email, password });
-          
-          if (!response.success) {
-            throw new Error("Registration failed");
-          }
-          
+
           // Use store function to set token
-          useAuthStore.getState().setAuthToken(response.token);
+          useAuthStore.getState().setAuthToken(response.accessToken);
           set({ authUser: response.user });
           return response.user;
         } catch (error) {

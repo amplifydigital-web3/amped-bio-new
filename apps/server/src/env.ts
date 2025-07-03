@@ -11,6 +11,9 @@ export const env = cleanEnv(process.env, {
     desc: "Secret key for JWT token generation and verification",
     default: "your-default-jwt-secret-for-development",
   }),
+  JWT_PRIVATE_KEY: str({
+    desc: "Private key for JWT signing",
+  }),
   PORT: port({
     desc: "Port for the server to listen on",
     default: 43000,
@@ -95,3 +98,6 @@ export const env = cleanEnv(process.env, {
     example: "http://localhost:9090",
   }),
 });
+
+
+export const privateKeyBuffer = Buffer.from(env.JWT_PRIVATE_KEY, "utf8");

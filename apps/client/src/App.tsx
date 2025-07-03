@@ -24,6 +24,8 @@ import {
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./utils/trpc";
 import { Toaster } from 'react-hot-toast';
+import { Web3AuthProvider } from "@web3auth/modal/react";
+import web3AuthContextConfig from "./utils/web3authContext";
 
 function App() {
   const [init, setInit] = useState(false);
@@ -55,7 +57,7 @@ function App() {
 
   if (init) {
     return (
-      <>
+      <Web3AuthProvider config={web3AuthContextConfig}>
         <QueryClientProvider client={queryClient}>
           <AppKitProvider>
             <BrowserRouter>
@@ -86,7 +88,7 @@ function App() {
           </AppKitProvider>
         </QueryClientProvider>
         <Toaster />
-      </>
+      </Web3AuthProvider>
     );
   }
   return <></>;

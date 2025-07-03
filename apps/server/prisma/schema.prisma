@@ -35,6 +35,8 @@ model User {
   profileImage        UploadedFile? @relation("UserProfileImage", fields: [image_file_id], references: [id], onDelete: SetNull)
   wallet              Wallet?
 
+  refreshTokens       RefreshToken[]
+
   @@map("users")
 }
 
@@ -153,4 +155,18 @@ model UploadedFile {
   @@index([user_id])
   @@index([status])
   @@map("uploaded_files")
+}
+
+model RefreshToken {
+  id          Int      @id @default(autoincrement())
+  token       String   @db.Char(64) // SHA256 hash
+  userId      Int
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@map("refresh_tokens")
 }

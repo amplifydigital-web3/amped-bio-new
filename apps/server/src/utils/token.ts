@@ -1,14 +1,24 @@
 import jwt from "jsonwebtoken";
-import { env } from "../env";
+import { privateKeyBuffer } from "../env";
 
-interface TokenUser {
+export const generateAccessToken = (user: {
   id: number;
   email: string;
   role: string;
-}
-
-export const generateToken = (user: TokenUser): string => {
-  return jwt.sign({ id: user.id, email: user.email, role: user.role }, env.JWT_SECRET, {
-    expiresIn: "7d",
-  });
+}): string => {
+  return jwt.sign(
+    {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      aud: "amped.bio",
+      iss: "api.amped.bio",
+    },
+    privateKeyBuffer,
+    {
+      expiresIn: "10m", // 10 minutes
+      algorithm: "RS256",
+      keyid: "a3342c51fb359dd243bf4",
+    }
+  );
 };

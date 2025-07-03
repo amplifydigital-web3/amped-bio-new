@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { sendEmailChangeVerification } from "../utils/email/email";
-import { generateToken } from "../utils/token";
+import { generateAccessToken } from "../utils/token";
 import crypto from "crypto";
 
 const prisma = new PrismaClient();
@@ -221,7 +221,7 @@ export const userRouter = router({
         });
 
         // Generate new JWT token with updated email
-        const token = generateToken({
+        const token = generateAccessToken({
           id: userId,
           email: newEmail,
           role: updatedUser.role,

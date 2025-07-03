@@ -1,161 +1,229 @@
-import { router, publicProcedure } from "./trpc";
+import { router, publicProcedure, privateProcedure } from "./trpc";
 import { z } from "zod";
 import { PrismaClient } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import crypto from "crypto";
 import { sendPasswordResetEmail } from "../utils/email/email";
 import { hashPassword, comparePasswords } from "../utils/password";
-import { generateToken } from "../utils/token";
+import { generateAccessToken } from "../utils/token";
 import {
   registerSchema,
   loginSchema,
   passwordResetRequestSchema,
   processPasswordResetSchema,
 } from "../schemas/auth.schema";
+import { serialize } from "cookie";
 import { env } from "../env";
 import { WalletService } from "../services/WalletService";
 import { Address } from "viem";
+import { addDays } from "date-fns";
 
 const prisma = new PrismaClient();
 
 export const authRouter = router({
   // Register a new user
-  register: publicProcedure
-    .input(registerSchema)
-    .mutation(async ({ input }) => {
-      const { onelink, email, password } = input;
+  register: publicProcedure.input(registerSchema).mutation(async ({ input, ctx }) => {
+    const { onelink, email, password } = input;
 
-      // Check if onelink already exists
-      const existingOnelinkCount = await prisma.user.count({
-        where: { onelink },
+    // Check if onelink already exists
+    const existingOnelinkCount = await prisma.user.count({
+      where: { onelink },
+    });
+
+    if (existingOnelinkCount > 0) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "URL already taken",
       });
+    }
 
-      if (existingOnelinkCount > 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "URL already taken",
-        });
-      }
+    // Check if email already exists
+    const existingUserCount = await prisma.user.count({
+      where: { email },
+    });
 
-      // Check if email already exists
-      const existingUserCount = await prisma.user.count({
-        where: { email },
+    if (existingUserCount > 0) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Email already registered",
       });
+    }
 
-      if (existingUserCount > 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Email already registered",
-        });
-      }
+    // Hash password and create remember token
+    const hashedPassword = await hashPassword(password);
+    const remember_token = crypto.randomBytes(32).toString("hex");
 
-      // Hash password and create remember token
-      const hashedPassword = await hashPassword(password);
-      const remember_token = crypto.randomBytes(32).toString("hex");
+    let userRole = "user";
 
-    
-      let userRole = "user";
-      
-      if (env.isDevelopment) {
-        const totalUsersCount = await prisma.user.count();
-        const isFirstUser = totalUsersCount === 0;
-        userRole = isFirstUser ? "user,admin" : "user";
-      }
+    if (env.isDevelopment) {
+      const totalUsersCount = await prisma.user.count();
+      const isFirstUser = totalUsersCount === 0;
+      userRole = isFirstUser ? "user,admin" : "user";
+    }
 
-      // Create user
-      const result = await prisma.user.create({
-        data: {
-          onelink,
-          name: onelink,
-          email,
-          password: hashedPassword,
-          remember_token,
-          role: userRole,
-        },
+    // Create user
+    const result = await prisma.user.create({
+      data: {
+        onelink,
+        name: onelink,
+        email,
+        password: hashedPassword,
+        remember_token,
+        role: userRole,
+      },
+    });
+
+    // Create wallet for the new user
+    let walletAddress: Address | undefined;
+    try {
+      const wallet = await WalletService.createWalletForUser(result.id);
+      walletAddress = wallet.address;
+    } catch (error) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Error creating wallet for user",
       });
+    }
 
-      // Create wallet for the new user
-      let walletAddress: Address | undefined;
+    // Send verification email
+    // try {
+    //   await sendEmailVerification(email, remember_token);
+    // } catch (error) {
+    //   console.error("Error sending verification email:", error);
+    //   // We continue even if email fails
+    // }
+
+    const refreshToken = crypto.randomBytes(32).toString("hex");
+
+    const token = await prisma.refreshToken.create({
+      data: {
+        userId: result.id,
+        token: refreshToken,
+        expiresAt: addDays(new Date(), 30), // 30 days
+      },
+    });
+
+    ctx.res.setHeader(
+      "Set-Cookie",
+      serialize("refreshToken", token.token, {
+        httpOnly: true,
+        secure: env.NODE_ENV === "production",
+        sameSite: "strict",
+        expires: token.expiresAt,
+      })
+    );
+
+    return {
+      user: { id: result.id, email, onelink, walletAddress: walletAddress! },
+      accessToken: generateAccessToken({ id: result.id, email, role: result.role }),
+    };
+  }),
+
+  // Login user
+  login: publicProcedure.input(loginSchema).mutation(async ({ input, ctx }) => {
+    const { email, password } = input;
+
+    // Find user
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: {
+        wallet: true,
+      },
+    });
+
+    if (!user) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Invalid credentials",
+      });
+    }
+
+    // Verify password
+    const isValidPassword = await comparePasswords(password, user.password);
+
+    if (!isValidPassword) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Invalid credentials",
+      });
+    }
+
+    // Check if user has a wallet, if not create one
+    let walletAddress = user.wallet?.address as Address;
+    if (!user.wallet) {
       try {
-        const wallet = await WalletService.createWalletForUser(result.id);
+        const wallet = await WalletService.createWalletForUser(user.id);
         walletAddress = wallet.address;
       } catch (error) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Error creating wallet for user",
-        }); 
+        });
       }
+    }
 
-      // Send verification email
-      // try {
-      //   await sendEmailVerification(email, remember_token);
-      // } catch (error) {
-      //   console.error("Error sending verification email:", error);
-      //   // We continue even if email fails
-      // }
+    const emailVerified = user.email_verified_at !== null;
 
-      // Return user data and token
-      return {
-        success: true,
-        user: { id: result.id, email, onelink, walletAddress: walletAddress! },
-        token: generateToken({ id: result.id, email, role: result.role }),
-      };
-    }),
+    const refreshToken = crypto.randomBytes(32).toString("hex");
 
-  // Login user
-  login: publicProcedure
-    .input(loginSchema)
-    .mutation(async ({ input }) => {
-      const { email, password } = input;
+    const token = await prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        token: refreshToken,
+        expiresAt: addDays(new Date(), 30), // 30 days
+      },
+    });
 
-      // Find user
-      const user = await prisma.user.findUnique({
-        where: { email },
-        include: {
-          wallet: true,
-        },
+    ctx.res.setHeader(
+      "Set-Cookie",
+      serialize("refreshToken", token.token, {
+        httpOnly: true,
+        secure: env.NODE_ENV === "production",
+        sameSite: "strict",
+        expires: token.expiresAt,
+      })
+    );
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        onelink: user.onelink!,
+        emailVerified,
+        walletAddress: walletAddress!,
+      },
+      accessToken: generateAccessToken({ id: user.id, email: user.email, role: user.role }),
+    };
+  }),
+
+  logout: privateProcedure.mutation(async ({ ctx }) => { 
+    const refreshToken = ctx.req.cookies.refreshToken;
+
+    if (!refreshToken) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "No refresh token provided",
       });
+    }
 
-      if (!user) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Invalid credentials",
-        });
-      }
+    // Delete the refresh token
+    await prisma.refreshToken.deleteMany({
+      where: { token: refreshToken },
+    });
 
-      // Verify password
-      const isValidPassword = await comparePasswords(password, user.password);
+    // Clear the cookie
+    ctx.res.setHeader(
+      "Set-Cookie",
+      serialize("refreshToken", "", {
+        httpOnly: true,
+        secure: env.NODE_ENV === "production",
+        sameSite: "strict",
+        expires: new Date(0), // Expire immediately
+      })
+    );
 
-      if (!isValidPassword) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "Invalid credentials",
-        });
-      }
-
-      // Check if user has a wallet, if not create one
-      let walletAddress = user.wallet?.address as Address;
-      if (!user.wallet) {
-        try {
-          const wallet = await WalletService.createWalletForUser(user.id);
-          walletAddress = wallet.address;
-        } catch (error) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Error creating wallet for user",
-          });
-        }
-      }
-
-      const emailVerified = user.email_verified_at !== null;
-
-      // Return user data and token
-      return {
-        success: true,
-        user: { id: user.id, email: user.email, onelink: user.onelink!, emailVerified, walletAddress: walletAddress!},
-        token: generateToken({ id: user.id, email: user.email, role: user.role }),
-      };
-    }),
+    return { success: true, message: "Logged out successfully" };
+  }),
 
   // Password reset request
   passwordResetRequest: publicProcedure
@@ -208,6 +276,78 @@ export const authRouter = router({
       };
     }),
 
+  me: privateProcedure.query(async ({ ctx }) => {
+    const userId = ctx.user.id;
+
+    // Find user
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        wallet: true,
+      },
+    });
+
+    if (!user) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Invalid credentials",
+      });
+    }
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        onelink: user.onelink,
+        emailVerified: user.email_verified_at !== null,
+        walletAddress: user.wallet?.address || null,
+      },
+    };
+  }),
+
+  refreshToken: publicProcedure.mutation(async ({ ctx }) => {
+    // delete all expired tokens
+    await prisma.refreshToken.deleteMany({
+      where: {
+        expiresAt: {
+          lt: new Date(),
+        },
+      },
+    });
+
+    const refreshToken = ctx.req.cookies.refreshToken;
+
+    if (!refreshToken) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "No refresh token provided",
+      });
+    }
+
+    // Find existing refresh token
+    const existingToken = await prisma.refreshToken.findFirst({
+      where: { token: refreshToken },
+      select: {
+        user: true,
+      },
+    });
+
+    if (!existingToken) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Invalid refresh token",
+      });
+    }
+
+    return {
+      accessToken: generateAccessToken({
+        id: existingToken.user.id,
+        email: existingToken.user.email,
+        role: existingToken.user.role,
+      }),
+    };
+  }),
+
   // Process password reset
   processPasswordReset: publicProcedure
     .input(processPasswordResetSchema)
@@ -248,11 +388,9 @@ export const authRouter = router({
       });
 
       return {
-        success: true,
         message: "Password has been reset successfully",
       };
     }),
-
 
   // Verify email
   verifyEmail: publicProcedure
@@ -290,7 +428,6 @@ export const authRouter = router({
       });
 
       return {
-        success: true,
         message: "Email verified successfully",
         onelink: result.onelink,
         email,
