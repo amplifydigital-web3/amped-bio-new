@@ -205,7 +205,7 @@ export const mockData = {
       id: 1,
       user_id: demoUser.id,
       name: "Demo Public Theme",
-      share_level: "public", 
+      share_level: "public",
       share_config: {},
       config: {
         background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
@@ -444,8 +444,8 @@ export const mockData = {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         _count: {
-          themes: 0
-        }
+          themes: 0,
+        },
       },
       toggleThemeCategoryVisibility: {
         success: true,
@@ -454,9 +454,9 @@ export const mockData = {
           id: 1,
           name: "business",
           title: "Business",
-          visible: true
-        }
-      }
+          visible: true,
+        },
+      },
     },
   },
 };

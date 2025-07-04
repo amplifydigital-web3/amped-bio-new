@@ -1,6 +1,10 @@
 import { useState, useRef, ChangeEvent } from "react";
 import { Image as ImageIcon, Upload, X } from "lucide-react";
-import { ALLOWED_AVATAR_FILE_EXTENSIONS, ALLOWED_AVATAR_FILE_TYPES, MAX_ADMIN_AVATAR_FILE_SIZE } from "@ampedbio/constants";
+import {
+  ALLOWED_AVATAR_FILE_EXTENSIONS,
+  ALLOWED_AVATAR_FILE_TYPES,
+  MAX_ADMIN_AVATAR_FILE_SIZE,
+} from "@ampedbio/constants";
 
 interface CategoryImageSelectorProps {
   onFileSelect: (file: File | null) => void;
@@ -8,17 +12,17 @@ interface CategoryImageSelectorProps {
   selectedFile?: File | null;
 }
 
-export function CategoryImageSelector({ 
-  onFileSelect, 
+export function CategoryImageSelector({
+  onFileSelect,
   onError,
-  selectedFile 
+  selectedFile,
 }: CategoryImageSelectorProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    
+
     if (!file) {
       onFileSelect(null);
       setPreviewUrl(null);
@@ -26,19 +30,19 @@ export function CategoryImageSelector({
     }
 
     // Reset file input
-    e.target.value = '';
+    e.target.value = "";
 
     // Validate file type
     if (!ALLOWED_AVATAR_FILE_TYPES.includes(file.type)) {
-      const errorMsg = `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(', ').toUpperCase()} images are allowed`;
+      const errorMsg = `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()} images are allowed`;
       onError?.(errorMsg);
       return;
     }
 
     // Validate file extension
-    const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
+    const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
     if (!ALLOWED_AVATAR_FILE_EXTENSIONS.includes(fileExtension)) {
-      const errorMsg = `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(', ')} file extensions are allowed`;
+      const errorMsg = `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ")} file extensions are allowed`;
       onError?.(errorMsg);
       return;
     }
@@ -63,22 +67,18 @@ export function CategoryImageSelector({
     }
     onFileSelect(null);
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
   };
 
   return (
     <div className="space-y-3">
       <label className="block text-sm font-medium text-gray-700">Category Image (Optional)</label>
-      
+
       {/* Preview */}
       {previewUrl && (
         <div className="relative w-24 h-24 rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
-          <img 
-            src={previewUrl} 
-            alt="Preview" 
-            className="w-full h-full object-cover"
-          />
+          <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
           <button
             type="button"
             onClick={clearSelection}
@@ -88,14 +88,14 @@ export function CategoryImageSelector({
           </button>
         </div>
       )}
-      
+
       {/* Upload Button */}
       <div className="flex items-center gap-3">
         <input
           type="file"
           ref={fileInputRef}
           className="hidden"
-          accept={ALLOWED_AVATAR_FILE_TYPES.join(',')}
+          accept={ALLOWED_AVATAR_FILE_TYPES.join(",")}
           onChange={handleFileSelect}
         />
         <button
@@ -115,17 +115,18 @@ export function CategoryImageSelector({
             </>
           )}
         </button>
-        
+
         {selectedFile && (
           <span className="text-sm text-gray-600">
             {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
           </span>
         )}
       </div>
-      
+
       {/* File Requirements */}
       <p className="text-xs text-gray-500">
-        {ALLOWED_AVATAR_FILE_EXTENSIONS.join(', ').toUpperCase()}. Max {MAX_ADMIN_AVATAR_FILE_SIZE / (1024 * 1024)}MB.
+        {ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()}. Max{" "}
+        {MAX_ADMIN_AVATAR_FILE_SIZE / (1024 * 1024)}MB.
       </p>
     </div>
   );

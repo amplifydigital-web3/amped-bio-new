@@ -18,7 +18,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { useAuthStore } from "@/store/authStore";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Define validation schemas using Zod
 const initiateEmailSchema = z
@@ -44,7 +44,7 @@ interface EmailChangeDialogProps {
 }
 
 export function EmailChangeDialog({ isOpen, onClose }: EmailChangeDialogProps) {
-  const { authUser, updateAuthUser, setAuthToken } = useAuthStore();
+  const { authUser, updateAuthUser } = useAuth();
   const [step, setStep] = useState<"enter_email" | "verification">("enter_email");
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
@@ -120,12 +120,12 @@ export function EmailChangeDialog({ isOpen, onClose }: EmailChangeDialogProps) {
   // Effect for timer to update countdown for rate limit
   useEffect(() => {
     let cooldownTimer: number | null = null;
-    
+
     if (retryAfterTimestamp) {
       const updateCooldown = () => {
         const now = new Date();
         const diff = retryAfterTimestamp.getTime() - now.getTime();
-        
+
         if (diff <= 0) {
           setResendCooldown(0);
           setRetryAfterTimestamp(null);
@@ -139,14 +139,14 @@ export function EmailChangeDialog({ isOpen, onClose }: EmailChangeDialogProps) {
           setResendCooldown(Math.ceil(diff / 1000));
         }
       };
-      
+
       // Initial calculation
       updateCooldown();
-      
+
       // Update every second
       cooldownTimer = window.setInterval(updateCooldown, 1000);
     }
-    
+
     return () => {
       if (cooldownTimer) {
         clearInterval(cooldownTimer);
@@ -157,14 +157,15 @@ export function EmailChangeDialog({ isOpen, onClose }: EmailChangeDialogProps) {
   // Helper function to extract wait time from error messages and set retryAfter timestamp
   const extractWaitTimeFromError = (err: any): void => {
     // Check for rate limiting error with structured data in cause (new format with retryAfter)
-    if (err?.shape?.data?.cause?.code === "RATE_LIMIT_EMAIL_VERIFICATION" && 
-        typeof err?.shape?.data?.cause?.retryAfter === 'string') {
-      
+    if (
+      err?.shape?.data?.cause?.code === "RATE_LIMIT_EMAIL_VERIFICATION" &&
+      typeof err?.shape?.data?.cause?.retryAfter === "string"
+    ) {
       try {
         const retryAfterDate = new Date(err.shape.data.cause.retryAfter);
         const now = new Date();
         const diffSeconds = Math.ceil((retryAfterDate.getTime() - now.getTime()) / 1000);
-        
+
         if (diffSeconds > 0) {
           setRetryAfterTimestamp(retryAfterDate);
           setResendCooldown(diffSeconds); // Initial value until the effect updates it
@@ -175,14 +176,18 @@ export function EmailChangeDialog({ isOpen, onClose }: EmailChangeDialogProps) {
       }
     }
     // Fallback to the previous timeLeftSeconds format
-    else if (err?.shape?.data?.cause?.code === "RATE_LIMIT_EMAIL_VERIFICATION" && 
-        typeof err?.shape?.data?.cause?.timeLeftSeconds === 'number') {
+    else if (
+      err?.shape?.data?.cause?.code === "RATE_LIMIT_EMAIL_VERIFICATION" &&
+      typeof err?.shape?.data?.cause?.timeLeftSeconds === "number"
+    ) {
       setResendCooldown(err.shape.data.cause.timeLeftSeconds);
     }
     // Last resort fallback to the old method of extracting from text
-    else if (err?.shape?.data?.code === "TOO_MANY_REQUESTS" && 
-        err.message.includes("wait") && 
-        err.message.includes("seconds")) {
+    else if (
+      err?.shape?.data?.code === "TOO_MANY_REQUESTS" &&
+      err.message.includes("wait") &&
+      err.message.includes("seconds")
+    ) {
       const secondsMatch = err.message.match(/wait\s+(\d+)\s+seconds/i);
       if (secondsMatch && secondsMatch[1]) {
         const seconds = parseInt(secondsMatch[1], 10);
@@ -212,7 +217,7 @@ export function EmailChangeDialog({ isOpen, onClose }: EmailChangeDialogProps) {
       }
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred");
-      
+
       // Extract retry timestamp from error if available
       extractWaitTimeFromError(err);
     } finally {
@@ -235,7 +240,6 @@ export function EmailChangeDialog({ isOpen, onClose }: EmailChangeDialogProps) {
         setSuccess(true);
         // Update the auth store with new email
         if (authUser) {
-          setAuthToken(response.token);
           updateAuthUser({ email: newEmail });
         }
       } else {
@@ -270,7 +274,7 @@ export function EmailChangeDialog({ isOpen, onClose }: EmailChangeDialogProps) {
       }
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred");
-      
+
       // Extract retry timestamp from error if available
       extractWaitTimeFromError(err);
     } finally {
@@ -307,9 +311,9 @@ export function EmailChangeDialog({ isOpen, onClose }: EmailChangeDialogProps) {
   const renderError = () => {
     // Check if the error is a rate limit error with cooldown
     const isRateLimitError = error?.includes("wait") && resendCooldown > 0;
-    
+
     if (!error) return null;
-    
+
     return (
       <div className="p-3 mb-5 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2.5">
         <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
@@ -440,9 +444,7 @@ export function EmailChangeDialog({ isOpen, onClose }: EmailChangeDialogProps) {
                     Sending...
                   </>
                 ) : resendCooldown > 0 ? (
-                  <>
-                    Wait {resendCooldown}s
-                  </>
+                  <>Wait {resendCooldown}s</>
                 ) : (
                   "Send Verification Code"
                 )}

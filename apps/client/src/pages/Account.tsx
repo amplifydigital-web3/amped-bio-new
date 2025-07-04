@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useAuthStore } from "@/store/authStore";
+import { useAuth } from "../contexts/AuthContext";
 import { ArrowLeft } from "lucide-react";
 import { EmailChangeDialog } from "@/components/dialogs/EmailChangeDialog";
 
 export function Account() {
-  const { authUser } = useAuthStore();
+  const { authUser } = useAuth();
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
 
   if (!authUser) {
@@ -26,7 +26,10 @@ export function Account() {
     <div className="min-h-screen bg-gray-50">
       <div className="h-16 border-b bg-white px-6 flex items-center justify-between shrink-0 shadow-sm z-[10]">
         <div className="flex items-center">
-          <Link to={`/@${authUser.onelink}/edit`} className="flex items-center text-gray-700 hover:text-gray-900 mr-6">
+          <Link
+            to={`/@${authUser.onelink}/edit`}
+            className="flex items-center text-gray-700 hover:text-gray-900 mr-6"
+          >
             <ArrowLeft className="w-4 h-4 mr-2" />
             <span className="font-medium">Back to Editor</span>
           </Link>
@@ -58,12 +61,9 @@ export function Account() {
             </div>
           </div>
         </div>
-        
+
         {/* Email Change Dialog */}
-        <EmailChangeDialog 
-          isOpen={isEmailDialogOpen}
-          onClose={() => setIsEmailDialogOpen(false)}
-        />
+        <EmailChangeDialog isOpen={isEmailDialogOpen} onClose={() => setIsEmailDialogOpen(false)} />
       </div>
     </div>
   );

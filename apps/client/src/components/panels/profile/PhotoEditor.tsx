@@ -60,17 +60,7 @@ export function PhotoEditor({ imageUrl, onComplete, onCancel }: PhotoEditorProps
     const sourceHeight = (crop.height * scaleY * image.height) / 100;
 
     // Apply zoom
-    ctx.drawImage(
-      image,
-      sourceX,
-      sourceY,
-      sourceWidth,
-      sourceHeight,
-      0,
-      0,
-      size,
-      size
-    );
+    ctx.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, size, size);
 
     // Convert canvas to data URL and save with 80% quality
     const dataUrl = canvas.toDataURL("image/jpeg", 0.8);

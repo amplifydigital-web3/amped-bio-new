@@ -14,7 +14,7 @@ export function AdminSettings() {
         description="Configure system settings and preferences"
         onRefresh={handleRefresh}
       />
-      
+
       <AdminPlaceholderContent
         icon={<Settings className="h-12 w-12 mx-auto mb-4 text-gray-400" />}
         title="Admin Settings"

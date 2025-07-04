@@ -11,6 +11,9 @@ export const env = cleanEnv(process.env, {
     desc: "Secret key for JWT token generation and verification",
     default: "your-default-jwt-secret-for-development",
   }),
+  JWT_PRIVATE_KEY: str({
+    desc: "Private key for JWT signing",
+  }),
   PORT: port({
     desc: "Port for the server to listen on",
     default: 43000,
@@ -51,6 +54,24 @@ export const env = cleanEnv(process.env, {
     default: "noreply@amped.bio",
     example: "noreply@yourdomain.com",
   }),
+  // Wallet encryption key
+  WALLET_ENCRYPTION_KEY: str({
+    desc: "Secret key for encrypting wallet private keys",
+    default: "your-default-wallet-encryption-key-for-development",
+    example: "a-very-secure-random-key-for-wallet-encryption",
+  }),
+  // RPC URL for blockchain interactions
+  RPC_URL: str({
+    desc: "RPC URL for blockchain network",
+    default: "https://dev.revolutionchain.io",
+    example: "https://dev.revolutionchain.io",
+  }),
+  // Chain ID for the blockchain network
+  CHAIN_ID: str({
+    desc: "Chain ID for the blockchain network",
+    default: "324", // ZKsync mainnet default
+    example: "324",
+  }),
   // AWS S3 Configuration for profile picture uploads
   AWS_REGION: str({
     desc: "AWS Region",
@@ -77,3 +98,6 @@ export const env = cleanEnv(process.env, {
     example: "http://localhost:9090",
   }),
 });
+
+
+export const privateKeyBuffer = Buffer.from(env.JWT_PRIVATE_KEY, "utf8");

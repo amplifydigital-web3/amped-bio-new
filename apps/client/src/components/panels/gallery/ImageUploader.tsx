@@ -1,6 +1,10 @@
 import React, { useCallback } from "react";
 import { Upload, Image as ImageIcon } from "lucide-react";
-import { ALLOWED_AVATAR_FILE_EXTENSIONS, ALLOWED_AVATAR_FILE_TYPES, MAX_AVATAR_FILE_SIZE } from "@ampedbio/constants";
+import {
+  ALLOWED_AVATAR_FILE_EXTENSIONS,
+  ALLOWED_AVATAR_FILE_TYPES,
+  MAX_AVATAR_FILE_SIZE,
+} from "@ampedbio/constants";
 
 interface ImageUploaderProps {
   onUpload: (image: { url: string; type: string }) => void;
@@ -14,14 +18,14 @@ export function AvatarImageUploader({ onUpload }: ImageUploaderProps) {
 
       // Validate file type
       if (!ALLOWED_AVATAR_FILE_TYPES.includes(file.type)) {
-        alert(`Only ${ALLOWED_AVATAR_FILE_TYPES.join(', ').toUpperCase()} images are allowed`);
+        alert(`Only ${ALLOWED_AVATAR_FILE_TYPES.join(", ").toUpperCase()} images are allowed`);
         return;
       }
 
       // Validate file extension
-      const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
+      const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
       if (!ALLOWED_AVATAR_FILE_EXTENSIONS.includes(fileExtension)) {
-        alert(`Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(', ')} file extensions are allowed`);
+        alert(`Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ")} file extensions are allowed`);
         return;
       }
 
@@ -52,14 +56,15 @@ export function AvatarImageUploader({ onUpload }: ImageUploaderProps) {
         </div>
         <p className="mt-2 text-sm text-gray-500">Drop your images here or click to upload</p>
         <p className="text-xs text-gray-400 mt-1">
-          Supports: {ALLOWED_AVATAR_FILE_EXTENSIONS.join(', ').toUpperCase()} (Max {MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB)
+          Supports: {ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()} (Max{" "}
+          {MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB)
         </p>
       </div>
-      <input 
-        type="file" 
-        className="hidden" 
-        accept={ALLOWED_AVATAR_FILE_TYPES.join(',')} 
-        onChange={handleFileUpload} 
+      <input
+        type="file"
+        className="hidden"
+        accept={ALLOWED_AVATAR_FILE_TYPES.join(",")}
+        onChange={handleFileUpload}
       />
     </label>
   );

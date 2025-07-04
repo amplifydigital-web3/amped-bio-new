@@ -26,7 +26,7 @@ export function AdminUsers() {
         onAdd={handleAddUser}
         addButtonText="Add User"
       />
-      
+
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
         <UserManagement />
       </div>

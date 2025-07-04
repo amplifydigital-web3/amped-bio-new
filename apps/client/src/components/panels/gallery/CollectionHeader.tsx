@@ -82,28 +82,29 @@ export function CollectionHeader({ collection }: CollectionHeaderProps) {
   const getStyleKey = (collectionId: string): keyof typeof styles => {
     // For server collections (numeric IDs), map based on collection name
     if (collection?.isServer) {
-      const name = collection.name?.toLowerCase() || '';
-      if (name.includes('abstract') || name.includes('modern')) return 'abstract';
-      if (name.includes('nature') || name.includes('organic')) return 'nature';
-      if (name.includes('cyber') || name.includes('tech')) return 'cyber';
-      if (name.includes('winter') || name.includes('snow')) return 'winter';
-      return 'abstract'; // default fallback
+      const name = collection.name?.toLowerCase() || "";
+      if (name.includes("abstract") || name.includes("modern")) return "abstract";
+      if (name.includes("nature") || name.includes("organic")) return "nature";
+      if (name.includes("cyber") || name.includes("tech")) return "cyber";
+      if (name.includes("winter") || name.includes("snow")) return "winter";
+      return "abstract"; // default fallback
     }
-    
+
     // For client collections, use ID directly
-    return (collectionId as keyof typeof styles) in styles 
-      ? (collectionId as keyof typeof styles) 
-      : 'abstract';
+    return (collectionId as keyof typeof styles) in styles
+      ? (collectionId as keyof typeof styles)
+      : "abstract";
   };
 
-  const baseStyle = styles[getStyleKey(collection?.id || 'abstract')];
-  
+  const baseStyle = styles[getStyleKey(collection?.id || "abstract")];
+
   // For server collections, use the category image if available, otherwise fallback to hardcoded image
   const style = {
     ...baseStyle,
-    image: collection?.isServer && collection?.categoryImage?.url 
-      ? collection.categoryImage.url 
-      : baseStyle.image
+    image:
+      collection?.isServer && collection?.categoryImage?.url
+        ? collection.categoryImage.url
+        : baseStyle.image,
   };
 
   return (
@@ -115,7 +116,7 @@ export function CollectionHeader({ collection }: CollectionHeaderProps) {
         {/* Background Image with Overlay */}
         <img
           src={style.image}
-          alt={collection?.name || 'Collection'}
+          alt={collection?.name || "Collection"}
           className={`absolute inset-0 w-full h-full object-cover ${style.overlayOpacity}`}
         />
 
@@ -145,7 +146,7 @@ export function CollectionHeader({ collection }: CollectionHeaderProps) {
         <div className="absolute inset-0 flex items-center justify-center text-center p-6">
           <div className="space-y-6">
             <h1 className="text-7xl font-bold text-white tracking-tight drop-shadow-lg">
-              {collection?.name || 'Collection'}
+              {collection?.name || "Collection"}
             </h1>
             <div className="flex items-center justify-center gap-2">
               <Sparkles className="w-6 h-6 text-white" />
@@ -171,7 +172,9 @@ export function CollectionHeader({ collection }: CollectionHeaderProps) {
           <div className="flex items-start gap-8">
             {/* Collection Description */}
             <div className="flex-1 min-w-0">
-              <p className="text-xl text-gray-900 leading-relaxed mb-6">{collection?.description || ''}</p>
+              <p className="text-xl text-gray-900 leading-relaxed mb-6">
+                {collection?.description || ""}
+              </p>
             </div>
           </div>
         </div>

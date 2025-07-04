@@ -20,7 +20,7 @@ export function AdminThemes() {
         onRefresh={handleRefresh}
         isLoading={isRefreshing}
       />
-      
+
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
         <AdminThemeManager />
       </div>

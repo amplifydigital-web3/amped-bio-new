@@ -8,7 +8,7 @@ import { toast } from "react-hot-toast";
 import { useOnelinkAvailability } from "@/hooks/useOnelinkAvailability";
 import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
 import { normalizeOnelink, formatOnelink, cleanOnelinkInput } from "@/utils/onelink";
-import { useAuthStore } from "@/store/authStore";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function URLPicker() {
   // Extract profile data safely from the store
@@ -27,7 +27,7 @@ export function URLPicker() {
   const { urlStatus, isValid, isCurrentUrl } = useOnelinkAvailability(url, currentOnelink);
 
   const setProfile = useEditorStore(state => state.setProfile);
-  const { updateAuthUser } = useAuthStore();
+  const { updateAuthUser } = useAuth();
   const nav = useNavigate();
 
   // Update local state if profile changes

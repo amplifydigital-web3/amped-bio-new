@@ -4,16 +4,20 @@ import { collections as hardcodedCollections } from "@/utils/themes";
 import { Collection } from "@ampedbio/constants";
 
 // Utility function to merge server collections with hardcoded collections
-function mergeCollections(serverCollections: Collection[], localCollections: Collection[]): Collection[] {
+function mergeCollections(
+  serverCollections: Collection[],
+  localCollections: Collection[]
+): Collection[] {
   const merged: Collection[] = [...localCollections];
-  
+
   // Add server collections that don't exist in hardcoded collections
   serverCollections.forEach(serverCollection => {
-    const existsInLocal = localCollections.some(localCollection => 
-      localCollection.id === serverCollection.id || 
-      localCollection.name.toLowerCase() === serverCollection.name.toLowerCase()
+    const existsInLocal = localCollections.some(
+      localCollection =>
+        localCollection.id === serverCollection.id ||
+        localCollection.name.toLowerCase() === serverCollection.name.toLowerCase()
     );
-    
+
     if (!existsInLocal) {
       merged.push({
         id: serverCollection.id,
@@ -25,7 +29,7 @@ function mergeCollections(serverCollections: Collection[], localCollections: Col
       });
     }
   });
-  
+
   return merged;
 }
 
@@ -41,7 +45,7 @@ export function useCollections() {
   });
 
   // Merge server collections with hardcoded collections
-  const collections = serverCollections 
+  const collections = serverCollections
     ? mergeCollections(serverCollections, hardcodedCollections)
     : hardcodedCollections;
 

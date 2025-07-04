@@ -1,6 +1,6 @@
 import { useParams, useLocation } from "react-router-dom";
 import { Layout } from "../components/Layout";
-import { useAuthStore } from "../store/authStore";
+import { useAuth } from "../contexts/AuthContext";
 import { useEffect, useState } from "react";
 import { useEditorStore } from "../store/editorStore";
 import { useNavigate } from "react-router-dom";
@@ -9,7 +9,7 @@ import { toast } from "react-hot-toast";
 
 export function Editor() {
   const { onelink = "" } = useParams();
-  const { authUser, updateAuthUser } = useAuthStore();
+  const { authUser, updateAuthUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [authorized, setAuthorized] = useState(false);
   const profile = useEditorStore(state => state.profile);

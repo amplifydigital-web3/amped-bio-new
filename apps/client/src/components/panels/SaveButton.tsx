@@ -5,7 +5,8 @@ const SaveButton = () => {
   const themeChanges = useEditorStore(state => state.themeChanges);
   const saveChanges = useEditorStore(state => state.saveChanges);
 
-  if (!changes && !themeChanges) { // Show when there are either block changes or theme changes
+  if (!changes && !themeChanges) {
+    // Show when there are either block changes or theme changes
     return null;
   }
 

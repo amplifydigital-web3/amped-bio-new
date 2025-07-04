@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { X, Loader2, Eye, EyeOff, Check, X as XIcon, AlertCircle } from "lucide-react";
-import { useAuthStore } from "../../store/authStore";
+import { useAuth } from "../../contexts/AuthContext";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
 import type { AuthUser } from "../../types/auth";
@@ -88,7 +88,7 @@ const PasswordStrengthIndicator = ({ password }: { password: string }) => {
 
 export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModalProps) {
   const [form, setForm] = useState<FormType>(initialForm);
-  const { signIn, signUp, resetPassword } = useAuthStore();
+  const { signIn, signUp, resetPassword } = useAuth();
   const [loading, setLoading] = useState(false);
   const [sharedEmail, setSharedEmail] = useState("");
   const isUserTyping = useRef(false);
@@ -284,7 +284,12 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     >
       <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
         <div className="flex items-center justify-between mb-6">
-          <h2 id="auth-modal-title" className="text-xl font-semibold" data-testid="auth-modal-title" aria-label="auth-modal-title">
+          <h2
+            id="auth-modal-title"
+            className="text-xl font-semibold"
+            data-testid="auth-modal-title"
+            aria-label="auth-modal-title"
+          >
             {form === "register" && "Create Account"}
             {form === "login" && "Sign In"}
             {form === "reset" && "Reset Password"}
@@ -300,7 +305,11 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
         </div>
 
         {form === "login" && (
-          <form onSubmit={handleSubmitLogin(onSubmitLogin)} className="space-y-4" data-testid="login-form">
+          <form
+            onSubmit={handleSubmitLogin(onSubmitLogin)}
+            className="space-y-4"
+            data-testid="login-form"
+          >
             {loginError && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
                 <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
@@ -359,7 +368,11 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
         )}
 
         {form === "register" && (
-          <form onSubmit={handleSubmitSignUp(onSubmitRegister)} className="space-y-4" data-testid="register-form">
+          <form
+            onSubmit={handleSubmitSignUp(onSubmitRegister)}
+            className="space-y-4"
+            data-testid="register-form"
+          >
             {registerError && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
                 <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
@@ -460,7 +473,11 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
         )}
 
         {form === "reset" && (
-          <form onSubmit={handleSubmitReset(onSubmitReset)} className="space-y-4" data-testid="reset-form">
+          <form
+            onSubmit={handleSubmitReset(onSubmitReset)}
+            className="space-y-4"
+            data-testid="reset-form"
+          >
             {!resetSuccess && (
               <div className="mb-2">
                 <p className="text-sm text-gray-600 mb-4">

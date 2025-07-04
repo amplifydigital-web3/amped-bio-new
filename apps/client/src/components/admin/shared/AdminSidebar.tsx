@@ -1,6 +1,6 @@
 import { BarChart3, Users, Layers, Settings, LogOut, Home, Hexagon, FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useAuthStore } from "../../../store/authStore";
+import { useAuth } from "../../../contexts/AuthContext";
 
 interface AdminSidebarProps {
   activeMenu: string;
@@ -9,7 +9,7 @@ interface AdminSidebarProps {
 
 export const AdminSidebar = ({ activeMenu, setActiveMenu }: AdminSidebarProps) => {
   const navigate = useNavigate();
-  const { signOut } = useAuthStore();
+  const { signOut } = useAuth();
 
   // Sidebar navigation items
   const sidebarItems = [

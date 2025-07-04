@@ -7,14 +7,9 @@ import type {
   Background,
   GalleryImage,
 } from "../types/editor";
-import {
-  editUser,
-  editBlocks,
-  deleteBlock,
-  addBlock as apiAddBlock,
-} from "../api/api";
+import { editUser, editBlocks, deleteBlock, addBlock as apiAddBlock } from "../api/api";
 import initialState from "./defaults";
-import { useAuthStore } from "./authStore";
+import { useAuth } from "../contexts/AuthContext";
 import toast from "react-hot-toast";
 import { BlockType } from "@/api/api.types";
 import { formatOnelink, normalizeOnelink } from "@/utils/onelink";
@@ -131,7 +126,7 @@ export const useEditorStore = create<EditorStore>()(set => ({
     console.group("➕ Adding Block");
     console.info("Block data:", block);
 
-    const { authUser } = useAuthStore.getState();
+    const { authUser } = useAuth().authUser;
     let newBlock = block; // Initialize with the original block
 
     try {
@@ -186,7 +181,7 @@ export const useEditorStore = create<EditorStore>()(set => ({
   },
   removeBlock: async (id: number) => {
     console.group(`🗑️ Removing Block: ${id}`);
-    const { authUser } = useAuthStore.getState();
+    const { authUser } = useAuth().authUser;
     try {
       if (authUser === null) {
         console.info("❌ Remove Block Error: No user logged in");
@@ -319,7 +314,7 @@ export const useEditorStore = create<EditorStore>()(set => ({
   applyTheme: theme => {
     console.group("🎨 Applying Theme");
     console.info("Theme:", theme.name);
-    set({ 
+    set({
       theme,
       // Don't mark as changes since backend already applied the theme
     });
@@ -338,7 +333,7 @@ export const useEditorStore = create<EditorStore>()(set => ({
     console.group("💾 Saving Changes");
     console.info("Starting save process...");
     const { profile, theme, blocks, themeChanges } = useEditorStore.getState();
-    const { authUser } = useAuthStore.getState();
+    const { authUser } = useAuth().authUser;
     try {
       if (authUser === null || authUser.email !== profile.email) {
         console.info("❌ Save Error: No user logged in or email mismatch");
@@ -425,7 +420,9 @@ export const useEditorStore = create<EditorStore>()(set => ({
     // Check if the user is using a server theme (user_id = null)
     if (theme.user_id === null) {
       console.warn("❌ Export blocked: Cannot export server theme");
-      toast.error("Cannot export themes from other user. Please create or select your own theme first.");
+      toast.error(
+        "Cannot export themes from other user. Please create or select your own theme first."
+      );
       console.groupEnd();
       return;
     }
@@ -446,11 +443,13 @@ export const useEditorStore = create<EditorStore>()(set => ({
     console.info("File:", file.name);
 
     const { theme } = useEditorStore.getState();
-    
+
     // Check if the user is using a server theme (user_id = null)
     if (theme.user_id === null) {
       console.warn("❌ Import blocked: Cannot import over other user theme");
-      toast.error("Cannot import themes while using a server theme. Please create or select your own theme first.");
+      toast.error(
+        "Cannot import themes while using a server theme. Please create or select your own theme first."
+      );
       console.groupEnd();
       throw new Error("Cannot import themes while using a server theme");
     }

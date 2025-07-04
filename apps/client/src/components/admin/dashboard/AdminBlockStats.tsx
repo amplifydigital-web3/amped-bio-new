@@ -14,9 +14,7 @@ export const AdminBlockStats = ({ totalBlocks, blocksCreatedToday }: AdminBlockS
       </div>
       <div className="mt-4">
         <p className="text-3xl font-bold">{totalBlocks.toLocaleString()}</p>
-        <p className="mt-2 text-sm text-gray-500">
-          {blocksCreatedToday} created today
-        </p>
+        <p className="mt-2 text-sm text-gray-500">{blocksCreatedToday} created today</p>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { BarChart3, Users, Layers, Settings, LogOut, Home, Hexagon, Files } from "lucide-react";
-import { useAuthStore } from "../../store/authStore";
+import { useAuth } from "../../contexts/AuthContext";
 import { AdminHeader } from "../../components/admin";
 import { AdminBreadcrumb } from "../../components/admin";
 import { AdminNotificationContainer } from "../../components/admin";
@@ -9,8 +9,8 @@ import { useAdminKeyboardShortcuts } from "../../hooks/useAdminKeyboardShortcuts
 export function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut } = useAuthStore();
-  
+  const { signOut } = useAuth();
+
   // Enable keyboard shortcuts
   useAdminKeyboardShortcuts();
 
@@ -59,7 +59,7 @@ export function AdminLayout() {
     <div className="flex h-screen bg-gray-50">
       {/* Notification Container */}
       <AdminNotificationContainer />
-      
+
       {/* Admin Sidebar */}
       <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
         {/* Logo */}
@@ -111,7 +111,7 @@ export function AdminLayout() {
             <Home className="h-5 w-5" />
             <span className="font-medium">Back to App</span>
           </button>
-          
+
           {/* Keyboard Shortcuts Info */}
           <div className="mt-4 px-4 py-2 bg-gray-50 rounded-lg">
             <p className="text-xs text-gray-500 font-medium mb-1">Keyboard Shortcuts</p>
@@ -124,7 +124,7 @@ export function AdminLayout() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <AdminHeader title={getCurrentPageTitle()} />
-        
+
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
           <div className="p-6">

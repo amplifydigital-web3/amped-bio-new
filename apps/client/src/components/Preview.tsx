@@ -27,7 +27,6 @@ const extractRootDomain = (url: string): string => {
   }
 };
 
-
 interface PreviewProps {
   isEditing: boolean;
   onelink: string;
@@ -150,8 +149,8 @@ export function Preview(props: PreviewProps) {
                       {profile.title}
                     </p>
                   )} */}
-                  {profile.bio && (
-                    isHTML(profile.bio) ? (
+                  {profile.bio &&
+                    (isHTML(profile.bio) ? (
                       <p
                         className="text-lg max-w-2xl mx-auto leading-relaxed"
                         style={{
@@ -172,8 +171,7 @@ export function Preview(props: PreviewProps) {
                       >
                         {profile.bio}
                       </p>
-                    )
-                  )}
+                    ))}
                 </div>
               </div>
 

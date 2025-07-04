@@ -1,7 +1,7 @@
 import { Facebook } from "lucide-react";
 import type { ThemeConfig } from "../../types/editor";
 import { MediaBlock } from "@/api/api.types";
-import { FacebookEmbed } from 'react-social-media-embed';
+import { FacebookEmbed } from "react-social-media-embed";
 
 interface FacebookBlockProps {
   block: MediaBlock;
@@ -31,7 +31,7 @@ export function FacebookBlock({ block, theme }: FacebookBlockProps) {
           Facebook
         </span>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
+      <div style={{ display: "flex", justifyContent: "center" }}>
         <FacebookEmbed url={block.config.url} width="100%" />
       </div>
       {/* Display content as description if available */}

@@ -445,7 +445,7 @@ const cyberpunkThemes: MarketplaceTheme[] = [
         type: "video",
         value: `${awsS3}/Astral_Staircase.mp4`,
       },
-    }, 
+    },
   },
   {
     id: "cyber-arches",
@@ -523,7 +523,7 @@ const cyberpunkThemes: MarketplaceTheme[] = [
         type: "video",
         value: `${awsS3}/Magic_Portal.mp4`,
       },
-    }
+    },
   },
   {
     id: "cyber-ellipse",
@@ -725,4 +725,9 @@ const winterCollection: Collection = {
 };
 
 // Export collections and themes
-export const collections: Collection[] = [modernCollection, natureCollection, cyberpunkCollection, winterCollection];
+export const collections: Collection[] = [
+  modernCollection,
+  natureCollection,
+  cyberpunkCollection,
+  winterCollection,
+];

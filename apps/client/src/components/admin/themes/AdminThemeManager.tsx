@@ -8,7 +8,9 @@ import { ViewCollectionsTab } from "./ViewCollectionsTab";
 import { ViewThemesTab } from "./ViewThemesTab";
 
 export function AdminThemeManager() {
-  const [activeTab, setActiveTab] = useState<"themes" | "collections" | "view-collections" | "view-themes">("themes");
+  const [activeTab, setActiveTab] = useState<
+    "themes" | "collections" | "view-collections" | "view-themes"
+  >("themes");
 
   // Queries
   const { refetch: refetchCategories } = useQuery(
@@ -72,30 +74,21 @@ export function AdminThemeManager() {
       <div className="flex-1 overflow-hidden">
         <div className="h-full overflow-y-auto">
           <div className="max-w-6xl mx-auto p-6">
-            
             {/* Theme Creation Tab */}
-            {activeTab === "themes" && (
-              <CreateThemeTab />
-            )}
+            {activeTab === "themes" && <CreateThemeTab />}
 
             {/* Collection Management Tab */}
             {activeTab === "collections" && (
-              <CreateCollectionTab
-                refetchCategories={refetchCategories}
-              />
+              <CreateCollectionTab refetchCategories={refetchCategories} />
             )}
 
             {/* View Collections Tab */}
             {activeTab === "view-collections" && (
-              <ViewCollectionsTab
-                refetchCategories={refetchCategories}
-              />
+              <ViewCollectionsTab refetchCategories={refetchCategories} />
             )}
 
             {/* View Themes Tab */}
-            {activeTab === "view-themes" && (
-              <ViewThemesTab />
-            )}
+            {activeTab === "view-themes" && <ViewThemesTab />}
           </div>
         </div>
       </div>

@@ -29,7 +29,11 @@ interface AdminPlaceholderContentProps {
   description: string;
 }
 
-export const AdminPlaceholderContent = ({ icon, title, description }: AdminPlaceholderContentProps) => {
+export const AdminPlaceholderContent = ({
+  icon,
+  title,
+  description,
+}: AdminPlaceholderContentProps) => {
   return (
     <div className="flex-1 overflow-auto p-6">
       <div className="bg-white p-12 rounded-lg border border-gray-200 shadow-sm flex items-center justify-center">

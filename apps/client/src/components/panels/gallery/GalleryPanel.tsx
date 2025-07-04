@@ -30,22 +30,22 @@ export function GalleryPanel() {
       name: "Applied Theme",
       share_level: "public",
       share_config: {},
-      config: themeConfig
+      config: themeConfig,
     };
     applyTheme(themeToApply);
   };
 
   // Get collections (merged server + hardcoded)
   const { collections } = useCollections();
-  
+
   // Find the current collection
   const currentCollection = collections.find(c => c.id === activeCollection);
-  
+
   // For server collections, fetch themes from the server
   const isServerCollection = currentCollection?.isServer;
   const { data: serverThemes, isLoading: isLoadingServerThemes } = useQuery({
     ...trpc.themeGallery.getThemesByCategory.queryOptions({
-      id: parseInt(activeCollection)
+      id: parseInt(activeCollection),
     }),
     enabled: !!(isServerCollection && activeCollection && !isNaN(parseInt(activeCollection))),
   });
@@ -56,7 +56,7 @@ export function GalleryPanel() {
       // Show all themes from all collections (only hardcoded collections have themes)
       return collections.flatMap(c => c.themes || []);
     }
-    
+
     if (isServerCollection && serverThemes) {
       // For server collections, use themes from server
       // Convert server theme format to marketplace theme format
@@ -67,10 +67,10 @@ export function GalleryPanel() {
         thumbnail: theme.thumbnailImage?.url || "",
         tags: [] as string[], // Server themes don't have tags
         theme: theme.config || {},
-        user_id: theme.user?.id || null // null means admin theme (user_id = 0)
+        user_id: theme.user?.id || null, // null means admin theme (user_id = 0)
       }));
     }
-    
+
     // For hardcoded collections, use existing themes
     return currentCollection?.themes || [];
   };

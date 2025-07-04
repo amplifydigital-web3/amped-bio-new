@@ -1,6 +1,10 @@
 import { useState, useRef, ChangeEvent } from "react";
 import { trpcClient } from "../../../utils/trpc";
-import { ALLOWED_AVATAR_FILE_EXTENSIONS, ALLOWED_AVATAR_FILE_TYPES, MAX_AVATAR_FILE_SIZE } from "@ampedbio/constants";
+import {
+  ALLOWED_AVATAR_FILE_EXTENSIONS,
+  ALLOWED_AVATAR_FILE_TYPES,
+  MAX_AVATAR_FILE_SIZE,
+} from "@ampedbio/constants";
 import { PhotoEditor } from "./PhotoEditor";
 
 interface ImageUploaderProps {
@@ -22,26 +26,30 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
 
     // Validate file type
     if (!ALLOWED_AVATAR_FILE_TYPES.includes(file.type)) {
-      setError(`Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(', ').toUpperCase()} images are allowed`);
+      setError(
+        `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()} images are allowed`
+      );
       return;
     }
 
     // Validate file extension
-    const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
+    const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
     if (!ALLOWED_AVATAR_FILE_EXTENSIONS.includes(fileExtension)) {
-      setError(`Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(', ')} file extensions are allowed`);
+      setError(`Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ")} file extensions are allowed`);
       return;
     }
 
     // Validate file size (max 5MB)
     if (file.size > MAX_AVATAR_FILE_SIZE) {
-      setError(`File size must be less than ${(MAX_AVATAR_FILE_SIZE / (1024 * 1024)).toFixed(2)}MB`);
+      setError(
+        `File size must be less than ${(MAX_AVATAR_FILE_SIZE / (1024 * 1024)).toFixed(2)}MB`
+      );
       return;
     }
 
     // Clear previous error
     setError(null);
-    
+
     // Create a preview URL for the photo editor
     const objectUrl = URL.createObjectURL(file);
     setPreviewUrl(objectUrl);
@@ -60,7 +68,7 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
 
   const handleEditComplete = async (editedImageDataUrl: string) => {
     setShowPhotoEditor(false);
-    
+
     // Clean up the preview URL
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
@@ -68,23 +76,23 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
     }
 
     // Convert data URL to File object
-    const dataUrlParts = editedImageDataUrl.split(',');
+    const dataUrlParts = editedImageDataUrl.split(",");
     const byteString = atob(dataUrlParts[1]);
-    const mimeType = dataUrlParts[0].split(':')[1].split(';')[0];
-    
+    const mimeType = dataUrlParts[0].split(":")[1].split(";")[0];
+
     const ab = new ArrayBuffer(byteString.length);
     const ia = new Uint8Array(ab);
     for (let i = 0; i < byteString.length; i++) {
       ia[i] = byteString.charCodeAt(i);
     }
-    
+
     // Create file name with correct extension based on mime type
-    let fileExtension = 'jpg';
-    if (mimeType === 'image/png') fileExtension = 'png';
-    if (mimeType === 'image/gif') fileExtension = 'gif';
-    
+    let fileExtension = "jpg";
+    if (mimeType === "image/png") fileExtension = "png";
+    if (mimeType === "image/gif") fileExtension = "gif";
+
     const editedFile = new File([ab], `profile-photo.${fileExtension}`, { type: mimeType });
-    
+
     // Upload the edited file
     await handleUpload(editedFile);
   };
@@ -96,36 +104,39 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
 
     try {
       const fileType = file.type;
-      const fileExtension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-      
+      const fileExtension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+
       console.log("Preparing to upload profile image with:", {
         contentType: fileType,
         fileExtension,
         fileName: file.name,
-        fileSize: file.size
+        fileSize: file.size,
       });
-      
+
       // Request presigned URL from server
       const presignedData = await trpcClient.upload.requestAvatarPresignedUrl.mutate({
         contentType: fileType,
         fileExtension: fileExtension,
         fileSize: file.size,
-        category: "profiles"
+        category: "profiles",
       });
       presignedDataForLogging = presignedData;
-      
+
       console.log("Server response - presigned URL data for profile image:", presignedData);
-      
+
       try {
-        console.log("Starting S3 upload for profile image with presigned URL:", presignedData.presignedUrl.substring(0, 100) + "...");
+        console.log(
+          "Starting S3 upload for profile image with presigned URL:",
+          presignedData.presignedUrl.substring(0, 100) + "..."
+        );
         const uploadResponse = await fetch(presignedData.presignedUrl, {
-          method: 'PUT',
+          method: "PUT",
           body: file, // Use the raw file object
           headers: {
-            'Content-Type': fileType
-          }
+            "Content-Type": fileType,
+          },
         });
-        
+
         if (!uploadResponse.ok) {
           const errorText = await uploadResponse.text();
           const errorDetails = {
@@ -135,46 +146,47 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
             responseBody: errorText,
           };
           console.error("S3 profile image upload failed with HTTP error:", errorDetails);
-          throw new Error(`S3 Upload HTTP Error: ${uploadResponse.status} ${uploadResponse.statusText}. Response: ${errorText.substring(0, 200)}`);
+          throw new Error(
+            `S3 Upload HTTP Error: ${uploadResponse.status} ${uploadResponse.statusText}. Response: ${errorText.substring(0, 200)}`
+          );
         }
-        
+
         console.log("S3 profile image upload completed successfully:", uploadResponse.status);
-        
+
         // Confirm upload with the server
         const result = await trpcClient.upload.confirmProfilePictureUpload.mutate({
           fileId: presignedData.fileId,
           fileName: file.name,
-          category: "profiles"
+          category: "profiles",
         });
-        
+
         console.log("Server response - profile image upload confirmation:", result);
-        
+
         // Update the profile with the new image URL
         onImageChange(result.profilePictureUrl);
-        
-      } catch (uploadError: any) { 
-        let detailedMessage = `Failed to upload profile image to S3.`;
-        if (uploadError && uploadError.message?.startsWith('S3 Upload HTTP Error:')) {
-            detailedMessage += ` Details: ${uploadError.message}`;
-        } else { 
-            detailedMessage += ` Network error during upload: ${(uploadError && uploadError.message) ? uploadError.message : 'Unknown fetch error'}. Check browser console for CORS or network issues. URL (partial): ${presignedDataForLogging?.presignedUrl.substring(0,100)}...`;
+      } catch (uploadError: any) {
+        let detailedMessage = "Failed to upload profile image to S3.";
+        if (uploadError && uploadError.message?.startsWith("S3 Upload HTTP Error:")) {
+          detailedMessage += ` Details: ${uploadError.message}`;
+        } else {
+          detailedMessage += ` Network error during upload: ${uploadError && uploadError.message ? uploadError.message : "Unknown fetch error"}. Check browser console for CORS or network issues. URL (partial): ${presignedDataForLogging?.presignedUrl.substring(0, 100)}...`;
         }
         console.error("S3 direct profile image upload error:", {
-            message: (uploadError && uploadError.message) ? uploadError.message : 'Unknown fetch error',
-            stack: (uploadError && uploadError.stack) ? uploadError.stack : 'No stack available',
-            url: presignedDataForLogging?.presignedUrl.substring(0,100)+"...",
-            fileId: presignedDataForLogging?.fileId,
+          message: uploadError && uploadError.message ? uploadError.message : "Unknown fetch error",
+          stack: uploadError && uploadError.stack ? uploadError.stack : "No stack available",
+          url: presignedDataForLogging?.presignedUrl.substring(0, 100) + "...",
+          fileId: presignedDataForLogging?.fileId,
         });
-        throw new Error(detailedMessage); 
+        throw new Error(detailedMessage);
       }
-    } catch (error: any) { 
+    } catch (error: any) {
       let finalUserMessage = "Failed to upload profile image.";
       let logMessage = "Error in overall profile image upload process.";
 
-      if (error && error.message?.startsWith('Failed to upload profile image to S3.')) {
-        finalUserMessage = error.message; 
+      if (error && error.message?.startsWith("Failed to upload profile image to S3.")) {
+        finalUserMessage = error.message;
         logMessage = `Upload to S3 failed for profile image: ${error.message}`;
-      } else if (presignedDataForLogging === null && error && error.message) { 
+      } else if (presignedDataForLogging === null && error && error.message) {
         finalUserMessage = `Failed to prepare profile image upload: ${error.message}`;
         logMessage = `Error requesting presigned URL for profile image: ${error.message}`;
       } else if (error && error.message) {
@@ -184,11 +196,11 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
         finalUserMessage = "An unexpected error occurred during profile image upload.";
         logMessage = "Unexpected error in profile image upload process with no message.";
       }
-      
+
       console.error(logMessage, {
-        originalErrorMessage: (error && error.message) ? error.message : 'No message available',
-        originalErrorStack: (error && error.stack) ? error.stack : 'No stack available',
-        presignedUrlAttempted: presignedDataForLogging?.presignedUrl.substring(0,100)+"...",
+        originalErrorMessage: error && error.message ? error.message : "No message available",
+        originalErrorStack: error && error.stack ? error.stack : "No stack available",
+        presignedUrlAttempted: presignedDataForLogging?.presignedUrl.substring(0, 100) + "...",
         fileIdAttempted: presignedDataForLogging?.fileId,
         fileName: file.name,
         fileType: file.type,
@@ -206,18 +218,10 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
         {/* Current Profile Image */}
         <div className="relative h-24 w-24 rounded-full overflow-hidden bg-gray-100 border border-gray-200">
           {imageUrl ? (
-            <img 
-              src={imageUrl} 
-              alt="Profile" 
-              className="h-full w-full object-cover"
-            />
+            <img src={imageUrl} alt="Profile" className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-gray-50">
-              <svg 
-                className="h-12 w-12 text-gray-300" 
-                fill="currentColor" 
-                viewBox="0 0 24 24"
-              >
+              <svg className="h-12 w-12 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
             </div>
@@ -231,7 +235,7 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
               type="file"
               ref={fileInputRef}
               className="hidden"
-              accept={ALLOWED_AVATAR_FILE_TYPES.join(',')}
+              accept={ALLOWED_AVATAR_FILE_TYPES.join(",")}
               onChange={handleFileSelect}
             />
             <button
@@ -244,13 +248,10 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
             </button>
           </div>
           <p className="text-xs text-gray-500">
-            {ALLOWED_AVATAR_FILE_EXTENSIONS.join(', ').toUpperCase()}. Max {MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB.
+            {ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()}. Max{" "}
+            {MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB.
           </p>
-          {error && (
-            <p className="text-xs text-red-600">
-              {error}
-            </p>
-          )}
+          {error && <p className="text-xs text-red-600">{error}</p>}
         </div>
       </div>
       {showPhotoEditor && previewUrl && (

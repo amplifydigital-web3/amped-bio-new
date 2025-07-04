@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { 
-  File, 
-  Image, 
-  Video, 
-  Download, 
-  Eye, 
-  Calendar, 
-  User, 
+import {
+  File,
+  Image,
+  Video,
+  Download,
+  Eye,
+  Calendar,
+  User,
   HardDrive,
   Search,
   Filter,
@@ -14,7 +14,7 @@ import {
   Loader2,
   AlertCircle,
   Trash2,
-  X
+  X,
 } from "lucide-react";
 import { FileData, FileStatus, FileType } from "../shared/fileTypes";
 import { trpc } from "../../../utils/trpc";
@@ -40,11 +40,11 @@ export function FileManagement() {
   const pageSize = 10;
 
   // Fetch files from tRPC
-  const { 
-    data: filesData, 
-    isLoading, 
+  const {
+    data: filesData,
+    isLoading,
     error,
-    refetch 
+    refetch,
   } = useQuery(
     trpc.admin.files.getFiles.queryOptions({
       page: currentPage,
@@ -58,13 +58,13 @@ export function FileManagement() {
   // Delete file mutation
   const deleteFileMutation = useMutation({
     ...trpc.admin.files.deleteFile.mutationOptions(),
-    onSuccess: (data) => {
+    onSuccess: data => {
       toast.success(data.message);
       queryClient.invalidateQueries({
         queryKey: trpc.admin.files.getFiles.queryKey(),
       });
     },
-    onError: (error) => {
+    onError: error => {
       toast.error(`Failed to delete file: ${error.message}`);
     },
   });
@@ -83,7 +83,7 @@ export function FileManagement() {
 
   const getFileTypeIcon = (fileType: string | null) => {
     if (!fileType) return <File className="h-4 w-4" />;
-    
+
     if (fileType.startsWith("image/")) return <Image className="h-4 w-4 text-green-500" />;
     if (fileType.startsWith("video/")) return <Video className="h-4 w-4 text-blue-500" />;
     return <File className="h-4 w-4 text-gray-500" />;
@@ -91,7 +91,10 @@ export function FileManagement() {
 
   const getFilePreview = (file: FileData) => {
     // Show preview image for images and videos
-    if (file.preview_url && (file.file_type?.startsWith("image/") || file.file_type?.startsWith("video/"))) {
+    if (
+      file.preview_url &&
+      (file.file_type?.startsWith("image/") || file.file_type?.startsWith("video/"))
+    ) {
       return (
         <div className="relative group">
           <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
@@ -99,22 +102,23 @@ export function FileManagement() {
               src={file.preview_url}
               alt={file.file_name}
               className="w-full h-full object-cover"
-              onError={(e) => {
+              onError={e => {
                 // Fallback to icon if image fails to load
                 const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
+                target.style.display = "none";
                 target.parentElement!.innerHTML = `
                   <div class="w-full h-full flex items-center justify-center">
-                    ${file.file_type?.startsWith("image/") ? 
-                      '<svg class="h-5 w-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>' :
-                      '<svg class="h-5 w-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>'
+                    ${
+                      file.file_type?.startsWith("image/")
+                        ? '<svg class="h-5 w-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>'
+                        : "<svg class=\"h-5 w-5 text-blue-500\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z\"></path></svg>"
                     }
                   </div>
                 `;
               }}
             />
           </div>
-          
+
           {/* Hover preview */}
           <div className="absolute left-12 top-0 invisible group-hover:visible z-50 transition-all duration-200">
             <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-2">
@@ -122,7 +126,7 @@ export function FileManagement() {
                 src={file.preview_url}
                 alt={file.file_name}
                 className="w-32 h-32 object-cover rounded"
-                onError={(e) => {
+                onError={e => {
                   const target = e.target as HTMLImageElement;
                   target.parentElement!.innerHTML = `
                     <div class="w-32 h-32 flex items-center justify-center bg-gray-100 rounded">
@@ -136,7 +140,7 @@ export function FileManagement() {
         </div>
       );
     }
-    
+
     // Fallback to icon for non-previewable files
     return (
       <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
@@ -183,7 +187,7 @@ export function FileManagement() {
         trpc.admin.files.getFilePreviewUrl.queryOptions({ fileId: file.id })
       );
       // Open preview in a new window/tab
-      window.open(previewData.previewUrl, '_blank');
+      window.open(previewData.previewUrl, "_blank");
     } catch (error: any) {
       toast.error(`Failed to generate preview: ${error.message}`);
     }
@@ -195,7 +199,7 @@ export function FileManagement() {
         trpc.admin.files.getFileDownloadUrl.queryOptions({ fileId: file.id })
       );
       // Create a temporary link and trigger download
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = downloadData.downloadUrl;
       link.download = downloadData.fileName;
       document.body.appendChild(link);
@@ -286,14 +290,11 @@ export function FileManagement() {
                   <p className="text-sm text-gray-500">This action cannot be undone</p>
                 </div>
               </div>
-              <button
-                onClick={cancelDeleteFile}
-                className="text-gray-400 hover:text-gray-600"
-              >
+              <button onClick={cancelDeleteFile} className="text-gray-400 hover:text-gray-600">
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             <div className="mb-4">
               <p className="text-sm text-gray-600 mb-2">
                 You are about to delete:{" "}
@@ -308,13 +309,14 @@ export function FileManagement() {
                 </p>
               </div>
               <p className="text-sm text-gray-600 mb-4">
-                To confirm, please type <span className="font-mono bg-gray-100 px-1 rounded">delete</span> below:
+                To confirm, please type{" "}
+                <span className="font-mono bg-gray-100 px-1 rounded">delete</span> below:
               </p>
               <input
                 type="text"
                 value={deleteConfirmation.confirmText}
-                onChange={(e) =>
-                  setDeleteConfirmation((prev) => ({
+                onChange={e =>
+                  setDeleteConfirmation(prev => ({
                     ...prev,
                     confirmText: e.target.value,
                   }))
@@ -324,7 +326,7 @@ export function FileManagement() {
                 autoFocus
               />
             </div>
-            
+
             <div className="flex space-x-3">
               <button
                 onClick={cancelDeleteFile}
@@ -358,11 +360,9 @@ export function FileManagement() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">File Management</h2>
-          <p className="text-gray-600 mt-1">
-            Total: {pagination?.total || 0} files
-          </p>
+          <p className="text-gray-600 mt-1">Total: {pagination?.total || 0} files</p>
         </div>
-        
+
         {/* Storage Summary */}
         <div className="flex items-center space-x-4 text-sm text-gray-600">
           <div className="flex items-center space-x-2">
@@ -383,8 +383,8 @@ export function FileManagement() {
             type="text"
             placeholder="Search files by name, path, or user..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+            onChange={e => setSearchTerm(e.target.value)}
+            onKeyPress={e => e.key === "Enter" && handleSearch()}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
           <button
@@ -402,7 +402,9 @@ export function FileManagement() {
         >
           <Filter className="h-4 w-4" />
           <span>Filters</span>
-          <ChevronDown className={`h-4 w-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+          <ChevronDown
+            className={`h-4 w-4 transition-transform ${showFilters ? "rotate-180" : ""}`}
+          />
         </button>
 
         {/* Filters */}
@@ -413,7 +415,7 @@ export function FileManagement() {
               <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
               <select
                 value={statusFilter}
-                onChange={(e) => {
+                onChange={e => {
                   setStatusFilter(e.target.value as FileStatus | "ALL");
                   handleFilterChange();
                 }}
@@ -431,7 +433,7 @@ export function FileManagement() {
               <label className="block text-sm font-medium text-gray-700 mb-2">File Type</label>
               <select
                 value={typeFilter}
-                onChange={(e) => {
+                onChange={e => {
                   setTypeFilter(e.target.value as FileType | "ALL");
                   handleFilterChange();
                 }}
@@ -475,55 +477,46 @@ export function FileManagement() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {files.map((file) => (
+              {files.map(file => (
                 <tr key={file.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-3">
                       {getFilePreview(file)}
                       <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {file.file_name}
-                        </p>
-                        <p className="text-sm text-gray-500 truncate max-w-xs">
-                          {file.s3_key}
-                        </p>
+                        <p className="text-sm font-medium text-gray-900">{file.file_name}</p>
+                        <p className="text-sm text-gray-500 truncate max-w-xs">{file.s3_key}</p>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
-                      <p className="text-sm text-gray-900">
-                        {file.file_type || "Unknown"}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        {formatFileSize(file.size)}
-                      </p>
+                      <p className="text-sm text-gray-900">{file.file_type || "Unknown"}</p>
+                      <p className="text-sm text-gray-500">{formatFileSize(file.size)}</p>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-2">
                       <User className="h-4 w-4 text-gray-400" />
-                      <span className="text-sm text-gray-900">
-                        {file.userName}
-                      </span>
+                      <span className="text-sm text-gray-900">{file.userName}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(file.status)}`}>
+                    <span
+                      className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(file.status)}`}
+                    >
                       {file.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-2 text-sm text-gray-500">
                       <Calendar className="h-4 w-4" />
-                      <span>
-                        {new Date(file.uploaded_at).toLocaleDateString()}
-                      </span>
+                      <span>{new Date(file.uploaded_at).toLocaleDateString()}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-2">
-                      {(file.file_type?.startsWith("image/") || file.file_type?.startsWith("video/")) && (
+                      {(file.file_type?.startsWith("image/") ||
+                        file.file_type?.startsWith("video/")) && (
                         <button
                           onClick={() => handlePreviewFile(file)}
                           className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
@@ -575,9 +568,11 @@ export function FileManagement() {
       {pagination && pagination.total > 0 && (
         <div className="mt-6 flex items-center justify-between">
           <div className="text-sm text-gray-700">
-            Showing <span className="font-medium">{((currentPage - 1) * pageSize) + 1}</span> to{" "}
-            <span className="font-medium">{Math.min(currentPage * pageSize, pagination.total)}</span> of{" "}
-            <span className="font-medium">{pagination.total}</span> results
+            Showing <span className="font-medium">{(currentPage - 1) * pageSize + 1}</span> to{" "}
+            <span className="font-medium">
+              {Math.min(currentPage * pageSize, pagination.total)}
+            </span>{" "}
+            of <span className="font-medium">{pagination.total}</span> results
           </div>
           <div className="flex items-center space-x-2">
             <button

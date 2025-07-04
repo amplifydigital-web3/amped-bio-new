@@ -13,7 +13,7 @@ export function AdminFiles() {
         description="Manage uploaded files, storage, and file permissions"
         onRefresh={handleRefresh}
       />
-      
+
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
         <FileManagement />
       </div>

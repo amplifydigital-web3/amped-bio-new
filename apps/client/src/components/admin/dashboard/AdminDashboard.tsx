@@ -51,13 +51,10 @@ export const AdminDashboard = ({
     <div className="flex-1 overflow-auto p-6 space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Users Stats */}
-        <AdminUserStats 
-          totalUsers={userStats.totalUsers} 
-          newThisWeek={userStats.newThisWeek} 
-        />
+        <AdminUserStats totalUsers={userStats.totalUsers} newThisWeek={userStats.newThisWeek} />
 
         {/* Blocks Stats */}
-        <AdminBlockStats 
+        <AdminBlockStats
           totalBlocks={blockStats.totalBlocks}
           blocksCreatedToday={blockStats.blocksCreatedToday}
         />
@@ -70,7 +67,7 @@ export const AdminDashboard = ({
       </div>
 
       {/* Block Distribution */}
-      <AdminBlockDistribution 
+      <AdminBlockDistribution
         blockTypeDistribution={blockTypeDistribution}
         mostPopularBlockType={blockStats.mostPopularBlockType}
         averageBlocksPerUser={blockStats.averageBlocksPerUser}
@@ -80,8 +77,8 @@ export const AdminDashboard = ({
       <AdminTopOnelinks topOnelinks={topOnelinks} />
 
       {/* Recent Users */}
-      <AdminRecentUsers 
-        recentUsers={recentUsers} 
+      <AdminRecentUsers
+        recentUsers={recentUsers}
         totalUsers={userStats.totalUsers}
         onViewAllUsersClick={onViewAllUsersClick}
       />

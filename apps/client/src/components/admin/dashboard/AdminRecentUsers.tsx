@@ -21,7 +21,11 @@ interface AdminRecentUsersProps {
   onViewAllUsersClick: () => void;
 }
 
-export const AdminRecentUsers = ({ recentUsers, totalUsers, onViewAllUsersClick }: AdminRecentUsersProps) => {
+export const AdminRecentUsers = ({
+  recentUsers,
+  totalUsers,
+  onViewAllUsersClick,
+}: AdminRecentUsersProps) => {
   const [showEmails, setShowEmails] = useState(false);
 
   // Format date for display
@@ -48,7 +52,8 @@ export const AdminRecentUsers = ({ recentUsers, totalUsers, onViewAllUsersClick 
   // Copy email to clipboard
   const copyEmailToClipboard = (email: string, event: React.MouseEvent) => {
     event.stopPropagation();
-    navigator.clipboard.writeText(email)
+    navigator.clipboard
+      .writeText(email)
       .then(() => {
         toast.success("Email copied to clipboard", {
           duration: 2000,
@@ -61,7 +66,7 @@ export const AdminRecentUsers = ({ recentUsers, totalUsers, onViewAllUsersClick 
         });
       })
       .catch(err => {
-        console.error('Could not copy email: ', err);
+        console.error("Could not copy email: ", err);
         toast.error("Failed to copy email");
       });
   };
@@ -126,15 +131,13 @@ export const AdminRecentUsers = ({ recentUsers, totalUsers, onViewAllUsersClick 
                 <td className="py-4 px-6">
                   <div className="flex items-center">
                     <div className="h-10 w-10 flex-shrink-0 rounded-full bg-gray-200 flex items-center justify-center">
-                      <span className="font-medium text-gray-600">
-                        {user.name.charAt(0)}
-                      </span>
+                      <span className="font-medium text-gray-600">{user.name.charAt(0)}</span>
                     </div>
                     <div className="ml-4">
                       <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                      <div 
+                      <div
                         className="text-sm text-gray-500 hover:text-blue-600 cursor-pointer"
-                        onClick={(e) => copyEmailToClipboard(user.email, e)}
+                        onClick={e => copyEmailToClipboard(user.email, e)}
                         title="Click to copy email"
                       >
                         {showEmails ? user.email : obscureEmail(user.email)}
@@ -155,14 +158,10 @@ export const AdminRecentUsers = ({ recentUsers, totalUsers, onViewAllUsersClick 
                     "-"
                   )}
                 </td>
-                <td className="py-4 px-6 text-sm text-gray-500">
-                  {formatDate(user.created_at)}
-                </td>
+                <td className="py-4 px-6 text-sm text-gray-500">{formatDate(user.created_at)}</td>
                 <td className="py-4 px-6 text-sm text-gray-500">{user._count.blocks}</td>
                 <td className="py-4 px-6">
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs ${getUserRoleBadge(user.role)}`}
-                  >
+                  <span className={`px-3 py-1 rounded-full text-xs ${getUserRoleBadge(user.role)}`}>
                     {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                   </span>
                 </td>

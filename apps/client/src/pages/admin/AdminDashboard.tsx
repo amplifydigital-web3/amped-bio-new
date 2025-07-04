@@ -10,7 +10,7 @@ import {
   AdminTopOnelinks,
   AdminRecentUsers,
   AdminLoadingSpinner,
-  AdminLoadingError
+  AdminLoadingError,
 } from "../../components/admin";
 import { AdminQuickActions } from "../../components/admin";
 
@@ -59,7 +59,8 @@ export function AdminDashboard() {
   const topOnelinks = topOnelinksData || [];
 
   // Determine if any data is still loading
-  const loading = isDashboardLoading || isTopOnelinksLoading || isUsersLoading || isBlockStatsLoading;
+  const loading =
+    isDashboardLoading || isTopOnelinksLoading || isUsersLoading || isBlockStatsLoading;
 
   // Handle refresh
   const handleRefresh = () => {
@@ -87,16 +88,13 @@ export function AdminDashboard() {
         onRefresh={handleRefresh}
         isLoading={loading}
       />
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Users Stats */}
-        <AdminUserStats 
-          totalUsers={userStats.totalUsers} 
-          newThisWeek={userStats.newThisWeek} 
-        />
+        <AdminUserStats totalUsers={userStats.totalUsers} newThisWeek={userStats.newThisWeek} />
 
         {/* Blocks Stats */}
-        <AdminBlockStats 
+        <AdminBlockStats
           totalBlocks={blockStats.totalBlocks}
           blocksCreatedToday={blockStats.blocksCreatedToday}
         />
@@ -109,7 +107,7 @@ export function AdminDashboard() {
       </div>
 
       {/* Block Distribution */}
-      <AdminBlockDistribution 
+      <AdminBlockDistribution
         blockTypeDistribution={blockTypeDistribution}
         mostPopularBlockType={blockStats.mostPopularBlockType}
         averageBlocksPerUser={blockStats.averageBlocksPerUser}
@@ -119,8 +117,8 @@ export function AdminDashboard() {
       <AdminTopOnelinks topOnelinks={topOnelinks} />
 
       {/* Recent Users */}
-      <AdminRecentUsers 
-        recentUsers={recentUsers} 
+      <AdminRecentUsers
+        recentUsers={recentUsers}
         totalUsers={userStats.totalUsers}
         onViewAllUsersClick={() => navigate("/admin/users")}
       />

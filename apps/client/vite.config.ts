@@ -7,9 +7,9 @@ export default defineConfig(({ mode }) => {
   // Load environment variables based on mode
   // This will automatically load .env, .env.local, .env.[mode], .env.[mode].local
   const env = loadEnv(mode, process.cwd());
-  
+
   console.log(`Running in ${mode} mode with VITE_DEMO_MODE=${env.VITE_DEMO_MODE}`);
-  
+
   return {
     plugins: [react()],
     optimizeDeps: {

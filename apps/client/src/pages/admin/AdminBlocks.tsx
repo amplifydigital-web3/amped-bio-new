@@ -14,7 +14,7 @@ export function AdminBlocks() {
         description="Monitor and manage user blocks across the platform"
         onRefresh={handleRefresh}
       />
-      
+
       <AdminPlaceholderContent
         icon={<Layers className="h-12 w-12 mx-auto mb-4 text-gray-400" />}
         title="Block Management Dashboard"

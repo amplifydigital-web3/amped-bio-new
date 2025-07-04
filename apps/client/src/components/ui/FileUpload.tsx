@@ -14,71 +14,86 @@ export const useFileUpload = ({
   maxFileSize = 10 * 1024 * 1024, // 10MB default
   onFileSelect,
   onError,
-  disabled = false
+  disabled = false,
 }: UseFileUploadProps) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const validateFile = useCallback((file: File): string | null => {
-    // Check file extension
-    const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
-    if (!acceptedExtensions.includes(fileExtension)) {
-      return `Unsupported file extension. Allowed extensions: ${acceptedExtensions.join(', ')}`;
-    }
+  const validateFile = useCallback(
+    (file: File): string | null => {
+      // Check file extension
+      const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
+      if (!acceptedExtensions.includes(fileExtension)) {
+        return `Unsupported file extension. Allowed extensions: ${acceptedExtensions.join(", ")}`;
+      }
 
-    // Check file size
-    if (file.size > maxFileSize) {
-      return `File too large. Maximum size: ${maxFileSize / (1024 * 1024)}MB`;
-    }
+      // Check file size
+      if (file.size > maxFileSize) {
+        return `File too large. Maximum size: ${maxFileSize / (1024 * 1024)}MB`;
+      }
 
-    return null;
-  }, [acceptedExtensions, maxFileSize]);
+      return null;
+    },
+    [acceptedExtensions, maxFileSize]
+  );
 
-  const handleFileSelection = useCallback((file: File) => {
-    const error = validateFile(file);
-    if (error) {
-      onError?.(error);
-      return;
-    }
+  const handleFileSelection = useCallback(
+    (file: File) => {
+      const error = validateFile(file);
+      if (error) {
+        onError?.(error);
+        return;
+      }
 
-    onFileSelect(file);
-  }, [validateFile, onFileSelect, onError]);
+      onFileSelect(file);
+    },
+    [validateFile, onFileSelect, onError]
+  );
 
-  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
 
-    // Reset the file input to allow selecting the same file again
-    e.target.value = '';
-    
-    handleFileSelection(file);
-  }, [handleFileSelection]);
+      // Reset the file input to allow selecting the same file again
+      e.target.value = "";
 
-  const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    if (!disabled) {
-      setIsDragOver(true);
-    }
-  }, [disabled]);
+      handleFileSelection(file);
+    },
+    [handleFileSelection]
+  );
+
+  const handleDragOver = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      if (!disabled) {
+        setIsDragOver(true);
+      }
+    },
+    [disabled]
+  );
 
   const handleDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragOver(false);
   }, []);
 
-  const handleDrop = useCallback((e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    
-    if (disabled) return;
+  const handleDrop = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      setIsDragOver(false);
 
-    const files = Array.from(e.dataTransfer.files);
-    const file = files[0];
-    
-    if (file) {
-      handleFileSelection(file);
-    }
-  }, [disabled, handleFileSelection]);
+      if (disabled) return;
+
+      const files = Array.from(e.dataTransfer.files);
+      const file = files[0];
+
+      if (file) {
+        handleFileSelection(file);
+      }
+    },
+    [disabled, handleFileSelection]
+  );
 
   const openFileDialog = useCallback(() => {
     if (!disabled) {
@@ -94,20 +109,22 @@ export const useFileUpload = ({
     handleDragLeave,
     handleDrop,
     openFileDialog,
-    acceptString: acceptedExtensions.map(ext => {
-      // Map common extensions to MIME types
-      const mimeMap: Record<string, string> = {
-        'jpg': 'image/jpeg',
-        'jpeg': 'image/jpeg',
-        'png': 'image/png',
-        'svg': 'image/svg+xml',
-        'mp4': 'video/mp4',
-        'mov': 'video/quicktime',
-        'avi': 'video/x-msvideo',
-        'webm': 'video/webm'
-      };
-      return mimeMap[ext] || `.${ext}`;
-    }).join(',')
+    acceptString: acceptedExtensions
+      .map(ext => {
+        // Map common extensions to MIME types
+        const mimeMap: Record<string, string> = {
+          jpg: "image/jpeg",
+          jpeg: "image/jpeg",
+          png: "image/png",
+          svg: "image/svg+xml",
+          mp4: "video/mp4",
+          mov: "video/quicktime",
+          avi: "video/x-msvideo",
+          webm: "video/webm",
+        };
+        return mimeMap[ext] || `.${ext}`;
+      })
+      .join(","),
   };
 };
 
@@ -132,7 +149,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   isLoading = false,
   title = "Upload file",
   description,
-  className = ""
+  className = "",
 }) => {
   const {
     fileInputRef,
@@ -142,25 +159,28 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     handleDragLeave,
     handleDrop,
     openFileDialog,
-    acceptString
+    acceptString,
   } = useFileUpload({
     acceptedExtensions,
     maxFileSize,
     onFileSelect,
     onError,
-    disabled
+    disabled,
   });
 
-  const defaultDescription = `Accepted: ${acceptedExtensions.join(', ').toUpperCase()} (Max ${maxFileSize / (1024 * 1024)}MB)`;
+  const defaultDescription = `Accepted: ${acceptedExtensions.join(", ").toUpperCase()} (Max ${maxFileSize / (1024 * 1024)}MB)`;
 
   return (
     <div className={className}>
-      <div 
+      <div
         className={`w-full h-24 border-2 border-dashed rounded-lg flex flex-col items-center justify-center transition-colors ${
-          isLoading ? 'border-blue-300 cursor-default' : 
-          disabled ? 'border-gray-300 cursor-not-allowed opacity-70' : 
-          isDragOver ? 'border-blue-500 bg-blue-50' :
-          'border-gray-300 hover:border-blue-500 cursor-pointer'
+          isLoading
+            ? "border-blue-300 cursor-default"
+            : disabled
+              ? "border-gray-300 cursor-not-allowed opacity-70"
+              : isDragOver
+                ? "border-blue-500 bg-blue-50"
+                : "border-gray-300 hover:border-blue-500 cursor-pointer"
         }`}
         onClick={openFileDialog}
         onDragOver={handleDragOver}
@@ -182,7 +202,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           </>
         )}
       </div>
-      
+
       <input
         ref={fileInputRef}
         type="file"

@@ -1,7 +1,7 @@
 import { Link, useParams, useLocation, useNavigate } from "react-router-dom";
 import { Preview } from "../components/Preview";
 import { Settings } from "lucide-react";
-import { useAuthStore } from "../store/authStore";
+import { useAuth } from "../contexts/AuthContext";
 import { useEffect, useState } from "react";
 import { useEditorStore } from "../store/editorStore";
 import { AuthModal } from "../components/auth/AuthModal";
@@ -15,7 +15,7 @@ const DEFAULT_ONELINK = "landingpage";
 
 export function View() {
   const { onelink = "" } = useParams();
-  const { authUser } = useAuthStore();
+  const { authUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const profile = useEditorStore(state => state.profile);
   const setUser = useEditorStore(state => state.setUser);

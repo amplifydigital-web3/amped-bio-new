@@ -18,11 +18,11 @@ interface AdminContentContainerProps {
   loading: boolean;
 }
 
-export const AdminContentContainer = ({ 
-  activeMenu, 
+export const AdminContentContainer = ({
+  activeMenu,
   setActiveMenu,
   dashboardData,
-  loading
+  loading,
 }: AdminContentContainerProps) => {
   const { userStats, blockStats, blockTypeDistribution, topOnelinks, recentUsers } = dashboardData;
 
@@ -40,15 +40,23 @@ export const AdminContentContainer = ({
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Top Header */}
-      <AdminHeader title={
-        activeMenu === "dashboard" ? "Admin Dashboard" : 
-        activeMenu === "users" ? "User Management" : 
-        activeMenu === "blocks" ? "Block Management" : 
-        activeMenu === "themes" ? "Theme Management" :
-        activeMenu === "files" ? "File Management" :
-        activeMenu === "settings" ? "Admin Settings" : 
-        "Admin Dashboard"
-      } />
+      <AdminHeader
+        title={
+          activeMenu === "dashboard"
+            ? "Admin Dashboard"
+            : activeMenu === "users"
+              ? "User Management"
+              : activeMenu === "blocks"
+                ? "Block Management"
+                : activeMenu === "themes"
+                  ? "Theme Management"
+                  : activeMenu === "files"
+                    ? "File Management"
+                    : activeMenu === "settings"
+                      ? "Admin Settings"
+                      : "Admin Dashboard"
+        }
+      />
 
       {/* Content based on active menu */}
       {activeMenu === "dashboard" && (
@@ -62,9 +70,7 @@ export const AdminContentContainer = ({
         />
       )}
 
-      {activeMenu === "users" && (
-        <UserManagement />
-      )}
+      {activeMenu === "users" && <UserManagement />}
 
       {activeMenu === "blocks" && (
         <AdminPlaceholderContent
@@ -82,13 +88,9 @@ export const AdminContentContainer = ({
         />
       )}
 
-      {activeMenu === "themes" && (
-        <AdminThemeManager />
-      )}
+      {activeMenu === "themes" && <AdminThemeManager />}
 
-      {activeMenu === "files" && (
-        <FileManagement />
-      )}
+      {activeMenu === "files" && <FileManagement />}
     </div>
   );
 };

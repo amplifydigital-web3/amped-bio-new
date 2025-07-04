@@ -8,37 +8,33 @@ interface BreadcrumbItem {
 
 export function AdminBreadcrumb() {
   const location = useLocation();
-  
+
   const getBreadcrumbs = (): BreadcrumbItem[] => {
-    const pathSegments = location.pathname.split('/').filter(Boolean);
-    
-    if (pathSegments.length === 1 && pathSegments[0] === 'admin') {
-      return [
-        { label: "Dashboard" }
-      ];
+    const pathSegments = location.pathname.split("/").filter(Boolean);
+
+    if (pathSegments.length === 1 && pathSegments[0] === "admin") {
+      return [{ label: "Dashboard" }];
     }
-    
-    const breadcrumbs: BreadcrumbItem[] = [
-      { label: "Dashboard", path: "/admin" }
-    ];
-    
+
+    const breadcrumbs: BreadcrumbItem[] = [{ label: "Dashboard", path: "/admin" }];
+
     switch (pathSegments[1]) {
-      case 'users':
+      case "users":
         breadcrumbs.push({ label: "User Management" });
         break;
-      case 'themes':
+      case "themes":
         breadcrumbs.push({ label: "Theme Management" });
         break;
-      case 'blocks':
+      case "blocks":
         breadcrumbs.push({ label: "Block Management" });
         break;
-      case 'settings':
+      case "settings":
         breadcrumbs.push({ label: "Settings" });
         break;
       default:
         break;
     }
-    
+
     return breadcrumbs;
   };
 
@@ -52,10 +48,7 @@ export function AdminBreadcrumb() {
         <div key={index} className="flex items-center space-x-1">
           <ChevronRight className="h-4 w-4" />
           {item.path ? (
-            <Link 
-              to={item.path} 
-              className="hover:text-blue-600 transition-colors"
-            >
+            <Link to={item.path} className="hover:text-blue-600 transition-colors">
               {item.label}
             </Link>
           ) : (
