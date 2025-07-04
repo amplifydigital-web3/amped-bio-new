@@ -1,5 +1,5 @@
-import { httpBatchLink } from '@trpc/client';
-import { withRelatedProject } from '@vercel/related-projects';
+import { httpBatchLink } from "@trpc/client";
+import { withRelatedProject } from "@vercel/related-projects";
 
 // Base URL for API calls
 const baseURL = withRelatedProject({
@@ -16,9 +16,11 @@ export const createHttpLink = () => {
     url: `${import.meta.env.VITE_API_URL ?? baseURL}/trpc`,
     headers() {
       const token = localStorage.getItem("amped-bio-auth-token");
-      return token ? {
-        Authorization: `Bearer ${token}`,
-      } : {};
+      return token
+        ? {
+            Authorization: `Bearer ${token}`,
+          }
+        : {};
     },
   });
 };

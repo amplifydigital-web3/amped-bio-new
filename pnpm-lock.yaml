@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      globals:
+        specifier: ^15.9.0
+        version: 15.15.0
       prettier:
         specifier: ^3.2.5
         version: 3.5.3
@@ -100,7 +103,7 @@ importers:
         version: 2.17.0(@types/react@18.3.20)(react@18.3.1)(typescript@5.8.3)(use-sync-external-store@1.4.0)(viem@2.28.1)
       '@web3auth/modal':
         specifier: ^10.0.5
-        version: 10.0.5(@babel/runtime@7.27.0)(@solana/web3.js@1.98.2)(react-dom@18.3.1)(react@18.3.1)(typescript@5.8.3)(viem@2.28.1)(zod@3.25.64)
+        version: 10.0.5(@babel/runtime@7.27.6)(@solana/web3.js@1.98.2)(react-dom@18.3.1)(react@18.3.1)(typescript@5.8.3)(viem@2.28.1)(zod@3.25.64)
       axios:
         specifier: ^1.6.7
         version: 1.9.0
@@ -4995,17 +4998,17 @@ packages:
       react: 18.3.1
     dev: false
 
-  /@toruslabs/base-controllers@8.6.0(@babel/runtime@7.27.0)(color@5.0.0):
+  /@toruslabs/base-controllers@8.6.0(@babel/runtime@7.27.6)(color@5.0.0):
     resolution: {integrity: sha512-2+T76JSD39Kg+9z9BUF6yO2dKvzq1eidcIZD4J0VctA0o791hOtYKHzqrX///Jt7P+APYEs6KYKmQwFWprwdrQ==}
     engines: {node: '>=20.x', npm: '>=9.x'}
     peerDependencies:
       '@babel/runtime': 7.x
     dependencies:
-      '@babel/runtime': 7.27.0
+      '@babel/runtime': 7.27.6
       '@ethereumjs/util': 9.1.0
       '@toruslabs/broadcast-channel': 12.0.0
-      '@toruslabs/http-helpers': 8.1.1(@babel/runtime@7.27.0)
-      '@web3auth/auth': 10.5.0(@babel/runtime@7.27.0)(color@5.0.0)
+      '@toruslabs/http-helpers': 8.1.1(@babel/runtime@7.27.6)
+      '@web3auth/auth': 10.5.0(@babel/runtime@7.27.6)(color@5.0.0)
       async-mutex: 0.5.0
       bignumber.js: 9.3.0
       bowser: 2.11.0
@@ -5040,13 +5043,13 @@ packages:
       - utf-8-validate
     dev: false
 
-  /@toruslabs/bs58@1.0.0(@babel/runtime@7.27.0):
+  /@toruslabs/bs58@1.0.0(@babel/runtime@7.27.6):
     resolution: {integrity: sha512-osqIgm1MzEB6+fkaQeEUg4tuZXmhhXTn+K7+nZU7xDBcy+8Yr3eGNqJcQ4jds82g+dhkk2cBkge9sffv38iDQQ==}
     engines: {node: '>=18.x', npm: '>=9.x'}
     peerDependencies:
       '@babel/runtime': 7.x
     dependencies:
-      '@babel/runtime': 7.27.0
+      '@babel/runtime': 7.27.6
     dev: false
 
   /@toruslabs/constants@14.2.0(@babel/runtime@7.27.0):
@@ -5058,16 +5061,25 @@ packages:
       '@babel/runtime': 7.27.0
     dev: false
 
-  /@toruslabs/constants@15.0.0(@babel/runtime@7.27.0):
+  /@toruslabs/constants@14.2.0(@babel/runtime@7.27.6):
+    resolution: {integrity: sha512-Mb5EfYNSPyvvw5s1JXnpZwritCgp4NmLni1imTqrSKGV3yikYhUn1ufyLMAHGnBBgv4AuMIXBIe3EpJJ+SpA0g==}
+    engines: {node: '>=18.x', npm: '>=9.x'}
+    peerDependencies:
+      '@babel/runtime': 7.x
+    dependencies:
+      '@babel/runtime': 7.27.6
+    dev: false
+
+  /@toruslabs/constants@15.0.0(@babel/runtime@7.27.6):
     resolution: {integrity: sha512-0nr6vU3FQT2eRsnPYRwfVIkjwawLTkDTkCusiny9DgAw1M2zbmNqPOAqWuljUcDaK/u4VB0/PrN5SzhVBLnNGg==}
     engines: {node: '>=18.x', npm: '>=9.x'}
     peerDependencies:
       '@babel/runtime': 7.x
     dependencies:
-      '@babel/runtime': 7.27.0
+      '@babel/runtime': 7.27.6
     dev: false
 
-  /@toruslabs/customauth@21.3.1(@babel/runtime@7.27.0):
+  /@toruslabs/customauth@21.3.1(@babel/runtime@7.27.6):
     resolution: {integrity: sha512-YJbsErUT53n+sR98s6f2wklSHu0biDWQbR20CWHL2LA8ZXtADIuROYMjdN2Mv984okDqF9kSxfBhBLRyOUq+Ig==}
     engines: {node: '>=20.x', npm: '>=9.x'}
     peerDependencies:
@@ -5077,16 +5089,16 @@ packages:
       '@sentry/core':
         optional: true
     dependencies:
-      '@babel/runtime': 7.27.0
+      '@babel/runtime': 7.27.6
       '@chaitanyapotti/register-service-worker': 1.7.4
       '@toruslabs/broadcast-channel': 12.0.0
-      '@toruslabs/constants': 15.0.0(@babel/runtime@7.27.0)
+      '@toruslabs/constants': 15.0.0(@babel/runtime@7.27.6)
       '@toruslabs/eccrypto': 6.1.0
-      '@toruslabs/fetch-node-details': 15.0.0(@babel/runtime@7.27.0)
-      '@toruslabs/http-helpers': 8.1.1(@babel/runtime@7.27.0)
-      '@toruslabs/metadata-helpers': 7.0.2(@babel/runtime@7.27.0)
-      '@toruslabs/session-manager': 4.0.2(@babel/runtime@7.27.0)
-      '@toruslabs/torus.js': 16.0.0(@babel/runtime@7.27.0)
+      '@toruslabs/fetch-node-details': 15.0.0(@babel/runtime@7.27.6)
+      '@toruslabs/http-helpers': 8.1.1(@babel/runtime@7.27.6)
+      '@toruslabs/metadata-helpers': 7.0.2(@babel/runtime@7.27.6)
+      '@toruslabs/session-manager': 4.0.2(@babel/runtime@7.27.6)
+      '@toruslabs/torus.js': 16.0.0(@babel/runtime@7.27.6)
       base64url: 3.0.1
       bowser: 2.11.0
       deepmerge: 4.3.1
@@ -5105,19 +5117,19 @@ packages:
       elliptic: 6.6.1
     dev: false
 
-  /@toruslabs/ethereum-controllers@8.6.0(@babel/runtime@7.27.0)(color@5.0.0)(viem@2.28.1):
+  /@toruslabs/ethereum-controllers@8.6.0(@babel/runtime@7.27.6)(color@5.0.0)(viem@2.28.1):
     resolution: {integrity: sha512-UtX/TTsK+AHRIbbFtVoQZMFsF3Y2u1lThEtXiDg7FxICsiOMkMG9eVHwMzpQnXqZfNLHxsZCSO+giFg0ONcQ2w==}
     engines: {node: '>=20.x', npm: '>=9.x'}
     peerDependencies:
       '@babel/runtime': 7.x
       viem: '>=2.23'
     dependencies:
-      '@babel/runtime': 7.27.0
+      '@babel/runtime': 7.27.6
       '@ethereumjs/util': 9.1.0
       '@metamask/delegation-toolkit': 0.11.0(viem@2.28.1)
-      '@toruslabs/base-controllers': 8.6.0(@babel/runtime@7.27.0)(color@5.0.0)
-      '@toruslabs/http-helpers': 8.1.1(@babel/runtime@7.27.0)
-      '@web3auth/auth': 10.5.0(@babel/runtime@7.27.0)(color@5.0.0)
+      '@toruslabs/base-controllers': 8.6.0(@babel/runtime@7.27.6)(color@5.0.0)
+      '@toruslabs/http-helpers': 8.1.1(@babel/runtime@7.27.6)
+      '@web3auth/auth': 10.5.0(@babel/runtime@7.27.6)(color@5.0.0)
       async-mutex: 0.5.0
       bignumber.js: 9.3.0
       bn.js: 5.2.2
@@ -5138,16 +5150,16 @@ packages:
       - utf-8-validate
     dev: false
 
-  /@toruslabs/fetch-node-details@15.0.0(@babel/runtime@7.27.0):
+  /@toruslabs/fetch-node-details@15.0.0(@babel/runtime@7.27.6):
     resolution: {integrity: sha512-uYTV+mv5U6egTQj94zSyy9NqlfUYdwen6GeyDdCA7g0TN+YnRV4WgkcjloN0llscrND7mzuJNSIVDHCE+kSpcQ==}
     engines: {node: '>=20.x', npm: '>=9.x'}
     peerDependencies:
       '@babel/runtime': 7.x
     dependencies:
-      '@babel/runtime': 7.27.0
-      '@toruslabs/constants': 15.0.0(@babel/runtime@7.27.0)
-      '@toruslabs/fnd-base': 15.0.0(@babel/runtime@7.27.0)
-      '@toruslabs/http-helpers': 8.1.1(@babel/runtime@7.27.0)
+      '@babel/runtime': 7.27.6
+      '@toruslabs/constants': 15.0.0(@babel/runtime@7.27.6)
+      '@toruslabs/fnd-base': 15.0.0(@babel/runtime@7.27.6)
+      '@toruslabs/http-helpers': 8.1.1(@babel/runtime@7.27.6)
       loglevel: 1.9.2
     transitivePeerDependencies:
       - '@sentry/core'
@@ -5158,14 +5170,14 @@ packages:
     engines: {node: '>=20.x', npm: '>=9.x'}
     dev: false
 
-  /@toruslabs/fnd-base@15.0.0(@babel/runtime@7.27.0):
+  /@toruslabs/fnd-base@15.0.0(@babel/runtime@7.27.6):
     resolution: {integrity: sha512-KygYyPBHADmXKmzClbGcKc0oOI/Ay5FP/fUsFvXXRv4ey+VfIKiHHSAo6IojozvVUSrs0kDwocSpeE3sp/hBPA==}
     engines: {node: '>=18.x', npm: '>=9.x'}
     peerDependencies:
       '@babel/runtime': 7.x
     dependencies:
-      '@babel/runtime': 7.27.0
-      '@toruslabs/constants': 15.0.0(@babel/runtime@7.27.0)
+      '@babel/runtime': 7.27.6
+      '@toruslabs/constants': 15.0.0(@babel/runtime@7.27.6)
     dev: false
 
   /@toruslabs/http-helpers@8.1.1(@babel/runtime@7.27.0):
@@ -5183,13 +5195,28 @@ packages:
       loglevel: 1.9.2
     dev: false
 
-  /@toruslabs/loglevel-sentry@8.1.0(@babel/runtime@7.27.0):
+  /@toruslabs/http-helpers@8.1.1(@babel/runtime@7.27.6):
+    resolution: {integrity: sha512-bcymgOEAHjWJtqWvbCw+jCLk8vch5V53E/17moM0kAQO+tY0omhsMpZYDtFcbF3xl8/fLyW7G0HGUfThPykQ7A==}
+    engines: {node: '>=20.x', npm: '>=9.x'}
+    peerDependencies:
+      '@babel/runtime': ^7.x
+      '@sentry/core': ^9.x
+    peerDependenciesMeta:
+      '@sentry/core':
+        optional: true
+    dependencies:
+      '@babel/runtime': 7.27.6
+      deepmerge: 4.3.1
+      loglevel: 1.9.2
+    dev: false
+
+  /@toruslabs/loglevel-sentry@8.1.0(@babel/runtime@7.27.6):
     resolution: {integrity: sha512-cE8Q7R9HybrqrTU7bz5rh1j9QiBGjd/mVxekIKjK8AJYzGMFuVtDumsX9fBXg5nKoNcejS1jbOACjEx8BM+uLQ==}
     engines: {node: '>=20.x', npm: '>=9.x'}
     peerDependencies:
       '@babel/runtime': ^7.x
     dependencies:
-      '@babel/runtime': 7.27.0
+      '@babel/runtime': 7.27.6
       '@sentry/core': 9.34.0
       loglevel: 1.9.2
     dev: false
@@ -5210,17 +5237,33 @@ packages:
       - '@sentry/core'
     dev: false
 
-  /@toruslabs/secure-pub-sub@3.0.2(@babel/runtime@7.27.0):
+  /@toruslabs/metadata-helpers@7.0.2(@babel/runtime@7.27.6):
+    resolution: {integrity: sha512-N8UeKwtTlRlGAuQJQfYwCshsu5g9Fte8Xe6ZEt/WH6blNAoKjz579BPN4FrS478JIj/kMtIkD1guT84Umpdv1w==}
+    engines: {node: '>=20.x', npm: '>=9.x'}
+    peerDependencies:
+      '@babel/runtime': 7.x
+    dependencies:
+      '@babel/runtime': 7.27.6
+      '@toruslabs/eccrypto': 6.1.0
+      '@toruslabs/http-helpers': 8.1.1(@babel/runtime@7.27.6)
+      elliptic: 6.6.1
+      ethereum-cryptography: 3.2.0
+      json-stable-stringify: 1.3.0
+    transitivePeerDependencies:
+      - '@sentry/core'
+    dev: false
+
+  /@toruslabs/secure-pub-sub@3.0.2(@babel/runtime@7.27.6):
     resolution: {integrity: sha512-JxqXSMlKnT2Q8ER0dpjtciT/yYO6KV/bZFxVWF9T6t2u20PaVU+bo9MSYWPxSdz76szEt7DwRHxwjDMhzZKFeA==}
     engines: {node: '>=20.x', npm: '>=9.x'}
     peerDependencies:
       '@babel/runtime': 7.x
     dependencies:
-      '@babel/runtime': 7.27.0
-      '@toruslabs/constants': 14.2.0(@babel/runtime@7.27.0)
+      '@babel/runtime': 7.27.6
+      '@toruslabs/constants': 14.2.0(@babel/runtime@7.27.6)
       '@toruslabs/eccrypto': 6.1.0
-      '@toruslabs/http-helpers': 8.1.1(@babel/runtime@7.27.0)
-      '@toruslabs/metadata-helpers': 7.0.2(@babel/runtime@7.27.0)
+      '@toruslabs/http-helpers': 8.1.1(@babel/runtime@7.27.6)
+      '@toruslabs/metadata-helpers': 7.0.2(@babel/runtime@7.27.6)
       loglevel: 1.9.2
       socket.io-client: 4.8.1
     transitivePeerDependencies:
@@ -5230,14 +5273,14 @@ packages:
       - utf-8-validate
     dev: false
 
-  /@toruslabs/session-manager@4.0.2(@babel/runtime@7.27.0):
+  /@toruslabs/session-manager@4.0.2(@babel/runtime@7.27.6):
     resolution: {integrity: sha512-26GflDkna9kDF4kd7+XmFAsI69CIz/ZSmsbQH6ehylaNDYcro/xuPQB2SnzyRMi4VMkLXYDwHapm2OBURmuMbQ==}
     engines: {node: '>=20.x', npm: '>=9.x'}
     dependencies:
-      '@toruslabs/constants': 14.2.0(@babel/runtime@7.27.0)
+      '@toruslabs/constants': 14.2.0(@babel/runtime@7.27.6)
       '@toruslabs/eccrypto': 6.1.0
-      '@toruslabs/http-helpers': 8.1.1(@babel/runtime@7.27.0)
-      '@toruslabs/metadata-helpers': 7.0.2(@babel/runtime@7.27.0)
+      '@toruslabs/http-helpers': 8.1.1(@babel/runtime@7.27.6)
+      '@toruslabs/metadata-helpers': 7.0.2(@babel/runtime@7.27.6)
     optionalDependencies:
       '@rollup/rollup-linux-x64-gnu': 4.44.1
     transitivePeerDependencies:
@@ -5245,13 +5288,13 @@ packages:
       - '@sentry/core'
     dev: false
 
-  /@toruslabs/starkware-crypto@5.0.0(@babel/runtime@7.27.0):
+  /@toruslabs/starkware-crypto@5.0.0(@babel/runtime@7.27.6):
     resolution: {integrity: sha512-CZjpkeuT0hBsX5dNGEekLcjR2n6UHzh682Pt/AheJYL4+zrupqPWZTfvOlo4K3Iihyv6FzRZmrbHLdQutkz5oQ==}
     engines: {node: '>=20.x', npm: '>=9.x'}
     peerDependencies:
       '@babel/runtime': 7.x
     dependencies:
-      '@babel/runtime': 7.27.0
+      '@babel/runtime': 7.27.6
       assert: 2.1.0
       bip39: 3.1.0
       bn.js: 5.2.2
@@ -5261,17 +5304,17 @@ packages:
       hash.js: 1.1.7
     dev: false
 
-  /@toruslabs/torus.js@16.0.0(@babel/runtime@7.27.0):
+  /@toruslabs/torus.js@16.0.0(@babel/runtime@7.27.6):
     resolution: {integrity: sha512-kTGn0jytD9YyPhunxN1LacVAHCCkZEOMe7hWShM65zvgqaXHccMsytgiZr3Ah1sIqsLVUMKhrHimnQ2eqfihtg==}
     engines: {node: '>=20.x', npm: '>=9.x'}
     peerDependencies:
       '@babel/runtime': 7.x
     dependencies:
-      '@babel/runtime': 7.27.0
-      '@toruslabs/bs58': 1.0.0(@babel/runtime@7.27.0)
-      '@toruslabs/constants': 15.0.0(@babel/runtime@7.27.0)
+      '@babel/runtime': 7.27.6
+      '@toruslabs/bs58': 1.0.0(@babel/runtime@7.27.6)
+      '@toruslabs/constants': 15.0.0(@babel/runtime@7.27.6)
       '@toruslabs/eccrypto': 6.1.0
-      '@toruslabs/http-helpers': 8.1.1(@babel/runtime@7.27.0)
+      '@toruslabs/http-helpers': 8.1.1(@babel/runtime@7.27.6)
       bn.js: 5.2.2
       elliptic: 6.6.1
       ethereum-cryptography: 3.2.0
@@ -7270,22 +7313,22 @@ packages:
       tslib: 1.14.1
     dev: false
 
-  /@web3auth/auth@10.5.0(@babel/runtime@7.27.0)(color@5.0.0):
+  /@web3auth/auth@10.5.0(@babel/runtime@7.27.6)(color@5.0.0):
     resolution: {integrity: sha512-a7yGAdFlGg4HbYBdAHtI7EKJKIUT83ucKqgsMwySZQhM2exLskBf8C4+6pL1pqrHQ1mc01q3WOXix80ZVjn5PQ==}
     engines: {node: '>=20.x', npm: '>=9.x'}
     peerDependencies:
       '@babel/runtime': 7.x
       color: ^5.x
     dependencies:
-      '@babel/runtime': 7.27.0
+      '@babel/runtime': 7.27.6
       '@ethereumjs/util': 9.1.0
-      '@toruslabs/constants': 15.0.0(@babel/runtime@7.27.0)
-      '@toruslabs/customauth': 21.3.1(@babel/runtime@7.27.0)
+      '@toruslabs/constants': 15.0.0(@babel/runtime@7.27.6)
+      '@toruslabs/customauth': 21.3.1(@babel/runtime@7.27.6)
       '@toruslabs/ffjavascript': 5.0.0
-      '@toruslabs/metadata-helpers': 7.0.2(@babel/runtime@7.27.0)
-      '@toruslabs/secure-pub-sub': 3.0.2(@babel/runtime@7.27.0)
-      '@toruslabs/session-manager': 4.0.2(@babel/runtime@7.27.0)
-      '@toruslabs/starkware-crypto': 5.0.0(@babel/runtime@7.27.0)
+      '@toruslabs/metadata-helpers': 7.0.2(@babel/runtime@7.27.6)
+      '@toruslabs/secure-pub-sub': 3.0.2(@babel/runtime@7.27.6)
+      '@toruslabs/session-manager': 4.0.2(@babel/runtime@7.27.6)
+      '@toruslabs/starkware-crypto': 5.0.0(@babel/runtime@7.27.6)
       '@toruslabs/tweetnacl-js': 1.0.4
       base64url: 3.0.1
       bip39: 3.1.0
@@ -7312,7 +7355,7 @@ packages:
       - utf-8-validate
     dev: false
 
-  /@web3auth/modal@10.0.5(@babel/runtime@7.27.0)(@solana/web3.js@1.98.2)(react-dom@18.3.1)(react@18.3.1)(typescript@5.8.3)(viem@2.28.1)(zod@3.25.64):
+  /@web3auth/modal@10.0.5(@babel/runtime@7.27.6)(@solana/web3.js@1.98.2)(react-dom@18.3.1)(react@18.3.1)(typescript@5.8.3)(viem@2.28.1)(zod@3.25.64):
     resolution: {integrity: sha512-OIO6bxDg79TXwRI7Q04Zvtoojv4y2jfvFjiVaMaFjMXUZ7E56QaXpDkLztE5z4JLKWy/fSq0OdPQVDWT1GRNkw==}
     engines: {node: '>=20.x', npm: '>=9.x'}
     peerDependencies:
@@ -7331,13 +7374,13 @@ packages:
       vue:
         optional: true
     dependencies:
-      '@babel/runtime': 7.27.0
+      '@babel/runtime': 7.27.6
       '@hcaptcha/react-hcaptcha': 1.12.0(react-dom@18.3.1)(react@18.3.1)
       '@solana/web3.js': 1.98.2(typescript@5.8.3)
-      '@toruslabs/base-controllers': 8.6.0(@babel/runtime@7.27.0)(color@5.0.0)
-      '@toruslabs/http-helpers': 8.1.1(@babel/runtime@7.27.0)
-      '@web3auth/auth': 10.5.0(@babel/runtime@7.27.0)(color@5.0.0)
-      '@web3auth/no-modal': 10.0.5(@babel/runtime@7.27.0)(color@5.0.0)(react@18.3.1)(typescript@5.8.3)(viem@2.28.1)(zod@3.25.64)
+      '@toruslabs/base-controllers': 8.6.0(@babel/runtime@7.27.6)(color@5.0.0)
+      '@toruslabs/http-helpers': 8.1.1(@babel/runtime@7.27.6)
+      '@web3auth/auth': 10.5.0(@babel/runtime@7.27.6)(color@5.0.0)
+      '@web3auth/no-modal': 10.0.5(@babel/runtime@7.27.6)(color@5.0.0)(react@18.3.1)(typescript@5.8.3)(viem@2.28.1)(zod@3.25.64)
       bowser: 2.11.0
       classnames: 2.5.1
       clsx: 2.1.1
@@ -7381,7 +7424,7 @@ packages:
       - zod
     dev: false
 
-  /@web3auth/no-modal@10.0.5(@babel/runtime@7.27.0)(color@5.0.0)(react@18.3.1)(typescript@5.8.3)(viem@2.28.1)(zod@3.25.64):
+  /@web3auth/no-modal@10.0.5(@babel/runtime@7.27.6)(color@5.0.0)(react@18.3.1)(typescript@5.8.3)(viem@2.28.1)(zod@3.25.64):
     resolution: {integrity: sha512-EyTQ5Dt2bTXtotFP/WaqKYZ33KiJGXW2GFwNURfp4ILm8vYv76t6XcsNULORAzU5YnonSdqpF0RucyA+m6Ml/A==}
     engines: {node: '>=20.x', npm: '>=9.x'}
     peerDependencies:
@@ -7400,20 +7443,20 @@ packages:
       vue:
         optional: true
     dependencies:
-      '@babel/runtime': 7.27.0
+      '@babel/runtime': 7.27.6
       '@ethereumjs/util': 9.1.0
       '@metamask/sdk': 0.33.0
       '@segment/analytics-next': 1.81.0
       '@solana/wallet-standard-features': 1.3.0
       '@solana/web3.js': 1.98.2(typescript@5.8.3)
-      '@toruslabs/base-controllers': 8.6.0(@babel/runtime@7.27.0)(color@5.0.0)
-      '@toruslabs/bs58': 1.0.0(@babel/runtime@7.27.0)
-      '@toruslabs/constants': 15.0.0(@babel/runtime@7.27.0)
+      '@toruslabs/base-controllers': 8.6.0(@babel/runtime@7.27.6)(color@5.0.0)
+      '@toruslabs/bs58': 1.0.0(@babel/runtime@7.27.6)
+      '@toruslabs/constants': 15.0.0(@babel/runtime@7.27.6)
       '@toruslabs/eccrypto': 6.1.0
-      '@toruslabs/ethereum-controllers': 8.6.0(@babel/runtime@7.27.0)(color@5.0.0)(viem@2.28.1)
-      '@toruslabs/http-helpers': 8.1.1(@babel/runtime@7.27.0)
-      '@toruslabs/loglevel-sentry': 8.1.0(@babel/runtime@7.27.0)
-      '@toruslabs/secure-pub-sub': 3.0.2(@babel/runtime@7.27.0)
+      '@toruslabs/ethereum-controllers': 8.6.0(@babel/runtime@7.27.6)(color@5.0.0)(viem@2.28.1)
+      '@toruslabs/http-helpers': 8.1.1(@babel/runtime@7.27.6)
+      '@toruslabs/loglevel-sentry': 8.1.0(@babel/runtime@7.27.6)
+      '@toruslabs/secure-pub-sub': 3.0.2(@babel/runtime@7.27.6)
       '@toruslabs/tweetnacl-js': 1.0.4
       '@wallet-standard/app': 1.1.0
       '@wallet-standard/base': 1.1.0
@@ -7421,8 +7464,8 @@ packages:
       '@walletconnect/sign-client': 2.21.4(typescript@5.8.3)(zod@3.25.64)
       '@walletconnect/types': 2.21.4
       '@walletconnect/utils': 2.21.4(typescript@5.8.3)(zod@3.25.64)
-      '@web3auth/auth': 10.5.0(@babel/runtime@7.27.0)(color@5.0.0)
-      '@web3auth/ws-embed': 5.0.17(@babel/runtime@7.27.0)(color@5.0.0)
+      '@web3auth/auth': 10.5.0(@babel/runtime@7.27.6)(color@5.0.0)
+      '@web3auth/ws-embed': 5.0.17(@babel/runtime@7.27.6)(color@5.0.0)
       assert: 2.1.0
       bignumber.js: 9.3.0
       bn.js: 5.2.2
@@ -7470,15 +7513,15 @@ packages:
       - zod
     dev: false
 
-  /@web3auth/ws-embed@5.0.17(@babel/runtime@7.27.0)(color@5.0.0):
+  /@web3auth/ws-embed@5.0.17(@babel/runtime@7.27.6)(color@5.0.0):
     resolution: {integrity: sha512-HuPOYoW1I7QNVcbZ6otyhvLGfGWxvvCh5xdbwvi7z0PyT01jV0CAiwscAJ+2XEs8qoqh6RXp4v8MoJZAOhQikg==}
     engines: {node: '>=20.x', npm: '>=9.x'}
     peerDependencies:
       '@babel/runtime': 7.x
     dependencies:
-      '@babel/runtime': 7.27.0
-      '@toruslabs/base-controllers': 8.6.0(@babel/runtime@7.27.0)(color@5.0.0)
-      '@web3auth/auth': 10.5.0(@babel/runtime@7.27.0)(color@5.0.0)
+      '@babel/runtime': 7.27.6
+      '@toruslabs/base-controllers': 8.6.0(@babel/runtime@7.27.6)(color@5.0.0)
+      '@web3auth/auth': 10.5.0(@babel/runtime@7.27.6)(color@5.0.0)
       fast-deep-equal: 3.1.3
       loglevel: 1.9.2
       pump: 3.0.3

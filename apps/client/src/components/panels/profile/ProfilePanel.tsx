@@ -153,9 +153,9 @@ export function ProfilePanel() {
                 <div>
                   <h3 className="text-sm font-medium text-orange-800">Protected Theme</h3>
                   <p className="text-sm text-orange-700 mt-1">
-                  You're currently using another user's theme. You cannot export this theme or import
-                  a new theme over it. To use these features, you must first create your own theme
-                  or select a personal theme from your collection.
+                    You're currently using another user's theme. You cannot export this theme or
+                    import a new theme over it. To use these features, you must first create your
+                    own theme or select a personal theme from your collection.
                   </p>
                 </div>
               </div>
@@ -171,8 +171,8 @@ export function ProfilePanel() {
                   onClick={handleExportTheme}
                   disabled={isServerTheme}
                   className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${
-                    isServerTheme 
-                      ? "bg-gray-300 text-gray-500 cursor-not-allowed" 
+                    isServerTheme
+                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                       : "bg-blue-500 text-white hover:bg-blue-600"
                   }`}
                 >
@@ -203,8 +203,8 @@ export function ProfilePanel() {
                   onClick={() => !isServerTheme && fileInputRef.current?.click()}
                   disabled={isServerTheme}
                   className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${
-                    isServerTheme 
-                      ? "bg-gray-300 text-gray-500 cursor-not-allowed" 
+                    isServerTheme
+                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                       : "bg-blue-500 text-white hover:bg-blue-600"
                   }`}
                 >

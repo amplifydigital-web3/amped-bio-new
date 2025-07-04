@@ -207,12 +207,12 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
           {block.type === "text" && (
             <>
               <SlateEditor
-              initialValue={block.config.content}
+                initialValue={block.config.content}
                 // @ts-ignore
                 error={errors.content?.message?.toString()}
                 onSave={e => setValue("content", e)}
               />
-              <input type="hidden" {...register("content")} value={watch('content')} />
+              <input type="hidden" {...register("content")} value={watch("content")} />
             </>
           )}
 

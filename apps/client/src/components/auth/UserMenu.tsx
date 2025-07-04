@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { LogOut, User, Settings, ArrowRight, Wallet } from "lucide-react";
-import { useAuthStore } from "../../store/authStore";
+import { useAuth } from "../../contexts/AuthContext";
 import { useEditorStore } from "../../store/editorStore";
 import { AuthModal } from "./AuthModal";
 import toast from "react-hot-toast";
@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 
 export function UserMenu() {
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const { authUser, signOut } = useAuthStore();
+  const { authUser, signOut } = useAuth();
   const { profile, setUser, setDefault } = useEditorStore();
   const nav = useNavigate();
 
@@ -51,9 +51,9 @@ export function UserMenu() {
   const handleNavtoHome = () => {
     return nav(`/@${authUser?.onelink}`);
   };
-  
+
   const handleNavigateToAccount = () => {
-    return nav(`/account`);
+    return nav("/account");
   };
 
   const handleNavigateToWallet = () => {
@@ -79,16 +79,18 @@ export function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className={cn(
-          "group relative w-auto cursor-pointer overflow-hidden rounded-full border bg-white hover:bg-gray-50 p-2 px-4 text-center font-medium transition-all shadow-sm",
-        )}>
+        <button
+          className={cn(
+            "group relative w-auto cursor-pointer overflow-hidden rounded-full border bg-white hover:bg-gray-50 p-2 px-4 text-center font-medium transition-all shadow-sm"
+          )}
+        >
           {/* Default state - visible content */}
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
               {profile.photoUrl || profile.photoCmp ? (
-                <img 
-                  src={profile.photoUrl || profile.photoCmp || ""} 
-                  alt="Profile" 
+                <img
+                  src={profile.photoUrl || profile.photoCmp || ""}
+                  alt="Profile"
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -100,7 +102,7 @@ export function UserMenu() {
               <span className="text-xs text-gray-500">@{authUser.onelink}</span>
             </div>
           </div>
-          
+
           {/* Hover state - hidden content that slides in */}
           <div className="absolute top-0 left-0 z-10 flex h-full w-full translate-x-full items-center justify-center gap-2 bg-blue-600 text-white opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100 rounded-full">
             <span className="text-sm font-medium">View Wallet</span>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useAuthStore } from "@/store/authStore";
+import { useAuth } from "@/contexts/AuthContext";
 import { useEditorStore } from "@/store/editorStore";
 import {
   Wallet,
@@ -39,7 +39,7 @@ import { trpc, trpcClient } from "@/utils/trpc";
 import { useQuery } from "@tanstack/react-query";
 
 export function MyWalletPanel() {
-  const { authUser } = useAuthStore();
+  const { authUser } = useAuth();
   const profile = useEditorStore(state => state.profile);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showProfileOptions, setShowProfileOptions] = useState(false);
@@ -47,10 +47,8 @@ export function MyWalletPanel() {
   const [showFundModal, setShowFundModal] = useState(false);
 
   const { data: walletBalanceData, isLoading: isBalanceLoading } = useQuery(
-    trpc.wallet.getETHBalance.queryOptions(),
+    trpc.wallet.getETHBalance.queryOptions()
   );
-
-  
 
   const walletAddress = authUser!.walletAddress;
 

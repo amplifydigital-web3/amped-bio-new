@@ -16,23 +16,23 @@ import { HomePanel } from "./panels/home/HomePanel";
 import { MyWalletPanel } from "./panels/wallet/MyWalletPanel";
 import { Eye } from "lucide-react";
 import RewardPanel from "./panels/reward/RewardPanel.tsx";
-import { useAuthStore } from "@/store/authStore.ts";
+import { useAuth } from "@/contexts/AuthContext.tsx";
 
 interface LayoutProps {
   onelink: string;
 }
 
-type PanelType = 
-  | "home" 
-  | "profile" 
-  | "reward" 
-  | "gallery" 
-  | "appearance" 
-  | "effects" 
-  | "blocks" 
-  | "creatorpool" 
-  | "leaderboard" 
-  | "rns" 
+type PanelType =
+  | "home"
+  | "profile"
+  | "reward"
+  | "gallery"
+  | "appearance"
+  | "effects"
+  | "blocks"
+  | "creatorpool"
+  | "leaderboard"
+  | "rns"
   | "wallet"
   | "account";
 
@@ -44,12 +44,12 @@ interface PanelConfig {
 export function Layout(props: LayoutProps) {
   const { onelink } = props;
   const activePanel = useEditorStore(state => state.activePanel);
-  // const emailVerified = useAuthStore(state => state.authUser.emailVerified);
-  const { authUser } = useAuthStore();
+  // const emailVerified = useAuth(state => state.authUser.emailVerified);
+  const { authUser } = useAuth();
   const isLoggedIn = authUser !== null;
 
   // FOR TESTING
-  const usr = useAuthStore(state => state.authUser);
+  const usr = useAuth(state => state.authUser);
 
   // Define layout configuration for each panel
   const panelConfigs: Record<PanelType, PanelConfig> = {
@@ -58,12 +58,12 @@ export function Layout(props: LayoutProps) {
     reward: { layout: "single", width: "full" },
     wallet: { layout: "single", width: "full" },
     account: { layout: "single", width: "full" },
-    
+
     // Two column pages with wide panels (for data-heavy content)
     creatorpool: { layout: "two-column", width: "wide" },
     leaderboard: { layout: "two-column", width: "wide" },
     rns: { layout: "two-column", width: "wide" },
-    
+
     // Two column pages with standard panels (for editing/configuration)
     gallery: { layout: "two-column", width: "standard" },
     profile: { layout: "two-column", width: "standard" },
@@ -72,13 +72,16 @@ export function Layout(props: LayoutProps) {
     blocks: { layout: "two-column", width: "standard" },
   };
 
-  const currentConfig = panelConfigs[activePanel as PanelType] || { layout: "two-column", width: "standard" };
+  const currentConfig = panelConfigs[activePanel as PanelType] || {
+    layout: "two-column",
+    width: "standard",
+  };
   const isSingleColumn = currentConfig.layout === "single";
   const isWidePanel = currentConfig.width === "wide";
-  
+
   // Consistent panel widths - increased by 50px
   const panelWidth = isWidePanel ? "md:w-[850px]" : "md:w-[450px]";
-  
+
   // Show preview only for two-column layouts
   const showPreview = !isSingleColumn;
 
@@ -116,9 +119,7 @@ export function Layout(props: LayoutProps) {
             {/* Panel Container */}
             <div
               className={`w-full ${
-                isSingleColumn 
-                  ? "md:w-full" 
-                  : `border-b md:border-b-0 md:border-r ${panelWidth}`
+                isSingleColumn ? "md:w-full" : `border-b md:border-b-0 md:border-r ${panelWidth}`
               } border-gray-200 bg-white overflow-y-auto flex-shrink-0 z-[10] max-h-full`}
               style={{ height: "calc(100vh - 64px)" }}
             >
@@ -134,7 +135,7 @@ export function Layout(props: LayoutProps) {
               {activePanel === "leaderboard" && <LeaderboardPanel />}
               {activePanel === "rns" && <RNSPanel />}
             </div>
-            
+
             {/* Preview Container - Only shown for two-column layouts */}
             {showPreview && (
               <div className="hidden md:flex md:flex-col md:flex-1 overflow-y-auto relative z-[5] bg-gray-100">

@@ -26,7 +26,7 @@ export function useThemeManagement() {
         queryKey: trpc.theme.getUserThemes.queryKey(),
       });
     },
-    onError: (error) => {
+    onError: error => {
       toast.error(`Failed to save theme: ${error.message}`);
     },
   });
@@ -41,7 +41,7 @@ export function useThemeManagement() {
         queryKey: trpc.theme.getUserThemes.queryKey(),
       });
     },
-    onError: (error) => {
+    onError: error => {
       toast.error(`Failed to delete theme: ${error.message}`);
     },
   });
