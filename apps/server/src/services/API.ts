@@ -4,6 +4,7 @@ import { Service } from "../types/service";
 import express, { Application } from "express";
 import helmet from "helmet";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import { env } from "../env";
 import { Server } from "http";
 import router from "../routes";
@@ -27,6 +28,7 @@ export class API implements Service {
     this.app.use(helmet());
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
+    this.app.use(cookieParser());
 
     this.app.use((req, res, next) => {
       res.locals = {
