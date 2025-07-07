@@ -112,9 +112,6 @@ export const authRouter = router({
     // Find user
     const user = await prisma.user.findUnique({
       where: { email },
-      include: {
-        wallet: true,
-      },
     });
 
     if (!user) {
@@ -249,16 +246,11 @@ export const authRouter = router({
     }),
 
   me: privateProcedure.query(async ({ ctx }) => {
-    console.log("Fetching user data for:", ctx.user);
-
     const userId = ctx.user.sub;
 
     // Find user
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: {
-        wallet: true,
-      },
     });
 
     if (!user) {
