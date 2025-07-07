@@ -14,7 +14,6 @@ import {
 } from "../schemas/auth.schema";
 import { serialize } from "cookie";
 import { env } from "../env";
-import { WalletService } from "../services/WalletService";
 import { addDays } from "date-fns";
 
 const prisma = new PrismaClient();
@@ -71,16 +70,6 @@ export const authRouter = router({
         role: userRole,
       },
     });
-
-    // Create wallet for the new user
-    try {
-      await WalletService.createWalletForUser(result.id);
-    } catch (error) {
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Error creating wallet for user",
-      });
-    }
 
     // Send verification email
     // try {
@@ -143,18 +132,6 @@ export const authRouter = router({
         code: "UNAUTHORIZED",
         message: "Invalid credentials",
       });
-    }
-
-    // Check if user has a wallet, if not create one
-    if (!user.wallet) {
-      try {
-        await WalletService.createWalletForUser(user.id);
-      } catch (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Error creating wallet for user",
-        });
-      }
     }
 
     const emailVerified = user.email_verified_at !== null;

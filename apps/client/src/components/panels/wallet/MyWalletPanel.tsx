@@ -35,10 +35,31 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { trpc, trpcClient } from "@/utils/trpc";
-import { useQuery } from "@tanstack/react-query";
+import { useAccount, useBalance } from "wagmi";
+import { WALLET_CONNECTORS, AUTH_CONNECTION } from "@web3auth/modal";
+import { useWeb3AuthConnect, useWeb3AuthDisconnect, useWeb3AuthUser } from "@web3auth/modal/react";
 
 export function MyWalletPanel() {
+  const {
+    connectTo,
+    isConnected,
+    connectorName,
+    loading: connectLoading,
+    error: connectError,
+  } = useWeb3AuthConnect();
+  const {
+    disconnect,
+    loading: disconnectLoading,
+    error: disconnectError,
+  } = useWeb3AuthDisconnect();
+  const { userInfo } = useWeb3AuthUser();
+  const { address } = useAccount();
+
+  useEffect(() => {
+    console.info("Web3Auth User Info:", userInfo);
+    console.info("Wagmi Address:", address);
+  }, [userInfo, address]);
+
   const { authUser } = useAuth();
   const profile = useEditorStore(state => state.profile);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
@@ -46,15 +67,11 @@ export function MyWalletPanel() {
   const [copyStatus, setCopyStatus] = useState<"idle" | "success">("idle");
   const [showFundModal, setShowFundModal] = useState(false);
 
-  const { data: walletBalanceData, isLoading: isBalanceLoading } = useQuery(
-    trpc.wallet.getETHBalance.queryOptions()
-  );
+  const { address: walletAddress } = useAccount();
 
-  const { data: walletData, isLoading: isWalletLoading } = useQuery(
-    trpc.wallet.getWallet.queryOptions()
-  );
-
-  const walletAddress = walletData?.address || "";
+  const { data: balanceData, isLoading: isBalanceLoading } = useBalance({
+    address: walletAddress,
+  });
 
   // Sample data for tokens (empty for now)
   const sampleTokens: any[] = [];
@@ -105,7 +122,73 @@ export function MyWalletPanel() {
     }
   };
 
-  return (
+  function uiConsole(...args: any[]): void {
+    console.log(...args);
+  }
+
+  // Unconnected view
+  const unloggedInView = (
+    <div className="h-full flex items-center justify-center">
+      <div className="text-center max-w-md mx-auto px-6">
+        <div className="relative mb-8">
+          <GridPattern
+            squares={[
+              [4, 4],
+              [5, 1],
+              [8, 2],
+              [5, 3],
+              [10, 6],
+              [12, 3],
+              [2, 8],
+              [15, 5],
+            ]}
+            className={cn(
+              "absolute inset-0 h-full w-full fill-blue-400/20 stroke-blue-400/20 text-blue-400/30",
+              "[mask-image:radial-gradient(300px_circle_at_center,white,transparent)]"
+            )}
+            width={25}
+            height={25}
+          />
+          <div className="relative z-10">
+            <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Wallet className="w-12 h-12 text-blue-600" />
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">Connect Your Wallet</h1>
+            <p className="text-gray-600 mb-8">
+              Connect your wallet to access your digital assets, tokens, and transaction history.
+            </p>
+            <ShimmerButton
+              onClick={() =>
+                connectTo(WALLET_CONNECTORS.AUTH, {
+                  authConnection: AUTH_CONNECTION.CUSTOM,
+                  idToken: localStorage.getItem("amped-bio-auth-token")!,
+                  authConnectionId: "amped-bio-test",
+                  mfaLevel: "none", // No MFA for now
+                  // groupedAuthConnectionId
+                  // extraLoginOptions: {
+                  //   isUserIdCaseSensitive: false,
+                  // },
+                })
+              }
+              disabled={connectLoading}
+              className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 px-8 py-3 text-lg"
+              shimmerColor="#60a5fa"
+            >
+              {connectLoading ? "Connecting..." : "Connect Wallet"}
+            </ShimmerButton>
+            {connectError && (
+              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-600 text-sm">{connectError.message}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Connected view (existing wallet interface)
+  const loggedInView = (
     <div className="h-full overflow-y-auto">
       <div className="p-6">
         {/* Header */}
@@ -142,8 +225,8 @@ export function MyWalletPanel() {
                       @{authUser?.onelink || "User"}
                     </h2>
                     <div className="flex items-center space-x-1 mt-1">
-                      <span className="font-mono text-sm text-gray-600" title={walletAddress}>
-                        {formatAddress(walletAddress)}
+                      <span className="font-mono text-sm text-gray-600" title={walletAddress || ""}>
+                        {formatAddress(walletAddress || "")}
                       </span>
                       <Button
                         onClick={copyAddress}
@@ -158,7 +241,7 @@ export function MyWalletPanel() {
                   <div className="text-2xl font-bold text-gray-900">
                     {isBalanceLoading
                       ? "Loading..."
-                      : `${parseFloat(walletBalanceData?.balance ?? "0").toFixed(4)} ETH`}
+                      : `${parseFloat(balanceData?.formatted ?? "0").toFixed(4)} ${balanceData?.symbol ?? "ETH"}`}
                   </div>
                   <p className="text-sm text-gray-600">Total Balance</p>
                 </div>
@@ -180,7 +263,7 @@ export function MyWalletPanel() {
               <div className="text-3xl font-bold text-gray-900 mb-2">
                 {isBalanceLoading
                   ? "Loading..."
-                  : `${parseFloat(walletBalanceData?.balance ?? "0").toFixed(4)} ETH`}
+                  : `${parseFloat(balanceData?.formatted ?? "0").toFixed(4)} ${balanceData?.symbol ?? "ETH"}`}
               </div>
               <CardDescription className="mb-6">Your current wallet balance</CardDescription>
 
@@ -207,7 +290,8 @@ export function MyWalletPanel() {
                         className="h-auto py-4 flex flex-col items-start space-y-1"
                         onClick={() =>
                           window.open(
-                            "https://bridge.dev.revolutionchain.io/bridge?address=" + walletAddress,
+                            "https://bridge.dev.revolutionchain.io/bridge?address=" +
+                              (walletAddress || ""),
                             "_blank",
                             "width=600,height=700,left=200,top=200"
                           )
@@ -683,14 +767,20 @@ export function MyWalletPanel() {
               <CardContent className="text-center">
                 {/* QR Code */}
                 <div className="bg-white p-4 rounded-lg border-2 border-gray-200 inline-block mb-6">
-                  <img src={generateQRCode(walletAddress)} alt="QR Code" className="w-48 h-48" />
+                  <img
+                    src={generateQRCode(walletAddress || "")}
+                    alt="QR Code"
+                    className="w-48 h-48"
+                  />
                 </div>
 
                 {/* Wallet Address */}
                 <div className="mb-6">
                   <h4 className="text-sm font-medium text-gray-600 mb-2">Wallet Address</h4>
                   <div className="bg-gray-50 rounded-lg p-4 border flex items-center justify-between">
-                    <p className="font-mono text-sm text-gray-900 break-all">{walletAddress}</p>
+                    <p className="font-mono text-sm text-gray-900 break-all">
+                      {walletAddress || ""}
+                    </p>
                     <Button
                       onClick={copyAddress}
                       className="ml-2 flex-shrink-0 relative w-8 h-8 p-2 bg-gray-50 rounded-lg"
@@ -713,4 +803,6 @@ export function MyWalletPanel() {
       </div>
     </div>
   );
+
+  return isConnected ? loggedInView : unloggedInView;
 }

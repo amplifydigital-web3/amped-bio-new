@@ -14,6 +14,16 @@ export const env = cleanEnv(process.env, {
   JWT_PRIVATE_KEY: str({
     desc: "Private key for JWT signing",
   }),
+  JWT_ISSUER: str({
+    desc: "Issuer of the JWT token",
+    default: "api.amped.bio",
+    example: "api.amped.bio",
+  }),
+  JWT_AUDIENCE: str({
+    desc: "Audience of the JWT token",
+    default: "amped.bio",
+    example: "amped.bio",
+  }),
   PORT: port({
     desc: "Port for the server to listen on",
     default: 43000,
@@ -98,6 +108,5 @@ export const env = cleanEnv(process.env, {
     example: "http://localhost:9090",
   }),
 });
-
 
 export const privateKeyBuffer = Buffer.from(env.JWT_PRIVATE_KEY, "utf8");

@@ -8,6 +8,7 @@ import { env } from "../env";
 import { Server } from "http";
 import router from "../routes";
 import { trpcMiddleware } from "../trpc/router";
+import wellKnownRoutes from "../routes/well-known";
 
 const logTag = "[API]";
 
@@ -37,9 +38,11 @@ export class API implements Service {
     this.app.use(cors());
 
     // Mount the tRPC middleware
-    this.app.use('/trpc', trpcMiddleware);
-    
+    this.app.use("/trpc", trpcMiddleware);
+
     this.app.use("/api/", router);
+
+    this.app.use("/.well-known", wellKnownRoutes);
 
     this.app.use(logErrors);
     this.app.use(handleErrors);

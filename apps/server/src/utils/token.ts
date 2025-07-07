@@ -1,18 +1,14 @@
 import jwt from "jsonwebtoken";
-import { privateKeyBuffer } from "../env";
+import { env, privateKeyBuffer } from "../env";
 
-export const generateAccessToken = (user: {
-  id: number;
-  email: string;
-  role: string;
-}): string => {
+export const generateAccessToken = (user: { id: number; email: string; role: string }): string => {
   return jwt.sign(
     {
       sub: user.id,
       email: user.email,
       role: user.role,
-      aud: "amped.bio",
-      iss: "api.amped.bio",
+      aud: env.JWT_AUDIENCE, // Audience of the token
+      iss: env.JWT_ISSUER, // Issuer of the token
     },
     privateKeyBuffer,
     {
