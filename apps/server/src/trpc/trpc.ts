@@ -2,10 +2,11 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import jwt from "jsonwebtoken";
 import { env, privateKeyBuffer } from "../env";
 import { CreateExpressContextOptions } from "@trpc/server/adapters/express";
+import { ERROR_CAUSES } from "@ampedbio/constants";
 
 // Define the user type from JWT token
 export type JWTUser = {
-  id: number;
+  sub: number;
   email: string;
   role: string;
 };
@@ -15,6 +16,7 @@ export type Context = {
   req: CreateExpressContextOptions["req"];
   res: CreateExpressContextOptions["res"];
   user?: JWTUser;
+  tokenExpired?: boolean;
 };
 
 // Create the context for each request
@@ -31,9 +33,13 @@ export const createContext = ({ req, res }: CreateExpressContextOptions): Contex
 
   try {
     // Verify the token and get user data
-    const user = jwt.verify(token, privateKeyBuffer) as JWTUser;
-    return { req, res, user };
+    const user = jwt.verify(token, privateKeyBuffer) as jwt.JwtPayload;
+    return { req, res, user: user as unknown as JWTUser };
   } catch (error) {
+    // Check if the error is due to token expiration
+    if (error instanceof jwt.TokenExpiredError) {
+      return { req, res, tokenExpired: true };
+    }
     return { req, res }; // Invalid token
   }
 };
@@ -63,6 +69,14 @@ export const publicProcedure = t.procedure;
 
 // Middleware to check if user is authenticated
 const isAuthed = t.middleware(({ ctx, next }) => {
+  if (ctx.tokenExpired) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Token expired",
+      cause: ERROR_CAUSES.TOKEN_EXPIRED,
+    });
+  }
+
   if (!ctx.user) {
     throw new TRPCError({
       code: "UNAUTHORIZED",
@@ -80,6 +94,14 @@ const isAuthed = t.middleware(({ ctx, next }) => {
 // Middleware to check if user has required roles
 const hasRole = (requiredRoles: string[]) =>
   t.middleware(({ ctx, next }) => {
+    if (ctx.tokenExpired) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Token expired",
+        cause: ERROR_CAUSES.TOKEN_EXPIRED,
+      });
+    }
+
     if (!ctx.user) {
       throw new TRPCError({
         code: "UNAUTHORIZED",

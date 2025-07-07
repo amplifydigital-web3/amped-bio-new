@@ -23,8 +23,8 @@ export const authMiddleware = (...requiredRoles: string[]) => {
     }
 
     try {
-      const decoded = jwt.verify(token, env.JWT_SECRET);
-      req.user = decoded as JWTUser;
+      const decoded = jwt.verify(token, env.JWT_SECRET) as jwt.JwtPayload;
+      req.user = decoded as unknown as JWTUser;
 
       // If no specific roles are required, just proceed
       // since the user is already authenticated

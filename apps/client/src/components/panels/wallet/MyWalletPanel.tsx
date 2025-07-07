@@ -50,7 +50,11 @@ export function MyWalletPanel() {
     trpc.wallet.getETHBalance.queryOptions()
   );
 
-  const walletAddress = authUser!.walletAddress;
+  const { data: walletData, isLoading: isWalletLoading } = useQuery(
+    trpc.wallet.getWallet.queryOptions()
+  );
+
+  const walletAddress = walletData?.address || "";
 
   // Sample data for tokens (empty for now)
   const sampleTokens: any[] = [];

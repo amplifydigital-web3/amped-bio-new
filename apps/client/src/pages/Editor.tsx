@@ -6,8 +6,48 @@ import { useEditorStore } from "../store/editorStore";
 import { useNavigate } from "react-router-dom";
 import { normalizeOnelink, formatOnelink, isEquivalentOnelink } from "@/utils/onelink";
 import { toast } from "react-hot-toast";
+import { useWeb3AuthConnect, useWeb3AuthDisconnect, useWeb3AuthUser } from "@web3auth/modal/react";
+import { useAccount } from "wagmi";
+import { AUTH_CONNECTION, WALLET_CONNECTORS } from "@web3auth/modal";
 
 export function Editor() {
+  const {
+    connect,
+    connectTo,
+    isConnected,
+    connectorName,
+    loading: connectLoading,
+    error: connectError,
+  } = useWeb3AuthConnect();
+  // IMP START - Logout
+  const {
+    disconnect,
+    loading: disconnectLoading,
+    error: disconnectError,
+  } = useWeb3AuthDisconnect();
+  const { userInfo } = useWeb3AuthUser();
+  const { address } = useAccount();
+
+  useEffect(() => {
+    console.info("Web3Auth User Info:", userInfo);
+    console.info("Wagmi Address:", address);
+  }, [userInfo, address]);
+
+  useEffect(() => {
+    if (!isConnected) {
+      // connect();
+
+      connectTo(WALLET_CONNECTORS.AUTH, {
+        authConnection: AUTH_CONNECTION.CUSTOM,
+        idToken: localStorage.getItem("amped-bio-auth-token")!,
+        authConnectionId: "w3a-node-demo",
+        // extraLoginOptions: {
+        //   isUserIdCaseSensitive: false,
+        // },
+      });
+    }
+  }, [isConnected, connect, connectTo]);
+
   const { onelink = "" } = useParams();
   const { authUser, updateAuthUser } = useAuth();
   const [loading, setLoading] = useState(false);

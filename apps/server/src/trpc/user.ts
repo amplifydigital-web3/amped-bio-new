@@ -34,7 +34,7 @@ export const userRouter = router({
   initiateEmailChange: privateProcedure
     .input(initiateEmailChangeSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.id;
+      const userId = ctx.user.sub;
       
       try {
         // Check if user exists
@@ -140,7 +140,7 @@ export const userRouter = router({
   confirmEmailChange: privateProcedure
     .input(confirmEmailChangeSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.id;
+      const userId = ctx.user.sub;
       
       try {
         // Check if user exists
@@ -248,7 +248,7 @@ export const userRouter = router({
   resendEmailVerification: privateProcedure
     .input(resendEmailVerificationSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.id;
+      const userId = ctx.user.sub;
       
       try {
         // Check if user exists

@@ -92,7 +92,7 @@ export const adminUploadRouter = router({
   requestThemeCategoryImagePresignedUrl: adminProcedure
     .input(requestThemeCategoryImageSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.id;
+      const userId = ctx.user.sub;
 
       try {
         // Check file size
@@ -151,7 +151,7 @@ export const adminUploadRouter = router({
   confirmThemeCategoryImageUpload: adminProcedure
     .input(confirmThemeCategoryImageSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.id;
+      const userId = ctx.user.sub;
 
       try {
         const uploadedFile = await uploadedFileService.getFileById(input.fileId);
@@ -232,7 +232,7 @@ export const adminUploadRouter = router({
   requestThemeThumbnailPresignedUrl: adminProcedure
     .input(requestThemeThumbnailSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.id;
+      const userId = ctx.user.sub;
 
       try {
         // Check file size
@@ -293,7 +293,7 @@ export const adminUploadRouter = router({
   confirmThemeThumbnailUpload: adminProcedure
     .input(confirmThemeThumbnailSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.id;
+      const userId = ctx.user.sub;
 
       try {
         // Get the uploaded file record and verify it's an admin file first
@@ -385,7 +385,7 @@ export const adminUploadRouter = router({
   requestAdminThemeBackgroundUrl: adminProcedure
     .input(requestAdminThemeBackgroundUrlSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.id;
+      const userId = ctx.user.sub;
 
       try {
         // Check file size
@@ -450,7 +450,7 @@ export const adminUploadRouter = router({
   confirmAdminThemeBackgroundUpload: adminProcedure
     .input(confirmAdminThemeBackgroundSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.id;
+      const userId = ctx.user.sub;
 
       try {
         // Get the uploaded file record and verify it's an admin file first

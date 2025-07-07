@@ -15,7 +15,6 @@ import {
 import { serialize } from "cookie";
 import { env } from "../env";
 import { WalletService } from "../services/WalletService";
-import { Address } from "viem";
 import { addDays } from "date-fns";
 
 const prisma = new PrismaClient();
@@ -74,10 +73,8 @@ export const authRouter = router({
     });
 
     // Create wallet for the new user
-    let walletAddress: Address | undefined;
     try {
-      const wallet = await WalletService.createWalletForUser(result.id);
-      walletAddress = wallet.address;
+      await WalletService.createWalletForUser(result.id);
     } catch (error) {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
@@ -114,7 +111,7 @@ export const authRouter = router({
     );
 
     return {
-      user: { id: result.id, email, onelink, walletAddress: walletAddress! },
+      user: { id: result.id, email, onelink, role: result.role },
       accessToken: generateAccessToken({ id: result.id, email, role: result.role }),
     };
   }),
@@ -149,11 +146,9 @@ export const authRouter = router({
     }
 
     // Check if user has a wallet, if not create one
-    let walletAddress = user.wallet?.address as Address;
     if (!user.wallet) {
       try {
-        const wallet = await WalletService.createWalletForUser(user.id);
-        walletAddress = wallet.address;
+        await WalletService.createWalletForUser(user.id);
       } catch (error) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
@@ -190,13 +185,13 @@ export const authRouter = router({
         email: user.email,
         onelink: user.onelink!,
         emailVerified,
-        walletAddress: walletAddress!,
+        role: user.role,
       },
       accessToken: generateAccessToken({ id: user.id, email: user.email, role: user.role }),
     };
   }),
 
-  logout: privateProcedure.mutation(async ({ ctx }) => { 
+  logout: privateProcedure.mutation(async ({ ctx }) => {
     const refreshToken = ctx.req.cookies.refreshToken;
 
     if (!refreshToken) {
@@ -277,7 +272,9 @@ export const authRouter = router({
     }),
 
   me: privateProcedure.query(async ({ ctx }) => {
-    const userId = ctx.user.id;
+    console.log("Fetching user data for:", ctx.user);
+
+    const userId = ctx.user.sub;
 
     // Find user
     const user = await prisma.user.findUnique({
@@ -300,7 +297,7 @@ export const authRouter = router({
         email: user.email,
         onelink: user.onelink,
         emailVerified: user.email_verified_at !== null,
-        walletAddress: user.wallet?.address || null,
+        role: user.role,
       },
     };
   }),

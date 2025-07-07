@@ -9,15 +9,15 @@ const validateTokenWithServer = async (): Promise<{ isValid: boolean; user?: Aut
     if (!token) return { isValid: false };
 
     const response = await trpcClient.auth.me.query();
-    
+
     // Map server response to AuthUser type
     const user: AuthUser = {
       id: response.user.id,
       email: response.user.email,
       onelink: response.user.onelink || "", // Handle null case
-      walletAddress: (response.user.walletAddress || "0x0") as `0x${string}`, // Handle null case with default
+      role: response.user.role || "user", // Add role mapping
     };
-    
+
     return { isValid: true, user };
   } catch (error) {
     console.error("Token validation failed:", error);
@@ -39,7 +39,7 @@ const attemptTokenRefresh = async (): Promise<{ success: boolean; newToken?: str
 type AuthContextType = {
   authUser: AuthUser | null;
   error: string | null;
-  isAuthenticated: boolean;
+  isAuthenticated: boolean | null; // null = loading, true = authenticated, false = not authenticated
   signIn: (email: string, password: string) => Promise<AuthUser>;
   signUp: (onelink: string, email: string, password: string) => Promise<AuthUser>;
   signOut: () => Promise<void>;
@@ -52,7 +52,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null); // Start with null (loading)
 
   const signOut = useCallback(async () => {
     setError(null);
@@ -64,11 +64,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const validateToken = async () => {
-      const storedUser = localStorage.getItem("auth-user");
-      
-      // Try to validate token with server
       const { isValid, user } = await validateTokenWithServer();
-      
+
       if (isValid && user) {
         setAuthUser(user);
         localStorage.setItem("auth-user", JSON.stringify(user));
@@ -76,13 +73,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } else {
         // Token is invalid, try to refresh
         const refreshResult = await attemptTokenRefresh();
-        
+
         if (refreshResult.success && refreshResult.newToken) {
           // Refresh successful, set new token and validate again
           localStorage.setItem("amped-bio-auth-token", refreshResult.newToken);
-          
-          const { isValid: isValidAfterRefresh, user: userAfterRefresh } = await validateTokenWithServer();
-          
+
+          const { isValid: isValidAfterRefresh, user: userAfterRefresh } =
+            await validateTokenWithServer();
+
           if (isValidAfterRefresh && userAfterRefresh) {
             setAuthUser(userAfterRefresh);
             localStorage.setItem("auth-user", JSON.stringify(userAfterRefresh));
@@ -174,6 +172,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {

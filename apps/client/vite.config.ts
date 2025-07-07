@@ -22,6 +22,7 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       "process.env": process.env,
+      global: "globalThis", // Ensure globalThis is used instead of global
     },
   };
 });

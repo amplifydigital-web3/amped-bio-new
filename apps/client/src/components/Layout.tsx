@@ -48,9 +48,6 @@ export function Layout(props: LayoutProps) {
   const { authUser } = useAuth();
   const isLoggedIn = authUser !== null;
 
-  // FOR TESTING
-  const usr = useAuth(state => state.authUser);
-
   // Define layout configuration for each panel
   const panelConfigs: Record<PanelType, PanelConfig> = {
     // Single column pages (full width)

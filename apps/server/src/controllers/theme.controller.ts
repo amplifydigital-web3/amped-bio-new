@@ -10,7 +10,7 @@ const prisma = new PrismaClient();
 export const themeController = {
   async editTheme(req: Request, res: Response) {
     const { id } = req.params;
-    const user_id = req.user.id;
+    const user_id = req.user.sub;
     const { theme } = (req as ValidatedRequest<z.infer<typeof editThemeSchema>>).validatedData;
     const { name, share_level, share_config, config } = theme;
 
@@ -116,7 +116,7 @@ export const themeController = {
 
   async delete(req: Request, res: Response) {
     const { id } = req.params;
-    const user_id = req.user.id;
+    const user_id = req.user.sub;
 
     try {
       const theme = await prisma.theme.findUnique({

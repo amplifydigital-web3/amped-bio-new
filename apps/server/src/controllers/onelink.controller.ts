@@ -97,7 +97,7 @@ export const onelinkController = {
     console.info("📥 Received request to redeem onelink");
 
     const { newOnelink } = (req as ValidatedRequest<RedeemOnelinkInput>).validatedData;
-    const userId = req.user?.id; // Get user ID from authentication middleware
+    const userId = req.user?.sub; // Get user ID from authentication middleware
 
     if (!userId) {
       console.info("❌ User not authenticated");

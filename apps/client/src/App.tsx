@@ -12,6 +12,7 @@ import {
   AdminFiles,
   AdminSettings,
 } from "./pages/admin";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 import { initParticlesEngine } from "@tsparticles/react";
 //import { loadSlim } from '@tsparticles/slim';
 import { loadAll } from "@tsparticles/all";
@@ -23,6 +24,60 @@ import { Toaster } from "react-hot-toast";
 import { Web3AuthProvider } from "@web3auth/modal/react";
 import web3AuthContextConfig from "./utils/web3authContext";
 import { AuthProvider } from "./contexts/AuthContext";
+import { useTokenExpiration } from "./hooks/useTokenExpiration";
+import { WagmiProvider } from "@web3auth/modal/react/wagmi";
+
+function AppRouter() {
+  // Use the token expiration hook inside the router context
+  useTokenExpiration();
+
+  return (
+    <Routes>
+      <Route
+        path="/:onelink/edit"
+        element={
+          <ProtectedRoute>
+            <Editor />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="/:onelink" element={<View />} />
+      <Route path="/register" element={<View />} />
+      <Route path="/" element={<View />} />
+
+      {/* Admin Routes with nested routing */}
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute adminOnly>
+            <AdminLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<AdminDashboard />} />
+        <Route path="users" element={<AdminUsers />} />
+        <Route path="themes" element={<AdminThemes />} />
+        <Route path="blocks" element={<AdminBlocks />} />
+        <Route path="files" element={<AdminFiles />} />
+        <Route path="settings" element={<AdminSettings />} />
+      </Route>
+
+      <Route
+        path="/account"
+        element={
+          <ProtectedRoute>
+            <Account />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Authentication Routes */}
+      <Route path="/auth/verify-email/:token?" element={<EmailVerification />} />
+      <Route path="/auth/resend-verification" element={<EmailVerificationResent />} />
+      <Route path="/auth/reset-password/:token?" element={<PasswordReset />} />
+    </Routes>
+  );
+}
 
 function App() {
   const [init, setInit] = useState(false);
@@ -56,35 +111,13 @@ function App() {
     return (
       <Web3AuthProvider config={web3AuthContextConfig}>
         <QueryClientProvider client={queryClient}>
-          <AppKitProvider>
+          <WagmiProvider>
             <AuthProvider>
               <BrowserRouter>
-                <Routes>
-                  <Route path="/:onelink/edit" element={<Editor />} />
-                  <Route path="/:onelink" element={<View />} />
-                  <Route path="/register" element={<View />} />
-                  <Route path="/" element={<View />} />
-
-                  {/* Admin Routes with nested routing */}
-                  <Route path="/admin" element={<AdminLayout />}>
-                    <Route index element={<AdminDashboard />} />
-                    <Route path="users" element={<AdminUsers />} />
-                    <Route path="themes" element={<AdminThemes />} />
-                    <Route path="blocks" element={<AdminBlocks />} />
-                    <Route path="files" element={<AdminFiles />} />
-                    <Route path="settings" element={<AdminSettings />} />
-                  </Route>
-
-                  <Route path="/account" element={<Account />} />
-
-                  {/* Authentication Routes */}
-                  <Route path="/auth/verify-email/:token?" element={<EmailVerification />} />
-                  <Route path="/auth/resend-verification" element={<EmailVerificationResent />} />
-                  <Route path="/auth/reset-password/:token?" element={<PasswordReset />} />
-                </Routes>
+                <AppRouter />
               </BrowserRouter>
             </AuthProvider>
-          </AppKitProvider>
+          </WagmiProvider>
         </QueryClientProvider>
         <Toaster />
       </Web3AuthProvider>
