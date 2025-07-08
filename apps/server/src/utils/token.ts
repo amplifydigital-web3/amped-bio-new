@@ -23,7 +23,7 @@ export const JWT_KEYS = {
 export const generateAccessToken = (user: { id: number; email: string; role: string }): string => {
   return jwt.sign(
     {
-      sub: user.id,
+      sub: user.id.toString(),
       email: user.email,
       role: user.role,
       aud: env.JWT_AUDIENCE, // Audience of the token
