@@ -108,5 +108,3 @@ export const env = cleanEnv(process.env, {
     example: "http://localhost:9090",
   }),
 });
-
-export const privateKeyBuffer = Buffer.from(env.JWT_PRIVATE_KEY, "utf8");

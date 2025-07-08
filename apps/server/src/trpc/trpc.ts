@@ -1,8 +1,8 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import jwt from "jsonwebtoken";
-import { env, privateKeyBuffer } from "../env";
 import { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import { ERROR_CAUSES } from "@ampedbio/constants";
+import { JWT_KEYS } from "../utils/token";
 
 // Define the user type from JWT token
 export type JWTUser = {
@@ -33,7 +33,9 @@ export const createContext = ({ req, res }: CreateExpressContextOptions): Contex
 
   try {
     // Verify the token and get user data
-    const user = jwt.verify(token, privateKeyBuffer) as jwt.JwtPayload;
+    const user = jwt.verify(token, JWT_KEYS.publicKey, {
+      algorithms: ["RS256"],
+    }) as jwt.JwtPayload;
     return { req, res, user: user as unknown as JWTUser };
   } catch (error) {
     // Check if the error is due to token expiration

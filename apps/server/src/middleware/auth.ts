@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { privateKeyBuffer } from "../env";
 import { JWTUser } from "../trpc/trpc";
+import { JWT_KEYS } from "../utils/token";
 
 declare global {
   namespace Express {
@@ -14,6 +14,7 @@ declare global {
   }
 }
 
+// express middleware
 export const authMiddleware = (...requiredRoles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     const token = req.headers.authorization?.split(" ")[1];
@@ -23,7 +24,7 @@ export const authMiddleware = (...requiredRoles: string[]) => {
     }
 
     try {
-      const decoded = jwt.verify(token, privateKeyBuffer, {
+      const decoded = jwt.verify(token, JWT_KEYS.publicKey, {
         algorithms: ["RS256"],
       }) as jwt.JwtPayload;
       req.user = decoded as unknown as JWTUser;
