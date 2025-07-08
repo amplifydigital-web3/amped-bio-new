@@ -37,15 +37,18 @@ export function AppearancePanel() {
           <AlertTriangle className="w-5 h-5 text-orange-600 flex-shrink-0" />
           <div>
             <h3 className="text-sm font-medium text-orange-800">Theme Not Customizable</h3>
-            <p className="text-sm text-orange-700">This admin theme cannot be customized. Choose a different theme to access appearance options.</p>
+            <p className="text-sm text-orange-700">
+              This admin theme cannot be customized. Choose a different theme to access appearance
+              options.
+            </p>
           </div>
         </div>
       ) : (
         <>
-          <BackgroundPicker 
-            value={themeConfig.background} 
-            onChange={setBackground} 
-            themeId={themeId} 
+          <BackgroundPicker
+            value={themeConfig.background}
+            onChange={setBackground}
+            themeId={themeId}
           />
 
           <ContainerStylePicker

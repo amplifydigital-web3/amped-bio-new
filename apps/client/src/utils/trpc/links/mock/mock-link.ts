@@ -6,7 +6,7 @@ import { mockData } from "./mock-data";
 const mockDelay = () => new Promise(resolve => setTimeout(resolve, 500));
 
 // Persistent state for users
-let mockUsers = [
+const mockUsers = [
   { id: 1, name: "Alice", email: "alice@example.com" },
   { id: 2, name: "Bob", email: "bob@example.com" },
 ];
@@ -31,13 +31,13 @@ const mockRequester = async (opts: { type: string; path: string; input: any }) =
 
   // Handle authentication-related operations
   if (path === "auth.login") {
-    console.log(`[MOCK] Processing auth.login, storing demo token`);
+    console.log("[MOCK] Processing auth.login, storing demo token");
     localStorage.setItem("amped-bio-auth-token", "demo-auth-token");
   } else if (path === "auth.register") {
-    console.log(`[MOCK] Processing auth.register, storing demo token`);
+    console.log("[MOCK] Processing auth.register, storing demo token");
     localStorage.setItem("amped-bio-auth-token", "demo-auth-token");
   } else if (path === "auth.logout") {
-    console.log(`[MOCK] Processing auth.logout, removing token`);
+    console.log("[MOCK] Processing auth.logout, removing token");
     localStorage.removeItem("amped-bio-auth-token");
   }
 
@@ -49,7 +49,7 @@ const mockRequester = async (opts: { type: string; path: string; input: any }) =
     result = mockUsers;
     console.log(`[DEMO MODE] Responding with mock users for ${path}`);
   } else if (path === "user.addUser") {
-    console.log(`[MOCK] Processing user.addUser with data:`, input);
+    console.log("[MOCK] Processing user.addUser with data:", input);
     const newUser = {
       id: mockUsers.length + 1,
       name: (input as any).name,
@@ -66,7 +66,7 @@ const mockRequester = async (opts: { type: string; path: string; input: any }) =
 
     // Special handling for certain endpoints
     if (path === "onelink.getOnelink" && input && typeof input === "object" && "onelink" in input) {
-      console.log(`[MOCK] Customizing onelink response for input:`, input);
+      console.log("[MOCK] Customizing onelink response for input:", input);
       // Customize onelink response based on input
       if (input.onelink !== "demo-user") {
         console.log(`[MOCK] Changing user name to: ${input.onelink}`);
@@ -97,11 +97,11 @@ const mockRequester = async (opts: { type: string; path: string; input: any }) =
  * @see https://trpc.io/docs/client/links/httpLink
  */
 export function mockLink(): TRPCLink<AppRouter> {
-  console.log(`[MOCK] Creating mockLink`);
+  console.log("[MOCK] Creating mockLink");
   return () => {
-    console.log(`[MOCK] mockLink initialized and waiting for operations`);
+    console.log("[MOCK] mockLink initialized and waiting for operations");
     return ({ op }) => {
-      console.log(`[MOCK] mockLink received operation:`, op);
+      console.log("[MOCK] mockLink received operation:", op);
       return observable(observer => {
         const { path, input, type } = op;
         console.log(`[MOCK] Creating observable for ${path}`, { type, input });
@@ -118,7 +118,7 @@ export function mockLink(): TRPCLink<AppRouter> {
         mockRequester({ type, path, input })
           .then(({ result, meta }) => {
             console.log(`[MOCK] mockRequester completed successfully for ${path}`);
-            console.log(`[MOCK] Emitting next event with result:`, result);
+            console.log("[MOCK] Emitting next event with result:", result);
             // Match the http-link response format by adding a 'result' property
             observer.next({
               context: meta,

@@ -43,7 +43,7 @@ const HoverPopover = ({
   delayDuration = 300,
   align = "center",
   side = "top",
-  className
+  className,
 }: HoverPopoverProps) => {
   const [open, setOpen] = React.useState(false);
   const timeoutRef = React.useRef<NodeJS.Timeout>();
@@ -74,11 +74,7 @@ const HoverPopover = ({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        asChild
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-      >
+      <PopoverTrigger asChild onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
         {trigger}
       </PopoverTrigger>
       <PopoverContent

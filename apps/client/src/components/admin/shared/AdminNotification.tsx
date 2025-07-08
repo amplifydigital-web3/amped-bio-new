@@ -10,7 +10,14 @@ interface NotificationProps {
   onDismiss: (id: string) => void;
 }
 
-export function AdminNotification({ id, type, title, message, duration = 5000, onDismiss }: NotificationProps) {
+export function AdminNotification({
+  id,
+  type,
+  title,
+  message,
+  duration = 5000,
+  onDismiss,
+}: NotificationProps) {
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
@@ -88,7 +95,9 @@ interface NotificationContextType {
 export function AdminNotificationContainer() {
   const [notifications, setNotifications] = useState<NotificationContextType["notifications"]>([]);
 
-  const addNotification = (notification: Omit<NotificationContextType["notifications"][0], "id">) => {
+  const addNotification = (
+    notification: Omit<NotificationContextType["notifications"][0], "id">
+  ) => {
     const id = Date.now().toString();
     setNotifications(prev => [...prev, { ...notification, id }]);
   };
@@ -100,21 +109,20 @@ export function AdminNotificationContainer() {
   // Expose functions globally for easy access
   useEffect(() => {
     (window as any).adminNotify = {
-      success: (title: string, message?: string) => addNotification({ type: "success", title, message }),
-      error: (title: string, message?: string) => addNotification({ type: "error", title, message }),
+      success: (title: string, message?: string) =>
+        addNotification({ type: "success", title, message }),
+      error: (title: string, message?: string) =>
+        addNotification({ type: "error", title, message }),
       info: (title: string, message?: string) => addNotification({ type: "info", title, message }),
-      warning: (title: string, message?: string) => addNotification({ type: "warning", title, message }),
+      warning: (title: string, message?: string) =>
+        addNotification({ type: "warning", title, message }),
     };
   }, []);
 
   return (
     <div className="fixed top-0 right-0 z-50 p-4 space-y-2">
       {notifications.map(notification => (
-        <AdminNotification
-          key={notification.id}
-          {...notification}
-          onDismiss={removeNotification}
-        />
+        <AdminNotification key={notification.id} {...notification} onDismiss={removeNotification} />
       ))}
     </div>
   );

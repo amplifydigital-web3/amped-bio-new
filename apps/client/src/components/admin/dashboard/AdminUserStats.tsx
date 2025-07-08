@@ -15,9 +15,7 @@ export const AdminUserStats = ({ totalUsers, newThisWeek }: AdminUserStatsProps)
       <div className="mt-4">
         <p className="text-3xl font-bold">{totalUsers.toLocaleString()}</p>
         <div className="mt-2">
-          <span className="text-sm text-gray-500">
-            {newThisWeek} new this week
-          </span>
+          <span className="text-sm text-gray-500">{newThisWeek} new this week</span>
         </div>
       </div>
     </div>

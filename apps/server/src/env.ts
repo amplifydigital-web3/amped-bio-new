@@ -11,6 +11,19 @@ export const env = cleanEnv(process.env, {
     desc: "Secret key for JWT token generation and verification",
     default: "your-default-jwt-secret-for-development",
   }),
+  JWT_PRIVATE_KEY: str({
+    desc: "Private key for JWT signing",
+  }),
+  JWT_ISSUER: str({
+    desc: "Issuer of the JWT token",
+    default: "api.amped.bio",
+    example: "api.amped.bio",
+  }),
+  JWT_AUDIENCE: str({
+    desc: "Audience of the JWT token",
+    default: "amped.bio",
+    example: "amped.bio",
+  }),
   PORT: port({
     desc: "Port for the server to listen on",
     default: 43000,
@@ -50,6 +63,24 @@ export const env = cleanEnv(process.env, {
     desc: "Email address to use as sender",
     default: "noreply@amped.bio",
     example: "noreply@yourdomain.com",
+  }),
+  // Wallet encryption key
+  WALLET_ENCRYPTION_KEY: str({
+    desc: "Secret key for encrypting wallet private keys",
+    default: "your-default-wallet-encryption-key-for-development",
+    example: "a-very-secure-random-key-for-wallet-encryption",
+  }),
+  // RPC URL for blockchain interactions
+  RPC_URL: str({
+    desc: "RPC URL for blockchain network",
+    default: "https://dev.revolutionchain.io",
+    example: "https://dev.revolutionchain.io",
+  }),
+  // Chain ID for the blockchain network
+  CHAIN_ID: str({
+    desc: "Chain ID for the blockchain network",
+    default: "324", // ZKsync mainnet default
+    example: "324",
   }),
   // AWS S3 Configuration for profile picture uploads
   AWS_REGION: str({

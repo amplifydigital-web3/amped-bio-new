@@ -22,6 +22,7 @@
     "e2e:test": "pnpm --filter client e2e:test"
   },
   "devDependencies": {
+    "globals": "^15.9.0",
     "prettier": "^3.2.5",
     "tsx": "^4.19.3",
     "turbo": "latest"

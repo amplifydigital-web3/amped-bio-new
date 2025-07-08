@@ -102,7 +102,7 @@ export type LinkBlock = BaseBlock<
   { platform: LinkBlockPlatform; url: string; label: string }
 >;
 
-export type MediaBlockPlatform = typeof mediaPlataforms[number];
+export type MediaBlockPlatform = (typeof mediaPlataforms)[number];
 
 export type MediaBlock = BaseBlock<
   "media",

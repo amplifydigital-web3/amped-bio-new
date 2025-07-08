@@ -11,22 +11,24 @@ interface ViewCollectionsTabProps {
 
 export function ViewCollectionsTab({ refetchCategories }: ViewCollectionsTabProps) {
   // Queries
-  const { data: categories } = useQuery(
-    trpc.admin.themes.getThemeCategories.queryOptions()
-  );
+  const { data: categories } = useQuery(trpc.admin.themes.getThemeCategories.queryOptions());
 
   // Mutations
   const toggleVisibilityMutation = useMutation(
     trpc.admin.themes.toggleThemeCategoryVisibility.mutationOptions()
   );
 
-  const handleToggleVisibility = async (categoryId: number, visible: boolean, categoryTitle: string) => {
+  const handleToggleVisibility = async (
+    categoryId: number,
+    visible: boolean,
+    categoryTitle: string
+  ) => {
     try {
       await toggleVisibilityMutation.mutateAsync({
         id: categoryId,
-        visible: visible
+        visible: visible,
       });
-      toast.success(`Collection "${categoryTitle}" is now ${visible ? 'visible' : 'hidden'}`);
+      toast.success(`Collection "${categoryTitle}" is now ${visible ? "visible" : "hidden"}`);
       refetchCategories();
     } catch (error: any) {
       toast.error(`Failed to update visibility for "${categoryTitle}": ${error.message}`);
@@ -37,15 +39,13 @@ export function ViewCollectionsTab({ refetchCategories }: ViewCollectionsTabProp
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
       <div className="p-6 border-b border-gray-100">
         <h2 className="text-2xl font-bold">Collections</h2>
-        <p className="text-gray-600 mt-1">
-          {categories?.length || 0} collections created
-        </p>
+        <p className="text-gray-600 mt-1">{categories?.length || 0} collections created</p>
       </div>
-      
+
       <div className="p-6">
         {categories && categories.length > 0 ? (
           <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-            {categories.map((category) => (
+            {categories.map(category => (
               <div
                 key={category.id}
                 className="group p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow duration-200 bg-gray-50"
@@ -55,8 +55,8 @@ export function ViewCollectionsTab({ refetchCategories }: ViewCollectionsTabProp
                   <div className="flex-shrink-0">
                     {category.image ? (
                       <div className="w-16 h-16 rounded-lg overflow-hidden bg-white border border-gray-200 shadow-sm">
-                        <img 
-                          src={category.image} 
+                        <img
+                          src={category.image}
                           alt={category.title}
                           className="w-full h-full object-cover"
                         />
@@ -67,11 +67,13 @@ export function ViewCollectionsTab({ refetchCategories }: ViewCollectionsTabProp
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Collection Details */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-semibold text-gray-900 text-sm truncate">{category.title}</h4>
+                      <h4 className="font-semibold text-gray-900 text-sm truncate">
+                        {category.title}
+                      </h4>
                       <div className="flex items-center space-x-2">
                         {toggleVisibilityMutation.isPending ? (
                           <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
@@ -82,30 +84,39 @@ export function ViewCollectionsTab({ refetchCategories }: ViewCollectionsTabProp
                         )}
                         <Switch
                           checked={category.visible}
-                          onChange={(visible) => handleToggleVisibility(category.id, visible, category.title)}
+                          onChange={visible =>
+                            handleToggleVisibility(category.id, visible, category.title)
+                          }
                           disabled={toggleVisibilityMutation.isPending}
                           size="sm"
                         />
                       </div>
                     </div>
                     {category.description && (
-                      <p className="text-xs text-gray-700 mt-1 italic break-words">"{category.description}"</p>
+                      <p className="text-xs text-gray-700 mt-1 italic break-words">
+                        "{category.description}"
+                      </p>
                     )}
                     <div className="mt-2 space-y-1">
-                      <p className="text-xs text-gray-600">Name: <span className="font-medium">{category.name}</span></p>
-                      <p className="text-xs text-gray-600">ID: <span className="font-mono text-xs">{category.category}</span></p>
-                      <p className="text-xs text-gray-500">
-                        {category._count?.themes || 0} themes
+                      <p className="text-xs text-gray-600">
+                        Name: <span className="font-medium">{category.name}</span>
                       </p>
+                      <p className="text-xs text-gray-600">
+                        ID: <span className="font-mono text-xs">{category.category}</span>
+                      </p>
+                      <p className="text-xs text-gray-500">{category._count?.themes || 0} themes</p>
                       <p className="text-xs text-gray-500">
-                        Status: <span className={`font-medium ${category.visible ? 'text-green-600' : 'text-gray-500'}`}>
-                          {category.visible ? 'Visible' : 'Hidden'}
+                        Status:{" "}
+                        <span
+                          className={`font-medium ${category.visible ? "text-green-600" : "text-gray-500"}`}
+                        >
+                          {category.visible ? "Visible" : "Hidden"}
                         </span>
                       </p>
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Image Upload for Existing Collections */}
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <CategoryImageUploader
@@ -115,7 +126,9 @@ export function ViewCollectionsTab({ refetchCategories }: ViewCollectionsTabProp
                       toast.success(`Image updated for ${category.title}`);
                       refetchCategories();
                     }}
-                    onError={(error) => toast.error(`Failed to update image for ${category.title}: ${error}`)}
+                    onError={error =>
+                      toast.error(`Failed to update image for ${category.title}: ${error}`)
+                    }
                   />
                 </div>
               </div>
@@ -125,7 +138,9 @@ export function ViewCollectionsTab({ refetchCategories }: ViewCollectionsTabProp
           <div className="text-center py-8">
             <List className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">No collections</h3>
-            <p className="mt-1 text-sm text-gray-500">Get started by creating your first collection.</p>
+            <p className="mt-1 text-sm text-gray-500">
+              Get started by creating your first collection.
+            </p>
           </div>
         )}
       </div>

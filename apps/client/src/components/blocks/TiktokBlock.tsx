@@ -1,7 +1,7 @@
 import type { ThemeConfig } from "../../types/editor";
 import { MediaBlock } from "@/api/api.types";
 import { FaTiktok } from "react-icons/fa6";
-import { TikTokEmbed } from 'react-social-media-embed';
+import { TikTokEmbed } from "react-social-media-embed";
 
 interface TiktokBlockProps {
   block: MediaBlock;
@@ -24,14 +24,11 @@ export function TiktokBlock({ block, theme }: TiktokBlockProps) {
     <div className="w-full space-y-2">
       <div className="flex items-center space-x-2 px-3">
         <FaTiktok className="w-4 h-4 text-black" />
-        <span
-          className="text-sm font-medium text-black"
-          style={{ fontFamily: theme.fontFamily }}
-        >
+        <span className="text-sm font-medium text-black" style={{ fontFamily: theme.fontFamily }}>
           TikTok
         </span>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
+      <div style={{ display: "flex", justifyContent: "center" }}>
         <TikTokEmbed url={block.config.url} />
       </div>
       {/* Display content as description if available */}

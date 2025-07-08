@@ -18,9 +18,7 @@ export const AdminBlockDistribution = ({
         <div className="flex justify-between mb-6">
           <div>
             <p className="text-sm text-gray-500">Most Popular</p>
-            <p className="text-xl font-bold">
-              {mostPopularBlockType || "Unknown"} Blocks
-            </p>
+            <p className="text-xl font-bold">{mostPopularBlockType || "Unknown"} Blocks</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Avg. per User</p>

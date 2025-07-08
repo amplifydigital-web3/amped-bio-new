@@ -2,7 +2,12 @@
  * Utility functions for working with onelinks throughout the application
  */
 import { checkOnelinkAvailability } from "@/api/api";
-import { ONELINK_MIN_LENGTH, ONELINK_REGEX, ONELINK_BASE_URL, OnelinkStatus } from "@ampedbio/constants";
+import {
+  ONELINK_MIN_LENGTH,
+  ONELINK_REGEX,
+  ONELINK_BASE_URL,
+  OnelinkStatus,
+} from "@ampedbio/constants";
 
 // Constants
 const BASE_URL = ONELINK_BASE_URL;
@@ -25,7 +30,9 @@ export function normalizeOnelink(rawOnelink: string): string {
  */
 export function formatOnelink(normalizedOnelink: string): `@${string}` {
   if (!normalizedOnelink) return "@";
-  return normalizedOnelink.startsWith("@") ? (normalizedOnelink as `@${string}`) : `@${normalizedOnelink}`;
+  return normalizedOnelink.startsWith("@")
+    ? (normalizedOnelink as `@${string}`)
+    : `@${normalizedOnelink}`;
 }
 
 /**
@@ -68,7 +75,9 @@ export function validateOnelinkLength(normalizedOnelink: string): boolean {
  */
 export function isEquivalentOnelink(rawOnelink1: string, rawOnelink2: string): boolean {
   if (!rawOnelink1 || !rawOnelink2) return false;
-  return normalizeOnelink(rawOnelink1).toLowerCase() === normalizeOnelink(rawOnelink2).toLowerCase();
+  return (
+    normalizeOnelink(rawOnelink1).toLowerCase() === normalizeOnelink(rawOnelink2).toLowerCase()
+  );
 }
 
 /**

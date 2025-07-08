@@ -4,10 +4,12 @@ import { Service } from "../types/service";
 import express, { Application } from "express";
 import helmet from "helmet";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import { env } from "../env";
 import { Server } from "http";
 import router from "../routes";
 import { trpcMiddleware } from "../trpc/router";
+import wellKnownRoutes from "../routes/well-known";
 
 const logTag = "[API]";
 
@@ -26,6 +28,7 @@ export class API implements Service {
     this.app.use(helmet());
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
+    this.app.use(cookieParser());
 
     this.app.use((req, res, next) => {
       res.locals = {
@@ -37,9 +40,11 @@ export class API implements Service {
     this.app.use(cors());
 
     // Mount the tRPC middleware
-    this.app.use('/trpc', trpcMiddleware);
-    
+    this.app.use("/trpc", trpcMiddleware);
+
     this.app.use("/api/", router);
+
+    this.app.use("/.well-known", wellKnownRoutes);
 
     this.app.use(logErrors);
     this.app.use(handleErrors);

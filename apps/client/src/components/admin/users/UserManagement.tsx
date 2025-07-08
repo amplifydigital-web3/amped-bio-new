@@ -41,25 +41,33 @@ export function UserManagement() {
 
   // Edit User Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<{id: number, name: string, email: string} | null>(null);
-  const [editFormErrors, setEditFormErrors] = useState<{name?: string, email?: string, confirmation?: string}>({});
+  const [editingUser, setEditingUser] = useState<{
+    id: number;
+    name: string;
+    email: string;
+  } | null>(null);
+  const [editFormErrors, setEditFormErrors] = useState<{
+    name?: string;
+    email?: string;
+    confirmation?: string;
+  }>({});
   const [confirmationText, setConfirmationText] = useState("");
 
   // Handle confirmation text change
   const handleConfirmationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setConfirmationText(e.target.value);
-    
+
     // Clear error if user is typing
     if (editFormErrors.confirmation) {
       setEditFormErrors({
         ...editFormErrors,
-        confirmation: undefined
+        confirmation: undefined,
       });
     }
   };
 
   // Handle open edit modal with reset state
-  const handleOpenEditModal = (user: { id: number, name: string, email: string }) => {
+  const handleOpenEditModal = (user: { id: number; name: string; email: string }) => {
     setEditingUser(user);
     setEditFormErrors({});
     setConfirmationText("");
@@ -67,7 +75,11 @@ export function UserManagement() {
   };
 
   // Get users with pagination - only enabled when search or filters are applied
-  const { data: userData, isLoading: isUsersLoading, refetch } = useQuery({
+  const {
+    data: userData,
+    isLoading: isUsersLoading,
+    refetch,
+  } = useQuery({
     ...trpc.admin.users.getUsers.queryOptions({
       page: currentPage,
       limit,
@@ -75,55 +87,60 @@ export function UserManagement() {
       blocked,
       search: searchQuery.length >= 2 ? searchQuery : undefined,
     }),
-    enabled: hasSearched || searchQuery.length >= 2 || role !== undefined || blocked !== undefined
+    enabled: hasSearched || searchQuery.length >= 2 || role !== undefined || blocked !== undefined,
   });
-
 
   // Handle edit form submission
   const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!editingUser) return;
-    
+
     // Check confirmation text
     if (confirmationText !== "UPDATE") {
       setEditFormErrors({
         ...editFormErrors,
-        confirmation: "You must type UPDATE to confirm changes"
+        confirmation: "You must type UPDATE to confirm changes",
       });
       return;
     }
-    
+
     try {
       // Validate form inputs
       const validatedData = editUserSchema.parse(editingUser);
-      
+
       // Call the tRPC mutation to update the user
-      trpcClient.admin.users.updateUser.mutate({
-        id: editingUser.id,
-        name: validatedData.name,
-        email: validatedData.email
-      }).then(() => {
-        // Close modal and refresh data
-        setIsEditModalOpen(false);
-        setEditingUser(null);
-        setConfirmationText("");
-        refetch();
-      }).catch((error) => {
-        console.error("Failed to update user:", error);
-        setEditFormErrors({ 
-          email: error.message.includes("email") ? error.message : undefined 
+      trpcClient.admin.users.updateUser
+        .mutate({
+          id: editingUser.id,
+          name: validatedData.name,
+          email: validatedData.email,
+        })
+        .then(() => {
+          // Close modal and refresh data
+          setIsEditModalOpen(false);
+          setEditingUser(null);
+          setConfirmationText("");
+          refetch();
+        })
+        .catch(error => {
+          console.error("Failed to update user:", error);
+          setEditFormErrors({
+            email: error.message.includes("email") ? error.message : undefined,
+          });
         });
-      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         // Format Zod errors into our error state shape
-        const formattedErrors = error.errors.reduce((acc, curr) => {
-          const path = curr.path[0] as string;
-          acc[path as keyof typeof acc] = curr.message;
-          return acc;
-        }, {} as {name?: string, email?: string, confirmation?: string});
-        
+        const formattedErrors = error.errors.reduce(
+          (acc, curr) => {
+            const path = curr.path[0] as string;
+            acc[path as keyof typeof acc] = curr.message;
+            return acc;
+          },
+          {} as { name?: string; email?: string; confirmation?: string }
+        );
+
         setEditFormErrors(formattedErrors);
       }
     }
@@ -135,54 +152,60 @@ export function UserManagement() {
     if (editingUser) {
       setEditingUser({
         ...editingUser,
-        [name]: value
+        [name]: value,
       });
-      
+
       // Clear the specific field error when user types
       if (editFormErrors[name as keyof typeof editFormErrors]) {
         setEditFormErrors({
           ...editFormErrors,
-          [name]: undefined
+          [name]: undefined,
         });
       }
     }
   };
 
   // Handle search input change
-  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    // Always update the state to allow typing any characters
-    setSearchQuery(value);
-    
-    // Auto-search when user types 2 or more characters
-    if (value.length >= 2) {
-      setHasSearched(true);
-      refetch();
-    } else if (value.length === 0 && hasSearched) {
-      // Clear results if search is emptied
-      refetch();
-    }
-  }, [hasSearched, refetch]);
+  const handleSearchChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value;
+      // Always update the state to allow typing any characters
+      setSearchQuery(value);
 
-  // Handle search form submission
-  const handleSearchSubmit = useCallback((e: React.FormEvent<HTMLInputElement | HTMLFormElement>) => {
-    e.preventDefault();
-    
-    // Only perform search if query is valid or empty
-    try {
-      if (searchQuery === "" || searchQuery.length >= 2) {
-        setSearchError(null);
+      // Auto-search when user types 2 or more characters
+      if (value.length >= 2) {
         setHasSearched(true);
         refetch();
-      } else {
-        // Provide feedback that search requires at least 2 characters
-        setSearchError("Search query must be at least 2 characters");
+      } else if (value.length === 0 && hasSearched) {
+        // Clear results if search is emptied
+        refetch();
       }
-    } catch (error) {
-      console.error("Search validation error:", error);
-      setSearchError("Invalid search query");
-    }
-  }, [searchQuery, refetch]);
+    },
+    [hasSearched, refetch]
+  );
+
+  // Handle search form submission
+  const handleSearchSubmit = useCallback(
+    (e: React.FormEvent<HTMLInputElement | HTMLFormElement>) => {
+      e.preventDefault();
+
+      // Only perform search if query is valid or empty
+      try {
+        if (searchQuery === "" || searchQuery.length >= 2) {
+          setSearchError(null);
+          setHasSearched(true);
+          refetch();
+        } else {
+          // Provide feedback that search requires at least 2 characters
+          setSearchError("Search query must be at least 2 characters");
+        }
+      } catch (error) {
+        console.error("Search validation error:", error);
+        setSearchError("Invalid search query");
+      }
+    },
+    [searchQuery, refetch]
+  );
 
   // Reset filters
   const handleResetFilters = useCallback(() => {
@@ -200,24 +223,28 @@ export function UserManagement() {
   }, []);
 
   // Handle role filter change
-  const handleRoleChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    setRole(value === "all" ? undefined : value);
-    setCurrentPage(1);
-    setHasSearched(true);
-    refetch();
-  }, [refetch]);
+  const handleRoleChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const value = e.target.value;
+      setRole(value === "all" ? undefined : value);
+      setCurrentPage(1);
+      setHasSearched(true);
+      refetch();
+    },
+    [refetch]
+  );
 
   // Handle blocked filter change
-  const handleBlockedChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    setBlocked(
-      value === "all" ? undefined : value === "blocked" ? true : false
-    );
-    setCurrentPage(1);
-    setHasSearched(true);
-    refetch();
-  }, [refetch]);
+  const handleBlockedChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const value = e.target.value;
+      setBlocked(value === "all" ? undefined : value === "blocked" ? true : false);
+      setCurrentPage(1);
+      setHasSearched(true);
+      refetch();
+    },
+    [refetch]
+  );
 
   // Toggle email visibility
   const toggleEmailVisibility = useCallback(() => {
@@ -249,7 +276,7 @@ export function UserManagement() {
             )}
           </button>
         </div>
-        
+
         {/* Search and Filters Row */}
         <div className="flex flex-col md:flex-row gap-4 mb-6">
           {/* Search Bar */}
@@ -259,26 +286,26 @@ export function UserManagement() {
                 <input
                   type="text"
                   value={searchQuery}
-                  onChange={(e) => {
+                  onChange={e => {
                     // Clear error when typing
                     if (searchError) setSearchError(null);
                     handleSearchChange(e);
                   }}
                   placeholder="Search users by name or email"
                   className={`w-full px-4 py-2 rounded-lg border ${
-                    searchError ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+                    searchError
+                      ? "border-red-300 focus:ring-red-500"
+                      : "border-gray-300 focus:ring-blue-500"
                   } focus:outline-none focus:ring-2`}
                 />
-                <button 
+                <button
                   type="submit"
                   className="absolute right-2 top-1/2 transform -translate-y-1/2"
                 >
                   <Search className="h-5 w-5 text-gray-500" />
                 </button>
               </div>
-              {searchError && (
-                <p className="mt-1 text-sm text-red-600">{searchError}</p>
-              )}
+              {searchError && <p className="mt-1 text-sm text-red-600">{searchError}</p>}
             </form>
           </div>
 
@@ -334,14 +361,30 @@ export function UserManagement() {
               <table className="min-w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Onelink</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Blocks</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Themes</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Email
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Onelink
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Role
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Blocks
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Themes
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -363,9 +406,7 @@ export function UserManagement() {
                             )}
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {user.name}
-                            </div>
+                            <div className="text-sm font-medium text-gray-900">{user.name}</div>
                             <div className="text-sm text-gray-500">
                               {formatDate(user.created_at)}
                             </div>
@@ -376,13 +417,15 @@ export function UserManagement() {
                         {showEmails ? user.email : maskEmail(user.email)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {user.onelink || '-'}
+                        {user.onelink || "-"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {(() => {
                           const roleFormat = formatUserRole(user.role);
                           return (
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${roleFormat.className}`}>
+                            <span
+                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${roleFormat.className}`}
+                            >
                               {roleFormat.label}
                             </span>
                           );
@@ -392,7 +435,9 @@ export function UserManagement() {
                         {(() => {
                           const statusFormat = formatUserStatus(user.block);
                           return (
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusFormat.className}`}>
+                            <span
+                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusFormat.className}`}
+                            >
                               {statusFormat.label}
                             </span>
                           );
@@ -405,7 +450,7 @@ export function UserManagement() {
                         {user._count.themes}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button 
+                        <button
                           className="text-blue-600 hover:text-blue-900 mr-3"
                           onClick={() => {
                             if (user.onelink) {
@@ -415,23 +460,25 @@ export function UserManagement() {
                         >
                           View
                         </button>
-                        <button 
+                        <button
                           className="text-indigo-600 hover:text-indigo-900 mr-3"
                           onClick={() => handleOpenEditModal(user)}
                         >
                           Edit
                         </button>
-                        <button 
-                          className={`${user.block === 'yes' ? 'text-green-600 hover:text-green-900' : 'text-red-600 hover:text-red-900'}`}
+                        <button
+                          className={`${user.block === "yes" ? "text-green-600 hover:text-green-900" : "text-red-600 hover:text-red-900"}`}
                           onClick={() => {
                             // Toggle user block status
-                            trpcClient.admin.users.updateUser.mutate({
-                              id: user.id,
-                              block: user.block === 'yes' ? 'no' : 'yes'
-                            }).then(() => refetch());
+                            trpcClient.admin.users.updateUser
+                              .mutate({
+                                id: user.id,
+                                block: user.block === "yes" ? "no" : "yes",
+                              })
+                              .then(() => refetch());
                           }}
                         >
-                          {user.block === 'yes' ? 'Unblock' : 'Block'}
+                          {user.block === "yes" ? "Unblock" : "Block"}
                         </button>
                       </td>
                     </tr>
@@ -453,17 +500,12 @@ export function UserManagement() {
                 <div className="flex justify-between w-full">
                   <div>
                     <p className="text-sm text-gray-700">
-                      Showing{" "}
-                      <span className="font-medium">
-                        {(currentPage - 1) * limit + 1}
-                      </span>{" "}
+                      Showing <span className="font-medium">{(currentPage - 1) * limit + 1}</span>{" "}
                       to{" "}
                       <span className="font-medium">
                         {Math.min(currentPage * limit, userData.pagination.total)}
                       </span>{" "}
-                      of{" "}
-                      <span className="font-medium">{userData.pagination.total}</span>{" "}
-                      results
+                      of <span className="font-medium">{userData.pagination.total}</span> results
                     </p>
                   </div>
                   <div>
@@ -483,32 +525,29 @@ export function UserManagement() {
                         <span className="sr-only">Previous</span>
                         <ChevronLeft className="h-5 w-5" aria-hidden="true" />
                       </button>
-                      
+
                       {/* Page numbers */}
                       {Array.from({ length: Math.min(5, userData.pagination.pages) }).map(
                         (_, i) => {
                           // Show pages around current page
                           const pageNumbersToShow = 5;
                           const halfPageNumbersToShow = Math.floor(pageNumbersToShow / 2);
-                          
-                          let startPage = Math.max(
-                            1,
-                            currentPage - halfPageNumbersToShow
-                          );
-                          
+
+                          let startPage = Math.max(1, currentPage - halfPageNumbersToShow);
+
                           const endPage = Math.min(
                             startPage + pageNumbersToShow - 1,
                             userData.pagination.pages
                           );
-                          
+
                           if (endPage - startPage < pageNumbersToShow - 1) {
                             startPage = Math.max(1, endPage - pageNumbersToShow + 1);
                           }
-                          
+
                           const page = startPage + i;
-                          
+
                           if (page > endPage) return null;
-                          
+
                           return (
                             <button
                               key={page}
@@ -526,7 +565,9 @@ export function UserManagement() {
                       )}
 
                       <button
-                        onClick={() => handlePageChange(Math.min(userData.pagination.pages, currentPage + 1))}
+                        onClick={() =>
+                          handlePageChange(Math.min(userData.pagination.pages, currentPage + 1))
+                        }
                         disabled={currentPage === userData.pagination.pages}
                         className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
                           currentPage === userData.pagination.pages
@@ -552,14 +593,14 @@ export function UserManagement() {
           <div className="relative bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-semibold">Edit User</h3>
-              <button 
+              <button
                 className="text-gray-500 hover:text-gray-700"
                 onClick={() => setIsEditModalOpen(false)}
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             <form onSubmit={handleEditSubmit}>
               <div className="mb-4">
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
@@ -569,15 +610,15 @@ export function UserManagement() {
                   type="text"
                   id="name"
                   name="name"
-                  value={editingUser?.name || ''}
+                  value={editingUser?.name || ""}
                   onChange={handleEditInputChange}
-                  className={`w-full px-3 py-2 border rounded-md ${editFormErrors.name ? 'border-red-500' : 'border-gray-300'}`}
+                  className={`w-full px-3 py-2 border rounded-md ${editFormErrors.name ? "border-red-500" : "border-gray-300"}`}
                 />
                 {editFormErrors.name && (
                   <p className="mt-1 text-sm text-red-600">{editFormErrors.name}</p>
                 )}
               </div>
-              
+
               <div className="mb-4">
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                   Email
@@ -586,9 +627,9 @@ export function UserManagement() {
                   type="email"
                   id="email"
                   name="email"
-                  value={editingUser?.email || ''}
+                  value={editingUser?.email || ""}
                   onChange={handleEditInputChange}
-                  className={`w-full px-3 py-2 border rounded-md ${editFormErrors.email ? 'border-red-500' : 'border-gray-300'}`}
+                  className={`w-full px-3 py-2 border rounded-md ${editFormErrors.email ? "border-red-500" : "border-gray-300"}`}
                 />
                 {editFormErrors.email && (
                   <p className="mt-1 text-sm text-red-600">{editFormErrors.email}</p>
@@ -596,7 +637,10 @@ export function UserManagement() {
               </div>
 
               <div className="mb-6">
-                <label htmlFor="confirmation" className="block text-sm font-medium text-gray-700 mb-1">
+                <label
+                  htmlFor="confirmation"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
                   Type "UPDATE" to confirm changes
                 </label>
                 <input
@@ -606,21 +650,25 @@ export function UserManagement() {
                   value={confirmationText}
                   onChange={handleConfirmationChange}
                   placeholder="UPDATE"
-                  className={`w-full px-3 py-2 border rounded-md ${editFormErrors.confirmation ? 'border-red-500' : 'border-gray-300'}`}
+                  className={`w-full px-3 py-2 border rounded-md ${editFormErrors.confirmation ? "border-red-500" : "border-gray-300"}`}
                 />
                 {editFormErrors.confirmation && (
                   <p className="mt-1 text-sm text-red-600">{editFormErrors.confirmation}</p>
                 )}
-                
+
                 <div className="mt-3 text-sm bg-yellow-50 border border-yellow-100 p-2 rounded">
                   <p className="font-medium text-yellow-800">You are about to edit:</p>
                   <ul className="list-disc list-inside text-yellow-700 mt-1">
-                    <li>Name: <span className="font-medium">{editingUser?.name}</span></li>
-                    <li>Email: <span className="font-medium">{editingUser?.email}</span></li>
+                    <li>
+                      Name: <span className="font-medium">{editingUser?.name}</span>
+                    </li>
+                    <li>
+                      Email: <span className="font-medium">{editingUser?.email}</span>
+                    </li>
                   </ul>
                 </div>
               </div>
-              
+
               <div className="flex justify-end space-x-3">
                 <button
                   type="button"
@@ -644,18 +692,18 @@ export function UserManagement() {
   );
 
   // Edit User Modal Component
-  function EditUserModal({ 
-    isOpen, 
-    onClose, 
-    user, 
+  function EditUserModal({
+    isOpen,
+    onClose,
+    user,
     errors,
     onChange,
-    onSubmit
-  }: { 
-    isOpen: boolean; 
-    onClose: () => void; 
-    user: { id: number; name: string; email: string; } | null;
-    errors: { name?: string; email?: string; };
+    onSubmit,
+  }: {
+    isOpen: boolean;
+    onClose: () => void;
+    user: { id: number; name: string; email: string } | null;
+    errors: { name?: string; email?: string };
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
     onSubmit: (e: React.FormEvent) => void;
   }) {
@@ -666,14 +714,11 @@ export function UserManagement() {
         <div className="relative bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-xl font-semibold">Edit User</h3>
-            <button 
-              className="text-gray-500 hover:text-gray-700"
-              onClick={onClose}
-            >
+            <button className="text-gray-500 hover:text-gray-700" onClick={onClose}>
               <X className="h-5 w-5" />
             </button>
           </div>
-          
+
           <form onSubmit={onSubmit}>
             <div className="mb-4">
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
@@ -685,13 +730,11 @@ export function UserManagement() {
                 name="name"
                 value={user.name}
                 onChange={onChange}
-                className={`w-full px-3 py-2 border rounded-md ${errors.name ? 'border-red-500' : 'border-gray-300'}`}
+                className={`w-full px-3 py-2 border rounded-md ${errors.name ? "border-red-500" : "border-gray-300"}`}
               />
-              {errors.name && (
-                <p className="mt-1 text-sm text-red-600">{errors.name}</p>
-              )}
+              {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
             </div>
-            
+
             <div className="mb-6">
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                 Email
@@ -702,13 +745,11 @@ export function UserManagement() {
                 name="email"
                 value={user.email}
                 onChange={onChange}
-                className={`w-full px-3 py-2 border rounded-md ${errors.email ? 'border-red-500' : 'border-gray-300'}`}
+                className={`w-full px-3 py-2 border rounded-md ${errors.email ? "border-red-500" : "border-gray-300"}`}
               />
-              {errors.email && (
-                <p className="mt-1 text-sm text-red-600">{errors.email}</p>
-              )}
+              {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
             </div>
-            
+
             <div className="flex justify-end space-x-3">
               <button
                 type="button"

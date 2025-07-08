@@ -1,35 +1,48 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import jwt from "jsonwebtoken";
-import { env } from "../env";
 import { CreateExpressContextOptions } from "@trpc/server/adapters/express";
+import { ERROR_CAUSES } from "@ampedbio/constants";
+import { JWT_KEYS } from "../utils/token";
 
 // Define the user type from JWT token
 export type JWTUser = {
-  id: number;
+  sub: number;
   email: string;
-  role?: string;
+  role: string;
 };
 
 // Define the context that will be available in all procedures
 export type Context = {
+  req: CreateExpressContextOptions["req"];
+  res: CreateExpressContextOptions["res"];
   user?: JWTUser;
+  tokenExpired?: boolean;
 };
 
 // Create the context for each request
-export const createContext = ({ req }: CreateExpressContextOptions): Context => {
+export const createContext = ({ req, res }: CreateExpressContextOptions): Context => {
   // Get the token from the Authorization header
   const token = req.headers.authorization?.split(" ")[1];
-  
+
   if (!token) {
-    return {}; // No authenticated user
+    return {
+      req,
+      res,
+    }; // No authenticated user
   }
-  
+
   try {
     // Verify the token and get user data
-    const user = jwt.verify(token, env.JWT_SECRET) as JWTUser;
-    return { user };
+    const user = jwt.verify(token, JWT_KEYS.publicKey, {
+      algorithms: ["RS256"],
+    }) as jwt.JwtPayload;
+    return { req, res, user: user as unknown as JWTUser };
   } catch (error) {
-    return {}; // Invalid token
+    // Check if the error is due to token expiration
+    if (error instanceof jwt.TokenExpiredError) {
+      return { req, res, tokenExpired: true };
+    }
+    return { req, res }; // Invalid token
   }
 };
 
@@ -58,10 +71,18 @@ export const publicProcedure = t.procedure;
 
 // Middleware to check if user is authenticated
 const isAuthed = t.middleware(({ ctx, next }) => {
+  if (ctx.tokenExpired) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Token expired",
+      cause: ERROR_CAUSES.TOKEN_EXPIRED,
+    });
+  }
+
   if (!ctx.user) {
     throw new TRPCError({
-      code: 'UNAUTHORIZED',
-      message: 'No token provided',
+      code: "UNAUTHORIZED",
+      message: "No token provided",
     });
   }
   return next({
@@ -75,25 +96,36 @@ const isAuthed = t.middleware(({ ctx, next }) => {
 // Middleware to check if user has required roles
 const hasRole = (requiredRoles: string[]) =>
   t.middleware(({ ctx, next }) => {
+    if (ctx.tokenExpired) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Token expired",
+        cause: ERROR_CAUSES.TOKEN_EXPIRED,
+      });
+    }
+
     if (!ctx.user) {
       throw new TRPCError({
-        code: 'UNAUTHORIZED',
-        message: 'No token provided',
+        code: "UNAUTHORIZED",
+        message: "No token provided",
       });
     }
 
     const userRoleString = ctx.user.role || "";
     // Split the roles by comma and trim each role
-    const userRoles = userRoleString.split(',').map(role => role.trim()).filter(Boolean);
+    const userRoles = userRoleString
+      .split(",")
+      .map(role => role.trim())
+      .filter(Boolean);
 
     // Check if the user has any of the required roles
-    const hasRequiredRole = requiredRoles.length === 0 || 
-      requiredRoles.some(role => userRoles.includes(role));
+    const hasRequiredRole =
+      requiredRoles.length === 0 || requiredRoles.some(role => userRoles.includes(role));
 
     if (!hasRequiredRole) {
       throw new TRPCError({
-        code: 'FORBIDDEN',
-        message: 'Forbidden: Insufficient permissions',
+        code: "FORBIDDEN",
+        message: "Forbidden: Insufficient permissions",
       });
     }
 
@@ -108,8 +140,7 @@ const hasRole = (requiredRoles: string[]) =>
 export const privateProcedure = t.procedure.use(isAuthed);
 
 // Create a role-protected procedure that requires specific roles
-export const createRoleProtectedProcedure = (roles: string[]) => 
-  t.procedure.use(hasRole(roles));
+export const createRoleProtectedProcedure = (roles: string[]) => t.procedure.use(hasRole(roles));
 
 // Common role-protected procedures
-export const adminProcedure = createRoleProtectedProcedure(['admin']);
+export const adminProcedure = createRoleProtectedProcedure(["admin"]);

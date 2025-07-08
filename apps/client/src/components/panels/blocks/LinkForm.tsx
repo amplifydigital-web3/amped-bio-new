@@ -22,7 +22,7 @@ export const linkFormSchema = z
   })
   .superRefine((data, ctx) => {
     const platform = data.platform;
-    let url = data.url.trim();
+    const url = data.url.trim();
 
     if (platform === "email") {
       // Email validation using Zod's built-in email validator
@@ -57,25 +57,30 @@ export const linkFormSchema = z
       }
     }
   })
-  .transform((data) => {
+  .transform(data => {
     // Add protocol and formatting during schema transformation
     let url = data.url.trim();
     const platform = data.platform;
-    
+
     // Format URLs based on platform type
     if (platform === "email" && !url.startsWith("mailto:")) {
       url = `mailto:${url}`;
     } else if ((platform === "custom" || platform === "document") && !url.match(/^https?:\/\//i)) {
       url = `https://${url}`;
-    } else if (platform && platform !== "custom" && platform !== "email" && platform !== "document") {
+    } else if (
+      platform &&
+      platform !== "custom" &&
+      platform !== "email" &&
+      platform !== "document"
+    ) {
       // For social platforms, use the platform's URL format
       url = getPlatformUrl(platform as PlatformId, url);
     }
-    
+
     return {
       ...data,
       url,
-      label: data.label.trim()
+      label: data.label.trim(),
     };
   });
 
@@ -128,7 +133,7 @@ export function LinkFormInputs({ register, errors, watch, setValue }: LinkFormIn
     if ((platform === "custom" || platform === "document") && !value.match(/^https?:\/\//i)) {
       setUrlPreview(`Will be saved as: https://${value}`);
     } else if (platform === "email" && !value.startsWith("mailto:") && value.includes("@")) {
-      setUrlPreview(`Will be saved with mailto: prefix`);
+      setUrlPreview("Will be saved with mailto: prefix");
     } else {
       setUrlPreview(null);
     }
@@ -164,12 +169,12 @@ export function LinkFormInputs({ register, errors, watch, setValue }: LinkFormIn
               placeholder={getUrlFieldPlaceholder()}
               error={errors.url?.message?.toString()}
               {...register("url", {
-                onBlur: handleUrlBlur
+                onBlur: handleUrlBlur,
               })}
             />
             {urlPreview && !errors.url && (
               <p className="text-green-600 text-xs flex items-center">
-                <CheckCircle className="w-3 h-3 mr-1" /> 
+                <CheckCircle className="w-3 h-3 mr-1" />
                 {urlPreview}
               </p>
             )}
