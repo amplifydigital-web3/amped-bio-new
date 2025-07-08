@@ -161,13 +161,11 @@ export function MyWalletPanel() {
               onClick={() =>
                 connectTo(WALLET_CONNECTORS.AUTH, {
                   authConnection: AUTH_CONNECTION.CUSTOM,
+                  authConnectionId: "ampedbiostaging",
                   idToken: localStorage.getItem("amped-bio-auth-token")!,
-                  authConnectionId: "amped-bio-test",
-                  mfaLevel: "none", // No MFA for now
-                  // groupedAuthConnectionId
-                  // extraLoginOptions: {
-                  //   isUserIdCaseSensitive: false,
-                  // },
+                  extraLoginOptions: {
+                    isUserIdCaseSensitive: false,
+                  },
                 })
               }
               disabled={connectLoading}

@@ -16,7 +16,6 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { initParticlesEngine } from "@tsparticles/react";
 //import { loadSlim } from '@tsparticles/slim';
 import { loadAll } from "@tsparticles/all";
-import { AppKitProvider } from "./components/connect/components/AppKitProvider";
 import { EmailVerification, EmailVerificationResent, PasswordReset } from "./pages/auth";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./utils/trpc";
