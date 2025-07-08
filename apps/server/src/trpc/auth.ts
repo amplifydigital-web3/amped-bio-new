@@ -18,6 +18,11 @@ import { addDays } from "date-fns";
 
 const prisma = new PrismaClient();
 
+// Helper function to hash refresh tokens with SHA-256
+function hashRefreshToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
 export const authRouter = router({
   // Register a new user
   register: publicProcedure.input(registerSchema).mutation(async ({ input, ctx }) => {
@@ -80,18 +85,19 @@ export const authRouter = router({
     // }
 
     const refreshToken = crypto.randomBytes(32).toString("hex");
+    const hashedRefreshToken = hashRefreshToken(refreshToken);
 
     const token = await prisma.refreshToken.create({
       data: {
         userId: result.id,
-        token: refreshToken,
+        token: hashedRefreshToken,
         expiresAt: addDays(new Date(), 30), // 30 days
       },
     });
 
     ctx.res.setHeader(
       "Set-Cookie",
-      serialize("refreshToken", token.token, {
+      serialize("refreshToken", refreshToken, {
         httpOnly: true,
         secure: env.NODE_ENV === "production",
         sameSite: "strict",
@@ -134,18 +140,19 @@ export const authRouter = router({
     const emailVerified = user.email_verified_at !== null;
 
     const refreshToken = crypto.randomBytes(32).toString("hex");
+    const hashedRefreshToken = hashRefreshToken(refreshToken);
 
     const token = await prisma.refreshToken.create({
       data: {
         userId: user.id,
-        token: refreshToken,
+        token: hashedRefreshToken,
         expiresAt: addDays(new Date(), 30), // 30 days
       },
     });
 
     ctx.res.setHeader(
       "Set-Cookie",
-      serialize("refreshToken", token.token, {
+      serialize("refreshToken", refreshToken, {
         httpOnly: true,
         secure: env.NODE_ENV === "production",
         sameSite: "strict",
@@ -175,9 +182,11 @@ export const authRouter = router({
       });
     }
 
+    const hashedRefreshToken = hashRefreshToken(refreshToken);
+
     // Delete the refresh token
     await prisma.refreshToken.deleteMany({
-      where: { token: refreshToken },
+      where: { token: hashedRefreshToken },
     });
 
     // Clear the cookie
@@ -290,9 +299,11 @@ export const authRouter = router({
       });
     }
 
+    const hashedRefreshToken = hashRefreshToken(refreshToken);
+
     // Find existing refresh token
     const existingToken = await prisma.refreshToken.findFirst({
-      where: { token: refreshToken },
+      where: { token: hashedRefreshToken },
       select: {
         user: true,
       },
