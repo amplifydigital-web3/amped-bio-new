@@ -1,5 +1,4 @@
 import { adminProcedure, router } from "../trpc";
-import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { s3Service } from "../../services/S3Service";
@@ -13,8 +12,7 @@ import {
   MAX_ADMIN_BACKGROUND_FILE_SIZE,
   ThemeConfig,
 } from "@ampedbio/constants";
-
-const prisma = new PrismaClient();
+import { prisma } from "../../services/DB";
 
 const requestThemeCategoryImageSchema = z.object({
   categoryId: z.number().positive(),

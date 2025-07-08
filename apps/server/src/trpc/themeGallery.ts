@@ -12,12 +12,10 @@
  */
 
 import { publicProcedure, router } from "./trpc";
-import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { getFileUrl } from "../utils/fileUrlResolver";
-
-const prisma = new PrismaClient();
+import { prisma } from "../services/DB";
 
 // Schema for theme ID parameter
 const themeIdSchema = z.object({

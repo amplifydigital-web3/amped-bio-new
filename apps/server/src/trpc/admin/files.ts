@@ -1,12 +1,10 @@
 import { adminProcedure, router } from "../trpc";
-import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { uploadedFileService } from "../../services/UploadedFileService";
 import { s3Service } from "../../services/S3Service";
 import { PaginationSchema, FileFilterSchema, FileActionSchema } from "./schemas";
-
-const prisma = new PrismaClient();
+import { prisma } from "../../services/DB";
 
 export const filesRouter = router({
   getFiles: adminProcedure

@@ -1,6 +1,5 @@
 import { router, publicProcedure, privateProcedure } from "./trpc";
 import { z } from "zod";
-import { PrismaClient } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import crypto from "crypto";
 import { sendPasswordResetEmail } from "../utils/email/email";
@@ -15,8 +14,7 @@ import {
 import { serialize } from "cookie";
 import { env } from "../env";
 import { addDays } from "date-fns";
-
-const prisma = new PrismaClient();
+import { prisma } from "../services/DB";
 
 // Helper function to hash refresh tokens with SHA-256
 function hashRefreshToken(token: string): string {

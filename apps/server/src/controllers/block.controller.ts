@@ -1,8 +1,6 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
 import { AddBlockInput, EditBlocksInput } from "../schemas/block.schema";
-
-const prisma = new PrismaClient();
+import { prisma } from "../services/DB";
 
 export const blockController = {
   async editBlocks(req: Request, res: Response) {

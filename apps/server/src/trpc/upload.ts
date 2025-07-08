@@ -1,5 +1,4 @@
 import { privateProcedure, router } from "./trpc";
-import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { s3Service, FileCategory } from "../services/S3Service";
@@ -13,8 +12,7 @@ import {
   MAX_BACKGROUND_FILE_SIZE,
   ThemeConfig,
 } from "@ampedbio/constants";
-
-const prisma = new PrismaClient();
+import { prisma } from "../services/DB";
 
 const requestPresignedUrlSchema = z.object({
   contentType: z.string().refine(value => ALLOWED_AVATAR_FILE_TYPES.includes(value), {

@@ -1,11 +1,9 @@
 import { publicProcedure, router } from "./trpc";
 import { onelinkParamSchema } from "../schemas/onelink.schema";
-import { PrismaClient } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import { getFileUrl } from "../utils/fileUrlResolver";
 import { ThemeConfig } from "@ampedbio/constants";
-
-const prisma = new PrismaClient();
+import { prisma } from "../services/DB";
 
 const appRouter = router({
   getOnelink: publicProcedure.input(onelinkParamSchema).query(async opts => {

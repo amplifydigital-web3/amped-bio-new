@@ -1,9 +1,7 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
 import { ValidatedRequest } from "../middleware/validation.middleware";
 import { OnelinkParamInput, RedeemOnelinkInput } from "../schemas/onelink.schema";
-
-const prisma = new PrismaClient();
+import { prisma } from "../services/DB";
 
 export const onelinkController = {
   async getOnelink(req: Request, res: Response) {

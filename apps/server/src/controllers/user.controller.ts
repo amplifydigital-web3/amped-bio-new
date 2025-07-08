@@ -1,9 +1,7 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
 import { ValidatedRequest } from "../middleware/validation.middleware";
 import { DeleteUserInput, EditUserInput } from "../schemas/user.schema";
-
-const prisma = new PrismaClient();
+import { prisma } from "../services/DB";
 
 export const userController = {
   async edit(req: Request, res: Response) {

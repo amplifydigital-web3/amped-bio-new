@@ -1,11 +1,9 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
 import { ValidatedRequest } from "../middleware/validation.middleware";
 import { z } from "zod";
 import { editThemeSchema } from "../schemas/theme.schema";
 import { s3Service } from "../services/S3Service";
-
-const prisma = new PrismaClient();
+import { prisma } from "../services/DB";
 
 export const themeController = {
   async editTheme(req: Request, res: Response) {

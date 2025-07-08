@@ -1,7 +1,5 @@
 import { adminProcedure, router } from "../trpc";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "../../services/DB";
 
 export const dashboardRouter = router({
   getDashboardStats: adminProcedure.query(async () => {

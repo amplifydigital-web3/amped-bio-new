@@ -1,12 +1,10 @@
 import { privateProcedure, router } from "./trpc";
-import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { sendEmailChangeVerification } from "../utils/email/email";
 import { generateAccessToken } from "../utils/token";
 import crypto from "crypto";
-
-const prisma = new PrismaClient();
+import { prisma } from "../services/DB";
 
 // Schema for initiating email change
 const initiateEmailChangeSchema = z.object({

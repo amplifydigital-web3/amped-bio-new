@@ -1,8 +1,7 @@
 import { Request, Response } from "express";
-import { Prisma, PrismaClient } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { hashPassword } from "../utils/password";
-
-const prisma = new PrismaClient();
+import { prisma } from "../services/DB";
 
 export const adminController = {
   // Get all users
