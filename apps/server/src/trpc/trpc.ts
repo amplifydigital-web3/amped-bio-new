@@ -6,7 +6,7 @@ import { JWT_KEYS } from "../utils/token";
 
 // Define the user type from JWT token
 export type JWTUser = {
-  sub: number;
+  id: number;
   email: string;
   role: string;
 };
@@ -33,10 +33,17 @@ export const createContext = ({ req, res }: CreateExpressContextOptions): Contex
 
   try {
     // Verify the token and get user data
-    const user = jwt.verify(token, JWT_KEYS.publicKey, {
+    const jwtUser = jwt.verify(token, JWT_KEYS.publicKey, {
       algorithms: ["RS256"],
     }) as jwt.JwtPayload;
-    return { req, res, user: user as unknown as JWTUser };
+
+    const user = {
+      id: parseInt(jwtUser.sub as string, 10), // Convert sub to number
+      email: jwtUser.email as string,
+      role: jwtUser.role as string,
+    };
+
+    return { req, res, user: user };
   } catch (error) {
     // Check if the error is due to token expiration
     if (error instanceof jwt.TokenExpiredError) {
