@@ -6,7 +6,7 @@ import { JWT_KEYS } from "../utils/token";
 
 // Define the user type from JWT token
 export type JWTUser = {
-  id: number;
+  sub: number;
   email: string;
   role: string;
 };
@@ -38,7 +38,7 @@ export const createContext = ({ req, res }: CreateExpressContextOptions): Contex
     }) as jwt.JwtPayload;
 
     const user = {
-      id: parseInt(jwtUser.sub as string, 10), // Convert sub to number
+      sub: parseInt(jwtUser.sub as string, 10), // Convert sub to number
       email: jwtUser.email as string,
       role: jwtUser.role as string,
     };
