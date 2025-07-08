@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { env } from "../env";
+import { privateKeyBuffer } from "../env";
 import { JWTUser } from "../trpc/trpc";
 
 declare global {
@@ -23,7 +23,9 @@ export const authMiddleware = (...requiredRoles: string[]) => {
     }
 
     try {
-      const decoded = jwt.verify(token, env.JWT_SECRET) as jwt.JwtPayload;
+      const decoded = jwt.verify(token, privateKeyBuffer, {
+        algorithms: ["RS256"],
+      }) as jwt.JwtPayload;
       req.user = decoded as unknown as JWTUser;
 
       // If no specific roles are required, just proceed

@@ -1,11 +1,11 @@
 import { Router } from "express";
-import { env } from "../env";
+import { privateKeyBuffer } from "../env";
 import crypto from "crypto";
 
 const router: Router = Router();
 
 const privateKey = crypto.createPrivateKey({
-  key: env.JWT_PRIVATE_KEY,
+  key: privateKeyBuffer,
   format: "pem",
   type: "pkcs8",
 });

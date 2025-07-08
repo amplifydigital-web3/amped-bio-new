@@ -1,4 +1,4 @@
-import { httpBatchLink, TRPCClientError } from "@trpc/client";
+import { httpBatchLink } from "@trpc/client";
 import { withRelatedProject } from "@vercel/related-projects";
 import { ERROR_CAUSES } from "@ampedbio/constants";
 
