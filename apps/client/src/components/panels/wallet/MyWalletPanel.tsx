@@ -278,7 +278,7 @@ export function MyWalletPanel() {
     } catch (error) {
       console.error("Failed to connect wallet:", error);
       uiConsole("Wallet connection error:", error);
-      
+
       // Additional error details
       if (error instanceof Error) {
         console.error("Error details:", {

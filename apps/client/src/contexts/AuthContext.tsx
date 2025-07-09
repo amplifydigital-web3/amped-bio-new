@@ -62,7 +62,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Helper function to safely disconnect Web3Auth
   const safeWeb3AuthDisconnect = useCallback(async () => {
     try {
-      await web3AuthDisconnect();
+      await web3AuthDisconnect({ cleanup: true });
     } catch (error) {
       console.warn("Web3Auth disconnect failed:", error);
     }
