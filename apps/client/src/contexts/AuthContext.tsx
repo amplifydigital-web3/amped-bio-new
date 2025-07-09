@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import type { AuthUser } from "../types/auth";
 import { trpcClient } from "../utils/trpc";
+import { useWeb3AuthDisconnect } from "@web3auth/modal/react";
 
 // Helper function to validate token using tRPC "me" method
 const validateTokenWithServer = async (): Promise<{ isValid: boolean; user?: AuthUser }> => {
@@ -21,6 +22,8 @@ const validateTokenWithServer = async (): Promise<{ isValid: boolean; user?: Aut
     return { isValid: true, user };
   } catch (error) {
     console.error("Token validation failed:", error);
+    // Clear invalid token from localStorage
+    localStorage.removeItem("amped-bio-auth-token");
     return { isValid: false };
   }
 };
@@ -54,13 +57,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null); // Start with null (loading)
 
-  const signOut = useCallback(async () => {
-    setError(null);
+  const { disconnect: web3AuthDisconnect } = useWeb3AuthDisconnect();
+
+  // Helper function to safely disconnect Web3Auth
+  const safeWeb3AuthDisconnect = useCallback(async () => {
+    try {
+      await web3AuthDisconnect();
+    } catch (error) {
+      console.warn("Web3Auth disconnect failed:", error);
+    }
+  }, [web3AuthDisconnect]);
+
+  // Helper function to invalidate user session (for token expiry/invalid token)
+  const invalidateUserSession = useCallback(async () => {
+    console.log("Invalidating user session due to invalid/expired token");
+    await safeWeb3AuthDisconnect();
     setAuthUser(null);
     localStorage.removeItem("amped-bio-auth-token");
     localStorage.removeItem("auth-user");
     setIsAuthenticated(false);
-  }, []);
+  }, [safeWeb3AuthDisconnect]);
+
+  const signOut = useCallback(async () => {
+    setError(null);
+
+    // Disconnect Web3Auth
+    await safeWeb3AuthDisconnect();
+
+    setAuthUser(null);
+    localStorage.removeItem("amped-bio-auth-token");
+    localStorage.removeItem("auth-user");
+    setIsAuthenticated(false);
+  }, [safeWeb3AuthDisconnect]);
 
   useEffect(() => {
     const validateToken = async () => {
@@ -86,18 +114,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             localStorage.setItem("auth-user", JSON.stringify(userAfterRefresh));
             setIsAuthenticated(true);
           } else {
-            // Still invalid after refresh, sign out
-            signOut();
+            // Still invalid after refresh, invalidate session and disconnect Web3Auth
+            await invalidateUserSession();
           }
         } else {
-          // Refresh failed, sign out
-          signOut();
+          // Refresh failed, invalidate session and disconnect Web3Auth
+          await invalidateUserSession();
         }
       }
     };
 
     validateToken();
-  }, [signOut]);
+  }, [invalidateUserSession]);
 
   const setAuthToken = (token: string | null): void => {
     if (token) {

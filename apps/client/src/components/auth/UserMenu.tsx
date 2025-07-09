@@ -14,12 +14,19 @@ import {
 import { useNavigate } from "react-router-dom";
 import { formatOnelink } from "@/utils/onelink";
 import { cn } from "@/lib/utils";
+import { useAccount } from "wagmi";
 
 export function UserMenu() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { authUser, signOut } = useAuth();
   const { profile, setUser, setDefault } = useEditorStore();
   const nav = useNavigate();
+  const { address: walletAddress } = useAccount();
+
+  const formatAddress = (address: string) => {
+    if (!address) return "";
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
 
   const handleSignIn = user => {
     setShowAuthModal(false);
@@ -98,8 +105,16 @@ export function UserMenu() {
               )}
             </div>
             <div className="flex flex-col items-start transition-all duration-300 group-hover:translate-x-2 group-hover:opacity-0">
-              <span className="text-sm font-semibold text-gray-900">$509.77</span>
-              <span className="text-xs text-gray-500">@{authUser.onelink}</span>
+              {walletAddress ? (
+                <>
+                  <span className="text-sm font-semibold text-gray-900">
+                    {formatAddress(walletAddress)}
+                  </span>
+                  <span className="text-xs text-gray-500">@{authUser.onelink}</span>
+                </>
+              ) : (
+                <span className="text-sm font-semibold text-gray-900">@{authUser.onelink}</span>
+              )}
             </div>
           </div>
 
