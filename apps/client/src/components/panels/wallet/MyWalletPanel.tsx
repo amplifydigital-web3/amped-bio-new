@@ -69,6 +69,22 @@ export function MyWalletPanel() {
     console.info("Wagmi Address:", address);
   }, [userInfo, address]);
 
+  useEffect(() => {
+    console.info("Web3Auth Status:", {
+      isConnected: dataWeb3Auth?.isConnected,
+      isInitialized: dataWeb3Auth?.isInitialized,
+      isInitializing: dataWeb3Auth?.isInitializing,
+      status: dataWeb3Auth?.status,
+      initError: dataWeb3Auth?.initError,
+    });
+  }, [
+    dataWeb3Auth?.isConnected,
+    dataWeb3Auth?.isInitialized,
+    dataWeb3Auth?.isInitializing,
+    dataWeb3Auth?.status,
+    dataWeb3Auth?.initError,
+  ]);
+
   const { authUser } = useAuth();
   const profile = useEditorStore(state => state.profile);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
@@ -189,6 +205,20 @@ export function MyWalletPanel() {
 
   const handleConnectWallet = async () => {
     try {
+      // Check if Web3Auth is initialized before attempting to connect
+      if (!dataWeb3Auth?.isInitialized) {
+        console.warn("Web3Auth is not initialized yet. Please wait...");
+        uiConsole("Web3Auth is not initialized yet. Please wait...");
+        return;
+      }
+
+      // Check if we're already in the process of initializing
+      if (dataWeb3Auth?.isInitializing) {
+        console.warn("Web3Auth is still initializing. Please wait...");
+        uiConsole("Web3Auth is still initializing. Please wait...");
+        return;
+      }
+
       await connectTo(WALLET_CONNECTORS.AUTH, {
         authConnection: AUTH_CONNECTION.CUSTOM,
         authConnectionId: "ampedbiostaging",
@@ -236,11 +266,19 @@ export function MyWalletPanel() {
             </p>
             <ShimmerButton
               onClick={handleConnectWallet}
-              disabled={connectLoading}
+              disabled={
+                connectLoading || !dataWeb3Auth?.isInitialized || dataWeb3Auth?.isInitializing
+              }
               className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 px-8 py-3 text-lg"
               shimmerColor="#60a5fa"
             >
-              {connectLoading ? "Connecting..." : "Connect Wallet"}
+              {connectLoading
+                ? "Connecting..."
+                : dataWeb3Auth?.isInitializing
+                  ? "Initializing..."
+                  : !dataWeb3Auth?.isInitialized
+                    ? "Waiting for initialization..."
+                    : "Connect Wallet"}
             </ShimmerButton>
             {connectError && (
               <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -248,9 +286,18 @@ export function MyWalletPanel() {
               </div>
             )}
 
+            {dataWeb3Auth?.initError ? (
+              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-600 text-sm">
+                  Initialization Error:{" "}
+                  {(dataWeb3Auth.initError as Error)?.message || String(dataWeb3Auth.initError)}
+                </p>
+              </div>
+            ) : null}
+
             {/* Debug dataWeb3Auth */}
             <div className="mt-6 text-left">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Debug - Web3Auth Data:</h3>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Debug - Web3Auth Status:</h3>
               <pre className="bg-gray-100 p-3 rounded-lg text-xs overflow-auto max-h-48 border text-gray-800">
                 {JSON.stringify(
                   {
@@ -258,9 +305,11 @@ export function MyWalletPanel() {
                     isInitialized: dataWeb3Auth?.isInitialized,
                     isInitializing: dataWeb3Auth?.isInitializing,
                     status: dataWeb3Auth?.status,
-                    initError: dataWeb3Auth?.initError,
+                    initError: dataWeb3Auth?.initError ? String(dataWeb3Auth.initError) : null,
                     web3Auth: dataWeb3Auth?.web3Auth ? "Web3Auth instance present" : null,
                     provider: dataWeb3Auth?.provider ? "Provider instance present" : null,
+                    connectLoading,
+                    connectError: connectError?.message || null,
                   },
                   null,
                   2
