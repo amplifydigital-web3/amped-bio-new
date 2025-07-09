@@ -39,7 +39,12 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAccount, useBalance } from "wagmi";
 import { WALLET_CONNECTORS, AUTH_CONNECTION } from "@web3auth/modal";
-import { useWeb3AuthConnect, useWeb3AuthDisconnect, useWeb3AuthUser } from "@web3auth/modal/react";
+import {
+  useWeb3Auth,
+  useWeb3AuthConnect,
+  useWeb3AuthDisconnect,
+  useWeb3AuthUser,
+} from "@web3auth/modal/react";
 
 export function MyWalletPanel() {
   const {
@@ -54,6 +59,8 @@ export function MyWalletPanel() {
     loading: disconnectLoading,
     error: disconnectError,
   } = useWeb3AuthDisconnect();
+  const dataWeb3Auth = useWeb3Auth();
+
   const { userInfo } = useWeb3AuthUser();
   const { address } = useAccount();
 
@@ -240,6 +247,26 @@ export function MyWalletPanel() {
                 <p className="text-red-600 text-sm">{connectError.message}</p>
               </div>
             )}
+
+            {/* Debug dataWeb3Auth */}
+            <div className="mt-6 text-left">
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Debug - Web3Auth Data:</h3>
+              <pre className="bg-gray-100 p-3 rounded-lg text-xs overflow-auto max-h-48 border text-gray-800">
+                {JSON.stringify(
+                  {
+                    isConnected: dataWeb3Auth?.isConnected,
+                    isInitialized: dataWeb3Auth?.isInitialized,
+                    isInitializing: dataWeb3Auth?.isInitializing,
+                    status: dataWeb3Auth?.status,
+                    initError: dataWeb3Auth?.initError,
+                    web3Auth: dataWeb3Auth?.web3Auth ? "Web3Auth instance present" : null,
+                    provider: dataWeb3Auth?.provider ? "Provider instance present" : null,
+                  },
+                  null,
+                  2
+                )}
+              </pre>
+            </div>
           </div>
         </div>
       </div>
