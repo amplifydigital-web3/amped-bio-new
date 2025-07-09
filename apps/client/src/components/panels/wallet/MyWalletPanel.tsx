@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEditorStore } from "@/store/editorStore";
 import {
@@ -82,6 +82,30 @@ export function MyWalletPanel() {
     dataWeb3Auth?.isInitialized,
     dataWeb3Auth?.isInitializing,
     dataWeb3Auth?.status,
+    dataWeb3Auth?.initError,
+  ]);
+
+  // Add effect to wait for proper initialization
+  useEffect(() => {
+    const checkInitialization = () => {
+      if (dataWeb3Auth?.isInitialized && dataWeb3Auth?.web3Auth && !dataWeb3Auth?.isInitializing) {
+        console.log("Web3Auth is fully initialized and ready");
+        uiConsole("Web3Auth is fully initialized and ready");
+      } else if (dataWeb3Auth?.initError) {
+        console.error("Web3Auth initialization failed:", dataWeb3Auth.initError);
+        uiConsole("Web3Auth initialization failed:", dataWeb3Auth.initError);
+      } else if (dataWeb3Auth?.isInitializing) {
+        console.log("Web3Auth is still initializing...");
+      } else if (!dataWeb3Auth?.isInitialized) {
+        console.log("Web3Auth is not yet initialized");
+      }
+    };
+
+    checkInitialization();
+  }, [
+    dataWeb3Auth?.isInitialized,
+    dataWeb3Auth?.isInitializing,
+    dataWeb3Auth?.web3Auth,
     dataWeb3Auth?.initError,
   ]);
 
@@ -203,35 +227,73 @@ export function MyWalletPanel() {
     return !isNaN(amountToSend) && amountToSend > 0 && amountToSend <= currentBalance;
   };
 
-  const handleConnectWallet = async () => {
+  const handleConnectWallet = useCallback(async () => {
     try {
-      // Check if Web3Auth is initialized before attempting to connect
+      // Enhanced initialization checks
       if (!dataWeb3Auth?.isInitialized) {
         console.warn("Web3Auth is not initialized yet. Please wait...");
         uiConsole("Web3Auth is not initialized yet. Please wait...");
         return;
       }
 
-      // Check if we're already in the process of initializing
       if (dataWeb3Auth?.isInitializing) {
         console.warn("Web3Auth is still initializing. Please wait...");
         uiConsole("Web3Auth is still initializing. Please wait...");
         return;
       }
 
+      // Additional check for Web3Auth instance
+      if (!dataWeb3Auth?.web3Auth) {
+        console.warn("Web3Auth instance is not available yet. Please wait...");
+        uiConsole("Web3Auth instance is not available yet. Please wait...");
+        return;
+      }
+
+      // Wait a bit more to ensure everything is ready
+      console.log("Web3Auth appears ready, attempting connection...");
+      uiConsole("Web3Auth appears ready, attempting connection...");
+
+      // Add a small delay to ensure Web3Auth is fully ready
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const idToken = localStorage.getItem("amped-bio-auth-token");
+      if (!idToken) {
+        console.error("No auth token found in localStorage");
+        uiConsole("No auth token found. Please log in first.");
+        return;
+      }
+
+      console.log("Connecting with token:", idToken.substring(0, 20) + "...");
+
       await connectTo(WALLET_CONNECTORS.AUTH, {
         authConnection: AUTH_CONNECTION.CUSTOM,
         authConnectionId: "ampedbiostaging",
-        idToken: localStorage.getItem("amped-bio-auth-token")!,
+        idToken: idToken,
         extraLoginOptions: {
           isUserIdCaseSensitive: false,
         },
       });
+
+      console.log("Connection attempt completed successfully");
     } catch (error) {
       console.error("Failed to connect wallet:", error);
       uiConsole("Wallet connection error:", error);
+      
+      // Additional error details
+      if (error instanceof Error) {
+        console.error("Error details:", {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+        });
+      }
     }
-  };
+  }, [
+    dataWeb3Auth?.isInitialized,
+    dataWeb3Auth?.isInitializing,
+    dataWeb3Auth?.web3Auth,
+    connectTo,
+  ]);
 
   // Unconnected view
   const unloggedInView = (
@@ -267,7 +329,11 @@ export function MyWalletPanel() {
             <ShimmerButton
               onClick={handleConnectWallet}
               disabled={
-                connectLoading || !dataWeb3Auth?.isInitialized || dataWeb3Auth?.isInitializing
+                connectLoading ||
+                !dataWeb3Auth?.isInitialized ||
+                dataWeb3Auth?.isInitializing ||
+                !dataWeb3Auth?.web3Auth ||
+                !localStorage.getItem("amped-bio-auth-token")
               }
               className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 px-8 py-3 text-lg"
               shimmerColor="#60a5fa"
@@ -278,7 +344,11 @@ export function MyWalletPanel() {
                   ? "Initializing..."
                   : !dataWeb3Auth?.isInitialized
                     ? "Waiting for initialization..."
-                    : "Connect Wallet"}
+                    : !dataWeb3Auth?.web3Auth
+                      ? "Loading Web3Auth..."
+                      : !localStorage.getItem("amped-bio-auth-token")
+                        ? "No auth token found"
+                        : "Connect Wallet"}
             </ShimmerButton>
             {connectError && (
               <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -312,6 +382,10 @@ export function MyWalletPanel() {
                     provider: dataWeb3Auth?.provider ? "Provider instance present" : null,
                     connectLoading,
                     connectError: connectError?.message || null,
+                    hasAuthToken: !!localStorage.getItem("amped-bio-auth-token"),
+                    authTokenPreview:
+                      localStorage.getItem("amped-bio-auth-token")?.substring(0, 20) + "..." ||
+                      null,
                   },
                   null,
                   2
