@@ -21,6 +21,17 @@ function hashRefreshToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
+// Helper function to set cookies properly
+function setCookie(ctx: any, name: string, value: string, options: any) {
+  const cookieString = serialize(name, value, options);
+  const existingCookies = ctx.res.getHeader("Set-Cookie") || [];
+  const cookiesArray = Array.isArray(existingCookies)
+    ? existingCookies.map(String)
+    : [String(existingCookies)];
+
+  ctx.res.setHeader("Set-Cookie", [...cookiesArray, cookieString]);
+}
+
 export const authRouter = router({
   // Register a new user
   register: publicProcedure.input(registerSchema).mutation(async ({ input, ctx }) => {
@@ -93,15 +104,14 @@ export const authRouter = router({
       },
     });
 
-    ctx.res.setHeader(
-      "Set-Cookie",
-      serialize("refreshToken", refreshToken, {
-        httpOnly: true,
-        secure: env.NODE_ENV === "production",
-        sameSite: "strict",
-        expires: token.expiresAt,
-      })
-    );
+    // Set refresh token cookie
+    setCookie(ctx, "refresh-token", refreshToken, {
+      httpOnly: true,
+      secure: env.NODE_ENV === "production",
+      sameSite: "strict" as const,
+      path: "/",
+      expires: token.expiresAt,
+    });
 
     return {
       user: { id: result.id, email, onelink, role: result.role },
@@ -148,15 +158,14 @@ export const authRouter = router({
       },
     });
 
-    ctx.res.setHeader(
-      "Set-Cookie",
-      serialize("refreshToken", refreshToken, {
-        httpOnly: true,
-        secure: env.NODE_ENV === "production",
-        sameSite: "strict",
-        expires: token.expiresAt,
-      })
-    );
+    // Set refresh token cookie
+    setCookie(ctx, "refresh-token", refreshToken, {
+      httpOnly: true,
+      secure: env.NODE_ENV === "production",
+      sameSite: "strict" as const,
+      path: "/",
+      expires: token.expiresAt,
+    });
 
     return {
       user: {
@@ -171,7 +180,7 @@ export const authRouter = router({
   }),
 
   logout: privateProcedure.mutation(async ({ ctx }) => {
-    const refreshToken = ctx.req.cookies.refreshToken;
+    const refreshToken = ctx.req.cookies["refresh-token"];
 
     if (!refreshToken) {
       throw new TRPCError({
@@ -188,15 +197,13 @@ export const authRouter = router({
     });
 
     // Clear the cookie
-    ctx.res.setHeader(
-      "Set-Cookie",
-      serialize("refreshToken", "", {
-        httpOnly: true,
-        secure: env.NODE_ENV === "production",
-        sameSite: "strict",
-        expires: new Date(0), // Expire immediately
-      })
-    );
+    setCookie(ctx, "refresh-token", "", {
+      httpOnly: true,
+      secure: env.NODE_ENV === "production",
+      sameSite: "strict" as const,
+      path: "/",
+      expires: new Date(0), // Expire immediately
+    });
 
     return { success: true, message: "Logged out successfully" };
   }),
@@ -288,7 +295,7 @@ export const authRouter = router({
       },
     });
 
-    const refreshToken = ctx.req.cookies.refreshToken;
+    const refreshToken = ctx.req.cookies["refresh-token"];
 
     if (!refreshToken) {
       throw new TRPCError({

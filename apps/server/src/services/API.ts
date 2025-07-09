@@ -37,7 +37,12 @@ export class API implements Service {
       next();
     });
 
-    this.app.use(cors());
+    this.app.use(
+      cors({
+        credentials: true, // Enable cookies in CORS requests
+        origin: true, // Allow all origins in development, restrict in production
+      })
+    );
 
     // Mount the tRPC middleware
     this.app.use("/trpc", trpcMiddleware);

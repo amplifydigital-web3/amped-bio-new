@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { GridPattern } from "@/components/ui/grid-pattern";
 import { ShimmerButton } from "@/components/ui/shimmer-button";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAccount, useBalance } from "wagmi";
 import { WALLET_CONNECTORS, AUTH_CONNECTION } from "@web3auth/modal";
 import { useWeb3AuthConnect, useWeb3AuthDisconnect, useWeb3AuthUser } from "@web3auth/modal/react";
@@ -66,6 +68,10 @@ export function MyWalletPanel() {
   const [showProfileOptions, setShowProfileOptions] = useState(false);
   const [copyStatus, setCopyStatus] = useState<"idle" | "success">("idle");
   const [showFundModal, setShowFundModal] = useState(false);
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [sendAddress, setSendAddress] = useState("");
+  const [sendAmount, setSendAmount] = useState("");
+  const [sendLoading, setSendLoading] = useState(false);
 
   const { address: walletAddress } = useAccount();
 
@@ -125,6 +131,54 @@ export function MyWalletPanel() {
   function uiConsole(...args: any[]): void {
     console.log(...args);
   }
+
+  const handleSendTransaction = async () => {
+    if (!sendAddress || !sendAmount) {
+      console.error("Address and amount are required");
+      return;
+    }
+
+    setSendLoading(true);
+    try {
+      // TODO: Implement actual transaction sending logic here
+      console.log("Sending transaction:", { to: sendAddress, amount: sendAmount });
+
+      // Simulate transaction delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Reset form and close modal on success
+      setSendAddress("");
+      setSendAmount("");
+      setShowSendModal(false);
+
+      console.log("Transaction sent successfully!");
+    } catch (error) {
+      console.error("Failed to send transaction:", error);
+    } finally {
+      setSendLoading(false);
+    }
+  };
+
+  const calculateRemainingBalance = () => {
+    if (!balanceData?.formatted || !sendAmount) return balanceData?.formatted || "0";
+
+    const currentBalance = parseFloat(balanceData.formatted);
+    const amountToSend = parseFloat(sendAmount);
+
+    if (isNaN(amountToSend)) return balanceData.formatted;
+
+    const remaining = currentBalance - amountToSend;
+    return remaining >= 0 ? remaining.toFixed(4) : "0";
+  };
+
+  const isValidSendAmount = () => {
+    if (!balanceData?.formatted || !sendAmount) return false;
+
+    const currentBalance = parseFloat(balanceData.formatted);
+    const amountToSend = parseFloat(sendAmount);
+
+    return !isNaN(amountToSend) && amountToSend > 0 && amountToSend <= currentBalance;
+  };
 
   const handleConnectWallet = async () => {
     try {
@@ -235,7 +289,7 @@ export function MyWalletPanel() {
                       </span>
                       <Button
                         onClick={copyAddress}
-                        className="h-7 w-7 text-gray-500 hover:text-gray-800"
+                        className="h-7 w-7 text-white hover:text-gray-200 bg-gray-600 hover:bg-gray-700"
                       >
                         <Copy className="w-4 h-4" />
                       </Button>
@@ -336,7 +390,7 @@ export function MyWalletPanel() {
                   </DialogContent>
                 </Dialog>
                 <Button
-                  onClick={() => console.log("Send crypto")}
+                  onClick={() => setShowSendModal(true)}
                   className="h-20 flex flex-col items-center justify-center space-y-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 hover:border-blue-300 transition-all duration-200 ease-in-out transform hover:scale-105"
                   variant="outline"
                 >
@@ -352,48 +406,37 @@ export function MyWalletPanel() {
                   <span className="text-sm font-medium">Receive</span>
                 </Button>
 
-                <Button
-                  onClick={() => console.log("Stake crypto")}
-                  className="h-20 flex flex-col items-center justify-center space-y-2 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200 hover:border-yellow-300 transition-all duration-200 ease-in-out transform hover:scale-105"
-                  variant="outline"
-                >
-                  <Coins className="w-8 h-8 p-2 bg-gray-50 rounded-lg" />
-                  <span className="text-sm font-medium">Stake</span>
-                </Button>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      disabled
+                      className="h-20 flex flex-col items-center justify-center space-y-2 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200 hover:border-yellow-300 transition-all duration-200 ease-in-out transform hover:scale-105 opacity-60 cursor-not-allowed"
+                      variant="outline"
+                    >
+                      <Coins className="w-8 h-8 p-2 bg-gray-50 rounded-lg" />
+                      <span className="text-sm font-medium">Stake</span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-2">
+                    <p className="text-sm text-gray-600">Soon</p>
+                  </PopoverContent>
+                </Popover>
 
-                <Button
-                  onClick={() => console.log("Unstake crypto")}
-                  className="h-20 flex flex-col items-center justify-center space-y-2 bg-red-50 hover:bg-red-100 text-red-700 border-red-200 hover:border-red-300 transition-all duration-200 ease-in-out transform hover:scale-105"
-                  variant="outline"
-                >
-                  <Gem className="w-8 h-8 p-2 bg-gray-50 rounded-lg" />
-                  <span className="text-sm font-medium">Unstake</span>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Wallet Info */}
-          <Card className="rounded-2xl">
-            <CardHeader>
-              <CardTitle>Wallet Information</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Created</span>
-                  <span className="text-gray-900 font-medium">
-                    {/* {new Date(placeholderWallet.created_at).toLocaleDateString()} */}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Wallet ID</span>
-                  {/* <span className="text-gray-900 font-medium">#{placeholderWallet.id}</span> */}
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Network</span>
-                  <span className="text-gray-900 font-medium">Ethereum</span>
-                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      disabled
+                      className="h-20 flex flex-col items-center justify-center space-y-2 bg-red-50 hover:bg-red-100 text-red-700 border-red-200 hover:border-red-300 transition-all duration-200 ease-in-out transform hover:scale-105 opacity-60 cursor-not-allowed"
+                      variant="outline"
+                    >
+                      <Gem className="w-8 h-8 p-2 bg-gray-50 rounded-lg" />
+                      <span className="text-sm font-medium">Unstake</span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-2">
+                    <p className="text-sm text-gray-600">Soon</p>
+                  </PopoverContent>
+                </Popover>
               </div>
             </CardContent>
           </Card>
@@ -752,6 +795,121 @@ export function MyWalletPanel() {
           </div>
         )}
 
+        {/* Send Modal */}
+        {showSendModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <Card className="max-w-md w-full mx-4 rounded-2xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] duration-300">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Send ETH</CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowSendModal(false);
+                      setSendAddress("");
+                      setSendAmount("");
+                    }}
+                    className="text-gray-400 hover:text-gray-600 p-1"
+                  >
+                    <X className="w-6 h-6" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Current Balance */}
+                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium text-blue-700">Current Balance</span>
+                    <span className="text-lg font-bold text-blue-900">
+                      {isBalanceLoading
+                        ? "Loading..."
+                        : `${parseFloat(balanceData?.formatted ?? "0").toFixed(4)} ${balanceData?.symbol ?? "ETH"}`}
+                    </span>
+                  </div>
+                  {sendAmount && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-blue-700">After Transaction</span>
+                      <span className="text-lg font-bold text-blue-900">
+                        {calculateRemainingBalance()} {balanceData?.symbol ?? "ETH"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Recipient Address */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Recipient Address</label>
+                  <Input
+                    type="text"
+                    placeholder="0x..."
+                    value={sendAddress}
+                    onChange={e => setSendAddress(e.target.value)}
+                    className="font-mono text-sm"
+                  />
+                </div>
+
+                {/* Amount */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Amount ({balanceData?.symbol ?? "ETH"})
+                  </label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      placeholder="0.0"
+                      value={sendAmount}
+                      onChange={e => setSendAmount(e.target.value)}
+                      step="0.0001"
+                      min="0"
+                      max={balanceData?.formatted ?? "0"}
+                    />
+                    <Button
+                      onClick={() => setSendAmount(balanceData?.formatted ?? "0")}
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs px-2 py-1 h-6 bg-blue-100 hover:bg-blue-200 text-blue-700"
+                      variant="outline"
+                      size="sm"
+                    >
+                      Max
+                    </Button>
+                  </div>
+                  {sendAmount && !isValidSendAmount() && (
+                    <p className="text-red-500 text-xs">
+                      {parseFloat(sendAmount) > parseFloat(balanceData?.formatted ?? "0")
+                        ? "Insufficient balance"
+                        : "Please enter a valid amount"}
+                    </p>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex space-x-3 pt-4">
+                  <Button
+                    onClick={() => {
+                      setShowSendModal(false);
+                      setSendAddress("");
+                      setSendAmount("");
+                    }}
+                    variant="outline"
+                    className="flex-1"
+                    disabled={sendLoading}
+                  >
+                    Cancel
+                  </Button>
+                  <ShimmerButton
+                    onClick={handleSendTransaction}
+                    disabled={sendLoading || !isValidSendAmount() || !sendAddress}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+                    shimmerColor="#60a5fa"
+                  >
+                    {sendLoading ? "Sending..." : "Send ETH"}
+                  </ShimmerButton>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Receive Modal */}
         {showReceiveModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -788,10 +946,10 @@ export function MyWalletPanel() {
                     </p>
                     <Button
                       onClick={copyAddress}
-                      className="ml-2 flex-shrink-0 relative w-8 h-8 p-2 bg-gray-50 rounded-lg"
+                      className="ml-2 flex-shrink-0 relative w-8 h-8 p-2 bg-gray-600 hover:bg-gray-700 rounded-lg"
                     >
                       <Copy
-                        className={`w-4 h-4 transition-opacity duration-300 ${copyStatus === "idle" ? "opacity-100" : "opacity-0"}`}
+                        className={`w-4 h-4 text-white transition-opacity duration-300 ${copyStatus === "idle" ? "opacity-100" : "opacity-0"}`}
                       />
                       <Check
                         className={`w-4 h-4 text-green-500 transition-opacity duration-300 absolute ${copyStatus === "success" ? "opacity-100" : "opacity-0"}`}
