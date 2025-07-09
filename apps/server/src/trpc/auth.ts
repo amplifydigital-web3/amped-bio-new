@@ -26,26 +26,26 @@ function setRefreshTokenCookie(ctx: any, token: string, expiresAt?: Date) {
   // Determine the correct domain based on environment
   let domain: string | undefined;
 
-  if (env.NODE_ENV === "production") {
-    // Check if we're on staging or production
-    const host = ctx.req.get("host") || "";
-    const origin = ctx.req.get("origin") || "";
+  if (env.NODE_ENV === "production" || env.NODE_ENV === "staging") {
+    // Extract domain from FRONTEND_URL
+    if (env.FRONTEND_URL) {
+      try {
+        const url = new URL(env.FRONTEND_URL);
+        // Remove 'www.' if present and add leading dot for subdomain support
+        domain = url.hostname.replace(/^www\./, "");
+        domain = `.${domain}`;
 
-    console.log("Cookie debug - Host:", host, "Origin:", origin);
-
-    if (host.includes("staging.amped.bio") || origin.includes("staging.amped.bio")) {
-      domain = ".staging.amped.bio";
-    } else if (host.includes("amped.bio") || origin.includes("amped.bio")) {
-      domain = ".amped.bio";
+        console.log("Cookie debug - Using FRONTEND_URL domain:", domain);
+      } catch (error) {
+        console.error("Cookie debug - Invalid FRONTEND_URL:", env.FRONTEND_URL);
+      }
     }
-
-    console.log("Cookie debug - Setting domain:", domain);
   }
   // For development, don't set domain (localhost)
 
   const options = {
     httpOnly: true,
-    secure: env.NODE_ENV === "production",
+    secure: env.NODE_ENV === "production" || env.NODE_ENV === "staging",
     sameSite: "lax" as const,
     domain,
     path: "/",
