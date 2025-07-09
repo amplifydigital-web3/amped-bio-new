@@ -305,7 +305,9 @@ export function MyWalletPanel() {
                     isInitialized: dataWeb3Auth?.isInitialized,
                     isInitializing: dataWeb3Auth?.isInitializing,
                     status: dataWeb3Auth?.status,
-                    initError: dataWeb3Auth?.initError ? String(dataWeb3Auth.initError) : null,
+                    initError: dataWeb3Auth?.initError
+                      ? (dataWeb3Auth.initError as Error)?.message || String(dataWeb3Auth.initError)
+                      : null,
                     web3Auth: dataWeb3Auth?.web3Auth ? "Web3Auth instance present" : null,
                     provider: dataWeb3Auth?.provider ? "Provider instance present" : null,
                     connectLoading,
