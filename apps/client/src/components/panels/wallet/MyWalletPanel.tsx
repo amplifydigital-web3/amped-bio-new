@@ -229,7 +229,6 @@ export function MyWalletPanel() {
 
   const handleConnectWallet = useCallback(async () => {
     try {
-      dataWeb3Auth.web3Auth?.init();
       // Enhanced initialization checks
       if (!dataWeb3Auth?.isInitialized) {
         console.warn("Web3Auth is not initialized yet. Please wait...");
@@ -268,7 +267,7 @@ export function MyWalletPanel() {
 
       await connectTo(WALLET_CONNECTORS.AUTH, {
         authConnection: AUTH_CONNECTION.CUSTOM,
-        authConnectionId: "ampedbiostaging",
+        authConnectionId: import.meta.env.VITE_WEB3AUTH_AUTH_CONNECTION_ID,
         idToken: idToken,
         extraLoginOptions: {
           isUserIdCaseSensitive: false,
@@ -329,13 +328,13 @@ export function MyWalletPanel() {
             </p>
             <ShimmerButton
               onClick={handleConnectWallet}
-              disabled={
-                connectLoading ||
-                !dataWeb3Auth?.isInitialized ||
-                dataWeb3Auth?.isInitializing ||
-                !dataWeb3Auth?.web3Auth ||
-                !localStorage.getItem("amped-bio-auth-token")
-              }
+              // disabled={
+              //   connectLoading ||
+              //   !dataWeb3Auth?.isInitialized ||
+              //   dataWeb3Auth?.isInitializing ||
+              //   !dataWeb3Auth?.web3Auth ||
+              //   !localStorage.getItem("amped-bio-auth-token")
+              // }
               className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 px-8 py-3 text-lg"
               shimmerColor="#60a5fa"
             >

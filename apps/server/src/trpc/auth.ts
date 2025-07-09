@@ -21,9 +21,18 @@ function hashRefreshToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
-// Helper function to set cookies properly
-function setCookie(ctx: any, name: string, value: string, options: any) {
-  const cookieString = serialize(name, value, options);
+// Helper function to set refresh token cookie
+function setRefreshTokenCookie(ctx: any, token: string, expiresAt?: Date) {
+  const options = {
+    httpOnly: true,
+    secure: env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    domain: env.NODE_ENV === "production" ? ".amped.bio" : undefined,
+    path: "/",
+    expires: expiresAt || new Date(0), // Default to immediate expiry for logout
+  };
+
+  const cookieString = serialize("refresh-token", token, options);
   const existingCookies = ctx.res.getHeader("Set-Cookie") || [];
   const cookiesArray = Array.isArray(existingCookies)
     ? existingCookies.map(String)
@@ -105,13 +114,7 @@ export const authRouter = router({
     });
 
     // Set refresh token cookie
-    setCookie(ctx, "refresh-token", refreshToken, {
-      httpOnly: true,
-      secure: env.NODE_ENV === "production",
-      sameSite: "strict" as const,
-      path: "/",
-      expires: token.expiresAt,
-    });
+    setRefreshTokenCookie(ctx, refreshToken, token.expiresAt);
 
     return {
       user: { id: result.id, email, onelink, role: result.role },
@@ -159,13 +162,7 @@ export const authRouter = router({
     });
 
     // Set refresh token cookie
-    setCookie(ctx, "refresh-token", refreshToken, {
-      httpOnly: true,
-      secure: env.NODE_ENV === "production",
-      sameSite: "strict" as const,
-      path: "/",
-      expires: token.expiresAt,
-    });
+    setRefreshTokenCookie(ctx, refreshToken, token.expiresAt);
 
     return {
       user: {
@@ -197,13 +194,7 @@ export const authRouter = router({
     });
 
     // Clear the cookie
-    setCookie(ctx, "refresh-token", "", {
-      httpOnly: true,
-      secure: env.NODE_ENV === "production",
-      sameSite: "strict" as const,
-      path: "/",
-      expires: new Date(0), // Expire immediately
-    });
+    setRefreshTokenCookie(ctx, "");
 
     return { success: true, message: "Logged out successfully" };
   }),

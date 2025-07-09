@@ -9,6 +9,8 @@ interface ImportMetaEnv {
   readonly VITE_SHOW_GALLERY: string;
   readonly VITE_API_URL: string;
   readonly VITE_DEMO_MODE: string;
+  readonly VITE_WEB3AUTH_CLIENT_ID: string;
+  readonly VITE_WEB3AUTH_AUTH_CONNECTION_ID: string;
 }
 
 interface ImportMeta {
