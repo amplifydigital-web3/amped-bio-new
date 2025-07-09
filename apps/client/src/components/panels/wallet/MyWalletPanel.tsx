@@ -36,7 +36,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover1";
 import { useAccount, useBalance } from "wagmi";
 import { WALLET_CONNECTORS, AUTH_CONNECTION } from "@web3auth/modal";
 import {
