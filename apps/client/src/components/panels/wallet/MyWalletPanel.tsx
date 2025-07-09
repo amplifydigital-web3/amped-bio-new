@@ -126,6 +126,22 @@ export function MyWalletPanel() {
     console.log(...args);
   }
 
+  const handleConnectWallet = async () => {
+    try {
+      await connectTo(WALLET_CONNECTORS.AUTH, {
+        authConnection: AUTH_CONNECTION.CUSTOM,
+        authConnectionId: "ampedbiostaging",
+        idToken: localStorage.getItem("amped-bio-auth-token")!,
+        extraLoginOptions: {
+          isUserIdCaseSensitive: false,
+        },
+      });
+    } catch (error) {
+      console.error("Failed to connect wallet:", error);
+      uiConsole("Wallet connection error:", error);
+    }
+  };
+
   // Unconnected view
   const unloggedInView = (
     <div className="h-full flex items-center justify-center">
@@ -158,16 +174,7 @@ export function MyWalletPanel() {
               Connect your wallet to access your digital assets, tokens, and transaction history.
             </p>
             <ShimmerButton
-              onClick={() =>
-                connectTo(WALLET_CONNECTORS.AUTH, {
-                  authConnection: AUTH_CONNECTION.CUSTOM,
-                  authConnectionId: "ampedbiostaging",
-                  idToken: localStorage.getItem("amped-bio-auth-token")!,
-                  extraLoginOptions: {
-                    isUserIdCaseSensitive: false,
-                  },
-                })
-              }
+              onClick={handleConnectWallet}
               disabled={connectLoading}
               className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 px-8 py-3 text-lg"
               shimmerColor="#60a5fa"
