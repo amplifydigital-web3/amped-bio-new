@@ -229,6 +229,7 @@ export function MyWalletPanel() {
 
   const handleConnectWallet = useCallback(async () => {
     try {
+      dataWeb3Auth.web3Auth?.init();
       // Enhanced initialization checks
       if (!dataWeb3Auth?.isInitialized) {
         console.warn("Web3Auth is not initialized yet. Please wait...");
