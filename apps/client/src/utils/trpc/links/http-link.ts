@@ -62,8 +62,14 @@ export const createHttpLink = () => {
         : {};
     },
     async fetch(url, options) {
+      // Ensure credentials are always included
+      const fetchOptions = {
+        ...(options as RequestInit),
+        credentials: "include" as RequestCredentials,
+      };
+
       // First attempt with current token
-      let response = await globalThis.fetch(url, options as RequestInit);
+      let response = await globalThis.fetch(url, fetchOptions);
 
       // If the first request fails, check if it's due to token expiration
       if (!response.ok) {
@@ -86,6 +92,7 @@ export const createHttpLink = () => {
               // Retry the request with the new token
               const newOptions = {
                 ...(options as RequestInit),
+                credentials: "include" as RequestCredentials,
                 headers: {
                   ...(options as RequestInit)?.headers,
                   Authorization: `Bearer ${newToken}`,

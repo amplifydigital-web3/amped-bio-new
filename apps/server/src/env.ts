@@ -3,7 +3,7 @@ import { cleanEnv, str, port, bool } from "envalid";
 export const env = cleanEnv(process.env, {
   NODE_ENV: str({
     desc: "The environment the app is running in",
-    choices: ["development", "production", "test"],
+    choices: ["development", "production", "test", "staging"],
     default: "development",
     example: "development",
   }),

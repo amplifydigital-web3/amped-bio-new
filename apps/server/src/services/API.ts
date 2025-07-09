@@ -40,7 +40,31 @@ export class API implements Service {
     this.app.use(
       cors({
         credentials: true, // Enable cookies in CORS requests
-        origin: true, // Allow all origins in development, restrict in production
+        origin: (origin, callback) => {
+          // Allow requests with no origin (like mobile apps or curl requests)
+          if (!origin) return callback(null, true);
+
+          const allowedOrigins = [
+            env.FRONTEND_URL, // Use environment-specific frontend URL
+          ];
+
+          console.log(
+            `CORS debug - NODE_ENV: ${env.NODE_ENV}, FRONTEND_URL: ${env.FRONTEND_URL}, Origin: ${origin}`
+          );
+
+          // Add additional origins based on environment
+          if (env.NODE_ENV === "development") {
+            allowedOrigins.push("http://localhost:5173", "http://localhost:3000");
+          }
+
+          console.log("CORS debug - Allowed origins:", allowedOrigins);
+
+          if (allowedOrigins.includes(origin)) {
+            callback(null, true);
+          } else {
+            callback(new Error("Not allowed by CORS"));
+          }
+        },
       })
     );
 

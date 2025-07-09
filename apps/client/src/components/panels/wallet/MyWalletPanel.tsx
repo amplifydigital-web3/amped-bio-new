@@ -65,12 +65,12 @@ export function MyWalletPanel() {
   const { address } = useAccount();
 
   useEffect(() => {
-    console.info("Web3Auth User Info:", userInfo);
-    console.info("Wagmi Address:", address);
+    uiConsole("Web3Auth User Info:", userInfo);
+    uiConsole("Wagmi Address:", address);
   }, [userInfo, address]);
 
   useEffect(() => {
-    console.info("Web3Auth Status:", {
+    uiConsole("Web3Auth Status:", {
       isConnected: dataWeb3Auth?.isConnected,
       isInitialized: dataWeb3Auth?.isInitialized,
       isInitializing: dataWeb3Auth?.isInitializing,
@@ -89,15 +89,13 @@ export function MyWalletPanel() {
   useEffect(() => {
     const checkInitialization = () => {
       if (dataWeb3Auth?.isInitialized && dataWeb3Auth?.web3Auth && !dataWeb3Auth?.isInitializing) {
-        console.log("Web3Auth is fully initialized and ready");
         uiConsole("Web3Auth is fully initialized and ready");
       } else if (dataWeb3Auth?.initError) {
-        console.error("Web3Auth initialization failed:", dataWeb3Auth.initError);
         uiConsole("Web3Auth initialization failed:", dataWeb3Auth.initError);
       } else if (dataWeb3Auth?.isInitializing) {
-        console.log("Web3Auth is still initializing...");
+        uiConsole("Web3Auth is still initializing...");
       } else if (!dataWeb3Auth?.isInitialized) {
-        console.log("Web3Auth is not yet initialized");
+        uiConsole("Web3Auth is not yet initialized");
       }
     };
 
@@ -142,7 +140,7 @@ export function MyWalletPanel() {
       setTimeout(() => {
         setCopyStatus("idle");
       }, 1000);
-      console.log("Address copied to clipboard!");
+      uiConsole("Address copied to clipboard!");
     }
   };
 
@@ -181,14 +179,14 @@ export function MyWalletPanel() {
 
   const handleSendTransaction = async () => {
     if (!sendAddress || !sendAmount) {
-      console.error("Address and amount are required");
+      uiConsole("Address and amount are required");
       return;
     }
 
     setSendLoading(true);
     try {
       // TODO: Implement actual transaction sending logic here
-      console.log("Sending transaction:", { to: sendAddress, amount: sendAmount });
+      uiConsole("Sending transaction:", { to: sendAddress, amount: sendAmount });
 
       // Simulate transaction delay
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -198,9 +196,9 @@ export function MyWalletPanel() {
       setSendAmount("");
       setShowSendModal(false);
 
-      console.log("Transaction sent successfully!");
+      uiConsole("Transaction sent successfully!");
     } catch (error) {
-      console.error("Failed to send transaction:", error);
+      uiConsole("Failed to send transaction:", error);
     } finally {
       setSendLoading(false);
     }
@@ -231,26 +229,22 @@ export function MyWalletPanel() {
     try {
       // Enhanced initialization checks
       if (!dataWeb3Auth?.isInitialized) {
-        console.warn("Web3Auth is not initialized yet. Please wait...");
         uiConsole("Web3Auth is not initialized yet. Please wait...");
         return;
       }
 
       if (dataWeb3Auth?.isInitializing) {
-        console.warn("Web3Auth is still initializing. Please wait...");
         uiConsole("Web3Auth is still initializing. Please wait...");
         return;
       }
 
       // Additional check for Web3Auth instance
       if (!dataWeb3Auth?.web3Auth) {
-        console.warn("Web3Auth instance is not available yet. Please wait...");
         uiConsole("Web3Auth instance is not available yet. Please wait...");
         return;
       }
 
       // Wait a bit more to ensure everything is ready
-      console.log("Web3Auth appears ready, attempting connection...");
       uiConsole("Web3Auth appears ready, attempting connection...");
 
       // Add a small delay to ensure Web3Auth is fully ready
@@ -258,12 +252,11 @@ export function MyWalletPanel() {
 
       const idToken = localStorage.getItem("amped-bio-auth-token");
       if (!idToken) {
-        console.error("No auth token found in localStorage");
         uiConsole("No auth token found. Please log in first.");
         return;
       }
 
-      console.log("Connecting with token:", idToken.substring(0, 20) + "...");
+      uiConsole("Connecting with token:", idToken.substring(0, 20) + "...");
 
       await connectTo(WALLET_CONNECTORS.AUTH, {
         authConnection: AUTH_CONNECTION.CUSTOM,
@@ -274,14 +267,13 @@ export function MyWalletPanel() {
         },
       });
 
-      console.log("Connection attempt completed successfully");
+      uiConsole("Connection attempt completed successfully");
     } catch (error) {
-      console.error("Failed to connect wallet:", error);
       uiConsole("Wallet connection error:", error);
 
       // Additional error details
       if (error instanceof Error) {
-        console.error("Error details:", {
+        uiConsole("Error details:", {
           message: error.message,
           stack: error.stack,
           name: error.name,
@@ -675,7 +667,7 @@ export function MyWalletPanel() {
                         Fund account or receive assets to see them here.
                       </p>
                       <ShimmerButton
-                        onClick={() => console.log("Fund account")}
+                        onClick={() => uiConsole("Fund account")}
                         className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
                         shimmerColor="#60a5fa"
                       >
@@ -739,7 +731,7 @@ export function MyWalletPanel() {
                         Fund account or receive assets to see them here.
                       </p>
                       <ShimmerButton
-                        onClick={() => console.log("Fund account")}
+                        onClick={() => uiConsole("Fund account")}
                         className="bg-purple-600 hover:bg-purple-700 text-white border-purple-600"
                         shimmerColor="#a855f7"
                       >
@@ -852,7 +844,7 @@ export function MyWalletPanel() {
                         Fund account or receive assets to see them here.
                       </p>
                       <ShimmerButton
-                        onClick={() => console.log("Fund account")}
+                        onClick={() => uiConsole("Fund account")}
                         className="bg-green-600 hover:bg-green-700 text-white border-green-600"
                         shimmerColor="#22c55e"
                       >
@@ -899,7 +891,7 @@ export function MyWalletPanel() {
                   variant="outline"
                   className="w-full justify-start"
                   onClick={() => {
-                    console.log("Edit Profile");
+                    uiConsole("Edit Profile");
                     setShowProfileOptions(false);
                   }}
                 >
@@ -911,7 +903,7 @@ export function MyWalletPanel() {
                   variant="outline"
                   className="w-full justify-start"
                   onClick={() => {
-                    console.log("Account Settings");
+                    uiConsole("Account Settings");
                     setShowProfileOptions(false);
                   }}
                 >
@@ -923,7 +915,7 @@ export function MyWalletPanel() {
                   variant="outline"
                   className="w-full justify-start"
                   onClick={() => {
-                    console.log("Wallet Settings");
+                    uiConsole("Wallet Settings");
                     setShowProfileOptions(false);
                   }}
                 >
@@ -935,7 +927,7 @@ export function MyWalletPanel() {
                   variant="outline"
                   className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
                   onClick={() => {
-                    console.log("Logout");
+                    uiConsole("Logout");
                     setShowProfileOptions(false);
                   }}
                 >

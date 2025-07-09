@@ -23,14 +23,36 @@ function hashRefreshToken(token: string): string {
 
 // Helper function to set refresh token cookie
 function setRefreshTokenCookie(ctx: any, token: string, expiresAt?: Date) {
+  // Determine the correct domain based on environment
+  let domain: string | undefined;
+
+  if (env.NODE_ENV === "production") {
+    // Check if we're on staging or production
+    const host = ctx.req.get("host") || "";
+    const origin = ctx.req.get("origin") || "";
+
+    console.log("Cookie debug - Host:", host, "Origin:", origin);
+
+    if (host.includes("staging.amped.bio") || origin.includes("staging.amped.bio")) {
+      domain = ".staging.amped.bio";
+    } else if (host.includes("amped.bio") || origin.includes("amped.bio")) {
+      domain = ".amped.bio";
+    }
+
+    console.log("Cookie debug - Setting domain:", domain);
+  }
+  // For development, don't set domain (localhost)
+
   const options = {
     httpOnly: true,
     secure: env.NODE_ENV === "production",
     sameSite: "lax" as const,
-    domain: env.NODE_ENV === "production" ? ".amped.bio" : undefined,
+    domain,
     path: "/",
     expires: expiresAt || new Date(0), // Default to immediate expiry for logout
   };
+
+  console.log("Cookie debug - Final options:", options);
 
   const cookieString = serialize("refresh-token", token, options);
   const existingCookies = ctx.res.getHeader("Set-Cookie") || [];
