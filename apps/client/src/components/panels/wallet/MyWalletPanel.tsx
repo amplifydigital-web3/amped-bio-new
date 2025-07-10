@@ -64,6 +64,132 @@ export function MyWalletPanel() {
   const { userInfo } = useWeb3AuthUser();
   const { address } = useAccount();
 
+  // Add initialization state
+  const [initializationState, setInitializationState] = useState<{
+    isInitializing: boolean;
+    isInitialized: boolean;
+    error: string | null;
+    attempts: number;
+  }>({
+    isInitializing: true,
+    isInitialized: false,
+    error: null,
+    attempts: 0,
+  });
+
+  // Initialize Web3Auth when component mounts
+  useEffect(() => {
+    const initializeWeb3Auth = async () => {
+      try {
+        setInitializationState(prev => ({
+          ...prev,
+          isInitializing: true,
+          error: null,
+          attempts: prev.attempts + 1,
+        }));
+
+        uiConsole("Starting Web3Auth initialization...");
+
+        // Wait for Web3Auth instance to be available
+        if (!dataWeb3Auth?.web3Auth) {
+          uiConsole("Waiting for Web3Auth instance...");
+          // Wait up to 10 seconds for Web3Auth to be available
+          let waitTime = 0;
+          const maxWait = 10000;
+          const checkInterval = 100;
+
+          while (!dataWeb3Auth?.web3Auth && waitTime < maxWait) {
+            await new Promise(resolve => setTimeout(resolve, checkInterval));
+            waitTime += checkInterval;
+          }
+
+          if (!dataWeb3Auth?.web3Auth) {
+            throw new Error("Web3Auth instance not available after timeout");
+          }
+        }
+
+        uiConsole("Web3Auth instance found, proceeding with initialization...");
+
+        // Call init() method if available
+        if (dataWeb3Auth.web3Auth && typeof dataWeb3Auth.web3Auth.init === "function") {
+          uiConsole("Calling Web3Auth.init()...");
+          await dataWeb3Auth.web3Auth.init();
+          uiConsole("Web3Auth.init() completed successfully");
+        } else {
+          uiConsole("Web3Auth.init() method not found, checking for other init methods...");
+        }
+
+        // Additional initialization methods that might exist
+        const additionalInitMethods = ["setup", "configure", "prepare", "start"];
+
+        for (const method of additionalInitMethods) {
+          if (dataWeb3Auth.web3Auth && typeof dataWeb3Auth.web3Auth[method] === "function") {
+            try {
+              uiConsole(`Calling Web3Auth.${method}()...`);
+              await dataWeb3Auth.web3Auth[method]();
+              uiConsole(`Web3Auth.${method}() completed successfully`);
+            } catch (error) {
+              uiConsole(`Web3Auth.${method}() failed:`, error);
+            }
+          }
+        }
+
+        // Wait for actual initialization to complete
+        let initWaitTime = 0;
+        const maxInitWait = 15000;
+        const initCheckInterval = 200;
+
+        while (!dataWeb3Auth?.isInitialized && initWaitTime < maxInitWait) {
+          await new Promise(resolve => setTimeout(resolve, initCheckInterval));
+          initWaitTime += initCheckInterval;
+        }
+
+        if (dataWeb3Auth?.isInitialized) {
+          uiConsole("Web3Auth initialization completed successfully");
+          setInitializationState({
+            isInitializing: false,
+            isInitialized: true,
+            error: null,
+            attempts: initializationState.attempts,
+          });
+        } else {
+          throw new Error("Web3Auth failed to initialize within timeout period");
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        uiConsole("Web3Auth initialization failed:", error);
+
+        setInitializationState(prev => ({
+          ...prev,
+          isInitializing: false,
+          isInitialized: false,
+          error: errorMessage,
+        }));
+
+        // Retry initialization up to 3 times
+        if (initializationState.attempts < 3) {
+          uiConsole(
+            `Retrying Web3Auth initialization (attempt ${initializationState.attempts + 1}/3) in 2 seconds...`
+          );
+          setTimeout(() => {
+            initializeWeb3Auth();
+          }, 2000);
+        }
+      }
+    };
+
+    // Only initialize if not already initialized and not currently initializing
+    if (!initializationState.isInitialized && !initializationState.isInitializing) {
+      initializeWeb3Auth();
+    }
+  }, [
+    dataWeb3Auth?.web3Auth,
+    dataWeb3Auth?.isInitialized,
+    initializationState.isInitializing,
+    initializationState.isInitialized,
+    initializationState.attempts,
+  ]);
+
   useEffect(() => {
     uiConsole("Web3Auth User Info:", userInfo);
     uiConsole("Wagmi Address:", address);
@@ -228,13 +354,18 @@ export function MyWalletPanel() {
   const handleConnectWallet = useCallback(async () => {
     try {
       // Enhanced initialization checks
-      if (!dataWeb3Auth?.isInitialized) {
+      if (!initializationState.isInitialized) {
         uiConsole("Web3Auth is not initialized yet. Please wait...");
         return;
       }
 
-      if (dataWeb3Auth?.isInitializing) {
+      if (initializationState.isInitializing) {
         uiConsole("Web3Auth is still initializing. Please wait...");
+        return;
+      }
+
+      if (initializationState.error) {
+        uiConsole("Web3Auth initialization failed:", initializationState.error);
         return;
       }
 
@@ -281,8 +412,9 @@ export function MyWalletPanel() {
       }
     }
   }, [
-    dataWeb3Auth?.isInitialized,
-    dataWeb3Auth?.isInitializing,
+    initializationState.isInitialized,
+    initializationState.isInitializing,
+    initializationState.error,
     dataWeb3Auth?.web3Auth,
     connectTo,
   ]);
@@ -320,27 +452,30 @@ export function MyWalletPanel() {
             </p>
             <ShimmerButton
               onClick={handleConnectWallet}
-              // disabled={
-              //   connectLoading ||
-              //   !dataWeb3Auth?.isInitialized ||
-              //   dataWeb3Auth?.isInitializing ||
-              //   !dataWeb3Auth?.web3Auth ||
-              //   !localStorage.getItem("amped-bio-auth-token")
-              // }
+              disabled={
+                connectLoading ||
+                !initializationState.isInitialized ||
+                initializationState.isInitializing ||
+                !!initializationState.error ||
+                !dataWeb3Auth?.web3Auth ||
+                !localStorage.getItem("amped-bio-auth-token")
+              }
               className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 px-8 py-3 text-lg"
               shimmerColor="#60a5fa"
             >
               {connectLoading
                 ? "Connecting..."
-                : dataWeb3Auth?.isInitializing
-                  ? "Initializing..."
-                  : !dataWeb3Auth?.isInitialized
+                : initializationState.isInitializing
+                  ? `Initializing... (${initializationState.attempts > 0 ? `Attempt ${initializationState.attempts}` : ""})`
+                  : !initializationState.isInitialized
                     ? "Waiting for initialization..."
-                    : !dataWeb3Auth?.web3Auth
-                      ? "Loading Web3Auth..."
-                      : !localStorage.getItem("amped-bio-auth-token")
-                        ? "No auth token found"
-                        : "Connect Wallet"}
+                    : initializationState.error
+                      ? "Initialization failed"
+                      : !dataWeb3Auth?.web3Auth
+                        ? "Loading Web3Auth..."
+                        : !localStorage.getItem("amped-bio-auth-token")
+                          ? "No auth token found"
+                          : "Connect Wallet"}
             </ShimmerButton>
             {connectError && (
               <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -348,21 +483,39 @@ export function MyWalletPanel() {
               </div>
             )}
 
-            {dataWeb3Auth?.initError ? (
+            {initializationState.error && (
               <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-red-600 text-sm">
-                  Initialization Error:{" "}
+                  Initialization Error: {initializationState.error}
+                </p>
+                {initializationState.attempts < 3 && (
+                  <p className="text-red-500 text-xs mt-1">
+                    Retrying automatically... (Attempt {initializationState.attempts}/3)
+                  </p>
+                )}
+              </div>
+            )}
+
+            {dataWeb3Auth?.initError !== undefined ? (
+              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-600 text-sm">
+                  Web3Auth Error:{" "}
                   {(dataWeb3Auth.initError as Error)?.message || String(dataWeb3Auth.initError)}
                 </p>
               </div>
             ) : null}
 
-            {/* Debug dataWeb3Auth */}
+            {/* Debug information */}
             <div className="mt-6 text-left">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Debug - Web3Auth Status:</h3>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">
+                Debug - Initialization Status:
+              </h3>
               <pre className="bg-gray-100 p-3 rounded-lg text-xs overflow-auto max-h-48 border text-gray-800">
                 {JSON.stringify(
                   {
+                    // Custom initialization state
+                    initState: initializationState,
+                    // Web3Auth states
                     isConnected: dataWeb3Auth?.isConnected,
                     isInitialized: dataWeb3Auth?.isInitialized,
                     isInitializing: dataWeb3Auth?.isInitializing,
@@ -372,8 +525,10 @@ export function MyWalletPanel() {
                       : null,
                     web3Auth: dataWeb3Auth?.web3Auth ? "Web3Auth instance present" : null,
                     provider: dataWeb3Auth?.provider ? "Provider instance present" : null,
+                    // Connection states
                     connectLoading,
                     connectError: connectError?.message || null,
+                    // Auth token
                     hasAuthToken: !!localStorage.getItem("amped-bio-auth-token"),
                     authTokenPreview:
                       localStorage.getItem("amped-bio-auth-token")?.substring(0, 20) + "..." ||
