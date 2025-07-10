@@ -103,27 +103,27 @@ function App() {
       // await loadSlim(engine);
       //await loadBasic(engine);
     }).then(() => {
-      setInit(true);
+      // setInit(true);
     });
   }, []);
 
-  if (init) {
-    return (
-      <Web3AuthProvider config={web3AuthContextConfig}>
-        <QueryClientProvider client={queryClient}>
-          <WagmiProvider>
-            <AuthProvider>
-              <BrowserRouter>
-                <AppRouter />
-              </BrowserRouter>
-            </AuthProvider>
-          </WagmiProvider>
-        </QueryClientProvider>
-        <Toaster />
-      </Web3AuthProvider>
-    );
-  }
-  return <></>;
+  // if (init) {
+  return (
+    <Web3AuthProvider config={web3AuthContextConfig}>
+      <QueryClientProvider client={queryClient}>
+        <WagmiProvider>
+          <AuthProvider>
+            <BrowserRouter>
+              <AppRouter />
+            </BrowserRouter>
+          </AuthProvider>
+        </WagmiProvider>
+      </QueryClientProvider>
+      <Toaster />
+    </Web3AuthProvider>
+  );
+  // }
+  // return <></>;
 }
 
 export default App;
