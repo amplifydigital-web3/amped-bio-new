@@ -117,6 +117,7 @@ export function MyWalletPanel() {
   const [sendAddress, setSendAddress] = useState("");
   const [sendAmount, setSendAmount] = useState("");
   const [sendLoading, setSendLoading] = useState(false);
+  const [isDemoMode, setIsDemoMode] = useState(false);
 
   const { address: walletAddress } = useAccount();
 
@@ -132,6 +133,69 @@ export function MyWalletPanel() {
 
   // Sample transaction history data (empty for now)
   const sampleTransactions: any[] = [];
+
+  // Demo data
+  const demoData = {
+    address: "0x742d35Cc6634C0532925a3b8D2aEd3C5c9B3c3f8",
+    balance: "1.2847",
+    symbol: "ETH",
+    tokens: [
+      {
+        id: "1",
+        name: "Ethereum",
+        symbol: "ETH",
+        balance: "1.2847",
+        value: "$3,241.20",
+        icon: "⟠",
+      },
+      {
+        id: "2",
+        name: "USD Coin",
+        symbol: "USDC",
+        balance: "500.00",
+        value: "$500.00",
+        icon: "💵",
+      },
+    ],
+    nfts: [
+      {
+        id: "1",
+        name: "Bored Ape #1234",
+        collection: "Bored Ape Yacht Club",
+        image: "https://via.placeholder.com/300x300/4f46e5/white?text=NFT",
+      },
+      {
+        id: "2",
+        name: "CryptoPunk #5678",
+        collection: "CryptoPunks",
+        image: "https://via.placeholder.com/300x300/7c3aed/white?text=NFT",
+      },
+    ],
+    transactions: [
+      {
+        id: "1",
+        type: "received",
+        amount: "0.5 ETH",
+        value: "$1,250.00",
+        from: "0x1234567890abcdef1234567890abcdef12345678",
+        to: "0x742d35Cc6634C0532925a3b8D2aEd3C5c9B3c3f8",
+        hash: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
+        status: "completed",
+      },
+      {
+        id: "2",
+        type: "sent",
+        amount: "0.2 ETH",
+        value: "$500.00",
+        from: "0x742d35Cc6634C0532925a3b8D2aEd3C5c9B3c3f8",
+        to: "0x9876543210fedcba9876543210fedcba98765432",
+        hash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+        status: "completed",
+      },
+    ],
+  };
 
   const copyAddress = () => {
     if (walletAddress) {
@@ -287,6 +351,15 @@ export function MyWalletPanel() {
     connectTo,
   ]);
 
+  // Get current data (demo or real)
+  const currentAddress = isDemoMode ? demoData.address : walletAddress;
+  const currentBalance = isDemoMode ? demoData.balance : balanceData?.formatted;
+  const currentSymbol = isDemoMode ? demoData.symbol : balanceData?.symbol;
+  const currentTokens = isDemoMode ? demoData.tokens : sampleTokens;
+  const currentNFTs = isDemoMode ? demoData.nfts : sampleNFTs;
+  const currentTransactions = isDemoMode ? demoData.transactions : sampleTransactions;
+  const currentIsBalanceLoading = isDemoMode ? false : isBalanceLoading;
+
   // Unconnected view
   const unloggedInView = (
     <div className="h-full flex items-center justify-center">
@@ -318,30 +391,40 @@ export function MyWalletPanel() {
             <p className="text-gray-600 mb-8">
               Connect your wallet to access your digital assets, tokens, and transaction history.
             </p>
-            <ShimmerButton
-              onClick={handleConnectWallet}
-              // disabled={
-              //   connectLoading ||
-              //   !dataWeb3Auth?.isInitialized ||
-              //   dataWeb3Auth?.isInitializing ||
-              //   !dataWeb3Auth?.web3Auth ||
-              //   !localStorage.getItem("amped-bio-auth-token")
-              // }
-              className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 px-8 py-3 text-lg"
-              shimmerColor="#60a5fa"
-            >
-              {connectLoading
-                ? "Connecting..."
-                : dataWeb3Auth?.isInitializing
-                  ? "Initializing..."
-                  : !dataWeb3Auth?.isInitialized
-                    ? "Waiting for initialization..."
-                    : !dataWeb3Auth?.web3Auth
-                      ? "Loading Web3Auth..."
-                      : !localStorage.getItem("amped-bio-auth-token")
-                        ? "No auth token found"
-                        : "Connect Wallet"}
-            </ShimmerButton>
+            <div className="space-y-4">
+              <ShimmerButton
+                onClick={handleConnectWallet}
+                className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 px-8 py-3 text-lg"
+                shimmerColor="#60a5fa"
+              >
+                {connectLoading
+                  ? "Connecting..."
+                  : dataWeb3Auth?.isInitializing
+                    ? "Initializing..."
+                    : !dataWeb3Auth?.isInitialized
+                      ? "Waiting for initialization..."
+                      : !dataWeb3Auth?.web3Auth
+                        ? "Loading Web3Auth..."
+                        : !localStorage.getItem("amped-bio-auth-token")
+                          ? "No auth token found"
+                          : "Connect Wallet"}
+              </ShimmerButton>
+
+              <div className="flex items-center space-x-2">
+                <div className="flex-1 h-px bg-gray-200"></div>
+                <span className="text-sm text-gray-500">or</span>
+                <div className="flex-1 h-px bg-gray-200"></div>
+              </div>
+
+              <Button
+                onClick={() => setIsDemoMode(true)}
+                variant="outline"
+                className="w-full py-2 text-sm bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200"
+              >
+                View Demo
+              </Button>
+            </div>
+
             {connectError && (
               <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-red-600 text-sm">{connectError.message}</p>
@@ -395,14 +478,32 @@ export function MyWalletPanel() {
     <div className="h-full overflow-y-auto">
       <div className="p-6">
         {/* Header */}
-        <div className="flex items-center space-x-3 mb-8">
-          <div className="bg-blue-100 p-3 rounded-full">
-            <Wallet className="w-6 h-6 text-blue-600" />
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center space-x-3">
+            <div className="bg-blue-100 p-3 rounded-full">
+              <Wallet className="w-6 h-6 text-blue-600" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">My Wallet</h1>
+              <p className="text-gray-600">Manage your digital wallet</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">My Wallet</h1>
-            <p className="text-gray-600">Manage your digital wallet</p>
-          </div>
+
+          {isDemoMode && (
+            <div className="flex items-center space-x-2">
+              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                Demo Mode
+              </Badge>
+              <Button
+                onClick={() => setIsDemoMode(false)}
+                variant="outline"
+                size="sm"
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="space-y-6">
@@ -428,8 +529,11 @@ export function MyWalletPanel() {
                       @{authUser?.onelink || "User"}
                     </h2>
                     <div className="flex items-center space-x-1 mt-1">
-                      <span className="font-mono text-sm text-gray-600" title={walletAddress || ""}>
-                        {formatAddress(walletAddress || "")}
+                      <span
+                        className="font-mono text-sm text-gray-600"
+                        title={currentAddress || ""}
+                      >
+                        {formatAddress(currentAddress || "")}
                       </span>
                       <Button
                         onClick={copyAddress}
@@ -442,9 +546,9 @@ export function MyWalletPanel() {
                 </div>
                 <div className="text-right">
                   <div className="text-2xl font-bold text-gray-900">
-                    {isBalanceLoading
+                    {currentIsBalanceLoading
                       ? "Loading..."
-                      : `${parseFloat(balanceData?.formatted ?? "0").toFixed(4)} ${balanceData?.symbol ?? "ETH"}`}
+                      : `${parseFloat(currentBalance ?? "0").toFixed(4)} ${currentSymbol ?? "ETH"}`}
                   </div>
                   <p className="text-sm text-gray-600">Total Balance</p>
                 </div>
@@ -464,9 +568,9 @@ export function MyWalletPanel() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-gray-900 mb-2">
-                {isBalanceLoading
+                {currentIsBalanceLoading
                   ? "Loading..."
-                  : `${parseFloat(balanceData?.formatted ?? "0").toFixed(4)} ${balanceData?.symbol ?? "ETH"}`}
+                  : `${parseFloat(currentBalance ?? "0").toFixed(4)} ${currentSymbol ?? "ETH"}`}
               </div>
               <CardDescription className="mb-6">Your current wallet balance</CardDescription>
 
@@ -613,9 +717,9 @@ export function MyWalletPanel() {
               </TabsList>
 
               <TabsContent value="tokens">
-                {sampleTokens.length > 0 ? (
+                {currentTokens.length > 0 ? (
                   <div className="space-y-3">
-                    {sampleTokens.map(token => (
+                    {currentTokens.map(token => (
                       <div
                         key={token.id}
                         className="flex justify-between items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
@@ -679,9 +783,9 @@ export function MyWalletPanel() {
               </TabsContent>
 
               <TabsContent value="nfts">
-                {sampleNFTs.length > 0 ? (
+                {currentNFTs.length > 0 ? (
                   <div className="grid grid-cols-2 gap-4">
-                    {sampleNFTs.map(nft => (
+                    {currentNFTs.map(nft => (
                       <Card
                         key={nft.id}
                         className="overflow-hidden hover:shadow-md transition-shadow"
@@ -743,9 +847,9 @@ export function MyWalletPanel() {
               </TabsContent>
 
               <TabsContent value="history">
-                {sampleTransactions.length > 0 ? (
+                {currentTransactions.length > 0 ? (
                   <div className="space-y-3">
-                    {sampleTransactions.map(transaction => (
+                    {currentTransactions.map(transaction => (
                       <div
                         key={transaction.id}
                         className="flex justify-between items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
@@ -966,9 +1070,9 @@ export function MyWalletPanel() {
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm font-medium text-blue-700">Current Balance</span>
                     <span className="text-lg font-bold text-blue-900">
-                      {isBalanceLoading
+                      {currentIsBalanceLoading
                         ? "Loading..."
-                        : `${parseFloat(balanceData?.formatted ?? "0").toFixed(4)} ${balanceData?.symbol ?? "ETH"}`}
+                        : `${parseFloat(currentBalance ?? "0").toFixed(4)} ${currentSymbol ?? "ETH"}`}
                     </span>
                   </div>
                   {sendAmount && (
@@ -1111,5 +1215,5 @@ export function MyWalletPanel() {
     </div>
   );
 
-  return isConnected ? loggedInView : unloggedInView;
+  return isConnected || isDemoMode ? loggedInView : unloggedInView;
 }
