@@ -46,7 +46,7 @@
     "@tsparticles/react": "^3.0.0",
     "@vercel/related-projects": "^1.0.0",
     "@wagmi/core": "^2.17.0",
-    "@web3auth/modal": "^10.0.5",
+    "@web3auth/modal": "^10.0.4",
     "axios": "^1.6.7",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

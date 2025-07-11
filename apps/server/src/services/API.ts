@@ -54,7 +54,11 @@ export class API implements Service {
 
           // Add additional origins based on environment
           if (env.NODE_ENV === "development") {
-            allowedOrigins.push("http://localhost:5173", "http://localhost:3000");
+            allowedOrigins.push(
+              "http://localhost:5173",
+              "http://localhost:5174",
+              "http://localhost:3000"
+            );
           }
 
           console.log("CORS debug - Allowed origins:", allowedOrigins);

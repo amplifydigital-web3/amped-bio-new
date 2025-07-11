@@ -77,13 +77,7 @@ export function MyWalletPanel() {
       status: dataWeb3Auth?.status,
       initError: dataWeb3Auth?.initError,
     });
-  }, [
-    dataWeb3Auth?.isConnected,
-    dataWeb3Auth?.isInitialized,
-    dataWeb3Auth?.isInitializing,
-    dataWeb3Auth?.status,
-    dataWeb3Auth?.initError,
-  ]);
+  }, [dataWeb3Auth]);
 
   // Add effect to wait for proper initialization
   useEffect(() => {
@@ -138,12 +132,12 @@ export function MyWalletPanel() {
   const demoData = {
     address: "0x742d35Cc6634C0532925a3b8D2aEd3C5c9B3c3f8",
     balance: "1.2847",
-    symbol: "ETH",
+    symbol: "REVO",
     tokens: [
       {
         id: "1",
-        name: "Ethereum",
-        symbol: "ETH",
+        name: "Revo",
+        symbol: "REVO",
         balance: "1.2847",
         value: "$3,241.20",
         icon: "⟠",
@@ -175,7 +169,7 @@ export function MyWalletPanel() {
       {
         id: "1",
         type: "received",
-        amount: "0.5 ETH",
+        amount: "0.5 REVO",
         value: "$1,250.00",
         from: "0x1234567890abcdef1234567890abcdef12345678",
         to: "0x742d35Cc6634C0532925a3b8D2aEd3C5c9B3c3f8",
@@ -186,7 +180,7 @@ export function MyWalletPanel() {
       {
         id: "2",
         type: "sent",
-        amount: "0.2 ETH",
+        amount: "0.2 REVO",
         value: "$500.00",
         from: "0x742d35Cc6634C0532925a3b8D2aEd3C5c9B3c3f8",
         to: "0x9876543210fedcba9876543210fedcba98765432",
@@ -537,7 +531,7 @@ export function MyWalletPanel() {
                       </span>
                       <Button
                         onClick={copyAddress}
-                        className="h-7 w-7 text-white hover:text-gray-200 bg-gray-600 hover:bg-gray-700"
+                        className="h-7 w-7 text-white hover:text-blue-100 bg-blue-600 hover:bg-blue-700 border-blue-500"
                       >
                         <Copy className="w-4 h-4" />
                       </Button>
@@ -548,7 +542,7 @@ export function MyWalletPanel() {
                   <div className="text-2xl font-bold text-gray-900">
                     {currentIsBalanceLoading
                       ? "Loading..."
-                      : `${parseFloat(currentBalance ?? "0").toFixed(4)} ${currentSymbol ?? "ETH"}`}
+                      : `${parseFloat(currentBalance ?? "0").toFixed(4)} ${currentSymbol ?? "REVO"}`}
                   </div>
                   <p className="text-sm text-gray-600">Total Balance</p>
                 </div>
@@ -570,7 +564,7 @@ export function MyWalletPanel() {
               <div className="text-3xl font-bold text-gray-900 mb-2">
                 {currentIsBalanceLoading
                   ? "Loading..."
-                  : `${parseFloat(currentBalance ?? "0").toFixed(4)} ${currentSymbol ?? "ETH"}`}
+                  : `${parseFloat(currentBalance ?? "0").toFixed(4)} ${currentSymbol ?? "REVO"}`}
               </div>
               <CardDescription className="mb-6">Your current wallet balance</CardDescription>
 
@@ -1044,119 +1038,179 @@ export function MyWalletPanel() {
         )}
 
         {/* Send Modal */}
-        {showSendModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <Card className="max-w-md w-full mx-4 rounded-2xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] duration-300">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Send ETH</CardTitle>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setShowSendModal(false);
-                      setSendAddress("");
-                      setSendAmount("");
-                    }}
-                    className="text-gray-400 hover:text-gray-600 p-1"
-                  >
-                    <X className="w-6 h-6" />
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Current Balance */}
-                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-blue-700">Current Balance</span>
+        <Dialog open={showSendModal} onOpenChange={setShowSendModal}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center space-x-2">
+                <ArrowUpRight className="w-5 h-5 text-blue-600" />
+                <span>Send REVO</span>
+              </DialogTitle>
+              <DialogDescription>
+                Send REVO tokens to another wallet address securely.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-6">
+              {/* Current Balance Card */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-blue-700">Available Balance</span>
+                  <div className="flex items-center space-x-1">
+                    <Wallet className="w-4 h-4 text-blue-600" />
                     <span className="text-lg font-bold text-blue-900">
                       {currentIsBalanceLoading
                         ? "Loading..."
-                        : `${parseFloat(currentBalance ?? "0").toFixed(4)} ${currentSymbol ?? "ETH"}`}
+                        : `${parseFloat(currentBalance ?? "0").toFixed(4)} ${currentSymbol ?? "REVO"}`}
                     </span>
                   </div>
-                  {sendAmount && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-blue-700">After Transaction</span>
-                      <span className="text-lg font-bold text-blue-900">
-                        {calculateRemainingBalance()} {balanceData?.symbol ?? "ETH"}
-                      </span>
+                </div>
+                {sendAmount && (
+                  <div className="flex justify-between items-center pt-2 border-t border-blue-200">
+                    <span className="text-sm font-medium text-blue-700">After Transaction</span>
+                    <span className="text-lg font-semibold text-blue-800">
+                      {calculateRemainingBalance()} {balanceData?.symbol ?? "REVO"}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Recipient Address */}
+              <div className="space-y-3">
+                <label className="text-sm font-semibold text-gray-900">Recipient Address</label>
+                <div className="relative w-full">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    type="text"
+                    placeholder="Enter wallet address (0x...)"
+                    value={sendAddress}
+                    onChange={e => setSendAddress(e.target.value)}
+                    className="w-full pl-10 pr-10 font-mono text-sm h-12 border-2 focus:border-blue-500 bg-gray-50 focus:bg-white transition-all duration-200"
+                  />
+                  {sendAddress && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      {sendAddress.startsWith("0x") && sendAddress.length === 42 ? (
+                        <Check className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <X className="w-4 h-4 text-red-500" />
+                      )}
                     </div>
                   )}
                 </div>
+                {sendAddress && (!sendAddress.startsWith("0x") || sendAddress.length !== 42) && (
+                  <p className="text-red-500 text-xs flex items-center space-x-1">
+                    <X className="w-3 h-3" />
+                    <span>Please enter a valid Ethereum address</span>
+                  </p>
+                )}
+              </div>
 
-                {/* Recipient Address */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Recipient Address</label>
+              {/* Amount */}
+              <div className="space-y-3">
+                <label className="text-sm font-semibold text-gray-900">
+                  Amount ({balanceData?.symbol ?? "REVO"})
+                </label>
+                <div className="relative w-full">
+                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input
-                    type="text"
-                    placeholder="0x..."
-                    value={sendAddress}
-                    onChange={e => setSendAddress(e.target.value)}
-                    className="font-mono text-sm"
+                    type="number"
+                    placeholder="0.0000"
+                    value={sendAmount}
+                    onChange={e => setSendAmount(e.target.value)}
+                    step="0.0001"
+                    min="0"
+                    max={balanceData?.formatted ?? "0"}
+                    className="w-full pl-10 pr-20 h-12 text-lg font-semibold border-2 focus:border-blue-500 bg-gray-50 focus:bg-white transition-all duration-200"
                   />
-                </div>
-
-                {/* Amount */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    Amount ({balanceData?.symbol ?? "ETH"})
-                  </label>
-                  <div className="relative">
-                    <Input
-                      type="number"
-                      placeholder="0.0"
-                      value={sendAmount}
-                      onChange={e => setSendAmount(e.target.value)}
-                      step="0.0001"
-                      min="0"
-                      max={balanceData?.formatted ?? "0"}
-                    />
-                    <Button
-                      onClick={() => setSendAmount(balanceData?.formatted ?? "0")}
-                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs px-2 py-1 h-6 bg-blue-100 hover:bg-blue-200 text-blue-700"
-                      variant="outline"
-                      size="sm"
-                    >
-                      Max
-                    </Button>
-                  </div>
-                  {sendAmount && !isValidSendAmount() && (
-                    <p className="text-red-500 text-xs">
-                      {parseFloat(sendAmount) > parseFloat(balanceData?.formatted ?? "0")
-                        ? "Insufficient balance"
-                        : "Please enter a valid amount"}
-                    </p>
-                  )}
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex space-x-3 pt-4">
                   <Button
-                    onClick={() => {
-                      setShowSendModal(false);
-                      setSendAddress("");
-                      setSendAmount("");
-                    }}
+                    onClick={() => setSendAmount(balanceData?.formatted ?? "0")}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs px-3 py-1 h-8 bg-blue-100 hover:bg-blue-200 text-blue-700 border border-blue-300 rounded-md font-medium"
                     variant="outline"
-                    className="flex-1"
-                    disabled={sendLoading}
+                    size="sm"
                   >
-                    Cancel
+                    MAX
                   </Button>
-                  <ShimmerButton
-                    onClick={handleSendTransaction}
-                    disabled={sendLoading || !isValidSendAmount() || !sendAddress}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
-                    shimmerColor="#60a5fa"
-                  >
-                    {sendLoading ? "Sending..." : "Send ETH"}
-                  </ShimmerButton>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+                {sendAmount && !isValidSendAmount() && (
+                  <p className="text-red-500 text-xs flex items-center space-x-1">
+                    <X className="w-3 h-3" />
+                    <span>
+                      {parseFloat(sendAmount) > parseFloat(balanceData?.formatted ?? "0")
+                        ? "Insufficient balance for this transaction"
+                        : "Please enter a valid amount greater than 0"}
+                    </span>
+                  </p>
+                )}
+              </div>
+
+              {/* Transaction Summary */}
+              {sendAmount &&
+                isValidSendAmount() &&
+                sendAddress.startsWith("0x") &&
+                sendAddress.length === 42 && (
+                  <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+                    <h4 className="text-sm font-semibold text-green-800 mb-2 flex items-center space-x-1">
+                      <Check className="w-4 h-4" />
+                      <span>Transaction Summary</span>
+                    </h4>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-green-700">Amount:</span>
+                        <span className="font-medium text-green-900">
+                          {sendAmount} {balanceData?.symbol ?? "REVO"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-green-700">To:</span>
+                        <span className="font-mono text-green-900 text-xs">
+                          {formatAddress(sendAddress)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+              {/* Action Buttons */}
+              <div className="flex space-x-3 pt-2">
+                <Button
+                  onClick={() => {
+                    setShowSendModal(false);
+                    setSendAddress("");
+                    setSendAmount("");
+                  }}
+                  variant="outline"
+                  className="flex-1 h-12"
+                  disabled={sendLoading}
+                >
+                  Cancel
+                </Button>
+                <ShimmerButton
+                  onClick={handleSendTransaction}
+                  disabled={
+                    sendLoading ||
+                    !isValidSendAmount() ||
+                    !sendAddress ||
+                    !sendAddress.startsWith("0x") ||
+                    sendAddress.length !== 42
+                  }
+                  className="flex-1 h-12 bg-blue-600 hover:bg-blue-700 text-white border-blue-600 font-semibold"
+                  shimmerColor="#60a5fa"
+                >
+                  {sendLoading ? (
+                    <div className="flex items-center space-x-2">
+                      <Clock className="w-4 h-4 animate-spin" />
+                      <span>Sending...</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <ArrowUpRight className="w-4 h-4" />
+                      <span>Send REVO</span>
+                    </div>
+                  )}
+                </ShimmerButton>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Receive Modal */}
         {showReceiveModal && (
@@ -1194,13 +1248,13 @@ export function MyWalletPanel() {
                     </p>
                     <Button
                       onClick={copyAddress}
-                      className="ml-2 flex-shrink-0 relative w-8 h-8 p-2 bg-gray-600 hover:bg-gray-700 rounded-lg"
+                      className="ml-2 flex-shrink-0 relative w-8 h-8 p-2 bg-blue-600 hover:bg-blue-700 rounded-lg border-blue-500"
                     >
                       <Copy
                         className={`w-4 h-4 text-white transition-opacity duration-300 ${copyStatus === "idle" ? "opacity-100" : "opacity-0"}`}
                       />
                       <Check
-                        className={`w-4 h-4 text-green-500 transition-opacity duration-300 absolute ${copyStatus === "success" ? "opacity-100" : "opacity-0"}`}
+                        className={`w-4 h-4 text-white transition-opacity duration-300 absolute ${copyStatus === "success" ? "opacity-100" : "opacity-0"}`}
                       />
                     </Button>
                   </div>

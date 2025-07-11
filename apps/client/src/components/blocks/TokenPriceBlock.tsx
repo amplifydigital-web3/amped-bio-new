@@ -48,7 +48,7 @@ export function TokenPriceBlock({ block, theme }: TokenPriceBlockProps) {
     if (block.config.content) {
       setTokenData({
         name: "Ethereum",
-        symbol: "ETH",
+        symbol: "REVO",
         price: 2235.67,
         change24h: 2.45,
         marketCap: 268900000000,
