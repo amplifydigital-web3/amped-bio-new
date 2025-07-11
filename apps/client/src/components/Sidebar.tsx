@@ -1,4 +1,3 @@
-import React, { useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useEditor } from "../contexts/EditorContext";
 import {
@@ -15,8 +14,6 @@ import {
   Settings,
   Wallet,
 } from "lucide-react";
-import { exportSettings } from "../utils/export";
-import { importSettings } from "../utils/import";
 
 // Define all possible navigation items
 const allNavItems = [
@@ -47,7 +44,6 @@ const allNavItems = [
 export function Sidebar() {
   const editorState = useEditor();
   const { activePanel, setActivePanel } = editorState;
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
   const handlePanelClick = (id: string) => {
@@ -55,35 +51,6 @@ export function Sidebar() {
       navigate("/account");
     } else {
       setActivePanel(id);
-    }
-  };
-
-  const handleExport = () => {
-    exportSettings({
-      profile: editorState.profile,
-      blocks: editorState.blocks,
-      theme: editorState.theme,
-      activePanel: editorState.activePanel,
-    });
-  };
-
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const editorActions = {
-        setProfile: editorState.setProfile,
-        reorderBlocks: editorState.reorderBlocks,
-        updateThemeConfig: editorState.updateThemeConfig,
-        setActivePanel: editorState.setActivePanel,
-      };
-      await importSettings(file, editorActions);
-      // Reset the input value to allow importing the same file again
-      e.target.value = "";
-    } catch (error) {
-      console.error("Failed to import settings:", error);
-      alert("Failed to import settings. Please check the file format.");
     }
   };
 
