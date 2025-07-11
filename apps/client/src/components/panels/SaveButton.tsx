@@ -1,9 +1,7 @@
-import { useEditorStore } from "../../store/editorStore";
+import { useEditor } from "../../contexts/EditorContext";
 
 const SaveButton = () => {
-  const changes = useEditorStore(state => state.changes);
-  const themeChanges = useEditorStore(state => state.themeChanges);
-  const saveChanges = useEditorStore(state => state.saveChanges);
+  const { changes, themeChanges, saveChanges } = useEditor();
 
   if (!changes && !themeChanges) {
     // Show when there are either block changes or theme changes

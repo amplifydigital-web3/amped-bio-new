@@ -1,13 +1,12 @@
 import { ButtonEffectsPicker } from "./ButtonEffectsPicker";
 import { ParticlesEffectPicker } from "./ParticlesEffectPicker";
 import { HeroEffectPicker } from "./HeroEffectPicker";
-import { useEditorStore } from "../../../store/editorStore";
+import { useEditor } from "../../../contexts/EditorContext";
 import { AlertTriangle } from "lucide-react";
 
 export function EffectsPanel() {
-  const theme = useEditorStore(state => state.theme);
+  const { theme, updateThemeConfig } = useEditor();
   const themeConfig = theme.config;
-  const updateThemeConfig = useEditorStore(state => state.updateThemeConfig);
 
   // Check if theme is not customizable (admin theme)
   const isNotCustomizable = theme.user_id === null;

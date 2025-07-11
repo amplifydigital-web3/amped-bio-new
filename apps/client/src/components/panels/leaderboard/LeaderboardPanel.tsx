@@ -1,5 +1,5 @@
 import React from "react";
-import { useEditorStore } from "../../../store/editorStore";
+import { useEditor } from "../../../contexts/EditorContext";
 import { CreatorPoolDetail } from "../creatorpool/CreatorPoolDetail";
 import { CoinsIcon, Users, Clock, TrendingUp, Crown } from "lucide-react";
 
@@ -84,8 +84,7 @@ const mockPools: Pool[] = [
 ];
 
 export function LeaderboardPanel() {
-  const selectedPoolId = useEditorStore(state => state.selectedPoolId);
-  const setSelectedPoolId = useEditorStore(state => state.setSelectedPoolId);
+  const { selectedPoolId, setSelectedPoolId } = useEditor();
 
   const formatUSD = (value: number) => {
     return new Intl.NumberFormat("en-US", {

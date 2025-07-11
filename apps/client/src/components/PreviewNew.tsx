@@ -32,7 +32,7 @@ interface PreviewProps {
   onelink: string;
 }
 
-export function Preview(_props: PreviewProps) {
+export function Preview(props: PreviewProps) {
   const [isMobile, setIsMobile] = React.useState(false);
   const { profile, blocks, theme } = useEditor();
   const themeConfig = theme.config;

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useEditorStore } from "../../../store/editorStore";
+import { useEditor } from "../../../contexts/EditorContext";
 import { CreatePoolForm } from "./CreatePoolForm";
 import { PoolList } from "./PoolList";
 

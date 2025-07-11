@@ -4,7 +4,7 @@ import { HoverPopover } from "../../ui/popover";
 import { trpc } from "../../../utils/trpc";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
-import { useEditorStore } from "../../../store/editorStore";
+import { useEditor } from "../../../contexts/EditorContext";
 
 interface ThemeCardProps {
   theme: MarketplaceTheme;
@@ -13,8 +13,7 @@ interface ThemeCardProps {
 
 export function ThemeCard({ theme, onApply }: ThemeCardProps) {
   const queryClient = useQueryClient();
-  const profile = useEditorStore(state => state.profile);
-  const setUser = useEditorStore(state => state.setUser);
+  const { profile, setUser } = useEditor();
 
   // Mutation for applying theme
   const applyTheme = useMutation({

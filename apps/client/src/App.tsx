@@ -23,6 +23,7 @@ import { Toaster } from "react-hot-toast";
 import { Web3AuthProvider } from "@web3auth/modal/react";
 import web3AuthContextConfig from "./utils/web3authContext";
 import { AuthProvider } from "./contexts/AuthContext";
+import { EditorProvider } from "./contexts/EditorContext";
 import { useTokenExpiration } from "./hooks/useTokenExpiration";
 import { WagmiProvider } from "@web3auth/modal/react/wagmi";
 // import { wagmiConfig } from "./utils/wagmiConfig";
@@ -113,9 +114,11 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <WagmiProvider>
           <AuthProvider>
-            <BrowserRouter>
-              <AppRouter />
-            </BrowserRouter>
+            <EditorProvider>
+              <BrowserRouter>
+                <AppRouter />
+              </BrowserRouter>
+            </EditorProvider>
           </AuthProvider>
         </WagmiProvider>
       </QueryClientProvider>

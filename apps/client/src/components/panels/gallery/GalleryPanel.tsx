@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "../../../utils/trpc/trpc";
-import { useEditorStore } from "../../../store/editorStore";
+import { useEditor } from "../../../contexts/EditorContext";
 import { useCollections } from "../../../hooks/useCollections";
 import type { MarketplaceTheme } from "../../../types/editor";
 import { MarketplaceHeader } from "./MarketplaceHeader";
@@ -13,14 +13,16 @@ import { CollectionsOverview } from "./CollectionsOverview";
 
 export function GalleryPanel() {
   const [activeCollection, setActiveCollection] = useState("");
-  const view = useEditorStore(state => state.marketplaceView);
-  const filter = useEditorStore(state => state.marketplaceFilter);
-  const sort = useEditorStore(state => state.marketplaceSort);
-  const setView = useEditorStore(state => state.setMarketplaceView);
-  const setFilter = useEditorStore(state => state.setMarketplaceFilter);
-  const setSort = useEditorStore(state => state.setMarketplaceSort);
-  const applyTheme = useEditorStore(state => state.applyTheme);
-  const updateThemeConfig = useEditorStore(state => state.updateThemeConfig);
+  const {
+    marketplaceView: view,
+    marketplaceFilter: filter,
+    marketplaceSort: sort,
+    setMarketplaceView: setView,
+    setMarketplaceFilter: setFilter,
+    setMarketplaceSort: setSort,
+    applyTheme,
+    updateThemeConfig,
+  } = useEditor();
 
   // Wrapper function to handle theme application without marking as changed
   const handleThemeApply = (themeConfig: MarketplaceTheme["theme"]) => {

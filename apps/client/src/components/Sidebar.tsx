@@ -1,6 +1,6 @@
 import React, { useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useEditorStore } from "../store/editorStore";
+import { useEditor } from "../contexts/EditorContext";
 import {
   User,
   Palette,
@@ -45,9 +45,8 @@ const allNavItems = [
 ];
 
 export function Sidebar() {
-  const activePanel = useEditorStore(state => state.activePanel);
-  const setActivePanel = useEditorStore(state => state.setActivePanel);
-  const editorState = useEditorStore();
+  const editorState = useEditor();
+  const { activePanel, setActivePanel } = editorState;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
@@ -73,7 +72,13 @@ export function Sidebar() {
     if (!file) return;
 
     try {
-      await importSettings(file);
+      const editorActions = {
+        setProfile: editorState.setProfile,
+        reorderBlocks: editorState.reorderBlocks,
+        updateThemeConfig: editorState.updateThemeConfig,
+        setActivePanel: editorState.setActivePanel,
+      };
+      await importSettings(file, editorActions);
       // Reset the input value to allow importing the same file again
       e.target.value = "";
     } catch (error) {

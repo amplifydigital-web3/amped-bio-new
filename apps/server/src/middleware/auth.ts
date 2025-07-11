@@ -28,6 +28,7 @@ export const authMiddleware = (...requiredRoles: string[]) => {
         algorithms: ["RS256"],
       }) as jwt.JwtPayload;
       req.user = decoded as unknown as JWTUser;
+      req.user.sub = parseInt(req.user.sub.toString(), 10); // Ensure sub is a number
 
       // If no specific roles are required, just proceed
       // since the user is already authenticated

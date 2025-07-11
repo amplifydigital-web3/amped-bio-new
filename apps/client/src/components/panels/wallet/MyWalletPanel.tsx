@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEditorStore } from "@/store/editorStore";
+import { useEditor } from "@/contexts/EditorContext";
 import {
   Wallet,
   Copy,
@@ -102,7 +102,7 @@ export function MyWalletPanel() {
   ]);
 
   const { authUser } = useAuth();
-  const profile = useEditorStore(state => state.profile);
+  const { profile } = useEditor();
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showProfileOptions, setShowProfileOptions] = useState(false);
   const [copyStatus, setCopyStatus] = useState<"idle" | "success">("idle");

@@ -1,7 +1,13 @@
 import type { EditorState } from "../types/editor";
-import { useEditorStore } from "../store/editorStore";
 
-export async function importSettings(file: File): Promise<void> {
+interface EditorActions {
+  setProfile: (profile: any) => void;
+  reorderBlocks: (blocks: any[]) => void;
+  updateThemeConfig: (config: any) => void;
+  setActivePanel: (panel: string) => void;
+}
+
+export async function importSettings(file: File, editorActions: EditorActions): Promise<void> {
   try {
     const text = await file.text();
     const data = JSON.parse(text) as EditorState;
@@ -11,14 +17,11 @@ export async function importSettings(file: File): Promise<void> {
       throw new Error("Invalid settings file format");
     }
 
-    // Get the store actions
-    const store = useEditorStore.getState();
-
-    // Update all store values
-    store.setProfile(data.profile);
-    store.reorderBlocks(data.blocks);
-    store.updateThemeConfig(data.theme.config);
-    store.setActivePanel(data.activePanel);
+    // Update all values using the provided actions
+    editorActions.setProfile(data.profile);
+    editorActions.reorderBlocks(data.blocks);
+    editorActions.updateThemeConfig(data.theme.config);
+    editorActions.setActivePanel(data.activePanel);
 
     return Promise.resolve();
   } catch (error) {
