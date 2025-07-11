@@ -3,7 +3,7 @@ import { Sidebar } from "./Sidebar";
 import { Preview } from "./Preview";
 import { UserMenu } from "./auth/UserMenu";
 import SaveButton from "./panels/SaveButton.tsx";
-import { useEditorStore } from "../store/editorStore";
+import { useEditor } from "../contexts/EditorContext";
 import { ProfilePanel } from "./panels/profile/ProfilePanel";
 import { GalleryPanel } from "./panels/gallery/GalleryPanel";
 import { AppearancePanel } from "./panels/appearance/AppearancePanel";
@@ -43,7 +43,7 @@ interface PanelConfig {
 
 export function Layout(props: LayoutProps) {
   const { onelink } = props;
-  const activePanel = useEditorStore(state => state.activePanel);
+  const { activePanel } = useEditor();
   // const emailVerified = useAuth(state => state.authUser.emailVerified);
   const { authUser } = useAuth();
   const isLoggedIn = authUser !== null;

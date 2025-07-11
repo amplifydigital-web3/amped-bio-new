@@ -3,7 +3,7 @@ import { Preview } from "../components/Preview";
 import { Settings } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useEffect, useState } from "react";
-import { useEditorStore } from "../store/editorStore";
+import { useEditor } from "../contexts/EditorContext";
 import { AuthModal } from "../components/auth/AuthModal";
 import { formatOnelink, normalizeOnelink } from "@/utils/onelink";
 import type { AuthUser } from "../types/auth";
@@ -17,8 +17,7 @@ export function View() {
   const { onelink = "" } = useParams();
   const { authUser } = useAuth();
   const [loading, setLoading] = useState(false);
-  const profile = useEditorStore(state => state.profile);
-  const setUser = useEditorStore(state => state.setUser);
+  const { profile, setUser } = useEditor();
   const location = useLocation();
   const navigate = useNavigate();
 

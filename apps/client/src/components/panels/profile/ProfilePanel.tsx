@@ -1,16 +1,12 @@
 import { useState, useRef } from "react";
 import { ProfileForm } from "./ProfileForm";
 import { ImageUploader } from "./ImageUploader";
-import { useEditorStore } from "../../../store/editorStore";
+import { useEditor } from "../../../contexts/EditorContext";
 import { URLPicker } from "./URLPicker";
 import { Download, Upload, AlertTriangle } from "lucide-react";
 
 export function ProfilePanel() {
-  const profile = useEditorStore(state => state.profile);
-  const theme = useEditorStore(state => state.theme);
-  const setProfile = useEditorStore(state => state.setProfile);
-  const exportTheme = useEditorStore(state => state.exportTheme);
-  const importTheme = useEditorStore(state => state.importTheme);
+  const { profile, theme, setProfile, exportTheme, importTheme } = useEditor();
   const [activeTab, setActiveTab] = useState("general");
   const fileInputRef = useRef<HTMLInputElement>(null);
 

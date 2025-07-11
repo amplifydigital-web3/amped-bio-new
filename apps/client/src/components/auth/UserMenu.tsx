@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { LogOut, User, Settings, ArrowRight, Wallet } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
-import { useEditorStore } from "../../store/editorStore";
+import { useEditor } from "../../contexts/EditorContext";
 import { AuthModal } from "./AuthModal";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
@@ -19,7 +19,7 @@ import { useAccount } from "wagmi";
 export function UserMenu() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { authUser, signOut } = useAuth();
-  const { profile, setUser, setDefault } = useEditorStore();
+  const { profile, setUser, setDefault } = useEditor();
   const nav = useNavigate();
   const { address: walletAddress } = useAccount();
 

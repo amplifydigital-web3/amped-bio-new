@@ -2,15 +2,13 @@ import { BackgroundPicker } from "./BackgroundPicker";
 import { ButtonStylePicker } from "./ButtonStylePicker";
 import { ContainerStylePicker } from "./ContainerStylePicker";
 import { FontPicker } from "./FontPicker";
-import { useEditorStore } from "../../../store/editorStore";
+import { useEditor } from "../../../contexts/EditorContext";
 import { AlertTriangle } from "lucide-react";
 
 export function AppearancePanel() {
-  const theme = useEditorStore(state => state.theme);
+  const { theme, updateThemeConfig, setBackground } = useEditor();
   const themeConfig = theme.config;
-  const themeId = useEditorStore(state => state.theme.id);
-  const updateThemeConfig = useEditorStore(state => state.updateThemeConfig);
-  const setBackground = useEditorStore(state => state.setBackground);
+  const themeId = theme.id;
 
   // Check if theme is not customizable (admin theme)
   const isNotCustomizable = theme.user_id === null;

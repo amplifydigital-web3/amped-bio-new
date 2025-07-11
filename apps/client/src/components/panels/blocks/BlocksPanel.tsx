@@ -1,14 +1,10 @@
 import { BlockList } from "./BlockList";
 import { BlockPicker } from "./BlockPicker";
 import { LinkForm } from "./LinkForm";
-import { useEditorStore } from "../../../store/editorStore";
+import { useEditor } from "../../../contexts/EditorContext";
 
 export function BlocksPanel() {
-  const blocks = useEditorStore(state => state.blocks);
-  const addBlock = useEditorStore(state => state.addBlock);
-  const removeBlock = useEditorStore(state => state.removeBlock);
-  const updateBlock = useEditorStore(state => state.updateBlock);
-  const reorderBlocks = useEditorStore(state => state.reorderBlocks);
+  const { blocks, addBlock, removeBlock, updateBlock, reorderBlocks } = useEditor();
 
   return (
     <div className="flex flex-col">

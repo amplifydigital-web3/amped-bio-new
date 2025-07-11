@@ -2,7 +2,7 @@ import { useParams, useLocation } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { useAuth } from "../contexts/AuthContext";
 import { useEffect, useState } from "react";
-import { useEditorStore } from "../store/editorStore";
+import { useEditor } from "../contexts/EditorContext";
 import { useNavigate } from "react-router-dom";
 import { normalizeOnelink, formatOnelink, isEquivalentOnelink } from "@/utils/onelink";
 import { toast } from "react-hot-toast";
@@ -12,9 +12,7 @@ export function Editor() {
   const { authUser, updateAuthUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [authorized, setAuthorized] = useState(false);
-  const profile = useEditorStore(state => state.profile);
-  const setUser = useEditorStore(state => state.setUser);
-  const setActivePanel = useEditorStore(state => state.setActivePanel);
+  const { profile, setUser, setActivePanel } = useEditor();
   const nav = useNavigate();
   const location = useLocation();
 

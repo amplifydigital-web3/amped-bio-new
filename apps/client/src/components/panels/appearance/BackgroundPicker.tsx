@@ -4,7 +4,7 @@ import type { Background } from "../../../types/editor";
 import { gradients, photos, videos, backgroundColors } from "../../../utils/backgrounds";
 import CollapsiblePanelWrapper from "../CollapsiblePanelWrapper";
 import { trpcClient } from "../../../utils/trpc";
-import { useEditorStore } from "../../../store/editorStore";
+import { useEditor } from "../../../contexts/EditorContext";
 import {
   ALLOWED_BACKGROUND_FILE_EXTENSIONS,
   ALLOWED_BACKGROUND_FILE_TYPES,
@@ -24,8 +24,7 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
   const [customURL, setCustomURL] = useState("");
 
   // Get profile and setUser from store for refetching theme data after upload
-  const profile = useEditorStore(state => state.profile);
-  const setUser = useEditorStore(state => state.setUser);
+  const { profile, setUser } = useEditor();
 
   const handleFileUpload = useCallback(
     async (file: File) => {
