@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import type { AuthUser } from "../types/auth";
 import { trpcClient } from "../utils/trpc";
-import { useWeb3AuthDisconnect } from "@web3auth/modal/react";
+import { useWeb3AuthDisconnect } from "../web3auth/src/react";
 
 // Helper function to validate token using tRPC "me" method
 const validateTokenWithServer = async (): Promise<{ isValid: boolean; user?: AuthUser }> => {

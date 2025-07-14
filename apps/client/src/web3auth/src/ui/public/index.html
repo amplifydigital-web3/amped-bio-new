@@ -1,0 +1,75 @@
+<html>
+  <head>
+    <title>Test web3auth app</title>
+  </head>
+
+  <body>
+    <h1>Test web3auth app</h1>
+    <div>
+      <button class="show-modal" onclick="showModal()">Show Modal</button>
+    </div>
+    <script src="../dist/ui.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@web3auth/auth"></script>
+    <script>
+      let modal = null;
+      let testEventEmitter = null;
+      function showModal() {
+        console.log("open");
+        modal.open();
+        // testEventEmitter.emit("connecting", { connector: "auth" })
+        // testEventEmitter.emit("errored", { error: new Error("something went wrong") })
+        // testEventEmitter.emit("connected", { connector: "wallet-connect-v1" })
+        // testEventEmitter.emit("disconnected", { connector: "wallet-connect-v1" })
+      }
+      (async function init() {
+        try {
+          testEventEmitter = new Auth.SafeEventEmitter();
+          modal = new Ui({
+            adapterListener: testEventEmitter,
+            theme: "dark",
+            // version: "1",
+          });
+          await modal.initSdk();
+          console.log("modal init");
+          modal.addSocialLogins(
+            "auth",
+            {
+              google: {
+                name: "google",
+              },
+              facebook: {
+                name: "facebook",
+              },
+              twitter: {
+                name: "twitter",
+              },
+              reddit: {
+                name: "reddit",
+              },
+              twitch: {
+                name: "twitch",
+              },
+              github: {
+                name: "github",
+              },
+            },
+            ["facebook"]
+          );
+          modal.initExternalWalletContainer();
+          modal.addWalletLogins(
+            {
+              "wallet-connect-v2": {
+                label: "wallet-connect-v2",
+              },
+            },
+            { showExternalWalletsOnly: false }
+          );
+          testEventEmitter.emit("connector_data_updated", { connectorName: "wallet-connect-v1", data: { uri: "alslkslkalls" } });
+          // showModal()
+        } catch (error) {
+          console.log("error in ui", error);
+        }
+      })();
+    </script>
+  </body>
+</html>

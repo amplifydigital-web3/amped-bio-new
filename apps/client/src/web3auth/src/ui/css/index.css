@@ -1,0 +1,80 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap");
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    padding: 0px !important;
+    margin: 0px !important;
+    box-sizing: border-box;
+  }
+
+  .w3a-parent-container {
+    font-family: "Inter";
+    position: relative;
+  }
+
+  .w3a-parent-container > * {
+    scrollbar-color: #e5e7eb !important;
+  }
+
+  .w3a-modal-container {
+    overflow: hidden;
+    transition-property: max-height;
+    transition-duration: 0.15s;
+    transition-timing-function: ease-out;
+    position: relative;
+  }
+
+  .w3a--social-container {
+    scrollbar-color: #e5e7eb !important;
+    scroll-padding-right: 10px;
+  }
+
+  .w3a--modal-curtain {
+    position: absolute;
+    background-color: transparent;
+    opacity: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    transition: opacity 50ms ease-in;
+    z-index: 1;
+  }
+}
+
+@layer utilities {
+  .w3a--bottom {
+    @apply w3a--bottom-1 w3a--left-[50%] w3a--translate-x-[-50%];
+  }
+
+  .w3a--bottom-sheet-bg {
+    @apply w3a--bg-app-gray-600 w3a--opacity-50;
+  }
+
+  .w3a--bottom-sheet-width {
+    @apply w3a--w-[98%];
+  }
+
+  .w3a--connected-logo {
+    @apply w3a--size-16 w3a--text-app-green-500 dark:w3a--text-app-green-400;
+  }
+
+  .w3a--error-logo {
+    @apply w3a--w-16 w3a--h-16 w3a--text-app-red-500 dark:w3a--text-app-red-400;
+  }
+
+  .w3a--btn {
+    @apply w3a--appearance-none w3a--text-app-gray-700 w3a--text-base w3a--font-normal w3a--w-full 
+    w3a--border w3a--border-app-gray-200 dark:w3a--border-app-gray-500
+    w3a--px-5 w3a--py-3 w3a--flex w3a--items-center w3a--justify-center 
+    hover:w3a--shadow-light dark:hover:w3a--shadow-dark
+    w3a--gap-x-2 hover:w3a--bg-app-gray-50 dark:hover:w3a--bg-app-gray-800 hover:w3a--translate-y-[0.5px] hover:w3a--border-app-gray-50 dark:hover:w3a--border-app-gray-800;
+  }
+
+  .w3a--input {
+    @apply w3a--flex w3a--items-center w3a--justify-between w3a--gap-x-2 w3a--w-full
+    w3a--px-5 w3a--py-3 w3a--border w3a--border-app-gray-200 dark:w3a--border-app-gray-500;
+  }
+}

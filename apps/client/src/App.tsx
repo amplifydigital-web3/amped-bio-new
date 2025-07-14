@@ -20,12 +20,12 @@ import { EmailVerification, EmailVerificationResent, PasswordReset } from "./pag
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./utils/trpc";
 import { Toaster } from "react-hot-toast";
-import { Web3AuthProvider } from "@web3auth/modal/react";
-import web3AuthContextConfig from "./utils/web3authContext";
 import { AuthProvider } from "./contexts/AuthContext";
 import { EditorProvider } from "./contexts/EditorContext";
 import { useTokenExpiration } from "./hooks/useTokenExpiration";
-import { WagmiProvider } from "@web3auth/modal/react/wagmi";
+import web3AuthContextConfig from "./utils/web3authContext";
+import { Web3AuthProvider } from "./web3auth/src/react";
+import { WagmiProvider } from "./web3auth/src/react/wagmi/provider";
 // import { wagmiConfig } from "./utils/wagmiConfig";
 
 function AppRouter() {

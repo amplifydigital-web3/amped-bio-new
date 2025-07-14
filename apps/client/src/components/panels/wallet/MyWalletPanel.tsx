@@ -38,13 +38,13 @@ import {
 } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAccount, useBalance } from "wagmi";
-import { WALLET_CONNECTORS, AUTH_CONNECTION } from "@web3auth/modal";
+import { WALLET_CONNECTORS, AUTH_CONNECTION } from "../../../web3auth/src";
 import {
   useWeb3Auth,
   useWeb3AuthConnect,
   useWeb3AuthDisconnect,
   useWeb3AuthUser,
-} from "@web3auth/modal/react";
+} from "../../../web3auth/src/react";
 
 export function MyWalletPanel() {
   const {
