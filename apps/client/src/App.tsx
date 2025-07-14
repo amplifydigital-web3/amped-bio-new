@@ -26,7 +26,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { EditorProvider } from "./contexts/EditorContext";
 import { useTokenExpiration } from "./hooks/useTokenExpiration";
 import { WagmiProvider } from "@web3auth/modal/react/wagmi";
-// import { wagmiConfig } from "./utils/wagmiConfig";
+import PrivyAuthProvider from "./providers/PrivyAuthProvider";
 
 function AppRouter() {
   // Use the token expiration hook inside the router context
@@ -112,15 +112,17 @@ function App() {
   return (
     <Web3AuthProvider config={web3AuthContextConfig}>
       <QueryClientProvider client={queryClient}>
-        <WagmiProvider>
-          <AuthProvider>
-            <EditorProvider>
-              <BrowserRouter>
-                <AppRouter />
-              </BrowserRouter>
-            </EditorProvider>
-          </AuthProvider>
-        </WagmiProvider>
+        <AuthProvider>
+          <PrivyAuthProvider>
+            <WagmiProvider>
+              <EditorProvider>
+                <BrowserRouter>
+                  <AppRouter />
+                </BrowserRouter>
+              </EditorProvider>
+            </WagmiProvider>
+          </PrivyAuthProvider>
+        </AuthProvider>
       </QueryClientProvider>
       <Toaster />
     </Web3AuthProvider>
