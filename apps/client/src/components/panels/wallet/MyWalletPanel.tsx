@@ -18,6 +18,9 @@ import {
   Check,
   ArrowRight,
   CreditCard,
+  Info,
+  TrendingUp,
+  Trophy,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -112,6 +115,7 @@ export function MyWalletPanel() {
   const [sendAmount, setSendAmount] = useState("");
   const [sendLoading, setSendLoading] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const [isUSD, setIsUSD] = useState(false);
 
   const { address: walletAddress } = useAccount();
 
@@ -504,7 +508,8 @@ export function MyWalletPanel() {
           {/* Profile Section */}
           <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl">
             <CardContent className="p-6">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-row items-center justify-between">
+                {/* Avatar, name, address (left) */}
                 <div className="flex items-center space-x-4">
                   <Avatar
                     className="h-16 w-16 cursor-pointer border border-gray-200 rounded-full"
@@ -522,29 +527,161 @@ export function MyWalletPanel() {
                     >
                       @{authUser?.onelink || "User"}
                     </h2>
-                    <div className="flex items-center space-x-1 mt-1">
+                    <div className="flex items-center space-x-1 mt-2">
                       <span
                         className="font-mono text-sm text-gray-600"
                         title={currentAddress || ""}
                       >
-                        {formatAddress(currentAddress || "")}
+                        <span className="inline-block rounded-full bg-blue-100 px-3 py-1 font-mono text-xs text-blue-800 border border-blue-200">
+                          {formatAddress(currentAddress || "")}
+                        </span>
                       </span>
                       <Button
                         onClick={copyAddress}
-                        className="h-7 w-7 text-white hover:text-blue-100 bg-blue-600 hover:bg-blue-700 border-blue-500"
+                        className="h-8 w-8 text-white bg-blue-600 hover:bg-blue-700 border-blue-500 flex items-center justify-center p-0"
                       >
-                        <Copy className="w-4 h-4" />
+                        <Copy className="w-4 h-4 text-white" />
                       </Button>
                     </div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-gray-900">
-                    {currentIsBalanceLoading
-                      ? "Loading..."
-                      : `${parseFloat(currentBalance ?? "0").toFixed(4)} ${currentSymbol ?? "REVO"}`}
+                {/* Settings icon (right) */}
+                <Button
+                  className="ml-4 text-gray-400 hover:text-blue-600"
+                  onClick={() => setShowProfileOptions(true)}
+                  aria-label="Profile Settings"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-7 h-7"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.01c1.527-.878 3.276.87 2.398 2.398a1.724 1.724 0 001.01 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.01 2.573c.878 1.527-.87 3.276-2.398 2.398a1.724 1.724 0 00-2.572 1.01c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.01c-1.527.878-3.276-.87-2.398-2.398a1.724 1.724 0 00-1.01-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.01-2.573c-.878-1.527.87-3.276 2.398-2.398.996.573 2.25.06 2.573-1.01z"
+                    />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                </Button>
+              </div>
+              {/* Stats Section below */}
+              <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="flex flex-col items-start bg-white/70 rounded-lg p-3 border border-blue-100">
+                  <div className="flex items-center space-x-2">
+                    <DollarSign className="w-5 h-5 text-blue-500" />
+                    <span className="text-xs text-gray-500 font-medium">Total REVO</span>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button type="button" className="ml-1 text-blue-400 hover:text-blue-600">
+                          <Info className="w-4 h-4" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-56 text-xs">
+                        The total amount of REVO tokens you currently hold in your wallet.
+                      </PopoverContent>
+                    </Popover>
                   </div>
-                  <p className="text-sm text-gray-600">Total Balance</p>
+                  <span className="text-xl font-bold text-blue-900">25,420 REVO</span>
+                </div>
+                <div className="flex flex-col items-start bg-white/70 rounded-lg p-3 border border-blue-100">
+                  <div className="flex items-center space-x-2">
+                    <Coins className="w-5 h-5 text-indigo-500" />
+                    <span className="text-xs text-gray-500 font-medium">My Stake</span>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="ml-1 text-indigo-400 hover:text-indigo-600"
+                        >
+                          <Info className="w-4 h-4" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-56 text-xs">
+                        The amount of REVO tokens you have staked in other creators' pools.
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <span className="text-xl font-bold text-blue-900">8,750 REVO</span>
+                </div>
+                <div className="flex flex-col items-start bg-white/70 rounded-lg p-3 border border-blue-100">
+                  <div className="flex items-center space-x-2">
+                    <TrendingUp className="w-5 h-5 text-green-500" />
+                    <span className="text-xs text-gray-500 font-medium">Staked to Me</span>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button type="button" className="ml-1 text-green-400 hover:text-green-600">
+                          <Info className="w-4 h-4" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-56 text-xs">
+                        The total REVO tokens other users have staked to support you.
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <span className="text-xl font-bold text-blue-900">15,420 REVO</span>
+                </div>
+                <div className="flex flex-col items-start bg-white/70 rounded-lg p-3 border border-blue-100">
+                  <div className="flex items-center space-x-2">
+                    <Gem className="w-5 h-5 text-purple-500" />
+                    <span className="text-xs text-gray-500 font-medium">Earnings to Date</span>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="ml-1 text-purple-400 hover:text-purple-600"
+                        >
+                          <Info className="w-4 h-4" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-56 text-xs">
+                        The total REVO tokens you have earned from staking and rewards.
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <span className="text-xl font-bold text-blue-900">1,250 REVO</span>
+                </div>
+                <div className="flex flex-col items-start bg-white/70 rounded-lg p-3 border border-blue-100">
+                  <div className="flex items-center space-x-2">
+                    <User className="w-5 h-5 text-yellow-500" />
+                    <span className="text-xs text-gray-500 font-medium">
+                      Stakers Supporting You
+                    </span>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="ml-1 text-yellow-400 hover:text-yellow-600"
+                        >
+                          <Info className="w-4 h-4" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-56 text-xs">
+                        The number of unique users currently staking REVO tokens to you.
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <span className="text-xl font-bold text-blue-900">89</span>
+                </div>
+                <div className="flex flex-col items-start bg-white/70 rounded-lg p-3 border border-blue-100">
+                  <div className="flex items-center space-x-2">
+                    <Trophy className="w-5 h-5 text-pink-500" />
+                    <span className="text-xs text-gray-500 font-medium">Creator Pools Joined</span>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button type="button" className="ml-1 text-pink-400 hover:text-pink-600">
+                          <Info className="w-4 h-4" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-56 text-xs">
+                        The number of creator pools you have joined as a participant or supporter.
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <span className="text-xl font-bold text-blue-900">6</span>
                 </div>
               </div>
             </CardContent>
@@ -679,6 +816,19 @@ export function MyWalletPanel() {
                     <p className="text-sm text-gray-600">Soon</p>
                   </PopoverContent>
                 </Popover>
+              </div>
+
+              {/* Balance Conversion Switch */}
+              <div className="flex items-center space-x-2 mt-4">
+                <span className="text-sm font-medium text-gray-600">Convert to:</span>
+                <select
+                  value={isUSD ? "USD" : "REVO"}
+                  onChange={e => setIsUSD(e.target.value === "USD")}
+                  className="w-20 h-8 text-sm font-medium text-gray-900 bg-gray-50 border border-gray-200 rounded-lg py-1 px-2 focus:outline-none focus:border-blue-500 focus:bg-white transition-all duration-200"
+                >
+                  <option value="REVO">REVO</option>
+                  <option value="USD">USD</option>
+                </select>
               </div>
             </CardContent>
           </Card>
@@ -955,87 +1105,101 @@ export function MyWalletPanel() {
             </Tabs>
           </Card>
 
-          {/* Security Notice */}
-          <Card className="bg-amber-50 border-amber-200 rounded-2xl">
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold text-amber-800 mb-2">Security Notice</h3>
-              <p className="text-amber-700 text-sm">
-                Your wallet is securely encrypted and stored. Never share your private keys or
-                recovery phrase with anyone.
-              </p>
-            </CardContent>
-          </Card>
+          <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200 p-6">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <Trophy className="w-6 h-6 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Reward Pools</h3>
+                  <div className="text-sm text-gray-600 mt-1 space-y-1">
+                    <p>Create and manage staking-based reward pools for your community.</p>
+                    <p>Distribute tokens, NFTs, or access based on onchain participation.</p>
+                  </div>
+                </div>
+              </div>
+
+              <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+                <Info className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2 text-sm text-gray-600">
+                  <TrendingUp className="w-4 h-4 text-green-500" />
+                  <span>Boost community engagement</span>
+                </div>
+              </div>
+
+              <button className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2">
+                <Trophy className="w-4 h-4" />
+                <span>Launch Pool</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Profile Options Modal */}
-        {showProfileOptions && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <Card className="max-w-sm w-full mx-4 rounded-2xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] duration-300">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Profile Options</CardTitle>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowProfileOptions(false)}
-                    className="text-gray-400 hover:text-gray-600 p-1"
-                  >
-                    <X className="w-6 h-6" />
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => {
-                    uiConsole("Edit Profile");
-                    setShowProfileOptions(false);
-                  }}
-                >
-                  <User className="w-4 h-4 mr-2" />
-                  Edit Profile
-                </Button>
+        <Dialog open={showProfileOptions} onOpenChange={setShowProfileOptions}>
+          <DialogContent className="max-w-sm w-full mx-4 rounded-2xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] duration-300">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Profile Options</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => {
+                  uiConsole("Edit Profile");
+                  setShowProfileOptions(false);
+                }}
+              >
+                <User className="w-4 h-4 mr-2" />
+                Edit Profile
+              </Button>
 
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => {
-                    uiConsole("Account Settings");
-                    setShowProfileOptions(false);
-                  }}
-                >
-                  <DollarSign className="w-4 h-4 mr-2" />
-                  Account Settings
-                </Button>
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => {
+                  uiConsole("Account Settings");
+                  setShowProfileOptions(false);
+                }}
+              >
+                <DollarSign className="w-4 h-4 mr-2" />
+                Account Settings
+              </Button>
 
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => {
-                    uiConsole("Wallet Settings");
-                    setShowProfileOptions(false);
-                  }}
-                >
-                  <Wallet className="w-4 h-4 mr-2" />
-                  Wallet Settings
-                </Button>
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => {
+                  uiConsole("Wallet Settings");
+                  setShowProfileOptions(false);
+                }}
+              >
+                <Wallet className="w-4 h-4 mr-2" />
+                Wallet Settings
+              </Button>
 
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
-                  onClick={() => {
-                    uiConsole("Logout");
-                    setShowProfileOptions(false);
-                  }}
-                >
-                  <ArrowUpRight className="w-4 h-4 mr-2" />
-                  Logout
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+              <Button
+                variant="outline"
+                className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+                onClick={() => {
+                  uiConsole("Logout");
+                  setShowProfileOptions(false);
+                }}
+              >
+                <ArrowUpRight className="w-4 h-4 mr-2" />
+                Logout
+              </Button>
+            </CardContent>
+          </DialogContent>
+        </Dialog>
 
         {/* Send Modal */}
         <Dialog open={showSendModal} onOpenChange={setShowSendModal}>
@@ -1213,58 +1377,48 @@ export function MyWalletPanel() {
         </Dialog>
 
         {/* Receive Modal */}
-        {showReceiveModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <Card className="max-w-md w-full mx-4 rounded-2xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] duration-300">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Receive Crypto</CardTitle>
+        <Dialog open={showReceiveModal} onOpenChange={setShowReceiveModal}>
+          <DialogContent className="max-w-md rounded-2xl">
+            <DialogHeader>
+              <div className="flex items-center justify-between">
+                <DialogTitle>Receive Crypto</DialogTitle>
+              </div>
+            </DialogHeader>
+            <CardContent className="text-center">
+              {/* QR Code */}
+              <div className="bg-white p-4 rounded-lg border-2 border-gray-200 inline-block mb-6">
+                <img
+                  src={generateQRCode(walletAddress || "")}
+                  alt="QR Code"
+                  className="w-48 h-48"
+                />
+              </div>
+
+              {/* Wallet Address */}
+              <div className="mb-6">
+                <h4 className="text-sm font-medium text-gray-600 mb-2">Wallet Address</h4>
+                <div className="bg-gray-50 rounded-lg p-4 border flex items-center justify-between">
+                  {/* pill style for address */}
+                  <span className="inline-block rounded-full bg-blue-100 px-3 py-1 font-mono text-xs text-blue-800 border border-blue-200 break-all">
+                    {walletAddress || ""}
+                  </span>
                   <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowReceiveModal(false)}
-                    className="text-gray-400 hover:text-gray-600 p-1"
+                    onClick={copyAddress}
+                    className="ml-2 flex-shrink-0 relative w-8 h-8 p-2 bg-blue-600 hover:bg-blue-700 rounded-lg border-blue-500"
                   >
-                    <X className="w-6 h-6" />
+                    <Copy
+                      className={`w-4 h-4 text-white transition-opacity duration-300 ${copyStatus === "idle" ? "opacity-100" : "opacity-0"}`}
+                    />
+                    <Check
+                      className={`w-4 h-4 text-white transition-opacity duration-300 absolute ${copyStatus === "success" ? "opacity-100" : "opacity-0"}`}
+                    />
                   </Button>
                 </div>
-              </CardHeader>
-              <CardContent className="text-center">
-                {/* QR Code */}
-                <div className="bg-white p-4 rounded-lg border-2 border-gray-200 inline-block mb-6">
-                  <img
-                    src={generateQRCode(walletAddress || "")}
-                    alt="QR Code"
-                    className="w-48 h-48"
-                  />
-                </div>
-
-                {/* Wallet Address */}
-                <div className="mb-6">
-                  <h4 className="text-sm font-medium text-gray-600 mb-2">Wallet Address</h4>
-                  <div className="bg-gray-50 rounded-lg p-4 border flex items-center justify-between">
-                    <p className="font-mono text-sm text-gray-900 break-all">
-                      {walletAddress || ""}
-                    </p>
-                    <Button
-                      onClick={copyAddress}
-                      className="ml-2 flex-shrink-0 relative w-8 h-8 p-2 bg-blue-600 hover:bg-blue-700 rounded-lg border-blue-500"
-                    >
-                      <Copy
-                        className={`w-4 h-4 text-white transition-opacity duration-300 ${copyStatus === "idle" ? "opacity-100" : "opacity-0"}`}
-                      />
-                      <Check
-                        className={`w-4 h-4 text-white transition-opacity duration-300 absolute ${copyStatus === "success" ? "opacity-100" : "opacity-0"}`}
-                      />
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Warning */}
-              </CardContent>
-            </Card>
-          </div>
-        )}
+              </div>
+              {/* Optionally, add a warning or info here */}
+            </CardContent>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
