@@ -48,6 +48,7 @@ import {
   useWeb3AuthDisconnect,
   useWeb3AuthUser,
 } from "@web3auth/modal/react";
+import { Switch } from "@/components/ui/Switch";
 
 export function MyWalletPanel() {
   const {
@@ -546,10 +547,15 @@ export function MyWalletPanel() {
                   </div>
                 </div>
                 {/* Settings icon (right) */}
-                <Button
-                  className="ml-4 text-gray-400 hover:text-blue-600"
+                <span
+                  className="ml-4 cursor-pointer text-gray-400 hover:text-blue-600"
                   onClick={() => setShowProfileOptions(true)}
                   aria-label="Profile Settings"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={e => {
+                    if (e.key === "Enter" || e.key === " ") setShowProfileOptions(true);
+                  }}
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -566,11 +572,11 @@ export function MyWalletPanel() {
                     />
                     <circle cx="12" cy="12" r="3" />
                   </svg>
-                </Button>
+                </span>
               </div>
               {/* Stats Section below */}
               <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div className="flex flex-col items-start bg-white/70 rounded-lg p-3 border border-blue-100">
+                <div className="flex flex-col items-start bg-white/70 rounded-lg p-3 border border-blue-100 transition-transform transition-shadow duration-200 ease-in-out hover:scale-105 hover:shadow-lg cursor-pointer">
                   <div className="flex items-center space-x-2">
                     <DollarSign className="w-5 h-5 text-blue-500" />
                     <span className="text-xs text-gray-500 font-medium">Total REVO</span>
@@ -587,7 +593,7 @@ export function MyWalletPanel() {
                   </div>
                   <span className="text-xl font-bold text-blue-900">25,420 REVO</span>
                 </div>
-                <div className="flex flex-col items-start bg-white/70 rounded-lg p-3 border border-blue-100">
+                <div className="flex flex-col items-start bg-white/70 rounded-lg p-3 border border-blue-100 transition-transform transition-shadow duration-200 ease-in-out hover:scale-105 hover:shadow-lg cursor-pointer">
                   <div className="flex items-center space-x-2">
                     <Coins className="w-5 h-5 text-indigo-500" />
                     <span className="text-xs text-gray-500 font-medium">My Stake</span>
@@ -607,7 +613,7 @@ export function MyWalletPanel() {
                   </div>
                   <span className="text-xl font-bold text-blue-900">8,750 REVO</span>
                 </div>
-                <div className="flex flex-col items-start bg-white/70 rounded-lg p-3 border border-blue-100">
+                <div className="flex flex-col items-start bg-white/70 rounded-lg p-3 border border-blue-100 transition-transform transition-shadow duration-200 ease-in-out hover:scale-105 hover:shadow-lg cursor-pointer">
                   <div className="flex items-center space-x-2">
                     <TrendingUp className="w-5 h-5 text-green-500" />
                     <span className="text-xs text-gray-500 font-medium">Staked to Me</span>
@@ -624,7 +630,7 @@ export function MyWalletPanel() {
                   </div>
                   <span className="text-xl font-bold text-blue-900">15,420 REVO</span>
                 </div>
-                <div className="flex flex-col items-start bg-white/70 rounded-lg p-3 border border-blue-100">
+                <div className="flex flex-col items-start bg-white/70 rounded-lg p-3 border border-blue-100 transition-transform transition-shadow duration-200 ease-in-out hover:scale-105 hover:shadow-lg cursor-pointer">
                   <div className="flex items-center space-x-2">
                     <Gem className="w-5 h-5 text-purple-500" />
                     <span className="text-xs text-gray-500 font-medium">Earnings to Date</span>
@@ -644,7 +650,7 @@ export function MyWalletPanel() {
                   </div>
                   <span className="text-xl font-bold text-blue-900">1,250 REVO</span>
                 </div>
-                <div className="flex flex-col items-start bg-white/70 rounded-lg p-3 border border-blue-100">
+                <div className="flex flex-col items-start bg-white/70 rounded-lg p-3 border border-blue-100 transition-transform transition-shadow duration-200 ease-in-out hover:scale-105 hover:shadow-lg cursor-pointer">
                   <div className="flex items-center space-x-2">
                     <User className="w-5 h-5 text-yellow-500" />
                     <span className="text-xs text-gray-500 font-medium">
@@ -666,7 +672,7 @@ export function MyWalletPanel() {
                   </div>
                   <span className="text-xl font-bold text-blue-900">89</span>
                 </div>
-                <div className="flex flex-col items-start bg-white/70 rounded-lg p-3 border border-blue-100">
+                <div className="flex flex-col items-start bg-white/70 rounded-lg p-3 border border-blue-100 transition-transform transition-shadow duration-200 ease-in-out hover:scale-105 hover:shadow-lg cursor-pointer">
                   <div className="flex items-center space-x-2">
                     <Trophy className="w-5 h-5 text-pink-500" />
                     <span className="text-xs text-gray-500 font-medium">Creator Pools Joined</span>
@@ -690,18 +696,41 @@ export function MyWalletPanel() {
           {/* Balance */}
           <Card className="rounded-2xl">
             <CardHeader>
-              <div className="flex items-center space-x-3">
-                <div className="bg-green-100 p-2 rounded-full">
-                  <DollarSign className="w-5 h-5 text-green-600" />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="bg-green-100 p-2 rounded-full">
+                    <DollarSign className="w-5 h-5 text-green-600" />
+                  </div>
+                  <CardTitle>Balance</CardTitle>
                 </div>
-                <CardTitle>Balance</CardTitle>
+                {/* Balance Conversion Switch as shadcn Switch */}
+                <div className="flex items-center space-x-2">
+                  <span
+                    className={`text-sm font-medium ${!isUSD ? "text-blue-700" : "text-gray-500"}`}
+                  >
+                    REVO
+                  </span>
+                  <Switch
+                    checked={isUSD}
+                    onChange={setIsUSD}
+                    aria-label="Toggle balance currency"
+                    className="data-[state=checked]:bg-blue-600 data-[state=unchecked]:bg-gray-200"
+                  />
+                  <span
+                    className={`text-sm font-medium ${isUSD ? "text-blue-700" : "text-gray-500"}`}
+                  >
+                    USD
+                  </span>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-gray-900 mb-2">
                 {currentIsBalanceLoading
                   ? "Loading..."
-                  : `${parseFloat(currentBalance ?? "0").toFixed(4)} ${currentSymbol ?? "REVO"}`}
+                  : isUSD
+                    ? `$${(parseFloat(currentBalance ?? "0") * 2.5).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`
+                    : `${parseFloat(currentBalance ?? "0").toFixed(4)} ${currentSymbol ?? "REVO"}`}
               </div>
               <CardDescription className="mb-6">Your current wallet balance</CardDescription>
 
@@ -741,28 +770,46 @@ export function MyWalletPanel() {
                       </Button>
                       <Button
                         variant="outline"
-                        className="h-auto py-4 flex flex-col items-start space-y-1"
+                        className="h-auto py-4 flex flex-col items-start space-y-1 opacity-60 cursor-not-allowed"
+                        disabled
                       >
                         <CreditCard className="w-6 h-6" />
-                        <span className="font-medium">Onramp</span>
+                        <span className="font-medium flex items-center">
+                          Onramp{" "}
+                          <span className="ml-2 text-xs bg-gray-200 text-gray-600 rounded px-2 py-0.5">
+                            Soon
+                          </span>
+                        </span>
                         <p className="text-xs text-gray-500">Buy crypto with fiat currency</p>
                       </Button>
                       <Button
                         variant="outline"
-                        className="h-auto py-4 flex flex-col items-start space-y-1"
+                        className="h-auto py-4 flex flex-col items-start space-y-1 opacity-60 cursor-not-allowed"
+                        disabled
                       >
                         <DollarSign className="w-6 h-6" />
-                        <span className="font-medium">MoonPay</span>
+                        <span className="font-medium flex items-center">
+                          MoonPay{" "}
+                          <span className="ml-2 text-xs bg-gray-200 text-gray-600 rounded px-2 py-0.5">
+                            Soon
+                          </span>
+                        </span>
                         <p className="text-xs text-gray-500">
                           Buy crypto with various payment methods
                         </p>
                       </Button>
                       <Button
                         variant="outline"
-                        className="h-auto py-4 flex flex-col items-start space-y-1"
+                        className="h-auto py-4 flex flex-col items-start space-y-1 opacity-60 cursor-not-allowed"
+                        disabled
                       >
                         <Coins className="w-6 h-6" />
-                        <span className="font-medium">Coinbase</span>
+                        <span className="font-medium flex items-center">
+                          Coinbase{" "}
+                          <span className="ml-2 text-xs bg-gray-200 text-gray-600 rounded px-2 py-0.5">
+                            Soon
+                          </span>
+                        </span>
                         <p className="text-xs text-gray-500">Connect your Coinbase account</p>
                       </Button>
                     </div>
@@ -789,9 +836,12 @@ export function MyWalletPanel() {
                   <PopoverTrigger asChild>
                     <Button
                       disabled
-                      className="h-20 flex flex-col items-center justify-center space-y-2 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200 hover:border-yellow-300 transition-all duration-200 ease-in-out transform hover:scale-105 opacity-60 cursor-not-allowed"
+                      className="relative h-20 flex flex-col items-center justify-center space-y-2 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200 hover:border-yellow-300 transition-all duration-200 ease-in-out transform hover:scale-105 opacity-60 cursor-not-allowed"
                       variant="outline"
                     >
+                      <span className="absolute top-2 right-2 text-xs bg-yellow-200 text-yellow-800 rounded px-2 py-0.5 shadow-sm pointer-events-none select-none">
+                        Soon
+                      </span>
                       <Coins className="w-8 h-8 p-2 bg-gray-50 rounded-lg" />
                       <span className="text-sm font-medium">Stake</span>
                     </Button>
@@ -805,9 +855,12 @@ export function MyWalletPanel() {
                   <PopoverTrigger asChild>
                     <Button
                       disabled
-                      className="h-20 flex flex-col items-center justify-center space-y-2 bg-red-50 hover:bg-red-100 text-red-700 border-red-200 hover:border-red-300 transition-all duration-200 ease-in-out transform hover:scale-105 opacity-60 cursor-not-allowed"
+                      className="relative h-20 flex flex-col items-center justify-center space-y-2 bg-red-50 hover:bg-red-100 text-red-700 border-red-200 hover:border-red-300 transition-all duration-200 ease-in-out transform hover:scale-105 opacity-60 cursor-not-allowed"
                       variant="outline"
                     >
+                      <span className="absolute top-2 right-2 text-xs bg-red-200 text-red-800 rounded px-2 py-0.5 shadow-sm pointer-events-none select-none">
+                        Soon
+                      </span>
                       <Gem className="w-8 h-8 p-2 bg-gray-50 rounded-lg" />
                       <span className="text-sm font-medium">Unstake</span>
                     </Button>
@@ -816,19 +869,6 @@ export function MyWalletPanel() {
                     <p className="text-sm text-gray-600">Soon</p>
                   </PopoverContent>
                 </Popover>
-              </div>
-
-              {/* Balance Conversion Switch */}
-              <div className="flex items-center space-x-2 mt-4">
-                <span className="text-sm font-medium text-gray-600">Convert to:</span>
-                <select
-                  value={isUSD ? "USD" : "REVO"}
-                  onChange={e => setIsUSD(e.target.value === "USD")}
-                  className="w-20 h-8 text-sm font-medium text-gray-900 bg-gray-50 border border-gray-200 rounded-lg py-1 px-2 focus:outline-none focus:border-blue-500 focus:bg-white transition-all duration-200"
-                >
-                  <option value="REVO">REVO</option>
-                  <option value="USD">USD</option>
-                </select>
               </div>
             </CardContent>
           </Card>
@@ -1144,60 +1184,57 @@ export function MyWalletPanel() {
         {/* Profile Options Modal */}
         <Dialog open={showProfileOptions} onOpenChange={setShowProfileOptions}>
           <DialogContent className="max-w-sm w-full mx-4 rounded-2xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] duration-300">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Profile Options</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                onClick={() => {
-                  uiConsole("Edit Profile");
-                  setShowProfileOptions(false);
-                }}
-              >
-                <User className="w-4 h-4 mr-2" />
-                Edit Profile
-              </Button>
+            <div className="flex items-center justify-between">
+              <CardTitle>Profile Options</CardTitle>
+            </div>
 
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                onClick={() => {
-                  uiConsole("Account Settings");
-                  setShowProfileOptions(false);
-                }}
-              >
-                <DollarSign className="w-4 h-4 mr-2" />
-                Account Settings
-              </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => {
+                uiConsole("Edit Profile");
+                setShowProfileOptions(false);
+              }}
+            >
+              <User className="w-4 h-4 mr-2" />
+              Edit Profile
+            </Button>
 
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                onClick={() => {
-                  uiConsole("Wallet Settings");
-                  setShowProfileOptions(false);
-                }}
-              >
-                <Wallet className="w-4 h-4 mr-2" />
-                Wallet Settings
-              </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => {
+                uiConsole("Account Settings");
+                setShowProfileOptions(false);
+              }}
+            >
+              <DollarSign className="w-4 h-4 mr-2" />
+              Account Settings
+            </Button>
 
-              <Button
-                variant="outline"
-                className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
-                onClick={() => {
-                  uiConsole("Logout");
-                  setShowProfileOptions(false);
-                }}
-              >
-                <ArrowUpRight className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-            </CardContent>
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => {
+                uiConsole("Wallet Settings");
+                setShowProfileOptions(false);
+              }}
+            >
+              <Wallet className="w-4 h-4 mr-2" />
+              Wallet Settings
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+              onClick={() => {
+                uiConsole("Logout");
+                setShowProfileOptions(false);
+              }}
+            >
+              <ArrowUpRight className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
           </DialogContent>
         </Dialog>
 
@@ -1294,6 +1331,17 @@ export function MyWalletPanel() {
                     MAX
                   </Button>
                 </div>
+                {/* USD conversion below input */}
+                {sendAmount && !isNaN(Number(sendAmount)) && Number(sendAmount) > 0 && (
+                  <div className="text-xs text-gray-500 mt-1 pl-1">
+                    ≈ $
+                    {(parseFloat(sendAmount) * 2.5).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}{" "}
+                    USD{" "}
+                  </div>
+                )}
                 {sendAmount && !isValidSendAmount() && (
                   <p className="text-red-500 text-xs flex items-center space-x-1">
                     <X className="w-3 h-3" />
