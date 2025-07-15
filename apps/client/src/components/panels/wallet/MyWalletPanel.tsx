@@ -21,6 +21,7 @@ import {
   Info,
   TrendingUp,
   Trophy,
+  Gift, // newly added for airdrop icon
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -265,6 +266,12 @@ export function MyWalletPanel() {
     } finally {
       setSendLoading(false);
     }
+  };
+
+  // Handler for claiming daily airdrop
+  const handleClaimDailyAirdrop = () => {
+    uiConsole("Claim Daily Airdrop");
+    // TODO: integrate airdrop claim logic here
   };
 
   const calculateRemainingBalance = () => {
@@ -811,6 +818,15 @@ export function MyWalletPanel() {
                           </span>
                         </span>
                         <p className="text-xs text-gray-500">Connect your Coinbase account</p>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-auto py-4 flex flex-col items-start space-y-1 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 hover:border-green-300 transition-all duration-200 ease-in-out"
+                        onClick={() => uiConsole("Claim Daily Airdrop")}
+                      >
+                        <Gift className="w-6 h-6" />
+                        <span className="font-medium">Claim Daily Airdrop</span>
+                        <p className="text-xs text-gray-500">Get your free tokens every day</p>
                       </Button>
                     </div>
                   </DialogContent>
