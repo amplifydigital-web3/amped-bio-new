@@ -12,7 +12,7 @@ jobs:
 
     # Global environment variables available to all steps
     env:
-      NODE_ENV: "test"
+      NODE_ENV: "testing"
 
     steps:
       - name: Checkout repository
@@ -108,7 +108,7 @@ jobs:
       - name: Build and start frontend
         run: |
           cd apps/client
-          pnpm build
+          pnpm build --mode testing
           pnpm exec vite preview --port 5173 &
           echo "Waiting for frontend on port 5173"
           wait-for-it -t 30 localhost:5173 -- echo "Frontend is up"
