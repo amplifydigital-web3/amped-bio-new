@@ -3,11 +3,12 @@ name: Client Tests
 on:
   pull_request:
     branches: [main, development]
+  workflow_dispatch:  # Allow manual triggering
 
 jobs:
   auth-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15  # Increased timeout
 
     # Global environment variables available to all steps
     env:
@@ -91,12 +92,23 @@ jobs:
 
       - name: Build client
         run: pnpm --filter client build
+        
+      - name: Debug information
+        run: |
+          echo "Listing node_modules structure:"
+          ls -la node_modules/.bin/
+          echo "Checking for Cypress binary:"
+          find node_modules -name "cypress" -type f -o -type d | grep -v "node_modules/.*/node_modules"
 
       - name: Install Cypress
         run: |
           cd apps/client
-          pnpm install cypress --no-save
-          pnpm cypress verify
+          echo "Node version: $(node -v)"
+          echo "NPM version: $(npm -v)"
+          echo "PNPM version: $(pnpm -v)"
+          pnpm install cypress
+          npx cypress verify
+          npx cypress info
       
       - name: Run Cypress tests
         uses: cypress-io/github-action@v6
@@ -106,6 +118,8 @@ jobs:
           build: pnpm --filter client build
           start: pnpm --filter client preview
           install: false  # We've already installed dependencies
+          wait-on: 'http://localhost:5173'  # Wait for server to be available
+          wait-on-timeout: 120  # Give it up to 2 minutes to start
           
       - name: Upload Cypress screenshots
         uses: actions/upload-artifact@v4
@@ -113,4 +127,12 @@ jobs:
         with:
           name: cypress-screenshots
           path: apps/client/cypress/screenshots
+          retention-days: 30
+          
+      - name: Upload Cypress videos
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cypress-videos
+          path: apps/client/cypress/videos
           retention-days: 30
