@@ -90,8 +90,21 @@ jobs:
           pnpm prisma generate
           pnpm prisma migrate deploy
 
-      - name: Build client
-        run: pnpm --filter client build
+      - name: Build and start backend
+        run: |
+          cd apps/server
+          pnpm build
+          pnpm start &
+          echo "Waiting for backend on port 43000"
+          wait-for-it -t 60 localhost:43000 -- echo "Backend is up"
+
+      - name: Build and start frontend
+        run: |
+          cd apps/client
+          pnpm build
+          pnpm exec vite preview --port 5173 &
+          echo "Waiting for frontend on port 5173"
+          wait-for-it -t 60 localhost:5173 -- echo "Frontend is up"
         
       - name: Debug information
         run: |
@@ -109,17 +122,15 @@ jobs:
           pnpm install cypress
           npx cypress verify
           npx cypress info
-      
+
       - name: Run Cypress tests
         uses: cypress-io/github-action@v6
         with:
           project: apps/client
           config-file: apps/client/cypress.config.ts
-          build: pnpm --filter client build
-          start: pnpm --filter client preview
           install: false  # We've already installed dependencies
-          wait-on: 'http://localhost:5173'  # Wait for server to be available
-          wait-on-timeout: 120  # Give it up to 2 minutes to start
+          wait-on: 'http://localhost:5173,http://localhost:4300'  # Wait for both client and server
+          wait-on-timeout: 30  # Give it up to 2 minutes to start
           
       - name: Upload Cypress screenshots
         uses: actions/upload-artifact@v4
