@@ -75,18 +75,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [web3AuthDisconnect]);
 
-  const setAuthToken = (token: string | null): void => {
-    // Simplified to use a direct approach similar to the example
-    if (token) {
-      localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_TOKEN, token);
-    } else {
-      localStorage.removeItem(AUTH_STORAGE_KEYS.AUTH_TOKEN);
-    }
-    // State will be updated by the storage event or directly here
-    setJwtToken(token);
-  };
-
-  // Method to update JWT token - simplified approach
+  // Method to update JWT token
   const updateToken = useCallback((token: string | null) => {
     // First, update localStorage (this will trigger the storage event in other tabs)
     if (token) {
@@ -209,7 +198,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       setError(null);
       const response = await trpcClient.auth.login.mutate({ email, password });
-      setAuthToken(response.accessToken);
+      updateToken(response.accessToken);
       setAuthUser(response.user);
       localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_USER, JSON.stringify(response.user));
       setIsAuthenticated(true);
@@ -224,7 +213,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       setError(null);
       const response = await trpcClient.auth.register.mutate({ onelink, email, password });
-      setAuthToken(response.accessToken);
+      updateToken(response.accessToken);
       setAuthUser(response.user);
       localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_USER, JSON.stringify(response.user));
       setIsAuthenticated(true);
