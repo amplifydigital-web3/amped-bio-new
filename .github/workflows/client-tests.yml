@@ -89,6 +89,18 @@ jobs:
           pnpm prisma generate
           pnpm prisma migrate deploy
 
+      - name: Setup Playwright cache
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install Playwright Browsers
+        run: pnpm --filter client exec playwright install --with-deps
+
       - name: Build client
         run: pnpm --filter client build
 
