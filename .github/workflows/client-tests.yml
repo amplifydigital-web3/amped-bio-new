@@ -92,6 +92,12 @@ jobs:
       - name: Build client
         run: pnpm --filter client build
 
+      - name: Install Cypress
+        run: |
+          cd apps/client
+          pnpm install cypress --no-save
+          pnpm cypress verify
+      
       - name: Run Cypress tests
         uses: cypress-io/github-action@v6
         with:
@@ -99,6 +105,7 @@ jobs:
           config-file: apps/client/cypress.config.ts
           build: pnpm --filter client build
           start: pnpm --filter client preview
+          install: false  # We've already installed dependencies
           
       - name: Upload Cypress screenshots
         uses: actions/upload-artifact@v4
