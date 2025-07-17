@@ -95,9 +95,10 @@ jobs:
       - name: Run Cypress tests
         uses: cypress-io/github-action@v6
         with:
-          working-directory: apps/client
-          build: pnpm build
-          start: pnpm preview
+          project: apps/client
+          config-file: apps/client/cypress.config.ts
+          build: pnpm --filter client build
+          start: pnpm --filter client preview
           
       - name: Upload Cypress screenshots
         uses: actions/upload-artifact@v4
