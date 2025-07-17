@@ -113,15 +113,15 @@ jobs:
           echo "Checking for Cypress binary:"
           find node_modules -name "cypress" -type f -o -type d | grep -v "node_modules/.*/node_modules"
 
-      - name: Install Cypress
-        run: |
-          cd apps/client
-          echo "Node version: $(node -v)"
-          echo "NPM version: $(npm -v)"
-          echo "PNPM version: $(pnpm -v)"
-          pnpm install cypress
-          npx cypress verify
-          npx cypress info
+      # - name: Install Cypress
+      #   run: |
+      #     cd apps/client
+      #     echo "Node version: $(node -v)"
+      #     echo "NPM version: $(npm -v)"
+      #     echo "PNPM version: $(pnpm -v)"
+      #     pnpm install cypress
+      #     npx cypress verify
+      #     npx cypress info
 
       - name: Check service availability
         run: |
@@ -135,9 +135,9 @@ jobs:
         with:
           project: apps/client
           config-file: apps/client/cypress.config.ts
-          install: false  # We've already installed dependencies
-          # wait-on: 'http://localhost:5173,http://localhost:43000'  # Wait for both client and server
-          # wait-on-timeout: 120  # Give it up to 2 minutes to start
+          install: true  # Let the GitHub action handle Cypress installation
+          wait-on: 'http://localhost:5173,http://localhost:43000'  # Wait for both client and server
+          wait-on-timeout: 120  # Give it up to 2 minutes to start
           
       - name: Upload Cypress screenshots
         uses: actions/upload-artifact@v4
