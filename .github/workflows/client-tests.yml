@@ -77,8 +77,8 @@ jobs:
 
       - name: Generate JWT_PRIVATE_KEY
         run: |
-          openssl genrsa -out jwtRS256.key 2048
-          JWT_PRIVATE_KEY=$(awk -v ORS='\\n' '1' jwtRS256.key)
+          openssl genpkey -algorithm RSA -out jwtRS256.key -pkeyopt rsa_keygen_bits:2048
+          JWT_PRIVATE_KEY=$(cat jwtRS256.key | base64 -w 0)
           echo "JWT_PRIVATE_KEY=$JWT_PRIVATE_KEY" >> $GITHUB_ENV
         shell: bash
 
@@ -92,9 +92,9 @@ jobs:
         run: |
           cd apps/server
           pnpm build
-          pnpm start &
-          echo "Waiting for backend on port ${PORT:-3000}"
-          wait-for-it -t 60 localhost:${PORT:-3000} -- echo "Backend is up" || exit 1
+          PORT=43000 pnpm start &
+          echo "Waiting for backend on port 43000"
+          wait-for-it -t 60 localhost:43000 -- echo "Backend is up" || exit 1
       
       - name: Build and start frontend
         run: |
