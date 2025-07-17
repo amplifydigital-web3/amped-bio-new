@@ -95,7 +95,7 @@ jobs:
           pnpm build
           PORT=43000 pnpm start &
           echo "Waiting for backend on port 43000"
-          if ! wait-for-it -t 60 localhost:43000; then
+          if ! wait-for-it -t 10 localhost:43000; then
             echo "ERROR: Backend failed to start within the timeout period"
             exit 1
           fi
@@ -104,14 +104,23 @@ jobs:
       - name: Build and start frontend
         run: |
           cd apps/client
-          pnpm build
-          pnpm exec vite preview --port 5173 &
+          VITE_API_URL=http://localhost:43000 pnpm build
+          VITE_API_URL=http://localhost:43000 pnpm exec vite preview --port 5173 &
           echo "Waiting for frontend on port 5173"
           if ! wait-for-it -t 10 localhost:5173; then
             echo "ERROR: Frontend failed to start within the timeout period"
             exit 1
           fi
           echo "Frontend is up"
+
+      - name: Setup Playwright cache
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
 
       - name: Install Playwright Browsers
         run: |
