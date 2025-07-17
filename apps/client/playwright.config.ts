@@ -53,11 +53,11 @@ export default defineConfig({
   ],
 
   /* Run your local dev server before starting the tests */
-  // webServer: {
-  //   command: 'pnpm run dev',
-  //   url: 'http://localhost:5173',
-  //   reuseExistingServer: !process.env.CI,
-  //   stdout: 'pipe',
-  //   stderr: 'pipe',
-  // },
+  webServer: {
+    command: "VITE_API_URL=http://localhost:43000 pnpm exec vite preview --port 5173",
+    url: "http://localhost:5173",
+    reuseExistingServer: !process.env.CI,
+    stdout: "pipe",
+    stderr: "pipe",
+  },
 });
