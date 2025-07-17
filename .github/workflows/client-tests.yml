@@ -34,13 +34,10 @@ jobs:
           echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
           echo "store-path=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
 
-
       - name: Setup pnpm cache
         uses: actions/cache@v4
         with:
-          path: |
-            ${{ steps.pnpm-cache.outputs.store-path }}
-            ~/.pnpm-store
+          path: ${{ steps.pnpm-cache.outputs.store-path }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
@@ -49,8 +46,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .turbo
-          key: ${{ runner.os }}-turbo-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('turbo.json') }}
+          key: ${{ runner.os }}-turbo-${{ github.job }}-${{ hashFiles('**/*.{ts,tsx,js,jsx}') }}-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('turbo.json') }}
           restore-keys: |
+            ${{ runner.os }}-turbo-${{ github.job }}-
             ${{ runner.os }}-turbo-
 
       - name: Install dependencies
@@ -80,7 +78,7 @@ jobs:
       - name: Generate JWT_PRIVATE_KEY
         run: |
           openssl genrsa -out jwtRS256.key 2048
-          JWT_PRIVATE_KEY=$(awk '{printf "%s\\n", $0}' jwtRS256.key)
+          JWT_PRIVATE_KEY=$(awk -v ORS='\\n' '1' jwtRS256.key)
           echo "JWT_PRIVATE_KEY=$JWT_PRIVATE_KEY" >> $GITHUB_ENV
         shell: bash
 
