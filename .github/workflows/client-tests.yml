@@ -21,7 +21,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
 
       - name: Install pnpm
         uses: pnpm/action-setup@v3
@@ -34,6 +35,12 @@ jobs:
         run: |
           echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
           echo "store-path=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Set up Cypress binary cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/Cypress
+          key: cypress-${{ runner.os }}-cypress-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Setup pnpm cache
         uses: actions/cache@v4
@@ -113,15 +120,15 @@ jobs:
           echo "Checking for Cypress binary:"
           find node_modules -name "cypress" -type f -o -type d | grep -v "node_modules/.*/node_modules"
 
-      # - name: Install Cypress
-      #   run: |
-      #     cd apps/client
-      #     echo "Node version: $(node -v)"
-      #     echo "NPM version: $(npm -v)"
-      #     echo "PNPM version: $(pnpm -v)"
-      #     pnpm install cypress
-      #     npx cypress verify
-      #     npx cypress info
+      - name: Install Cypress
+        run: |
+          cd apps/client
+          echo "Node version: $(node -v)"
+          echo "NPM version: $(npm -v)"
+          echo "PNPM version: $(pnpm -v)"
+          pnpm install cypress
+          npx cypress verify
+          npx cypress info
 
       - name: Check service availability
         run: |
@@ -131,13 +138,9 @@ jobs:
           curl -s -o /dev/null -w "%{http_code}" http://localhost:43000 || echo "Backend not responding"
 
       - name: Run Cypress tests
-        uses: cypress-io/github-action@v6
-        with:
-          project: apps/client
-          config-file: apps/client/cypress.config.ts
-          install: true  # Let the GitHub action handle Cypress installation
-          wait-on: 'http://localhost:5173,http://localhost:43000'  # Wait for both client and server
-          wait-on-timeout: 120  # Give it up to 2 minutes to start
+        run: |
+          cd apps/client
+          npx cypress run --config-file cypress.config.ts
           
       - name: Upload Cypress screenshots
         uses: actions/upload-artifact@v4
