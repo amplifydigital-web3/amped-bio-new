@@ -89,6 +89,9 @@ jobs:
           pnpm prisma generate
           pnpm prisma migrate deploy
 
+      - name: Build client
+        run: pnpm --filter client build
+
       - name: Run Playwright tests
         run: pnpm --filter client exec playwright test
 
