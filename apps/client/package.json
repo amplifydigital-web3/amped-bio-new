@@ -17,7 +17,7 @@
     "format:check": "prettier --check .",
     "generate-thumbnails": "tsx scripts/generate-video-thumbnails.ts",
     "download-convert-videos": "tsx scripts/download-convert-videos.ts",
-    "e2e:test": "playwright test"
+    "e2e:test": "playwright test --reporter=list"
   },
   "dependencies": {
     "@ampedbio/constants": "workspace:*",

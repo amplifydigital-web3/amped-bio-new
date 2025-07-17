@@ -64,6 +64,15 @@ jobs:
           envFile: 'apps/server/.env.example'    
           expand: 'true'
 
+      - name: Generate JWT_PRIVATE_KEY
+        run: |
+          openssl genrsa -out jwtRS256.key 2048
+          export JWT_PRIVATE_KEY="$(awk 'NF {sub(/\r/, ""); printf "%s\\n", $0;}' jwtRS256.key)"
+          echo "JWT_PRIVATE_KEY<<EOF" >> $GITHUB_ENV
+          echo "$JWT_PRIVATE_KEY" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+        shell: bash
+
       - name: Run database migrations
         run: |
           cd apps/server
@@ -76,7 +85,7 @@ jobs:
           pnpm build
           pnpm start &
           echo "Waiting for backend on port ${PORT:-3000}"
-          wait-for-it -t 60 localhost:${PORT:-3000} -- echo "Backend is up"
+          wait-for-it -t 60 localhost:${PORT:-3000} -- echo "Backend is up" || exit 1
       
       - name: Build and start frontend
         run: |
