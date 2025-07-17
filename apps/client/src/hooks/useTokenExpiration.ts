@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { AUTH_STORAGE_KEYS } from "../constants/auth-storage";
 
 /**
  * Hook to handle token expiration events
@@ -13,7 +14,7 @@ export function useTokenExpiration() {
       console.log("Token expired, redirecting to login");
 
       // Clear any stored auth data
-      localStorage.removeItem("amped-bio-auth-token");
+      localStorage.removeItem(AUTH_STORAGE_KEYS.AUTH_TOKEN);
 
       // You can also dispatch any global state updates here
       // For example, if you're using a global auth context or state management

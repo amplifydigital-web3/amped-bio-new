@@ -2,6 +2,7 @@ import { TRPCLink } from "@trpc/client";
 import { observable } from "@trpc/server/observable";
 import type { AppRouter } from "../../../../../../server/src/trpc";
 import { mockData } from "./mock-data";
+import { AUTH_STORAGE_KEYS } from "../../../../constants/auth-storage";
 
 const mockDelay = () => new Promise(resolve => setTimeout(resolve, 500));
 
@@ -32,13 +33,13 @@ const mockRequester = async (opts: { type: string; path: string; input: any }) =
   // Handle authentication-related operations
   if (path === "auth.login") {
     console.log("[MOCK] Processing auth.login, storing demo token");
-    localStorage.setItem("amped-bio-auth-token", "demo-auth-token");
+    localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_TOKEN, "demo-auth-token");
   } else if (path === "auth.register") {
     console.log("[MOCK] Processing auth.register, storing demo token");
-    localStorage.setItem("amped-bio-auth-token", "demo-auth-token");
+    localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_TOKEN, "demo-auth-token");
   } else if (path === "auth.logout") {
     console.log("[MOCK] Processing auth.logout, removing token");
-    localStorage.removeItem("amped-bio-auth-token");
+    localStorage.removeItem(AUTH_STORAGE_KEYS.AUTH_TOKEN);
   }
 
   let result;

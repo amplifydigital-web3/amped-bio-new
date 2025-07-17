@@ -53,7 +53,7 @@ export class API implements Service {
           );
 
           // Add additional origins based on environment
-          if (env.NODE_ENV === "development") {
+          if (env.NODE_ENV === "development" || env.NODE_ENV === "testing") {
             allowedOrigins.push(
               "http://localhost:5173",
               "http://localhost:5174",

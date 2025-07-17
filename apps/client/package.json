@@ -17,7 +17,7 @@
     "format:check": "prettier --check .",
     "generate-thumbnails": "tsx scripts/generate-video-thumbnails.ts",
     "download-convert-videos": "tsx scripts/download-convert-videos.ts",
-    "e2e:test": "playwright test"
+    "e2e:test": "cypress run"
   },
   "dependencies": {
     "@ampedbio/constants": "workspace:*",
@@ -81,7 +81,6 @@
   "devDependencies": {
     "@ampedbio/server": "workspace:*",
     "@eslint/js": "^9.9.1",
-    "@playwright/test": "^1.52.0",
     "@trpc/server": "^11.1.2",
     "@types/jest": "^29.5.14",
     "@types/node": "^20.11.16",
@@ -90,6 +89,7 @@
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.18",
     "buffer": "^6.0.3",
+    "cypress": "^14.5.2",
     "eslint": "^9.9.1",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.1.3",
