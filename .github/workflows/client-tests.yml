@@ -123,14 +123,21 @@ jobs:
           npx cypress verify
           npx cypress info
 
+      - name: Check service availability
+        run: |
+          echo "Checking if frontend is available..."
+          curl -s -o /dev/null -w "%{http_code}" http://localhost:5173 || echo "Frontend not responding"
+          echo "Checking if backend is available..."
+          curl -s -o /dev/null -w "%{http_code}" http://localhost:43000 || echo "Backend not responding"
+
       - name: Run Cypress tests
         uses: cypress-io/github-action@v6
         with:
           project: apps/client
           config-file: apps/client/cypress.config.ts
           install: false  # We've already installed dependencies
-          wait-on: 'http://localhost:5173,http://localhost:4300'  # Wait for both client and server
-          wait-on-timeout: 30  # Give it up to 2 minutes to start
+          wait-on: 'http://localhost:5173,http://localhost:43000'  # Wait for both client and server
+          wait-on-timeout: 120  # Give it up to 2 minutes to start
           
       - name: Upload Cypress screenshots
         uses: actions/upload-artifact@v4
