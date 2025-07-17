@@ -103,7 +103,7 @@ jobs:
           pnpm build
           pnpm start &
           echo "Waiting for backend on port 43000"
-          wait-for-it -t 60 localhost:43000 -- echo "Backend is up"
+          wait-for-it -t 30 localhost:43000 -- echo "Backend is up"
 
       - name: Build and start frontend
         run: |
@@ -111,7 +111,7 @@ jobs:
           pnpm build
           pnpm exec vite preview --port 5173 &
           echo "Waiting for frontend on port 5173"
-          wait-for-it -t 60 localhost:5173 -- echo "Frontend is up"
+          wait-for-it -t 30 localhost:5173 -- echo "Frontend is up"
         
       - name: Debug information
         run: |
