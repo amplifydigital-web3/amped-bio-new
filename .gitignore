@@ -53,3 +53,4 @@ lerna-debug.log*
 # Mac OS
 .DS_Store
 apps/server/tsconfig.tsbuildinfo
+apps/client/cypress/screenshots

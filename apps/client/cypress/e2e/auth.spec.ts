@@ -49,11 +49,11 @@ describe("Authentication", () => {
     // Open auth modal
     cy.contains("button", "Sign In").click();
 
-    // Try to submit the form
-    cy.get("[data-testid='login-submit']").click();
-
-    // Check validation error messages
+    // Trigger validation by focusing and blurring fields
+    cy.get("[data-testid='login-email']").click().blur();
     cy.contains("Please enter a valid email address").should("be.visible");
+
+    cy.get("[data-testid='login-password']").click().blur();
     cy.contains("Password must be at least 6 characters long").should("be.visible");
   });
 
@@ -165,8 +165,7 @@ describe("Authentication", () => {
       cy.get("[data-testid='register-submit']").click();
 
       cy.url().should("match", new RegExp(`/@${testUser.onelink}/edit`), { timeout: 10000 });
-      cy.contains("h2", "Home").should("be.visible");
-      cy.wait(1000); // Wait for db operations
+      cy.contains("span", "Home", { timeout: 10000 }).should("be.visible");
       cy.log(`Registration complete for: ${testUser.email}`);
     });
 
@@ -181,7 +180,7 @@ describe("Authentication", () => {
       cy.get("[data-testid='login-submit']").click();
 
       cy.url().should("match", new RegExp(`/@${testUser.onelink}/edit`), { timeout: 10000 });
-      cy.contains("h2", "Home").should("be.visible");
+      cy.contains("span", "Home", { timeout: 10000 }).should("be.visible");
       cy.log(`Login successful for: ${testUser.email}`);
     });
 
