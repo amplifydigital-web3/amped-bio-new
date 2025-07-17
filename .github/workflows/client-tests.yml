@@ -28,17 +28,30 @@ jobs:
           version: 8
 
       - name: Get pnpm store directory
+        id: pnpm-cache
         shell: bash
         run: |
           echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+          echo "store-path=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
 
       - name: Setup pnpm cache
         uses: actions/cache@v4
         with:
-          path: ${{ env.STORE_PATH }}
+          path: |
+            ${{ steps.pnpm-cache.outputs.store-path }}
+            ~/.pnpm-store
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
+
+      - name: Setup Turbo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('turbo.json') }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
 
       - name: Install dependencies
         run: pnpm install
@@ -67,10 +80,8 @@ jobs:
       - name: Generate JWT_PRIVATE_KEY
         run: |
           openssl genrsa -out jwtRS256.key 2048
-          export JWT_PRIVATE_KEY="$(awk 'NF {sub(/\r/, ""); printf "%s\\n", $0;}' jwtRS256.key)"
-          echo "JWT_PRIVATE_KEY<<EOF" >> $GITHUB_ENV
-          echo "$JWT_PRIVATE_KEY" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          JWT_PRIVATE_KEY=$(awk '{printf "%s\\n", $0}' jwtRS256.key)
+          echo "JWT_PRIVATE_KEY=$JWT_PRIVATE_KEY" >> $GITHUB_ENV
         shell: bash
 
       - name: Run database migrations
