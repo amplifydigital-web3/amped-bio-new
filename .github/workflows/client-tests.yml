@@ -136,8 +136,8 @@ jobs:
           project: apps/client
           config-file: apps/client/cypress.config.ts
           install: false  # We've already installed dependencies
-          wait-on: 'http://localhost:5173,http://localhost:43000'  # Wait for both client and server
-          wait-on-timeout: 120  # Give it up to 2 minutes to start
+          # wait-on: 'http://localhost:5173,http://localhost:43000'  # Wait for both client and server
+          # wait-on-timeout: 120  # Give it up to 2 minutes to start
           
       - name: Upload Cypress screenshots
         uses: actions/upload-artifact@v4
