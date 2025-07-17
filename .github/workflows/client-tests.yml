@@ -78,8 +78,9 @@ jobs:
       - name: Generate JWT_PRIVATE_KEY
         run: |
           openssl genpkey -algorithm RSA -out jwtRS256.key -pkeyopt rsa_keygen_bits:2048
-          JWT_PRIVATE_KEY=$(cat jwtRS256.key | base64 -w 0)
-          echo "JWT_PRIVATE_KEY=$JWT_PRIVATE_KEY" >> $GITHUB_ENV
+          echo "JWT_PRIVATE_KEY<<EOF" >> $GITHUB_ENV
+          cat jwtRS256.key >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
         shell: bash
 
       - name: Run database migrations
@@ -94,7 +95,11 @@ jobs:
           pnpm build
           PORT=43000 pnpm start &
           echo "Waiting for backend on port 43000"
-          wait-for-it -t 60 localhost:43000 -- echo "Backend is up" || exit 1
+          if ! wait-for-it -t 60 localhost:43000; then
+            echo "ERROR: Backend failed to start within the timeout period"
+            exit 1
+          fi
+          echo "Backend is up"
       
       - name: Build and start frontend
         run: |
@@ -102,7 +107,11 @@ jobs:
           pnpm build
           pnpm exec vite preview --port 5173 &
           echo "Waiting for frontend on port 5173"
-          wait-for-it -t 60 localhost:5173 -- echo "Frontend is up"
+          if ! wait-for-it -t 10 localhost:5173; then
+            echo "ERROR: Frontend failed to start within the timeout period"
+            exit 1
+          fi
+          echo "Frontend is up"
 
       - name: Install Playwright Browsers
         run: |
