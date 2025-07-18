@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEditor } from "@/contexts/EditorContext";
+import { AUTH_STORAGE_KEYS } from "@/constants/auth-storage";
 import {
   Wallet,
   Copy,
@@ -295,67 +296,8 @@ export function MyWalletPanel() {
     return !isNaN(amountToSend) && amountToSend > 0 && amountToSend <= currentBalance;
   };
 
-  const handleConnectWallet = useCallback(async () => {
-    try {
-      // Enhanced initialization checks
-      if (!dataWeb3Auth?.isInitialized) {
-        uiConsole("Web3Auth is not initialized yet. Please wait...");
-        return;
-      }
-
-      if (dataWeb3Auth?.isInitializing) {
-        uiConsole("Web3Auth is still initializing. Please wait...");
-        return;
-      }
-
-      // Additional check for Web3Auth instance
-      if (!dataWeb3Auth?.web3Auth) {
-        uiConsole("Web3Auth instance is not available yet. Please wait...");
-        return;
-      }
-
-      // Wait a bit more to ensure everything is ready
-      uiConsole("Web3Auth appears ready, attempting connection...");
-
-      // Add a small delay to ensure Web3Auth is fully ready
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const idToken = localStorage.getItem("amped-bio-auth-token");
-      if (!idToken) {
-        uiConsole("No auth token found. Please log in first.");
-        return;
-      }
-
-      uiConsole("Connecting with token:", idToken.substring(0, 20) + "...");
-
-      await connectTo(WALLET_CONNECTORS.AUTH, {
-        authConnection: AUTH_CONNECTION.CUSTOM,
-        authConnectionId: import.meta.env.VITE_WEB3AUTH_AUTH_CONNECTION_ID,
-        idToken: idToken,
-        extraLoginOptions: {
-          isUserIdCaseSensitive: false,
-        },
-      });
-
-      uiConsole("Connection attempt completed successfully");
-    } catch (error) {
-      uiConsole("Wallet connection error:", error);
-
-      // Additional error details
-      if (error instanceof Error) {
-        uiConsole("Error details:", {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        });
-      }
-    }
-  }, [
-    dataWeb3Auth?.isInitialized,
-    dataWeb3Auth?.isInitializing,
-    dataWeb3Auth?.web3Auth,
-    connectTo,
-  ]);
+  // Wallet connection is now handled automatically in AuthContext
+  // when a valid token is present
 
   // Get current data (demo or real)
   const currentAddress = isDemoMode ? demoData.address : walletAddress;
@@ -399,9 +341,9 @@ export function MyWalletPanel() {
             </p>
             <div className="space-y-4">
               <ShimmerButton
-                onClick={handleConnectWallet}
                 className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 px-8 py-3 text-lg"
                 shimmerColor="#60a5fa"
+                disabled={!localStorage.getItem(AUTH_STORAGE_KEYS.AUTH_TOKEN)}
               >
                 {connectLoading
                   ? "Connecting..."
@@ -411,9 +353,9 @@ export function MyWalletPanel() {
                       ? "Waiting for initialization..."
                       : !dataWeb3Auth?.web3Auth
                         ? "Loading Web3Auth..."
-                        : !localStorage.getItem("amped-bio-auth-token")
-                          ? "No auth token found"
-                          : "Connect Wallet"}
+                        : !localStorage.getItem(AUTH_STORAGE_KEYS.AUTH_TOKEN)
+                          ? "Please login first"
+                          : "Wallet connects automatically"}
               </ShimmerButton>
 
               <div className="flex items-center space-x-2">
