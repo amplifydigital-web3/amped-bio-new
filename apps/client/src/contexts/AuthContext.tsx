@@ -5,6 +5,33 @@ import { useWeb3AuthDisconnect, useWeb3AuthConnect, useWeb3Auth } from "@web3aut
 import { WALLET_CONNECTORS, AUTH_CONNECTION } from "@web3auth/modal";
 import { AUTH_EVENTS } from "../constants/auth-events";
 import { AUTH_STORAGE_KEYS } from "../constants/auth-storage";
+import { decode, JwtPayload } from "jsonwebtoken";
+
+// Helper function to decode JWT and get its payload
+const decodeToken = (token: string | null): JwtPayload | null => {
+  if (!token) return null;
+
+  try {
+    const payload = decode(token) as JwtPayload;
+    return payload || null;
+  } catch (error) {
+    console.error("Error decoding JWT token:", error);
+    return null;
+  }
+};
+
+// Helper function to check if token is expired or invalid
+// Returns true if the token is expired, has no expiration date, or is invalid
+const isTokenExpired = (token: string | null): boolean => {
+  const payload = decodeToken(token);
+
+  if (!payload || !payload.exp) return true;
+
+  const expirationTime = payload.exp * 1000; // Convert to milliseconds
+  const now = Date.now();
+
+  return now >= expirationTime;
+};
 
 // Helper function to validate token using tRPC "me" method
 const validateTokenWithServer = async (): Promise<{ isValid: boolean; user?: AuthUser }> => {
@@ -215,8 +242,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
+      // Check if token is not expired
+      if (isTokenExpired(jwtToken)) {
+        console.log("Token is expired, waiting for token refresh before wallet connection");
+        return;
+      }
+
       // Check if Web3Auth is ready
       if (dataWeb3Auth?.isInitialized && !dataWeb3Auth?.isInitializing && dataWeb3Auth?.web3Auth) {
+        // Check if wallet is already connected
+        if (dataWeb3Auth?.isConnected) {
+          console.log("Wallet is already connected, skipping connection");
+          return;
+        }
+
         console.log("Token and Web3Auth are ready, connecting to wallet");
         try {
           await connectToWallet(jwtToken);
@@ -244,6 +283,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     dataWeb3Auth?.isInitialized,
     dataWeb3Auth?.isInitializing,
     dataWeb3Auth?.web3Auth,
+    dataWeb3Auth?.isConnected,
     connectToWallet,
   ]);
 
