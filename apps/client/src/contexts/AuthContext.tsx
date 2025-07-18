@@ -5,15 +5,34 @@ import { useWeb3AuthDisconnect, useWeb3AuthConnect, useWeb3Auth } from "@web3aut
 import { WALLET_CONNECTORS, AUTH_CONNECTION } from "@web3auth/modal";
 import { AUTH_EVENTS } from "../constants/auth-events";
 import { AUTH_STORAGE_KEYS } from "../constants/auth-storage";
-import { decode, JwtPayload } from "jsonwebtoken";
 
-// Helper function to decode JWT and get its payload
+// Define a type for JWT payload
+interface JwtPayload {
+  exp?: number;
+  iat?: number;
+  sub?: string;
+  [key: string]: any;
+}
+
+// Helper function to decode JWT and get its payload (browser-compatible)
 const decodeToken = (token: string | null): JwtPayload | null => {
   if (!token) return null;
 
   try {
-    const payload = decode(token) as JwtPayload;
-    return payload || null;
+    // Split the JWT into header, payload, signature
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+
+    // Convert base64url to base64
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+
+    // Add padding if needed
+    const paddedBase64 = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
+
+    // Use Buffer to decode
+    const jsonStr = Buffer.from(paddedBase64, "base64").toString("utf8");
+
+    return JSON.parse(jsonStr);
   } catch (error) {
     console.error("Error decoding JWT token:", error);
     return null;
