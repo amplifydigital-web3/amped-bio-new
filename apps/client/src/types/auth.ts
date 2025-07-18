@@ -4,4 +4,5 @@ export type AuthUser = {
   onelink: string;
   role?: string; // User role (admin, user, etc.)
   // emailVerified: boolean;
+  image?: string | null; // User profile image URL
 };

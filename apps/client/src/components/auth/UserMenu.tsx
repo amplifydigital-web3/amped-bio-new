@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { LogOut, User, Settings, ArrowRight, Wallet } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useEditor } from "../../contexts/EditorContext";
@@ -18,10 +18,18 @@ import { useAccount } from "wagmi";
 
 export function UserMenu() {
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const { authUser, signOut } = useAuth();
   const { profile, setUser, setDefault } = useEditor();
   const nav = useNavigate();
   const { address: walletAddress } = useAccount();
+
+  // Reset image error state when user changes
+  useEffect(() => {
+    if (authUser?.image) {
+      setImageError(false);
+    }
+  }, [authUser]);
 
   const formatAddress = (address: string) => {
     if (!address) return "";
@@ -94,11 +102,12 @@ export function UserMenu() {
           {/* Default state - visible content */}
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center transition-all duration-300 group-hover:scale-105">
-              {profile.photoUrl || profile.photoCmp ? (
+              {authUser?.image && !imageError ? (
                 <img
-                  src={profile.photoUrl || profile.photoCmp || ""}
+                  src={authUser.image}
                   alt="Profile"
                   className="w-full h-full object-cover"
+                  onError={() => setImageError(true)}
                 />
               ) : (
                 <User className="w-4 h-4 text-gray-400" />

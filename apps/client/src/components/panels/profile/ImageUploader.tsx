@@ -6,6 +6,7 @@ import {
   MAX_AVATAR_FILE_SIZE,
 } from "@ampedbio/constants";
 import { PhotoEditor } from "./PhotoEditor";
+import { useAuth } from "../../../contexts/AuthContext";
 
 interface ImageUploaderProps {
   imageUrl: string;
@@ -19,6 +20,7 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { refreshUserData } = useAuth();
 
   const handleFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -164,6 +166,9 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
 
         // Update the profile with the new image URL
         onImageChange(result.profilePictureUrl);
+
+        // Refresh user data to update the image in the header/sidebar
+        await refreshUserData();
       } catch (uploadError: any) {
         let detailedMessage = "Failed to upload profile image to S3.";
         if (uploadError && uploadError.message?.startsWith("S3 Upload HTTP Error:")) {

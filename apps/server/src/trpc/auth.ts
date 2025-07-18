@@ -5,6 +5,7 @@ import crypto from "crypto";
 import { sendPasswordResetEmail } from "../utils/email/email";
 import { hashPassword, comparePasswords } from "../utils/password";
 import { generateAccessToken } from "../utils/token";
+import { getFileUrl } from "../utils/fileUrlResolver";
 import {
   registerSchema,
   loginSchema,
@@ -287,6 +288,12 @@ export const authRouter = router({
       });
     }
 
+    // Resolve user image URL
+    const imageUrl = await getFileUrl({
+      legacyImageField: user.image,
+      imageFileId: user.image_file_id,
+    });
+
     return {
       user: {
         id: user.id,
@@ -294,6 +301,7 @@ export const authRouter = router({
         onelink: user.onelink,
         emailVerified: user.email_verified_at !== null,
         role: user.role,
+        image: imageUrl,
       },
     };
   }),

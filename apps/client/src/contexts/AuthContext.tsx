@@ -20,6 +20,7 @@ const validateTokenWithServer = async (): Promise<{ isValid: boolean; user?: Aut
       email: response.user.email,
       onelink: response.user.onelink ?? "",
       role: response.user.role,
+      image: response.user.image,
     };
 
     return { isValid: true, user };
@@ -53,6 +54,7 @@ type AuthContextType = {
   resetPassword: (email: string) => Promise<{ success: boolean; message: string }>;
   updateAuthUser: (userData: Partial<AuthUser>) => void;
   updateToken: (token: string | null) => void; // Add method to update token
+  refreshUserData: () => Promise<void>; // New method to refresh user data
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -336,6 +338,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Função para recarregar os dados do usuário do servidor
+  const refreshUserData = async () => {
+    try {
+      if (!jwtToken) {
+        console.log("No token available, can't refresh user data");
+        return;
+      }
+
+      console.log("Refreshing user data from server...");
+      const { isValid, user } = await validateTokenWithServer();
+
+      if (isValid && user) {
+        console.log("User data refreshed successfully");
+        setAuthUser(user);
+        localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_USER, JSON.stringify(user));
+      } else {
+        console.warn("Failed to refresh user data: token invalid");
+      }
+    } catch (error) {
+      console.error("Error refreshing user data:", error);
+    }
+  };
+
   const value = {
     authUser,
     error,
@@ -347,6 +372,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     resetPassword,
     updateAuthUser,
     updateToken,
+    refreshUserData,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
