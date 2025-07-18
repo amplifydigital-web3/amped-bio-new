@@ -37,10 +37,12 @@ jobs:
           echo "store-path=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
 
       - name: Set up Cypress binary cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/Cypress
-          key: cypress-${{ runner.os }}-cypress-${{ hashFiles('pnpm-lock.yaml') }}
+          key: cypress-${{ runner.os }}-cypress-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            cypress-${{ runner.os }}-cypress-
 
       - name: Setup pnpm cache
         uses: actions/cache@v4
@@ -127,6 +129,7 @@ jobs:
           echo "NPM version: $(npm -v)"
           echo "PNPM version: $(pnpm -v)"
           pnpm install cypress
+          npx cypress install
           npx cypress verify
           npx cypress info
 
