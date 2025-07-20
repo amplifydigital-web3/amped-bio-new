@@ -269,10 +269,72 @@ export function MyWalletPanel() {
     }
   };
 
-  // Handler for claiming daily airdrop
-  const handleClaimDailyAirdrop = () => {
-    uiConsole("Claim Daily Airdrop");
-    // TODO: integrate airdrop claim logic here
+  // Handler for claiming daily faucet tokens
+  const [claimingFaucet, setClaimingFaucet] = useState(false);
+  const [faucetResult, setFaucetResult] = useState<{
+    success: boolean;
+    message: string;
+    transaction?: {
+      id: string;
+      amount: number;
+      timestamp: Date | string;
+      hash?: string;
+    };
+  } | null>(null);
+  
+  const handleClaimDailyFaucet = async () => {
+    if (!isConnected || claimingFaucet) return;
+    
+    setClaimingFaucet(true);
+    uiConsole("Claiming daily faucet tokens...");    try {
+      import("@/utils/trpc/trpc").then(async ({ trpcClient }) => {
+        try {
+          const result = await trpcClient.wallet.requestAirdrop.mutate({ amount: 100 });
+          uiConsole("Faucet tokens claimed successfully:", result);
+          
+          // Transform the result to handle timestamp as Date
+          setFaucetResult({
+            success: result.success,
+            message: result.message,
+            transaction: result.transaction
+              ? {
+                  id: result.transaction.id,
+                  amount: result.transaction.amount,
+                  timestamp: new Date(result.transaction.timestamp),
+                  hash: result.transaction.hash,
+                }
+              : undefined,
+          });
+          // Update UI with success message (this would be better done with react-query and auto refetching)
+          setTimeout(() => {
+            setFaucetResult(null);
+          }, 5000);
+        } catch (error) {
+          console.error("Error claiming faucet tokens:", error);
+          setFaucetResult({
+            success: false,
+            message: error instanceof Error ? error.message : "Failed to claim faucet tokens",
+          });
+
+          setTimeout(() => {
+            setFaucetResult(null);
+          }, 5000);
+        } finally {
+          setClaimingFaucet(false);
+        }
+      });
+    } catch (error) {
+      console.error("Error importing TRPC client:", error);
+      setClaimingFaucet(false);
+      setFaucetResult({
+        success: false,
+        message: "Failed to initialize faucet claim",
+      });
+
+      setTimeout(() => {
+        setFaucetResult(null);
+      }, 5000);
+    }
   };
 
   const calculateRemainingBalance = () => {
@@ -685,6 +747,28 @@ export function MyWalletPanel() {
 
               {/* Action Buttons */}
               <div className="grid grid-cols-5 gap-4">
+                <Button
+                  onClick={handleClaimDailyFaucet}
+                  disabled={claimingFaucet}
+                  className="relative h-20 flex flex-col items-center justify-center space-y-2 bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200 hover:border-amber-300 transition-all duration-200 ease-in-out transform hover:scale-105"
+                  variant="outline"
+                >
+                  <Gift className="w-8 h-8 p-2 bg-gray-50 rounded-lg" />
+                  <span className="text-sm font-medium">Faucet</span>
+                  {claimingFaucet && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white/50 rounded-lg">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-amber-700"></div>
+                    </div>
+                  )}
+                  {faucetResult && (
+                    <div
+                      className={`absolute -top-2 -right-2 rounded-full px-2 py-1 text-xs text-white ${faucetResult.success ? "bg-green-500" : "bg-red-500"}`}
+                    >
+                      {faucetResult.success ? "+100" : "!"}
+                    </div>
+                  )}
+                </Button>
+
                 <Dialog open={showFundModal} onOpenChange={setShowFundModal}>
                   <DialogTrigger asChild>
                     <Button
@@ -764,11 +848,17 @@ export function MyWalletPanel() {
                       <Button
                         variant="outline"
                         className="h-auto py-4 flex flex-col items-start space-y-1 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 hover:border-green-300 transition-all duration-200 ease-in-out"
-                        onClick={() => uiConsole("Claim Daily Airdrop")}
+                        onClick={handleClaimDailyFaucet}
+                        disabled={claimingFaucet}
                       >
                         <Gift className="w-6 h-6" />
-                        <span className="font-medium">Claim Daily Airdrop</span>
+                        <span className="font-medium">Claim Daily Faucet</span>
                         <p className="text-xs text-gray-500">Get your free tokens every day</p>
+                        {claimingFaucet && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-white/50 rounded-lg">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-700"></div>
+                          </div>
+                        )}
                       </Button>
                     </div>
                   </DialogContent>
