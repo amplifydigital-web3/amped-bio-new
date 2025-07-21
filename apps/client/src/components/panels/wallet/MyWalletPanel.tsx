@@ -774,8 +774,19 @@ export function MyWalletPanel() {
                         onClick={handleClaimDailyFaucet}
                         disabled={claimingFaucet}
                       >
-                        <DotLottieReact src={GiftLottie} height={32} loop autoplay />
-                        {/* <Gift className="w-6 h-6" /> */}
+                        <div className="w-6 h-6 flex items-center justify-start overflow-visible">
+                          <DotLottieReact
+                            src={GiftLottie}
+                            loop
+                            autoplay
+                            style={{
+                              width: "32px",
+                              height: "32px",
+                              marginLeft: "-3px",
+                              marginTop: "-3px",
+                            }}
+                          />
+                        </div>
                         <span className="font-medium">Claim Daily Faucet</span>
                         <p className="text-xs text-gray-500">Get your free tokens every day</p>
                         {claimingFaucet && (
