@@ -24,5 +24,6 @@ export default defineConfig(({ mode }) => {
       "process.env": process.env,
       global: "globalThis", // Ensure globalThis is used instead of global
     },
+    assetsInclude: ["**/*.lottie"],
   };
 });

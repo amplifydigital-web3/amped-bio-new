@@ -22,7 +22,6 @@ import {
   Info,
   TrendingUp,
   Trophy,
-  Gift, // newly added for airdrop icon
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +50,8 @@ import {
   useWeb3AuthUser,
 } from "@web3auth/modal/react";
 import { Switch } from "@/components/ui/Switch";
+import { DotLottieReact } from "@lottiefiles/dotlottie-react";
+import GiftLottie from "@/assets/lottie/gift.lottie";
 
 export function MyWalletPanel() {
   const {
@@ -281,17 +282,21 @@ export function MyWalletPanel() {
       hash?: string;
     };
   } | null>(null);
-  
+
   const handleClaimDailyFaucet = async () => {
-    if (!isConnected || claimingFaucet) return;
-    
+    if (!isConnected || claimingFaucet || !walletAddress) return;
+
     setClaimingFaucet(true);
-    uiConsole("Claiming daily faucet tokens...");    try {
+    uiConsole("Claiming daily faucet tokens...");
+    try {
       import("@/utils/trpc/trpc").then(async ({ trpcClient }) => {
         try {
-          const result = await trpcClient.wallet.requestAirdrop.mutate({ amount: 100 });
+          // Only send the wallet address - amount will be determined by server environment variables
+          const result = await trpcClient.wallet.requestAirdrop.mutate({
+            address: walletAddress, // Send the connected wallet address
+          });
           uiConsole("Faucet tokens claimed successfully:", result);
-          
+
           // Transform the result to handle timestamp as Date
           setFaucetResult({
             success: result.success,
@@ -746,29 +751,7 @@ export function MyWalletPanel() {
               <CardDescription className="mb-6">Your current wallet balance</CardDescription>
 
               {/* Action Buttons */}
-              <div className="grid grid-cols-5 gap-4">
-                <Button
-                  onClick={handleClaimDailyFaucet}
-                  disabled={claimingFaucet}
-                  className="relative h-20 flex flex-col items-center justify-center space-y-2 bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200 hover:border-amber-300 transition-all duration-200 ease-in-out transform hover:scale-105"
-                  variant="outline"
-                >
-                  <Gift className="w-8 h-8 p-2 bg-gray-50 rounded-lg" />
-                  <span className="text-sm font-medium">Faucet</span>
-                  {claimingFaucet && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-white/50 rounded-lg">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-amber-700"></div>
-                    </div>
-                  )}
-                  {faucetResult && (
-                    <div
-                      className={`absolute -top-2 -right-2 rounded-full px-2 py-1 text-xs text-white ${faucetResult.success ? "bg-green-500" : "bg-red-500"}`}
-                    >
-                      {faucetResult.success ? "+100" : "!"}
-                    </div>
-                  )}
-                </Button>
-
+              <div className="grid grid-cols-4 gap-4">
                 <Dialog open={showFundModal} onOpenChange={setShowFundModal}>
                   <DialogTrigger asChild>
                     <Button
@@ -785,6 +768,22 @@ export function MyWalletPanel() {
                       <DialogDescription>Choose a method to fund your wallet.</DialogDescription>
                     </DialogHeader>
                     <div className="flex flex-col gap-4 py-4">
+                      <Button
+                        variant="outline"
+                        className="h-auto py-4 flex flex-col items-start space-y-1 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 hover:border-green-300 transition-all duration-200 ease-in-out"
+                        onClick={handleClaimDailyFaucet}
+                        disabled={claimingFaucet}
+                      >
+                        <DotLottieReact src={GiftLottie} height={32} loop autoplay />
+                        {/* <Gift className="w-6 h-6" /> */}
+                        <span className="font-medium">Claim Daily Faucet</span>
+                        <p className="text-xs text-gray-500">Get your free tokens every day</p>
+                        {claimingFaucet && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-white/50 rounded-lg">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-700"></div>
+                          </div>
+                        )}
+                      </Button>
                       <Button
                         variant="outline"
                         className="h-auto py-4 flex flex-col items-start space-y-1"
@@ -844,21 +843,6 @@ export function MyWalletPanel() {
                           </span>
                         </span>
                         <p className="text-xs text-gray-500">Connect your Coinbase account</p>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="h-auto py-4 flex flex-col items-start space-y-1 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 hover:border-green-300 transition-all duration-200 ease-in-out"
-                        onClick={handleClaimDailyFaucet}
-                        disabled={claimingFaucet}
-                      >
-                        <Gift className="w-6 h-6" />
-                        <span className="font-medium">Claim Daily Faucet</span>
-                        <p className="text-xs text-gray-500">Get your free tokens every day</p>
-                        {claimingFaucet && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-white/50 rounded-lg">
-                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-700"></div>
-                          </div>
-                        )}
                       </Button>
                     </div>
                   </DialogContent>
