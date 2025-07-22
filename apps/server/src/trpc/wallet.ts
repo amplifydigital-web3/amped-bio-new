@@ -122,20 +122,17 @@ export const walletRouter = router({
 
             console.log(`Sending ${faucetAmount} REVO from ${account.address} to ${input.address}`);
 
-            // Send transaction using wallet client
+            // Send transaction using wallet client and return immediately without waiting for confirmation
             hash = await walletClient.sendTransaction({
               to: input.address as `0x${string}`,
               value: amountInWei,
             });
 
-            // Wait for transaction to be mined
-            const receipt = await publicClient.waitForTransactionReceipt({
-              hash: hash as `0x${string}`,
-              timeout: 60_000, // 60 seconds timeout
-            });
+            // Não esperamos mais que a transação seja minerada
+            console.log(`Transaction sent: ${hash} - Not waiting for confirmation`);
           }
 
-          console.log(`${isMockMode ? "[MOCK] " : ""}Transaction confirmed: ${hash}`);
+          console.log(`${isMockMode ? "[MOCK] " : ""}Transaction sent: ${hash}`);
 
           // Create a transaction record
           const transaction = {
@@ -150,7 +147,7 @@ export const walletRouter = router({
             success: true,
             message: isMockMode
               ? `[MOCK MODE] Simulated sending ${faucetAmount} REVO tokens to ${input.address}`
-              : `Successfully sent ${faucetAmount} REVO tokens to ${input.address}!`,
+              : `Transaction sent with ${faucetAmount} REVO tokens to ${input.address}! Waiting for network confirmation.`,
             transaction,
           };
         } catch (txError) {
@@ -164,7 +161,8 @@ export const walletRouter = router({
 
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
-            message: "Failed to send transaction. Please try again later.",
+            message:
+              "Failed to send transaction. The transaction could not be broadcast to the network. Please try again later.",
           });
         }
       } catch (error) {
