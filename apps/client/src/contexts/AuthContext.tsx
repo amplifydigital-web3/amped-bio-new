@@ -190,6 +190,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = useCallback(async () => {
     setError(null);
 
+    try {
+      // Invalidate refresh token on backend
+      await trpcClient.auth.logout.mutate();
+      console.log("Backend logout successful");
+    } catch (error) {
+      console.error("Backend logout failed:", error);
+      // Continue with local logout even if backend logout fails
+    }
+
     // Disconnect Web3Auth
     await safeWeb3AuthDisconnect();
 

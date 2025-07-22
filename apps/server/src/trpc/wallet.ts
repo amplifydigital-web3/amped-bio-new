@@ -64,6 +64,27 @@ const faucetResponseSchema = z.object({
 });
 
 export const walletRouter = router({
+  // Get the current airdrop/faucet amount
+  getFaucetAmount: privateProcedure.query(async () => {
+    try {
+      // Retrieve the faucet amount from environment variables
+      const faucetAmount = Number(env.FAUCET_AMOUNT);
+
+      return {
+        success: true,
+        amount: faucetAmount,
+        currency: "REVO", // The token symbol is hardcoded here
+      };
+    } catch (error) {
+      console.error("Error getting faucet amount:", error);
+
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to retrieve faucet amount",
+      });
+    }
+  }),
+
   // Request faucet tokens using real blockchain transactions via viem
   requestAirdrop: privateProcedure
     .input(faucetRequestSchema)

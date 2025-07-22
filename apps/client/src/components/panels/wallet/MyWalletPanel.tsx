@@ -9,16 +9,12 @@ import {
   DollarSign,
   Gem,
   Coins,
-  QrCode,
   ArrowDownLeft,
   ArrowUpRight,
   Plus,
   X,
   History,
-  Clock,
   Check,
-  ArrowRight,
-  CreditCard,
   Info,
   TrendingUp,
   Trophy,
@@ -28,21 +24,12 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 import { GridPattern } from "@/components/ui/grid-pattern";
 import { ShimmerButton } from "@/components/ui/shimmer-button";
 import { cn } from "@/lib/utils";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAccount, useBalance } from "wagmi";
-import { WALLET_CONNECTORS, AUTH_CONNECTION } from "@web3auth/modal";
 import {
   useWeb3Auth,
   useWeb3AuthConnect,
@@ -50,9 +37,8 @@ import {
   useWeb3AuthUser,
 } from "@web3auth/modal/react";
 import { Switch } from "@/components/ui/Switch";
-import { DotLottieReact } from "@lottiefiles/dotlottie-react";
-import GiftLottie from "@/assets/lottie/gift.lottie";
 import { FundWalletDialog, ProfileOptionsDialog, ReceiveDialog, SendDialog } from "./dialogs";
+import { useFundWalletDialog } from "./dialogs/FundWalletDialog";
 
 export function MyWalletPanel() {
   const {
@@ -340,6 +326,14 @@ export function MyWalletPanel() {
       return { success: false };
     }
   };
+
+  // Use o hook para controlar o diálogo de financiamento da carteira
+  const fundWalletDialog = useFundWalletDialog({
+    handleClaimDailyFaucet,
+    claimingFaucet,
+    open: showFundModal,
+    onOpenChange: setShowFundModal,
+  });
 
   const calculateRemainingBalance = () => {
     if (!balanceData?.formatted || !sendAmount) return balanceData?.formatted || "0";
@@ -744,8 +738,8 @@ export function MyWalletPanel() {
                   </DialogTrigger>
                 </Dialog>
                 <FundWalletDialog
-                  open={showFundModal}
-                  onOpenChange={setShowFundModal}
+                  open={fundWalletDialog.open}
+                  onOpenChange={fundWalletDialog.onOpenChange}
                   handleClaimDailyFaucet={handleClaimDailyFaucet}
                   claimingFaucet={claimingFaucet}
                 />
