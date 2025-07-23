@@ -304,7 +304,7 @@ export function FundWalletDialog({
                     <CountdownTimer
                       targetDate={new Date(faucetInfo.nextAvailableDate)}
                       onComplete={() => {
-                        // Atualiza o estado para habilitar o botão quando o tempo acabar
+                        // Updates the state to enable the button when the timer ends
                         const newFaucetInfo = { ...faucetInfo, canRequestNow: true };
                         setFaucetInfo(newFaucetInfo);
                       }}
