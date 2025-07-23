@@ -12,14 +12,14 @@ const baseURL = withRelatedProject({
 
 /**
  * Refreshes the access token using the refresh token via tRPC
- * Inclui mecanismos de retry e melhor tratamento de erros
+ * Includes retry mechanisms and improved error handling
  */
 async function refreshToken(): Promise<string | null> {
-  // Implementar um bloqueio para evitar múltiplas chamadas simultâneas de refresh
+  // Implement a lock to prevent multiple simultaneous refresh calls
   if ((globalThis as any).__refreshingToken) {
     console.log("Token refresh already in progress, waiting...");
     try {
-      // Espera a operação atual terminar (no máximo 10 segundos)
+      // Wait for the current operation to finish (max 10 seconds)
       await new Promise<void>(resolve => {
         const checkRefreshStatus = () => {
           if (!(globalThis as any).__refreshingToken) {
@@ -29,7 +29,7 @@ async function refreshToken(): Promise<string | null> {
           }
         };
 
-        // Timeout após 10 segundos para evitar espera infinita
+        // Timeout after 10 seconds to avoid infinite wait
         const timeout = setTimeout(() => {
           console.warn("Refresh token wait timed out");
           resolve();
@@ -37,11 +37,11 @@ async function refreshToken(): Promise<string | null> {
 
         checkRefreshStatus();
 
-        // Limpar timeout se resolve acontecer antes
+        // Clear timeout if resolve happens before
         return () => clearTimeout(timeout);
       });
 
-      // Retornar o token que já deve estar atualizado no localStorage
+      // Return the token that should already be updated in localStorage
       const cachedToken = localStorage.getItem(AUTH_STORAGE_KEYS.AUTH_TOKEN);
       if (cachedToken) {
         return cachedToken;
@@ -51,7 +51,7 @@ async function refreshToken(): Promise<string | null> {
     }
   }
 
-  // Definir flag para indicar que o refresh está em andamento
+  // Set flag to indicate that refresh is in progress
   (globalThis as any).__refreshingToken = true;
 
   try {
@@ -100,7 +100,7 @@ async function refreshToken(): Promise<string | null> {
     // Don't clear refresh token cookie as it's handled by the server
     return null;
   } finally {
-    // Liberar o bloqueio
+    // Release the lock
     (globalThis as any).__refreshingToken = false;
   }
 }
@@ -127,7 +127,7 @@ export const createHttpLink = () => {
         credentials: "include" as RequestCredentials,
       };
 
-      // Função auxiliar para verificar se o erro é devido a token expirado
+      // Helper function to check if the error is due to expired token
       const isTokenExpiredError = async (response: Response) => {
         try {
           const errorData = await response.clone().json();
@@ -136,7 +136,7 @@ export const createHttpLink = () => {
               (error: any) => error.error?.data?.cause === ERROR_CAUSES.TOKEN_EXPIRED
             ) ||
             errorData.error?.data?.cause === ERROR_CAUSES.TOKEN_EXPIRED ||
-            // Verificações adicionais para outros formatos de erro que possam indicar token expirado
+            // Additional checks for other error formats that may indicate expired token
             errorData.message?.toLowerCase().includes("token expired") ||
             errorData.error?.message?.toLowerCase().includes("token expired")
           );
@@ -160,7 +160,7 @@ export const createHttpLink = () => {
           const newToken = await refreshToken();
 
           if (newToken) {
-            // Criar novas options com o token atualizado
+            // Create new options with the updated token
             const newOptions = {
               ...(options as RequestInit),
               credentials: "include" as RequestCredentials,
@@ -170,14 +170,14 @@ export const createHttpLink = () => {
               },
             };
 
-            // Tentar a requisição novamente com o novo token
+            // Retry the request with the new token
             response = await globalThis.fetch(url, newOptions);
             console.log("Request retried with new token");
 
-            // Se mesmo com o token atualizado ainda falhar, verificar se é um problema de token novamente
+            // If it still fails even with the updated token, check if it's a token issue again
             if (!response.ok && (await isTokenExpiredError(response))) {
               console.error("Request failed even after token refresh");
-              // Possivelmente problema com o refresh token também, logout necessário
+              // Possibly a problem with the refresh token as well, logout necessary
               window.dispatchEvent(new CustomEvent(AUTH_EVENTS.TOKEN_EXPIRED));
             }
           } else {
