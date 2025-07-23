@@ -18,25 +18,33 @@ redisClient.on("connect", () => {
 });
 
 /**
- * Key prefix for faucet claims
- * Format: faucet:claim:{userId}
+ * NOTES:
+ * The faucet claim rate limiting has been implemented using database timestamps
+ * in the UserWallet model rather than Redis. See wallet.ts for implementation.
+ *
+ * The Redis-based implementation below was an alternative approach using UTC day-based
+ * rate limiting that is not currently in use.
+ *
+ * If we decide to switch to Redis-based rate limiting in the future, these functions
+ * can be used, which would limit users to one claim per UTC day rather than a rolling
+ * 24-hour window.
  */
+
+/*
+// Key prefix for faucet claims
+// Format: faucet:claim:{userId}
 const FAUCET_CLAIM_PREFIX = "faucet:claim:";
 
-/**
- * Get the UTC date string for today (YYYY-MM-DD)
- * This is used as a key to track faucet claims per UTC day
- */
+// Get the UTC date string for today (YYYY-MM-DD)
+// This is used as a key to track faucet claims per UTC day
 export const getUtcDateString = (): string => {
   const now = new Date();
   return now.toISOString().split("T")[0]; // Returns YYYY-MM-DD
 };
 
-/**
- * Record a faucet claim for a user on the current UTC day
- * @param userId The user ID
- * @returns Promise that resolves when the claim is recorded
- */
+// Record a faucet claim for a user on the current UTC day
+// @param userId The user ID
+// @returns Promise that resolves when the claim is recorded
 export const recordFaucetClaim = async (userId: number): Promise<void> => {
   const key = `${FAUCET_CLAIM_PREFIX}${userId}`;
   const currentUtcDay = getUtcDateString();
@@ -45,11 +53,9 @@ export const recordFaucetClaim = async (userId: number): Promise<void> => {
   await redisClient.set(key, currentUtcDay, "EX", 60 * 60 * 48);
 };
 
-/**
- * Check if a user has already claimed faucet tokens today (UTC)
- * @param userId The user ID
- * @returns Promise that resolves to true if user has already claimed today, false otherwise
- */
+// Check if a user has already claimed faucet tokens today (UTC)
+// @param userId The user ID
+// @returns Promise that resolves to true if user has already claimed today, false otherwise
 export const hasClaimedToday = async (userId: number): Promise<boolean> => {
   const key = `${FAUCET_CLAIM_PREFIX}${userId}`;
   const lastClaimDate = await redisClient.get(key);
@@ -59,10 +65,8 @@ export const hasClaimedToday = async (userId: number): Promise<boolean> => {
   return lastClaimDate === currentUtcDay;
 };
 
-/**
- * Get the next claim date (tomorrow in UTC)
- * @returns Date object set to 00:00:00 UTC tomorrow
- */
+// Get the next claim date (tomorrow in UTC)
+// @returns Date object set to 00:00:00 UTC tomorrow
 export const getNextClaimDate = (): Date => {
   const now = new Date();
   const tomorrow = new Date(
@@ -70,5 +74,6 @@ export const getNextClaimDate = (): Date => {
   );
   return tomorrow;
 };
+*/
 
 export default redisClient;
