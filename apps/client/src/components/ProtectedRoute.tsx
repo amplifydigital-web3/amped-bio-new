@@ -38,7 +38,7 @@ export function ProtectedRoute({
   }
 
   // Check admin access if required
-  if (adminOnly && (!authUser || authUser.role !== "admin")) {
+  if (adminOnly && (!authUser || !authUser.role?.includes("admin"))) {
     return <Navigate to="/" replace />;
   }
 
