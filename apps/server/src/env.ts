@@ -70,8 +70,8 @@ export const env = cleanEnv(process.env, {
   }),
   FAUCET_AMOUNT: str({
     desc: "Amount of tokens to send from the faucet",
-    default: "100",
-    example: "50",
+    default: "0.001",
+    example: "0.001",
   }),
   FAUCET_MOCK_MODE: str({
     desc: "If true, don't actually send funds but return a dummy transaction hash",
