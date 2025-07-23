@@ -2,25 +2,13 @@ import { adminProcedure, router } from "../trpc";
 import { env } from "../../env";
 import { createPublicClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+import { getChainConfig } from "../../utils/chainConfig";
 
 export const walletAdminRouter = router({
   getFaucetWalletInfo: adminProcedure.query(async () => {
     try {
-      // Create chain configuration from environment
-      const chain = {
-        id: Number(env.CHAIN_ID),
-        name: "Revolution Chain",
-        network: "revolution",
-        nativeCurrency: {
-          decimals: 18,
-          name: "REVO",
-          symbol: "REVO",
-        },
-        rpcUrls: {
-          default: { http: [env.RPC_URL] },
-          public: { http: [env.RPC_URL] },
-        },
-      };
+      // Get chain configuration from centralized utility
+      const chain = getChainConfig();
 
       // Create account from private key
       const account = privateKeyToAccount(env.FAUCET_PRIVATE_KEY as `0x${string}`);
@@ -28,7 +16,7 @@ export const walletAdminRouter = router({
       // Create public client for fetching blockchain data
       const publicClient = createPublicClient({
         chain,
-        transport: http(env.RPC_URL),
+        transport: http(chain.rpcUrls.default.http[0]),
       });
 
       // Get wallet balance
@@ -41,8 +29,8 @@ export const walletAdminRouter = router({
         formattedBalance: balance.toString(),
         isMockMode: env.FAUCET_MOCK_MODE === "true",
         faucetAmount: Number(env.FAUCET_AMOUNT),
-        currency: "REVO",
-        chainId: Number(env.CHAIN_ID),
+        currency: chain.nativeCurrency.symbol,
+        chainId: chain.id,
         chainName: chain.name,
       };
     } catch (error) {

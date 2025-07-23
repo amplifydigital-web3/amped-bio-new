@@ -5,30 +5,10 @@ import { env } from "../env";
 import { createWalletClient, http, parseEther, createPublicClient, isAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { prisma } from "../services/DB";
+import { getChainConfig } from "../utils/chainConfig";
 
-// Define chain using the exact data from wagmiConfig.ts
-const chain = {
-  id: 73861,
-  name: "Revochain Testnet",
-  network: "revochain-testnet",
-  nativeCurrency: {
-    name: "Revochain Testnet",
-    symbol: "tREVO",
-    decimals: 18,
-  },
-  rpcUrls: {
-    default: {
-      http: ["https://dev.revolutionchain.io"],
-    },
-  },
-  blockExplorers: {
-    default: {
-      name: "Revochain Testnet Explorer",
-      url: "https://dev.revoscan.io",
-    },
-  },
-  testnet: true,
-};
+// Get chain configuration from centralized utility
+const chain = getChainConfig();
 
 // Create wallet client from private key
 const account = privateKeyToAccount(env.FAUCET_PRIVATE_KEY as `0x${string}`);
@@ -37,13 +17,13 @@ const account = privateKeyToAccount(env.FAUCET_PRIVATE_KEY as `0x${string}`);
 const walletClient = createWalletClient({
   account,
   chain,
-  transport: http("https://dev.revolutionchain.io"),
+  transport: http(chain.rpcUrls.default.http[0]),
 });
 
 // Create public client for fetching blockchain data
 const publicClient = createPublicClient({
   chain,
-  transport: http("https://dev.revolutionchain.io"),
+  transport: http(chain.rpcUrls.default.http[0]),
 });
 
 // Schema for requesting faucet tokens
@@ -184,7 +164,7 @@ export const walletRouter = router({
       return {
         success: true,
         amount: faucetAmount,
-        currency: "tREVO", // The token symbol is hardcoded here
+        currency: chain.nativeCurrency.symbol,
         lastRequestDate,
         nextAvailableDate,
         canRequestNow,
@@ -317,7 +297,7 @@ export const walletRouter = router({
             ).join("")}`;
 
             console.log(
-              `[MOCK MODE] Simulating sending ${faucetAmount} tREVO from ${account.address} to ${input.address}`
+              `[MOCK MODE] Simulating sending ${faucetAmount} ${chain.nativeCurrency.symbol} from ${account.address} to ${input.address}`
             );
             console.log(`[MOCK MODE] Generated dummy transaction hash: ${hash}`);
 
@@ -329,7 +309,7 @@ export const walletRouter = router({
             const amountInWei = parseEther(faucetAmount.toString());
 
             console.log(
-              `Sending ${faucetAmount} tREVO from ${account.address} to ${input.address}`
+              `Sending ${faucetAmount} ${chain.nativeCurrency.symbol} from ${account.address} to ${input.address}`
             );
 
             // Send transaction using wallet client and return immediately without waiting for confirmation
@@ -356,8 +336,8 @@ export const walletRouter = router({
           return {
             success: true,
             message: isMockMode
-              ? `[MOCK MODE] Simulated sending ${faucetAmount} tREVO tokens to ${input.address}`
-              : `Transaction sent with ${faucetAmount} tREVO tokens to ${input.address}! Waiting for network confirmation.`,
+              ? `[MOCK MODE] Simulated sending ${faucetAmount} ${chain.nativeCurrency.symbol} tokens to ${input.address}`
+              : `Transaction sent with ${faucetAmount} ${chain.nativeCurrency.symbol} tokens to ${input.address}! Waiting for network confirmation.`,
             transaction,
           };
         } catch (txError) {

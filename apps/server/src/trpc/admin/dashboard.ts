@@ -3,6 +3,7 @@ import { prisma } from "../../services/DB";
 import { env } from "../../env";
 import { createPublicClient, formatEther, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+import { getChainConfig } from "../../utils/chainConfig";
 
 export const dashboardRouter = router({
   getDashboardStats: adminProcedure.query(async () => {
@@ -65,21 +66,8 @@ export const dashboardRouter = router({
     // Get wallet information for faucet
     let faucetWalletInfo = null;
     try {
-      // Create chain configuration from environment
-      const chain = {
-        id: Number(env.CHAIN_ID),
-        name: "Revolution Chain",
-        network: "revolution",
-        nativeCurrency: {
-          decimals: 18,
-          name: "REVO",
-          symbol: "REVO",
-        },
-        rpcUrls: {
-          default: { http: [env.RPC_URL] },
-          public: { http: [env.RPC_URL] },
-        },
-      };
+      // Get chain configuration from centralized utility
+      const chain = getChainConfig();
 
       // Create account from private key
       const account = privateKeyToAccount(env.FAUCET_PRIVATE_KEY as `0x${string}`);
@@ -87,7 +75,7 @@ export const dashboardRouter = router({
       // Create public client for fetching blockchain data
       const publicClient = createPublicClient({
         chain,
-        transport: http(env.RPC_URL),
+        transport: http(chain.rpcUrls.default.http[0]),
       });
 
       // Get wallet balance
@@ -106,7 +94,7 @@ export const dashboardRouter = router({
         formattedBalance,
         remainingAirdrops: Math.floor(remainingAirdrops),
         faucetAmount,
-        currency: "REVO",
+        currency: chain.nativeCurrency.symbol,
         isMockMode: env.FAUCET_MOCK_MODE === "true",
       };
     } catch (error) {
