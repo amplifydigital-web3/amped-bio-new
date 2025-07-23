@@ -5,3 +5,4 @@ export * from "./AdminRewardStats";
 export * from "./AdminBlockDistribution";
 export * from "./AdminTopOnelinks";
 export * from "./AdminRecentUsers";
+export * from "./AdminFaucetWalletStats";

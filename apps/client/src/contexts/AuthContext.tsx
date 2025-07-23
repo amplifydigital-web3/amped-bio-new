@@ -5,6 +5,7 @@ import { useWeb3AuthDisconnect, useWeb3AuthConnect, useWeb3Auth } from "@web3aut
 import { WALLET_CONNECTORS, AUTH_CONNECTION } from "@web3auth/modal";
 import { AUTH_EVENTS } from "../constants/auth-events";
 import { AUTH_STORAGE_KEYS } from "../constants/auth-storage";
+import { useAccount } from "wagmi";
 
 // Define a type for JWT payload
 interface JwtPayload {
@@ -116,6 +117,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const { disconnect: web3AuthDisconnect } = useWeb3AuthDisconnect();
   const { connectTo } = useWeb3AuthConnect();
   const dataWeb3Auth = useWeb3Auth();
+  const account = useAccount();
 
   // Helper function to safely disconnect Web3Auth
   const safeWeb3AuthDisconnect = useCallback(async () => {
@@ -163,6 +165,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     },
     [connectTo, dataWeb3Auth?.isInitialized, dataWeb3Auth?.isInitializing, dataWeb3Auth?.web3Auth]
   );
+
+  useEffect(() => {
+    if (account.address && authUser) {
+      trpcClient.wallet.linkWalletAddress.mutate({ address: account.address }).catch(error => {
+        console.error("Failed to link wallet address:", error);
+      });
+    }
+  }, [account.address, authUser]);
 
   // Method to update JWT token (the effect will handle wallet connection)
   const updateToken = useCallback((token: string | null) => {

@@ -7,15 +7,72 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { DollarSign, CheckCircle, ExternalLink } from "lucide-react";
+import { DollarSign, CheckCircle, ExternalLink, Clock } from "lucide-react";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import GiftLottie from "@/assets/lottie/gift.lottie";
 import CoinbaseIcon from "@/assets/icons/coinbase.png";
 import OnRampIcon from "@/assets/icons/onramp.png";
 import MoonPayIcon from "@/assets/icons/moonpay.png";
 import { useAccount } from "wagmi";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { trpcClient } from "@/utils/trpc/trpc";
+
+// Component to display countdown timer
+function CountdownTimer({ targetDate, onComplete }: { targetDate: Date; onComplete?: () => void }) {
+  const [timeLeft, setTimeLeft] = useState<{
+    hours: number;
+    minutes: number;
+    seconds: number;
+  }>({ hours: 0, minutes: 0, seconds: 0 });
+
+  useEffect(() => {
+    // Function to calculate time left
+    const calculateTimeLeft = () => {
+      const difference = targetDate.getTime() - new Date().getTime();
+
+      if (difference <= 0) {
+        // Time's up
+        return { hours: 0, minutes: 0, seconds: 0 };
+      }
+
+      // Calculate hours, minutes, seconds
+      const hours = Math.floor(difference / (1000 * 60 * 60));
+      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+      return { hours, minutes, seconds };
+    };
+
+    // Set initial time
+    setTimeLeft(calculateTimeLeft());
+
+    // Update every second
+    const timer = setInterval(() => {
+      const timeRemaining = calculateTimeLeft();
+      setTimeLeft(timeRemaining);
+
+      // When countdown reaches zero, trigger onComplete callback
+      if (timeRemaining.hours === 0 && timeRemaining.minutes === 0 && timeRemaining.seconds === 0) {
+        clearInterval(timer);
+        if (onComplete) {
+          onComplete();
+        }
+      }
+    }, 1000);
+
+    // Clean up
+    return () => clearInterval(timer);
+  }, [targetDate, onComplete]);
+
+  // Format with leading zeros
+  const formatTime = (num: number) => num.toString().padStart(2, "0");
+
+  return (
+    <span className="font-mono">
+      {formatTime(timeLeft.hours)}:{formatTime(timeLeft.minutes)}:{formatTime(timeLeft.seconds)}
+    </span>
+  );
+}
 
 // Hook to control the wallet funding dialog
 export function useFundWalletDialog(params: {
@@ -38,6 +95,19 @@ export function useFundWalletDialog(params: {
   );
   const [isLoadingFaucetAmount, setIsLoadingFaucetAmount] = useState(false);
 
+  // Faucet cooldown state
+  const [faucetInfo, setFaucetInfo] = useState<{
+    lastRequestDate: Date | null;
+    nextAvailableDate: Date | null;
+    canRequestNow: boolean;
+    hasWallet: boolean;
+  }>({
+    lastRequestDate: null,
+    nextAvailableDate: null,
+    canRequestNow: true,
+    hasWallet: false,
+  });
+
   // Fetch faucet amount when dialog is opened
   useEffect(() => {
     const fetchFaucetAmount = async () => {
@@ -51,6 +121,14 @@ export function useFundWalletDialog(params: {
           setFaucetAmount({
             amount: result.amount,
             currency: result.currency,
+          });
+
+          // Set cooldown information
+          setFaucetInfo({
+            lastRequestDate: result.lastRequestDate ? new Date(result.lastRequestDate) : null,
+            nextAvailableDate: result.nextAvailableDate ? new Date(result.nextAvailableDate) : null,
+            canRequestNow: result.canRequestNow,
+            hasWallet: result.hasWallet,
           });
         }
       } catch (error) {
@@ -70,6 +148,17 @@ export function useFundWalletDialog(params: {
       if (result.success && result.txid) {
         setTxInfo({ txid: result.txid });
         setShowSuccessDialog(true);
+
+        // Update faucet state after successful claim
+        const now = new Date();
+        const nextDate = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours from now
+
+        setFaucetInfo({
+          lastRequestDate: now,
+          nextAvailableDate: nextDate,
+          canRequestNow: false,
+          hasWallet: true,
+        });
       }
     } catch (error) {
       console.error("Error claiming faucet:", error);
@@ -87,6 +176,8 @@ export function useFundWalletDialog(params: {
     claimingFaucet,
     onOpenChange,
     open,
+    faucetInfo,
+    setFaucetInfo,
   };
 }
 
@@ -112,6 +203,9 @@ export function FundWalletDialog({
     isLoadingFaucetAmount,
     handleClaim,
     walletAddress,
+    faucetInfo,
+    faucetInfo: { canRequestNow },
+    setFaucetInfo,
   } = useFundWalletDialog({
     handleClaimDailyFaucet,
     claimingFaucet,
@@ -169,30 +263,58 @@ export function FundWalletDialog({
           <div className="flex flex-col gap-4 py-4">
             <Button
               variant="outline"
-              className="h-auto py-4 flex flex-col items-start space-y-1 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 hover:border-green-300 transition-all duration-200 ease-in-out relative"
+              className={`h-auto py-4 flex flex-col items-start space-y-1 relative
+                ${
+                  faucetInfo.canRequestNow
+                    ? "bg-green-50 hover:bg-green-100 text-green-700 border-green-200 hover:border-green-300"
+                    : "bg-gray-50 text-gray-500 border-gray-200"
+                } 
+                transition-all duration-200 ease-in-out`}
               onClick={handleClaim}
-              disabled={claimingFaucet}
+              disabled={claimingFaucet || !faucetInfo.canRequestNow}
             >
               <div className="w-6 h-6 flex items-center justify-start overflow-visible">
-                <DotLottieReact
-                  src={GiftLottie}
-                  loop
-                  autoplay
-                  style={{
-                    width: "32px",
-                    height: "32px",
-                    marginLeft: "-3px",
-                    marginTop: "-3px",
-                  }}
-                />
+                {faucetInfo.canRequestNow ? (
+                  <DotLottieReact
+                    src={GiftLottie}
+                    loop
+                    autoplay
+                    style={{
+                      width: "32px",
+                      height: "32px",
+                      marginLeft: "-3px",
+                      marginTop: "-3px",
+                    }}
+                  />
+                ) : (
+                  <div className="w-6 h-6 flex items-center justify-center">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                )}
               </div>
-              <span className="font-medium">Claim Daily Faucet</span>
+              <span className="font-medium">
+                {faucetInfo.canRequestNow ? "Claim Daily Faucet" : "Faucet on Cooldown"}
+              </span>
               <p className="text-xs text-gray-500">
-                {isLoadingFaucetAmount
-                  ? "Loading faucet amount..."
-                  : faucetAmount
-                    ? `Get ${faucetAmount.amount} ${faucetAmount.currency} tokens every day`
-                    : "Get your free tokens every day"}
+                {isLoadingFaucetAmount ? (
+                  "Loading faucet amount..."
+                ) : !faucetInfo.canRequestNow && faucetInfo.nextAvailableDate ? (
+                  <>
+                    <span className="text-amber-600 font-medium">Available in: </span>
+                    <CountdownTimer
+                      targetDate={new Date(faucetInfo.nextAvailableDate)}
+                      onComplete={() => {
+                        // Atualiza o estado para habilitar o botão quando o tempo acabar
+                        const newFaucetInfo = { ...faucetInfo, canRequestNow: true };
+                        setFaucetInfo(newFaucetInfo);
+                      }}
+                    />
+                  </>
+                ) : faucetAmount ? (
+                  `Get ${faucetAmount.amount} ${faucetAmount.currency} tokens every day`
+                ) : (
+                  "Get your free tokens every day"
+                )}
               </p>
               {claimingFaucet && (
                 <div className="absolute inset-0 flex items-center justify-center bg-white/70 rounded-lg backdrop-blur-[1px]">

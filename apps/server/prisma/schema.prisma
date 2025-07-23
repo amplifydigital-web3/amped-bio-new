@@ -35,6 +35,7 @@ model User {
   profileImage        UploadedFile? @relation("UserProfileImage", fields: [image_file_id], references: [id], onDelete: SetNull)
 
   refreshTokens       RefreshToken[]
+  wallet              UserWallet?
 
   @@map("users")
 }
@@ -155,4 +156,18 @@ model RefreshToken {
   @@index([token])
   @@index([userId])
   @@map("refresh_tokens")
+}
+
+// User wallet address mapping table (one-to-one with User)
+model UserWallet {
+  id                  Int       @id @default(autoincrement())
+  address             String    @unique
+  userId              Int       @unique // Ensure one-to-one relationship
+  last_airdrop_request DateTime?
+  created_at          DateTime  @default(now())
+  updated_at          DateTime? @updatedAt
+
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_wallets")
 }
