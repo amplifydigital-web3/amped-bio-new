@@ -16,6 +16,7 @@ import MoonPayIcon from "@/assets/icons/moonpay.png";
 import { useAccount } from "wagmi";
 import { useState, useEffect, useRef } from "react";
 import { trpcClient } from "@/utils/trpc/trpc";
+import { toast } from "react-hot-toast";
 
 // Component to display countdown timer
 function CountdownTimer({ targetDate, onComplete }: { targetDate: Date; onComplete?: () => void }) {
@@ -130,9 +131,14 @@ export function useFundWalletDialog(params: {
             canRequestNow: result.canRequestNow,
             hasWallet: result.hasWallet,
           });
+        } else {
+          // Show error toast if the server returns a failure status
+          toast.error("Unable to get faucet information. Please try again later.");
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to fetch faucet amount:", error);
+        // Show error toast with message from the error if available
+        toast.error(error.message || "Unable to get faucet information. Please try again later.");
       } finally {
         setIsLoadingFaucetAmount(false);
       }
@@ -159,9 +165,14 @@ export function useFundWalletDialog(params: {
           canRequestNow: false,
           hasWallet: true,
         });
+      } else {
+        // Show error toast when response indicates failure but no exception was thrown
+        toast.error("Failed to claim faucet. Please try again later.");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error claiming faucet:", error);
+      // Show error toast with message from the error if available
+      toast.error(error.message || "Failed to claim faucet. Please try again later.");
     }
   };
 
