@@ -318,7 +318,7 @@ export const walletRouter = router({
               value: amountInWei,
             });
 
-            // Não esperamos mais que a transação seja minerada
+            // We no longer wait for the transaction to be mined
             console.log(`Transaction sent: ${hash} - Not waiting for confirmation`);
           }
 
