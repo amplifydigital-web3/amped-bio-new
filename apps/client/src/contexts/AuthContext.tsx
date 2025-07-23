@@ -1,4 +1,12 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+  useCallback,
+  useRef,
+} from "react";
 import type { AuthUser } from "../types/auth";
 import { trpcClient } from "../utils/trpc";
 import { useWeb3AuthDisconnect, useWeb3AuthConnect, useWeb3Auth } from "@web3auth/modal/react";
@@ -266,56 +274,62 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
+  // Use a ref to track connection attempts and prevent parallel execution
+  const connectionAttemptRef = useRef(false);
+
   // Effect to connect to wallet when token changes or Web3Auth becomes ready
   useEffect(() => {
-    // Track if we should attempt a connection
-    let shouldConnect = true;
-    let retryCount = 0;
-    const MAX_RETRIES = 3;
-
     const connectIfReady = async () => {
-      // Only proceed if we have a token
-      if (!jwtToken) {
-        console.log("No token available, skipping wallet connection");
+      // Prevent parallel execution
+      if (connectionAttemptRef.current) {
         return;
       }
 
-      // Check if token is not expired
-      if (isTokenExpired(jwtToken)) {
-        console.log("Token is expired, waiting for token refresh before wallet connection");
-        return;
-      }
+      connectionAttemptRef.current = true;
 
-      // Check if Web3Auth is ready
-      if (dataWeb3Auth?.isInitialized && !dataWeb3Auth?.isInitializing && dataWeb3Auth?.web3Auth) {
-        // Check if wallet is already connected
-        if (dataWeb3Auth?.isConnected) {
-          console.log("Wallet is already connected, skipping connection");
+      try {
+        // Only proceed if we have a token
+        if (!jwtToken) {
+          console.log("No token available, skipping wallet connection");
           return;
         }
 
-        console.log("Token and Web3Auth are ready, connecting to wallet");
-        try {
-          await connectToWallet(jwtToken);
-        } catch (error) {
-          console.error("Failed to connect to wallet:", error);
+        // Check if token is not expired
+        if (isTokenExpired(jwtToken)) {
+          console.log("Token is expired, waiting for token refresh before wallet connection");
+          return;
         }
-      } else if (shouldConnect && retryCount < MAX_RETRIES) {
-        // Web3Auth isn't ready yet, retry after a delay
-        console.log(`Web3Auth not ready yet, retrying... (${retryCount + 1}/${MAX_RETRIES})`);
-        retryCount++;
-        setTimeout(connectIfReady, 1000); // Retry after 1 second
-      } else if (retryCount >= MAX_RETRIES) {
-        console.log("Max retries reached, giving up on wallet connection");
+
+        // Only attempt to connect if Web3Auth is initialized
+        if (
+          dataWeb3Auth?.isInitialized &&
+          !dataWeb3Auth?.isInitializing &&
+          dataWeb3Auth?.web3Auth
+        ) {
+          // Check if wallet is already connected
+          if (dataWeb3Auth?.isConnected) {
+            console.log("Wallet is already connected, skipping connection");
+            return;
+          }
+
+          console.log("Token and Web3Auth are ready, connecting to wallet");
+          try {
+            await connectToWallet(jwtToken);
+          } catch (error) {
+            console.error("Failed to connect to wallet:", error);
+          }
+        } else {
+          console.log("Web3Auth not initialized yet, skipping wallet connection");
+        }
+      } finally {
+        // Reset the flag when done
+        connectionAttemptRef.current = false;
       }
     };
 
     connectIfReady();
 
-    // Cleanup function to prevent connection attempts after unmount
-    return () => {
-      shouldConnect = false;
-    };
+    // No need for cleanup function as we're using a ref
   }, [
     jwtToken,
     dataWeb3Auth?.isInitialized,
