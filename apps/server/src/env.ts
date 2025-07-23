@@ -64,24 +64,6 @@ export const env = cleanEnv(process.env, {
     default: "noreply@amped.bio",
     example: "noreply@yourdomain.com",
   }),
-  // Wallet encryption key
-  WALLET_ENCRYPTION_KEY: str({
-    desc: "Secret key for encrypting wallet private keys",
-    default: "your-default-wallet-encryption-key-for-development",
-    example: "a-very-secure-random-key-for-wallet-encryption",
-  }),
-  // RPC URL for blockchain interactions
-  RPC_URL: str({
-    desc: "RPC URL for blockchain network",
-    default: "https://dev.revolutionchain.io",
-    example: "https://dev.revolutionchain.io",
-  }),
-  // Chain ID for the blockchain network
-  CHAIN_ID: str({
-    desc: "Chain ID for the blockchain network",
-    default: "324", // ZKsync mainnet default
-    example: "324",
-  }),
   // Faucet configuration
   FAUCET_PRIVATE_KEY: str({
     desc: "Private key for the faucet wallet to send tokens from",
