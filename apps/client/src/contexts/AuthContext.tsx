@@ -137,42 +137,49 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [web3AuthDisconnect]);
 
   // Helper function to connect to Web3Auth with JWT token
-  const connectToWallet = useCallback(
-    async (token: string) => {
-      try {
-        // Wait for Web3Auth to be initialized
-        if (
-          !dataWeb3Auth?.isInitialized ||
-          dataWeb3Auth?.isInitializing ||
-          !dataWeb3Auth?.web3Auth
-        ) {
-          console.log("Web3Auth not initialized yet, will try to connect later");
-          return;
-        }
-
-        console.log("Connecting to Web3Auth with token");
-        await connectTo(WALLET_CONNECTORS.AUTH, {
-          authConnection: AUTH_CONNECTION.CUSTOM,
-          authConnectionId: import.meta.env.VITE_WEB3AUTH_AUTH_CONNECTION_ID,
-          idToken: token,
-          extraLoginOptions: {
-            isUserIdCaseSensitive: false,
-          },
-        });
-        console.log("Connected to Web3Auth successfully");
-      } catch (error) {
-        console.error("Failed to connect to Web3Auth wallet:", error);
-        if (error instanceof Error) {
-          console.error({
-            message: error.message,
-            stack: error.stack,
-            name: error.name,
-          });
-        }
+  const connectToWallet = useCallback(async () => {
+    try {
+      // Wait for Web3Auth to be initialized
+      if (!dataWeb3Auth?.isInitialized || dataWeb3Auth?.isInitializing || !dataWeb3Auth?.web3Auth) {
+        console.log("Web3Auth not initialized yet, will try to connect later");
+        return;
       }
-    },
-    [connectTo, dataWeb3Auth?.isInitialized, dataWeb3Auth?.isInitializing, dataWeb3Auth?.web3Auth]
-  );
+
+      console.log("Getting wallet token from backend");
+      const walletTokenResponse = await trpcClient.auth.getWalletToken.query();
+      const walletToken = walletTokenResponse.walletToken;
+
+      if (!walletToken) {
+        console.error("Failed to get wallet token from backend");
+        return;
+      }
+
+      console.log("Connecting to Web3Auth with token");
+      await connectTo(WALLET_CONNECTORS.AUTH, {
+        authConnection: AUTH_CONNECTION.CUSTOM,
+        authConnectionId: import.meta.env.VITE_WEB3AUTH_AUTH_CONNECTION_ID,
+        idToken: walletToken,
+        extraLoginOptions: {
+          isUserIdCaseSensitive: false,
+        },
+      });
+      console.log("Connected to Web3Auth successfully");
+    } catch (error) {
+      console.error("Failed to connect to Web3Auth wallet:", error);
+      if (error instanceof Error) {
+        console.error({
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+        });
+      }
+    }
+  }, [
+    connectTo,
+    dataWeb3Auth?.isInitialized,
+    dataWeb3Auth?.isInitializing,
+    dataWeb3Auth?.web3Auth,
+  ]);
 
   useEffect(() => {
     if (account.address && authUser) {
@@ -314,7 +321,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
           console.log("Token and Web3Auth are ready, connecting to wallet");
           try {
-            await connectToWallet(jwtToken);
+            await connectToWallet();
           } catch (error) {
             console.error("Failed to connect to wallet:", error);
           }

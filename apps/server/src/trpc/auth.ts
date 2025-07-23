@@ -436,4 +436,27 @@ export const authRouter = router({
         email,
       };
     }),
+
+  getWalletToken: privateProcedure.query(async ({ ctx }) => {
+    const userId = ctx.user.sub;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Usuário não encontrado",
+      });
+    }
+
+    return {
+      walletToken: generateAccessToken({
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      }),
+    };
+  }),
 });
