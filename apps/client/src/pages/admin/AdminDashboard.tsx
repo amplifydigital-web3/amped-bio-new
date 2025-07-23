@@ -11,6 +11,7 @@ import {
   AdminRecentUsers,
   AdminLoadingSpinner,
   AdminLoadingError,
+  AdminFaucetWalletStats,
 } from "../../components/admin";
 import { AdminQuickActions } from "../../components/admin";
 
@@ -33,6 +34,10 @@ export function AdminDashboard() {
 
   const { data: blockStatsData, isLoading: isBlockStatsLoading } = useQuery(
     trpc.admin.blocks.getBlockStats.queryOptions({})
+  );
+
+  const { data: walletInfoData, isLoading: isWalletInfoLoading } = useQuery(
+    trpc.admin.wallet.getFaucetWalletInfo.queryOptions()
   );
 
   // Process the block type distribution data whenever blockStatsData changes
@@ -60,7 +65,11 @@ export function AdminDashboard() {
 
   // Determine if any data is still loading
   const loading =
-    isDashboardLoading || isTopOnelinksLoading || isUsersLoading || isBlockStatsLoading;
+    isDashboardLoading ||
+    isTopOnelinksLoading ||
+    isUsersLoading ||
+    isBlockStatsLoading ||
+    isWalletInfoLoading;
 
   // Handle refresh
   const handleRefresh = () => {
@@ -103,6 +112,37 @@ export function AdminDashboard() {
         <AdminRewardStats
           rewardProgramUsers={userStats.rewardProgramUsers}
           rewardProgramPercentage={userStats.rewardProgramPercentage}
+        />
+
+        {/* Faucet Wallet Stats */}
+        <AdminFaucetWalletStats
+          walletInfo={
+            walletInfoData && "success" in walletInfoData && walletInfoData.success === true
+              ? {
+                  address: (walletInfoData as any).address,
+                  formattedBalance: (
+                    Number((walletInfoData as any).formattedBalance) / 1e18
+                  ).toFixed(4),
+                  remainingAirdrops: Math.floor(
+                    Number((walletInfoData as any).formattedBalance) /
+                      (Number((walletInfoData as any).faucetAmount) * 1e18)
+                  ),
+                  faucetAmount: Number((walletInfoData as any).faucetAmount),
+                  currency: (walletInfoData as any).currency,
+                  isMockMode: (walletInfoData as any).isMockMode,
+                }
+              : walletInfoData && "success" in walletInfoData && walletInfoData.success === false
+                ? {
+                    address: "",
+                    formattedBalance: "0",
+                    remainingAirdrops: 0,
+                    faucetAmount: 0,
+                    currency: "",
+                    isMockMode: false,
+                    error: (walletInfoData as any).error,
+                  }
+                : null
+          }
         />
       </div>
 

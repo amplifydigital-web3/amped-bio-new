@@ -24,3 +24,5 @@ interface Window {
   };
   FreshworksWidget?: any;
 }
+
+declare module "*.lottie";

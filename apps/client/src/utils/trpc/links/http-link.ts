@@ -12,9 +12,50 @@ const baseURL = withRelatedProject({
 
 /**
  * Refreshes the access token using the refresh token via tRPC
+ * Includes retry mechanisms and improved error handling
  */
 async function refreshToken(): Promise<string | null> {
+  // Implement a lock to prevent multiple simultaneous refresh calls
+  if ((globalThis as any).__refreshingToken) {
+    console.log("Token refresh already in progress, waiting...");
+    try {
+      // Wait for the current operation to finish (max 10 seconds)
+      await new Promise<void>(resolve => {
+        const checkRefreshStatus = () => {
+          if (!(globalThis as any).__refreshingToken) {
+            resolve();
+          } else {
+            setTimeout(checkRefreshStatus, 100);
+          }
+        };
+
+        // Timeout after 10 seconds to avoid infinite wait
+        const timeout = setTimeout(() => {
+          console.warn("Refresh token wait timed out");
+          resolve();
+        }, 10000);
+
+        checkRefreshStatus();
+
+        // Clear timeout if resolve happens before
+        return () => clearTimeout(timeout);
+      });
+
+      // Return the token that should already be updated in localStorage
+      const cachedToken = localStorage.getItem(AUTH_STORAGE_KEYS.AUTH_TOKEN);
+      if (cachedToken) {
+        return cachedToken;
+      }
+    } catch (error) {
+      console.error("Error waiting for token refresh:", error);
+    }
+  }
+
+  // Set flag to indicate that refresh is in progress
+  (globalThis as any).__refreshingToken = true;
+
   try {
+    console.log("Starting token refresh...");
     const response = await globalThis.fetch(
       `${import.meta.env.VITE_API_URL ?? baseURL}/trpc/auth.refreshToken`,
       {
@@ -27,22 +68,25 @@ async function refreshToken(): Promise<string | null> {
     );
 
     if (!response.ok) {
-      throw new Error("Failed to refresh token");
+      console.error("Token refresh response not OK:", response.status, response.statusText);
+      throw new Error(`Failed to refresh token: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
     const newToken = data.result?.data?.accessToken;
 
     if (newToken) {
+      console.log("Token refresh successful, storing new token");
       localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_TOKEN, newToken);
       // Dispatch token refreshed event
       window.dispatchEvent(
         new CustomEvent(AUTH_EVENTS.TOKEN_REFRESHED, { detail: { token: newToken } })
       );
       return newToken;
+    } else {
+      console.error("Token refresh response did not contain a new token:", data);
+      throw new Error("Token refresh response did not contain a new token");
     }
-
-    return null;
   } catch (error) {
     console.error("Token refresh failed:", error);
     // Clear tokens if refresh fails
@@ -55,6 +99,9 @@ async function refreshToken(): Promise<string | null> {
 
     // Don't clear refresh token cookie as it's handled by the server
     return null;
+  } finally {
+    // Release the lock
+    (globalThis as any).__refreshingToken = false;
   }
 }
 
@@ -80,49 +127,65 @@ export const createHttpLink = () => {
         credentials: "include" as RequestCredentials,
       };
 
+      // Helper function to check if the error is due to expired token
+      const isTokenExpiredError = async (response: Response) => {
+        try {
+          const errorData = await response.clone().json();
+          return (
+            errorData.some?.(
+              (error: any) => error.error?.data?.cause === ERROR_CAUSES.TOKEN_EXPIRED
+            ) ||
+            errorData.error?.data?.cause === ERROR_CAUSES.TOKEN_EXPIRED ||
+            // Additional checks for other error formats that may indicate expired token
+            errorData.message?.toLowerCase().includes("token expired") ||
+            errorData.error?.message?.toLowerCase().includes("token expired")
+          );
+        } catch (error) {
+          console.warn("Failed to parse error response:", error);
+          return false;
+        }
+      };
+
       // First attempt with current token
       let response = await globalThis.fetch(url, fetchOptions);
 
       // If the first request fails, check if it's due to token expiration
       if (!response.ok) {
-        try {
-          const errorData = await response.clone().json();
+        const tokenExpired = await isTokenExpiredError(response);
 
-          // Check if the error is specifically about token expiration
-          const isTokenExpired =
-            errorData.some?.(
-              (error: any) => error.error?.data?.cause === ERROR_CAUSES.TOKEN_EXPIRED
-            ) || errorData.error?.data?.cause === ERROR_CAUSES.TOKEN_EXPIRED;
+        if (tokenExpired) {
+          console.log("Token expired, attempting to refresh...");
 
-          if (isTokenExpired) {
-            console.log("Token expired, attempting to refresh...");
+          // Try to refresh the token
+          const newToken = await refreshToken();
 
-            // Try to refresh the token
-            const newToken = await refreshToken();
+          if (newToken) {
+            // Create new options with the updated token
+            const newOptions = {
+              ...(options as RequestInit),
+              credentials: "include" as RequestCredentials,
+              headers: {
+                ...(options as RequestInit)?.headers,
+                Authorization: `Bearer ${newToken}`,
+              },
+            };
 
-            if (newToken) {
-              // Retry the request with the new token
-              const newOptions = {
-                ...(options as RequestInit),
-                credentials: "include" as RequestCredentials,
-                headers: {
-                  ...(options as RequestInit)?.headers,
-                  Authorization: `Bearer ${newToken}`,
-                },
-              };
+            // Retry the request with the new token
+            response = await globalThis.fetch(url, newOptions);
+            console.log("Request retried with new token");
 
-              response = await globalThis.fetch(url, newOptions);
-              console.log("Request retried with new token");
-            } else {
-              // Refresh failed, always treat as an expired token regardless of reason
-              console.error("Token refresh failed during request, treating as token expired");
-              // Dispatch token expired event for any refresh failure
+            // If it still fails even with the updated token, check if it's a token issue again
+            if (!response.ok && (await isTokenExpiredError(response))) {
+              console.error("Request failed even after token refresh");
+              // Possibly a problem with the refresh token as well, logout necessary
               window.dispatchEvent(new CustomEvent(AUTH_EVENTS.TOKEN_EXPIRED));
             }
+          } else {
+            // Refresh failed, always treat as an expired token regardless of reason
+            console.error("Token refresh failed during request, treating as token expired");
+            // Dispatch token expired event for any refresh failure
+            window.dispatchEvent(new CustomEvent(AUTH_EVENTS.TOKEN_EXPIRED));
           }
-        } catch (parseError) {
-          // If we can't parse the error, continue with original response
-          console.warn("Failed to parse error response:", parseError);
         }
       }
 

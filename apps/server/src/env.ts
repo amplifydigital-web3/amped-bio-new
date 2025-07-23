@@ -64,24 +64,42 @@ export const env = cleanEnv(process.env, {
     default: "noreply@amped.bio",
     example: "noreply@yourdomain.com",
   }),
-  // Wallet encryption key
-  WALLET_ENCRYPTION_KEY: str({
-    desc: "Secret key for encrypting wallet private keys",
-    default: "your-default-wallet-encryption-key-for-development",
-    example: "a-very-secure-random-key-for-wallet-encryption",
+  // Faucet configuration
+  FAUCET_PRIVATE_KEY: str({
+    desc: "Private key for the faucet wallet to send tokens from",
   }),
-  // RPC URL for blockchain interactions
-  RPC_URL: str({
-    desc: "RPC URL for blockchain network",
-    default: "https://dev.revolutionchain.io",
-    example: "https://dev.revolutionchain.io",
+  FAUCET_AMOUNT: str({
+    desc: "Amount of tokens to send from the faucet",
+    default: "0.001",
+    example: "0.001",
   }),
-  // Chain ID for the blockchain network
-  CHAIN_ID: str({
-    desc: "Chain ID for the blockchain network",
-    default: "324", // ZKsync mainnet default
-    example: "324",
+  FAUCET_MOCK_MODE: str({
+    desc: "If true, don't actually send funds but return a dummy transaction hash",
+    default: "false",
+    choices: ["true", "false"],
+    example: "true",
   }),
+
+  // Redis Configuration
+  REDIS_HOST: str({
+    desc: "Redis server host",
+    default: "localhost",
+    example: "redis",
+  }),
+  REDIS_PORT: port({
+    desc: "Redis server port",
+    default: 6379,
+  }),
+  REDIS_PASSWORD: str({
+    desc: "Redis server password",
+    default: "",
+    example: "your-redis-password",
+  }),
+  REDIS_PREFIX: str({
+    desc: "Prefix for Redis keys to avoid collisions",
+    default: "amped:",
+  }),
+
   // AWS S3 Configuration for profile picture uploads
   AWS_REGION: str({
     desc: "AWS Region",

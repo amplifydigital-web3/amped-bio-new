@@ -9,41 +9,27 @@ import {
   DollarSign,
   Gem,
   Coins,
-  QrCode,
   ArrowDownLeft,
   ArrowUpRight,
   Plus,
   X,
   History,
-  Clock,
   Check,
-  ArrowRight,
-  CreditCard,
   Info,
   TrendingUp,
   Trophy,
-  Gift, // newly added for airdrop icon
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 import { GridPattern } from "@/components/ui/grid-pattern";
 import { ShimmerButton } from "@/components/ui/shimmer-button";
 import { cn } from "@/lib/utils";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAccount, useBalance } from "wagmi";
-import { WALLET_CONNECTORS, AUTH_CONNECTION } from "@web3auth/modal";
 import {
   useWeb3Auth,
   useWeb3AuthConnect,
@@ -51,6 +37,8 @@ import {
   useWeb3AuthUser,
 } from "@web3auth/modal/react";
 import { Switch } from "@/components/ui/Switch";
+import { FundWalletDialog, ProfileOptionsDialog, ReceiveDialog, SendDialog } from "./dialogs";
+import { useFundWalletDialog } from "./dialogs/FundWalletDialog";
 
 export function MyWalletPanel() {
   const {
@@ -269,11 +257,83 @@ export function MyWalletPanel() {
     }
   };
 
-  // Handler for claiming daily airdrop
-  const handleClaimDailyAirdrop = () => {
-    uiConsole("Claim Daily Airdrop");
-    // TODO: integrate airdrop claim logic here
+  // Handler for claiming daily faucet tokens
+  const [claimingFaucet, setClaimingFaucet] = useState(false);
+  const [faucetResult, setFaucetResult] = useState<{
+    success: boolean;
+    message: string;
+    transaction?: {
+      id: string;
+      amount: number;
+      timestamp: Date | string;
+      hash?: string;
+    };
+  } | null>(null);
+
+  const handleClaimDailyFaucet = async (): Promise<{ success: boolean; txid?: string }> => {
+    if (!isConnected || claimingFaucet || !walletAddress) return { success: false };
+
+    setClaimingFaucet(true);
+    uiConsole("Claiming daily faucet tokens...");
+    try {
+      const { trpcClient } = await import("@/utils/trpc/trpc");
+
+      // Only send the wallet address - amount will be determined by server environment variables
+      const result = await trpcClient.wallet.requestAirdrop.mutate({
+        address: walletAddress, // Send the connected wallet address
+      });
+
+      uiConsole("Faucet tokens claimed successfully:", result);
+
+      // Transform the result to handle timestamp as Date
+      setFaucetResult({
+        success: result.success,
+        message: result.message,
+        transaction: result.transaction
+          ? {
+              id: result.transaction.id,
+              amount: result.transaction.amount,
+              timestamp: new Date(result.transaction.timestamp),
+              hash: result.transaction.hash,
+            }
+          : undefined,
+      });
+
+      // Update UI with success message (would be better with react-query)
+      setTimeout(() => {
+        setFaucetResult(null);
+      }, 5000);
+
+      setClaimingFaucet(false);
+
+      // Return the transaction hash for the success dialog
+      return {
+        success: result.success,
+        txid: result.transaction?.hash,
+      };
+    } catch (error) {
+      console.error("Error claiming faucet tokens:", error);
+      setFaucetResult({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to claim faucet tokens",
+      });
+
+      setTimeout(() => {
+        setFaucetResult(null);
+      }, 5000);
+
+      setClaimingFaucet(false);
+      return { success: false };
+    }
   };
+
+  // Use o hook para controlar o diálogo de financiamento da carteira
+  const fundWalletDialog = useFundWalletDialog({
+    handleClaimDailyFaucet,
+    claimingFaucet,
+    open: showFundModal,
+    onOpenChange: setShowFundModal,
+  });
 
   const calculateRemainingBalance = () => {
     if (!balanceData?.formatted || !sendAmount) return balanceData?.formatted || "0";
@@ -486,12 +546,16 @@ export function MyWalletPanel() {
                           {formatAddress(currentAddress || "")}
                         </span>
                       </span>
-                      <Button
+                      <span
                         onClick={copyAddress}
-                        className="h-8 w-8 text-white bg-blue-600 hover:bg-blue-700 border-blue-500 flex items-center justify-center p-0"
+                        className="h-8 w-8 flex items-center justify-center p-0 cursor-pointer text-blue-600 hover:text-blue-800"
                       >
-                        <Copy className="w-4 h-4 text-white" />
-                      </Button>
+                        {copyStatus === "idle" ? (
+                          <Copy className="w-4 h-4" />
+                        ) : (
+                          <Check className="w-4 h-4" />
+                        )}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -525,119 +589,96 @@ export function MyWalletPanel() {
               </div>
               {/* Stats Section below */}
               <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div className="flex flex-col items-start bg-white/70 rounded-lg p-3 border border-blue-100 transition-transform transition-shadow duration-200 ease-in-out hover:scale-105 hover:shadow-lg cursor-pointer">
-                  <div className="flex items-center space-x-2">
-                    <DollarSign className="w-5 h-5 text-blue-500" />
-                    <span className="text-xs text-gray-500 font-medium">Total REVO</span>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button type="button" className="ml-1 text-blue-400 hover:text-blue-600">
-                          <Info className="w-4 h-4" />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-56 text-xs">
-                        The total amount of REVO tokens you currently hold in your wallet.
-                      </PopoverContent>
-                    </Popover>
+                {[
+                  {
+                    id: "total-revo",
+                    title: "Total REVO",
+                    value: `${parseFloat(balanceData?.formatted ?? "0").toFixed(4)} ${balanceData?.symbol ?? "REVO"}`,
+                    icon: <DollarSign className="w-5 h-5 text-blue-500" />,
+                    iconColor: "text-blue-500",
+                    hoverColor: "text-blue-600",
+                    tooltip: "The total amount of REVO tokens you currently hold in your wallet.",
+                    soon: false,
+                  },
+                  {
+                    id: "my-stake",
+                    title: "My Stake",
+                    value: "8,750 REVO",
+                    icon: <Coins className="w-5 h-5 text-indigo-500" />,
+                    iconColor: "text-indigo-500",
+                    hoverColor: "text-indigo-600",
+                    tooltip: "The amount of REVO tokens you have staked in other creators' pools.",
+                    soon: true,
+                  },
+                  {
+                    id: "staked-to-me",
+                    title: "Staked to Me",
+                    value: "15,420 REVO",
+                    icon: <TrendingUp className="w-5 h-5 text-green-500" />,
+                    iconColor: "text-green-500",
+                    hoverColor: "text-green-600",
+                    tooltip: "The total REVO tokens other users have staked to support you.",
+                    soon: true,
+                  },
+                  {
+                    id: "earnings",
+                    title: "Earnings to Date",
+                    value: "1,250 REVO",
+                    icon: <Gem className="w-5 h-5 text-purple-500" />,
+                    iconColor: "text-purple-500",
+                    hoverColor: "text-purple-600",
+                    tooltip: "The total REVO tokens you have earned from staking and rewards.",
+                    soon: true,
+                  },
+                  {
+                    id: "stakers",
+                    title: "Stakers Supporting You",
+                    value: "89",
+                    icon: <User className="w-5 h-5 text-yellow-500" />,
+                    iconColor: "text-yellow-500",
+                    hoverColor: "text-yellow-600",
+                    tooltip: "The number of unique users currently staking REVO tokens to you.",
+                    soon: true,
+                  },
+                  {
+                    id: "pools",
+                    title: "Creator Pools Joined",
+                    value: "6",
+                    icon: <Trophy className="w-5 h-5 text-pink-500" />,
+                    iconColor: "text-pink-500",
+                    hoverColor: "text-pink-600",
+                    tooltip:
+                      "The number of creator pools you have joined as a participant or supporter.",
+                    soon: true,
+                  },
+                ].map(stat => (
+                  <div
+                    key={stat.id}
+                    className={`${stat.soon ? "relative opacity-60" : "transition-transform transition-shadow duration-200 ease-in-out hover:scale-105 hover:shadow-lg cursor-pointer"} flex flex-col items-start bg-white/70 rounded-lg p-3 border border-blue-100`}
+                  >
+                    {stat.soon && (
+                      <span className="absolute top-2 right-2 text-xs bg-yellow-200 text-yellow-800 rounded px-2 py-0.5 shadow-sm pointer-events-none select-none">
+                        Soon
+                      </span>
+                    )}
+                    <div className="flex items-center space-x-2">
+                      {stat.icon}
+                      <span className="text-xs text-gray-500 font-medium">{stat.title}</span>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className={`ml-1 ${stat.iconColor.replace("500", "400")} hover:${stat.hoverColor}`}
+                          >
+                            <Info className="w-4 h-4" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-56 text-xs">{stat.tooltip}</PopoverContent>
+                      </Popover>
+                    </div>
+                    <span className="text-xl font-bold text-blue-900">{stat.value}</span>
                   </div>
-                  <span className="text-xl font-bold text-blue-900">25,420 REVO</span>
-                </div>
-                <div className="flex flex-col items-start bg-white/70 rounded-lg p-3 border border-blue-100 transition-transform transition-shadow duration-200 ease-in-out hover:scale-105 hover:shadow-lg cursor-pointer">
-                  <div className="flex items-center space-x-2">
-                    <Coins className="w-5 h-5 text-indigo-500" />
-                    <span className="text-xs text-gray-500 font-medium">My Stake</span>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button
-                          type="button"
-                          className="ml-1 text-indigo-400 hover:text-indigo-600"
-                        >
-                          <Info className="w-4 h-4" />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-56 text-xs">
-                        The amount of REVO tokens you have staked in other creators' pools.
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  <span className="text-xl font-bold text-blue-900">8,750 REVO</span>
-                </div>
-                <div className="flex flex-col items-start bg-white/70 rounded-lg p-3 border border-blue-100 transition-transform transition-shadow duration-200 ease-in-out hover:scale-105 hover:shadow-lg cursor-pointer">
-                  <div className="flex items-center space-x-2">
-                    <TrendingUp className="w-5 h-5 text-green-500" />
-                    <span className="text-xs text-gray-500 font-medium">Staked to Me</span>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button type="button" className="ml-1 text-green-400 hover:text-green-600">
-                          <Info className="w-4 h-4" />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-56 text-xs">
-                        The total REVO tokens other users have staked to support you.
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  <span className="text-xl font-bold text-blue-900">15,420 REVO</span>
-                </div>
-                <div className="flex flex-col items-start bg-white/70 rounded-lg p-3 border border-blue-100 transition-transform transition-shadow duration-200 ease-in-out hover:scale-105 hover:shadow-lg cursor-pointer">
-                  <div className="flex items-center space-x-2">
-                    <Gem className="w-5 h-5 text-purple-500" />
-                    <span className="text-xs text-gray-500 font-medium">Earnings to Date</span>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button
-                          type="button"
-                          className="ml-1 text-purple-400 hover:text-purple-600"
-                        >
-                          <Info className="w-4 h-4" />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-56 text-xs">
-                        The total REVO tokens you have earned from staking and rewards.
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  <span className="text-xl font-bold text-blue-900">1,250 REVO</span>
-                </div>
-                <div className="flex flex-col items-start bg-white/70 rounded-lg p-3 border border-blue-100 transition-transform transition-shadow duration-200 ease-in-out hover:scale-105 hover:shadow-lg cursor-pointer">
-                  <div className="flex items-center space-x-2">
-                    <User className="w-5 h-5 text-yellow-500" />
-                    <span className="text-xs text-gray-500 font-medium">
-                      Stakers Supporting You
-                    </span>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button
-                          type="button"
-                          className="ml-1 text-yellow-400 hover:text-yellow-600"
-                        >
-                          <Info className="w-4 h-4" />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-56 text-xs">
-                        The number of unique users currently staking REVO tokens to you.
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  <span className="text-xl font-bold text-blue-900">89</span>
-                </div>
-                <div className="flex flex-col items-start bg-white/70 rounded-lg p-3 border border-blue-100 transition-transform transition-shadow duration-200 ease-in-out hover:scale-105 hover:shadow-lg cursor-pointer">
-                  <div className="flex items-center space-x-2">
-                    <Trophy className="w-5 h-5 text-pink-500" />
-                    <span className="text-xs text-gray-500 font-medium">Creator Pools Joined</span>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button type="button" className="ml-1 text-pink-400 hover:text-pink-600">
-                          <Info className="w-4 h-4" />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-56 text-xs">
-                        The number of creator pools you have joined as a participant or supporter.
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  <span className="text-xl font-bold text-blue-900">6</span>
-                </div>
+                ))}
               </div>
             </CardContent>
           </Card>
@@ -684,7 +725,7 @@ export function MyWalletPanel() {
               <CardDescription className="mb-6">Your current wallet balance</CardDescription>
 
               {/* Action Buttons */}
-              <div className="grid grid-cols-5 gap-4">
+              <div className="grid grid-cols-4 gap-4">
                 <Dialog open={showFundModal} onOpenChange={setShowFundModal}>
                   <DialogTrigger asChild>
                     <Button
@@ -695,84 +736,13 @@ export function MyWalletPanel() {
                       <span className="text-sm font-medium">Fund</span>
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-sm rounded-2xl">
-                    <DialogHeader>
-                      <DialogTitle>Fund Wallet</DialogTitle>
-                      <DialogDescription>Choose a method to fund your wallet.</DialogDescription>
-                    </DialogHeader>
-                    <div className="flex flex-col gap-4 py-4">
-                      <Button
-                        variant="outline"
-                        className="h-auto py-4 flex flex-col items-start space-y-1"
-                        onClick={() =>
-                          window.open(
-                            "https://bridge.dev.revolutionchain.io/bridge?address=" +
-                              (walletAddress || ""),
-                            "_blank",
-                            "width=600,height=700,left=200,top=200"
-                          )
-                        }
-                      >
-                        <DollarSign className="w-6 h-6" />
-                        <span className="font-medium">Bridge</span>
-                        <p className="text-xs text-gray-500">Transfer crypto from other networks</p>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="h-auto py-4 flex flex-col items-start space-y-1 opacity-60 cursor-not-allowed"
-                        disabled
-                      >
-                        <CreditCard className="w-6 h-6" />
-                        <span className="font-medium flex items-center">
-                          Onramp{" "}
-                          <span className="ml-2 text-xs bg-gray-200 text-gray-600 rounded px-2 py-0.5">
-                            Soon
-                          </span>
-                        </span>
-                        <p className="text-xs text-gray-500">Buy crypto with fiat currency</p>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="h-auto py-4 flex flex-col items-start space-y-1 opacity-60 cursor-not-allowed"
-                        disabled
-                      >
-                        <DollarSign className="w-6 h-6" />
-                        <span className="font-medium flex items-center">
-                          MoonPay{" "}
-                          <span className="ml-2 text-xs bg-gray-200 text-gray-600 rounded px-2 py-0.5">
-                            Soon
-                          </span>
-                        </span>
-                        <p className="text-xs text-gray-500">
-                          Buy crypto with various payment methods
-                        </p>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="h-auto py-4 flex flex-col items-start space-y-1 opacity-60 cursor-not-allowed"
-                        disabled
-                      >
-                        <Coins className="w-6 h-6" />
-                        <span className="font-medium flex items-center">
-                          Coinbase{" "}
-                          <span className="ml-2 text-xs bg-gray-200 text-gray-600 rounded px-2 py-0.5">
-                            Soon
-                          </span>
-                        </span>
-                        <p className="text-xs text-gray-500">Connect your Coinbase account</p>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="h-auto py-4 flex flex-col items-start space-y-1 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 hover:border-green-300 transition-all duration-200 ease-in-out"
-                        onClick={() => uiConsole("Claim Daily Airdrop")}
-                      >
-                        <Gift className="w-6 h-6" />
-                        <span className="font-medium">Claim Daily Airdrop</span>
-                        <p className="text-xs text-gray-500">Get your free tokens every day</p>
-                      </Button>
-                    </div>
-                  </DialogContent>
                 </Dialog>
+                <FundWalletDialog
+                  open={fundWalletDialog.open}
+                  onOpenChange={fundWalletDialog.onOpenChange}
+                  handleClaimDailyFaucet={handleClaimDailyFaucet}
+                  claimingFaucet={claimingFaucet}
+                />
                 <Button
                   onClick={() => setShowSendModal(true)}
                   className="h-20 flex flex-col items-center justify-center space-y-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 hover:border-blue-300 transition-all duration-200 ease-in-out transform hover:scale-105"
@@ -1131,7 +1101,13 @@ export function MyWalletPanel() {
                 </div>
               </div>
 
-              <button className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2">
+              <button
+                disabled
+                className="relative px-4 py-2 bg-purple-400 text-white rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2 opacity-60 cursor-not-allowed"
+              >
+                <span className="absolute -top-2 -right-2 text-xs bg-yellow-200 text-yellow-800 rounded px-2 py-0.5 shadow-sm pointer-events-none select-none">
+                  Soon
+                </span>
                 <Trophy className="w-4 h-4" />
                 <span>Launch Pool</span>
               </button>
@@ -1140,291 +1116,21 @@ export function MyWalletPanel() {
         </div>
 
         {/* Profile Options Modal */}
-        <Dialog open={showProfileOptions} onOpenChange={setShowProfileOptions}>
-          <DialogContent className="max-w-sm w-full mx-4 rounded-2xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] duration-300">
-            <div className="flex items-center justify-between">
-              <CardTitle>Profile Options</CardTitle>
-            </div>
-
-            <Button
-              variant="outline"
-              className="w-full justify-start"
-              onClick={() => {
-                uiConsole("Edit Profile");
-                setShowProfileOptions(false);
-              }}
-            >
-              <User className="w-4 h-4 mr-2" />
-              Edit Profile
-            </Button>
-
-            <Button
-              variant="outline"
-              className="w-full justify-start"
-              onClick={() => {
-                uiConsole("Account Settings");
-                setShowProfileOptions(false);
-              }}
-            >
-              <DollarSign className="w-4 h-4 mr-2" />
-              Account Settings
-            </Button>
-
-            <Button
-              variant="outline"
-              className="w-full justify-start"
-              onClick={() => {
-                uiConsole("Wallet Settings");
-                setShowProfileOptions(false);
-              }}
-            >
-              <Wallet className="w-4 h-4 mr-2" />
-              Wallet Settings
-            </Button>
-
-            <Button
-              variant="outline"
-              className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
-              onClick={() => {
-                uiConsole("Logout");
-                setShowProfileOptions(false);
-              }}
-            >
-              <ArrowUpRight className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
-          </DialogContent>
-        </Dialog>
+        <ProfileOptionsDialog
+          open={showProfileOptions}
+          onOpenChange={setShowProfileOptions}
+          onActionClick={uiConsole}
+        />
 
         {/* Send Modal */}
-        <Dialog open={showSendModal} onOpenChange={setShowSendModal}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center space-x-2">
-                <ArrowUpRight className="w-5 h-5 text-blue-600" />
-                <span>Send REVO</span>
-              </DialogTitle>
-              <DialogDescription>
-                Send REVO tokens to another wallet address securely.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-6">
-              {/* Current Balance Card */}
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium text-blue-700">Available Balance</span>
-                  <div className="flex items-center space-x-1">
-                    <Wallet className="w-4 h-4 text-blue-600" />
-                    <span className="text-lg font-bold text-blue-900">
-                      {currentIsBalanceLoading
-                        ? "Loading..."
-                        : `${parseFloat(currentBalance ?? "0").toFixed(4)} ${currentSymbol ?? "REVO"}`}
-                    </span>
-                  </div>
-                </div>
-                {sendAmount && (
-                  <div className="flex justify-between items-center pt-2 border-t border-blue-200">
-                    <span className="text-sm font-medium text-blue-700">After Transaction</span>
-                    <span className="text-lg font-semibold text-blue-800">
-                      {calculateRemainingBalance()} {balanceData?.symbol ?? "REVO"}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Recipient Address */}
-              <div className="space-y-3">
-                <label className="text-sm font-semibold text-gray-900">Recipient Address</label>
-                <div className="relative w-full">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input
-                    type="text"
-                    placeholder="Enter wallet address (0x...)"
-                    value={sendAddress}
-                    onChange={e => setSendAddress(e.target.value)}
-                    className="w-full pl-10 pr-10 font-mono text-sm h-12 border-2 focus:border-blue-500 bg-gray-50 focus:bg-white transition-all duration-200"
-                  />
-                  {sendAddress && (
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      {sendAddress.startsWith("0x") && sendAddress.length === 42 ? (
-                        <Check className="w-4 h-4 text-green-500" />
-                      ) : (
-                        <X className="w-4 h-4 text-red-500" />
-                      )}
-                    </div>
-                  )}
-                </div>
-                {sendAddress && (!sendAddress.startsWith("0x") || sendAddress.length !== 42) && (
-                  <p className="text-red-500 text-xs flex items-center space-x-1">
-                    <X className="w-3 h-3" />
-                    <span>Please enter a valid Ethereum address</span>
-                  </p>
-                )}
-              </div>
-
-              {/* Amount */}
-              <div className="space-y-3">
-                <label className="text-sm font-semibold text-gray-900">
-                  Amount ({balanceData?.symbol ?? "REVO"})
-                </label>
-                <div className="relative w-full">
-                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input
-                    type="number"
-                    placeholder="0.0000"
-                    value={sendAmount}
-                    onChange={e => setSendAmount(e.target.value)}
-                    step="0.0001"
-                    min="0"
-                    max={balanceData?.formatted ?? "0"}
-                    className="w-full pl-10 pr-20 h-12 text-lg font-semibold border-2 focus:border-blue-500 bg-gray-50 focus:bg-white transition-all duration-200"
-                  />
-                  <Button
-                    onClick={() => setSendAmount(balanceData?.formatted ?? "0")}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs px-3 py-1 h-8 bg-blue-100 hover:bg-blue-200 text-blue-700 border border-blue-300 rounded-md font-medium"
-                    variant="outline"
-                    size="sm"
-                  >
-                    MAX
-                  </Button>
-                </div>
-                {/* USD conversion below input */}
-                {sendAmount && !isNaN(Number(sendAmount)) && Number(sendAmount) > 0 && (
-                  <div className="text-xs text-gray-500 mt-1 pl-1">
-                    ≈ $
-                    {(parseFloat(sendAmount) * 2.5).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}{" "}
-                    USD{" "}
-                  </div>
-                )}
-                {sendAmount && !isValidSendAmount() && (
-                  <p className="text-red-500 text-xs flex items-center space-x-1">
-                    <X className="w-3 h-3" />
-                    <span>
-                      {parseFloat(sendAmount) > parseFloat(balanceData?.formatted ?? "0")
-                        ? "Insufficient balance for this transaction"
-                        : "Please enter a valid amount greater than 0"}
-                    </span>
-                  </p>
-                )}
-              </div>
-
-              {/* Transaction Summary */}
-              {sendAmount &&
-                isValidSendAmount() &&
-                sendAddress.startsWith("0x") &&
-                sendAddress.length === 42 && (
-                  <div className="bg-green-50 rounded-xl p-4 border border-green-200">
-                    <h4 className="text-sm font-semibold text-green-800 mb-2 flex items-center space-x-1">
-                      <Check className="w-4 h-4" />
-                      <span>Transaction Summary</span>
-                    </h4>
-                    <div className="space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-green-700">Amount:</span>
-                        <span className="font-medium text-green-900">
-                          {sendAmount} {balanceData?.symbol ?? "REVO"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-green-700">To:</span>
-                        <span className="font-mono text-green-900 text-xs">
-                          {formatAddress(sendAddress)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-              {/* Action Buttons */}
-              <div className="flex space-x-3 pt-2">
-                <Button
-                  onClick={() => {
-                    setShowSendModal(false);
-                    setSendAddress("");
-                    setSendAmount("");
-                  }}
-                  variant="outline"
-                  className="flex-1 h-12"
-                  disabled={sendLoading}
-                >
-                  Cancel
-                </Button>
-                <ShimmerButton
-                  onClick={handleSendTransaction}
-                  disabled={
-                    sendLoading ||
-                    !isValidSendAmount() ||
-                    !sendAddress ||
-                    !sendAddress.startsWith("0x") ||
-                    sendAddress.length !== 42
-                  }
-                  className="flex-1 h-12 bg-blue-600 hover:bg-blue-700 text-white border-blue-600 font-semibold"
-                  shimmerColor="#60a5fa"
-                >
-                  {sendLoading ? (
-                    <div className="flex items-center space-x-2">
-                      <Clock className="w-4 h-4 animate-spin" />
-                      <span>Sending...</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center space-x-2">
-                      <ArrowUpRight className="w-4 h-4" />
-                      <span>Send REVO</span>
-                    </div>
-                  )}
-                </ShimmerButton>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <SendDialog
+          open={showSendModal}
+          onOpenChange={setShowSendModal}
+          onSend={handleSendTransaction}
+        />
 
         {/* Receive Modal */}
-        <Dialog open={showReceiveModal} onOpenChange={setShowReceiveModal}>
-          <DialogContent className="max-w-md rounded-2xl">
-            <DialogHeader>
-              <div className="flex items-center justify-between">
-                <DialogTitle>Receive Crypto</DialogTitle>
-              </div>
-            </DialogHeader>
-            <CardContent className="text-center">
-              {/* QR Code */}
-              <div className="bg-white p-4 rounded-lg border-2 border-gray-200 inline-block mb-6">
-                <img
-                  src={generateQRCode(walletAddress || "")}
-                  alt="QR Code"
-                  className="w-48 h-48"
-                />
-              </div>
-
-              {/* Wallet Address */}
-              <div className="mb-6">
-                <h4 className="text-sm font-medium text-gray-600 mb-2">Wallet Address</h4>
-                <div className="bg-gray-50 rounded-lg p-4 border flex items-center justify-between">
-                  {/* pill style for address */}
-                  <span className="inline-block rounded-full bg-blue-100 px-3 py-1 font-mono text-xs text-blue-800 border border-blue-200 break-all">
-                    {walletAddress || ""}
-                  </span>
-                  <Button
-                    onClick={copyAddress}
-                    className="ml-2 flex-shrink-0 relative w-8 h-8 p-2 bg-blue-600 hover:bg-blue-700 rounded-lg border-blue-500"
-                  >
-                    <Copy
-                      className={`w-4 h-4 text-white transition-opacity duration-300 ${copyStatus === "idle" ? "opacity-100" : "opacity-0"}`}
-                    />
-                    <Check
-                      className={`w-4 h-4 text-white transition-opacity duration-300 absolute ${copyStatus === "success" ? "opacity-100" : "opacity-0"}`}
-                    />
-                  </Button>
-                </div>
-              </div>
-              {/* Optionally, add a warning or info here */}
-            </CardContent>
-          </DialogContent>
-        </Dialog>
+        <ReceiveDialog open={showReceiveModal} onOpenChange={setShowReceiveModal} />
       </div>
     </div>
   );
