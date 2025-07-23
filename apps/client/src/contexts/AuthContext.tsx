@@ -1,19 +1,8 @@
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  ReactNode,
-  useCallback,
-  useRef,
-} from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import type { AuthUser } from "../types/auth";
 import { trpcClient } from "../utils/trpc";
-import { useWeb3AuthDisconnect, useWeb3AuthConnect, useWeb3Auth } from "@web3auth/modal/react";
-import { WALLET_CONNECTORS, AUTH_CONNECTION } from "@web3auth/modal";
 import { AUTH_EVENTS } from "../constants/auth-events";
 import { AUTH_STORAGE_KEYS } from "../constants/auth-storage";
-import { useAccount } from "wagmi";
 
 // Define a type for JWT payload
 interface JwtPayload {
@@ -122,74 +111,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.getItem(AUTH_STORAGE_KEYS.AUTH_TOKEN)
   );
 
-  const { disconnect: web3AuthDisconnect } = useWeb3AuthDisconnect();
-  const { connectTo } = useWeb3AuthConnect();
-  const dataWeb3Auth = useWeb3Auth();
-  const account = useAccount();
-
-  // Helper function to safely disconnect Web3Auth
-  const safeWeb3AuthDisconnect = useCallback(async () => {
-    try {
-      await web3AuthDisconnect({ cleanup: true });
-    } catch (error) {
-      console.warn("Web3Auth disconnect failed:", error);
-    }
-  }, [web3AuthDisconnect]);
-
-  // Helper function to connect to Web3Auth with JWT token
-  const connectToWallet = useCallback(async () => {
-    try {
-      // Wait for Web3Auth to be initialized
-      if (!dataWeb3Auth?.isInitialized || dataWeb3Auth?.isInitializing || !dataWeb3Auth?.web3Auth) {
-        console.log("Web3Auth not initialized yet, will try to connect later");
-        return;
-      }
-
-      console.log("Getting wallet token from backend");
-      const walletTokenResponse = await trpcClient.auth.getWalletToken.query();
-      const walletToken = walletTokenResponse.walletToken;
-
-      if (!walletToken) {
-        console.error("Failed to get wallet token from backend");
-        return;
-      }
-
-      console.log("Connecting to Web3Auth with token");
-      await connectTo(WALLET_CONNECTORS.AUTH, {
-        authConnection: AUTH_CONNECTION.CUSTOM,
-        authConnectionId: import.meta.env.VITE_WEB3AUTH_AUTH_CONNECTION_ID,
-        idToken: walletToken,
-        extraLoginOptions: {
-          isUserIdCaseSensitive: false,
-        },
-      });
-      console.log("Connected to Web3Auth successfully");
-    } catch (error) {
-      console.error("Failed to connect to Web3Auth wallet:", error);
-      if (error instanceof Error) {
-        console.error({
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        });
-      }
-    }
-  }, [
-    connectTo,
-    dataWeb3Auth?.isInitialized,
-    dataWeb3Auth?.isInitializing,
-    dataWeb3Auth?.web3Auth,
-  ]);
-
-  useEffect(() => {
-    if (account.address && authUser) {
-      trpcClient.wallet.linkWalletAddress.mutate({ address: account.address }).catch(error => {
-        console.error("Failed to link wallet address:", error);
-      });
-    }
-  }, [account.address, authUser]);
-
-  // Method to update JWT token (the effect will handle wallet connection)
+  // Method to update JWT token
   const updateToken = useCallback((token: string | null) => {
     // First, update localStorage (this will trigger the storage event in other tabs)
     if (token) {
@@ -205,12 +127,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Helper function to invalidate user session (for token expiry/invalid token)
   const invalidateUserSession = useCallback(async () => {
     console.log("Invalidating user session due to invalid/expired token");
-    await safeWeb3AuthDisconnect();
     setAuthUser(null);
     updateToken(null);
     localStorage.removeItem(AUTH_STORAGE_KEYS.AUTH_USER);
     setIsAuthenticated(false);
-  }, [safeWeb3AuthDisconnect, updateToken]);
+  }, [updateToken]);
 
   const signOut = useCallback(async () => {
     setError(null);
@@ -224,14 +145,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Continue with local logout even if backend logout fails
     }
 
-    // Disconnect Web3Auth
-    await safeWeb3AuthDisconnect();
-
     setAuthUser(null);
     updateToken(null);
     localStorage.removeItem(AUTH_STORAGE_KEYS.AUTH_USER);
     setIsAuthenticated(false);
-  }, [safeWeb3AuthDisconnect, updateToken]);
+  }, [updateToken]);
 
   // Listen for auth events
   useEffect(() => {
@@ -281,71 +199,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
-  // Use a ref to track connection attempts and prevent parallel execution
-  const connectionAttemptRef = useRef(false);
-
-  // Effect to connect to wallet when token changes or Web3Auth becomes ready
-  useEffect(() => {
-    const connectIfReady = async () => {
-      // Prevent parallel execution
-      if (connectionAttemptRef.current) {
-        return;
-      }
-
-      connectionAttemptRef.current = true;
-
-      try {
-        // Only proceed if we have a token
-        if (!jwtToken) {
-          console.log("No token available, skipping wallet connection");
-          return;
-        }
-
-        // Check if token is not expired
-        if (isTokenExpired(jwtToken)) {
-          console.log("Token is expired, waiting for token refresh before wallet connection");
-          return;
-        }
-
-        // Only attempt to connect if Web3Auth is initialized
-        if (
-          dataWeb3Auth?.isInitialized &&
-          !dataWeb3Auth?.isInitializing &&
-          dataWeb3Auth?.web3Auth
-        ) {
-          // Check if wallet is already connected
-          if (dataWeb3Auth?.isConnected) {
-            console.log("Wallet is already connected, skipping connection");
-            return;
-          }
-
-          console.log("Token and Web3Auth are ready, connecting to wallet");
-          try {
-            await connectToWallet();
-          } catch (error) {
-            console.error("Failed to connect to wallet:", error);
-          }
-        } else {
-          console.log("Web3Auth not initialized yet, skipping wallet connection");
-        }
-      } finally {
-        // Reset the flag when done
-        connectionAttemptRef.current = false;
-      }
-    };
-
-    connectIfReady();
-
-    // No need for cleanup function as we're using a ref
-  }, [
-    jwtToken,
-    dataWeb3Auth?.isInitialized,
-    dataWeb3Auth?.isInitializing,
-    dataWeb3Auth?.web3Auth,
-    dataWeb3Auth?.isConnected,
-    connectToWallet,
-  ]);
-
   useEffect(() => {
     const validateToken = async () => {
       const { isValid, user } = await validateTokenWithServer();
@@ -384,7 +237,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     validateToken();
-  }, [invalidateUserSession, updateToken, connectToWallet]);
+  }, [invalidateUserSession, updateToken]);
 
   const signIn = async (email: string, password: string) => {
     try {
