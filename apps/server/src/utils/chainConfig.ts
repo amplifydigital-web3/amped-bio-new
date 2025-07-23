@@ -1,5 +1,3 @@
-import { env } from "../env";
-
 // Centralized chain configuration for consistent use across the application
 export const getChainConfig = () => {
   return {
