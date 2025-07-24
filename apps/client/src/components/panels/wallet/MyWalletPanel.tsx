@@ -102,9 +102,6 @@ export function MyWalletPanel() {
   const [copyStatus, setCopyStatus] = useState<"idle" | "success">("idle");
   const [showFundModal, setShowFundModal] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
-  const [sendAddress, setSendAddress] = useState("");
-  const [sendAmount, setSendAmount] = useState("");
-  const [sendLoading, setSendLoading] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [isUSD, setIsUSD] = useState(false);
 
@@ -230,31 +227,10 @@ export function MyWalletPanel() {
     console.log(...args);
   }
 
-  const handleSendTransaction = async () => {
-    if (!sendAddress || !sendAmount) {
-      uiConsole("Address and amount are required");
-      return;
-    }
-
-    setSendLoading(true);
-    try {
-      // TODO: Implement actual transaction sending logic here
-      uiConsole("Sending transaction:", { to: sendAddress, amount: sendAmount });
-
-      // Simulate transaction delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Reset form and close modal on success
-      setSendAddress("");
-      setSendAmount("");
-      setShowSendModal(false);
-
-      uiConsole("Transaction sent successfully!");
-    } catch (error) {
-      uiConsole("Failed to send transaction:", error);
-    } finally {
-      setSendLoading(false);
-    }
+  const handleSendTransaction = (address: string, amount: string) => {
+    uiConsole("Transaction sent successfully:", { to: address, amount });
+    // A transação já foi enviada pelo hook useSendDialog
+    // Podemos realizar ações adicionais aqui se necessário
   };
 
   // Handler for claiming daily faucet tokens
@@ -335,26 +311,7 @@ export function MyWalletPanel() {
     onOpenChange: setShowFundModal,
   });
 
-  const calculateRemainingBalance = () => {
-    if (!balanceData?.formatted || !sendAmount) return balanceData?.formatted || "0";
-
-    const currentBalance = parseFloat(balanceData.formatted);
-    const amountToSend = parseFloat(sendAmount);
-
-    if (isNaN(amountToSend)) return balanceData.formatted;
-
-    const remaining = currentBalance - amountToSend;
-    return remaining >= 0 ? remaining.toFixed(4) : "0";
-  };
-
-  const isValidSendAmount = () => {
-    if (!balanceData?.formatted || !sendAmount) return false;
-
-    const currentBalance = parseFloat(balanceData.formatted);
-    const amountToSend = parseFloat(sendAmount);
-
-    return !isNaN(amountToSend) && amountToSend > 0 && amountToSend <= currentBalance;
-  };
+  // Estas funções foram movidas para o hook useSendDialog
 
   // Wallet connection is now handled automatically in AuthContext
   // when a valid token is present

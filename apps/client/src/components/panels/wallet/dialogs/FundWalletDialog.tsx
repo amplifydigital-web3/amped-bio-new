@@ -14,7 +14,7 @@ import CoinbaseIcon from "@/assets/icons/coinbase.png";
 import OnRampIcon from "@/assets/icons/onramp.png";
 import MoonPayIcon from "@/assets/icons/moonpay.png";
 import { useAccount } from "wagmi";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { trpcClient } from "@/utils/trpc/trpc";
 import { toast } from "react-hot-toast";
 
