@@ -213,13 +213,16 @@ function useSendDialog(options?: UseSendDialogOptions) {
     setIsOpen(true);
     setTransactionStatus("idle");
     setTransactionHash(null);
+    setEstimatedGasFee(null);
     reset();
   };
 
   // Close dialog function
   const closeSendDialog = () => {
     setIsOpen(false);
-    // Optional: Reset form when dialog closes
+    setTransactionStatus("idle");
+    setTransactionHash(null);
+    setEstimatedGasFee(null);
     reset();
   };
 
@@ -228,6 +231,7 @@ function useSendDialog(options?: UseSendDialogOptions) {
     isOpen,
     setIsOpen,
     transactionStatus,
+    setTransactionStatus,
     transactionHash,
     balanceData,
     isBalanceLoading,
@@ -270,6 +274,7 @@ export function SendDialog({ open, onOpenChange, onSend }: SendDialogProps) {
     handleSendAll,
     handleSendTransaction,
     transactionStatus,
+    setTransactionStatus,
     transactionHash,
     sendError,
     estimatedGasFee,
@@ -288,8 +293,25 @@ export function SendDialog({ open, onOpenChange, onSend }: SendDialogProps) {
     reset();
   };
 
+  // Handle dialog open/close events and reset states
+  useEffect(() => {
+    // Reset form and transaction status when dialog state changes
+    reset();
+    setTransactionStatus("idle");
+  }, [open, reset, setTransactionStatus]);
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={isOpen => {
+        if (!isOpen) {
+          // Reset states when dialog is closed
+          reset();
+          setTransactionStatus("idle");
+        }
+        onOpenChange(isOpen);
+      }}
+    >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
