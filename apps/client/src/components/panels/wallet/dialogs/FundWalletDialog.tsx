@@ -253,9 +253,7 @@ export function FundWalletDialog({
               Close
             </Button>
             <Button
-              onClick={() =>
-                window.open(`https://explorer.dev.revolutionchain.io/tx/${txInfo?.txid}`, "_blank")
-              }
+              onClick={() => window.open(`https://dev.revoscan.io/tx/${txInfo?.txid}`, "_blank")}
               className="gap-2"
             >
               View in Explorer <ExternalLink className="w-4 h-4" />

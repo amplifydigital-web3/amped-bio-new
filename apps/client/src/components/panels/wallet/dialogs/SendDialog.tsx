@@ -447,7 +447,6 @@ export function SendDialog({ open, onOpenChange, onSend }: SendDialogProps) {
               <div className="flex items-center">
                 <DotLottieReact
                   src={SentLottie}
-                  loop
                   autoplay
                   style={{
                     width: "32px",
