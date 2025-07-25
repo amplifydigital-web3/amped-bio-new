@@ -47,6 +47,7 @@ import {
 import { Switch } from "@/components/ui/Switch";
 import { FundWalletDialog, ProfileOptionsDialog, ReceiveDialog, SendDialog } from "./dialogs";
 import { useFundWalletDialog } from "./dialogs/FundWalletDialog";
+import StakedPoolsSection from "./StakedPoolsSection";
 
 export function MyWalletPanel() {
   const {
@@ -1077,6 +1078,8 @@ export function MyWalletPanel() {
               </TabsContent>
             </Tabs>
           </Card>
+
+          <StakedPoolsSection />
 
           <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200 p-6">
             <div className="flex items-start justify-between">
