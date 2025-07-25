@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { trpc, trpcClient } from "../../../utils/trpc";
-import { Search, ChevronLeft, ChevronRight, X, Eye, EyeOff } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, X, Eye, EyeOff, ClipboardCopy } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { formatUserRole, formatUserStatus, formatDate } from "../../../utils/adminFormat";
@@ -25,6 +25,9 @@ type User = {
     blocks: number;
     themes: number;
   };
+  wallet: {
+    address: string;
+  } | null;
 };
 
 type EditUserFormData = z.infer<typeof editUserSchema>;
@@ -291,7 +294,7 @@ export function UserManagement() {
                     if (searchError) setSearchError(null);
                     handleSearchChange(e);
                   }}
-                  placeholder="Search users by name or email"
+                  placeholder="Search users by name, email, or wallet address"
                   className={`w-full px-4 py-2 rounded-lg border ${
                     searchError
                       ? "border-red-300 focus:ring-red-500"
@@ -383,6 +386,12 @@ export function UserManagement() {
                       Themes
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date Joined
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Wallet Address
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -407,9 +416,6 @@ export function UserManagement() {
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                            <div className="text-sm text-gray-500">
-                              {formatDate(user.created_at)}
-                            </div>
                           </div>
                         </div>
                       </td>
@@ -448,6 +454,25 @@ export function UserManagement() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {user._count.themes}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {user.wallet?.address || "-"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatDate(user.created_at)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {user.wallet?.address || "-"}
+                        {user.wallet?.address && (
+                          <button
+                            className="ml-2 text-gray-400 hover:text-gray-600"
+                            onClick={() =>
+                              navigator.clipboard.writeText(user.wallet?.address || "")
+                            }
+                          >
+                            <ClipboardCopy className="h-4 w-4" />
+                          </button>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button
