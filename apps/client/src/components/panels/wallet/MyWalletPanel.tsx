@@ -29,6 +29,14 @@ import { ShimmerButton } from "@/components/ui/shimmer-button";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAccount, useBalance } from "wagmi";
 import {
   useWeb3Auth,
@@ -104,6 +112,9 @@ export function MyWalletPanel() {
   const [showSendModal, setShowSendModal] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [isUSD, setIsUSD] = useState(false);
+
+  const [selectedNetwork, setSelectedNetwork] = useState("Revochain Testnet");
+  const availableNetworks = ["Revochain Testnet", "Revolution Mainnet"];
 
   const { address: walletAddress } = useAccount();
 
@@ -516,33 +527,70 @@ export function MyWalletPanel() {
                     </div>
                   </div>
                 </div>
-                {/* Settings icon (right) */}
-                <span
-                  className="ml-4 cursor-pointer text-gray-400 hover:text-blue-600"
-                  onClick={() => setShowProfileOptions(true)}
-                  aria-label="Profile Settings"
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={e => {
-                    if (e.key === "Enter" || e.key === " ") setShowProfileOptions(true);
-                  }}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-7 h-7"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
+                {/* Network Switch and Settings icon (right) */}
+                <div className="flex items-center space-x-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <div className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 cursor-pointer flex items-center space-x-2">
+                        <span>{selectedNetwork}</span>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      </div>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-56">
+                      <DropdownMenuLabel>Select Network</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {availableNetworks.map(network => (
+                        <DropdownMenuItem
+                          key={network}
+                          onClick={() => setSelectedNetwork(network)}
+                          className={network === selectedNetwork ? "bg-blue-50" : ""}
+                          disabled={network === "Revolution Mainnet"}
+                        >
+                          {network}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <span
+                    className="ml-4 cursor-pointer text-gray-400 hover:text-blue-600"
+                    onClick={() => setShowProfileOptions(true)}
+                    aria-label="Profile Settings"
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={e => {
+                      if (e.key === "Enter" || e.key === " ") setShowProfileOptions(true);
+                    }}
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.01c1.527-.878 3.276.87 2.398 2.398a1.724 1.724 0 001.01 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.01 2.573c.878 1.527-.87 3.276-2.398 2.398a1.724 1.724 0 00-2.572 1.01c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.01c-1.527.878-3.276-.87-2.398-2.398a1.724 1.724 0 00-1.01-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.01-2.573c-.878-1.527.87-3.276 2.398-2.398.996.573 2.25.06 2.573-1.01z"
-                    />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                </span>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="w-7 h-7"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.01c1.527-.878 3.276.87 2.398 2.398a1.724 1.724 0 001.01 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.01 2.573c.878 1.527-.87 3.276-2.398 2.398a1.724 1.724 0 00-2.572 1.01c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.01c-1.527.878-3.276-.87-2.398-2.398a1.724 1.724 0 00-1.01-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.01-2.573c-.878-1.527.87-3.276 2.398-2.398.996.573 2.25.06 2.573-1.01z"
+                      />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  </span>
+                </div>
               </div>
               {/* Stats Section below */}
               <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-4">
