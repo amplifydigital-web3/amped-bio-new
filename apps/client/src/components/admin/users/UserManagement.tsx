@@ -1,6 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { trpc, trpcClient } from "../../../utils/trpc";
-import { Search, ChevronLeft, ChevronRight, X, Eye, EyeOff, ClipboardCopy } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, X, Eye, EyeOff, ClipboardCopy, Check } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { formatUserRole, formatUserStatus, formatDate } from "../../../utils/adminFormat";
@@ -41,6 +41,7 @@ export function UserManagement() {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [showEmails, setShowEmails] = useState(false);
+  const [copiedAddressId, setCopiedAddressId] = useState<number | null>(null);
 
   // Edit User Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -389,10 +390,10 @@ export function UserManagement() {
                       Date Joined
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date Joined
+                      Wallet Address
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Wallet Address
+                      Actions
                     </th>
                   </tr>
                 </thead>
@@ -460,17 +461,20 @@ export function UserManagement() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {user.wallet?.address || "-"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {user.wallet?.address || "-"}
                         {user.wallet?.address && (
                           <button
                             className="ml-2 text-gray-400 hover:text-gray-600"
-                            onClick={() =>
-                              navigator.clipboard.writeText(user.wallet?.address || "")
-                            }
+                            onClick={() => {
+                              navigator.clipboard.writeText(user.wallet?.address || "");
+                              setCopiedAddressId(user.id);
+                              setTimeout(() => setCopiedAddressId(null), 1000);
+                            }}
                           >
-                            <ClipboardCopy className="h-4 w-4" />
+                            {copiedAddressId === user.id ? (
+                              <Check className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <ClipboardCopy className="h-4 w-4" />
+                            )}
                           </button>
                         )}
                       </td>
@@ -510,7 +514,7 @@ export function UserManagement() {
                   ))}
                   {userData?.users.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="px-6 py-10 text-center text-gray-500">
+                      <td colSpan={10} className="px-6 py-10 text-center text-gray-500">
                         No users found
                       </td>
                     </tr>
