@@ -389,10 +389,10 @@ export function UserManagement() {
                       Date Joined
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Wallet Address
+                      Date Joined
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
+                      Wallet Address
                     </th>
                   </tr>
                 </thead>
@@ -456,10 +456,10 @@ export function UserManagement() {
                         {user._count.themes}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {user.wallet?.address || "-"}
+                        {formatDate(user.created_at)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(user.created_at)}
+                        {user.wallet?.address || "-"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {user.wallet?.address || "-"}
