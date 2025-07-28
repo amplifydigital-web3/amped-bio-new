@@ -48,6 +48,7 @@ import { Switch } from "@/components/ui/Switch";
 import { FundWalletDialog, ProfileOptionsDialog, ReceiveDialog, SendDialog } from "./dialogs";
 import { useFundWalletDialog } from "./dialogs/FundWalletDialog";
 import StakedPoolsSection from "./StakedPoolsSection";
+import BalanceCard from "./BalanceCard";
 
 export function MyWalletPanel() {
   const {
@@ -453,7 +454,7 @@ export function MyWalletPanel() {
   // Connected view (existing wallet interface)
   const loggedInView = (
     <div className="h-full overflow-y-auto">
-      <div className="p-6">
+      <div className="p-6 md:w-4/5 md:mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center space-x-3">
@@ -731,7 +732,7 @@ export function MyWalletPanel() {
               <CardDescription className="mb-6">Your current wallet balance</CardDescription>
 
               {/* Action Buttons */}
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <Dialog open={showFundModal} onOpenChange={setShowFundModal}>
                   <DialogTrigger asChild>
                     <Button
@@ -766,49 +767,14 @@ export function MyWalletPanel() {
                   <span className="text-sm font-medium">Receive</span>
                 </Button>
 
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      disabled
-                      className="relative h-20 flex flex-col items-center justify-center space-y-2 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200 hover:border-yellow-300 transition-all duration-200 ease-in-out transform hover:scale-105 opacity-60 cursor-not-allowed"
-                      variant="outline"
-                    >
-                      <span className="absolute top-2 right-2 text-xs bg-yellow-200 text-yellow-800 rounded px-2 py-0.5 shadow-sm pointer-events-none select-none">
-                        Soon
-                      </span>
-                      <Coins className="w-8 h-8 p-2 bg-gray-50 rounded-lg" />
-                      <span className="text-sm font-medium">Stake</span>
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-2">
-                    <p className="text-sm text-gray-600">Soon</p>
-                  </PopoverContent>
-                </Popover>
-
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      disabled
-                      className="relative h-20 flex flex-col items-center justify-center space-y-2 bg-red-50 hover:bg-red-100 text-red-700 border-red-200 hover:border-red-300 transition-all duration-200 ease-in-out transform hover:scale-105 opacity-60 cursor-not-allowed"
-                      variant="outline"
-                    >
-                      <span className="absolute top-2 right-2 text-xs bg-red-200 text-red-800 rounded px-2 py-0.5 shadow-sm pointer-events-none select-none">
-                        Soon
-                      </span>
-                      <Gem className="w-8 h-8 p-2 bg-gray-50 rounded-lg" />
-                      <span className="text-sm font-medium">Unstake</span>
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-2">
-                    <p className="text-sm text-gray-600">Soon</p>
-                  </PopoverContent>
-                </Popover>
+                
               </div>
             </CardContent>
           </Card>
 
           {/* Tokens, NFTs & History Section */}
-          <Card className="rounded-2xl">
+          <BalanceCard />
+          {/* <Card className="rounded-2xl">
             <Tabs defaultValue="tokens" className="w-full">
               <TabsList className="flex justify-start w-fit">
                 <TabsTrigger
@@ -1077,7 +1043,7 @@ export function MyWalletPanel() {
                 )}
               </TabsContent>
             </Tabs>
-          </Card>
+          </Card> */}
 
           <StakedPoolsSection />
 

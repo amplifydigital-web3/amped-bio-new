@@ -200,7 +200,8 @@ export default function StakedPoolsSection({ onNavigateToExplore }: StakedPoolsS
 
   if (allStakedPools.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 opacity-50 relative pointer-events-none">
+        <div className="absolute top-2 right-2 bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full z-10 pointer-events-auto">Soon</div>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900">Your Staked Pools</h3>
           <Trophy className="w-5 h-5 text-gray-400" />
@@ -219,7 +220,8 @@ export default function StakedPoolsSection({ onNavigateToExplore }: StakedPoolsS
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 opacity-50 relative pointer-events-none">
+      <div className="absolute top-2 right-2 bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full z-10 pointer-events-auto">Soon</div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 space-y-2 sm:space-y-0">
         <div>
           <h3 className="text-lg font-semibold text-gray-900">Your Staked Pools</h3>
