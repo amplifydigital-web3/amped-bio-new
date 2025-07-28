@@ -464,7 +464,7 @@ export function SendDialog({ open, onOpenChange, onSend }: SendDialogProps) {
                       rel="noopener noreferrer"
                       className="ml-1 underline"
                     >
-                      View on Revoscan
+                      View on explorer
                     </a>
                   )}
                 </span>
