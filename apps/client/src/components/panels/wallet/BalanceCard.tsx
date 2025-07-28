@@ -62,7 +62,7 @@ export default function ProfileTabs({ isEmpty = false, onNavigateToExplore }: Pr
     if (activeTab === "history" && address) {
       fetchTransactions(address);
     }
-  }, [activeTab, address]);
+  }, [activeTab, address, revoBalance]);
 
   const fetchTransactions = async (walletAddress: string) => {
     setTransactionsLoading(true);
