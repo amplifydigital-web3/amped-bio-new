@@ -76,27 +76,24 @@ function CountdownTimer({ targetDate, onComplete }: { targetDate: Date; onComple
 }
 
 // Hook to control the wallet funding dialog
+// eslint-disable-next-line react-refresh/only-export-components
 export function useFundWalletDialog(params: {
-  handleClaimDailyFaucet: () => Promise<{ success: boolean; txid?: string }>;
-  claimingFaucet: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { handleClaimDailyFaucet, claimingFaucet, open, onOpenChange } = params;
+  const { open, onOpenChange } = params;
+  const { address: walletAddress, isConnected } = useAccount();
 
-  const { address: walletAddress } = useAccount();
-
-  // Success dialog state
+  // Dialog state
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [txInfo, setTxInfo] = useState<{ txid: string }>();
 
-  // Faucet amount state
+  // Faucet state
   const [faucetAmount, setFaucetAmount] = useState<{ amount: number; currency: string } | null>(
     null
   );
   const [isLoadingFaucetAmount, setIsLoadingFaucetAmount] = useState(false);
-
-  // Faucet cooldown state
+  const [claimingFaucet, setClaimingFaucet] = useState(false);
   const [faucetInfo, setFaucetInfo] = useState<{
     lastRequestDate: Date | null;
     nextAvailableDate: Date | null;
@@ -109,7 +106,7 @@ export function useFundWalletDialog(params: {
     hasWallet: false,
   });
 
-  // Fetch faucet amount when dialog is opened
+  // Fetch faucet amount when the dialog is opened
   useEffect(() => {
     const fetchFaucetAmount = async () => {
       if (!open) return;
@@ -117,14 +114,11 @@ export function useFundWalletDialog(params: {
       setIsLoadingFaucetAmount(true);
       try {
         const result = await trpcClient.wallet.getFaucetAmount.query();
-
         if (result.success) {
           setFaucetAmount({
             amount: result.amount,
             currency: result.currency,
           });
-
-          // Set cooldown information
           setFaucetInfo({
             lastRequestDate: result.lastRequestDate ? new Date(result.lastRequestDate) : null,
             nextAvailableDate: result.nextAvailableDate ? new Date(result.nextAvailableDate) : null,
@@ -132,12 +126,10 @@ export function useFundWalletDialog(params: {
             hasWallet: result.hasWallet,
           });
         } else {
-          // Show error toast if the server returns a failure status
           toast.error("Unable to get faucet information. Please try again later.");
         }
       } catch (error: any) {
         console.error("Failed to fetch faucet amount:", error);
-        // Show error toast with message from the error if available
         toast.error(error.message || "Unable to get faucet information. Please try again later.");
       } finally {
         setIsLoadingFaucetAmount(false);
@@ -147,79 +139,81 @@ export function useFundWalletDialog(params: {
     fetchFaucetAmount();
   }, [open]);
 
-  // Handle claim and show success dialog
-  const handleClaim = async () => {
+  // Function to handle the faucet claim process
+  const handleClaimDailyFaucet = async (): Promise<{ success: boolean; txid?: string }> => {
+    if (!isConnected || claimingFaucet || !walletAddress) {
+      toast.error("Wallet not connected or already claiming.");
+      return { success: false };
+    }
+
+    setClaimingFaucet(true);
     try {
-      const result = await handleClaimDailyFaucet();
-      if (result.success && result.txid) {
-        setTxInfo({ txid: result.txid });
+      const result = await trpcClient.wallet.requestAirdrop.mutate({
+        address: walletAddress,
+      });
+
+      if (result.success && result.transaction?.hash) {
+        setTxInfo({ txid: result.transaction.hash });
         setShowSuccessDialog(true);
 
         // Update faucet state after successful claim
         const now = new Date();
-        const nextDate = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours from now
-
+        const nextDate = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
         setFaucetInfo({
           lastRequestDate: now,
           nextAvailableDate: nextDate,
           canRequestNow: false,
           hasWallet: true,
         });
+
+        return { success: true, txid: result.transaction.hash };
       } else {
-        // Show error toast when response indicates failure but no exception was thrown
-        toast.error("Failed to claim faucet. Please try again later.");
+        toast.error(result.message || "Failed to claim faucet tokens.");
+        return { success: false };
       }
     } catch (error: any) {
-      console.error("Error claiming faucet:", error);
-      // Show error toast with message from the error if available
-      toast.error(error.message || "Failed to claim faucet. Please try again later.");
+      console.error("Error claiming faucet tokens:", error);
+      toast.error(error.message || "An unexpected error occurred.");
+      return { success: false };
+    } finally {
+      setClaimingFaucet(false);
     }
   };
 
   return {
+    open,
+    onOpenChange,
+    walletAddress,
     showSuccessDialog,
     setShowSuccessDialog,
     txInfo,
     faucetAmount,
     isLoadingFaucetAmount,
-    handleClaim,
-    walletAddress,
     claimingFaucet,
-    onOpenChange,
-    open,
     faucetInfo,
     setFaucetInfo,
+    handleClaim: handleClaimDailyFaucet, // Renamed for clarity in the hook return
   };
 }
 
 interface FundWalletDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  handleClaimDailyFaucet: () => Promise<{ success: boolean; txid?: string }>;
-  claimingFaucet: boolean;
 }
 
-export function FundWalletDialog({
-  open,
-  onOpenChange,
-  handleClaimDailyFaucet,
-  claimingFaucet,
-}: FundWalletDialogProps) {
-  // Use the hook to control the dialog
+export function FundWalletDialog({ open, onOpenChange }: FundWalletDialogProps) {
   const {
     showSuccessDialog,
     setShowSuccessDialog,
     txInfo,
     faucetAmount,
     isLoadingFaucetAmount,
+    claimingFaucet,
+    faucetInfo,
+    setFaucetInfo,
     handleClaim,
     walletAddress,
-    faucetInfo,
-    faucetInfo: { canRequestNow },
-    setFaucetInfo,
   } = useFundWalletDialog({
-    handleClaimDailyFaucet,
-    claimingFaucet,
     open,
     onOpenChange,
   });

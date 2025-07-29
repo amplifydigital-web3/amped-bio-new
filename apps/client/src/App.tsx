@@ -1,3 +1,5 @@
+import { Web3AuthProvider } from "@web3auth/modal/react";
+import web3AuthContextConfig from "./utils/web3authContext";
 import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Editor } from "./pages/Editor";
@@ -20,8 +22,6 @@ import { EmailVerification, EmailVerificationResent, PasswordReset } from "./pag
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./utils/trpc";
 import { Toaster } from "react-hot-toast";
-import { Web3AuthProvider } from "@web3auth/modal/react";
-import web3AuthContextConfig from "./utils/web3authContext";
 import { AuthProvider } from "./contexts/AuthContext";
 import { EditorProvider } from "./contexts/EditorContext";
 import { useTokenExpiration } from "./hooks/useTokenExpiration";

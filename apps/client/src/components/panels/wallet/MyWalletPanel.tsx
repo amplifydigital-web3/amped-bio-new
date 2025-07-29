@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useEditor } from "@/contexts/EditorContext";
 import { AUTH_STORAGE_KEYS } from "@/constants/auth-storage";
 import {
@@ -13,7 +12,6 @@ import {
   ArrowUpRight,
   Plus,
   X,
-  History,
   Check,
   Info,
   TrendingUp,
@@ -37,7 +35,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAccount, useBalance } from "wagmi";
+
 import {
   useWeb3Auth,
   useWeb3AuthConnect,
@@ -47,8 +45,11 @@ import {
 import { Switch } from "@/components/ui/Switch";
 import { FundWalletDialog, ProfileOptionsDialog, ReceiveDialog, SendDialog } from "./dialogs";
 import { useFundWalletDialog } from "./dialogs/FundWalletDialog";
-import StakedPoolsSection from "./StakedPoolsSection";
-import BalanceCard from "./BalanceCard";
+import { useAccount, useBalance } from "wagmi";
+import { useAuth } from "@/contexts/AuthContext";
+
+const StakedPoolsSection = lazy(() => import("./StakedPoolsSection"));
+const BalanceCard = lazy(() => import("./BalanceCard"));
 
 export function MyWalletPanel() {
   const {
@@ -64,7 +65,6 @@ export function MyWalletPanel() {
     error: disconnectError,
   } = useWeb3AuthDisconnect();
   const dataWeb3Auth = useWeb3Auth();
-
   const { userInfo } = useWeb3AuthUser();
   const { address } = useAccount();
 
@@ -104,7 +104,6 @@ export function MyWalletPanel() {
     dataWeb3Auth?.web3Auth,
     dataWeb3Auth?.initError,
   ]);
-
   const { authUser } = useAuth();
   const { profile } = useEditor();
   const [showReceiveModal, setShowReceiveModal] = useState(false);
@@ -118,20 +117,9 @@ export function MyWalletPanel() {
   const [selectedNetwork, setSelectedNetwork] = useState("Revochain Testnet");
   const availableNetworks = ["Revochain Testnet", "Revolution Mainnet"];
 
-  const { address: walletAddress } = useAccount();
-
   const { data: balanceData, isLoading: isBalanceLoading } = useBalance({
-    address: walletAddress,
+    address: address,
   });
-
-  // Sample data for tokens (empty for now)
-  const sampleTokens: any[] = [];
-
-  // Sample data for NFTs (empty for now)
-  const sampleNFTs: any[] = [];
-
-  // Sample transaction history data (empty for now)
-  const sampleTransactions: any[] = [];
 
   // Demo data
   const demoData = {
@@ -197,8 +185,8 @@ export function MyWalletPanel() {
   };
 
   const copyAddress = () => {
-    if (walletAddress) {
-      navigator.clipboard.writeText(walletAddress);
+    if (address) {
+      navigator.clipboard.writeText(address);
       setCopyStatus("success");
       setTimeout(() => {
         setCopyStatus("idle");
@@ -212,130 +200,25 @@ export function MyWalletPanel() {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
-  const generateQRCode = (address: string) => {
-    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(address)}`;
-  };
-
-  const formatTransactionHash = (hash: string) => {
-    return `${hash.slice(0, 8)}...${hash.slice(-8)}`;
-  };
-
-  const formatTransactionAddress = (address: string) => {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
-
-  const formatTransactionTime = (timestamp: Date) => {
-    const now = new Date();
-    const diffInHours = Math.floor((now.getTime() - timestamp.getTime()) / (1000 * 60 * 60));
-
-    if (diffInHours < 24) {
-      return `${diffInHours}h ago`;
-    } else {
-      const diffInDays = Math.floor(diffInHours / 24);
-      return `${diffInDays}d ago`;
-    }
-  };
-
   function uiConsole(...args: any[]): void {
     console.log(...args);
   }
 
   const handleSendTransaction = (address: string, amount: string) => {
     uiConsole("Transaction sent successfully:", { to: address, amount });
-    // A transação já foi enviada pelo hook useSendDialog
-    // Podemos realizar ações adicionais aqui se necessário
   };
 
-  // Handler for claiming daily faucet tokens
-  const [claimingFaucet, setClaimingFaucet] = useState(false);
-  const [faucetResult, setFaucetResult] = useState<{
-    success: boolean;
-    message: string;
-    transaction?: {
-      id: string;
-      amount: number;
-      timestamp: Date | string;
-      hash?: string;
-    };
-  } | null>(null);
-
-  const handleClaimDailyFaucet = async (): Promise<{ success: boolean; txid?: string }> => {
-    if (!isConnected || claimingFaucet || !walletAddress) return { success: false };
-
-    setClaimingFaucet(true);
-    uiConsole("Claiming daily faucet tokens...");
-    try {
-      const { trpcClient } = await import("@/utils/trpc/trpc");
-
-      // Only send the wallet address - amount will be determined by server environment variables
-      const result = await trpcClient.wallet.requestAirdrop.mutate({
-        address: walletAddress, // Send the connected wallet address
-      });
-
-      uiConsole("Faucet tokens claimed successfully:", result);
-
-      // Transform the result to handle timestamp as Date
-      setFaucetResult({
-        success: result.success,
-        message: result.message,
-        transaction: result.transaction
-          ? {
-              id: result.transaction.id,
-              amount: result.transaction.amount,
-              timestamp: new Date(result.transaction.timestamp),
-              hash: result.transaction.hash,
-            }
-          : undefined,
-      });
-
-      // Update UI with success message (would be better with react-query)
-      setTimeout(() => {
-        setFaucetResult(null);
-      }, 5000);
-
-      setClaimingFaucet(false);
-
-      // Return the transaction hash for the success dialog
-      return {
-        success: result.success,
-        txid: result.transaction?.hash,
-      };
-    } catch (error) {
-      console.error("Error claiming faucet tokens:", error);
-      setFaucetResult({
-        success: false,
-        message: error instanceof Error ? error.message : "Failed to claim faucet tokens",
-      });
-
-      setTimeout(() => {
-        setFaucetResult(null);
-      }, 5000);
-
-      setClaimingFaucet(false);
-      return { success: false };
-    }
-  };
-
-  // Use o hook para controlar o diálogo de financiamento da carteira
   const fundWalletDialog = useFundWalletDialog({
-    handleClaimDailyFaucet,
-    claimingFaucet,
     open: showFundModal,
     onOpenChange: setShowFundModal,
   });
-
-  // Estas funções foram movidas para o hook useSendDialog
 
   // Wallet connection is now handled automatically in AuthContext
   // when a valid token is present
 
   // Get current data (demo or real)
-  const currentAddress = isDemoMode ? demoData.address : walletAddress;
   const currentBalance = isDemoMode ? demoData.balance : balanceData?.formatted;
   const currentSymbol = isDemoMode ? demoData.symbol : balanceData?.symbol;
-  const currentTokens = isDemoMode ? demoData.tokens : sampleTokens;
-  const currentNFTs = isDemoMode ? demoData.nfts : sampleNFTs;
-  const currentTransactions = isDemoMode ? demoData.transactions : sampleTransactions;
   const currentIsBalanceLoading = isDemoMode ? false : isBalanceLoading;
 
   // Unconnected view
@@ -508,12 +391,9 @@ export function MyWalletPanel() {
                       @{authUser?.onelink || "User"}
                     </h2>
                     <div className="flex items-center space-x-1 mt-2">
-                      <span
-                        className="font-mono text-sm text-gray-600"
-                        title={currentAddress || ""}
-                      >
+                      <span className="font-mono text-sm text-gray-600" title={address || ""}>
                         <span className="inline-block rounded-full bg-blue-100 px-3 py-1 font-mono text-xs text-blue-800 border border-blue-200">
-                          {formatAddress(currentAddress || "")}
+                          {formatAddress(address || "")}
                         </span>
                       </span>
                       <span
@@ -747,8 +627,6 @@ export function MyWalletPanel() {
                 <FundWalletDialog
                   open={fundWalletDialog.open}
                   onOpenChange={fundWalletDialog.onOpenChange}
-                  handleClaimDailyFaucet={handleClaimDailyFaucet}
-                  claimingFaucet={claimingFaucet}
                 />
                 <Button
                   onClick={() => setShowSendModal(true)}
@@ -766,286 +644,19 @@ export function MyWalletPanel() {
                   <ArrowDownLeft className="w-8 h-8 p-2 bg-gray-50 rounded-lg" />
                   <span className="text-sm font-medium">Receive</span>
                 </Button>
-
-                
               </div>
             </CardContent>
           </Card>
 
-          {/* Tokens, NFTs & History Section */}
-          <BalanceCard />
-          {/* <Card className="rounded-2xl">
-            <Tabs defaultValue="tokens" className="w-full">
-              <TabsList className="flex justify-start w-fit">
-                <TabsTrigger
-                  value="tokens"
-                  className="flex items-center space-x-2 transition-all duration-200 ease-in-out"
-                >
-                  <Coins className="w-4 h-4" />
-                  <span>Tokens</span>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="nfts"
-                  className="flex items-center space-x-2 transition-all duration-200 ease-in-out"
-                >
-                  <Gem className="w-4 h-4" />
-                  <span>NFTs</span>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="history"
-                  className="flex items-center space-x-2 transition-all duration-200 ease-in-out"
-                >
-                  <History className="w-4 h-4" />
-                  <span>History</span>
-                </TabsTrigger>
-              </TabsList>
+          <Suspense fallback={<div className="text-center text-gray-500">Loading...</div>}>
+            <BalanceCard />
+          </Suspense>
 
-              <TabsContent value="tokens">
-                {currentTokens.length > 0 ? (
-                  <div className="space-y-3">
-                    {currentTokens.map(token => (
-                      <div
-                        key={token.id}
-                        className="flex justify-between items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className="text-2xl w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm">
-                            {token.icon}
-                          </div>
-                          <div>
-                            <h4 className="text-gray-900 font-semibold">{token.name}</h4>
-                            <p className="text-gray-500 text-sm">{token.symbol}</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-gray-900 font-semibold">
-                            {token.balance} {token.symbol}
-                          </p>
-                          <p className="text-gray-500 text-sm">{token.value}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="relative flex flex-col items-center justify-center py-12 text-center overflow-hidden rounded-lg bg-gray-50">
-                    <GridPattern
-                      squares={[
-                        [4, 4],
-                        [5, 1],
-                        [8, 2],
-                        [5, 3],
-                        [10, 6],
-                        [12, 3],
-                        [2, 8],
-                        [15, 5],
-                      ]}
-                      className={cn(
-                        "absolute inset-0 h-full w-full fill-blue-400/20 stroke-blue-400/20 text-blue-400/30",
-                        "[mask-image:radial-gradient(300px_circle_at_center,white,transparent)]"
-                      )}
-                      width={25}
-                      height={25}
-                    />
-                    <div className="relative z-10 flex flex-col items-center">
-                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                        <Coins className="w-8 h-8 text-gray-400" />
-                      </div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">No Tokens here</h3>
-                      <p className="text-gray-500 text-sm mb-6 max-w-xs">
-                        Fund account or receive assets to see them here.
-                      </p>
-                      <ShimmerButton
-                        onClick={() => uiConsole("Fund account")}
-                        className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
-                        shimmerColor="#60a5fa"
-                      >
-                        Fund Account
-                      </ShimmerButton>
-                    </div>
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="nfts">
-                {currentNFTs.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-4">
-                    {currentNFTs.map(nft => (
-                      <Card
-                        key={nft.id}
-                        className="overflow-hidden hover:shadow-md transition-shadow"
-                      >
-                        <div className="aspect-square">
-                          <img
-                            src={nft.image}
-                            alt={nft.name}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <CardContent className="p-3">
-                          <h4 className="text-gray-900 font-semibold text-sm truncate">
-                            {nft.name}
-                          </h4>
-                          <p className="text-gray-500 text-xs">{nft.collection}</p>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="relative flex flex-col items-center justify-center py-12 text-center overflow-hidden rounded-lg bg-purple-50">
-                    <GridPattern
-                      squares={[
-                        [3, 3],
-                        [6, 1],
-                        [9, 3],
-                        [4, 5],
-                        [11, 7],
-                        [13, 2],
-                        [1, 9],
-                        [16, 4],
-                      ]}
-                      className={cn(
-                        "absolute inset-0 h-full w-full fill-purple-400/20 stroke-purple-400/20 text-purple-400/30",
-                        "[mask-image:radial-gradient(300px_circle_at_center,white,transparent)]"
-                      )}
-                      width={25}
-                      height={25}
-                    />
-                    <div className="relative z-10 flex flex-col items-center">
-                      <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4">
-                        <Gem className="w-8 h-8 text-purple-400" />
-                      </div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">No NFTs here</h3>
-                      <p className="text-gray-500 text-sm mb-6 max-w-xs">
-                        Fund account or receive assets to see them here.
-                      </p>
-                      <ShimmerButton
-                        onClick={() => uiConsole("Fund account")}
-                        className="bg-purple-600 hover:bg-purple-700 text-white border-purple-600"
-                        shimmerColor="#a855f7"
-                      >
-                        Fund Account
-                      </ShimmerButton>
-                    </div>
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="history">
-                {currentTransactions.length > 0 ? (
-                  <div className="space-y-3">
-                    {currentTransactions.map(transaction => (
-                      <div
-                        key={transaction.id}
-                        className="flex justify-between items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div
-                            className={`w-10 h-10 flex items-center justify-center rounded-full ${
-                              transaction.type === "received"
-                                ? "bg-green-100 text-green-600"
-                                : "bg-blue-100 text-blue-600"
-                            }`}
-                          >
-                            {transaction.type === "received" ? (
-                              <ArrowDownLeft className="w-5 h-5" />
-                            ) : (
-                              <ArrowUpRight className="w-5 h-5" />
-                            )}
-                          </div>
-                          <div>
-                            <div className="flex items-center space-x-2">
-                              <h4 className="text-gray-900 font-semibold capitalize">
-                                {transaction.type}
-                              </h4>
-                              <Badge
-                                variant={
-                                  transaction.status === "completed" ? "default" : "secondary"
-                                }
-                                className={
-                                  transaction.status === "completed"
-                                    ? "bg-green-100 text-green-800 hover:bg-green-100"
-                                    : "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
-                                }
-                              >
-                                {transaction.status}
-                              </Badge>
-                            </div>
-                            <div className="flex items-center space-x-2 text-sm text-gray-500">
-                              <span>
-                                {transaction.type === "received" ? "From" : "To"}:{" "}
-                                {formatTransactionAddress(
-                                  transaction.type === "received"
-                                    ? transaction.from
-                                    : transaction.to
-                                )}
-                              </span>
-                              <span>•</span>
-                              <span>{formatTransactionTime(transaction.timestamp)}</span>
-                            </div>
-                            <p className="text-xs text-gray-400 font-mono">
-                              {formatTransactionHash(transaction.hash)}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p
-                            className={`font-semibold ${
-                              transaction.type === "received" ? "text-green-600" : "text-gray-900"
-                            }`}
-                          >
-                            {transaction.type === "received" ? "+" : "-"}
-                            {transaction.amount}
-                          </p>
-                          <p className="text-gray-500 text-sm">{transaction.value}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="relative flex flex-col items-center justify-center py-12 text-center overflow-hidden rounded-lg bg-green-50">
-                    <GridPattern
-                      squares={[
-                        [2, 4],
-                        [7, 2],
-                        [10, 5],
-                        [3, 7],
-                        [12, 8],
-                        [14, 1],
-                        [0, 10],
-                        [17, 6],
-                      ]}
-                      className={cn(
-                        "absolute inset-0 h-full w-full fill-green-400/20 stroke-green-400/20 text-green-400/30",
-                        "[mask-image:radial-gradient(300px_circle_at_center,white,transparent)]"
-                      )}
-                      width={30}
-                      height={30}
-                    />
-                    <div className="relative z-10 flex flex-col items-center">
-                      <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-                        <History className="w-8 h-8 text-green-400" />
-                      </div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                        No Transactions here
-                      </h3>
-                      <p className="text-gray-500 text-sm mb-6 max-w-xs">
-                        Fund account or receive assets to see them here.
-                      </p>
-                      <ShimmerButton
-                        onClick={() => uiConsole("Fund account")}
-                        className="bg-green-600 hover:bg-green-700 text-white border-green-600"
-                        shimmerColor="#22c55e"
-                      >
-                        Fund Account
-                      </ShimmerButton>
-                    </div>
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
-          </Card> */}
-
-          <StakedPoolsSection />
+          <Suspense
+            fallback={<div className="text-center text-gray-500">Loading Staked Pools...</div>}
+          >
+            <StakedPoolsSection />
+          </Suspense>
 
           <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200 p-6">
             <div className="flex items-start justify-between">
