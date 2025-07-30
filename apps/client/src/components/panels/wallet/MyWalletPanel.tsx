@@ -44,7 +44,6 @@ import {
 import { Switch } from "@/components/ui/Switch";
 import { useAccount, useBalance } from "wagmi";
 import { useAuth } from "@/contexts/AuthContext";
-import { useFundWalletDialog } from "./hooks/useFundWalletDialog";
 
 const StakedPoolsSection = lazy(() => import("./StakedPoolsSection"));
 const BalanceCard = lazy(() => import("./BalanceCard"));
@@ -209,11 +208,6 @@ export function MyWalletPanel() {
   const handleSendTransaction = (address: string, amount: string) => {
     uiConsole("Transaction sent successfully:", { to: address, amount });
   };
-
-  const fundWalletDialog = useFundWalletDialog({
-    open: showFundModal,
-    onOpenChange: setShowFundModal,
-  });
 
   // Get current data (demo or real)
   const currentBalance = isDemoMode ? demoData.balance : balanceData?.formatted;
@@ -624,10 +618,7 @@ export function MyWalletPanel() {
                   </DialogTrigger>
                 </Dialog>
                 <Suspense fallback={null}>
-                  <FundWalletDialog
-                    open={fundWalletDialog.open}
-                    onOpenChange={fundWalletDialog.onOpenChange}
-                  />
+                  <FundWalletDialog open={showFundModal} onOpenChange={setShowFundModal} />
                 </Suspense>
                 <Button
                   onClick={() => setShowSendModal(true)}
