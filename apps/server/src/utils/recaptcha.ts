@@ -2,7 +2,7 @@ import axios from "axios";
 import { env } from "../env";
 
 export async function verifyRecaptcha(token: string | null): Promise<boolean> {
-  if (env.NODE_ENV === "test") {
+  if (env.NODE_ENV === "testing") {
     return true;
   }
 
