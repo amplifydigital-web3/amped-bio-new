@@ -54,8 +54,6 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
   const handleClaim = async () => {
     setStep("claiming");
 
-    // Here you would typically send the recaptchaToken to your backend
-    // along with the claim request.
     console.log("Claiming rewards with reCAPTCHA token:", recaptchaToken);
 
     // Call the handleClaim from the hook
