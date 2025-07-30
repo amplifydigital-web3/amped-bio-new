@@ -122,7 +122,7 @@ export default function ProfileTabs({ isEmpty = false, onNavigateToExplore }: Pr
   const formatValue = (value: string) => {
     try {
       const ethValue = parseFloat(value) / Math.pow(10, 18);
-      return `${ethValue.toFixed(4)} ETH`;
+      return `${ethValue.toFixed(4)} ${revoBalance?.symbol}`;
     } catch (e) {
       return "N/A";
     }
