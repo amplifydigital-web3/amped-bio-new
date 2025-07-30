@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/Button";
 import { GridPattern } from "@/components/ui/grid-pattern";
@@ -43,13 +42,16 @@ import {
   useWeb3AuthUser,
 } from "@web3auth/modal/react";
 import { Switch } from "@/components/ui/Switch";
-import { FundWalletDialog, ProfileOptionsDialog, ReceiveDialog, SendDialog } from "./dialogs";
-import { useFundWalletDialog } from "./dialogs/FundWalletDialog";
 import { useAccount, useBalance } from "wagmi";
 import { useAuth } from "@/contexts/AuthContext";
+import { useFundWalletDialog } from "./hooks/useFundWalletDialog";
 
 const StakedPoolsSection = lazy(() => import("./StakedPoolsSection"));
 const BalanceCard = lazy(() => import("./BalanceCard"));
+const FundWalletDialog = lazy(() => import("./dialogs/FundWalletDialog"));
+const ProfileOptionsDialog = lazy(() => import("./dialogs/ProfileOptionsDialog"));
+const ReceiveDialog = lazy(() => import("./dialogs/ReceiveDialog"));
+const SendDialog = lazy(() => import("./dialogs/SendDialog"));
 
 export function MyWalletPanel() {
   const {
@@ -212,9 +214,6 @@ export function MyWalletPanel() {
     open: showFundModal,
     onOpenChange: setShowFundModal,
   });
-
-  // Wallet connection is now handled automatically in AuthContext
-  // when a valid token is present
 
   // Get current data (demo or real)
   const currentBalance = isDemoMode ? demoData.balance : balanceData?.formatted;
@@ -624,10 +623,12 @@ export function MyWalletPanel() {
                     </Button>
                   </DialogTrigger>
                 </Dialog>
-                <FundWalletDialog
-                  open={fundWalletDialog.open}
-                  onOpenChange={fundWalletDialog.onOpenChange}
-                />
+                <Suspense fallback={null}>
+                  <FundWalletDialog
+                    open={fundWalletDialog.open}
+                    onOpenChange={fundWalletDialog.onOpenChange}
+                  />
+                </Suspense>
                 <Button
                   onClick={() => setShowSendModal(true)}
                   className="h-20 flex flex-col items-center justify-center space-y-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 hover:border-blue-300 transition-all duration-200 ease-in-out transform hover:scale-105"
@@ -701,21 +702,27 @@ export function MyWalletPanel() {
         </div>
 
         {/* Profile Options Modal */}
-        <ProfileOptionsDialog
-          open={showProfileOptions}
-          onOpenChange={setShowProfileOptions}
-          onActionClick={uiConsole}
-        />
+        <Suspense fallback={null}>
+          <ProfileOptionsDialog
+            open={showProfileOptions}
+            onOpenChange={setShowProfileOptions}
+            onActionClick={uiConsole}
+          />
+        </Suspense>
 
         {/* Send Modal */}
-        <SendDialog
-          open={showSendModal}
-          onOpenChange={setShowSendModal}
-          onSend={handleSendTransaction}
-        />
+        <Suspense fallback={null}>
+          <SendDialog
+            open={showSendModal}
+            onOpenChange={setShowSendModal}
+            onSend={handleSendTransaction}
+          />
+        </Suspense>
 
         {/* Receive Modal */}
-        <ReceiveDialog open={showReceiveModal} onOpenChange={setShowReceiveModal} />
+        <Suspense fallback={null}>
+          <ReceiveDialog open={showReceiveModal} onOpenChange={setShowReceiveModal} />
+        </Suspense>
       </div>
     </div>
   );

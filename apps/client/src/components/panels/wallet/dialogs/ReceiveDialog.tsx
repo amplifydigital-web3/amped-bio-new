@@ -10,7 +10,7 @@ interface ReceiveDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function ReceiveDialog({ open, onOpenChange }: ReceiveDialogProps) {
+function ReceiveDialog({ open, onOpenChange }: ReceiveDialogProps) {
   const [copied, setCopied] = useState(false);
   const { address } = useAccount();
 
@@ -91,3 +91,5 @@ export function ReceiveDialog({ open, onOpenChange }: ReceiveDialogProps) {
     </Dialog>
   );
 }
+
+export default ReceiveDialog;

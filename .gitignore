@@ -54,3 +54,4 @@ lerna-debug.log*
 .DS_Store
 apps/server/tsconfig.tsbuildinfo
 apps/client/cypress/screenshots
+apps/client/.env

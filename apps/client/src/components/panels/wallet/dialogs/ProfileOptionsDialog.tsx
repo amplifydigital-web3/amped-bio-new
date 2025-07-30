@@ -9,11 +9,7 @@ interface ProfileOptionsDialogProps {
   onActionClick: (action: string) => void;
 }
 
-export function ProfileOptionsDialog({
-  open,
-  onOpenChange,
-  onActionClick,
-}: ProfileOptionsDialogProps) {
+function ProfileOptionsDialog({ open, onOpenChange, onActionClick }: ProfileOptionsDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm w-full mx-4 rounded-2xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] duration-300">
@@ -72,3 +68,5 @@ export function ProfileOptionsDialog({
     </Dialog>
   );
 }
+
+export default ProfileOptionsDialog;

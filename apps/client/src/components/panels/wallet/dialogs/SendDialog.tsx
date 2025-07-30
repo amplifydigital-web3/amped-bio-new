@@ -261,7 +261,7 @@ function useSendDialog(options?: UseSendDialogOptions) {
   };
 }
 
-export function SendDialog({ open, onOpenChange, onSend }: SendDialogProps) {
+function SendDialog({ open, onOpenChange, onSend }: SendDialogProps) {
   // Use our custom hook for dialog and transaction management
   const {
     balanceData,
@@ -507,3 +507,5 @@ export function SendDialog({ open, onOpenChange, onSend }: SendDialogProps) {
     </Dialog>
   );
 }
+
+export default SendDialog;
