@@ -29,6 +29,7 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
   const [animatingTokens, setAnimatingTokens] = useState<Array<{ id: number; delay: number }>>([]);
   const recaptchaRef = useRef<ReCAPTCHA>(null);
   const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
+  const [isRecaptchaEnabled] = useState(import.meta.env.MODE !== "testing");
 
   const { handleClaim: handleFaucetClaim } = useFundWalletDialog({
     open: isOpen,
@@ -144,7 +145,7 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
 
         {/* Action Buttons */}
         <DialogFooter className="flex space-x-3">
-          {import.meta.env.MODE !== "testing" && (
+          {isRecaptchaEnabled && (
             <ReCAPTCHA
               sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
               onChange={token => setRecaptchaToken(token)}
@@ -161,7 +162,7 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
           <button
             onClick={handleClaim}
             className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2"
-            disabled={!recaptchaToken}
+            disabled={isRecaptchaEnabled && !recaptchaToken}
           >
             <Coins className="w-4 h-4" />
             <span>Claim Rewards</span>

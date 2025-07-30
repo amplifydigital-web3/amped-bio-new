@@ -84,6 +84,7 @@ interface FundWalletDialogProps {
 function FundWalletDialog({ open, onOpenChange }: FundWalletDialogProps) {
   const recaptchaRef = useRef<ReCAPTCHA>(null);
   const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
+  const [isRecaptchaEnabled] = useState(import.meta.env.MODE !== "testing");
 
   const {
     showSuccessDialog,
@@ -158,7 +159,11 @@ function FundWalletDialog({ open, onOpenChange }: FundWalletDialogProps) {
                 } 
                 transition-all duration-200 ease-in-out`}
               onClick={handleClaim}
-              disabled={claimingFaucet || !faucetInfo.canRequestNow || !recaptchaToken}
+              disabled={
+                claimingFaucet ||
+                !faucetInfo.canRequestNow ||
+                (isRecaptchaEnabled && !recaptchaToken)
+              }
             >
               <div className="w-6 h-6 flex items-center justify-start overflow-visible">
                 {faucetInfo.canRequestNow ? (
@@ -209,7 +214,7 @@ function FundWalletDialog({ open, onOpenChange }: FundWalletDialogProps) {
                 </div>
               )}
             </Button>
-            {faucetInfo.canRequestNow && import.meta.env.MODE !== "testing" && (
+            {faucetInfo.canRequestNow && isRecaptchaEnabled && (
               <div className="flex justify-center">
                 <ReCAPTCHA
                   sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}

@@ -96,6 +96,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const recaptchaRef = useRef<ReCAPTCHA>(null);
   const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
+  const [isRecaptchaEnabled] = useState(import.meta.env.MODE !== "testing");
   const navigate = useNavigate();
 
   // Add error states for each form
@@ -356,7 +357,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 {showLoginPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
             </div>
-            {import.meta.env.MODE !== "testing" && (
+            {isRecaptchaEnabled && (
               <ReCAPTCHA
                 sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
                 onChange={token => setRecaptchaToken(token)}
@@ -367,8 +368,8 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
             <Button
               type="submit"
               className="w-full relative"
-              disabled={loading || !recaptchaToken}
-              aria-disabled={loading || !recaptchaToken}
+              disabled={loading || (isRecaptchaEnabled && !recaptchaToken)}
+              aria-disabled={loading || (isRecaptchaEnabled && !recaptchaToken)}
               aria-label="Sign In"
               data-testid="login-submit"
             >
@@ -464,7 +465,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               </div>
               <PasswordStrengthIndicator password={registerPassword || ""} />
             </div>
-            {import.meta.env.MODE !== "testing" && (
+            {isRecaptchaEnabled && (
               <ReCAPTCHA
                 sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
                 onChange={token => setRecaptchaToken(token)}
@@ -480,14 +481,14 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 urlStatus === "Unavailable" ||
                 !isValid ||
                 !onelinkInput ||
-                !recaptchaToken
+                (isRecaptchaEnabled && !recaptchaToken)
               }
               aria-disabled={
                 loading ||
                 urlStatus === "Unavailable" ||
                 !isValid ||
                 !onelinkInput ||
-                !recaptchaToken
+                (isRecaptchaEnabled && !recaptchaToken)
               }
               aria-label="Create Account"
               data-testid="register-submit"
@@ -548,7 +549,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                   autoComplete="email"
                   {...registerReset("email")}
                 />
-                {import.meta.env.MODE !== "testing" && (
+                {isRecaptchaEnabled && (
                   <ReCAPTCHA
                     sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
                     onChange={token => setRecaptchaToken(token)}
@@ -559,8 +560,8 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 <Button
                   type="submit"
                   className="w-full relative"
-                  disabled={loading || !recaptchaToken}
-                  aria-disabled={loading || !recaptchaToken}
+                  disabled={loading || (isRecaptchaEnabled && !recaptchaToken)}
+                  aria-disabled={loading || (isRecaptchaEnabled && !recaptchaToken)}
                   aria-label="Send Reset Instructions"
                   data-testid="reset-submit"
                 >
