@@ -2,6 +2,10 @@ import axios from "axios";
 import { env } from "../env";
 
 export async function verifyRecaptcha(token: string | null): Promise<boolean> {
+  if (env.NODE_ENV === "test") {
+    return true;
+  }
+
   if (!token) {
     return false;
   }
@@ -13,8 +17,7 @@ export async function verifyRecaptcha(token: string | null): Promise<boolean> {
 
     const data = response.data;
 
-    if (data.success && data.score >= 0.5) {
-      // You can adjust the score threshold based on your needs
+    if (data.success) {
       return true;
     } else {
       console.warn("reCAPTCHA verification failed:", data["error-codes"]);

@@ -13,7 +13,8 @@ import GiftLottie from "@/assets/lottie/gift.lottie";
 import CoinbaseIcon from "@/assets/icons/coinbase.png";
 import OnRampIcon from "@/assets/icons/onramp.png";
 import MoonPayIcon from "@/assets/icons/moonpay.png";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import ReCAPTCHA from "react-google-recaptcha";
 import { useFundWalletDialog } from "../hooks/useFundWalletDialog";
 
 // Component to display countdown timer
@@ -81,6 +82,9 @@ interface FundWalletDialogProps {
 }
 
 function FundWalletDialog({ open, onOpenChange }: FundWalletDialogProps) {
+  const recaptchaRef = useRef<ReCAPTCHA>(null);
+  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
+
   const {
     showSuccessDialog,
     setShowSuccessDialog,
@@ -95,6 +99,7 @@ function FundWalletDialog({ open, onOpenChange }: FundWalletDialogProps) {
   } = useFundWalletDialog({
     open,
     onOpenChange,
+    recaptchaToken,
   });
 
   return (
@@ -153,7 +158,7 @@ function FundWalletDialog({ open, onOpenChange }: FundWalletDialogProps) {
                 } 
                 transition-all duration-200 ease-in-out`}
               onClick={handleClaim}
-              disabled={claimingFaucet || !faucetInfo.canRequestNow}
+              disabled={claimingFaucet || !faucetInfo.canRequestNow || !recaptchaToken}
             >
               <div className="w-6 h-6 flex items-center justify-start overflow-visible">
                 {faucetInfo.canRequestNow ? (
@@ -204,6 +209,16 @@ function FundWalletDialog({ open, onOpenChange }: FundWalletDialogProps) {
                 </div>
               )}
             </Button>
+            {faucetInfo.canRequestNow && import.meta.env.MODE !== "testing" && (
+              <div className="flex justify-center">
+                <ReCAPTCHA
+                  sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+                  onChange={setRecaptchaToken}
+                  onExpired={() => setRecaptchaToken(null)}
+                  ref={recaptchaRef}
+                />
+              </div>
+            )}
             <Button
               variant="outline"
               className="h-auto py-4 flex flex-col items-start space-y-1"

@@ -146,12 +146,14 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
 
         {/* Action Buttons */}
         <DialogFooter className="flex space-x-3">
-          <ReCAPTCHA
-            sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
-            onChange={(token) => setRecaptchaToken(token)}
-            onExpired={() => setRecaptchaToken(null)}
-            ref={recaptchaRef}
-          />
+          {import.meta.env.MODE !== "testing" && (
+            <ReCAPTCHA
+              sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+              onChange={token => setRecaptchaToken(token)}
+              onExpired={() => setRecaptchaToken(null)}
+              ref={recaptchaRef}
+            />
+          )}
           <button
             onClick={handleClose}
             className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors duration-200"

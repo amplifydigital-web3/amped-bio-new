@@ -8,7 +8,6 @@ import type { AuthUser } from "../../types/auth";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { LoginData, RegisterData } from "../../api/api.types";
 import { Link, useNavigate } from "react-router-dom";
 import { useOnelinkAvailability } from "@/hooks/useOnelinkAvailability";
 import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
@@ -212,7 +211,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     setLoading(true);
     setLoginError(null);
     try {
-      const loginData: LoginData = {
+      const loginData = {
         email: data.email,
         password: data.password,
         recaptchaToken: recaptchaToken,
@@ -238,7 +237,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     setLoading(true);
     setRegisterError(null);
     try {
-      const registerData: RegisterData = {
+      const registerData = {
         onelink: data.onelink,
         email: data.email,
         password: data.password,
@@ -357,12 +356,14 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 {showLoginPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
             </div>
-            <ReCAPTCHA
-              sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
-              onChange={(token) => setRecaptchaToken(token)}
-              onExpired={() => setRecaptchaToken(null)}
-              ref={recaptchaRef}
-            />
+            {import.meta.env.MODE !== "testing" && (
+              <ReCAPTCHA
+                sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+                onChange={token => setRecaptchaToken(token)}
+                onExpired={() => setRecaptchaToken(null)}
+                ref={recaptchaRef}
+              />
+            )}
             <Button
               type="submit"
               className="w-full relative"
@@ -463,17 +464,31 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               </div>
               <PasswordStrengthIndicator password={registerPassword || ""} />
             </div>
-            <ReCAPTCHA
-              sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
-              onChange={(token) => setRecaptchaToken(token)}
-              onExpired={() => setRecaptchaToken(null)}
-              ref={recaptchaRef}
-            />
+            {import.meta.env.MODE !== "testing" && (
+              <ReCAPTCHA
+                sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+                onChange={token => setRecaptchaToken(token)}
+                onExpired={() => setRecaptchaToken(null)}
+                ref={recaptchaRef}
+              />
+            )}
             <Button
               type="submit"
               className="w-full relative"
-              disabled={loading || urlStatus === "Unavailable" || !isValid || !onelinkInput || !recaptchaToken}
-              aria-disabled={loading || urlStatus === "Unavailable" || !isValid || !onelinkInput || !recaptchaToken}
+              disabled={
+                loading ||
+                urlStatus === "Unavailable" ||
+                !isValid ||
+                !onelinkInput ||
+                !recaptchaToken
+              }
+              aria-disabled={
+                loading ||
+                urlStatus === "Unavailable" ||
+                !isValid ||
+                !onelinkInput ||
+                !recaptchaToken
+              }
               aria-label="Create Account"
               data-testid="register-submit"
             >
@@ -533,12 +548,14 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                   autoComplete="email"
                   {...registerReset("email")}
                 />
-                <ReCAPTCHA
-                  sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
-                  onChange={(token) => setRecaptchaToken(token)}
-                  onExpired={() => setRecaptchaToken(null)}
-                  ref={recaptchaRef}
-                />
+                {import.meta.env.MODE !== "testing" && (
+                  <ReCAPTCHA
+                    sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+                    onChange={token => setRecaptchaToken(token)}
+                    onExpired={() => setRecaptchaToken(null)}
+                    ref={recaptchaRef}
+                  />
+                )}
                 <Button
                   type="submit"
                   className="w-full relative"

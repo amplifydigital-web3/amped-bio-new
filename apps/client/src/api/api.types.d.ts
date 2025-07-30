@@ -1,19 +1,6 @@
 import { PlatformId as LinkBlockPlatform } from "@/utils/platforms";
 import { mediaPlataforms } from "@ampedbio/constants";
 
-export type LoginData = {
-  email: string;
-  password: string;
-  recaptchaToken?: string | null;
-};
-
-export type RegisterData = {
-  onelink: string;
-  email: string;
-  password: string;
-  recaptchaToken?: string | null;
-};
-
 export type DeleteData = {
   id: string;
   password: string;
