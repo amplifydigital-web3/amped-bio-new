@@ -1,6 +1,7 @@
 import { router, publicProcedure, privateProcedure } from "./trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { verifyRecaptcha } from "../utils/recaptcha";
 import crypto from "crypto";
 import { sendPasswordResetEmail } from "../utils/email/email";
 import { hashPassword, comparePasswords } from "../utils/password";
@@ -67,7 +68,16 @@ function setRefreshTokenCookie(ctx: any, token: string, expiresAt?: Date) {
 export const authRouter = router({
   // Register a new user
   register: publicProcedure.input(registerSchema).mutation(async ({ input, ctx }) => {
-    const { onelink, email, password } = input;
+    const { onelink, email, password, recaptchaToken } = input;
+
+    // Verify reCAPTCHA token
+    const isRecaptchaValid = await verifyRecaptcha(recaptchaToken);
+    if (!isRecaptchaValid) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "reCAPTCHA verification failed",
+      });
+    }
 
     // Check if onelink already exists
     const existingOnelinkCount = await prisma.user.count({
@@ -147,7 +157,16 @@ export const authRouter = router({
 
   // Login user
   login: publicProcedure.input(loginSchema).mutation(async ({ input, ctx }) => {
-    const { email, password } = input;
+    const { email, password, recaptchaToken } = input;
+
+    // Verify reCAPTCHA token
+    const isRecaptchaValid = await verifyRecaptcha(recaptchaToken);
+    if (!isRecaptchaValid) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "reCAPTCHA verification failed",
+      });
+    }
 
     // Find user
     const user = await prisma.user.findUnique({
@@ -226,7 +245,16 @@ export const authRouter = router({
   passwordResetRequest: publicProcedure
     .input(passwordResetRequestSchema)
     .mutation(async ({ input }) => {
-      const { email } = input;
+      const { email, recaptchaToken } = input;
+
+      // Verify reCAPTCHA token
+      const isRecaptchaValid = await verifyRecaptcha(recaptchaToken);
+      if (!isRecaptchaValid) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "reCAPTCHA verification failed",
+        });
+      }
 
       // Find user
       const user = await prisma.user.findUnique({

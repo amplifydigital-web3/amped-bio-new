@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { X, Trophy, Coins, CheckCircle, Sparkles } from "lucide-react";
+import ReCAPTCHA from "react-google-recaptcha";
 import {
   Dialog,
   DialogContent,
@@ -9,6 +10,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { useFundWalletDialog } from "./hooks/useFundWalletDialog";
 
 interface ClaimRewardsModalProps {
   isOpen: boolean;
@@ -25,6 +27,14 @@ interface ClaimRewardsModalProps {
 export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimRewardsModalProps) {
   const [step, setStep] = useState<"confirm" | "claiming" | "success">("confirm");
   const [animatingTokens, setAnimatingTokens] = useState<Array<{ id: number; delay: number }>>([]);
+  const recaptchaRef = useRef<ReCAPTCHA>(null);
+  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
+
+  const { handleClaim: handleFaucetClaim } = useFundWalletDialog({
+    open: isOpen,
+    onOpenChange: onClose,
+    recaptchaToken,
+  });
 
   useEffect(() => {
     if (isOpen) {
@@ -44,22 +54,35 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
   const handleClaim = async () => {
     setStep("claiming");
 
-    // Create multiple token animations with staggered delays
-    const tokens = Array.from({ length: 8 }, (_, i) => ({
-      id: i,
-      delay: i * 150, // Stagger by 150ms
-    }));
-    setAnimatingTokens(tokens);
+    // Here you would typically send the recaptchaToken to your backend
+    // along with the claim request.
+    console.log("Claiming rewards with reCAPTCHA token:", recaptchaToken);
 
-    // Simulate API call delay
-    setTimeout(() => {
-      setStep("success");
+    // Call the handleClaim from the hook
+    const result = await handleFaucetClaim();
 
-      // Auto-close after showing success
+    if (result.success) {
+      // Create multiple token animations with staggered delays
+      const tokens = Array.from({ length: 8 }, (_, i) => ({
+        id: i,
+        delay: i * 150, // Stagger by 150ms
+      }));
+      setAnimatingTokens(tokens);
+
+      // Simulate API call delay
       setTimeout(() => {
-        onClose();
-      }, 2500);
-    }, 2000);
+        setStep("success");
+
+        // Auto-close after showing success
+        setTimeout(() => {
+          onClose();
+        }, 2500);
+      }, 2000);
+    } else {
+      // Handle error if claim fails
+      setStep("confirm"); // Go back to confirm step
+      // Optionally show an error message to the user
+    }
   };
 
   const handleClose = () => {
@@ -123,6 +146,12 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
 
         {/* Action Buttons */}
         <DialogFooter className="flex space-x-3">
+          <ReCAPTCHA
+            sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+            onChange={(token) => setRecaptchaToken(token)}
+            onExpired={() => setRecaptchaToken(null)}
+            ref={recaptchaRef}
+          />
           <button
             onClick={handleClose}
             className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors duration-200"
@@ -132,6 +161,7 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
           <button
             onClick={handleClaim}
             className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2"
+            disabled={!recaptchaToken}
           >
             <Coins className="w-4 h-4" />
             <span>Claim Rewards</span>

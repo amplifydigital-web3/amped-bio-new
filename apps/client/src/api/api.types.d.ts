@@ -4,12 +4,14 @@ import { mediaPlataforms } from "@ampedbio/constants";
 export type LoginData = {
   email: string;
   password: string;
+  recaptchaToken?: string | null;
 };
 
 export type RegisterData = {
   onelink: string;
   email: string;
   password: string;
+  recaptchaToken?: string | null;
 };
 
 export type DeleteData = {
@@ -38,6 +40,7 @@ export type EmailVerificationRequest = {
 
 export type PasswordResetRequest = {
   email: string;
+  recaptchaToken?: string | null;
 };
 
 export type PasswordResetResponse = {

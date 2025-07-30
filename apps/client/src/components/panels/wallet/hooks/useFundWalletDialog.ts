@@ -6,8 +6,9 @@ import { useAccount } from "wagmi";
 export function useFundWalletDialog(params: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  recaptchaToken: string | null;
 }) {
-  const { open, onOpenChange } = params;
+  const { open, onOpenChange, recaptchaToken } = params;
   const { address: walletAddress, isConnected } = useAccount();
 
   // Dialog state
@@ -76,6 +77,7 @@ export function useFundWalletDialog(params: {
     try {
       const result = await trpcClient.wallet.requestAirdrop.mutate({
         address: walletAddress,
+        recaptchaToken,
       });
 
       if (result.success && result.transaction?.hash) {

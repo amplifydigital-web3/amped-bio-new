@@ -92,10 +92,10 @@ type AuthContextType = {
   error: string | null;
   isAuthenticated: boolean | null; // null = loading, true = authenticated, false = not authenticated
   jwtToken: string | null; // Add JWT token to context
-  signIn: (email: string, password: string) => Promise<AuthUser>;
-  signUp: (onelink: string, email: string, password: string) => Promise<AuthUser>;
+  signIn: (email: string, password: string, recaptchaToken: string | null) => Promise<AuthUser>;
+  signUp: (onelink: string, email: string, password: string, recaptchaToken: string | null) => Promise<AuthUser>;
   signOut: () => Promise<void>;
-  resetPassword: (email: string) => Promise<{ success: boolean; message: string }>;
+  resetPassword: (email: string, recaptchaToken: string | null) => Promise<{ success: boolean; message: string }>;
   updateAuthUser: (userData: Partial<AuthUser>) => void;
   updateToken: (token: string | null) => void; // Add method to update token
   refreshUserData: () => Promise<void>; // New method to refresh user data
@@ -239,10 +239,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     validateToken();
   }, [invalidateUserSession, updateToken]);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string, recaptchaToken: string | null) => {
     try {
       setError(null);
-      const response = await trpcClient.auth.login.mutate({ email, password });
+      const response = await trpcClient.auth.login.mutate({ email, password, recaptchaToken });
       updateToken(response.accessToken);
       setAuthUser(response.user);
       localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_USER, JSON.stringify(response.user));
@@ -254,10 +254,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signUp = async (onelink: string, email: string, password: string) => {
+  const signUp = async (onelink: string, email: string, password: string, recaptchaToken: string | null) => {
     try {
       setError(null);
-      const response = await trpcClient.auth.register.mutate({ onelink, email, password });
+      const response = await trpcClient.auth.register.mutate({ onelink, email, password, recaptchaToken });
       updateToken(response.accessToken);
       setAuthUser(response.user);
       localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_USER, JSON.stringify(response.user));
@@ -269,9 +269,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const resetPassword = async (email: string) => {
+  const resetPassword = async (email: string, recaptchaToken: string | null) => {
     try {
-      const response = await trpcClient.auth.passwordResetRequest.mutate({ email });
+      const response = await trpcClient.auth.passwordResetRequest.mutate({ email, recaptchaToken });
       return response;
     } catch (error) {
       setError((error as Error).message);

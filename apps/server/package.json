@@ -34,7 +34,7 @@
     "@trpc/server": "^11.1.2",
     "@vercel/related-projects": "^1.0.0",
     "aws-sdk": "^2.1692.0",
-    "axios": "^1.8.3",
+    "axios": "^1.9.0",
     "bcrypt": "^5.1.1",
     "compression": "^1.8.0",
     "cookie": "^1.0.2",
