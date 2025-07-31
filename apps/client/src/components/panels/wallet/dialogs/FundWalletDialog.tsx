@@ -13,9 +13,10 @@ import GiftLottie from "@/assets/lottie/gift.lottie";
 import CoinbaseIcon from "@/assets/icons/coinbase.png";
 import OnRampIcon from "@/assets/icons/onramp.png";
 import MoonPayIcon from "@/assets/icons/moonpay.png";
-import { useState, useEffect, useRef } from "react";
-import ReCAPTCHA from "react-google-recaptcha";
+import { useState, useEffect } from "react";
 import { useFundWalletDialog } from "../hooks/useFundWalletDialog";
+import { useCaptchaModal } from "@/components/captcha/useCaptchaModal";
+import { CaptchaModal } from "@/components/captcha/CaptchaModal";
 
 // Component to display countdown timer
 function CountdownTimer({ targetDate, onComplete }: { targetDate: Date; onComplete?: () => void }) {
@@ -82,9 +83,15 @@ interface FundWalletDialogProps {
 }
 
 function FundWalletDialog({ open, onOpenChange }: FundWalletDialogProps) {
-  const recaptchaRef = useRef<ReCAPTCHA>(null);
-  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
-  const [isRecaptchaEnabled] = useState(import.meta.env.MODE !== "testing");
+  // Use o hook personalizado para gerenciar o captcha
+  const {
+    showCaptchaModal,
+    recaptchaRef,
+    captchaToken,
+    openCaptchaModal,
+    closeCaptchaModal,
+    handleVerifyCaptcha,
+  } = useCaptchaModal();
 
   const {
     showSuccessDialog,
@@ -100,11 +107,41 @@ function FundWalletDialog({ open, onOpenChange }: FundWalletDialogProps) {
   } = useFundWalletDialog({
     open,
     onOpenChange,
-    recaptchaToken,
+    recaptchaToken: captchaToken,
   });
+
+  // Function to handle the initial claim button click
+  const initiateClaimProcess = () => {
+    // Check if reCAPTCHA is enabled
+    const isRecaptchaEnabled = Boolean(import.meta.env.VITE_RECAPTCHA_SITE_KEY);
+
+    if (isRecaptchaEnabled) {
+      // Close the main dialog and open the captcha modal
+      onOpenChange(false);
+      // Delay opening the captcha modal to allow the main dialog to close gracefully
+      setTimeout(() => {
+        openCaptchaModal(recaptchaToken => {
+          // After the captcha is complete, reopen the main dialog
+          onOpenChange(true);
+          // If a captcha token is received, the `useFundWalletDialog` hook will automatically trigger the claim
+        });
+      }, 150);
+    } else {
+      // If reCAPTCHA is not enabled (e.g., in a test environment), claim directly
+      handleClaim();
+    }
+  };
 
   return (
     <>
+      {/* Renderiza o componente CaptchaModal */}
+      <CaptchaModal
+        showModal={showCaptchaModal}
+        recaptchaRef={recaptchaRef}
+        onClose={closeCaptchaModal}
+        onVerify={handleVerifyCaptcha}
+      />
+
       {/* Success Dialog */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
         <DialogContent className="max-w-sm rounded-2xl">
@@ -158,12 +195,8 @@ function FundWalletDialog({ open, onOpenChange }: FundWalletDialogProps) {
                     : "bg-gray-50 text-gray-500 border-gray-200"
                 } 
                 transition-all duration-200 ease-in-out`}
-              onClick={handleClaim}
-              disabled={
-                claimingFaucet ||
-                !faucetInfo.canRequestNow ||
-                (isRecaptchaEnabled && !recaptchaToken)
-              }
+              onClick={initiateClaimProcess}
+              disabled={claimingFaucet || !faucetInfo.canRequestNow}
             >
               <div className="w-6 h-6 flex items-center justify-start overflow-visible">
                 {faucetInfo.canRequestNow ? (
@@ -214,16 +247,6 @@ function FundWalletDialog({ open, onOpenChange }: FundWalletDialogProps) {
                 </div>
               )}
             </Button>
-            {faucetInfo.canRequestNow && isRecaptchaEnabled && (
-              <div className="flex justify-center">
-                <ReCAPTCHA
-                  sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
-                  onChange={setRecaptchaToken}
-                  onExpired={() => setRecaptchaToken(null)}
-                  ref={recaptchaRef}
-                />
-              </div>
-            )}
             <Button
               variant="outline"
               className="h-auto py-4 flex flex-col items-start space-y-1"

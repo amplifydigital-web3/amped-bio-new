@@ -15,6 +15,8 @@ export async function verifyRecaptcha(token: string | null): Promise<boolean> {
       `https://www.google.com/recaptcha/api/siteverify?secret=${env.RECAPTCHA_SECRET_KEY}&response=${token}`
     );
 
+    console.info("reCAPTCHA response:", response.data);
+
     const data = response.data;
 
     if (data.success) {

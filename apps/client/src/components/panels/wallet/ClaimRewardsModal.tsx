@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { X, Trophy, Coins, CheckCircle, Sparkles } from "lucide-react";
-import ReCAPTCHA from "react-google-recaptcha";
 import {
   Dialog,
   DialogContent,
@@ -9,8 +8,9 @@ import {
   DialogClose,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 import { useFundWalletDialog } from "./hooks/useFundWalletDialog";
+import { useCaptchaModal } from "@/components/captcha/useCaptchaModal";
+import { CaptchaModal } from "@/components/captcha/CaptchaModal";
 
 interface ClaimRewardsModalProps {
   isOpen: boolean;
@@ -27,22 +27,33 @@ interface ClaimRewardsModalProps {
 export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimRewardsModalProps) {
   const [step, setStep] = useState<"confirm" | "claiming" | "success">("confirm");
   const [animatingTokens, setAnimatingTokens] = useState<Array<{ id: number; delay: number }>>([]);
-  const recaptchaRef = useRef<ReCAPTCHA>(null);
-  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
-  const [isRecaptchaEnabled] = useState(import.meta.env.MODE !== "testing");
+  const [isRecaptchaEnabled] = useState(Boolean(import.meta.env.VITE_RECAPTCHA_SITE_KEY));
+
+  // Usar o hook de captcha
+  const {
+    showCaptchaModal,
+    recaptchaRef,
+    captchaToken,
+    openCaptchaModal,
+    closeCaptchaModal,
+    handleVerifyCaptcha,
+  } = useCaptchaModal();
 
   const { handleClaim: handleFaucetClaim } = useFundWalletDialog({
     open: isOpen,
     onOpenChange: onClose,
-    recaptchaToken,
+    recaptchaToken: captchaToken,
   });
 
   useEffect(() => {
     if (isOpen) {
       setStep("confirm");
       setAnimatingTokens([]);
+    } else {
+      // Quando o modal principal é fechado, certifique-se de fechar o modal de captcha também
+      closeCaptchaModal();
     }
-  }, [isOpen]);
+  }, [isOpen, closeCaptchaModal]);
 
   if (!isOpen || !pool) return null;
 
@@ -53,11 +64,17 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
   };
 
   const handleClaim = async () => {
+    // Se o captcha está habilitado e não temos um token, abra o modal de captcha
+    if (isRecaptchaEnabled && !captchaToken) {
+      openCaptchaModal();
+      return;
+    }
+
     setStep("claiming");
 
-    console.log("Claiming rewards with reCAPTCHA token:", recaptchaToken);
+    console.log("Claiming rewards with reCAPTCHA token:", captchaToken);
 
-    // Call the handleClaim from the hook
+    // Call the handleClaim from the hook (the token is passed through props to the hook)
     const result = await handleFaucetClaim();
 
     if (result.success) {
@@ -145,14 +162,6 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
 
         {/* Action Buttons */}
         <DialogFooter className="flex space-x-3">
-          {isRecaptchaEnabled && (
-            <ReCAPTCHA
-              sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
-              onChange={token => setRecaptchaToken(token)}
-              onExpired={() => setRecaptchaToken(null)}
-              ref={recaptchaRef}
-            />
-          )}
           <button
             onClick={handleClose}
             className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors duration-200"
@@ -162,7 +171,6 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
           <button
             onClick={handleClaim}
             className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2"
-            disabled={isRecaptchaEnabled && !recaptchaToken}
           >
             <Coins className="w-4 h-4" />
             <span>Claim Rewards</span>
@@ -301,19 +309,31 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
   );
 
   return (
-    <Dialog
-      open={isOpen}
-      onOpenChange={open => {
-        if (!open && step !== "claiming") {
-          onClose();
-        }
-      }}
-    >
-      <DialogContent className="max-w-md p-0 overflow-hidden">
-        {step === "confirm" && renderConfirmStep()}
-        {step === "claiming" && renderClaimingStep()}
-        {step === "success" && renderSuccessStep()}
-      </DialogContent>
-    </Dialog>
+    <>
+      {/* Modal de captcha */}
+      <CaptchaModal
+        showModal={showCaptchaModal}
+        recaptchaRef={recaptchaRef}
+        onClose={closeCaptchaModal}
+        onVerify={handleVerifyCaptcha}
+        onComplete={handleCaptchaComplete}
+      />
+
+      {/* Dialog principal */}
+      <Dialog
+        open={isOpen}
+        onOpenChange={open => {
+          if (!open && step !== "claiming") {
+            onClose();
+          }
+        }}
+      >
+        <DialogContent className="max-w-md p-0 overflow-hidden">
+          {step === "confirm" && renderConfirmStep()}
+          {step === "claiming" && renderClaimingStep()}
+          {step === "success" && renderSuccessStep()}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

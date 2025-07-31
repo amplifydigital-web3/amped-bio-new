@@ -73,6 +73,12 @@ export function useFundWalletDialog(params: {
       return { success: false };
     }
 
+    // Log the token being used for debugging
+    console.log(
+      "Using captcha token:",
+      recaptchaToken ? recaptchaToken.substring(0, 10) + "..." : "NULL"
+    );
+
     setClaimingFaucet(true);
     try {
       const result = await trpcClient.wallet.requestAirdrop.mutate({
