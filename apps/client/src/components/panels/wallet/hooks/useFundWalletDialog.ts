@@ -66,7 +66,7 @@ export function useFundWalletDialog(params: {
   }, [open]);
 
   // Function to handle the faucet claim process
-  const handleClaimDailyFaucet = async (): Promise<{ success: boolean; txid?: string }> => {
+  const handleClaim = async (): Promise<{ success: boolean; txid?: string }> => {
     if (!isConnected || claimingFaucet || !walletAddress) {
       toast.error("Wallet not connected or already claiming.");
       return { success: false };
@@ -118,6 +118,7 @@ export function useFundWalletDialog(params: {
     claimingFaucet,
     faucetInfo,
     setFaucetInfo,
-    handleClaim: handleClaimDailyFaucet, // Renamed for clarity in the hook return
+    handleClaim,
   };
 }
+

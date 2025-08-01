@@ -125,4 +125,7 @@ export const env = cleanEnv(process.env, {
     default: "",
     example: "http://localhost:9090",
   }),
+  RECAPTCHA_SECRET_KEY: str({
+    desc: "Secret key for Google reCAPTCHA verification",
+  }),
 });

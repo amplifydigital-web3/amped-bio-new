@@ -103,7 +103,7 @@ jobs:
         run: |
           cd apps/server
           pnpm build
-          pnpm start &
+          NODE_ENV=testing pnpm start &
           echo "Waiting for backend on port 43000"
           wait-for-it -t 30 localhost:43000 -- echo "Backend is up"
 

@@ -8,7 +8,6 @@ import {
   DialogClose,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 
 interface ClaimRewardsModalProps {
   isOpen: boolean;
@@ -25,6 +24,16 @@ interface ClaimRewardsModalProps {
 export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimRewardsModalProps) {
   const [step, setStep] = useState<"confirm" | "claiming" | "success">("confirm");
   const [animatingTokens, setAnimatingTokens] = useState<Array<{ id: number; delay: number }>>([]);
+
+  const claimRewards = async () => {
+    // TODO: Replace this with actual API call to claim rewards for the pool
+    // Simulate API call delay and success
+    return new Promise<{ success: boolean }>(resolve => {
+      setTimeout(() => {
+        resolve({ success: true });
+      }, 1000);
+    });
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -44,22 +53,31 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
   const handleClaim = async () => {
     setStep("claiming");
 
-    // Create multiple token animations with staggered delays
-    const tokens = Array.from({ length: 8 }, (_, i) => ({
-      id: i,
-      delay: i * 150, // Stagger by 150ms
-    }));
-    setAnimatingTokens(tokens);
+    // Call the handleClaim from the hook (the token is passed through props to the hook)
+    const result = await claimRewards();
 
-    // Simulate API call delay
-    setTimeout(() => {
-      setStep("success");
+    if (result.success) {
+      // Create multiple token animations with staggered delays
+      const tokens = Array.from({ length: 8 }, (_, i) => ({
+        id: i,
+        delay: i * 150, // Stagger by 150ms
+      }));
+      setAnimatingTokens(tokens);
 
-      // Auto-close after showing success
+      // Simulate API call delay
       setTimeout(() => {
-        onClose();
-      }, 2500);
-    }, 2000);
+        setStep("success");
+
+        // Auto-close after showing success
+        setTimeout(() => {
+          onClose();
+        }, 2500);
+      }, 2000);
+    } else {
+      // Handle error if claim fails
+      setStep("confirm"); // Go back to confirm step
+      // Optionally show an error message to the user
+    }
   };
 
   const handleClose = () => {
@@ -270,19 +288,22 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
   );
 
   return (
-    <Dialog
-      open={isOpen}
-      onOpenChange={open => {
-        if (!open && step !== "claiming") {
-          onClose();
-        }
-      }}
-    >
-      <DialogContent className="max-w-md p-0 overflow-hidden">
-        {step === "confirm" && renderConfirmStep()}
-        {step === "claiming" && renderClaimingStep()}
-        {step === "success" && renderSuccessStep()}
-      </DialogContent>
-    </Dialog>
+    <>
+      {/* Main dialog */}
+      <Dialog
+        open={isOpen}
+        onOpenChange={open => {
+          if (!open && step !== "claiming") {
+            onClose();
+          }
+        }}
+      >
+        <DialogContent className="max-w-md p-0 overflow-hidden">
+          {step === "confirm" && renderConfirmStep()}
+          {step === "claiming" && renderClaimingStep()}
+          {step === "success" && renderSuccessStep()}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
