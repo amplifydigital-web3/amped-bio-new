@@ -52,21 +52,21 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
   const { authUser } = useAuth();
 
   const setUser = useCallback(async (onelink: string) => {
-    console.group(`🔍 Setting User: ${onelink}`);
-    console.info("🚀 Loading user data...");
+    // console.group(`🔍 Setting User: ${onelink}`);
+    // console.info("🚀 Loading user data...");
     try {
       const onlinkData = await trpcClient.onelink.getOnelink.query({ onelink });
 
       if (!onlinkData) {
-        console.info("❌ User not found:", onelink);
-        console.groupEnd();
+        // console.info("❌ User not found:", onelink);
+        // console.groupEnd();
         return;
       }
       const { user, theme, blocks: blocks_raw } = onlinkData;
       const { name, email, description, image } = user;
       const normalizedOnelink = normalizeOnelink(onelink);
       const formattedOnelink = formatOnelink(onelink);
-      console.info("👤 User data loaded:", { name, email, blocks: blocks_raw, theme });
+      // console.info("👤 User data loaded:", { name, email, blocks: blocks_raw, theme });
 
       setState(prevState => ({
         ...prevState,
@@ -79,7 +79,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
           photoUrl: image ?? "",
         },
       }));
-      console.info("🎨 Setting theme...");
+      // console.info("🎨 Setting theme...");
       setState(prevState => ({
         ...prevState,
         theme: {
@@ -89,17 +89,16 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         } as Theme,
       }));
       const blocks = blocks_raw.sort((a, b) => a.order - b.order);
-      console.info(`📦 Setting ${blocks.length} blocks...`);
+      // console.info(`📦 Setting ${blocks.length} blocks...`);
       setState(prevState => ({
         ...prevState,
         blocks: blocks as unknown as BlockType[],
       }));
-      console.info("✅ User setup complete");
-      console.groupEnd();
+      // console.info("✅ User setup complete");
+      // console.groupEnd();
       return onlinkData;
     } catch (error) {
       console.info("❌ Error getting user:", error);
-      console.groupEnd();
       return;
     }
   }, []);
