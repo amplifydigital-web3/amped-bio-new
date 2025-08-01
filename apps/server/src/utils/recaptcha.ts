@@ -21,7 +21,6 @@ export async function verifyRecaptcha(token: string | null): Promise<boolean> {
       },
     });
 
-    console.info("reCAPTCHA response:", response.data);
 
     const data = response.data;
 
