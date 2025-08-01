@@ -1,4 +1,12 @@
-import { createContext, useState, useEffect, ReactNode, useCallback, useRef } from "react";
+import {
+  createContext,
+  useState,
+  useEffect,
+  ReactNode,
+  useCallback,
+  useRef,
+  useContext,
+} from "react";
 import { useWeb3AuthDisconnect, useWeb3AuthConnect, useWeb3Auth } from "@web3auth/modal/react";
 import { WALLET_CONNECTORS, AUTH_CONNECTION } from "@web3auth/modal";
 import { useAccount } from "wagmi";
@@ -6,204 +14,361 @@ import { trpcClient } from "../utils/trpc";
 import { AUTH_STORAGE_KEYS } from "../constants/auth-storage";
 import { useAuth } from "./AuthContext";
 
-// Define detailed result type for connection attempts
-type ConnectionResult = {
-  success: boolean;
-  reason?: string;
-  details?: Record<string, any>;
-};
+// Types
+interface ConnectionState {
+  isConnecting: boolean;
+  isConnected: boolean | null;
+  error: string | null;
+}
 
-// Helper function to check if token is expired or invalid
-// Returns true if the token is expired, has no expiration date, or is invalid
+interface WalletContextType {
+  connectionState: ConnectionState;
+  reconnect: () => Promise<void>;
+}
+
+// Utils
 const isTokenExpired = (token: string | null): boolean => {
   if (!token) return true;
 
   try {
-    // Split the JWT into header, payload, signature
     const parts = token.split(".");
     if (parts.length !== 3) return true;
 
-    // Convert base64url to base64
     const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-
-    // Add padding if needed
     const paddedBase64 = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
+    const payload = JSON.parse(Buffer.from(paddedBase64, "base64").toString("utf8"));
 
-    // Use Buffer to decode
-    const jsonStr = Buffer.from(paddedBase64, "base64").toString("utf8");
-    const payload = JSON.parse(jsonStr);
-
-    if (!payload || !payload.exp) return true;
-
-    const expirationTime = payload.exp * 1000; // Convert to milliseconds
-    const now = Date.now();
-
-    return now >= expirationTime;
-  } catch (error) {
-    console.error("Error checking token expiration:", error);
+    if (!payload?.exp) return true;
+    return Date.now() >= payload.exp * 1000;
+  } catch {
     return true;
   }
 };
 
-// Internal context definition to manage wallet state
-// Since we don't export a hook, we can use a minimal context
-const WalletContext = createContext<unknown>(undefined);
+const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
-  // Get authUser directly from AuthContext
   const { authUser } = useAuth();
-  const [isConnecting, setIsConnecting] = useState<boolean>(false);
-  const [isConnected, setIsConnected] = useState<boolean | null>(null);
-
   const { disconnect: web3AuthDisconnect } = useWeb3AuthDisconnect();
   const { connectTo } = useWeb3AuthConnect();
   const dataWeb3Auth = useWeb3Auth();
   const account = useAccount();
 
-  // Use a ref to track connection attempts and prevent parallel execution
-  const connectionAttemptRef = useRef(false);
-  const connectionIntervalRef = useRef<number | null>(null);
+  // State
+  const [connectionState, setConnectionState] = useState<ConnectionState>({
+    isConnecting: false,
+    isConnected: null,
+    error: null,
+  });
 
-  // Helper function to safely disconnect Web3Auth
+  // Refs
+  const connectionAttemptRef = useRef(false);
+  const reconnectIntervalRef = useRef<number | null>(null);
+
+  // Helper to update connection state
+  const updateConnectionState = useCallback((updates: Partial<ConnectionState>) => {
+    setConnectionState(prev => ({ ...prev, ...updates }));
+  }, []);
+
+  // Safe disconnect with error logging
   const safeDisconnect = useCallback(async () => {
     try {
+      console.log("👋 Attempting to disconnect wallet...");
       await web3AuthDisconnect({ cleanup: true });
-      setIsConnected(false);
+      console.log("✅ Wallet disconnected successfully");
+      updateConnectionState({ isConnected: false, error: null });
     } catch (error) {
-      console.warn("Web3Auth disconnect failed:", error);
-    }
-  }, [web3AuthDisconnect]);
+      console.warn("⚠️ Wallet disconnect failed:", error);
 
-  // Helper function to connect to Web3Auth with JWT token
-  const connectToWallet = useCallback(async () => {
-    try {
-      const status = dataWeb3Auth?.web3Auth?.status;
-      // Wait for Web3Auth to be initialized
-      if (
-        !dataWeb3Auth?.isInitialized ||
-        dataWeb3Auth?.isInitializing ||
-        !dataWeb3Auth?.web3Auth ||
-        status === "not_ready"
-      ) {
-        console.log("Web3Auth not initialized yet, will try to connect later", status);
-        return false; // Return false to indicate connection was not successful
+      // Log disconnect error details
+      if (error instanceof Error) {
+        console.error("🔍 Disconnect error details:", {
+          message: error.message,
+          name: error.name,
+          stack: error.stack,
+          code: (error as any).code,
+        });
       }
 
-      console.log("Getting wallet token from backend");
-      let walletToken;
-      try {
-        const walletTokenResponse = await trpcClient.auth.getWalletToken.query();
-        walletToken = walletTokenResponse.walletToken;
-      } catch (tokenError) {
-        console.error("Failed to get wallet token from backend:", tokenError);
+      // Still update state as disconnected since we tried
+      updateConnectionState({ isConnected: false, error: "Disconnect failed" });
+    }
+  }, [web3AuthDisconnect, updateConnectionState]);
 
-        // Log detailed error information
-        if (tokenError instanceof Error) {
-          console.error("Wallet token error details:", {
-            message: tokenError.message,
-            name: tokenError.name,
-            stack: tokenError.stack,
-            code: (tokenError as any).code,
-            type: (tokenError as any).type,
-            status: (tokenError as any).status,
-            statusText: (tokenError as any).statusText,
+  // Get wallet token from backend with detailed error logging
+  const getWalletToken = useCallback(async (): Promise<string | null> => {
+    try {
+      console.log("📡 Requesting wallet token from backend...");
+      const response = await trpcClient.auth.getWalletToken.query();
+      console.log("✅ Wallet token received successfully");
+      return response.walletToken;
+    } catch (error) {
+      console.error("❌ Failed to get wallet token:", error);
+
+      // Log comprehensive error details
+      if (error instanceof Error) {
+        console.error("🔍 Token request error analysis:", {
+          message: error.message,
+          name: error.name,
+          stack: error.stack,
+          code: (error as any).code,
+          status: (error as any).status,
+          statusText: (error as any).statusText,
+          type: (error as any).type,
+        });
+
+        // Log HTTP response details if available
+        if ((error as any).response) {
+          console.error("🌐 HTTP Response details:", {
+            status: (error as any).response.status,
+            statusText: (error as any).response.statusText,
+            data: (error as any).response.data,
+            headers: (error as any).response.headers,
           });
-
-          // Log response data if available
-          if ((tokenError as any).response) {
-            console.error("Wallet token error response:", {
-              status: (tokenError as any).response.status,
-              data: (tokenError as any).response.data,
-              headers: (tokenError as any).response.headers,
-            });
-          }
-
-          // Log request data if available
-          if ((tokenError as any).request) {
-            console.error("Wallet token error request:", {
-              url: (tokenError as any).request.url,
-              method: (tokenError as any).request.method,
-              headers: (tokenError as any).request.headers,
-            });
-          }
-        } else {
-          // If it's not an Error instance, log the entire object
-          console.error("Wallet token non-standard error:", JSON.stringify(tokenError, null, 2));
         }
 
-        return false; // Return false to indicate connection was not successful
+        // Log request details if available
+        if ((error as any).request) {
+          console.error("📤 HTTP Request details:", {
+            url: (error as any).request.url,
+            method: (error as any).request.method,
+            headers: (error as any).request.headers,
+          });
+        }
+
+        // Log tRPC specific details if available
+        if ((error as any).data) {
+          console.error("🔧 tRPC Error data:", (error as any).data);
+        }
+
+        if ((error as any).shape) {
+          console.error("📋 tRPC Error shape:", (error as any).shape);
+        }
+      } else {
+        console.error("🤷 Non-standard error object:", JSON.stringify(error, null, 2));
       }
 
-      if (!walletToken) {
-        console.error("Failed to get wallet token from backend");
-        return false; // Return false to indicate connection was not successful
-      }
+      return null;
+    }
+  }, []);
 
-      console.log("Connecting to Web3Auth with token");
+  // Connect to Web3Auth with comprehensive error logging
+  const connectToWeb3Auth = useCallback(
+    async (token: string): Promise<boolean> => {
       try {
-        await connectTo(WALLET_CONNECTORS.AUTH, {
+        console.log("🔗 Attempting Web3Auth connection...");
+        console.log("🔧 Connection parameters:", {
+          connector: WALLET_CONNECTORS.AUTH,
           authConnection: AUTH_CONNECTION.CUSTOM,
           authConnectionId: import.meta.env.VITE_WEB3AUTH_AUTH_CONNECTION_ID,
-          idToken: walletToken,
+          hasIdToken: !!token,
+          tokenLength: token.length,
           extraLoginOptions: {
             isUserIdCaseSensitive: false,
           },
         });
-        console.log("Connected to Web3Auth successfully");
-        setIsConnected(true);
-        return true; // Return true to indicate connection was successful
-      } catch (connectError) {
-        console.error("Failed to connect to Web3Auth:", connectError);
-        if (connectError instanceof Error) {
-          console.error("Web3Auth connection error details:", {
-            message: connectError.message,
-            stack: connectError.stack,
-            name: connectError.name,
-            code: (connectError as any).code,
-            type: (connectError as any).type,
-            reason: (connectError as any).reason,
+
+        await connectTo(WALLET_CONNECTORS.AUTH, {
+          authConnection: AUTH_CONNECTION.CUSTOM,
+          authConnectionId: import.meta.env.VITE_WEB3AUTH_AUTH_CONNECTION_ID,
+          idToken: token,
+          extraLoginOptions: {
+            isUserIdCaseSensitive: false,
+          },
+        });
+
+        console.log("✅ Web3Auth connection successful");
+        return true;
+      } catch (error) {
+        console.error("❌ Web3Auth connection failed:", error);
+
+        // Log comprehensive error details
+        if (error instanceof Error) {
+          console.error("🔍 Web3Auth connection error analysis:", {
+            message: error.message,
+            name: error.name,
+            stack: error.stack,
+            code: (error as any).code,
+            type: (error as any).type,
+            reason: (error as any).reason,
+            details: (error as any).details,
           });
 
-          // Log additional info if it's a specific type of error
-          if ((connectError as any).info) {
-            console.error("Web3Auth error additional info:", (connectError as any).info);
+          // Log Web3Auth specific error info
+          if ((error as any).info) {
+            console.error("ℹ️ Web3Auth error info:", (error as any).info);
           }
 
-          if ((connectError as any).data) {
-            console.error("Web3Auth error data:", (connectError as any).data);
+          if ((error as any).data) {
+            console.error("📊 Web3Auth error data:", (error as any).data);
+          }
+
+          if ((error as any).cause) {
+            console.error("🔗 Web3Auth error cause:", (error as any).cause);
+          }
+
+          // Log wallet-specific error details
+          if ((error as any).walletError) {
+            console.error("👛 Wallet error details:", (error as any).walletError);
+          }
+
+          // Log authentication specific errors
+          if ((error as any).authError) {
+            console.error("🔐 Auth error details:", (error as any).authError);
+          }
+
+          // Additional Web3Auth error properties
+          const additionalProps: Record<string, any> = {};
+          Object.keys(error as any).forEach(key => {
+            if (
+              ![
+                "message",
+                "name",
+                "stack",
+                "code",
+                "type",
+                "reason",
+                "details",
+                "info",
+                "data",
+                "cause",
+                "walletError",
+                "authError",
+              ].includes(key)
+            ) {
+              try {
+                additionalProps[key] = (error as any)[key];
+              } catch (e) {
+                additionalProps[key] = "[Error accessing property]";
+              }
+            }
+          });
+
+          if (Object.keys(additionalProps).length > 0) {
+            console.error("🔍 Additional Web3Auth error properties:", additionalProps);
           }
         } else {
-          // If it's not an Error instance, log the entire object
-          console.error(
-            "Web3Auth non-standard error object:",
-            JSON.stringify(connectError, null, 2)
-          );
+          console.error("🤷 Non-standard Web3Auth error:", JSON.stringify(error, null, 2));
         }
-        return false; // Return false to indicate connection was not successful
+
+        return false;
+      }
+    },
+    [connectTo]
+  );
+
+  // Main connection function with detailed logging
+  const connectWallet = useCallback(async (): Promise<boolean> => {
+    console.log("🚀 Starting wallet connection attempt");
+
+    // Prevent parallel connections
+    if (connectionAttemptRef.current) {
+      console.log("⏸️ Connection attempt blocked - another attempt in progress");
+      return false;
+    }
+
+    connectionAttemptRef.current = true;
+    updateConnectionState({ isConnecting: true, error: null });
+    console.log("🔄 Connection state updated: connecting...");
+
+    try {
+      // Check if user is authenticated
+      if (!authUser) {
+        console.log("❌ Connection failed: User not authenticated");
+        updateConnectionState({ isConnecting: false, error: "User not authenticated" });
+        return false;
+      }
+      console.log("✅ User authenticated");
+
+      // Check token validity
+      const jwtToken = localStorage.getItem(AUTH_STORAGE_KEYS.AUTH_TOKEN);
+      if (!jwtToken) {
+        console.log("❌ Connection failed: No JWT token found");
+        updateConnectionState({ isConnecting: false, error: "No token found" });
+        return false;
+      }
+
+      if (isTokenExpired(jwtToken)) {
+        console.log("❌ Connection failed: Token is expired");
+        updateConnectionState({ isConnecting: false, error: "Token expired" });
+        return false;
+      }
+      console.log("✅ JWT token is valid");
+
+      // Check Web3Auth readiness
+      const web3AuthReady =
+        dataWeb3Auth?.isInitialized && !dataWeb3Auth?.isInitializing && dataWeb3Auth?.web3Auth;
+
+      console.log("Web3Auth status:", {
+        isInitialized: dataWeb3Auth?.isInitialized,
+        isInitializing: dataWeb3Auth?.isInitializing,
+        hasWeb3Auth: !!dataWeb3Auth?.web3Auth,
+        ready: web3AuthReady,
+      });
+
+      if (!web3AuthReady) {
+        console.log("⏳ Connection postponed: Web3Auth not ready");
+        updateConnectionState({ isConnecting: false, error: "Web3Auth not ready" });
+        return false;
+      }
+      console.log("✅ Web3Auth is ready");
+
+      // Check if already connected
+      if (dataWeb3Auth?.isConnected) {
+        console.log("✅ Wallet already connected");
+        updateConnectionState({ isConnecting: false, isConnected: true });
+        return true;
+      }
+
+      // Get wallet token and connect
+      console.log("🔑 Requesting wallet token from backend...");
+      const walletToken = await getWalletToken();
+      if (!walletToken) {
+        console.log("❌ Connection failed: Could not get wallet token");
+        updateConnectionState({ isConnecting: false, error: "Failed to get wallet token" });
+        return false;
+      }
+      console.log("✅ Wallet token received");
+
+      console.log("🔗 Connecting to Web3Auth...");
+      const connected = await connectToWeb3Auth(walletToken);
+
+      if (connected) {
+        console.log("🎉 Wallet connection successful!");
+        updateConnectionState({ isConnecting: false, isConnected: true });
+        return true;
+      } else {
+        console.log("❌ Web3Auth connection failed");
+        updateConnectionState({ isConnecting: false, error: "Web3Auth connection failed" });
+        return false;
       }
     } catch (error) {
-      console.error("Unexpected error in connectToWallet:", error);
+      console.error("💥 Unexpected error in connectWallet:", error);
+
+      // Comprehensive error analysis
+      let errorMessage = "Unknown error";
+      let errorDetails: Record<string, any> = {};
 
       if (error instanceof Error) {
-        console.error("connectToWallet main error details:", {
+        errorMessage = error.message;
+        errorDetails = {
+          name: error.name,
           message: error.message,
           stack: error.stack,
-          name: error.name,
           code: (error as any).code,
           type: (error as any).type,
           status: (error as any).status,
           statusText: (error as any).statusText,
-        });
+        };
 
-        // Log any additional properties that might contain useful debugging info
-        const errorObj = error as any;
+        console.error("🔍 connectWallet error analysis:", errorDetails);
+
+        // Additional error properties that might contain useful info
         const additionalInfo: Record<string, any> = {};
-
-        // Collect non-standard properties that might contain useful info
-        Object.keys(errorObj).forEach(key => {
-          if (!["message", "name", "stack"].includes(key)) {
+        Object.keys(error as any).forEach(key => {
+          if (!["name", "message", "stack", "code", "type", "status", "statusText"].includes(key)) {
             try {
-              additionalInfo[key] = errorObj[key];
+              additionalInfo[key] = (error as any)[key];
             } catch (e) {
               additionalInfo[key] = "[Error accessing property]";
             }
@@ -211,367 +376,238 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         });
 
         if (Object.keys(additionalInfo).length > 0) {
-          console.error("connectToWallet additional error properties:", additionalInfo);
+          console.error("🔍 Additional connectWallet error properties:", additionalInfo);
+        }
+
+        // Log specific error contexts
+        if ((error as any).context) {
+          console.error("🎯 Error context:", (error as any).context);
+        }
+
+        if ((error as any).originalError) {
+          console.error("🔗 Original error:", (error as any).originalError);
         }
       } else {
-        // If it's not an Error instance, log the entire object
-        console.error("connectToWallet non-standard error:", JSON.stringify(error, null, 2));
+        console.error("🤷 Non-standard connectWallet error:", JSON.stringify(error, null, 2));
+        errorMessage = "Non-standard error occurred";
+        errorDetails = { rawError: error };
       }
 
-      return false; // Return false to indicate connection was not successful
+      updateConnectionState({
+        isConnecting: false,
+        error: errorMessage,
+      });
+
+      console.error("📋 Final error state:", { errorMessage, errorDetails });
+      return false;
+    } finally {
+      connectionAttemptRef.current = false;
+      console.log("🏁 Connection attempt completed, flags reset");
     }
   }, [
-    connectTo,
+    authUser,
     dataWeb3Auth?.isInitialized,
     dataWeb3Auth?.isInitializing,
     dataWeb3Auth?.web3Auth,
+    dataWeb3Auth?.isConnected,
+    getWalletToken,
+    connectToWeb3Auth,
+    updateConnectionState,
   ]);
 
-  // Function to attempt wallet connection with detailed diagnostics
-  const connectIfReady = useCallback(async (): Promise<ConnectionResult> => {
-    const jwtToken = localStorage.getItem(AUTH_STORAGE_KEYS.AUTH_TOKEN);
+  // Reconnect function for manual retries
+  const reconnect = useCallback(async () => {
+    await connectWallet();
+  }, [connectWallet]);
 
-    // Prevent parallel execution
-    if (connectionAttemptRef.current) {
-      console.log("Connection attempt prevented - another attempt is already in progress");
-      return {
-        success: false,
-        reason: "PARALLEL_EXECUTION_PREVENTED",
-        details: { message: "Another connection attempt is already in progress" },
-      };
+  // Setup auto-reconnect interval with detailed logging
+  const setupReconnectInterval = useCallback(() => {
+    // Clear existing interval
+    if (reconnectIntervalRef.current) {
+      console.log("Clearing existing reconnect interval");
+      clearInterval(reconnectIntervalRef.current);
+      reconnectIntervalRef.current = null;
     }
 
-    connectionAttemptRef.current = true;
-    setIsConnecting(true);
+    // Only setup if we have user but no wallet address and not currently connecting
+    const shouldSetupInterval = authUser && !account.address && !connectionState.isConnecting;
 
-    // Safety timeout to reset the flag after 30 seconds in case of unhandled errors
-    const safetyTimeout = setTimeout(() => {
-      if (connectionAttemptRef.current) {
-        console.warn("Connection attempt flag reset by safety timeout after 30 seconds");
-        connectionAttemptRef.current = false;
-        setIsConnecting(false);
-      }
-    }, 30000);
+    console.log("Reconnect interval setup check:", {
+      hasAuthUser: !!authUser,
+      hasWalletAddress: !!account.address,
+      isConnecting: connectionState.isConnecting,
+      shouldSetup: shouldSetupInterval,
+      web3AuthConnected: dataWeb3Auth?.isConnected,
+      web3AuthInitialized: dataWeb3Auth?.isInitialized,
+    });
 
-    try {
-      // Only proceed if we have a token
-      if (!jwtToken) {
-        console.log("No token available, skipping wallet connection");
-        return {
-          success: false,
-          reason: "NO_TOKEN",
-          details: { message: "No JWT token available" },
-        };
-      }
+    if (shouldSetupInterval) {
+      console.log("Setting up auto-reconnect interval (every 2 seconds)");
 
-      // Check if token is not expired
-      if (isTokenExpired(jwtToken)) {
-        console.log("Token is expired, waiting for token refresh before wallet connection");
-        return {
-          success: false,
-          reason: "TOKEN_EXPIRED",
-          details: { message: "JWT token is expired" },
-        };
-      }
+      let attemptCount = 0;
 
-      // Only attempt to connect if Web3Auth is initialized
-      if (dataWeb3Auth?.isInitialized && !dataWeb3Auth?.isInitializing && dataWeb3Auth?.web3Auth) {
-        // Check if wallet is already connected
-        if (dataWeb3Auth?.isConnected) {
-          console.log("Wallet is already connected, skipping connection");
-          setIsConnected(true);
-          return {
-            success: true,
-            reason: "ALREADY_CONNECTED",
-            details: { message: "Wallet is already connected" },
-          };
-        }
+      reconnectIntervalRef.current = window.setInterval(async () => {
+        attemptCount++;
+        console.log(`🔄 Auto-reconnect attempt #${attemptCount}`);
 
-        console.log("Token and Web3Auth are ready, connecting to wallet");
-        const connected = await connectToWallet();
-
-        if (connected) {
-          return {
-            success: true,
-            reason: "CONNECTION_SUCCESSFUL",
-            details: { message: "Successfully connected to wallet" },
-          };
-        } else {
-          return {
-            success: false,
-            reason: "CONNECTION_FAILED",
-            details: {
-              message: "Failed to connect to wallet via connectToWallet()",
-              web3AuthStatus: {
-                isInitialized: dataWeb3Auth?.isInitialized,
-                isInitializing: dataWeb3Auth?.isInitializing,
-                isConnected: dataWeb3Auth?.isConnected,
-              },
-            },
-          };
-        }
-      } else {
-        console.log("Web3Auth not initialized yet, skipping wallet connection");
-        return {
-          success: false,
-          reason: "WEB3AUTH_NOT_READY",
-          details: {
-            message: "Web3Auth is not fully initialized",
-            web3AuthStatus: {
-              isInitialized: dataWeb3Auth?.isInitialized,
-              isInitializing: dataWeb3Auth?.isInitializing,
-              hasWeb3Auth: !!dataWeb3Auth?.web3Auth,
-            },
-          },
-        };
-      }
-    } catch (error) {
-      console.error("Unexpected error in connectIfReady:", error);
-
-      // Collect detailed error info
-      const errorDetails: Record<string, any> = {};
-
-      if (error instanceof Error) {
-        errorDetails.message = error.message;
-        errorDetails.name = error.name;
-        errorDetails.stack = error.stack;
-        errorDetails.code = (error as any).code;
-        errorDetails.type = (error as any).type;
-
-        console.error("connectIfReady error details:", errorDetails);
-
-        // Additional properties that might be present
-        if ((error as any).info) {
-          errorDetails.additionalInfo = (error as any).info;
-          console.error("connectIfReady error additional info:", (error as any).info);
-        }
-
-        if ((error as any).data) {
-          errorDetails.data = (error as any).data;
-          console.error("connectIfReady error data:", (error as any).data);
-        }
-      } else {
-        // If it's not an Error instance, log the entire object
-        errorDetails.rawError = JSON.stringify(error, null, 2);
-        console.error("connectIfReady non-standard error object:", errorDetails.rawError);
-      }
-
-      return {
-        success: false,
-        reason: "UNEXPECTED_ERROR",
-        details: {
-          message: "An unexpected error occurred during connection attempt",
-          errorDetails,
+        // Log current state before each attempt
+        console.log(`State before attempt #${attemptCount}:`, {
+          hasAuthUser: !!authUser,
+          hasToken: !!localStorage.getItem(AUTH_STORAGE_KEYS.AUTH_TOKEN),
+          tokenExpired: isTokenExpired(localStorage.getItem(AUTH_STORAGE_KEYS.AUTH_TOKEN)),
+          walletAddress: account.address,
           web3AuthStatus: {
             isInitialized: dataWeb3Auth?.isInitialized,
             isInitializing: dataWeb3Auth?.isInitializing,
             isConnected: dataWeb3Auth?.isConnected,
-            hasWeb3Auth: !!dataWeb3Auth?.web3Auth,
           },
-        },
-      };
-    } finally {
-      // Clear safety timeout
-      clearTimeout(safetyTimeout);
-
-      // Always reset the flags when done
-      connectionAttemptRef.current = false;
-      setIsConnecting(false);
-
-      console.log("Connection attempt completed, flags reset");
-    }
-  }, [
-    dataWeb3Auth?.isInitialized,
-    dataWeb3Auth?.isInitializing,
-    dataWeb3Auth?.web3Auth,
-    dataWeb3Auth?.isConnected,
-    connectToWallet,
-  ]);
-
-  // Effect to connect to wallet when token changes or Web3Auth becomes ready
-  useEffect(() => {
-    // Initial connection attempt if authenticated
-    if (authUser) {
-      connectIfReady();
-    }
-  }, [
-    authUser,
-    dataWeb3Auth?.isInitialized,
-    dataWeb3Auth?.isInitializing,
-    dataWeb3Auth?.web3Auth,
-    dataWeb3Auth?.isConnected,
-    connectIfReady,
-  ]);
-
-  // Effect to periodically try to connect wallet if we have a user but no account
-  useEffect(() => {
-    // Clear any existing interval
-    if (connectionIntervalRef.current) {
-      window.clearInterval(connectionIntervalRef.current);
-      connectionIntervalRef.current = null;
-    }
-
-    // Only start interval if we have a user but no wallet address
-    if (authUser && !account.address) {
-      console.log("Setting up periodic wallet connection check");
-
-      // Use a counter to track consecutive failures for debugging
-      let attempts = 0;
-
-      connectionIntervalRef.current = window.setInterval(async () => {
-        attempts++;
-        console.log(`Periodic wallet connection attempt #${attempts}`);
-
-        // Log detailed Web3Auth status before each attempt
-        console.log(`Web3Auth current state (#${attempts}):`, {
-          isInitialized: dataWeb3Auth?.isInitialized,
-          isInitializing: dataWeb3Auth?.isInitializing,
-          isConnected: dataWeb3Auth?.isConnected,
-          hasWeb3Auth: !!dataWeb3Auth?.web3Auth,
-          hasToken: !!localStorage.getItem(AUTH_STORAGE_KEYS.AUTH_TOKEN),
-          tokenExpired: isTokenExpired(localStorage.getItem(AUTH_STORAGE_KEYS.AUTH_TOKEN)),
-          hasAuthUser: !!authUser,
-          hasWalletAddress: !!account.address,
-          chainId: account.chainId,
-          walletStatus: account.status,
-          walletIsConnecting: account.isConnecting,
-          walletIsDisconnected: account.isDisconnected,
-          walletIsReconnecting: account.isReconnecting,
+          connectionState,
         });
 
-        try {
-          const result = await connectIfReady();
-          if (result.success) {
-            console.log("Wallet connection successful, clearing interval");
-            console.log(`Success details (#${attempts}):`, {
-              reason: result.reason,
-              details: result.details,
-            });
-            // We could clear the interval here, but we'll let the effect's dependency handle it
-            // when account.address becomes available
-          } else {
-            // Log detailed diagnostic information about why connection failed
-            console.log(
-              `Wallet connection attempt #${attempts} failed (${result.reason}), will try again in 1 second.`
-            );
-            console.log(`Failure details (#${attempts}):`, {
-              reason: result.reason,
-              details: result.details,
-              web3AuthState: {
-                isInitialized: dataWeb3Auth?.isInitialized,
-                isInitializing: dataWeb3Auth?.isInitializing,
-                isConnected: dataWeb3Auth?.isConnected,
-                hasWeb3Auth: !!dataWeb3Auth?.web3Auth,
-              },
-              accountState: {
-                address: account.address,
-                chainId: account.chainId,
-                status: account.status,
-                isConnecting: account.isConnecting,
-                isDisconnected: account.isDisconnected,
-                isReconnecting: account.isReconnecting,
-              },
-              tokenState: {
-                hasToken: !!localStorage.getItem(AUTH_STORAGE_KEYS.AUTH_TOKEN),
-                tokenExpired: isTokenExpired(localStorage.getItem(AUTH_STORAGE_KEYS.AUTH_TOKEN)),
-              },
-            });
-          }
-        } catch (error) {
-          // This is an extra safety net that shouldn't be needed due to try/catch in connectIfReady
-          console.error(`Unexpected error in periodic connection attempt #${attempts}:`, error);
+        const success = await connectWallet();
 
-          // Log detailed error information
-          if (error instanceof Error) {
-            console.error(`Periodic connection attempt #${attempts} error details:`, {
-              message: error.message,
-              name: error.name,
-              stack: error.stack,
-              code: (error as any).code,
-              type: (error as any).type,
-            });
-
-            // Additional properties that might be present
-            if ((error as any).info) {
-              console.error(
-                `Periodic connection attempt #${attempts} error info:`,
-                (error as any).info
-              );
-            }
-
-            if ((error as any).data) {
-              console.error(
-                `Periodic connection attempt #${attempts} error data:`,
-                (error as any).data
-              );
-            }
-          } else {
-            // If it's not an Error instance, log the entire object
-            console.error(
-              `Periodic connection attempt #${attempts} non-standard error:`,
-              JSON.stringify(error, null, 2)
-            );
-          }
-
-          // We intentionally don't clear the interval here to keep trying
+        if (success) {
+          console.log(`✅ Auto-reconnect successful after ${attemptCount} attempts`);
+          clearInterval(reconnectIntervalRef.current!);
+          reconnectIntervalRef.current = null;
+        } else {
+          console.log(
+            `❌ Auto-reconnect attempt #${attemptCount} failed, will retry in 2 seconds...`
+          );
+          console.log("💡 Current error state:", connectionState.error);
         }
       }, 2000); // Try every 2 seconds
     }
-
-    // Cleanup on unmount or when dependencies change
-    return () => {
-      if (connectionIntervalRef.current) {
-        window.clearInterval(connectionIntervalRef.current);
-        connectionIntervalRef.current = null;
-      }
-    };
   }, [
-    // Essentials for connection check triggering
     authUser,
     account.address,
-    connectIfReady,
-    // Additional connection status dependencies for diagnostics only
-    account.chainId,
-    account.status,
-    account.isConnecting,
-    account.isDisconnected,
-    account.isReconnecting,
+    connectionState.isConnecting,
+    connectionState,
     dataWeb3Auth?.isConnected,
     dataWeb3Auth?.isInitialized,
     dataWeb3Auth?.isInitializing,
-    dataWeb3Auth?.web3Auth,
+    connectWallet,
   ]);
 
-  // Effect to link wallet address when it becomes available
+  // Link wallet address with error handling
+  const linkWalletAddress = useCallback(
+    async (address: string) => {
+      if (!authUser) return;
+
+      try {
+        console.log(`🔗 Linking wallet address: ${address}`);
+        await trpcClient.wallet.linkWalletAddress.mutate({ address });
+        console.log("✅ Wallet address linked successfully");
+      } catch (error) {
+        console.error("❌ Failed to link wallet address:", error);
+
+        // Log detailed linking error
+        if (error instanceof Error) {
+          console.error("🔍 Wallet linking error details:", {
+            message: error.message,
+            name: error.name,
+            code: (error as any).code,
+            status: (error as any).status,
+            address: address,
+          });
+
+          // Log tRPC specific details if available
+          if ((error as any).data) {
+            console.error("🔧 tRPC linking error data:", (error as any).data);
+          }
+        }
+      }
+    },
+    [authUser]
+  );
+
+  // Effects
+
+  // Initial connection attempt when user logs in or Web3Auth becomes ready
+  useEffect(() => {
+    console.log("🔍 Initial connection effect triggered:", {
+      hasAuthUser: !!authUser,
+      web3AuthInitialized: dataWeb3Auth?.isInitialized,
+      web3AuthInitializing: dataWeb3Auth?.isInitializing,
+    });
+
+    if (authUser && dataWeb3Auth?.isInitialized && !dataWeb3Auth?.isInitializing) {
+      console.log("🚀 Triggering initial wallet connection");
+      connectWallet();
+    }
+  }, [authUser, dataWeb3Auth?.isInitialized, dataWeb3Auth?.isInitializing, connectWallet]);
+
+  // Setup reconnect interval with cleanup
+  useEffect(() => {
+    setupReconnectInterval();
+
+    return () => {
+      console.log("🧹 Cleaning up reconnect interval");
+      if (reconnectIntervalRef.current) {
+        clearInterval(reconnectIntervalRef.current);
+        reconnectIntervalRef.current = null;
+      }
+    };
+  }, [setupReconnectInterval]);
+
+  // Link wallet address when available
   useEffect(() => {
     if (account.address && authUser) {
-      trpcClient.wallet.linkWalletAddress.mutate({ address: account.address }).catch(error => {
-        console.error("Failed to link wallet address:", error);
-      });
+      console.log(`🔗 Linking wallet address: ${account.address}`);
+      linkWalletAddress(account.address);
     }
-  }, [account.address, authUser]);
+  }, [account.address, authUser, linkWalletAddress]);
 
-  // Effect to update connection status based on Web3Auth state
+  // Update connection status based on Web3Auth and account state
   useEffect(() => {
-    if (dataWeb3Auth?.isConnected) {
-      setIsConnected(true);
+    const newIsConnected = dataWeb3Auth?.isConnected && account.address;
+    const fallbackConnected =
+      dataWeb3Auth?.isInitialized && !dataWeb3Auth?.isInitializing && !!account.address;
+
+    console.log("📊 Connection status update:", {
+      web3AuthConnected: dataWeb3Auth?.isConnected,
+      hasWalletAddress: !!account.address,
+      web3AuthInitialized: dataWeb3Auth?.isInitialized,
+      web3AuthInitializing: dataWeb3Auth?.isInitializing,
+      newIsConnected,
+      fallbackConnected,
+    });
+
+    if (newIsConnected) {
+      updateConnectionState({ isConnected: true });
     } else if (dataWeb3Auth?.isInitialized && !dataWeb3Auth?.isInitializing) {
-      setIsConnected(!!account.address);
+      updateConnectionState({ isConnected: fallbackConnected });
     }
   }, [
     dataWeb3Auth?.isConnected,
     dataWeb3Auth?.isInitialized,
     dataWeb3Auth?.isInitializing,
     account.address,
+    updateConnectionState,
   ]);
 
-  // Disconnect wallet when authUser is removed
+  // Disconnect when user logs out
   useEffect(() => {
-    if (!authUser && isConnected) {
+    if (!authUser && connectionState.isConnected) {
+      console.log("👋 User logged out, disconnecting wallet");
       safeDisconnect();
     }
-  }, [authUser, isConnected, safeDisconnect]);
+  }, [authUser, connectionState.isConnected, safeDisconnect]);
 
-  // The WalletProvider is only responsible for automatically connecting the wallet
-  return <WalletContext.Provider value={{}}>{children}</WalletContext.Provider>;
+  // Context value
+  const contextValue: WalletContextType = {
+    connectionState,
+    reconnect,
+  };
+
+  return <WalletContext.Provider value={contextValue}>{children}</WalletContext.Provider>;
+};
+
+// Hook to use wallet context (optional - você pode não exportar se não quiser expor)
+export const useWallet = (): WalletContextType => {
+  const context = useContext(WalletContext);
+  if (context === undefined) {
+    throw new Error("useWallet must be used within a WalletProvider");
+  }
+  return context;
 };
