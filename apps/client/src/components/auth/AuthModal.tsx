@@ -284,8 +284,6 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     }
   };
 
-  console.info("Recaptcha", import.meta.env.VITE_RECAPTCHA_SITE_KEY);
-
   return (
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]"
