@@ -316,7 +316,6 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
         recaptchaRef={recaptchaRef}
         onClose={closeCaptchaModal}
         onVerify={handleVerifyCaptcha}
-        onComplete={handleCaptchaComplete}
       />
 
       {/* Dialog principal */}
