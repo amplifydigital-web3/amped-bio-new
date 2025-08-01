@@ -8,7 +8,6 @@ import {
   DialogClose,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useFundWalletDialog } from "./hooks/useFundWalletDialog";
 
 interface ClaimRewardsModalProps {
   isOpen: boolean;
@@ -26,10 +25,15 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
   const [step, setStep] = useState<"confirm" | "claiming" | "success">("confirm");
   const [animatingTokens, setAnimatingTokens] = useState<Array<{ id: number; delay: number }>>([]);
 
-  const { handleClaim: handleFaucetClaim } = useFundWalletDialog({
-    open: isOpen,
-    onOpenChange: onClose,
-  });
+  const claimRewards = async () => {
+    // TODO: Replace this with actual API call to claim rewards for the pool
+    // Simulate API call delay and success
+    return new Promise<{ success: boolean }>(resolve => {
+      setTimeout(() => {
+        resolve({ success: true });
+      }, 1000);
+    });
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -50,7 +54,7 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
     setStep("claiming");
 
     // Call the handleClaim from the hook (the token is passed through props to the hook)
-    const result = await handleFaucetClaim();
+    const result = await claimRewards();
 
     if (result.success) {
       // Create multiple token animations with staggered delays
