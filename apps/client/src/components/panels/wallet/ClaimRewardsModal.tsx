@@ -289,7 +289,7 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
 
   return (
     <>
-      {/* Dialog principal */}
+      {/* Main dialog */}
       <Dialog
         open={isOpen}
         onOpenChange={open => {
