@@ -48,9 +48,9 @@ export class API implements Service {
             env.FRONTEND_URL, // Use environment-specific frontend URL
           ];
 
-          console.log(
-            `CORS debug - NODE_ENV: ${env.NODE_ENV}, FRONTEND_URL: ${env.FRONTEND_URL}, Origin: ${origin}`
-          );
+          // console.log(
+          //   `CORS debug - NODE_ENV: ${env.NODE_ENV}, FRONTEND_URL: ${env.FRONTEND_URL}, Origin: ${origin}`
+          // );
 
           // Add additional origins based on environment
           if (env.NODE_ENV === "development" || env.NODE_ENV === "testing") {
@@ -61,7 +61,7 @@ export class API implements Service {
             );
           }
 
-          console.log("CORS debug - Allowed origins:", allowedOrigins);
+          // console.log("CORS debug - Allowed origins:", allowedOrigins);
 
           if (allowedOrigins.includes(origin)) {
             callback(null, true);
