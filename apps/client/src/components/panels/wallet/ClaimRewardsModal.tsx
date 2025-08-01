@@ -9,8 +9,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useFundWalletDialog } from "./hooks/useFundWalletDialog";
-import { useCaptchaModal } from "@/components/captcha/useCaptchaModal";
-import { CaptchaModal } from "@/components/captcha/CaptchaModal";
 
 interface ClaimRewardsModalProps {
   isOpen: boolean;
@@ -27,33 +25,18 @@ interface ClaimRewardsModalProps {
 export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimRewardsModalProps) {
   const [step, setStep] = useState<"confirm" | "claiming" | "success">("confirm");
   const [animatingTokens, setAnimatingTokens] = useState<Array<{ id: number; delay: number }>>([]);
-  const [isRecaptchaEnabled] = useState(Boolean(import.meta.env.VITE_RECAPTCHA_SITE_KEY));
-
-  // Usar o hook de captcha
-  const {
-    showCaptchaModal,
-    recaptchaRef,
-    captchaToken,
-    openCaptchaModal,
-    closeCaptchaModal,
-    handleVerifyCaptcha,
-  } = useCaptchaModal();
 
   const { handleClaim: handleFaucetClaim } = useFundWalletDialog({
     open: isOpen,
     onOpenChange: onClose,
-    recaptchaToken: captchaToken,
   });
 
   useEffect(() => {
     if (isOpen) {
       setStep("confirm");
       setAnimatingTokens([]);
-    } else {
-      // Quando o modal principal é fechado, certifique-se de fechar o modal de captcha também
-      closeCaptchaModal();
     }
-  }, [isOpen, closeCaptchaModal]);
+  }, [isOpen]);
 
   if (!isOpen || !pool) return null;
 
@@ -64,15 +47,7 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
   };
 
   const handleClaim = async () => {
-    // Se o captcha está habilitado e não temos um token, abra o modal de captcha
-    if (isRecaptchaEnabled && !captchaToken) {
-      openCaptchaModal();
-      return;
-    }
-
     setStep("claiming");
-
-    console.log("Claiming rewards with reCAPTCHA token:", captchaToken);
 
     // Call the handleClaim from the hook (the token is passed through props to the hook)
     const result = await handleFaucetClaim();
@@ -310,14 +285,6 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
 
   return (
     <>
-      {/* Modal de captcha */}
-      <CaptchaModal
-        showModal={showCaptchaModal}
-        recaptchaRef={recaptchaRef}
-        onClose={closeCaptchaModal}
-        onVerify={handleVerifyCaptcha}
-      />
-
       {/* Dialog principal */}
       <Dialog
         open={isOpen}

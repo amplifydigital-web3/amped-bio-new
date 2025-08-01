@@ -15,8 +15,6 @@ import OnRampIcon from "@/assets/icons/onramp.png";
 import MoonPayIcon from "@/assets/icons/moonpay.png";
 import { useState, useEffect } from "react";
 import { useFundWalletDialog } from "../hooks/useFundWalletDialog";
-import { useCaptchaModal } from "@/components/captcha/useCaptchaModal";
-import { CaptchaModal } from "@/components/captcha/CaptchaModal";
 
 // Component to display countdown timer
 function CountdownTimer({ targetDate, onComplete }: { targetDate: Date; onComplete?: () => void }) {
@@ -83,16 +81,6 @@ interface FundWalletDialogProps {
 }
 
 function FundWalletDialog({ open, onOpenChange }: FundWalletDialogProps) {
-  // Use o hook personalizado para gerenciar o captcha
-  const {
-    showCaptchaModal,
-    recaptchaRef,
-    captchaToken,
-    openCaptchaModal,
-    closeCaptchaModal,
-    handleVerifyCaptcha,
-  } = useCaptchaModal();
-
   const {
     showSuccessDialog,
     setShowSuccessDialog,
@@ -107,41 +95,10 @@ function FundWalletDialog({ open, onOpenChange }: FundWalletDialogProps) {
   } = useFundWalletDialog({
     open,
     onOpenChange,
-    recaptchaToken: captchaToken,
   });
-
-  // Function to handle the initial claim button click
-  const initiateClaimProcess = () => {
-    // Check if reCAPTCHA is enabled
-    const isRecaptchaEnabled = Boolean(import.meta.env.VITE_RECAPTCHA_SITE_KEY);
-
-    if (isRecaptchaEnabled) {
-      // Close the main dialog and open the captcha modal
-      onOpenChange(false);
-      // Delay opening the captcha modal to allow the main dialog to close gracefully
-      setTimeout(() => {
-        openCaptchaModal(recaptchaToken => {
-          // After the captcha is complete, reopen the main dialog
-          onOpenChange(true);
-          // If a captcha token is received, the `useFundWalletDialog` hook will automatically trigger the claim
-        });
-      }, 150);
-    } else {
-      // If reCAPTCHA is not enabled (e.g., in a test environment), claim directly
-      handleClaim();
-    }
-  };
 
   return (
     <>
-      {/* Renderiza o componente CaptchaModal */}
-      <CaptchaModal
-        showModal={showCaptchaModal}
-        recaptchaRef={recaptchaRef}
-        onClose={closeCaptchaModal}
-        onVerify={handleVerifyCaptcha}
-      />
-
       {/* Success Dialog */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
         <DialogContent className="max-w-sm rounded-2xl">
@@ -195,7 +152,7 @@ function FundWalletDialog({ open, onOpenChange }: FundWalletDialogProps) {
                     : "bg-gray-50 text-gray-500 border-gray-200"
                 } 
                 transition-all duration-200 ease-in-out`}
-              onClick={initiateClaimProcess}
+              onClick={handleClaim}
               disabled={claimingFaucet || !faucetInfo.canRequestNow}
             >
               <div className="w-6 h-6 flex items-center justify-start overflow-visible">

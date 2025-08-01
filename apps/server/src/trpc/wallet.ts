@@ -6,7 +6,6 @@ import { createWalletClient, http, parseEther, createPublicClient, isAddress } f
 import { privateKeyToAccount } from "viem/accounts";
 import { prisma } from "../services/DB";
 import { getChainConfig } from "../utils/chainConfig";
-import { verifyRecaptcha } from "../utils/recaptcha";
 
 // Get chain configuration from centralized utility
 const chain = getChainConfig();
@@ -32,7 +31,6 @@ const faucetRequestSchema = z.object({
   address: z.string().refine(address => address && isAddress(address), {
     message: "Invalid Ethereum address format",
   }),
-  recaptchaToken: z.string().nullable(),
 });
 
 // Schema for faucet response
@@ -212,16 +210,6 @@ export const walletRouter = router({
     .output(faucetResponseSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.sub;
-      const { recaptchaToken } = input;
-
-      // Verify reCAPTCHA token
-      const isRecaptchaValid = await verifyRecaptcha(recaptchaToken);
-      if (!isRecaptchaValid) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "reCAPTCHA verification failed",
-        });
-      }
 
       try {
         const now = new Date();

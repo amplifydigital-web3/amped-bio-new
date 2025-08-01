@@ -11,9 +11,15 @@ export async function verifyRecaptcha(token: string | null): Promise<boolean> {
   }
 
   try {
-    const response = await axios.post(
-      `https://www.google.com/recaptcha/api/siteverify?secret=${env.RECAPTCHA_SECRET_KEY}&response=${token}`
-    );
+    const formData = new URLSearchParams();
+    formData.append("secret", env.RECAPTCHA_SECRET_KEY);
+    formData.append("response", token);
+
+    const response = await axios.post("https://www.google.com/recaptcha/api/siteverify", formData, {
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    });
 
     console.info("reCAPTCHA response:", response.data);
 

@@ -2,7 +2,6 @@ import { trpcClient } from "@/utils/trpc";
 import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { useAccount } from "wagmi";
-import { useCaptchaModal } from "@/components/captcha/useCaptchaModal";
 
 export function useFundWalletDialog(params: {
   open: boolean;
@@ -10,7 +9,6 @@ export function useFundWalletDialog(params: {
 }) {
   const { open, onOpenChange } = params;
   const { address: walletAddress, isConnected } = useAccount();
-  const { openCaptchaModal } = useCaptchaModal();
 
   // Dialog state
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
@@ -68,56 +66,44 @@ export function useFundWalletDialog(params: {
   }, [open]);
 
   // Function to handle the faucet claim process
-  const handleClaimDailyFaucet = async (): Promise<{ success: boolean; txid?: string }> => {
+  const handleClaim = async (): Promise<{ success: boolean; txid?: string }> => {
     if (!isConnected || claimingFaucet || !walletAddress) {
       toast.error("Wallet not connected or already claiming.");
       return { success: false };
     }
 
     setClaimingFaucet(true);
-    return new Promise((resolve) => {
-      openCaptchaModal(async (recaptchaToken) => {
-        if (!recaptchaToken) {
-          toast.error("Captcha verification failed. Please try again.");
-          setClaimingFaucet(false);
-          resolve({ success: false });
-          return;
-        }
-
-        try {
-          const result = await trpcClient.wallet.requestAirdrop.mutate({
-            address: walletAddress,
-            recaptchaToken,
-          });
-
-          if (result.success && result.transaction?.hash) {
-            setTxInfo({ txid: result.transaction.hash });
-            setShowSuccessDialog(true);
-
-            // Update faucet state after successful claim
-            const now = new Date();
-            const nextDate = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
-            setFaucetInfo({
-              lastRequestDate: now,
-              nextAvailableDate: nextDate,
-              canRequestNow: false,
-              hasWallet: true,
-            });
-
-            resolve({ success: true, txid: result.transaction.hash });
-          } else {
-            toast.error(result.message || "Failed to claim faucet tokens.");
-            resolve({ success: false });
-          }
-        } catch (error: any) {
-          console.error("Error claiming faucet tokens:", error);
-          toast.error(error.message || "An unexpected error occurred.");
-          resolve({ success: false });
-        } finally {
-          setClaimingFaucet(false);
-        }
+    try {
+      const result = await trpcClient.wallet.requestAirdrop.mutate({
+        address: walletAddress,
       });
-    });
+
+      if (result.success && result.transaction?.hash) {
+        setTxInfo({ txid: result.transaction.hash });
+        setShowSuccessDialog(true);
+
+        // Update faucet state after successful claim
+        const now = new Date();
+        const nextDate = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
+        setFaucetInfo({
+          lastRequestDate: now,
+          nextAvailableDate: nextDate,
+          canRequestNow: false,
+          hasWallet: true,
+        });
+
+        return { success: true, txid: result.transaction.hash };
+      } else {
+        toast.error(result.message || "Failed to claim faucet tokens.");
+        return { success: false };
+      }
+    } catch (error: any) {
+      console.error("Error claiming faucet tokens:", error);
+      toast.error(error.message || "An unexpected error occurred.");
+      return { success: false };
+    } finally {
+      setClaimingFaucet(false);
+    }
   };
 
   return {
@@ -132,6 +118,7 @@ export function useFundWalletDialog(params: {
     claimingFaucet,
     faucetInfo,
     setFaucetInfo,
-    handleClaim: handleClaimDailyFaucet, // Renamed for clarity in the hook return
+    handleClaim,
   };
 }
+
