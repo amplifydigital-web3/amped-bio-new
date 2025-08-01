@@ -228,6 +228,11 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
       }
     } catch (error) {
       setLoginError((error as Error).message);
+      // Reset reCAPTCHA on error
+      if (isRecaptchaEnabled && recaptchaRef.current) {
+        recaptchaRef.current.reset();
+        setRecaptchaToken(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -260,6 +265,11 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
       }
     } catch (error) {
       setRegisterError((error as Error).message);
+      // Reset reCAPTCHA on error
+      if (isRecaptchaEnabled && recaptchaRef.current) {
+        recaptchaRef.current.reset();
+        setRecaptchaToken(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -276,9 +286,19 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
         setResetSuccess(true);
       } else {
         setResetError(response.message || "Failed to reset password");
+        // Reset reCAPTCHA on error response
+        if (isRecaptchaEnabled && recaptchaRef.current) {
+          recaptchaRef.current.reset();
+          setRecaptchaToken(null);
+        }
       }
     } catch (error) {
       setResetError((error as Error).message);
+      // Reset reCAPTCHA on error
+      if (isRecaptchaEnabled && recaptchaRef.current) {
+        recaptchaRef.current.reset();
+        setRecaptchaToken(null);
+      }
     } finally {
       setLoading(false);
     }
