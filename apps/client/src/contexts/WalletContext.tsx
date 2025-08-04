@@ -429,8 +429,9 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       reconnectIntervalRef.current = null;
     }
 
-    // Only setup if we have user but no wallet address and not currently connecting
-    const shouldSetupInterval = authUser && !account.address && !connectionState.isConnecting;
+    // Continue trying to connect as long as we have a user but no wallet address
+    // Removed the !connectionState.isConnecting condition to be more persistent
+    const shouldSetupInterval = authUser && !account.address;
 
     console.log("Reconnect interval setup check:", {
       hasAuthUser: !!authUser,
@@ -450,6 +451,12 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         attemptCount++;
         console.log(`🔄 Auto-reconnect attempt #${attemptCount}`);
 
+        // Skip this attempt if we're currently in the middle of connecting
+        if (connectionState.isConnecting) {
+          console.log("⏸️ Skipping this reconnect attempt - connection already in progress");
+          return;
+        }
+
         // Log current state before each attempt
         console.log(`State before attempt #${attemptCount}:`, {
           hasAuthUser: !!authUser,
@@ -466,15 +473,19 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
         const success = await connectWallet();
 
-        if (success) {
-          console.log(`✅ Auto-reconnect successful after ${attemptCount} attempts`);
+        // Only clear interval if we have successfully connected AND have an address
+        if (success && account.address) {
+          console.log(
+            `✅ Auto-reconnect successful after ${attemptCount} attempts, wallet address: ${account.address}`
+          );
           clearInterval(reconnectIntervalRef.current!);
           reconnectIntervalRef.current = null;
         } else {
           console.log(
-            `❌ Auto-reconnect attempt #${attemptCount} failed, will retry in 2 seconds...`
+            `❌ Auto-reconnect attempt #${attemptCount} failed or no address available, will retry in 2 seconds...`
           );
           console.log("💡 Current error state:", connectionState.error);
+          console.log("💳 Wallet address:", account.address);
         }
       }, 2000); // Try every 2 seconds
     }
@@ -577,6 +588,11 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       updateConnectionState({ isConnected: true });
     } else if (dataWeb3Auth?.isInitialized && !dataWeb3Auth?.isInitializing) {
       updateConnectionState({ isConnected: fallbackConnected });
+
+      // Ensure reconnection mechanism is set up if we don't have an address yet
+      if (!account.address && authUser) {
+        setupReconnectInterval();
+      }
     }
   }, [
     dataWeb3Auth?.isConnected,
@@ -584,6 +600,8 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     dataWeb3Auth?.isInitializing,
     account.address,
     updateConnectionState,
+    authUser,
+    setupReconnectInterval,
   ]);
 
   // Disconnect when user logs out
