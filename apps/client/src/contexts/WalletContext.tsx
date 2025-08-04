@@ -306,12 +306,12 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         ready: web3AuthReady,
       });
 
-      if (!web3AuthReady) {
-        console.log("⏳ Connection postponed: Web3Auth not ready");
-        updateConnectionState({ isConnecting: false, error: "Web3Auth not ready" });
-        return false;
-      }
-      console.log("✅ Web3Auth is ready");
+      // if (!web3AuthReady) {
+      //   console.log("⏳ Connection postponed: Web3Auth not ready");
+      //   updateConnectionState({ isConnecting: false, error: "Web3Auth not ready" });
+      //   return false;
+      // }
+      // console.log("✅ Web3Auth is ready");
 
       // Check if already connected
       if (dataWeb3Auth?.isConnected) {
