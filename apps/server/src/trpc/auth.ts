@@ -206,13 +206,20 @@ export const authRouter = router({
     // Set refresh token cookie
     setRefreshTokenCookie(ctx, refreshToken, token.expiresAt);
 
+    // Resolve user image URL (same as "me")
+    const imageUrl = await getFileUrl({
+      legacyImageField: user.image,
+      imageFileId: user.image_file_id,
+    });
+
     return {
       user: {
         id: user.id,
         email: user.email,
-        onelink: user.onelink!,
+        onelink: user.onelink,
         emailVerified,
         role: user.role,
+        image: imageUrl,
       },
       accessToken: generateAccessToken({ id: user.id, email: user.email, role: user.role }),
     };
