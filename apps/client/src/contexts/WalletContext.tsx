@@ -126,7 +126,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!authUser && account.status === "connected") {
       console.info("Disconnecting wallet due to user logout");
-      web3AuthDisconnect({ cleanup: true });
+      web3AuthDisconnect();
     }
   }, [authUser, account.status, web3AuthDisconnect]);
 
