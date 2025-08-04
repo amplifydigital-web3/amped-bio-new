@@ -119,7 +119,11 @@ export function UserMenu() {
               {walletAddress || walletContext.connecting ? (
                 <>
                   <span className="text-sm font-semibold text-gray-900">
-                    {walletContext.connecting ? "Connecting..." : formatAddress(walletAddress!)}
+                    {walletContext.connecting ? (
+                      <div className="h-4 w-20 bg-gray-200 animate-pulse rounded"></div>
+                    ) : (
+                      formatAddress(walletAddress!)
+                    )}
                   </span>
                   <span className="text-xs text-gray-500">@{authUser.onelink}</span>
                 </>

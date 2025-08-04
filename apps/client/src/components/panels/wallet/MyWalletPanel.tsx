@@ -263,7 +263,7 @@ export function MyWalletPanel() {
                   !localStorage.getItem(AUTH_STORAGE_KEYS.AUTH_TOKEN)
                 }
               >
-                {connectLoading
+                {connectLoading || dataWeb3Auth?.status === "connecting"
                   ? "Connecting..."
                   : dataWeb3Auth?.isInitializing
                     ? "Initializing..."
@@ -452,7 +452,7 @@ export function MyWalletPanel() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                   <span
-                    className="ml-4 cursor-pointer text-gray-400 hover:text-blue-600"
+                    className="ml-4 cursor-pointer text-gray-400 hover:text-gray-600"
                     onClick={() => setShowProfileOptions(true)}
                     aria-label="Profile Settings"
                     role="button"
