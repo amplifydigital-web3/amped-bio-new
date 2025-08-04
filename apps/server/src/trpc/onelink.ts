@@ -46,7 +46,7 @@ const appRouter = router({
         themeConfig.background.value = await getFileUrl({
           legacyImageField: null,
           imageFileId: themeConfig.background.fileId,
-        })
+        });
 
         console.info(`🎨 Resolved theme background file URL: ${themeConfig.background.value}`);
 
@@ -64,7 +64,10 @@ const appRouter = router({
       console.info(`📦 Blocks fetched: ${blocks.length} blocks found`);
 
       // Resolve user image URL using the helper function
-      const resolvedImageUrl = await getFileUrl({ legacyImageField: image, imageFileId: image_file_id });
+      const resolvedImageUrl = await getFileUrl({
+        legacyImageField: image,
+        imageFileId: image_file_id,
+      });
 
       const result = { user: { name, email, description, image: resolvedImageUrl }, theme, blocks };
       console.info("🔄 Preparing response with user data, theme, and blocks");

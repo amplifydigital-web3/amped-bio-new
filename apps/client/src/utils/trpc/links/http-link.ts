@@ -131,12 +131,29 @@ export const createHttpLink = () => {
       const isTokenExpiredError = async (response: Response) => {
         try {
           const errorData = await response.clone().json();
+
+          // Check array of errors format (batch requests)
+          if (Array.isArray(errorData) && errorData.length > 0) {
+            return errorData.some((error: any) => {
+              // First check: standard cause property with expected token value
+              if (error.error?.data?.cause === ERROR_CAUSES.TOKEN_EXPIRED) {
+                return true;
+              }
+
+              // Second check: error message contains "token expired"
+              if (error.error?.message?.toLowerCase().includes("token expired")) {
+                return true;
+              }
+
+              return false;
+            });
+          }
+
+          // Check single error format
           return (
-            errorData.some?.(
-              (error: any) => error.error?.data?.cause === ERROR_CAUSES.TOKEN_EXPIRED
-            ) ||
+            // Primary check: standard cause with expected value
             errorData.error?.data?.cause === ERROR_CAUSES.TOKEN_EXPIRED ||
-            // Additional checks for other error formats that may indicate expired token
+            // Secondary check: message contains "token expired"
             errorData.message?.toLowerCase().includes("token expired") ||
             errorData.error?.message?.toLowerCase().includes("token expired")
           );

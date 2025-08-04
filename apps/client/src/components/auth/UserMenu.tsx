@@ -15,11 +15,13 @@ import { useNavigate } from "react-router-dom";
 import { formatOnelink } from "@/utils/onelink";
 import { cn } from "@/lib/utils";
 import { useAccount } from "wagmi";
+import { useWalletContext } from "@/contexts/WalletContext";
 
 export function UserMenu() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [imageError, setImageError] = useState(false);
   const { authUser, signOut } = useAuth();
+  const walletContext = useWalletContext();
   const { profile, setUser, setDefault } = useEditor();
   const nav = useNavigate();
   const { address: walletAddress } = useAccount();
@@ -114,10 +116,10 @@ export function UserMenu() {
               )}
             </div>
             <div className="flex flex-col items-start transition-all duration-300 group-hover:translate-x-2 group-hover:opacity-0">
-              {walletAddress ? (
+              {walletAddress || walletContext.connecting ? (
                 <>
                   <span className="text-sm font-semibold text-gray-900">
-                    {formatAddress(walletAddress)}
+                    {walletContext.connecting ? "Connecting..." : formatAddress(walletAddress!)}
                   </span>
                   <span className="text-xs text-gray-500">@{authUser.onelink}</span>
                 </>

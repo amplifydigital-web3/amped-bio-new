@@ -37,7 +37,7 @@ export function Preview(_props: PreviewProps) {
   const { profile, blocks, theme } = useEditor();
   const themeConfig = theme.config;
 
-  console.info("blocks preview", blocks);
+  // console.info("blocks preview", blocks);
 
   return (
     <div className="flex flex-col h-screen">

@@ -59,11 +59,25 @@ export const createContext = ({ req, res }: CreateExpressContextOptions): Contex
  */
 const t = initTRPC.context<Context>().create({
   errorFormatter({ shape, error }) {
+    // Ensure cause is properly serialized as a string when it's a known error cause
+    let cause: unknown = error.cause;
+
+    if (cause && typeof cause === "string" && Object.values(ERROR_CAUSES).includes(cause as any)) {
+      // Keep the string as-is for known error causes
+      // No change needed
+    } else if (cause && typeof cause === "object" && Object.keys(cause as object).length === 0) {
+      // If it's an empty object and the error message indicates token expiration,
+      // set the proper error cause
+      if (error.message?.toLowerCase().includes("token expired")) {
+        cause = ERROR_CAUSES.TOKEN_EXPIRED;
+      }
+    }
+
     return {
       ...shape,
       data: {
         ...shape.data,
-        cause: error.cause,
+        cause,
       },
     };
   },
