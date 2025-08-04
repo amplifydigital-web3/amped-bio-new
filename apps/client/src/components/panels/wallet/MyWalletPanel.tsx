@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { useEditor } from "@/contexts/EditorContext";
 import { AUTH_STORAGE_KEYS } from "@/constants/auth-storage";
 import {
@@ -35,15 +35,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import {
-  useWeb3Auth,
-  useWeb3AuthConnect,
-  useWeb3AuthDisconnect,
-  useWeb3AuthUser,
-} from "@web3auth/modal/react";
+import { useWeb3Auth, useWeb3AuthConnect } from "@web3auth/modal/react";
 import { Switch } from "@/components/ui/Switch";
 import { useAccount, useBalance } from "wagmi";
 import { useAuth } from "@/contexts/AuthContext";
+import { trpcClient } from "@/utils/trpc";
+import { AUTH_CONNECTION, WALLET_CONNECTORS } from "@web3auth/modal";
 
 const StakedPoolsSection = lazy(() => import("./StakedPoolsSection"));
 const BalanceCard = lazy(() => import("./BalanceCard"));
@@ -60,19 +57,8 @@ export function MyWalletPanel() {
     loading: connectLoading,
     error: connectError,
   } = useWeb3AuthConnect();
-  const {
-    disconnect,
-    loading: disconnectLoading,
-    error: disconnectError,
-  } = useWeb3AuthDisconnect();
   const dataWeb3Auth = useWeb3Auth();
-  const { userInfo } = useWeb3AuthUser();
   const { address } = useAccount();
-
-  useEffect(() => {
-    uiConsole("Web3Auth User Info:", userInfo);
-    uiConsole("Wagmi Address:", address);
-  }, [userInfo, address]);
 
   useEffect(() => {
     uiConsole("Web3Auth Status:", {
@@ -214,6 +200,25 @@ export function MyWalletPanel() {
   const currentSymbol = isDemoMode ? demoData.symbol : balanceData?.symbol;
   const currentIsBalanceLoading = isDemoMode ? false : isBalanceLoading;
 
+  const connectWallet = useCallback(async () => {
+    try {
+      const token = await trpcClient.auth.getWalletToken.query();
+
+      await connectTo(WALLET_CONNECTORS.AUTH, {
+        authConnection: AUTH_CONNECTION.CUSTOM,
+        authConnectionId: import.meta.env.VITE_WEB3AUTH_AUTH_CONNECTION_ID,
+        idToken: token.walletToken,
+        extraLoginOptions: {
+          isUserIdCaseSensitive: false,
+        },
+      });
+
+      console.log("Wallet connected successfully");
+    } catch (error) {
+      console.error("Error fetching wallet token:", error);
+    }
+  }, [connectTo]);
+
   // Unconnected view
   const unloggedInView = (
     <div className="h-full flex items-center justify-center">
@@ -249,7 +254,14 @@ export function MyWalletPanel() {
               <ShimmerButton
                 className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600 px-8 py-3 text-lg"
                 shimmerColor="#60a5fa"
-                disabled={!localStorage.getItem(AUTH_STORAGE_KEYS.AUTH_TOKEN)}
+                onClick={() => connectWallet()}
+                disabled={
+                  connectLoading ||
+                  dataWeb3Auth?.isInitializing ||
+                  !dataWeb3Auth?.isInitialized ||
+                  !dataWeb3Auth?.web3Auth ||
+                  !localStorage.getItem(AUTH_STORAGE_KEYS.AUTH_TOKEN)
+                }
               >
                 {connectLoading
                   ? "Connecting..."
@@ -261,7 +273,7 @@ export function MyWalletPanel() {
                         ? "Loading Web3Auth..."
                         : !localStorage.getItem(AUTH_STORAGE_KEYS.AUTH_TOKEN)
                           ? "Please login first"
-                          : "Wallet connects automatically"}
+                          : "Connect Wallet"}
               </ShimmerButton>
 
               <div className="flex items-center space-x-2">

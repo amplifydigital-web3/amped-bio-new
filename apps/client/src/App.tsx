@@ -1,6 +1,4 @@
-import { Web3AuthProvider } from "@web3auth/modal/react";
-import web3AuthContextConfig from "./utils/web3authContext";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Editor } from "./pages/Editor";
 import { View } from "./pages/View";
@@ -16,16 +14,12 @@ import {
 } from "./pages/admin";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { initParticlesEngine } from "@tsparticles/react";
-//import { loadSlim } from '@tsparticles/slim';
 import { loadAll } from "@tsparticles/all";
 import { EmailVerification, EmailVerificationResent, PasswordReset } from "./pages/auth";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { queryClient } from "./utils/trpc";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "./contexts/AuthContext";
 import { EditorProvider } from "./contexts/EditorContext";
 import { useTokenExpiration } from "./hooks/useTokenExpiration";
-import { WagmiProvider } from "@web3auth/modal/react/wagmi";
 import { WalletProvider } from "./contexts/WalletContext";
 
 function AppRouter() {
@@ -81,54 +75,24 @@ function AppRouter() {
 }
 
 function App() {
-  const [init, setInit] = useState(false);
-
-  // Add CSS variables for consistent styling across auth pages
-  useEffect(() => {
-    // Add primary colors to root CSS variables if they don't exist already
-    const root = document.documentElement;
-    if (!root.style.getPropertyValue("--color-primary")) {
-      root.style.setProperty("--color-primary", "#3B82F6"); // Blue-500
-      root.style.setProperty("--color-primary-dark", "#2563EB"); // Blue-600
-    }
-  }, []);
-
-  // this should be run only once per application lifetime
   useEffect(() => {
     initParticlesEngine(async engine => {
-      // you can initiate the tsParticles instance (engine) here, adding custom shapes or presets
-      // this loads the tsparticles package bundle, it's the easiest method for getting everything ready
-      // starting from v2 you can add only the features you need reducing the bundle size
       await loadAll(engine);
-      //await loadFull(engine);
-      // await loadSlim(engine);
-      //await loadBasic(engine);
-    }).then(() => {
-      // setInit(true);
     });
   }, []);
 
-  // if (init) {
   return (
-    <Web3AuthProvider config={web3AuthContextConfig}>
-      <QueryClientProvider client={queryClient}>
-        <WagmiProvider>
-          <AuthProvider>
-            <WalletProvider>
-              <EditorProvider>
-                <BrowserRouter>
-                  <AppRouter />
-                </BrowserRouter>
-              </EditorProvider>
-            </WalletProvider>
-          </AuthProvider>
-        </WagmiProvider>
-      </QueryClientProvider>
-      <Toaster />
-    </Web3AuthProvider>
+    <AuthProvider>
+      <WalletProvider>
+        <EditorProvider>
+          <BrowserRouter>
+            <AppRouter />
+            <Toaster />
+          </BrowserRouter>
+        </EditorProvider>
+      </WalletProvider>
+    </AuthProvider>
   );
-  // }
-  // return <></>;
 }
 
 export default App;

@@ -13,7 +13,7 @@ import { useAccount } from "wagmi";
 import { trpcClient } from "../utils/trpc";
 import { useAuth } from "./AuthContext";
 
-const TIMEOUT_DURATION = 2_000; // 2 seconds in milliseconds
+const TIMEOUT_DURATION = 10_000; // 2 seconds in milliseconds
 const THROTTLE_DURATION = 3_000; // 3 seconds in milliseconds
 const INIT_THROTTLE_DURATION = 3_000; // 3 seconds throttle for initialization attempts
 
@@ -33,15 +33,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const lastConnectAttemptRef = useRef(0);
   const lastInitAttemptRef = useRef(0); // Ref to track last initialization attempt
 
-  const _connectingRef = useRef(false);
-  const [connecting, _setConnecting] = useState(false);
-
   const [lastTick, setLastTick] = useState(Date.now());
-
-  const setConnecting = useCallback((value: boolean) => {
-    _setConnecting(value);
-    _connectingRef.current = value;
-  }, []);
 
   useEffect(() => {
     if (error) {
@@ -59,8 +51,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
   const connectWallet = useCallback(async () => {
     try {
-      setConnecting(true);
-
       const token = await trpcClient.auth.getWalletToken.query();
 
       // await new Promise((_, reject) =>
@@ -79,10 +69,8 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       console.log("Wallet connected successfully");
     } catch (error) {
       console.error("Error fetching wallet token:", error);
-    } finally {
-      setConnecting(false);
     }
-  }, [connectTo, setConnecting]);
+  }, [connectTo]);
 
   // useEffect to force web3auth to be ready and initialized
   useEffect(() => {
@@ -119,7 +107,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       authUser &&
       dataWeb3Auth &&
       account.status !== "connected" &&
-      _connectingRef.current === false
+      dataWeb3Auth.status !== "connecting"
     ) {
       const now = Date.now();
       if (now - lastConnectAttemptRef.current >= THROTTLE_DURATION) {
@@ -127,7 +115,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
           authUser: !!authUser,
           dataWeb3Auth: !!dataWeb3Auth,
           account: account.status,
-          connecting: _connectingRef.current,
+          connecting: dataWeb3Auth.status,
         });
         lastConnectAttemptRef.current = now;
         connectWallet();
@@ -143,7 +131,9 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   }, [authUser, account.status, web3AuthDisconnect]);
 
   return (
-    <WalletContext.Provider value={{ connecting: connecting }}>{children}</WalletContext.Provider>
+    <WalletContext.Provider value={{ connecting: dataWeb3Auth.status === "connecting" }}>
+      {children}
+    </WalletContext.Provider>
   );
 };
 
