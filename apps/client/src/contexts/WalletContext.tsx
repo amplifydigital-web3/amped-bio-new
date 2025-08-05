@@ -19,9 +19,13 @@ const INIT_THROTTLE_DURATION = 3_000; // 3 seconds throttle for initialization a
 
 type WalletContextType = {
   connecting: boolean;
+  connect: () => Promise<void>;
 };
 
-const WalletContext = createContext<WalletContextType>({ connecting: false });
+const WalletContext = createContext<WalletContextType>({
+  connecting: false,
+  connect: async () => {},
+});
 
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const { authUser } = useAuth();
@@ -49,7 +53,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     }, 1000);
   }, []);
 
-  const connectWallet = useCallback(async () => {
+  const getTokenAndConnect = useCallback(async () => {
     try {
       const token = await trpcClient.auth.getWalletToken.query();
 
@@ -118,10 +122,10 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
           connecting: dataWeb3Auth.status,
         });
         lastConnectAttemptRef.current = now;
-        connectWallet();
+        getTokenAndConnect();
       }
     }
-  }, [authUser, dataWeb3Auth, account.status, connectWallet, lastTick]);
+  }, [authUser, dataWeb3Auth, account.status, getTokenAndConnect, lastTick]);
 
   useEffect(() => {
     if (!authUser && account.status === "connected") {
@@ -131,7 +135,9 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   }, [authUser, account.status, web3AuthDisconnect]);
 
   return (
-    <WalletContext.Provider value={{ connecting: dataWeb3Auth.status === "connecting" }}>
+    <WalletContext.Provider
+      value={{ connecting: dataWeb3Auth.status === "connecting", connect: getTokenAndConnect }}
+    >
       {children}
     </WalletContext.Provider>
   );

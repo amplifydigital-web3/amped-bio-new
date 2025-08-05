@@ -145,10 +145,12 @@ export function UserMenu() {
           <User className="w-4 h-4 mr-2" />
           <span>Edit Profile</span>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleNavigateToWallet}>
-          <Wallet className="w-4 h-4 mr-2" />
-          <span>My Wallet</span>
-        </DropdownMenuItem>
+        {import.meta.env.VITE_SHOW_WALLET === "true" && (
+          <DropdownMenuItem onClick={handleNavigateToWallet}>
+            <Wallet className="w-4 h-4 mr-2" />
+            <span>My Wallet</span>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onClick={handleNavigateToAccount}>
           <Settings className="w-4 h-4 mr-2" />
           <span>My Account</span>
