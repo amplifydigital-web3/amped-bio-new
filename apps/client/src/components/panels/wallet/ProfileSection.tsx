@@ -64,6 +64,7 @@ export function ProfileSection({
   const [currentNetwork, setCurrentNetwork] = useState<Network>("testnet");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [isSmallScreen, setIsSmallScreen] = useState(false);
 
   const handleNetworkSwitch = (network: Network) => {
     setCurrentNetwork(network);
@@ -84,6 +85,25 @@ export function ProfileSection({
     };
   }, []);
 
+  // Check screen size
+  useEffect(() => {
+    const checkScreenSize = () => {
+      // 640px is the default sm breakpoint in Tailwind
+      setIsSmallScreen(window.innerWidth <= 640);
+    };
+
+    // Initial check
+    checkScreenSize();
+
+    // Add event listener for window resize
+    window.addEventListener("resize", checkScreenSize);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener("resize", checkScreenSize);
+    };
+  }, []);
+
   const formatAddress = (address: string) => {
     if (!address) return "";
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -101,7 +121,7 @@ export function ProfileSection({
 
   return (
     <Card className="bg-gray-50 rounded-2xl border border-gray-200 shadow-sm relative mt-16">
-      <CardContent className="p-6">
+      <CardContent className={`p-6 ${isSmallScreen ? "pt-20" : ""}`}>
         {/* Profile Header */}
         <div className="flex items-start justify-between mb-4 sm:mb-6">
           {/* User Info (Left) */}

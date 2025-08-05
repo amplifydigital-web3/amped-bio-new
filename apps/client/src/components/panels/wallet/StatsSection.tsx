@@ -18,12 +18,12 @@ function StatBox({ icon: Icon, label, value, tooltip, color, soon }: StatBoxProp
       onMouseLeave={() => setShowTooltip(false)}
       onClick={() => setShowTooltip(!showTooltip)} // Touch support for tooltips
     >
-      <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
-        <div className={`p-1.5 sm:p-2 rounded-lg ${color} self-start sm:self-auto flex-shrink-0`}>
+      <div className="flex flex-row items-center space-x-3">
+        <div className={`p-1.5 sm:p-2 rounded-lg ${color} flex-shrink-0`}>
           <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
         </div>
-        <div className="flex-1 min-w-0 sm:text-left">
-          <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5 sm:mb-1 leading-tight">
+        <div className="flex-1 min-w-0 text-left">
+          <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5 leading-tight">
             {label}
           </div>
           <div className="text-sm sm:text-lg font-bold text-gray-900 truncate leading-tight">
@@ -108,7 +108,7 @@ export function StatsSection({ stats, balanceFormatted, balanceSymbol }: StatsSe
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
       {displayStats.map((stat, index) => (
         <StatBox
           key={index}
