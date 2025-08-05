@@ -23,7 +23,12 @@ const allNavItems = [
   { id: "appearance", icon: Palette, label: "Appearance", alwaysShow: true },
   { id: "effects", icon: Sparkles, label: "Effects", alwaysShow: true },
   { id: "blocks", icon: LayoutGrid, label: "Blocks", alwaysShow: true },
-  { id: "wallet", icon: Wallet, label: "My Wallet", alwaysShow: true },
+  {
+    id: "wallet",
+    icon: Wallet,
+    label: "My Wallet",
+    alwaysShow: import.meta.env.VITE_SHOW_WALLET === "true",
+  },
   { id: "reward", icon: Sparkle, label: "Reward", alwaysShow: false },
   { id: "account", icon: Settings, label: "Account", alwaysShow: true },
   {
