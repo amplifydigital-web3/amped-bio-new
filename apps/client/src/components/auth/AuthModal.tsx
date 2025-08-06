@@ -322,7 +322,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
             data-testid="auth-modal-title"
             aria-label="auth-modal-title"
           >
-            {form === "register" && "Create Account"}
+            {form === "register" && "Sign Up for Free"}
             {form === "login" && "Sign In"}
             {form === "reset" && "Reset Password"}
           </h2>
@@ -421,11 +421,11 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
             )}
             <div className="relative">
               <Input
-                label="Amped.Bio Unique URL"
+                label="Claim your name"
                 leftText="@"
                 error={registerErrors.onelink?.message}
                 required
-                aria-label="Amped.Bio Unique URL"
+                aria-label="Claim your name"
                 data-testid="register-onelink"
                 autoComplete="username"
                 placeholder="your-url"

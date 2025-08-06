@@ -67,6 +67,7 @@ export const env = cleanEnv(process.env, {
   // Faucet configuration
   FAUCET_PRIVATE_KEY: str({
     desc: "Private key for the faucet wallet to send tokens from",
+    default: "",
   }),
   FAUCET_AMOUNT: str({
     desc: "Amount of tokens to send from the faucet",

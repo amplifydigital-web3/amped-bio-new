@@ -20,7 +20,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
-    "prisma:migrate:dev": "prisma migrate dev"
+    "prisma:migrate:dev": "if [ \"$NODE_ENV\" = \"production\" ]; then echo \"You are in production. Use prisma:migrate instead.\"; exit 1; fi && prisma migrate dev"
   },
   "dependencies": {
     "@ampedbio/constants": "workspace:*",
