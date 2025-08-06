@@ -80,26 +80,6 @@ export const env = cleanEnv(process.env, {
     example: "true",
   }),
 
-  // Redis Configuration
-  REDIS_HOST: str({
-    desc: "Redis server host",
-    default: "localhost",
-    example: "redis",
-  }),
-  REDIS_PORT: port({
-    desc: "Redis server port",
-    default: 6379,
-  }),
-  REDIS_PASSWORD: str({
-    desc: "Redis server password",
-    default: "",
-    example: "your-redis-password",
-  }),
-  REDIS_PREFIX: str({
-    desc: "Prefix for Redis keys to avoid collisions",
-    default: "amped:",
-  }),
-
   // AWS S3 Configuration for profile picture uploads
   AWS_REGION: str({
     desc: "AWS Region",
