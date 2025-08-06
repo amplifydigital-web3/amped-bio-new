@@ -3,13 +3,26 @@ import { cleanEnv, str, port, bool } from "envalid";
 export const env = cleanEnv(process.env, {
   NODE_ENV: str({
     desc: "The environment the app is running in",
-    choices: ["development", "production", "test"],
+    choices: ["development", "production", "testing", "staging"],
     default: "development",
     example: "development",
   }),
   JWT_SECRET: str({
     desc: "Secret key for JWT token generation and verification",
     default: "your-default-jwt-secret-for-development",
+  }),
+  JWT_PRIVATE_KEY: str({
+    desc: "Private key for JWT signing",
+  }),
+  JWT_ISSUER: str({
+    desc: "Issuer of the JWT token",
+    default: "api.amped.bio",
+    example: "api.amped.bio",
+  }),
+  JWT_AUDIENCE: str({
+    desc: "Audience of the JWT token",
+    default: "amped.bio",
+    example: "amped.bio",
   }),
   PORT: port({
     desc: "Port for the server to listen on",
@@ -51,6 +64,22 @@ export const env = cleanEnv(process.env, {
     default: "noreply@amped.bio",
     example: "noreply@yourdomain.com",
   }),
+  // Faucet configuration
+  FAUCET_PRIVATE_KEY: str({
+    desc: "Private key for the faucet wallet to send tokens from",
+  }),
+  FAUCET_AMOUNT: str({
+    desc: "Amount of tokens to send from the faucet",
+    default: "0.001",
+    example: "0.001",
+  }),
+  FAUCET_MOCK_MODE: str({
+    desc: "If true, don't actually send funds but return a dummy transaction hash",
+    default: "false",
+    choices: ["true", "false"],
+    example: "true",
+  }),
+
   // AWS S3 Configuration for profile picture uploads
   AWS_REGION: str({
     desc: "AWS Region",
@@ -75,5 +104,9 @@ export const env = cleanEnv(process.env, {
     desc: "Custom S3 endpoint URL (for S3-compatible services like MinIO or S3Mock)",
     default: "",
     example: "http://localhost:9090",
+  }),
+  RECAPTCHA_SECRET_KEY: str({
+    desc: "Secret key for Google reCAPTCHA verification",
+    default: "",
   }),
 });

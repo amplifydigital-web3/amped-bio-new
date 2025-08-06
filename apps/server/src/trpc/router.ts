@@ -1,6 +1,6 @@
-import { createExpressMiddleware } from '@trpc/server/adapters/express';
+import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import mergedRouter from "./index";
-import { createContext } from './trpc';
+import { createContext } from "./trpc";
 
 // Create Express middleware adapter
 export const trpcMiddleware = createExpressMiddleware({

@@ -1,14 +1,39 @@
 import jwt from "jsonwebtoken";
 import { env } from "../env";
+import crypto from "crypto";
 
-interface TokenUser {
-  id: number;
-  email: string;
-  role: string;
-}
+const pk = crypto.createPrivateKey({
+  key: Buffer.from(env.JWT_PRIVATE_KEY, "utf8"),
+  format: "pem",
+  type: "pkcs8",
+});
 
-export const generateToken = (user: TokenUser): string => {
-  return jwt.sign({ id: user.id, email: user.email, role: user.role }, env.JWT_SECRET, {
-    expiresIn: "7d",
-  });
+const pb = crypto.createPublicKey(pk);
+
+export const JWT_KEYS = {
+  privateKey: pk,
+  publicKey: pb,
+  kid: crypto
+    .createHash("sha256")
+    .update(pb.export({ format: "pem", type: "spki" }))
+    .digest("hex")
+    .substring(0, 16), // Key ID for the JWT
+};
+
+export const generateAccessToken = (user: { id: number; email: string; role: string }): string => {
+  return jwt.sign(
+    {
+      sub: user.id.toString(),
+      email: user.email,
+      role: user.role,
+      aud: env.JWT_AUDIENCE, // Audience of the token
+      iss: env.JWT_ISSUER, // Issuer of the token
+    },
+    JWT_KEYS.privateKey,
+    {
+      expiresIn: "10m", // 10 minutes
+      algorithm: "RS256",
+      keyid: JWT_KEYS.kid,
+    }
+  );
 };

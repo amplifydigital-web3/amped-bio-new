@@ -2,15 +2,13 @@ import { BackgroundPicker } from "./BackgroundPicker";
 import { ButtonStylePicker } from "./ButtonStylePicker";
 import { ContainerStylePicker } from "./ContainerStylePicker";
 import { FontPicker } from "./FontPicker";
-import { useEditorStore } from "../../../store/editorStore";
+import { useEditor } from "../../../contexts/EditorContext";
 import { AlertTriangle } from "lucide-react";
 
 export function AppearancePanel() {
-  const theme = useEditorStore(state => state.theme);
+  const { theme, updateThemeConfig, setBackground } = useEditor();
   const themeConfig = theme.config;
-  const themeId = useEditorStore(state => state.theme.id);
-  const updateThemeConfig = useEditorStore(state => state.updateThemeConfig);
-  const setBackground = useEditorStore(state => state.setBackground);
+  const themeId = theme.id;
 
   // Check if theme is not customizable (admin theme)
   const isNotCustomizable = theme.user_id === null;
@@ -37,15 +35,18 @@ export function AppearancePanel() {
           <AlertTriangle className="w-5 h-5 text-orange-600 flex-shrink-0" />
           <div>
             <h3 className="text-sm font-medium text-orange-800">Theme Not Customizable</h3>
-            <p className="text-sm text-orange-700">This admin theme cannot be customized. Choose a different theme to access appearance options.</p>
+            <p className="text-sm text-orange-700">
+              This admin theme cannot be customized. Choose a different theme to access appearance
+              options.
+            </p>
           </div>
         </div>
       ) : (
         <>
-          <BackgroundPicker 
-            value={themeConfig.background} 
-            onChange={setBackground} 
-            themeId={themeId} 
+          <BackgroundPicker
+            value={themeConfig.background}
+            onChange={setBackground}
+            themeId={themeId}
           />
 
           <ContainerStylePicker

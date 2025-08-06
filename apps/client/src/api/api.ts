@@ -1,14 +1,13 @@
 import axios from "axios";
-import type { Theme } from "../types/editor";
 import { withRelatedProject } from "@vercel/related-projects";
 import { normalizeOnelink } from "@/utils/onelink";
+import { AUTH_STORAGE_KEYS } from "../constants/auth-storage";
 import type {
   DeleteData,
   BlockResponse,
   AddBlockData,
   OnelinkRedemptionResponse,
   OnelinkAvailabilityResponse,
-  OnelinkResponse,
   BlockType,
 } from "./api.types";
 
@@ -25,7 +24,7 @@ const api = axios.create({
 // Add interceptor to automatically add authentication token to requests
 api.interceptors.request.use(
   config => {
-    const token = localStorage.getItem("amped-bio-auth-token");
+    const token = localStorage.getItem(AUTH_STORAGE_KEYS.AUTH_TOKEN);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

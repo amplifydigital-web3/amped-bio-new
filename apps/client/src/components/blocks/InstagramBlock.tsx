@@ -1,7 +1,7 @@
 import { Instagram } from "lucide-react";
 import type { ThemeConfig } from "../../types/editor";
 import { MediaBlock } from "@/api/api.types";
-import { InstagramEmbed } from 'react-social-media-embed';
+import { InstagramEmbed } from "react-social-media-embed";
 
 interface InstagramBlockProps {
   block: MediaBlock;
@@ -31,7 +31,7 @@ export function InstagramBlock({ block, theme }: InstagramBlockProps) {
           Instagram
         </span>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
+      <div style={{ display: "flex", justifyContent: "center" }}>
         <InstagramEmbed url={block.config.url} />
       </div>
       {/* Display content as description if available */}

@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { useEditorStore } from "../store/editorStore";
+import { useEditor } from "../contexts/EditorContext";
 import { ParticlesBackground } from "./particles/ParticlesBackground";
 import { cn } from "../utils/cn";
 import {
@@ -27,26 +27,25 @@ const extractRootDomain = (url: string): string => {
   }
 };
 
-
 interface PreviewProps {
   isEditing: boolean;
   onelink: string;
 }
 
-export function Preview(props: PreviewProps) {
+export function Preview(_props: PreviewProps) {
   const [isMobile, setIsMobile] = React.useState(false);
-  const profile = useEditorStore(state => state.profile);
-  const blocks = useEditorStore(state => state.blocks);
-  const theme = useEditorStore(state => state.theme.config);
+  const { profile, blocks, theme } = useEditor();
+  const themeConfig = theme.config;
 
-  console.info("blocks preview", blocks);
+  // console.info("blocks preview", blocks);
 
   return (
     <div className="flex flex-col h-screen">
       <div
         className={cn(
           "flex-1 overflow-auto relative",
-          theme?.background?.type === "color" && !theme?.background?.value.includes("gradient")
+          themeConfig?.background?.type === "color" &&
+            !themeConfig?.background?.value?.includes("gradient")
             ? "bg-gray-100"
             : ""
         )}
@@ -56,35 +55,37 @@ export function Preview(props: PreviewProps) {
           className="fixed inset-0 w-full h-full z-[1]"
           style={{
             backgroundColor:
-              theme?.background?.type === "color" && !theme?.background?.value.includes("gradient")
-                ? theme?.background?.value
+              themeConfig?.background?.type === "color" &&
+              !themeConfig?.background?.value?.includes("gradient")
+                ? themeConfig?.background?.value || undefined
                 : undefined,
             background:
-              theme?.background?.type === "color" && theme?.background?.value.includes("gradient")
-                ? theme?.background?.value
+              themeConfig?.background?.type === "color" &&
+              themeConfig?.background?.value?.includes("gradient")
+                ? themeConfig?.background?.value || undefined
                 : undefined,
           }}
         >
-          {theme?.background?.type === "video" ? (
+          {themeConfig?.background?.type === "video" ? (
             <video
-              src={theme.background.value}
+              src={themeConfig.background.value || ""}
               className="w-full h-full object-cover"
               autoPlay
               muted
               loop
               playsInline
             />
-          ) : theme.background?.type === "image" ? (
+          ) : themeConfig?.background?.type === "image" ? (
             <div
               className="w-full h-full bg-no-repeat bg-center"
               style={{
-                backgroundImage: `url(${theme.background.value})`,
+                backgroundImage: `url(${themeConfig.background.value})`,
                 backgroundSize: "cover",
               }}
             />
           ) : null}
           <div className="absolute inset-0">
-            <ParticlesBackground effect={theme.particlesEffect ?? 0} />
+            <ParticlesBackground effect={themeConfig?.particlesEffect ?? 0} />
           </div>
         </div>
 
@@ -98,10 +99,10 @@ export function Preview(props: PreviewProps) {
           >
             {/* Container */}
             <div
-              className={cn("w-full space-y-8 p-8", getContainerStyle(theme.containerStyle))}
+              className={cn("w-full space-y-8 p-8", getContainerStyle(themeConfig?.containerStyle))}
               style={{
-                backgroundColor: `${theme.containerColor}${Math.round(
-                  (theme.transparency ?? 0) * 2.55
+                backgroundColor: `${themeConfig?.containerColor}${Math.round(
+                  (themeConfig?.transparency ?? 0) * 2.55
                 )
                   .toString(16)
                   .padStart(2, "0")}`,
@@ -123,40 +124,28 @@ export function Preview(props: PreviewProps) {
                 {profile.photoCmp && (
                   <div className="relative">
                     <img src={profile.photoCmp} alt={profile.name} className="w-32 h-auto" />
-                    {/* <div className="absolute -inset-1 rounded-full blur-lg bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-30 group-hover:opacity-50 transition-opacity" /> */}
                   </div>
                 )}
                 <div className="space-y-4">
                   <h1
                     className={cn(
                       "text-4xl font-bold tracking-tight",
-                      getHeroEffectStyle(theme.heroEffect)
+                      getHeroEffectStyle(themeConfig?.heroEffect)
                     )}
                     style={{
-                      fontFamily: theme.fontFamily,
-                      color: theme.fontColor,
+                      fontFamily: themeConfig?.fontFamily,
+                      color: themeConfig?.fontColor,
                     }}
                   >
                     {profile.name}
                   </h1>
-                  {/* {profile.title && (
-                    <p
-                      className="text-xl font-medium"
-                      style={{
-                        fontFamily: theme.fontFamily,
-                        color: theme.fontColor
-                      }}
-                    >
-                      {profile.title}
-                    </p>
-                  )} */}
-                  {profile.bio && (
-                    isHTML(profile.bio) ? (
+                  {profile.bio &&
+                    (isHTML(profile.bio) ? (
                       <p
                         className="text-lg max-w-2xl mx-auto leading-relaxed"
                         style={{
-                          fontFamily: theme.fontFamily,
-                          color: theme.fontColor,
+                          fontFamily: themeConfig?.fontFamily,
+                          color: themeConfig?.fontColor,
                           opacity: 0.9,
                         }}
                         dangerouslySetInnerHTML={{ __html: profile.bio }}
@@ -165,15 +154,14 @@ export function Preview(props: PreviewProps) {
                       <p
                         className="text-lg max-w-2xl mx-auto leading-relaxed"
                         style={{
-                          fontFamily: theme.fontFamily,
-                          color: theme.fontColor,
+                          fontFamily: themeConfig?.fontFamily,
+                          color: themeConfig?.fontColor,
                           opacity: 0.9,
                         }}
                       >
                         {profile.bio}
                       </p>
-                    )
-                  )}
+                    ))}
                 </div>
               </div>
 
@@ -201,14 +189,14 @@ export function Preview(props: PreviewProps) {
                         className={cn(
                           "w-full px-4 py-3 flex items-center space-x-3",
                           "transition-all duration-200",
-                          getButtonBaseStyle(theme.buttonStyle),
-                          getButtonEffectStyle(theme.buttonEffect)
+                          getButtonBaseStyle(themeConfig?.buttonStyle),
+                          getButtonEffectStyle(themeConfig?.buttonEffect)
                         )}
                         style={{
-                          backgroundColor: theme.buttonColor,
-                          fontFamily: theme.fontFamily,
-                          fontSize: theme.fontSize,
-                          color: theme.fontColor,
+                          backgroundColor: themeConfig?.buttonColor,
+                          fontFamily: themeConfig?.fontFamily,
+                          fontSize: themeConfig?.fontSize,
+                          color: themeConfig?.fontColor,
                         }}
                       >
                         {element}
@@ -217,9 +205,9 @@ export function Preview(props: PreviewProps) {
                     );
                   }
                   if (block.type === "media") {
-                    return <MediaBlock key={block.id} block={block} theme={theme} />;
+                    return <MediaBlock key={block.id} block={block} theme={themeConfig} />;
                   }
-                  return <TextBlock key={block.id} block={block} theme={theme} />;
+                  return <TextBlock key={block.id} block={block} theme={themeConfig} />;
                 })}
               </div>
 
@@ -229,8 +217,8 @@ export function Preview(props: PreviewProps) {
                   to="/register"
                   className="text-sm opacity-70 hover:opacity-100 transition-opacity"
                   style={{
-                    fontFamily: theme.fontFamily,
-                    color: theme.fontColor,
+                    fontFamily: themeConfig?.fontFamily,
+                    color: themeConfig?.fontColor,
                   }}
                 >
                   Claim your own Amped.Bio

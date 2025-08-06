@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "../../../utils/trpc/trpc";
-import { useEditorStore } from "../../../store/editorStore";
+import { useEditor } from "../../../contexts/EditorContext";
 import { useCollections } from "../../../hooks/useCollections";
 import type { MarketplaceTheme } from "../../../types/editor";
 import { MarketplaceHeader } from "./MarketplaceHeader";
@@ -13,14 +13,16 @@ import { CollectionsOverview } from "./CollectionsOverview";
 
 export function GalleryPanel() {
   const [activeCollection, setActiveCollection] = useState("");
-  const view = useEditorStore(state => state.marketplaceView);
-  const filter = useEditorStore(state => state.marketplaceFilter);
-  const sort = useEditorStore(state => state.marketplaceSort);
-  const setView = useEditorStore(state => state.setMarketplaceView);
-  const setFilter = useEditorStore(state => state.setMarketplaceFilter);
-  const setSort = useEditorStore(state => state.setMarketplaceSort);
-  const applyTheme = useEditorStore(state => state.applyTheme);
-  const updateThemeConfig = useEditorStore(state => state.updateThemeConfig);
+  const {
+    marketplaceView: view,
+    marketplaceFilter: filter,
+    marketplaceSort: sort,
+    setMarketplaceView: setView,
+    setMarketplaceFilter: setFilter,
+    setMarketplaceSort: setSort,
+    applyTheme,
+    updateThemeConfig,
+  } = useEditor();
 
   // Wrapper function to handle theme application without marking as changed
   const handleThemeApply = (themeConfig: MarketplaceTheme["theme"]) => {
@@ -30,22 +32,22 @@ export function GalleryPanel() {
       name: "Applied Theme",
       share_level: "public",
       share_config: {},
-      config: themeConfig
+      config: themeConfig,
     };
     applyTheme(themeToApply);
   };
 
   // Get collections (merged server + hardcoded)
   const { collections } = useCollections();
-  
+
   // Find the current collection
   const currentCollection = collections.find(c => c.id === activeCollection);
-  
+
   // For server collections, fetch themes from the server
   const isServerCollection = currentCollection?.isServer;
   const { data: serverThemes, isLoading: isLoadingServerThemes } = useQuery({
     ...trpc.themeGallery.getThemesByCategory.queryOptions({
-      id: parseInt(activeCollection)
+      id: parseInt(activeCollection),
     }),
     enabled: !!(isServerCollection && activeCollection && !isNaN(parseInt(activeCollection))),
   });
@@ -56,7 +58,7 @@ export function GalleryPanel() {
       // Show all themes from all collections (only hardcoded collections have themes)
       return collections.flatMap(c => c.themes || []);
     }
-    
+
     if (isServerCollection && serverThemes) {
       // For server collections, use themes from server
       // Convert server theme format to marketplace theme format
@@ -67,10 +69,10 @@ export function GalleryPanel() {
         thumbnail: theme.thumbnailImage?.url || "",
         tags: [] as string[], // Server themes don't have tags
         theme: theme.config || {},
-        user_id: theme.user?.id || null // null means admin theme (user_id = 0)
+        user_id: theme.user?.id || null, // null means admin theme (user_id = 0)
       }));
     }
-    
+
     // For hardcoded collections, use existing themes
     return currentCollection?.themes || [];
   };

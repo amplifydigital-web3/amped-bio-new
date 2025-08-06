@@ -1,136 +1,267 @@
-import { router, publicProcedure } from "./trpc";
+import { router, publicProcedure, privateProcedure } from "./trpc";
 import { z } from "zod";
-import { PrismaClient } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
+import { verifyRecaptcha } from "../utils/recaptcha";
 import crypto from "crypto";
 import { sendPasswordResetEmail } from "../utils/email/email";
 import { hashPassword, comparePasswords } from "../utils/password";
-import { generateToken } from "../utils/token";
+import { generateAccessToken } from "../utils/token";
+import { getFileUrl } from "../utils/fileUrlResolver";
 import {
   registerSchema,
   loginSchema,
   passwordResetRequestSchema,
   processPasswordResetSchema,
 } from "../schemas/auth.schema";
+import { serialize } from "cookie";
 import { env } from "../env";
+import { addDays } from "date-fns";
+import { prisma } from "../services/DB";
 
-const prisma = new PrismaClient();
+// Helper function to hash refresh tokens with SHA-256
+function hashRefreshToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+// Helper function to set refresh token cookie
+function setRefreshTokenCookie(ctx: any, token: string, expiresAt?: Date) {
+  // Determine the correct domain based on environment
+  let domain: string | undefined;
+
+  if (env.NODE_ENV === "production" || env.NODE_ENV === "staging") {
+    // Extract domain from FRONTEND_URL
+    if (env.FRONTEND_URL) {
+      try {
+        const url = new URL(env.FRONTEND_URL);
+        // Remove 'www.' if present and add leading dot for subdomain support
+        domain = url.hostname.replace(/^www\./, "");
+        domain = `.${domain}`;
+
+        console.log("Cookie debug - Using FRONTEND_URL domain:", domain);
+      } catch (error) {
+        console.error("Cookie debug - Invalid FRONTEND_URL:", env.FRONTEND_URL);
+      }
+    }
+  }
+  // For development, don't set domain (localhost)
+
+  const options = {
+    httpOnly: true,
+    secure: env.NODE_ENV === "production" || env.NODE_ENV === "staging",
+    sameSite: "lax" as const,
+    domain,
+    path: "/",
+    expires: expiresAt || new Date(0), // Default to immediate expiry for logout
+  };
+
+  console.log("Cookie debug - Final options:", options);
+
+  const cookieString = serialize("refresh-token", token, options);
+  const existingCookies = ctx.res.getHeader("Set-Cookie") || [];
+  const cookiesArray = Array.isArray(existingCookies)
+    ? existingCookies.map(String)
+    : [String(existingCookies)];
+
+  ctx.res.setHeader("Set-Cookie", [...cookiesArray, cookieString]);
+}
 
 export const authRouter = router({
   // Register a new user
-  register: publicProcedure
-    .input(registerSchema)
-    .mutation(async ({ input }) => {
-      const { onelink, email, password } = input;
+  register: publicProcedure.input(registerSchema).mutation(async ({ input, ctx }) => {
+    const { onelink, email, password, recaptchaToken } = input;
 
-      // Check if onelink already exists
-      const existingOnelinkCount = await prisma.user.count({
-        where: { onelink },
+    // Verify reCAPTCHA token
+    const isRecaptchaValid = await verifyRecaptcha(recaptchaToken);
+    if (!isRecaptchaValid) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "reCAPTCHA verification failed",
       });
+    }
 
-      if (existingOnelinkCount > 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "URL already taken",
-        });
-      }
+    // Check if onelink already exists
+    const existingOnelinkCount = await prisma.user.count({
+      where: { onelink },
+    });
 
-      // Check if email already exists
-      const existingUserCount = await prisma.user.count({
-        where: { email },
+    if (existingOnelinkCount > 0) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "URL already taken",
       });
+    }
 
-      if (existingUserCount > 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Email already registered",
-        });
-      }
+    // Check if email already exists
+    const existingUserCount = await prisma.user.count({
+      where: { email },
+    });
 
-      // Hash password and create remember token
-      const hashedPassword = await hashPassword(password);
-      const remember_token = crypto.randomBytes(32).toString("hex");
-
-    
-      let userRole = "user";
-      
-      if (env.isDevelopment) {
-        const totalUsersCount = await prisma.user.count();
-        const isFirstUser = totalUsersCount === 0;
-        userRole = isFirstUser ? "user,admin" : "user";
-      }
-
-      // Create user
-      const result = await prisma.user.create({
-        data: {
-          onelink,
-          name: onelink,
-          email,
-          password: hashedPassword,
-          remember_token,
-          role: userRole,
-        },
+    if (existingUserCount > 0) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Email already registered",
       });
+    }
 
-      // Send verification email
-      // try {
-      //   await sendEmailVerification(email, remember_token);
-      // } catch (error) {
-      //   console.error("Error sending verification email:", error);
-      //   // We continue even if email fails
-      // }
+    // Hash password and create remember token
+    const hashedPassword = await hashPassword(password);
+    const remember_token = crypto.randomBytes(32).toString("hex");
 
-      // Return user data and token
-      return {
-        success: true,
-        user: { id: result.id, email, onelink },
-        token: generateToken({ id: result.id, email, role: result.role }),
-      };
-    }),
+    let userRole = "user";
+
+    if (env.isDevelopment) {
+      const totalUsersCount = await prisma.user.count();
+      const isFirstUser = totalUsersCount === 0;
+      userRole = isFirstUser ? "user,admin" : "user";
+    }
+
+    // Create user
+    const result = await prisma.user.create({
+      data: {
+        onelink,
+        name: onelink,
+        email,
+        password: hashedPassword,
+        remember_token,
+        role: userRole,
+      },
+    });
+
+    // Send verification email
+    // try {
+    //   await sendEmailVerification(email, remember_token);
+    // } catch (error) {
+    //   console.error("Error sending verification email:", error);
+    //   // We continue even if email fails
+    // }
+
+    const refreshToken = crypto.randomBytes(32).toString("hex");
+    const hashedRefreshToken = hashRefreshToken(refreshToken);
+
+    const token = await prisma.refreshToken.create({
+      data: {
+        userId: result.id,
+        token: hashedRefreshToken,
+        expiresAt: addDays(new Date(), 30), // 30 days
+      },
+    });
+
+    // Set refresh token cookie
+    setRefreshTokenCookie(ctx, refreshToken, token.expiresAt);
+
+    return {
+      user: { id: result.id, email, onelink, role: result.role },
+      accessToken: generateAccessToken({ id: result.id, email, role: result.role }),
+    };
+  }),
 
   // Login user
-  login: publicProcedure
-    .input(loginSchema)
-    .mutation(async ({ input }) => {
-      const { email, password } = input;
+  login: publicProcedure.input(loginSchema).mutation(async ({ input, ctx }) => {
+    const { email, password, recaptchaToken } = input;
 
-      // Find user
-      const user = await prisma.user.findUnique({
-        where: { email },
+    // Verify reCAPTCHA token
+    const isRecaptchaValid = await verifyRecaptcha(recaptchaToken);
+    if (!isRecaptchaValid) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "reCAPTCHA verification failed",
       });
+    }
 
-      if (!user) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Invalid credentials",
-        });
-      }
+    // Find user
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
 
-      // Verify password
-      const isValidPassword = await comparePasswords(password, user.password);
+    if (!user) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Invalid credentials",
+      });
+    }
 
-      if (!isValidPassword) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "Invalid credentials",
-        });
-      }
+    // Verify password
+    const isValidPassword = await comparePasswords(password, user.password);
 
-      const emailVerified = user.email_verified_at !== null;
+    if (!isValidPassword) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Invalid credentials",
+      });
+    }
 
-      // Return user data and token
-      return {
-        success: true,
-        user: { id: user.id, email: user.email, onelink: user.onelink!, emailVerified },
-        token: generateToken({ id: user.id, email: user.email, role: user.role }),
-      };
-    }),
+    const emailVerified = user.email_verified_at !== null;
+
+    const refreshToken = crypto.randomBytes(32).toString("hex");
+    const hashedRefreshToken = hashRefreshToken(refreshToken);
+
+    const token = await prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        token: hashedRefreshToken,
+        expiresAt: addDays(new Date(), 30), // 30 days
+      },
+    });
+
+    // Set refresh token cookie
+    setRefreshTokenCookie(ctx, refreshToken, token.expiresAt);
+
+    // Resolve user image URL (same as "me")
+    const imageUrl = await getFileUrl({
+      legacyImageField: user.image,
+      imageFileId: user.image_file_id,
+    });
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        onelink: user.onelink,
+        emailVerified,
+        role: user.role,
+        image: imageUrl,
+      },
+      accessToken: generateAccessToken({ id: user.id, email: user.email, role: user.role }),
+    };
+  }),
+
+  logout: privateProcedure.mutation(async ({ ctx }) => {
+    const refreshToken = ctx.req.cookies["refresh-token"];
+
+    if (!refreshToken) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "No refresh token provided",
+      });
+    }
+
+    const hashedRefreshToken = hashRefreshToken(refreshToken);
+
+    // Delete the refresh token
+    await prisma.refreshToken.deleteMany({
+      where: { token: hashedRefreshToken },
+    });
+
+    // Clear the cookie
+    setRefreshTokenCookie(ctx, "");
+
+    return { success: true, message: "Logged out successfully" };
+  }),
 
   // Password reset request
   passwordResetRequest: publicProcedure
     .input(passwordResetRequestSchema)
     .mutation(async ({ input }) => {
-      const { email } = input;
+      const { email, recaptchaToken } = input;
+
+      // Verify reCAPTCHA token
+      const isRecaptchaValid = await verifyRecaptcha(recaptchaToken);
+      if (!isRecaptchaValid) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "reCAPTCHA verification failed",
+        });
+      }
 
       // Find user
       const user = await prisma.user.findUnique({
@@ -177,6 +308,84 @@ export const authRouter = router({
       };
     }),
 
+  me: privateProcedure.query(async ({ ctx }) => {
+    const userId = ctx.user.sub;
+
+    // Find user
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Invalid credentials",
+      });
+    }
+
+    // Resolve user image URL
+    const imageUrl = await getFileUrl({
+      legacyImageField: user.image,
+      imageFileId: user.image_file_id,
+    });
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        onelink: user.onelink,
+        emailVerified: user.email_verified_at !== null,
+        role: user.role,
+        image: imageUrl,
+      },
+    };
+  }),
+
+  refreshToken: publicProcedure.mutation(async ({ ctx }) => {
+    // delete all expired tokens
+    await prisma.refreshToken.deleteMany({
+      where: {
+        expiresAt: {
+          lt: new Date(),
+        },
+      },
+    });
+
+    const refreshToken = ctx.req.cookies["refresh-token"];
+
+    if (!refreshToken) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "No refresh token provided",
+      });
+    }
+
+    const hashedRefreshToken = hashRefreshToken(refreshToken);
+
+    // Find existing refresh token
+    const existingToken = await prisma.refreshToken.findFirst({
+      where: { token: hashedRefreshToken },
+      select: {
+        user: true,
+      },
+    });
+
+    if (!existingToken) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Invalid refresh token",
+      });
+    }
+
+    return {
+      accessToken: generateAccessToken({
+        id: existingToken.user.id,
+        email: existingToken.user.email,
+        role: existingToken.user.role,
+      }),
+    };
+  }),
+
   // Process password reset
   processPasswordReset: publicProcedure
     .input(processPasswordResetSchema)
@@ -217,11 +426,9 @@ export const authRouter = router({
       });
 
       return {
-        success: true,
         message: "Password has been reset successfully",
       };
     }),
-
 
   // Verify email
   verifyEmail: publicProcedure
@@ -259,10 +466,32 @@ export const authRouter = router({
       });
 
       return {
-        success: true,
         message: "Email verified successfully",
         onelink: result.onelink,
         email,
       };
     }),
+
+  getWalletToken: privateProcedure.query(async ({ ctx }) => {
+    const userId = ctx.user.sub;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Usuário não encontrado",
+      });
+    }
+
+    return {
+      walletToken: generateAccessToken({
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      }),
+    };
+  }),
 });

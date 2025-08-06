@@ -1,16 +1,14 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
 import { ValidatedRequest } from "../middleware/validation.middleware";
 import { DeleteUserInput, EditUserInput } from "../schemas/user.schema";
-
-const prisma = new PrismaClient();
+import { prisma } from "../services/DB";
 
 export const userController = {
   async edit(req: Request, res: Response) {
     console.group("🔄 User Edit Operation");
     console.info("📝 Starting user edit process");
 
-    const userId = req.user.id;
+    const userId = req.user.sub;
     console.info(`👤 User ID: ${userId}`);
 
     const validatedReq = req as ValidatedRequest<EditUserInput>;
@@ -64,7 +62,7 @@ export const userController = {
     console.group("🔍 User Get Operation");
     console.info("📝 Starting user fetch process");
 
-    const userId = req.user.id;
+    const userId = req.user.sub;
     console.info(`👤 User ID: ${userId}`);
 
     try {
@@ -137,7 +135,7 @@ export const userController = {
     console.group("❌ User Delete Operation");
     console.info("📝 Starting user deletion process");
 
-    const userId = req.user.id;
+    const userId = req.user.sub;
     console.info(`👤 User ID: ${userId}`);
 
     const validatedReq = req as ValidatedRequest<DeleteUserInput>;

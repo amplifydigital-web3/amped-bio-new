@@ -1,12 +1,10 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
 import { AddBlockInput, EditBlocksInput } from "../schemas/block.schema";
-
-const prisma = new PrismaClient();
+import { prisma } from "../services/DB";
 
 export const blockController = {
   async editBlocks(req: Request, res: Response) {
-    const user_id = req.user.id;
+    const user_id = req.user.sub;
     const { blocks } = req.body as EditBlocksInput;
 
     try {
@@ -110,7 +108,7 @@ export const blockController = {
   },
 
   async getAll(req: Request, res: Response) {
-    const user_id = req.user.id;
+    const user_id = req.user.sub;
 
     try {
       const result = await prisma.block.findMany({
@@ -130,7 +128,7 @@ export const blockController = {
 
   async delete(req: Request, res: Response) {
     const { id } = req.params;
-    const user_id = req.user.id;
+    const user_id = req.user.sub;
 
     const numericId = Number(id);
     if (Number.isNaN(numericId)) {
@@ -166,7 +164,7 @@ export const blockController = {
   },
 
   async addBlock(req: Request, res: Response) {
-    const user_id = req.user.id;
+    const user_id = req.user.sub;
 
     try {
       const { type, order, config } = req.body as AddBlockInput;

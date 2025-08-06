@@ -1,5 +1,4 @@
 import { privateProcedure, router } from "./trpc";
-import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { s3Service, FileCategory } from "../services/S3Service";
@@ -13,8 +12,7 @@ import {
   MAX_BACKGROUND_FILE_SIZE,
   ThemeConfig,
 } from "@ampedbio/constants";
-
-const prisma = new PrismaClient();
+import { prisma } from "../services/DB";
 
 const requestPresignedUrlSchema = z.object({
   contentType: z.string().refine(value => ALLOWED_AVATAR_FILE_TYPES.includes(value), {
@@ -70,7 +68,7 @@ export const uploadRouter = router({
   requestAvatarPresignedUrl: privateProcedure
     .input(requestPresignedUrlSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.id;
+      const userId = ctx.user.sub;
 
       try {
         if (input.fileSize > MAX_AVATAR_FILE_SIZE) {
@@ -113,7 +111,7 @@ export const uploadRouter = router({
   requestThemeBackgroundUrl: privateProcedure
     .input(requestThemeBackgroundUrlSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.id;
+      const userId = ctx.user.sub;
 
       try {
         if (input.fileSize > MAX_BACKGROUND_FILE_SIZE) {
@@ -192,7 +190,7 @@ export const uploadRouter = router({
   confirmThemeBackgroundUpload: privateProcedure
     .input(confirmThemeBackgroundSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.id;
+      const userId = ctx.user.sub;
 
       try {
         // Get the uploaded file record first to get the fileKey
@@ -355,7 +353,7 @@ export const uploadRouter = router({
   confirmProfilePictureUpload: privateProcedure
     .input(confirmUploadSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.id;
+      const userId = ctx.user.sub;
 
       try {
         // Get the uploaded file record first to get the fileKey
@@ -458,7 +456,7 @@ export const uploadRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const userId = ctx.user.id;
+      const userId = ctx.user.sub;
 
       try {
         const file = await uploadedFileService.getFileById(input.fileId);

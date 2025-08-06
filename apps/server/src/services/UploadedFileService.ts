@@ -1,6 +1,5 @@
-import { FileStatus, PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { FileStatus } from "@prisma/client";
+import { prisma } from "./DB";
 
 export interface CreateUploadedFileParams {
   s3Key: string;

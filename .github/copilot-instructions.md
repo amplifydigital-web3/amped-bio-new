@@ -1,14 +1,30 @@
-If you need to write commnets, write them only in english.
-Use only zod to create schemas.
-Prefer to use tailwind classes to do style instead of creating css files.
-Write UI texts only in english.
-Create functions, classes, variables only with english names.
-We use pnpm, turborepo and pnpm-workspace.
-At our server we are implementing trpc to replace express REST.
-To run prisma commands you need to use the filter `--filter=server` to run them only in the server package.
-After change prisma schema and create a new migration run `pnpm --filter server run prisma:generate`
-Use only lucide-react for icons or react-icons if the icon is not available in lucide-react.
-Use only tailwind for styles.
-When user asks you to create an alert or a warning, use the tailwind classes and add a icon from lucide.
-If you want something both in the server and client, use the package "constants" located in `packages/constants` to put the code there. 
-NEVER screate scripts to test some part of the code, just do what the user asks you to do.
+Project: Amped Bio
+
+Core Mandates:
+- Adherence to Conventions: Always prioritize and strictly follow project conventions (naming, formatting, structure, architectural patterns). Analyze surrounding code, tests, and configuration first.
+- Language: Write all new code, comments, and UI texts exclusively in English.
+- Focus & Scope: Address only the user's explicit request. Do not create temporary test scripts or exceed the clear scope of the request.
+- Clarity & Planning: For ambiguous or complex requests, explain your proposed plan briefly before proceeding.
+
+Tooling and Libraries:
+- Package Management: Use pnpm for all operations.
+- Monorepo Management: Leverage Turborepo and pnpm-workspace.
+- Styling: Use Tailwind CSS exclusively; do not modify or add separate CSS files.
+- Icons: Prefer lucide-react; use react-icons only if necessary.
+- Schema Validation: Use zod for all schema definitions and validations.
+- Alerts & Warnings: Style alerts with Tailwind CSS and an appropriate lucide-react icon.
+
+Project Specifics:
+- Client Location: apps/client.
+- Server Location: apps/server.
+- Shared Code: Use packages/constants for code shared between client and server.
+- Backend API: Use tRPC for type-safe API development instead of Express REST APIs.
+- Prisma Migrations: After schema changes, run "pnpm --filter server run prisma:generate".
+- Client Package Installation: For client-specific commands, filter by client (e.g., "pnpm --filter client add <package-name>" or "npx --filter client <command>").
+
+General Best Practices (for LLM):
+- Code Quality: Ensure clean, readable, maintainable code following lint and formatting standards.
+- Testing: Review existing tests and update or add new ones when necessary.
+- Error Handling: Implement robust error handling.
+- Modularity: Design solutions for modularity and reusability.
+- Security: Always follow security best practices.

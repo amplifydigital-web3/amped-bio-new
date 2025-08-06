@@ -43,8 +43,9 @@ export function EmailVerification() {
     }
 
     // Use the API function to verify the email
-    trpcClient.auth.verifyEmail.mutate({token, email})
-      .then((data) => {
+    trpcClient.auth.verifyEmail
+      .mutate({ token, email })
+      .then(data => {
         if (data.success) {
           setStatus("success");
           if (data.onelink) setOnelink(data.onelink);

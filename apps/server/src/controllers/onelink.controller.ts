@@ -1,9 +1,7 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
 import { ValidatedRequest } from "../middleware/validation.middleware";
 import { OnelinkParamInput, RedeemOnelinkInput } from "../schemas/onelink.schema";
-
-const prisma = new PrismaClient();
+import { prisma } from "../services/DB";
 
 export const onelinkController = {
   async getOnelink(req: Request, res: Response) {
@@ -97,7 +95,7 @@ export const onelinkController = {
     console.info("📥 Received request to redeem onelink");
 
     const { newOnelink } = (req as ValidatedRequest<RedeemOnelinkInput>).validatedData;
-    const userId = req.user?.id; // Get user ID from authentication middleware
+    const userId = req.user?.sub; // Get user ID from authentication middleware
 
     if (!userId) {
       console.info("❌ User not authenticated");

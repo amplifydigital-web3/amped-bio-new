@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { AlertTriangle, Mail } from "lucide-react";
 import { resendEmailVerification } from "@/api/api";
-import { useAuthStore } from "@/store/authStore";
+import { useAuth } from "@/contexts/AuthContext";
 
 const EmailVerificationBanner = () => {
   const [isResending, setIsResending] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
-  const { authUser } = useAuthStore();
+  const { authUser } = useAuth();
 
   if (authUser === null) {
     return null;

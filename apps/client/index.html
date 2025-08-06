@@ -2,10 +2,24 @@
 <html lang="en">
 
 <head>
+  <script type="module">
+      import { Buffer } from "buffer";
+      import process from "process";
+      window.Buffer = Buffer;
+      window.process = process; 
+  </script>  
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Amped.Bio</title>
   <link rel="icon" type="image/png" href="/src/assets/favicon.png">
+  <!-- web3auth -->
+  <link rel="preconnect" href="https://wallet.web3auth.io" crossorigin>
+  <link rel="preconnect" href="https://assets.web3auth.io" crossorigin>
+  <link rel="preconnect" href="https://auth.web3auth.io" crossorigin>
+  <link rel="preload" href="https://assets.web3auth.io/v1/wallet-registry.json" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="https://api.web3auth.io/signer-service/api/v2/configuration?project_id=%VITE_WEB3AUTH_CLIENT_ID%&network=%VITE_WEB3AUTH_NETWORK%" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="https://wallet.web3auth.io/v5/frame" crossorigin="anonymous">
+  <!-- web3auth -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
@@ -26,5 +40,4 @@
     gtag('config', 'G-SK6H61G3S1');
   </script>
 </body>
-
 </html>

@@ -102,7 +102,7 @@ export function PasswordReset() {
       // Use tRPC to process the password reset
       const response = await trpcClient.auth.processPasswordReset.mutate({
         token: data.token,
-        newPassword: data.password
+        newPassword: data.password,
       });
 
       if (response.success) {
@@ -200,7 +200,10 @@ export function PasswordReset() {
               </div>
 
               <div className="form-group space-y-2">
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="confirmPassword"
+                  className="block text-sm font-medium text-gray-700"
+                >
                   Confirm Password
                 </label>
                 <input

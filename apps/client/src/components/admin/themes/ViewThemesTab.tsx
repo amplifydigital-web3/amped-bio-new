@@ -1,11 +1,25 @@
 import { useState } from "react";
 import { trpc, trpcClient } from "../../../utils/trpc";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Search, Eye, Edit, Trash2, Users, Calendar, Folder, Image, AlertTriangle, X, Loader2 } from "lucide-react";
+import {
+  Search,
+  Eye,
+  Edit,
+  Trash2,
+  Users,
+  Calendar,
+  Folder,
+  Image,
+  AlertTriangle,
+  X,
+  Loader2,
+} from "lucide-react";
 import { toast } from "react-hot-toast";
 
-interface ViewThemesTabProps {
-  // No props needed anymore - using toast notifications
+interface DeleteModalState {
+  isOpen: boolean;
+  theme: any | null;
+  confirmationText: string;
 }
 
 interface DeleteModalState {
@@ -14,22 +28,28 @@ interface DeleteModalState {
   confirmationText: string;
 }
 
-export function ViewThemesTab({}: ViewThemesTabProps) {
+export function ViewThemesTab() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<number | undefined>(undefined);
   const [currentPage, setCurrentPage] = useState(1);
-  const [deleteModal, setDeleteModal] = useState<DeleteModalState>({ isOpen: false, theme: null, confirmationText: "" });
+  const [deleteModal, setDeleteModal] = useState<DeleteModalState>({
+    isOpen: false,
+    theme: null,
+    confirmationText: "",
+  });
   const [previewLoading, setPreviewLoading] = useState<number | null>(null);
   const [editLoading, setEditLoading] = useState<number | null>(null);
   const limit = 10;
 
   // Get theme collections for filtering
-  const { data: categories } = useQuery(
-    trpc.admin.themes.getThemeCategories.queryOptions()
-  );
+  const { data: categories } = useQuery(trpc.admin.themes.getThemeCategories.queryOptions());
 
   // Get themes with filtering and pagination
-  const { data: themesData, isLoading, refetch } = useQuery(
+  const {
+    data: themesData,
+    isLoading,
+    refetch,
+  } = useQuery(
     trpc.admin.themes.getThemes.queryOptions({
       page: currentPage,
       limit,
@@ -43,9 +63,10 @@ export function ViewThemesTab({}: ViewThemesTabProps) {
     mutationFn: (themeId: number) => trpcClient.admin.themes.deleteTheme.mutate({ id: themeId }),
     onSuccess: (data: any) => {
       const filesDeleted = data?.deletedFiles || 0;
-      const message = filesDeleted > 0 
-        ? `${data?.message || "Theme deleted successfully"} (${filesDeleted} file${filesDeleted > 1 ? 's' : ''} also removed)`
-        : data?.message || "Theme deleted successfully";
+      const message =
+        filesDeleted > 0
+          ? `${data?.message || "Theme deleted successfully"} (${filesDeleted} file${filesDeleted > 1 ? "s" : ""} also removed)`
+          : data?.message || "Theme deleted successfully";
       toast.success(message);
       refetch(); // Refresh the themes list
       setDeleteModal({ isOpen: false, theme: null, confirmationText: "" });
@@ -91,24 +112,24 @@ export function ViewThemesTab({}: ViewThemesTabProps) {
   const isDeleteConfirmed = deleteModal.confirmationText.toLowerCase() === "delete";
 
   const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Unknown';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
+    if (!dateString) return "Unknown";
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     });
   };
 
   const getShareLevelColor = (shareLevel: string) => {
     switch (shareLevel) {
-      case 'public':
-        return 'bg-green-100 text-green-800';
-      case 'private':
-        return 'bg-red-100 text-red-800';
-      case 'shared':
-        return 'bg-yellow-100 text-yellow-800';
+      case "public":
+        return "bg-green-100 text-green-800";
+      case "private":
+        return "bg-red-100 text-red-800";
+      case "shared":
+        return "bg-yellow-100 text-yellow-800";
       default:
-        return 'bg-gray-100 text-gray-800';
+        return "bg-gray-100 text-gray-800";
     }
   };
 
@@ -137,7 +158,7 @@ export function ViewThemesTab({}: ViewThemesTabProps) {
               type="text"
               placeholder="Search admin themes..."
               value={searchTerm}
-              onChange={(e) => handleSearch(e.target.value)}
+              onChange={e => handleSearch(e.target.value)}
               className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
@@ -145,11 +166,13 @@ export function ViewThemesTab({}: ViewThemesTabProps) {
           {/* Collection Filter */}
           <select
             value={selectedCategory || ""}
-            onChange={(e) => handleCategoryFilter(e.target.value ? Number(e.target.value) : undefined)}
+            onChange={e =>
+              handleCategoryFilter(e.target.value ? Number(e.target.value) : undefined)
+            }
             className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">All Collections</option>
-            {categories?.map((category) => (
+            {categories?.map(category => (
               <option key={category.id} value={category.id}>
                 {category.title}
               </option>
@@ -188,10 +211,12 @@ export function ViewThemesTab({}: ViewThemesTabProps) {
                       <Image className="h-8 w-8 text-gray-400" />
                     </div>
                   )}
-                  
+
                   {/* Share Level Badge */}
                   <div className="absolute top-2 right-2">
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getShareLevelColor(theme.share_level)}`}>
+                    <span
+                      className={`px-2 py-1 text-xs font-medium rounded-full ${getShareLevelColor(theme.share_level)}`}
+                    >
                       {theme.share_level}
                     </span>
                   </div>
@@ -202,11 +227,9 @@ export function ViewThemesTab({}: ViewThemesTabProps) {
                   <h3 className="font-medium text-gray-900 mb-2">
                     {theme.name || "Untitled Theme"}
                   </h3>
-                  
+
                   {theme.description && (
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                      {theme.description}
-                    </p>
+                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">{theme.description}</p>
                   )}
 
                   {/* Meta Info */}
@@ -217,12 +240,12 @@ export function ViewThemesTab({}: ViewThemesTabProps) {
                         <span>{theme.category.title}</span>
                       </div>
                     )}
-                    
+
                     <div className="flex items-center gap-1">
                       <Users className="h-3 w-3" />
                       <span>Admin Theme</span>
                     </div>
-                    
+
                     <div className="flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
                       <span>Updated {formatDate(theme.updated_at)}</span>
@@ -290,9 +313,10 @@ export function ViewThemesTab({}: ViewThemesTabProps) {
         {pagination && pagination.pages > 1 && (
           <div className="flex items-center justify-between mt-8">
             <div className="text-sm text-gray-500">
-              Showing {((currentPage - 1) * limit) + 1} to {Math.min(currentPage * limit, pagination.total)} of {pagination.total} admin themes
+              Showing {(currentPage - 1) * limit + 1} to{" "}
+              {Math.min(currentPage * limit, pagination.total)} of {pagination.total} admin themes
             </div>
-            
+
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setCurrentPage(currentPage - 1)}
@@ -302,7 +326,7 @@ export function ViewThemesTab({}: ViewThemesTabProps) {
                 {isLoading && currentPage > 1 && <Loader2 className="h-3 w-3 animate-spin" />}
                 Previous
               </button>
-              
+
               {/* Page Numbers */}
               <div className="flex gap-1">
                 {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
@@ -315,7 +339,7 @@ export function ViewThemesTab({}: ViewThemesTabProps) {
                     pageNum = start + i;
                     if (pageNum > end) return null;
                   }
-                  
+
                   return (
                     <button
                       key={pageNum}
@@ -327,20 +351,24 @@ export function ViewThemesTab({}: ViewThemesTabProps) {
                           : "border-gray-300 hover:bg-gray-50"
                       }`}
                     >
-                      {isLoading && currentPage === pageNum && <Loader2 className="h-3 w-3 animate-spin" />}
+                      {isLoading && currentPage === pageNum && (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      )}
                       {pageNum}
                     </button>
                   );
                 })}
               </div>
-              
+
               <button
                 onClick={() => setCurrentPage(currentPage + 1)}
                 disabled={currentPage === pagination.pages || isLoading}
                 className="px-3 py-1 text-sm border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 flex items-center gap-1"
               >
                 Next
-                {isLoading && currentPage < pagination.pages && <Loader2 className="h-3 w-3 animate-spin" />}
+                {isLoading && currentPage < pagination.pages && (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                )}
               </button>
             </div>
           </div>
@@ -356,12 +384,8 @@ export function ViewThemesTab({}: ViewThemesTabProps) {
                 <AlertTriangle className="h-6 w-6 text-red-600" />
               </div>
               <div>
-                <h3 className="text-lg font-medium text-gray-900">
-                  Delete Theme
-                </h3>
-                <p className="text-sm text-gray-500">
-                  This action cannot be undone.
-                </p>
+                <h3 className="text-lg font-medium text-gray-900">Delete Theme</h3>
+                <p className="text-sm text-gray-500">This action cannot be undone.</p>
               </div>
               <button
                 onClick={handleDeleteCancel}
@@ -373,30 +397,35 @@ export function ViewThemesTab({}: ViewThemesTabProps) {
 
             <div className="mb-6">
               <p className="text-sm text-gray-700 mb-2">
-                Are you sure you want to delete the theme <strong>"{deleteModal.theme.name || 'Untitled Theme'}"</strong>?
+                Are you sure you want to delete the theme{" "}
+                <strong>"{deleteModal.theme.name || "Untitled Theme"}"</strong>?
               </p>
               <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-3">
                 <p className="text-sm text-yellow-800">
-                  <strong>Warning:</strong> This theme will only be deleted if no users are currently using it. 
-                  If users are using this theme, the deletion will be prevented.
+                  <strong>Warning:</strong> This theme will only be deleted if no users are
+                  currently using it. If users are using this theme, the deletion will be prevented.
                 </p>
               </div>
               <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
                 <p className="text-sm text-red-800">
-                  <strong>Files to be deleted:</strong> This action will permanently delete the theme's thumbnail and background images from the server. 
-                  This cannot be undone.
+                  <strong>Files to be deleted:</strong> This action will permanently delete the
+                  theme's thumbnail and background images from the server. This cannot be undone.
                 </p>
               </div>
-              
+
               <div className="mb-4">
-                <label htmlFor="confirmation-input" className="block text-sm font-medium text-gray-700 mb-2">
-                  To confirm deletion, type <span className="font-bold text-red-600">"delete"</span> in the field below:
+                <label
+                  htmlFor="confirmation-input"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  To confirm deletion, type <span className="font-bold text-red-600">"delete"</span>{" "}
+                  in the field below:
                 </label>
                 <input
                   id="confirmation-input"
                   type="text"
                   value={deleteModal.confirmationText}
-                  onChange={(e) => handleConfirmationTextChange(e.target.value)}
+                  onChange={e => handleConfirmationTextChange(e.target.value)}
                   placeholder="Type 'delete' to confirm"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   disabled={deleteThemeMutation.isPending}

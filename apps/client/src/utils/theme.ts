@@ -14,7 +14,7 @@ export function exportThemeConfigAsJson(theme: Theme, customFilename?: string) {
 
   // Use custom filename if provided, otherwise use theme name
   const filename = customFilename || theme.name.replace(/\s+/g, "-");
-  const downloadName = filename.endsWith('.ampedtheme') ? filename : `${filename}.ampedtheme`;
+  const downloadName = filename.endsWith(".ampedtheme") ? filename : `${filename}.ampedtheme`;
 
   // Create a temporary link element
   const link = document.createElement("a");
@@ -40,7 +40,7 @@ export async function importThemeConfigFromJson(file: File): Promise<ThemeConfig
 
     // Validate the imported data structure using the same schema as backend
     const validatedThemeConfig = ampedThemeImportSchema.parse(data);
-    
+
     return validatedThemeConfig;
   } catch (error) {
     console.error("Theme config import error:", error);

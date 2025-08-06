@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { X, Loader2, Eye, EyeOff, Check, X as XIcon, AlertCircle } from "lucide-react";
-import { useAuthStore } from "../../store/authStore";
+import ReCAPTCHA from "react-google-recaptcha";
+import { useAuth } from "../../contexts/AuthContext";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
 import type { AuthUser } from "../../types/auth";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { LoginData, RegisterData } from "../../api/api.types";
 import { Link, useNavigate } from "react-router-dom";
 import { useOnelinkAvailability } from "@/hooks/useOnelinkAvailability";
 import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
@@ -88,12 +88,17 @@ const PasswordStrengthIndicator = ({ password }: { password: string }) => {
 
 export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModalProps) {
   const [form, setForm] = useState<FormType>(initialForm);
-  const { signIn, signUp, resetPassword } = useAuthStore();
+  const { signIn, signUp, resetPassword } = useAuth();
   const [loading, setLoading] = useState(false);
   const [sharedEmail, setSharedEmail] = useState("");
   const isUserTyping = useRef(false);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const recaptchaRef = useRef<ReCAPTCHA>(null);
+  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
+  const [isRecaptchaEnabled] = useState(
+    import.meta.env.MODE !== "testing" && !!import.meta.env.VITE_RECAPTCHA_SITE_KEY
+  );
   const navigate = useNavigate();
 
   // Add error states for each form
@@ -209,12 +214,13 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     setLoading(true);
     setLoginError(null);
     try {
-      const loginData: LoginData = {
+      const loginData = {
         email: data.email,
         password: data.password,
+        recaptchaToken: recaptchaToken,
       };
 
-      const user = await signIn(loginData.email, loginData.password);
+      const user = await signIn(loginData.email, loginData.password, loginData.recaptchaToken);
       onClose(user);
 
       // Redirect the user to their edit page with panel state set to "home"
@@ -224,6 +230,11 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
       }
     } catch (error) {
       setLoginError((error as Error).message);
+      // Reset reCAPTCHA on error
+      if (isRecaptchaEnabled && recaptchaRef.current) {
+        recaptchaRef.current.reset();
+        setRecaptchaToken(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -234,13 +245,19 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     setLoading(true);
     setRegisterError(null);
     try {
-      const registerData: RegisterData = {
+      const registerData = {
         onelink: data.onelink,
         email: data.email,
         password: data.password,
+        recaptchaToken: recaptchaToken,
       };
 
-      const user = await signUp(registerData.onelink, registerData.email, registerData.password);
+      const user = await signUp(
+        registerData.onelink,
+        registerData.email,
+        registerData.password,
+        registerData.recaptchaToken
+      );
       onClose(user);
 
       // Redirect to edit page with home panel selected
@@ -250,6 +267,11 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
       }
     } catch (error) {
       setRegisterError((error as Error).message);
+      // Reset reCAPTCHA on error
+      if (isRecaptchaEnabled && recaptchaRef.current) {
+        recaptchaRef.current.reset();
+        setRecaptchaToken(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -261,14 +283,24 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     setResetError(null);
     setResetSuccess(false);
     try {
-      const response = await resetPassword(data.email);
+      const response = await resetPassword(data.email, recaptchaToken);
       if (response.success) {
         setResetSuccess(true);
       } else {
         setResetError(response.message || "Failed to reset password");
+        // Reset reCAPTCHA on error response
+        if (isRecaptchaEnabled && recaptchaRef.current) {
+          recaptchaRef.current.reset();
+          setRecaptchaToken(null);
+        }
       }
     } catch (error) {
       setResetError((error as Error).message);
+      // Reset reCAPTCHA on error
+      if (isRecaptchaEnabled && recaptchaRef.current) {
+        recaptchaRef.current.reset();
+        setRecaptchaToken(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -284,7 +316,12 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     >
       <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
         <div className="flex items-center justify-between mb-6">
-          <h2 id="auth-modal-title" className="text-xl font-semibold" data-testid="auth-modal-title" aria-label="auth-modal-title">
+          <h2
+            id="auth-modal-title"
+            className="text-xl font-semibold"
+            data-testid="auth-modal-title"
+            aria-label="auth-modal-title"
+          >
             {form === "register" && "Create Account"}
             {form === "login" && "Sign In"}
             {form === "reset" && "Reset Password"}
@@ -300,7 +337,11 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
         </div>
 
         {form === "login" && (
-          <form onSubmit={handleSubmitLogin(onSubmitLogin)} className="space-y-4" data-testid="login-form">
+          <form
+            onSubmit={handleSubmitLogin(onSubmitLogin)}
+            className="space-y-4"
+            data-testid="login-form"
+          >
             {loginError && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
                 <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
@@ -338,11 +379,19 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 {showLoginPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
             </div>
+            {isRecaptchaEnabled && (
+              <ReCAPTCHA
+                sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+                onChange={token => setRecaptchaToken(token)}
+                onExpired={() => setRecaptchaToken(null)}
+                ref={recaptchaRef}
+              />
+            )}
             <Button
               type="submit"
               className="w-full relative"
-              disabled={loading}
-              aria-disabled={loading}
+              disabled={loading || (isRecaptchaEnabled && !recaptchaToken)}
+              aria-disabled={loading || (isRecaptchaEnabled && !recaptchaToken)}
               aria-label="Sign In"
               data-testid="login-submit"
             >
@@ -359,7 +408,11 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
         )}
 
         {form === "register" && (
-          <form onSubmit={handleSubmitSignUp(onSubmitRegister)} className="space-y-4" data-testid="register-form">
+          <form
+            onSubmit={handleSubmitSignUp(onSubmitRegister)}
+            className="space-y-4"
+            data-testid="register-form"
+          >
             {registerError && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
                 <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
@@ -434,11 +487,31 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               </div>
               <PasswordStrengthIndicator password={registerPassword || ""} />
             </div>
+            {isRecaptchaEnabled && (
+              <ReCAPTCHA
+                sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+                onChange={token => setRecaptchaToken(token)}
+                onExpired={() => setRecaptchaToken(null)}
+                ref={recaptchaRef}
+              />
+            )}
             <Button
               type="submit"
               className="w-full relative"
-              disabled={loading || urlStatus === "Unavailable" || !isValid || !onelinkInput}
-              aria-disabled={loading || urlStatus === "Unavailable" || !isValid || !onelinkInput}
+              disabled={
+                loading ||
+                urlStatus === "Unavailable" ||
+                !isValid ||
+                !onelinkInput ||
+                (isRecaptchaEnabled && !recaptchaToken)
+              }
+              aria-disabled={
+                loading ||
+                urlStatus === "Unavailable" ||
+                !isValid ||
+                !onelinkInput ||
+                (isRecaptchaEnabled && !recaptchaToken)
+              }
               aria-label="Create Account"
               data-testid="register-submit"
             >
@@ -460,7 +533,11 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
         )}
 
         {form === "reset" && (
-          <form onSubmit={handleSubmitReset(onSubmitReset)} className="space-y-4" data-testid="reset-form">
+          <form
+            onSubmit={handleSubmitReset(onSubmitReset)}
+            className="space-y-4"
+            data-testid="reset-form"
+          >
             {!resetSuccess && (
               <div className="mb-2">
                 <p className="text-sm text-gray-600 mb-4">
@@ -494,11 +571,19 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                   autoComplete="email"
                   {...registerReset("email")}
                 />
+                {isRecaptchaEnabled && (
+                  <ReCAPTCHA
+                    sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+                    onChange={token => setRecaptchaToken(token)}
+                    onExpired={() => setRecaptchaToken(null)}
+                    ref={recaptchaRef}
+                  />
+                )}
                 <Button
                   type="submit"
                   className="w-full relative"
-                  disabled={loading}
-                  aria-disabled={loading}
+                  disabled={loading || (isRecaptchaEnabled && !recaptchaToken)}
+                  aria-disabled={loading || (isRecaptchaEnabled && !recaptchaToken)}
                   aria-label="Send Reset Instructions"
                   data-testid="reset-submit"
                 >

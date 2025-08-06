@@ -1,6 +1,5 @@
-import React, { useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useEditorStore } from "../store/editorStore";
+import { useEditor } from "../contexts/EditorContext";
 import {
   User,
   Palette,
@@ -13,9 +12,8 @@ import {
   AtSign,
   Home,
   Settings,
+  Wallet,
 } from "lucide-react";
-import { exportSettings } from "../utils/export";
-import { importSettings } from "../utils/import";
 
 // Define all possible navigation items
 const allNavItems = [
@@ -25,6 +23,12 @@ const allNavItems = [
   { id: "appearance", icon: Palette, label: "Appearance", alwaysShow: true },
   { id: "effects", icon: Sparkles, label: "Effects", alwaysShow: true },
   { id: "blocks", icon: LayoutGrid, label: "Blocks", alwaysShow: true },
+  {
+    id: "wallet",
+    icon: Wallet,
+    label: "My Wallet",
+    alwaysShow: import.meta.env.VITE_SHOW_WALLET === "true",
+  },
   { id: "reward", icon: Sparkle, label: "Reward", alwaysShow: false },
   { id: "account", icon: Settings, label: "Account", alwaysShow: true },
   {
@@ -43,10 +47,8 @@ const allNavItems = [
 ];
 
 export function Sidebar() {
-  const activePanel = useEditorStore(state => state.activePanel);
-  const setActivePanel = useEditorStore(state => state.setActivePanel);
-  const editorState = useEditorStore();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const editorState = useEditor();
+  const { activePanel, setActivePanel } = editorState;
   const navigate = useNavigate();
 
   const handlePanelClick = (id: string) => {
@@ -54,29 +56,6 @@ export function Sidebar() {
       navigate("/account");
     } else {
       setActivePanel(id);
-    }
-  };
-
-  const handleExport = () => {
-    exportSettings({
-      profile: editorState.profile,
-      blocks: editorState.blocks,
-      theme: editorState.theme,
-      activePanel: editorState.activePanel,
-    });
-  };
-
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      await importSettings(file);
-      // Reset the input value to allow importing the same file again
-      e.target.value = "";
-    } catch (error) {
-      console.error("Failed to import settings:", error);
-      alert("Failed to import settings. Please check the file format.");
     }
   };
 
@@ -92,7 +71,8 @@ export function Sidebar() {
             <button
               key={id}
               onClick={() => isEnabled && handlePanelClick(id)}
-              className={`w-12 h-12 flex flex-col items-center justify-center rounded-lg transition-colors relative mx-1 md:mx-0 md:mb-2
+              className={`w-12 h-12 flex flex-col items-center justify-center rounded-lg relative mx-1 md:mx-0 md:mb-2
+                transition-all duration-200 ease-in-out transform hover:scale-105
                 ${
                   isEnabled
                     ? activePanel === id

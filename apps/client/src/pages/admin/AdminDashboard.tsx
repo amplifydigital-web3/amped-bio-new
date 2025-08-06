@@ -10,7 +10,8 @@ import {
   AdminTopOnelinks,
   AdminRecentUsers,
   AdminLoadingSpinner,
-  AdminLoadingError
+  AdminLoadingError,
+  AdminFaucetWalletStats,
 } from "../../components/admin";
 import { AdminQuickActions } from "../../components/admin";
 
@@ -33,6 +34,10 @@ export function AdminDashboard() {
 
   const { data: blockStatsData, isLoading: isBlockStatsLoading } = useQuery(
     trpc.admin.blocks.getBlockStats.queryOptions({})
+  );
+
+  const { data: walletInfoData, isLoading: isWalletInfoLoading } = useQuery(
+    trpc.admin.wallet.getFaucetWalletInfo.queryOptions()
   );
 
   // Process the block type distribution data whenever blockStatsData changes
@@ -59,7 +64,12 @@ export function AdminDashboard() {
   const topOnelinks = topOnelinksData || [];
 
   // Determine if any data is still loading
-  const loading = isDashboardLoading || isTopOnelinksLoading || isUsersLoading || isBlockStatsLoading;
+  const loading =
+    isDashboardLoading ||
+    isTopOnelinksLoading ||
+    isUsersLoading ||
+    isBlockStatsLoading ||
+    isWalletInfoLoading;
 
   // Handle refresh
   const handleRefresh = () => {
@@ -87,16 +97,13 @@ export function AdminDashboard() {
         onRefresh={handleRefresh}
         isLoading={loading}
       />
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Users Stats */}
-        <AdminUserStats 
-          totalUsers={userStats.totalUsers} 
-          newThisWeek={userStats.newThisWeek} 
-        />
+        <AdminUserStats totalUsers={userStats.totalUsers} newThisWeek={userStats.newThisWeek} />
 
         {/* Blocks Stats */}
-        <AdminBlockStats 
+        <AdminBlockStats
           totalBlocks={blockStats.totalBlocks}
           blocksCreatedToday={blockStats.blocksCreatedToday}
         />
@@ -106,10 +113,41 @@ export function AdminDashboard() {
           rewardProgramUsers={userStats.rewardProgramUsers}
           rewardProgramPercentage={userStats.rewardProgramPercentage}
         />
+
+        {/* Faucet Wallet Stats */}
+        <AdminFaucetWalletStats
+          walletInfo={
+            walletInfoData && "success" in walletInfoData && walletInfoData.success === true
+              ? {
+                  address: (walletInfoData as any).address,
+                  formattedBalance: (
+                    Number((walletInfoData as any).formattedBalance) / 1e18
+                  ).toFixed(4),
+                  remainingAirdrops: Math.floor(
+                    Number((walletInfoData as any).formattedBalance) /
+                      (Number((walletInfoData as any).faucetAmount) * 1e18)
+                  ),
+                  faucetAmount: Number((walletInfoData as any).faucetAmount),
+                  currency: (walletInfoData as any).currency,
+                  isMockMode: (walletInfoData as any).isMockMode,
+                }
+              : walletInfoData && "success" in walletInfoData && walletInfoData.success === false
+                ? {
+                    address: "",
+                    formattedBalance: "0",
+                    remainingAirdrops: 0,
+                    faucetAmount: 0,
+                    currency: "",
+                    isMockMode: false,
+                    error: (walletInfoData as any).error,
+                  }
+                : null
+          }
+        />
       </div>
 
       {/* Block Distribution */}
-      <AdminBlockDistribution 
+      <AdminBlockDistribution
         blockTypeDistribution={blockTypeDistribution}
         mostPopularBlockType={blockStats.mostPopularBlockType}
         averageBlocksPerUser={blockStats.averageBlocksPerUser}
@@ -119,8 +157,8 @@ export function AdminDashboard() {
       <AdminTopOnelinks topOnelinks={topOnelinks} />
 
       {/* Recent Users */}
-      <AdminRecentUsers 
-        recentUsers={recentUsers} 
+      <AdminRecentUsers
+        recentUsers={recentUsers}
         totalUsers={userStats.totalUsers}
         onViewAllUsersClick={() => navigate("/admin/users")}
       />

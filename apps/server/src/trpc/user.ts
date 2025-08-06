@@ -1,12 +1,10 @@
 import { privateProcedure, router } from "./trpc";
-import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { sendEmailChangeVerification } from "../utils/email/email";
-import { generateToken } from "../utils/token";
+import { generateAccessToken } from "../utils/token";
 import crypto from "crypto";
-
-const prisma = new PrismaClient();
+import { prisma } from "../services/DB";
 
 // Schema for initiating email change
 const initiateEmailChangeSchema = z.object({
@@ -34,7 +32,7 @@ export const userRouter = router({
   initiateEmailChange: privateProcedure
     .input(initiateEmailChangeSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.id;
+      const userId = ctx.user.sub;
       
       try {
         // Check if user exists
@@ -140,7 +138,7 @@ export const userRouter = router({
   confirmEmailChange: privateProcedure
     .input(confirmEmailChangeSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.id;
+      const userId = ctx.user.sub;
       
       try {
         // Check if user exists
@@ -221,7 +219,7 @@ export const userRouter = router({
         });
 
         // Generate new JWT token with updated email
-        const token = generateToken({
+        const token = generateAccessToken({
           id: userId,
           email: newEmail,
           role: updatedUser.role,
@@ -248,7 +246,7 @@ export const userRouter = router({
   resendEmailVerification: privateProcedure
     .input(resendEmailVerificationSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.id;
+      const userId = ctx.user.sub;
       
       try {
         // Check if user exists

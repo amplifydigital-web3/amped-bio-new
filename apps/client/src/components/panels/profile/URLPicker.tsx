@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useEditorStore } from "../../../store/editorStore";
+import { useEditor } from "../../../contexts/EditorContext";
 import { Button } from "@/components/ui/Button";
 import { redeemOnelink } from "@/api/api";
 import { useNavigate } from "react-router-dom";
@@ -8,11 +8,11 @@ import { toast } from "react-hot-toast";
 import { useOnelinkAvailability } from "@/hooks/useOnelinkAvailability";
 import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
 import { normalizeOnelink, formatOnelink, cleanOnelinkInput } from "@/utils/onelink";
-import { useAuthStore } from "@/store/authStore";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function URLPicker() {
   // Extract profile data safely from the store
-  const profile = useEditorStore(state => state.profile);
+  const { profile, setProfile } = useEditor();
 
   // Safely extract and process onelink values with default fallbacks
   const currentOnelink = normalizeOnelink(profile?.onelink || "");
@@ -26,8 +26,7 @@ export function URLPicker() {
   // Use our custom hook for URL validation and availability checking
   const { urlStatus, isValid, isCurrentUrl } = useOnelinkAvailability(url, currentOnelink);
 
-  const setProfile = useEditorStore(state => state.setProfile);
-  const { updateAuthUser } = useAuthStore();
+  const { updateAuthUser } = useAuth();
   const nav = useNavigate();
 
   // Update local state if profile changes

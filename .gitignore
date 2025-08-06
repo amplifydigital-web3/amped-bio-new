@@ -3,6 +3,7 @@ node_modules
 .pnp
 .pnp.js
 .yarn/install-state. 
+package-lock.json
 
 # Testing
 coverage
@@ -52,3 +53,5 @@ lerna-debug.log*
 # Mac OS
 .DS_Store
 apps/server/tsconfig.tsbuildinfo
+apps/client/cypress/screenshots
+apps/client/.env

@@ -1,16 +1,14 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
 import { ValidatedRequest } from "../middleware/validation.middleware";
 import { z } from "zod";
 import { editThemeSchema } from "../schemas/theme.schema";
 import { s3Service } from "../services/S3Service";
-
-const prisma = new PrismaClient();
+import { prisma } from "../services/DB";
 
 export const themeController = {
   async editTheme(req: Request, res: Response) {
     const { id } = req.params;
-    const user_id = req.user.id;
+    const user_id = req.user.sub;
     const { theme } = (req as ValidatedRequest<z.infer<typeof editThemeSchema>>).validatedData;
     const { name, share_level, share_config, config } = theme;
 
@@ -116,7 +114,7 @@ export const themeController = {
 
   async delete(req: Request, res: Response) {
     const { id } = req.params;
-    const user_id = req.user.id;
+    const user_id = req.user.sub;
 
     try {
       const theme = await prisma.theme.findUnique({

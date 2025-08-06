@@ -13,15 +13,18 @@ export const registerSchema = z.object({
     ),
   email: z.string().email(),
   password: z.string().min(8),
+  recaptchaToken: z.string().nullable(),
 });
 
 export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string(),
+  recaptchaToken: z.string().nullable(),
 });
 
 export const passwordResetRequestSchema = z.object({
   email: z.string().email(),
+  recaptchaToken: z.string().nullable(),
 });
 
 export const processPasswordResetSchema = z.object({

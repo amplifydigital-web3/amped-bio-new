@@ -1,12 +1,21 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import App from "./App.tsx";
 import "./index.css";
-import { Toaster } from "react-hot-toast";
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <App />
-    <Toaster position="top-center" />
-  </StrictMode>
+import ReactDOM from "react-dom/client";
+import { Web3AuthProvider } from "@web3auth/modal/react";
+import web3AuthContextConfig from "./utils/web3authContext.ts";
+
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "./utils/trpc/trpc.ts";
+import { WagmiProvider } from "@web3auth/modal/react/wagmi";
+
+import App from "./App.tsx";
+
+ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+  <Web3AuthProvider config={web3AuthContextConfig}>
+    <QueryClientProvider client={queryClient}>
+      <WagmiProvider>
+        <App />
+      </WagmiProvider>
+    </QueryClientProvider>
+  </Web3AuthProvider>
 );
