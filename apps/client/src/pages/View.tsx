@@ -3,12 +3,14 @@ import { Preview } from "../components/Preview";
 import { Settings } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useEffect, useState } from "react";
-import { useEditor } from "../contexts/EditorContext";
 import { AuthModal } from "../components/auth/AuthModal";
 import { formatOnelink, normalizeOnelink } from "@/utils/onelink";
 import type { AuthUser } from "../types/auth";
 import { UserMenu } from "../components/auth/UserMenu";
 import AMPLIFY_FULL_K from "@/assets/AMPLIFY_FULL_K.svg";
+import { trpcClient } from "@/utils/trpc";
+import type { UserProfile, Theme } from "@/types/editor";
+import { BlockType } from "@/api/api.types";
 
 // Default onelink username to show when accessing root URL
 const DEFAULT_ONELINK = "landingpage";
@@ -16,14 +18,18 @@ const DEFAULT_ONELINK = "landingpage";
 export function View() {
   const { onelink = "" } = useParams();
   const { authUser } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const { profile, setUser } = useEditor();
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [blocks, setBlocks] = useState<BlockType[]>([]);
+  const [theme, setTheme] = useState<Theme | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
 
   // Use default onelink when on root URL with no onelink parameter
   const effectiveOnelink =
-    location.pathname === "/" && (!onelink || onelink === "") ? DEFAULT_ONELINK : onelink;
+    ["/", "/register"].includes(location.pathname) && (!onelink || onelink === "")
+      ? DEFAULT_ONELINK
+      : onelink;
 
   // Normalize onelink to handle @ symbols in URLs
   const normalizedOnelink = normalizeOnelink(effectiveOnelink);
@@ -36,7 +42,7 @@ export function View() {
 
   // Determine if navbar should be shown (landingpage user, root route, or register route)
   const shouldShowNavbar =
-    normalizedOnelink === "landingpage" || location.pathname === "/" || isRegisterRoute;
+    normalizedOnelink === DEFAULT_ONELINK || location.pathname === "/" || isRegisterRoute;
 
   // Show auth modal when on register route and not logged in
   const [showAuthModal, setShowAuthModal] = useState(isRegisterRoute && !authUser);
@@ -75,17 +81,52 @@ export function View() {
   }, [effectiveOnelink, navigate, location.pathname, location.search, isRegisterRoute]);
 
   useEffect(() => {
-    if (normalizedOnelink && normalizedOnelink !== profile.onelink) {
-      setLoading(true);
-      setUser(normalizedOnelink).then(() => {
-        setLoading(false);
-      });
-    } else {
-      setLoading(false);
-    }
+    if (normalizedOnelink) {
+      const fetchData = async () => {
+        setLoading(true);
+        try {
+          const onlinkData = await trpcClient.onelink.getOnelink.query({
+            onelink: normalizedOnelink,
+          });
 
-    console.info("onelink", normalizedOnelink);
-  }, [normalizedOnelink, profile, setUser]);
+          if (onlinkData) {
+            const { user, theme, blocks: blocks_raw } = onlinkData;
+            const { name, email, description, image } = user;
+            const formattedOnelink = formatOnelink(normalizedOnelink);
+
+            setProfile({
+              name,
+              onelink: normalizedOnelink,
+              onelinkFormatted: formattedOnelink,
+              email,
+              bio: description ?? "",
+              photoUrl: image ?? "",
+              photoCmp: "",
+            });
+
+            setTheme(theme as unknown as Theme);
+            const sortedBlocks = blocks_raw.sort((a, b) => a.order - b.order);
+            setBlocks(sortedBlocks as unknown as BlockType[]);
+          } else {
+            // Only redirect if the current onelink is not already the default
+            if (normalizedOnelink !== DEFAULT_ONELINK) {
+              navigate("/");
+            }
+          }
+        } catch (error) {
+          console.error("Failed to fetch onelink data:", error);
+          // Only redirect on error if not already on default onelink
+          if (normalizedOnelink !== DEFAULT_ONELINK) {
+            navigate("/");
+          }
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchData();
+    }
+  }, [normalizedOnelink, navigate]);
 
   // Handle auth modal close
   const handleSignIn = (user: AuthUser) => {
@@ -111,7 +152,7 @@ export function View() {
     }
   };
 
-  if (loading) {
+  if (loading || !profile || !theme) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-white">
         <img src={AMPLIFY_FULL_K} alt="Amplify Logo" className="h-12 mb-6" />
@@ -135,7 +176,13 @@ export function View() {
         </header>
       )}
 
-      <Preview isEditing={false} onelink={normalizedOnelink} />
+      <Preview
+        isEditing={false}
+        onelink={normalizedOnelink}
+        profile={profile}
+        blocks={blocks}
+        theme={theme}
+      />
 
       {/* Edit Button */}
       {authUser && (isInitialPage || authUser.email === profile.email) && (
