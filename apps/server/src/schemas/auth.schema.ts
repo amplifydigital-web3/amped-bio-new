@@ -10,7 +10,7 @@ export const registerSchema = z.object({
         .string()
         .min(ONELINK_MIN_LENGTH, `Name must be at least ${ONELINK_MIN_LENGTH} characters`)
         .regex(ONELINK_REGEX, "Name can only contain letters, numbers, underscores and hyphens")
-        .refine(value => !value.includes("@"), "URL cannot contain @")
+        .refine(value => !value.includes("@"), "Name cannot contain @")
     ),
   email: z.string().email(),
   password: z.string().min(8),
