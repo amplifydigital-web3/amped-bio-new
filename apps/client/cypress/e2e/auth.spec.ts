@@ -35,7 +35,7 @@ describe("Authentication", () => {
     cy.get("[data-testid='switch-to-register']").click();
 
     // Check that register form is displayed
-    cy.get("[data-testid='auth-modal-title']").should("have.text", "Create Account");
+    cy.get("[data-testid='auth-modal-title']").should("have.text", "Sign Up for Free");
     cy.get("[data-testid='register-onelink']").should("be.visible");
 
     // Switch back to login form
@@ -139,7 +139,9 @@ describe("Authentication", () => {
     cy.contains("button", "Sign In").click();
     cy.get("[data-testid='switch-to-register']").click();
     cy.get("[data-testid='register-onelink']").type("test-user");
-    cy.get("[data-testid='public-url-preview']").should("be.visible").and("contain.text", "Public URL:");
+    cy.get("[data-testid='public-url-preview']")
+      .should("be.visible")
+      .and("contain.text", "Public URL:");
   });
 
   describe("Authentication with real API", () => {
@@ -194,7 +196,9 @@ describe("Authentication", () => {
       cy.log(`Submitting password reset for: ${testUser.email}`);
       cy.get("[data-testid='reset-submit']").click();
 
-      cy.contains("Instructions to reset your password have been sent to your email", { timeout: 5000 }).should("be.visible");
+      cy.contains("Instructions to reset your password have been sent to your email", {
+        timeout: 5000,
+      }).should("be.visible");
       cy.get("[data-testid='auth-modal']").should("be.visible");
       cy.log(`Password reset requested for: ${testUser.email}`);
     });
@@ -207,7 +211,9 @@ describe("Authentication", () => {
       cy.get("[data-testid='login-password']").type("wrong-password");
       cy.get("[data-testid='login-submit']").click();
 
-      cy.contains(/Invalid credentials|Invalid email or password|Authentication failed/, { timeout: 5000 }).should("be.visible");
+      cy.contains(/Invalid credentials|Invalid email or password|Authentication failed/, {
+        timeout: 5000,
+      }).should("be.visible");
       cy.get("[data-testid='auth-modal-title']").should("have.text", "Sign In");
     });
   });
