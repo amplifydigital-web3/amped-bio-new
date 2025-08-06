@@ -10,16 +10,6 @@ import { getChainConfig } from "../utils/chainConfig";
 // Get chain configuration from centralized utility
 const chain = getChainConfig();
 
-// Create wallet client from private key
-const account = privateKeyToAccount(env.FAUCET_PRIVATE_KEY as `0x${string}`);
-
-// Create wallet client for sending transactions
-const walletClient = createWalletClient({
-  account,
-  chain,
-  transport: http(chain.rpcUrls.default.http[0]),
-});
-
 // Create public client for fetching blockchain data
 const publicClient = createPublicClient({
   chain,
@@ -210,6 +200,23 @@ export const walletRouter = router({
     .output(faucetResponseSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.sub;
+
+      if (!env.FAUCET_PRIVATE_KEY) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Faucet not configured",
+        });
+      }
+
+      // Create wallet client from private key
+      const account = privateKeyToAccount(env.FAUCET_PRIVATE_KEY as `0x${string}`);
+
+      // Create wallet client for sending transactions
+      const walletClient = createWalletClient({
+        account,
+        chain,
+        transport: http(chain.rpcUrls.default.http[0]),
+      });
 
       try {
         const now = new Date();

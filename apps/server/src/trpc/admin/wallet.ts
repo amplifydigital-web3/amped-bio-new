@@ -6,6 +6,12 @@ import { getChainConfig } from "../../utils/chainConfig";
 
 export const walletAdminRouter = router({
   getFaucetWalletInfo: adminProcedure.query(async () => {
+    if (!env.FAUCET_PRIVATE_KEY) {
+      return {
+        success: false,
+        error: "Faucet not configured",
+      };
+    }
     try {
       // Get chain configuration from centralized utility
       const chain = getChainConfig();
