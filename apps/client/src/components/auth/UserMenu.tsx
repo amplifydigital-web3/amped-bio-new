@@ -135,7 +135,7 @@ export function UserMenu() {
 
           {/* Hover state - hidden content that slides in */}
           <div className="absolute top-0 left-0 z-10 flex h-full w-full translate-x-full items-center justify-center gap-2 bg-blue-600 text-white opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100 rounded-full">
-            <span className="text-sm font-medium">View Wallet</span>
+            <span className="text-sm font-medium">View Profile</span>
             <ArrowRight className="w-4 h-4" />
           </div>
         </button>

@@ -127,5 +127,6 @@ export const env = cleanEnv(process.env, {
   }),
   RECAPTCHA_SECRET_KEY: str({
     desc: "Secret key for Google reCAPTCHA verification",
+    default: "",
   }),
 });

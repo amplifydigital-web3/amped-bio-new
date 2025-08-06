@@ -6,6 +6,11 @@ export async function verifyRecaptcha(token: string | null): Promise<boolean> {
     return true;
   }
 
+  if (env.RECAPTCHA_SECRET_KEY.length === 0) {
+    console.warn("RECAPTCHA_SECRET_KEY is not set. Skipping reCAPTCHA verification.");
+    return true;
+  }
+
   if (!token) {
     return false;
   }
@@ -20,7 +25,6 @@ export async function verifyRecaptcha(token: string | null): Promise<boolean> {
         "Content-Type": "application/x-www-form-urlencoded",
       },
     });
-
 
     const data = response.data;
 
