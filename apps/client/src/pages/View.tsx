@@ -10,7 +10,9 @@ import { UserMenu } from "../components/auth/UserMenu";
 import AMPLIFY_FULL_K from "@/assets/AMPLIFY_FULL_K.svg";
 import { trpcClient } from "@/utils/trpc";
 import type { UserProfile, Theme } from "@/types/editor";
-import { BlockType } from "@/api/api.types";
+import { TRPCClientError } from "@trpc/client";
+import initialState from "@/store/defaults";
+import { BlockType } from "@ampedbio/constants";
 
 // Default onelink username to show when accessing root URL
 const DEFAULT_ONELINK = "landingpage";
@@ -115,8 +117,20 @@ export function View() {
           }
         } catch (error) {
           console.error("Failed to fetch onelink data:", error);
-          // Only redirect on error if not already on default onelink
-          if (normalizedOnelink !== DEFAULT_ONELINK) {
+          
+          // Check if this is a TRPCClientError with NOT_FOUND code for the DEFAULT_ONELINK
+          if (
+            error instanceof TRPCClientError && 
+            error.data?.code === "NOT_FOUND" && 
+            normalizedOnelink === DEFAULT_ONELINK
+          ) {
+            // Use default data from initialState
+            setProfile(initialState.profile);
+            setTheme(initialState.theme);
+            setBlocks(initialState.blocks);
+          } 
+          // Only redirect on error if not the default onelink
+          else if (normalizedOnelink !== DEFAULT_ONELINK) {
             navigate("/");
           }
         } finally {

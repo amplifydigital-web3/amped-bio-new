@@ -7,6 +7,7 @@ import { uploadRouter } from "./upload";
 import { themeRouter } from "./theme";
 import { themeGalleryRouter } from "./themeGallery";
 import { walletRouter } from "./wallet";
+import { blocksRouter } from "./blocks";
 
 // Merge all routers
 const mergedRouter = router({
@@ -18,6 +19,7 @@ const mergedRouter = router({
   theme: themeRouter,
   themeGallery: themeGalleryRouter,
   wallet: walletRouter,
+  blocks: blocksRouter,
 });
 
 export type AppRouter = typeof mergedRouter;

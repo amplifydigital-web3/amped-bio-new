@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useEditor } from "../../../contexts/EditorContext";
 import { Button } from "@/components/ui/Button";
-import { redeemOnelink } from "@/api/api";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
@@ -9,6 +8,7 @@ import { useOnelinkAvailability } from "@/hooks/useOnelinkAvailability";
 import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
 import { normalizeOnelink, formatOnelink, cleanOnelinkInput } from "@/utils/onelink";
 import { useAuth } from "@/contexts/AuthContext";
+import { trpcClient } from "@/utils/trpc";
 
 export function URLPicker() {
   // Extract profile data safely from the store
@@ -56,7 +56,7 @@ export function URLPicker() {
 
     try {
       // Call the API to update the onelink - with normalized value (without @ symbol)
-      const response = await redeemOnelink(normalizedURL);
+      const response = await trpcClient.onelink.redeem.mutate({ newOnelink: normalizedURL });
 
       if (response.success) {
         toast.success("URL updated successfully!");
