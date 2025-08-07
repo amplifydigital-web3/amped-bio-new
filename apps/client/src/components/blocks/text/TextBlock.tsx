@@ -2,7 +2,7 @@ import type { ThemeConfig } from "../../../types/editor";
 import { EmailCollectionBlock } from "../EmailCollectionBlock";
 import { TelegramBlock } from "../TelegramBlock";
 import { TeamBlock } from "../TeamBlock";
-import { TextBlock as TextBlockT } from "@/api/api.types";
+import { TextBlock as TextBlockT } from "@ampedbio/constants";
 import { isHTML } from "@/utils/htmlutils";
 
 interface TextBlockProps {

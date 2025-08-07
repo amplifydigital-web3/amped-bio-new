@@ -11,7 +11,7 @@ import { getPlatformIcon } from "../utils/platforms";
 import { MediaBlock } from "./blocks/MediaBlock";
 import { TextBlock } from "./blocks/text/TextBlock";
 import { isHTML } from "@/utils/htmlutils";
-import { BlockType } from "@/api/api.types";
+import { type BlockType } from "@ampedbio/constants";
 import { Theme, UserProfile } from "@/types/editor";
 
 // Helper function to extract the root domain from a URL

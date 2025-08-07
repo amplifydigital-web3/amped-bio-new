@@ -1,6 +1,6 @@
 import { FaXTwitter } from "react-icons/fa6";
 import type { ThemeConfig } from "../../types/editor";
-import { MediaBlock } from "@/api/api.types";
+import { MediaBlock } from "@ampedbio/constants";
 import { Tweet as ReactTweet } from "react-tweet";
 
 interface TwitterBlockProps {

@@ -16,7 +16,7 @@ import {
 } from "@dnd-kit/sortable";
 import { SortableItem } from "./SortableItem";
 import { BlockEditor } from "./BlockEditor";
-import { BlockType } from "@/api/api.types";
+import { type BlockType } from "@ampedbio/constants";
 
 interface BlockListProps {
   blocks: BlockType[];
