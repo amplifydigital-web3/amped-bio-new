@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Plus, CheckCircle } from "lucide-react";
 import { PlatformId, getPlatformUrl, platforms } from "@/utils/platforms";
-import { LinkBlock } from "@/api/api.types";
+import { LinkBlock } from "@ampedbio/constants";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";

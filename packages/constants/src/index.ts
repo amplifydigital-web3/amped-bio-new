@@ -8,3 +8,4 @@ export * from "./platforms";
 export * from "./theme";
 export * from "./collections";
 export * from "./errors";
+export * from "./blocks";

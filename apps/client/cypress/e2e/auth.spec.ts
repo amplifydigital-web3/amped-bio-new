@@ -84,7 +84,7 @@ describe("Authentication", () => {
 
     cy.contains("Please enter a valid email address").should("be.visible");
     cy.contains("Password must be at least 8 characters long").should("be.visible");
-    cy.contains("URL must be at least 3 characters").should("be.visible");
+    cy.contains("Name must be at least 3 characters").should("be.visible");
   });
 
   it("should validate password requirements on registration", () => {

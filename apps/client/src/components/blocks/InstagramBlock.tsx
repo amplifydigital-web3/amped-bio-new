@@ -1,6 +1,6 @@
 import { Instagram } from "lucide-react";
 import type { ThemeConfig } from "../../types/editor";
-import { MediaBlock } from "@/api/api.types";
+import { MediaBlock } from "@ampedbio/constants";
 import { InstagramEmbed } from "react-social-media-embed";
 
 interface InstagramBlockProps {

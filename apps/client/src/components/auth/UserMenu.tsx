@@ -16,6 +16,7 @@ import { formatOnelink } from "@/utils/onelink";
 import { cn } from "@/lib/utils";
 import { useAccount } from "wagmi";
 import { useWalletContext } from "@/contexts/WalletContext";
+import { AuthUser } from "@/types/auth";
 
 export function UserMenu() {
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -38,7 +39,7 @@ export function UserMenu() {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
-  const handleSignIn = user => {
+  const handleSignIn = (user: AuthUser) => {
     setShowAuthModal(false);
     setUser(user.onelink);
 

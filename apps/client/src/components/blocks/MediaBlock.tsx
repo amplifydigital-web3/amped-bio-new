@@ -8,7 +8,7 @@ import { NFTCollectionBlock } from "./NFTCollectionBlock";
 import { UniswapBlock } from "./UniswapBlock";
 import { SubstackBlock } from "./SubstackBlock";
 import { CreatorPoolBlock } from "./CreatorPoolBlock";
-import { MediaBlock as MediaBlockType } from "@/api/api.types";
+import { MediaBlock as MediaBlockType } from "@ampedbio/constants";
 import { FacebookBlock } from "./FacebookBlock";
 import { TiktokBlock } from "./TiktokBlock";
 

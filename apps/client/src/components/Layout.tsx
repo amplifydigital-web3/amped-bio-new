@@ -43,7 +43,7 @@ interface PanelConfig {
 
 export function Layout(props: LayoutProps) {
   const { onelink } = props;
-  const { activePanel } = useEditor();
+  const { activePanel, profile, blocks, theme } = useEditor();
   // const emailVerified = useAuth(state => state.authUser.emailVerified);
   const { authUser } = useAuth();
   const isLoggedIn = authUser !== null;
@@ -136,7 +136,13 @@ export function Layout(props: LayoutProps) {
             {/* Preview Container - Only shown for two-column layouts */}
             {showPreview && (
               <div className="hidden md:flex md:flex-col md:flex-1 overflow-y-auto relative z-[5] bg-gray-100">
-                <Preview isEditing={true} onelink={onelink} />
+                <Preview
+                  isEditing={true}
+                  onelink={onelink}
+                  profile={profile}
+                  blocks={blocks}
+                  theme={theme}
+                />
               </div>
             )}
           </div>

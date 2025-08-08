@@ -47,8 +47,8 @@ export function useThemeManagement() {
   });
 
   // Get specific theme (for public viewing)
-  const getTheme = (id: number) => {
-    return useQuery(trpc.themeGallery.getTheme.queryOptions({ id }));
+  const getTheme = async (id: number) => {
+    return await queryClient.fetchQuery(trpc.themeGallery.getTheme.queryOptions({ id }));
   };
 
   return {

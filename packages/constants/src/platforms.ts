@@ -41,3 +41,5 @@ export const mediaPlataforms = [
   "discord",
   "twitch",
 ] as const;
+
+export type PlatformId = (typeof allowedPlatforms)[number];

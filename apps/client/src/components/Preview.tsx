@@ -1,6 +1,4 @@
-import React from "react";
 import { Link } from "react-router-dom";
-import { useEditor } from "../contexts/EditorContext";
 import { ParticlesBackground } from "./particles/ParticlesBackground";
 import { cn } from "../utils/cn";
 import {
@@ -13,6 +11,8 @@ import { getPlatformIcon } from "../utils/platforms";
 import { MediaBlock } from "./blocks/MediaBlock";
 import { TextBlock } from "./blocks/text/TextBlock";
 import { isHTML } from "@/utils/htmlutils";
+import { type BlockType } from "@ampedbio/constants";
+import { Theme, UserProfile } from "@/types/editor";
 
 // Helper function to extract the root domain from a URL
 const extractRootDomain = (url: string): string => {
@@ -30,11 +30,12 @@ const extractRootDomain = (url: string): string => {
 interface PreviewProps {
   isEditing: boolean;
   onelink: string;
+  profile: UserProfile;
+  blocks: BlockType[];
+  theme: Theme;
 }
 
-export function Preview(_props: PreviewProps) {
-  const [isMobile, setIsMobile] = React.useState(false);
-  const { profile, blocks, theme } = useEditor();
+export function Preview({ profile, blocks, theme }: PreviewProps) {
   const themeConfig = theme.config;
 
   // console.info("blocks preview", blocks);
@@ -93,8 +94,7 @@ export function Preview(_props: PreviewProps) {
         <div className="min-h-full relative z-[2]">
           <div
             className={cn(
-              "relative min-h-full py-8 px-4 transition-all duration-300 mx-auto z-10",
-              isMobile ? "max-w-[375px]" : "max-w-[640px]"
+              "relative min-h-full py-8 px-4 transition-all duration-300 mx-auto z-10 max-w-[640px]"
             )}
           >
             {/* Container */}

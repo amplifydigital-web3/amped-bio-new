@@ -1,6 +1,6 @@
 import { ArrowUpRight } from "lucide-react";
 import type { ThemeConfig } from "../../types/editor";
-import { MediaBlock } from "@/api/api.types";
+import { MediaBlock } from "@ampedbio/constants";
 
 interface UniswapBlockProps {
   block: MediaBlock;

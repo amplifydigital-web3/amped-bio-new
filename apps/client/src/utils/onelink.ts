@@ -1,13 +1,10 @@
-/**
- * Utility functions for working with onelinks throughout the application
- */
-import { checkOnelinkAvailability } from "@/api/api";
 import {
   ONELINK_MIN_LENGTH,
   ONELINK_REGEX,
   ONELINK_BASE_URL,
   OnelinkStatus,
 } from "@ampedbio/constants";
+import { trpcClient } from "./trpc";
 
 // Constants
 const BASE_URL = ONELINK_BASE_URL;
@@ -89,10 +86,12 @@ export async function checkOnelink(rawOnelink: string): Promise<boolean> {
     const normalizedOnelink = normalizeOnelink(rawOnelink);
 
     // API call to check availability
-    const response = await checkOnelinkAvailability(normalizedOnelink);
+    const response = await trpcClient.onelink.checkAvailability.query({
+      onelink: normalizedOnelink,
+    });
 
     // Return true if available, false if taken
-    return response;
+    return response.available;
   } catch (error) {
     console.error("Error checking onelink availability:", error);
     return false;

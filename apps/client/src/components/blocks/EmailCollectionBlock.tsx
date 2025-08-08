@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Mail } from "lucide-react";
 import type { ThemeConfig } from "../../types/editor";
-import type { TextBlock } from "@/api/api.types";
+import type { TextBlock } from "@ampedbio/constants";
 
 interface EmailCollectionBlockProps {
   block: TextBlock;

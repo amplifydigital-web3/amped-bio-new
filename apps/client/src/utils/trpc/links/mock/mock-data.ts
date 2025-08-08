@@ -1,4 +1,4 @@
-import { BlockType, User, LinkBlock, MediaBlock, TextBlock } from "@/api/api.types";
+import { BlockType, User, LinkBlock, MediaBlock, TextBlock } from "@ampedbio/constants";
 
 // Demo user for authentication
 export const demoUser = {

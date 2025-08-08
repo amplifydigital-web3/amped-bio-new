@@ -5,6 +5,7 @@ import { sendEmailChangeVerification } from "../utils/email/email";
 import { generateAccessToken } from "../utils/token";
 import crypto from "crypto";
 import { prisma } from "../services/DB";
+import { editUserSchema } from "../schemas/user.schema";
 
 // Schema for initiating email change
 const initiateEmailChangeSchema = z.object({
@@ -28,12 +29,53 @@ const generateSixDigitCode = (): string => {
 };
 
 export const userRouter = router({
+  // Edit user profile
+  edit: privateProcedure.input(editUserSchema).mutation(async ({ ctx, input }) => {
+    const userId = ctx.user.sub;
+    console.group("🔄 User Edit Operation (tRPC)");
+    console.info("📝 Starting user edit process");
+    console.info(`👤 User ID: ${userId}`);
+
+    const { name, description, theme, image, reward_business_id } = input;
+    console.info(
+      `📋 Edit data: ${JSON.stringify({ name, description, theme, image, reward_business_id })}`
+    );
+
+    try {
+      console.info("💾 Updating user information");
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          name,
+          description,
+          theme: `${theme}`,
+          image,
+          reward_business_id,
+        },
+      });
+      console.info("✅ User updated successfully");
+
+      console.groupEnd();
+      return {
+        message: "User updated successfully",
+      };
+    } catch (error) {
+      console.error("❌ Error:", error);
+      console.groupEnd();
+      if (error instanceof TRPCError) throw error;
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Server error",
+      });
+    }
+  }),
+
   // Initiate email change by requesting a verification code
   initiateEmailChange: privateProcedure
     .input(initiateEmailChangeSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.sub;
-      
+
       try {
         // Check if user exists
         const user = await prisma.user.findUnique({
@@ -58,7 +100,7 @@ export const userRouter = router({
             message: "Email address is already in use",
           });
         }
-        
+
         // Check if the user has requested a code within the last minute
         const latestCode = await prisma.confirmationCode.findFirst({
           where: {
@@ -69,7 +111,7 @@ export const userRouter = router({
             },
           },
           orderBy: {
-            createdAt: 'desc',
+            createdAt: "desc",
           },
         });
 
@@ -77,14 +119,14 @@ export const userRouter = router({
           // Calculate when the user can retry (1 minute after last request)
           const retryAfter = new Date(latestCode.createdAt);
           retryAfter.setMinutes(retryAfter.getMinutes() + 1);
-          
+
           throw new TRPCError({
             code: "TOO_MANY_REQUESTS",
             message: "Please wait before requesting a new verification code",
             cause: {
               code: "RATE_LIMIT_EMAIL_VERIFICATION",
-              retryAfter: retryAfter.toISOString()
-            }
+              retryAfter: retryAfter.toISOString(),
+            },
           });
         }
 
@@ -139,7 +181,7 @@ export const userRouter = router({
     .input(confirmEmailChangeSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.sub;
-      
+
       try {
         // Check if user exists
         const user = await prisma.user.findUnique({
@@ -187,10 +229,10 @@ export const userRouter = router({
             message: "Invalid or expired verification code",
           });
         }
-        
+
         // Check that the new email provided in the confirmation matches what was requested
         const newEmail = input.newEmail;
-        
+
         // Check if the email is still available
         const existingEmailUser = await prisma.user.findUnique({
           where: { email: newEmail },
@@ -247,7 +289,7 @@ export const userRouter = router({
     .input(resendEmailVerificationSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.sub;
-      
+
       try {
         // Check if user exists
         const user = await prisma.user.findUnique({
@@ -283,7 +325,7 @@ export const userRouter = router({
             },
           },
           orderBy: {
-            createdAt: 'desc',
+            createdAt: "desc",
           },
         });
 
@@ -291,14 +333,14 @@ export const userRouter = router({
           // Calculate when the user can retry (1 minute after last request)
           const retryAfter = new Date(latestCode.createdAt);
           retryAfter.setMinutes(retryAfter.getMinutes() + 1);
-          
+
           throw new TRPCError({
             code: "TOO_MANY_REQUESTS",
             message: "Please wait before requesting a new verification code",
             cause: {
               code: "RATE_LIMIT_EMAIL_VERIFICATION",
-              retryAfter: retryAfter.toISOString()
-            }
+              retryAfter: retryAfter.toISOString(),
+            },
           });
         }
 
@@ -328,7 +370,6 @@ export const userRouter = router({
           expiresAt,
         };
       } catch (error: any) {
-
         if (error instanceof TRPCError) {
           throw error;
         }
