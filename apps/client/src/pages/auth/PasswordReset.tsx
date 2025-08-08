@@ -105,13 +105,8 @@ export function PasswordReset() {
         newPassword: data.password,
       });
 
-      if (response.success) {
-        setStatus("success");
-        setMessage(response.message || "Password has been successfully reset.");
-      } else {
-        setStatus("error");
-        setMessage("Failed to reset password");
-      }
+      setStatus("success");
+      setMessage(response.message || "Password has been successfully reset.");
     } catch (error) {
       setStatus("error");
       setMessage(
