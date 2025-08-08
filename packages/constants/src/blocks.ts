@@ -1,5 +1,42 @@
 import { z } from "zod";
-import { allowedPlatforms, mediaPlataforms } from "@ampedbio/constants";
+import { allowedPlatforms, mediaPlataforms, PlatformId } from "./platforms";
+
+// TypeScript type definitions for block types
+type BaseBlockType = "link" | "media" | "text";
+
+export type BaseBlock<type extends BaseBlockType = any, T = any> = {
+  id: number;
+  user_id?: number;
+  type: type;
+  order: number;
+  config: T;
+  created_at?: string;
+  updated_at?: string | null;
+};
+
+export type LinkBlock = BaseBlock<"link", { platform: PlatformId; url: string; label: string }>;
+
+export type MediaBlockPlatform = (typeof mediaPlataforms)[number];
+
+export type MediaBlock = BaseBlock<
+  "media",
+  {
+    content?: string;
+    platform: MediaBlockPlatform;
+    url: string;
+    label: string;
+  }
+>;
+
+export type TextBlock = BaseBlock<
+  "text",
+  {
+    content: string;
+    platform: string;
+  }
+>;
+
+export type BlockType = LinkBlock | MediaBlock | TextBlock;
 
 // Define configuration schemas for each block type
 const linkConfigSchema = z.object({
@@ -16,53 +53,44 @@ const mediaConfigSchema = z.object({
 });
 
 // Define allowed HTML tags
-const allowedHtmlTags = [
-  "p",
-  "a",
-  "span",
-  "strong",
-  "em",
-  "u",
-  "b",
-  "i",
-  "s",
-] as const;
+const allowedHtmlTags = ["p", "a", "span", "strong", "em", "u", "b", "i", "s"] as const;
 
 const textConfigSchema = z.object({
-  content: z.string()
+  content: z
+    .string()
     .min(0, "Content is required")
     .refine(
-      (html) => {
+      html => {
         // Skip validation if empty
         if (!html) return true;
-        
+
         // Build regex pattern from allowed tags array
         const tagPattern = allowedHtmlTags.join("|");
-        const allowedTagsRegex = new RegExp(`<(?!\/?(${tagPattern})\\b)[^>]+>`, "i");
-        
+        const allowedTagsRegex = new RegExp(`<(?![/]?(${tagPattern})\b)[^>]+>`, "i");
+
         // If the regex matches any non-allowed tags, validation fails
         return !allowedTagsRegex.test(html);
       },
       {
-        message: `HTML content can only contain the following tags: ${allowedHtmlTags.map(tag => `<${tag}>`).join(", ")}`
+        message: `HTML content can only contain the following tags: ${allowedHtmlTags.map(tag => `<${tag}>`).join(", ")}`,
       }
     )
     .refine(
-      (html) => {
+      html => {
         // Block JavaScript in various forms
         const jsPatterns = [
-          /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/i, // <script> tags
+          /<script\b[^<]*(?:(?!<\/script>).)*<[^<]*<\/script>/i, // <script> tags
           /javascript:/i, // javascript: protocol
           /on\w+\s*=/i, // event handlers like onclick=
           /eval\s*\(/i, // eval() calls
           /Function\s*\(/i, // Function constructor
-          /\[\s*\[\s*\[\s*\[\s*\[\s*.*\]\s*\]\s*\]\s*\]\s*\]/i, // Obfuscated pattern with multiple brackets
+          /\\[\s*\\[\s*\\[\s*\\[\s*\\[\s*.*\\]\s*\]\s*\]\s*\]\s*\]/i, // Obfuscated pattern with multiple brackets
         ];
-        
+
         return !jsPatterns.some(pattern => pattern.test(html));
       },
       {
-        message: "JavaScript content is not allowed in the HTML"
+        message: "JavaScript content is not allowed in the HTML",
       }
     ),
 });
@@ -95,9 +123,22 @@ export const blockIdParamSchema = z.object({
   }),
 });
 
-export type PlatformId = (typeof allowedPlatforms)[number];
-export type MediaPlatformId = (typeof mediaPlataforms)[number];
-export type Block = z.infer<typeof blockSchema>;
-export type EditBlocksInput = z.infer<typeof editBlocksSchema>;
-export type AddBlockInput = z.infer<typeof addBlockSchema>;
-export type BlockIdParam = z.infer<typeof blockIdParamSchema>;
+// Define interfaces for API responses
+export interface BlockResponse {
+  message: string;
+  result: {
+    id: number;
+    user_id: number;
+    type: string;
+    order: number;
+    config: any;
+    created_at: string;
+    updated_at: string | null;
+  };
+}
+
+export interface AddBlockData {
+  type: BaseBlockType;
+  order?: number;
+  config: any;
+}

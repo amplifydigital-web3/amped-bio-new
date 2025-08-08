@@ -8,7 +8,7 @@ export const DateRangeSchema = z.object({
 
 export const PaginationSchema = z.object({
   page: z.number().default(1),
-  limit: z.number().default(10)
+  limit: z.number().default(10),
 });
 
 // User schemas
@@ -32,7 +32,7 @@ export const UserUpdateSchema = z.object({
 
 // Block schemas
 export const BlockTypeFilterSchema = z.object({
-  type: z.string().optional()
+  type: z.string().optional(),
 });
 
 // Theme schemas
@@ -41,19 +41,19 @@ export const ThemeCreateSchema = z.object({
   name: z.string().optional(),
   description: z.string().optional(),
   config: z.any().optional(),
-  category_id: z.number().nullable().optional()
+  category_id: z.number().nullable().optional(),
 });
 
 export const ThemeCategoryCreateSchema = z.object({
   name: z.string().min(1, "Category name is required"),
   title: z.string().min(1, "Category title is required"),
   category: z.string().min(1, "Category identifier is required"),
-  description: z.string().max(240, "Description must not exceed 240 characters").optional()
+  description: z.string().max(240, "Description must not exceed 240 characters").optional(),
 });
 
 export const ThemeCategoryToggleVisibilitySchema = z.object({
   id: z.number(),
-  visible: z.boolean()
+  visible: z.boolean(),
 });
 
 // File management schemas

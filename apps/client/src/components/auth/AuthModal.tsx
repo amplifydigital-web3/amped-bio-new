@@ -33,8 +33,8 @@ const loginSchema = z.object({
 const registerSchema = z.object({
   onelink: z
     .string()
-    .min(3, "URL must be at least 3 characters")
-    .regex(/^[a-zA-Z0-9_-]+$/, "URL can only contain letters, numbers, underscores and hyphens"),
+    .min(3, "Name must be at least 3 characters")
+    .regex(/^[a-zA-Z0-9_-]+$/, "Name can only contain letters, numbers, underscores and hyphens"),
   email: z.string().email("Please enter a valid email address"),
   password: z
     .string()
@@ -428,7 +428,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 aria-label="Claim your name"
                 data-testid="register-onelink"
                 autoComplete="username"
-                placeholder="your-url"
+                placeholder="your-name"
                 {...registerSignUp("onelink")}
                 onChange={handleOnelinkChange}
               />
