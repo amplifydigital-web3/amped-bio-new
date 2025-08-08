@@ -19,6 +19,7 @@ import { serialize } from "cookie";
 import { env } from "../env";
 import { addDays } from "date-fns";
 import { prisma } from "../services/DB";
+import type { User } from "@prisma/client";
 
 // Helper function to hash refresh tokens with SHA-256
 function hashRefreshToken(token: string): string {
@@ -65,6 +66,56 @@ function setRefreshTokenCookie(ctx: any, token: string, expiresAt?: Date) {
     : [String(existingCookies)];
 
   ctx.res.setHeader("Set-Cookie", [...cookiesArray, cookieString]);
+}
+
+interface AuthResponse {
+  user: {
+    id: number;
+    email: string;
+    onelink: string;
+    emailVerified: boolean;
+    role: string;
+    image?: string | null;
+  };
+  accessToken: string;
+}
+
+// Helper function to handle token generation and cookie setting
+async function handleTokenGeneration(
+  ctx: any,
+  user: User,
+  imageUrl?: string | null
+): Promise<AuthResponse> {
+  // Generate refresh token
+  const refreshToken = crypto.randomBytes(32).toString("hex");
+  const hashedRefreshToken = hashRefreshToken(refreshToken);
+
+  // Create refresh token in database
+  const token = await prisma.refreshToken.create({
+    data: {
+      userId: user.id,
+      token: hashedRefreshToken,
+      expiresAt: addDays(new Date(), 30), // 30 days
+    },
+  });
+
+  // Set refresh token cookie
+  setRefreshTokenCookie(ctx, refreshToken, token.expiresAt);
+
+  const emailVerified = user.email_verified_at !== null;
+
+  // Return user data and access token
+  return {
+    user: {
+      id: user.id,
+      email: user.email,
+      onelink: user.onelink || "",
+      emailVerified,
+      role: user.role,
+      image: imageUrl,
+    },
+    accessToken: generateAccessToken({ id: user.id, email: user.email, role: user.role }),
+  };
 }
 
 export const authRouter = router({
@@ -137,24 +188,7 @@ export const authRouter = router({
     //   // We continue even if email fails
     // }
 
-    const refreshToken = crypto.randomBytes(32).toString("hex");
-    const hashedRefreshToken = hashRefreshToken(refreshToken);
-
-    const token = await prisma.refreshToken.create({
-      data: {
-        userId: result.id,
-        token: hashedRefreshToken,
-        expiresAt: addDays(new Date(), 30), // 30 days
-      },
-    });
-
-    // Set refresh token cookie
-    setRefreshTokenCookie(ctx, refreshToken, token.expiresAt);
-
-    return {
-      user: { id: result.id, email, onelink, role: result.role },
-      accessToken: generateAccessToken({ id: result.id, email, role: result.role }),
-    };
+    return handleTokenGeneration(ctx, result);
   }),
 
   // Login user
@@ -192,39 +226,13 @@ export const authRouter = router({
       });
     }
 
-    const emailVerified = user.email_verified_at !== null;
-
-    const refreshToken = crypto.randomBytes(32).toString("hex");
-    const hashedRefreshToken = hashRefreshToken(refreshToken);
-
-    const token = await prisma.refreshToken.create({
-      data: {
-        userId: user.id,
-        token: hashedRefreshToken,
-        expiresAt: addDays(new Date(), 30), // 30 days
-      },
-    });
-
-    // Set refresh token cookie
-    setRefreshTokenCookie(ctx, refreshToken, token.expiresAt);
-
     // Resolve user image URL (same as "me")
     const imageUrl = await getFileUrl({
       legacyImageField: user.image,
       imageFileId: user.image_file_id,
     });
 
-    return {
-      user: {
-        id: user.id,
-        email: user.email,
-        onelink: user.onelink,
-        emailVerified,
-        role: user.role,
-        image: imageUrl,
-      },
-      accessToken: generateAccessToken({ id: user.id, email: user.email, role: user.role }),
-    };
+    return handleTokenGeneration(ctx, user, imageUrl);
   }),
 
   logout: privateProcedure.mutation(async ({ ctx }) => {
@@ -499,18 +507,7 @@ export const authRouter = router({
 
   // Google OAuth authentication
   googleAuth: publicProcedure.input(googleAuthSchema).mutation(async ({ input, ctx }) => {
-    const { token, recaptchaToken } = input;
-
-    // Verify reCAPTCHA token if enabled
-    if (recaptchaToken) {
-      const isRecaptchaValid = await verifyRecaptcha(recaptchaToken);
-      if (!isRecaptchaValid) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "reCAPTCHA verification failed",
-        });
-      }
-    }
+    const { token } = input;
 
     try {
       // Verify Google token and get user info
@@ -565,27 +562,11 @@ export const authRouter = router({
             email: googleUser.email,
             password: hashedPassword,
             email_verified_at: new Date(), // Email is already verified with Google
-            image: googleUser.picture || null,
+            image: null,
             role: userRole,
           },
         });
       }
-
-      // Generate refresh token
-      const refreshToken = crypto.randomBytes(32).toString("hex");
-      const hashedRefreshToken = hashRefreshToken(refreshToken);
-
-      // Create refresh token in database
-      const token = await prisma.refreshToken.create({
-        data: {
-          userId: user.id,
-          token: hashedRefreshToken,
-          expiresAt: addDays(new Date(), 30), // 30 days
-        },
-      });
-
-      // Set refresh token cookie
-      setRefreshTokenCookie(ctx, refreshToken, token.expiresAt);
 
       // Resolve user image URL
       const imageUrl = await getFileUrl({
@@ -593,18 +574,10 @@ export const authRouter = router({
         imageFileId: user.image_file_id,
       });
 
-      // Return user data and access token
-      return {
-        user: {
-          id: user.id,
-          email: user.email,
-          onelink: user.onelink,
-          emailVerified: user.email_verified_at !== null,
-          role: user.role,
-          image: imageUrl || googleUser.picture,
-        },
-        accessToken: generateAccessToken({ id: user.id, email: user.email, role: user.role }),
-      };
+      // Não usar a imagem do Google como fallback
+
+      // Return user data and access token using our utility function
+      return handleTokenGeneration(ctx, user, imageUrl);
     } catch (error) {
       console.error("Google authentication error:", error);
       throw new TRPCError({

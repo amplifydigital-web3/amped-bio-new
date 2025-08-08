@@ -246,7 +246,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     setLoading(true);
     setLoginError(null);
     try {
-      const user = await signInWithGoogle(token, recaptchaToken);
+      const user = await signInWithGoogle(token);
       onClose(user);
 
       // Redirect the user to their edit page with panel state set to "home"

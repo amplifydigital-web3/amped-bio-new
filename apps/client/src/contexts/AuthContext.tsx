@@ -94,7 +94,7 @@ type AuthContextType = {
   jwtToken: string | null; // Add JWT token to context
   signIn: (email: string, password: string, recaptchaToken: string | null) => Promise<AuthUser>;
   signUp: (onelink: string, email: string, password: string, recaptchaToken: string | null) => Promise<AuthUser>;
-  signInWithGoogle: (token: string, recaptchaToken: string | null) => Promise<AuthUser>; // Add Google auth method
+  signInWithGoogle: (token: string) => Promise<AuthUser>; // Add Google auth method
   signOut: () => Promise<void>;
   resetPassword: (email: string, recaptchaToken: string | null) => Promise<{ success: boolean; message: string }>;
   updateAuthUser: (userData: Partial<AuthUser>) => void;
@@ -329,10 +329,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Sign in with Google
-  const signInWithGoogle = async (token: string, recaptchaToken: string | null) => {
+  const signInWithGoogle = async (token: string) => {
     try {
       setError(null);
-      const response = await trpcClient.auth.googleAuth.mutate({ token, recaptchaToken });
+      const response = await trpcClient.auth.googleAuth.mutate({ token });
       updateToken(response.accessToken);
       
       // Ensure onelink is never null for AuthUser type
