@@ -94,6 +94,7 @@ type AuthContextType = {
   jwtToken: string | null; // Add JWT token to context
   signIn: (email: string, password: string, recaptchaToken: string | null) => Promise<AuthUser>;
   signUp: (onelink: string, email: string, password: string, recaptchaToken: string | null) => Promise<AuthUser>;
+  signInWithGoogle: (token: string, recaptchaToken: string | null) => Promise<AuthUser>; // Add Google auth method
   signOut: () => Promise<void>;
   resetPassword: (email: string, recaptchaToken: string | null) => Promise<{ success: boolean; message: string }>;
   updateAuthUser: (userData: Partial<AuthUser>) => void;
@@ -244,10 +245,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setError(null);
       const response = await trpcClient.auth.login.mutate({ email, password, recaptchaToken });
       updateToken(response.accessToken);
-      setAuthUser(response.user);
-      localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_USER, JSON.stringify(response.user));
+      
+      // Ensure onelink is never null for AuthUser type
+      const user: AuthUser = {
+        ...response.user,
+        onelink: response.user.onelink || "",
+      };
+      
+      setAuthUser(user);
+      localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_USER, JSON.stringify(user));
       setIsAuthenticated(true);
-      return response.user;
+      return user;
     } catch (error) {
       setError((error as Error).message);
       throw error;
@@ -259,10 +267,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setError(null);
       const response = await trpcClient.auth.register.mutate({ onelink, email, password, recaptchaToken });
       updateToken(response.accessToken);
-      setAuthUser(response.user);
-      localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_USER, JSON.stringify(response.user));
+      
+      // Ensure onelink is never null for AuthUser type
+      const user: AuthUser = {
+        ...response.user,
+        onelink: response.user.onelink || "",
+      };
+      
+      setAuthUser(user);
+      localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_USER, JSON.stringify(user));
       setIsAuthenticated(true);
-      return response.user;
+      return user;
     } catch (error) {
       setError((error as Error).message);
       throw error;
@@ -313,6 +328,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Sign in with Google
+  const signInWithGoogle = async (token: string, recaptchaToken: string | null) => {
+    try {
+      setError(null);
+      const response = await trpcClient.auth.googleAuth.mutate({ token, recaptchaToken });
+      updateToken(response.accessToken);
+      
+      // Ensure onelink is never null for AuthUser type
+      const user: AuthUser = {
+        ...response.user,
+        onelink: response.user.onelink || "",
+      };
+      
+      setAuthUser(user);
+      localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_USER, JSON.stringify(user));
+      setIsAuthenticated(true);
+      return user;
+    } catch (error) {
+      setError((error as Error).message);
+      throw error;
+    }
+  };
+
   const value = {
     authUser,
     error,
@@ -320,6 +358,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     jwtToken,
     signIn,
     signUp,
+    signInWithGoogle,
     signOut,
     resetPassword,
     updateAuthUser,
