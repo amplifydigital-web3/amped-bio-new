@@ -182,13 +182,11 @@ export const blocksRouter = router({
 
   deleteBlock: privateProcedure.input(blockIdParamSchema).mutation(async ({ ctx, input }) => {
     const userId = ctx.user.sub;
-    const { id: blockId } = input;
-    const id = Number(blockId);
 
     try {
       const block = await prisma.block.findUnique({
         where: {
-          id: id,
+          id: input.id,
           user_id: userId,
         },
       });
@@ -196,13 +194,13 @@ export const blocksRouter = router({
       if (block === null) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: `Block not found: ${id}`,
+          message: `Block not found: ${input.id}`,
         });
       }
 
       const result = await prisma.block.delete({
         where: {
-          id: id,
+          id: input.id,
           user_id: userId,
         },
       });
