@@ -59,7 +59,7 @@ export function EditCategoryDialog({
       onSuccess();
       onClose();
     },
-    onError: (error) => {
+    onError: error => {
       toast.error(`Failed to update category: ${error.message}`);
     },
   });
@@ -89,9 +89,7 @@ export function EditCategoryDialog({
               disabled={updateCategoryMutation.isPending}
             />
             {errors.title && (
-              <p className="col-span-4 text-right text-red-500 text-sm">
-                {errors.title.message}
-              </p>
+              <p className="col-span-4 text-right text-red-500 text-sm">{errors.title.message}</p>
             )}
           </div>
           <div className="grid grid-cols-4 items-center gap-4">

@@ -25,9 +25,13 @@ type FormData = z.infer<typeof updateThemeSchema>;
  */
 export function useEditThemeDialog() {
   const [isOpen, setIsOpen] = useState(false);
-  const [currentTheme, setCurrentTheme] = useState<{ id: number; name: string } | null>(null);
+  const [currentTheme, setCurrentTheme] = useState<{
+    id: number;
+    name: string;
+    description?: string | null;
+  } | null>(null);
   const [onSuccessCallback, setOnSuccessCallback] = useState<(() => void) | undefined>(undefined);
-  
+
   const {
     register,
     handleSubmit,
@@ -40,7 +44,7 @@ export function useEditThemeDialog() {
       name: "",
     },
   });
-  
+
   const updateThemeMutation = useMutation({
     mutationFn: (data: FormData) => trpcClient.admin.themes.updateTheme.mutate(data),
     onSuccess: () => {
@@ -54,25 +58,28 @@ export function useEditThemeDialog() {
       toast.error(`Failed to update theme: ${error.message}`);
     },
   });
-  
+
   // Open dialog and set current theme
-  const openDialog = (theme: { id: number; name: string }, successCallback?: () => void) => {
+  const openDialog = (
+    theme: { id: number; name: string; description?: string | null },
+    successCallback?: () => void
+  ) => {
     setCurrentTheme(theme);
     setOnSuccessCallback(successCallback);
-    reset({ id: theme.id, name: theme.name });
+    reset({ id: theme.id, name: theme.name, description: theme.description });
     setIsOpen(true);
   };
-  
+
   // Close the dialog
   const handleClose = () => {
     setIsOpen(false);
   };
-  
+
   // Submit handler
   const onSubmit = (data: FormData) => {
     updateThemeMutation.mutate(data);
   };
-  
+
   return {
     isOpen,
     currentTheme,
@@ -90,16 +97,8 @@ export function useEditThemeDialog() {
  * The EditThemeDialog component that uses the useEditThemeDialog hook
  */
 export function EditThemeDialog() {
-  const {
-    isOpen,
-    currentTheme,
-    register,
-    errors,
-    handleSubmit,
-    onSubmit,
-    handleClose,
-    isPending,
-  } = useEditThemeDialog();
+  const { isOpen, currentTheme, register, errors, handleSubmit, onSubmit, handleClose, isPending } =
+    useEditThemeDialog();
 
   if (!isOpen || !currentTheme) return null;
 
@@ -117,25 +116,29 @@ export function EditThemeDialog() {
             <Label htmlFor="name" className="text-right">
               Title
             </Label>
+            <Input id="name" {...register("name")} className="col-span-3" disabled={isPending} />
+            {errors.name && (
+              <p className="col-span-4 text-right text-red-500 text-sm">{errors.name.message}</p>
+            )}
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="description" className="text-right">
+              Description
+            </Label>
             <Input
-              id="name"
-              {...register("name")}
+              id="description"
+              {...register("description")}
               className="col-span-3"
               disabled={isPending}
             />
-            {errors.name && (
+            {errors.description && (
               <p className="col-span-4 text-right text-red-500 text-sm">
-                {errors.name.message}
+                {errors.description.message}
               </p>
             )}
           </div>
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleClose}
-              disabled={isPending}
-            >
+            <Button type="button" variant="outline" onClick={handleClose} disabled={isPending}>
               Cancel
             </Button>
             <Button type="submit" disabled={isPending}>

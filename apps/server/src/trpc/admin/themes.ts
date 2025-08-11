@@ -109,6 +109,7 @@ export const themesRouter = router({
         where: { id: input.id },
         data: {
           name: input.name,
+          description: input.description,
         },
       });
       return { message: "Theme updated successfully", theme: updatedTheme };

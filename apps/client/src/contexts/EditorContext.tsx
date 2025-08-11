@@ -160,7 +160,10 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         const blockOrder = state.blocks.length;
 
         console.info("🔄 Adding block to server...");
-        const response = await trpcClient.blocks.addBlock.mutate({ type: block.type, config: block.config });
+        const response = await trpcClient.blocks.addBlock.mutate({
+          type: block.type,
+          config: block.config,
+        });
         console.info("✅ Block added to server:", response);
 
         if (response?.result) {

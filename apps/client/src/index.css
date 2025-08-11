@@ -1,48 +1,48 @@
-@import './styles/animations.css';
+@import "./styles/animations.css";
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-
 /* Font Family Utilities */
 .font-inter {
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
 }
 
 .font-roboto {
-  font-family: 'Roboto', sans-serif;
+  font-family: "Roboto", sans-serif;
 }
 
 .font-opensans {
-  font-family: 'Open Sans', sans-serif;
+  font-family: "Open Sans", sans-serif;
 }
 
 .font-montserrat {
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
 }
 
 .font-poppins {
-  font-family: 'Poppins', sans-serif;
+  font-family: "Poppins", sans-serif;
 }
 
 /* Text Shadow Utilities */
 .text-shadow-glow {
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.8),
+  text-shadow:
+    0 0 10px rgba(255, 255, 255, 0.8),
     0 0 20px rgba(255, 255, 255, 0.8),
     0 0 30px rgba(255, 255, 255, 0.8);
 }
 
 .text-shadow-neon {
-  text-shadow: 0 0 5px #fff,
+  text-shadow:
+    0 0 5px #fff,
     0 0 10px #fff,
     0 0 20px #ff00de,
     0 0 30px #ff00de,
     0 0 40px #ff00de;
 }
 
-
-:root  {
+:root {
   --background: 230 100% 95%;
   --foreground: 230 5% 0%;
   --card: 230 50% 90%;
@@ -64,7 +64,7 @@
   --ring: 230 79.1% 56.9%;
   --radius: 0.5rem;
 }
-.dark  {
+.dark {
   --background: 230 50% 5%;
   --foreground: 230 5% 90%;
   --card: 230 50% 0%;
@@ -86,7 +86,6 @@
   --ring: 230 79.1% 56.9%;
   --radius: 0.5rem;
 }
-
 
 /* 
 @layer base {
@@ -158,7 +157,6 @@
 
 /* Animation Utilities */
 @keyframes float {
-
   0%,
   100% {
     transform: translateY(0);

@@ -59,6 +59,7 @@ export const ThemeCategoryToggleVisibilitySchema = z.object({
 export const ThemeUpdateSchema = z.object({
   id: z.number(),
   name: z.string().min(1, "Theme title is required"),
+  description: z.string().optional(),
 });
 
 export const ThemeCategoryUpdateSchema = z.object({

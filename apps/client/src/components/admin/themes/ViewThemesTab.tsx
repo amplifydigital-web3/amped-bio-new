@@ -15,7 +15,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { EditThemeDialog, useEditThemeDialog } from "./EditThemeDialog"; 
+import { EditThemeDialog, useEditThemeDialog } from "./EditThemeDialog";
 
 interface DeleteModalState {
   isOpen: boolean;
@@ -37,6 +37,13 @@ export function ViewThemesTab() {
     isOpen: false,
     theme: null,
     confirmationText: "",
+  });
+  const [editCategoryModal, setEditCategoryModal] = useState<{
+    isOpen: boolean;
+    category: any | null;
+  }>({
+    isOpen: false,
+    category: null,
   });
   const [previewLoading, setPreviewLoading] = useState<number | null>(null);
   // Use the hook for the edit theme dialog
@@ -111,6 +118,15 @@ export function ViewThemesTab() {
     setDeleteModal(prev => ({ ...prev, confirmationText: value }));
   };
 
+  const handleEditCategoryClick = (category: any) => {
+    setEditCategoryModal({ isOpen: true, category });
+  };
+
+  const handleCloseEditCategoryModal = () => {
+    setEditCategoryModal({ isOpen: false, category: null });
+    refetch(); // Refetch themes and categories after edit
+  };
+
   const isDeleteConfirmed = deleteModal.confirmationText.toLowerCase() === "delete";
 
   const formatDate = (dateString: string | null) => {
@@ -180,6 +196,39 @@ export function ViewThemesTab() {
               </option>
             ))}
           </select>
+        </div>
+
+        {/* Categories List */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Folder className="h-5 w-5" />
+            Theme Categories
+          </h3>
+          {categories && categories.length > 0 ? (
+            <ul className="divide-y divide-gray-200">
+              {categories.map(category => (
+                <li key={category.id} className="py-3 flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900">{category.title}</p>
+                    {category.description && (
+                      <p className="text-sm text-gray-500">{category.description}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleEditCategoryClick(category)}
+                    className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                    title="Edit category"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="text-center py-4">
+              <p className="text-sm text-gray-500">No categories found.</p>
+            </div>
+          )}
         </div>
 
         {/* Themes Grid */}
@@ -463,6 +512,16 @@ export function ViewThemesTab() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Edit Category Dialog */}
+      {editCategoryModal.isOpen && editCategoryModal.category && (
+        <EditCategoryDialog
+          isOpen={editCategoryModal.isOpen}
+          onClose={handleCloseEditCategoryModal}
+          category={editCategoryModal.category}
+          onSuccess={handleCloseEditCategoryModal}
+        />
       )}
     </div>
   );

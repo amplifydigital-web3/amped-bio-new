@@ -117,18 +117,18 @@ export function View() {
           }
         } catch (error) {
           console.error("Failed to fetch onelink data:", error);
-          
+
           // Check if this is a TRPCClientError with NOT_FOUND code for the DEFAULT_ONELINK
           if (
-            error instanceof TRPCClientError && 
-            error.data?.code === "NOT_FOUND" && 
+            error instanceof TRPCClientError &&
+            error.data?.code === "NOT_FOUND" &&
             normalizedOnelink === DEFAULT_ONELINK
           ) {
             // Use default data from initialState
             setProfile(initialState.profile);
             setTheme(initialState.theme);
             setBlocks(initialState.blocks);
-          } 
+          }
           // Only redirect on error if not the default onelink
           else if (normalizedOnelink !== DEFAULT_ONELINK) {
             navigate("/");
