@@ -1,15 +1,21 @@
+import { useState } from "react"; // Import useState
 import { trpc } from "../../../utils/trpc";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { List, Image as ImageIcon, Eye, EyeOff, Loader2 } from "lucide-react";
+import { List, Image as ImageIcon, Eye, EyeOff, Loader2, Pencil } from "lucide-react"; // Import Pencil // Import Pencil
 import { CategoryImageUploader } from "./CategoryImageUploader";
 import { Switch } from "../../ui/Switch";
 import { toast } from "react-hot-toast";
+import { EditCategoryDialog } from "./EditCategoryDialog"; // Import EditCategoryDialog
 
 interface ViewCategoriesTabProps {
   refetchCategories: () => void;
 }
 
 export function ViewCategoriesTab({ refetchCategories }: ViewCategoriesTabProps) {
+  // State for edit dialog
+  const [isEditCategoryDialogOpen, setIsEditCategoryDialogOpen] = useState(false);
+  const [categoryToEdit, setCategoryToEdit] = useState<any | null>(null);
+
   // Queries
   const { data: categories } = useQuery(trpc.admin.themes.getThemeCategories.queryOptions());
 
@@ -75,6 +81,26 @@ export function ViewCategoriesTab({ refetchCategories }: ViewCategoriesTabProps)
                         {category.title}
                       </h4>
                       <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => {
+                            setCategoryToEdit(category);
+                            setIsEditCategoryDialogOpen(true);
+                          }}
+                          className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                          title="Edit category"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setCategoryToEdit(category);
+                            setIsEditCategoryDialogOpen(true);
+                          }}
+                          className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                          title="Edit category"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
                         {toggleVisibilityMutation.isPending ? (
                           <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
                         ) : category.visible ? (
@@ -144,6 +170,20 @@ export function ViewCategoriesTab({ refetchCategories }: ViewCategoriesTabProps)
           </div>
         )}
       </div>
+
+      {/* Edit Category Dialog */}
+      {categoryToEdit && (
+        <EditCategoryDialog
+          isOpen={isEditCategoryDialogOpen}
+          onClose={() => setIsEditCategoryDialogOpen(false)}
+          category={categoryToEdit}
+          onSuccess={() => {
+            refetchCategories(); // Refetch categories after successful edit
+            setIsEditCategoryDialogOpen(false);
+            setCategoryToEdit(null);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -56,6 +56,17 @@ export const ThemeCategoryToggleVisibilitySchema = z.object({
   visible: z.boolean(),
 });
 
+export const ThemeUpdateSchema = z.object({
+  id: z.number(),
+  name: z.string().min(1, "Theme title is required"),
+});
+
+export const ThemeCategoryUpdateSchema = z.object({
+  id: z.number(),
+  title: z.string().min(1, "Category title is required"),
+  description: z.string().optional(),
+});
+
 // File management schemas
 export const FileFilterSchema = z.object({
   search: z.string().optional(),

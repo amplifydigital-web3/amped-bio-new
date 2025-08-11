@@ -15,6 +15,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { EditThemeDialog } from "./EditThemeDialog"; 
 
 interface DeleteModalState {
   isOpen: boolean;
@@ -38,7 +39,8 @@ export function ViewThemesTab() {
     confirmationText: "",
   });
   const [previewLoading, setPreviewLoading] = useState<number | null>(null);
-  const [editLoading, setEditLoading] = useState<number | null>(null);
+  const [isEditThemeDialogOpen, setIsEditThemeDialogOpen] = useState(false); // State for edit dialog
+  const [themeToEdit, setThemeToEdit] = useState<any | null>(null); // State for theme being edited
   const limit = 10;
 
   // Get theme collections for filtering
@@ -274,21 +276,13 @@ export function ViewThemesTab() {
                     </button>
                     <button
                       onClick={() => {
-                        setEditLoading(theme.id);
-                        setTimeout(() => {
-                          setEditLoading(null);
-                          toast.success("Edit functionality coming soon!");
-                        }, 1000);
+                        setThemeToEdit(theme);
+                        setIsEditThemeDialogOpen(true);
                       }}
                       className="p-1 text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                       title="Edit theme"
-                      disabled={editLoading === theme.id}
                     >
-                      {editLoading === theme.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Edit className="w-4 h-4" />
-                      )}
+                      <Edit className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleDeleteClick(theme)}
@@ -374,6 +368,20 @@ export function ViewThemesTab() {
           </div>
         )}
       </div>
+
+      {/* Edit Theme Dialog */}
+      {themeToEdit && (
+        <EditThemeDialog
+          isOpen={isEditThemeDialogOpen}
+          onClose={() => setIsEditThemeDialogOpen(false)}
+          theme={themeToEdit}
+          onSuccess={() => {
+            refetch(); // Refetch themes after successful edit
+            setIsEditThemeDialogOpen(false);
+            setThemeToEdit(null);
+          }}
+        />
+      )}
 
       {/* Delete Confirmation Modal */}
       {deleteModal.isOpen && deleteModal.theme && (

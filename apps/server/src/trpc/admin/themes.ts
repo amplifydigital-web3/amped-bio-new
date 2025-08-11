@@ -4,147 +4,162 @@ import { TRPCError } from "@trpc/server";
 import { getFileUrl } from "../../utils/fileUrlResolver";
 import { uploadedFileService } from "../../services/UploadedFileService";
 import { s3Service } from "../../services/S3Service";
-import { 
-  DateRangeSchema, 
-  PaginationSchema, 
-  ThemeCreateSchema, 
+import {
+  DateRangeSchema,
+  PaginationSchema,
+  ThemeCreateSchema,
   ThemeCategoryCreateSchema,
-  ThemeCategoryToggleVisibilitySchema
+  ThemeCategoryToggleVisibilitySchema,
+  ThemeUpdateSchema,
+  ThemeCategoryUpdateSchema,
 } from "./schemas";
 import { prisma } from "../../services/DB";
 
 export const themesRouter = router({
-  getThemeStats: adminProcedure
-    .input(DateRangeSchema.optional())
-    .query(async ({ input }) => {
-      const startDate = input?.startDate ? new Date(input.startDate) : undefined;
-      const endDate = input?.endDate ? new Date(input.endDate) : undefined;
-      
-      // Build date filter if provided
-      const dateFilter = {};
-      if (startDate && endDate) {
-        Object.assign(dateFilter, {
-          created_at: {
-            gte: startDate,
-            lte: endDate
-          }
-        });
-      } else if (startDate) {
-        Object.assign(dateFilter, {
-          created_at: {
-            gte: startDate
-          }
-        });
-      } else if (endDate) {
-        Object.assign(dateFilter, {
-          created_at: {
-            lte: endDate
-          }
-        });
-      }
-      
-      // Get total count
-      const totalThemes = await prisma.theme.count({
-        where: dateFilter
-      });
-      
-      // Get themes created today
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const themesCreatedToday = await prisma.theme.count({
-        where: {
-          created_at: {
-            gte: today
-          }
-        }
-      });
-      
-      // Get share level distribution
-      const shareDistributionData = await prisma.theme.groupBy({
-        by: ['share_level'],
-        _count: {
-          id: true
-        }
-      });
-      
-      // Format the share_level distribution data
-      const shareDistribution = shareDistributionData.map(item => ({
-        share_level: item.share_level,
-        count: item._count.id
-      }));
-      
-      return {
-        totalThemes,
-        themesCreatedToday,
-        shareDistribution,
-      };
-    }),
-    
-  createTheme: adminProcedure
-    .input(ThemeCreateSchema)
-    .mutation(async ({ input }) => {
-      try {
-        const theme = await prisma.theme.create({
-          data: {
-            user_id: undefined, // Admin themes have no user_id
-            share_level: 'public', // Admin themes are always public
-            share_config: input.share_config,
-            name: input.name,
-            description: input.description,
-            config: input.config,
-            category_id: input.category_id
-          }
-        });
-        return theme;
-      } catch (error) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to create theme'
-        });
-      }
-    }),
-    
-  getThemeCategories: adminProcedure
-    .query(async () => {
-      try {
-        const categories = await prisma.themeCategory.findMany({
-          orderBy: { created_at: 'desc' },
-          select: {
-            id: true,
-            name: true,
-            title: true,
-            category: true,
-            description: true,
-            visible: true,
-            image_file_id: true,
-            created_at: true,
-            updated_at: true,
-            _count: {
-              select: {
-                themes: true
-              }
-            }
-          }
-        });
+  getThemeStats: adminProcedure.input(DateRangeSchema.optional()).query(async ({ input }) => {
+    const startDate = input?.startDate ? new Date(input.startDate) : undefined;
+    const endDate = input?.endDate ? new Date(input.endDate) : undefined;
 
-        // Resolve image URLs for all categories
-        const categoriesWithResolvedImages = await Promise.all(
-          categories.map(async (category) => ({
-            ...category,
-            image: await getFileUrl({ legacyImageField: null, imageFileId: category.image_file_id })
-          }))
-        );
+    // Build date filter if provided
+    const dateFilter = {};
+    if (startDate && endDate) {
+      Object.assign(dateFilter, {
+        created_at: {
+          gte: startDate,
+          lte: endDate,
+        },
+      });
+    } else if (startDate) {
+      Object.assign(dateFilter, {
+        created_at: {
+          gte: startDate,
+        },
+      });
+    } else if (endDate) {
+      Object.assign(dateFilter, {
+        created_at: {
+          lte: endDate,
+        },
+      });
+    }
 
-        return categoriesWithResolvedImages;
-      } catch (error) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to fetch theme categories'
-        });
-      }
-    }),
-    
+    // Get total count
+    const totalThemes = await prisma.theme.count({
+      where: dateFilter,
+    });
+
+    // Get themes created today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const themesCreatedToday = await prisma.theme.count({
+      where: {
+        created_at: {
+          gte: today,
+        },
+      },
+    });
+
+    // Get share level distribution
+    const shareDistributionData = await prisma.theme.groupBy({
+      by: ["share_level"],
+      _count: {
+        id: true,
+      },
+    });
+
+    // Format the share_level distribution data
+    const shareDistribution = shareDistributionData.map(item => ({
+      share_level: item.share_level,
+      count: item._count.id,
+    }));
+
+    return {
+      totalThemes,
+      themesCreatedToday,
+      shareDistribution,
+    };
+  }),
+
+  createTheme: adminProcedure.input(ThemeCreateSchema).mutation(async ({ input }) => {
+    try {
+      const theme = await prisma.theme.create({
+        data: {
+          user_id: undefined, // Admin themes have no user_id
+          share_level: "public", // Admin themes are always public
+          share_config: input.share_config,
+          name: input.name,
+          description: input.description,
+          config: input.config,
+          category_id: input.category_id,
+        },
+      });
+      return theme;
+    } catch (error) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to create theme",
+      });
+    }
+  }),
+
+  updateTheme: adminProcedure.input(ThemeUpdateSchema).mutation(async ({ ctx, input }) => {
+    try {
+      const updatedTheme = await prisma.theme.update({
+        where: { id: input.id },
+        data: {
+          name: input.name,
+        },
+      });
+      return { message: "Theme updated successfully", theme: updatedTheme };
+    } catch (error: any) {
+      console.error("Failed to update theme:", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: `Failed to update theme: ${error.message || "Unknown error"}`,
+      });
+    }
+  }),
+
+  getThemeCategories: adminProcedure.query(async () => {
+    try {
+      const categories = await prisma.themeCategory.findMany({
+        orderBy: { created_at: "desc" },
+        select: {
+          id: true,
+          name: true,
+          title: true,
+          category: true,
+          description: true,
+          visible: true,
+          image_file_id: true,
+          created_at: true,
+          updated_at: true,
+          _count: {
+            select: {
+              themes: true,
+            },
+          },
+        },
+      });
+
+      // Resolve image URLs for all categories
+      const categoriesWithResolvedImages = await Promise.all(
+        categories.map(async category => ({
+          ...category,
+          image: await getFileUrl({ legacyImageField: null, imageFileId: category.image_file_id }),
+        }))
+      );
+
+      return categoriesWithResolvedImages;
+    } catch (error) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to fetch theme categories",
+      });
+    }
+  }),
+
   createThemeCategory: adminProcedure
     .input(ThemeCategoryCreateSchema)
     .mutation(async ({ input }) => {
@@ -154,67 +169,68 @@ export const themesRouter = router({
             name: input.name,
             title: input.title,
             category: input.category,
-            description: input.description
-          }
+            description: input.description,
+          },
         });
         return category;
       } catch (error: any) {
-        console.error('Failed to create theme category:', error);
-        
+        console.error("Failed to create theme category:", error);
+
         // Handle Prisma unique constraint violations
-        if (error.code === 'P2002') {
-          const field = error.meta?.target || 'field';
+        if (error.code === "P2002") {
+          const field = error.meta?.target || "field";
           throw new TRPCError({
-            code: 'CONFLICT',
-            message: `A category with this ${field} already exists. Please choose a different ${field}.`
+            code: "CONFLICT",
+            message: `A category with this ${field} already exists. Please choose a different ${field}.`,
           });
         }
-        
+
         // Handle other database errors
-        if (error.code && error.code.startsWith('P')) {
+        if (error.code && error.code.startsWith("P")) {
           throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: `Database error: ${error.message}`
+            code: "BAD_REQUEST",
+            message: `Database error: ${error.message}`,
           });
         }
-        
+
         // Generic fallback
         throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to create theme category: ${error.message || 'Unknown error'}`
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Failed to create theme category: ${error.message || "Unknown error"}`,
         });
       }
     }),
-    
+
   getThemes: adminProcedure
-    .input(z.object({
-      ...PaginationSchema.shape,
-      category_id: z.number().optional(),
-      search: z.string().optional(),
-    }))
+    .input(
+      z.object({
+        ...PaginationSchema.shape,
+        category_id: z.number().optional(),
+        search: z.string().optional(),
+      })
+    )
     .query(async ({ input }) => {
       const { page, limit, category_id, search } = input;
       const skip = (page - 1) * limit;
-      
+
       // Build filter conditions - only admin themes (user_id is null)
       const where = {
         user_id: null, // Only admin themes
         ...(category_id ? { category_id } : {}),
-        ...(search ? {
-          OR: [
-            { name: { contains: search } },
-            { description: { contains: search } }
-          ]
-        } : {})
+        ...(search
+          ? {
+              OR: [{ name: { contains: search } }, { description: { contains: search } }],
+            }
+          : {}),
       };
-      
+
       try {
         // Get themes with pagination
         const themes = await prisma.theme.findMany({
           skip,
           take: limit,
           where,
-          orderBy: { updated_at: 'desc' },
+          orderBy: { updated_at: "desc" },
           include: {
             user: {
               select: {
@@ -222,61 +238,73 @@ export const themesRouter = router({
                 name: true,
                 image: true,
                 image_file_id: true,
-              }
+              },
             },
             category: {
               select: {
                 id: true,
                 name: true,
                 title: true,
-              }
+              },
             },
             thumbnailImage: true,
-          }
+          },
         });
 
         // Resolve image URLs for all themes and users
         const themesWithResolvedImages = await Promise.all(
-          themes.map(async (theme) => ({
+          themes.map(async theme => ({
             ...theme,
-            user: theme.user ? {
-              ...theme.user,
-              image: await getFileUrl({ legacyImageField: theme.user.image, imageFileId: theme.user.image_file_id }),
-            } : null,
-            thumbnailImage: theme.thumbnailImage ? {
-              ...theme.thumbnailImage,
-              url: await getFileUrl({ legacyImageField: null, imageFileId: theme.thumbnailImage.id }),
-            } : null,
+            user: theme.user
+              ? {
+                  ...theme.user,
+                  image: await getFileUrl({
+                    legacyImageField: theme.user.image,
+                    imageFileId: theme.user.image_file_id,
+                  }),
+                }
+              : null,
+            thumbnailImage: theme.thumbnailImage
+              ? {
+                  ...theme.thumbnailImage,
+                  url: await getFileUrl({
+                    legacyImageField: null,
+                    imageFileId: theme.thumbnailImage.id,
+                  }),
+                }
+              : null,
           }))
         );
 
         // Get total count for pagination
         const totalThemes = await prisma.theme.count({ where });
-        
+
         return {
           themes: themesWithResolvedImages,
           pagination: {
             total: totalThemes,
             pages: Math.ceil(totalThemes / limit),
             page,
-            limit
-          }
+            limit,
+          },
         };
       } catch (error) {
         throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to fetch themes'
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch themes",
         });
       }
     }),
 
   deleteTheme: adminProcedure
-    .input(z.object({
-      id: z.number()
-    }))
+    .input(
+      z.object({
+        id: z.number(),
+      })
+    )
     .mutation(async ({ input }) => {
       const { id } = input;
-      
+
       try {
         // First, check if the theme exists and get all related file information
         const theme = await prisma.theme.findUnique({
@@ -286,14 +314,14 @@ export const themesRouter = router({
             name: true,
             user_id: true,
             thumbnail_file_id: true,
-            config: true
-          }
+            config: true,
+          },
         });
 
         if (!theme) {
           throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'Theme not found'
+            code: "NOT_FOUND",
+            message: "Theme not found",
           });
         }
 
@@ -303,30 +331,30 @@ export const themesRouter = router({
           where: {
             OR: [
               { theme: theme.name }, // Users using theme by name
-              { theme: id.toString() } // Users using theme by ID
-            ]
+              { theme: id.toString() }, // Users using theme by ID
+            ],
           },
           select: {
             id: true,
             name: true,
             email: true,
-            onelink: true
-          }
+            onelink: true,
+          },
         });
 
         if (usersUsingTheme.length > 0) {
           throw new TRPCError({
-            code: 'CONFLICT',
+            code: "CONFLICT",
             message: `Cannot delete theme. It is currently being used by ${usersUsingTheme.length} user(s). Please ensure no users are using this theme before deleting it.`,
             cause: {
-              usersUsingTheme: usersUsingTheme
-            }
+              usersUsingTheme: usersUsingTheme,
+            },
           });
         }
 
         // Collect files to delete
         const filesToDelete: number[] = [];
-        let deletionErrors: string[] = [];
+        const deletionErrors: string[] = [];
 
         // Add thumbnail file ID if it exists
         if (theme.thumbnail_file_id) {
@@ -334,9 +362,9 @@ export const themesRouter = router({
         }
 
         // Check for background file in theme config
-        if (theme.config && typeof theme.config === 'object') {
+        if (theme.config && typeof theme.config === "object") {
           const config = theme.config as any;
-          if (config.background?.fileId && typeof config.background.fileId === 'number') {
+          if (config.background?.fileId && typeof config.background.fileId === "number") {
             filesToDelete.push(config.background.fileId);
           }
         }
@@ -346,21 +374,21 @@ export const themesRouter = router({
           try {
             // Get file information first
             const uploadedFile = await uploadedFileService.getFileById(fileId);
-            
+
             if (uploadedFile) {
               // Delete from S3
               await s3Service.deleteFile(uploadedFile.s3_key);
-              
+
               // Mark file as deleted in database
               await uploadedFileService.deleteFile(fileId);
-              
+
               console.info(`[INFO] Successfully deleted file for theme ${id}:`, {
                 fileId,
-                s3Key: uploadedFile.s3_key
+                s3Key: uploadedFile.s3_key,
               });
             }
           } catch (fileDeleteError: any) {
-            const errorMessage = `Failed to delete file ${fileId}: ${fileDeleteError.message || 'Unknown error'}`;
+            const errorMessage = `Failed to delete file ${fileId}: ${fileDeleteError.message || "Unknown error"}`;
             deletionErrors.push(errorMessage);
             console.error(`[ERROR] ${errorMessage}`, fileDeleteError);
           }
@@ -369,12 +397,12 @@ export const themesRouter = router({
         // If there were any file deletion errors, fail the entire operation
         if (deletionErrors.length > 0) {
           throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: `Failed to delete theme files: ${deletionErrors.join('; ')}`,
+            code: "INTERNAL_SERVER_ERROR",
+            message: `Failed to delete theme files: ${deletionErrors.join("; ")}`,
             cause: {
               deletionErrors,
-              filesAttempted: filesToDelete
-            }
+              filesAttempted: filesToDelete,
+            },
           });
         }
 
@@ -384,42 +412,42 @@ export const themesRouter = router({
           select: {
             id: true,
             name: true,
-            description: true
-          }
+            description: true,
+          },
         });
 
         return {
           success: true,
           message: `Theme "${deletedTheme.name}" has been successfully deleted`,
           deletedTheme,
-          deletedFiles: filesToDelete.length
+          deletedFiles: filesToDelete.length,
         };
       } catch (error: any) {
         // Re-throw TRPCError as is
         if (error instanceof TRPCError) {
           throw error;
         }
-        
+
         // Handle Prisma errors
-        if (error.code === 'P2025') {
+        if (error.code === "P2025") {
           throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'Theme not found'
+            code: "NOT_FOUND",
+            message: "Theme not found",
           });
         }
-        
+
         // Handle other database errors
-        if (error.code && error.code.startsWith('P')) {
+        if (error.code && error.code.startsWith("P")) {
           throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: `Database error: ${error.message}`
+            code: "INTERNAL_SERVER_ERROR",
+            message: `Database error: ${error.message}`,
           });
         }
-        
+
         // Generic fallback
         throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to delete theme: ${error.message || 'Unknown error'}`
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Failed to delete theme: ${error.message || "Unknown error"}`,
         });
       }
     }),
@@ -428,7 +456,7 @@ export const themesRouter = router({
     .input(ThemeCategoryToggleVisibilitySchema)
     .mutation(async ({ input }) => {
       const { id, visible } = input;
-      
+
       try {
         const updatedCategory = await prisma.themeCategory.update({
           where: { id },
@@ -437,28 +465,49 @@ export const themesRouter = router({
             id: true,
             name: true,
             title: true,
-            visible: true
-          }
+            visible: true,
+          },
         });
 
         return {
           success: true,
-          message: `Category "${updatedCategory.title}" visibility updated to ${visible ? 'visible' : 'hidden'}`,
-          category: updatedCategory
+          message: `Category "${updatedCategory.title}" visibility updated to ${visible ? "visible" : "hidden"}`,
+          category: updatedCategory,
         };
       } catch (error: any) {
-        console.error('Failed to update theme category visibility:', error);
-        
-        if (error.code === 'P2025') {
+        console.error("Failed to update theme category visibility:", error);
+
+        if (error.code === "P2025") {
           throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'Theme category not found'
+            code: "NOT_FOUND",
+            message: "Theme category not found",
           });
         }
-        
+
         throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to update category visibility: ${error.message || 'Unknown error'}`
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Failed to update category visibility: ${error.message || "Unknown error"}`,
+        });
+      }
+    }),
+
+  updateThemeCategory: adminProcedure
+    .input(ThemeCategoryUpdateSchema)
+    .mutation(async ({ input }) => {
+      try {
+        const updatedCategory = await prisma.themeCategory.update({
+          where: { id: input.id },
+          data: {
+            title: input.title,
+            description: input.description,
+          },
+        });
+        return { message: "Category updated successfully", category: updatedCategory };
+      } catch (error: any) {
+        console.error("Failed to update theme category:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Failed to update category: ${error.message || "Unknown error"}`,
         });
       }
     }),
