@@ -15,7 +15,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { EditThemeDialog } from "./EditThemeDialog"; 
+import { EditThemeDialog, useEditThemeDialog } from "./EditThemeDialog"; 
 
 interface DeleteModalState {
   isOpen: boolean;
@@ -39,8 +39,8 @@ export function ViewThemesTab() {
     confirmationText: "",
   });
   const [previewLoading, setPreviewLoading] = useState<number | null>(null);
-  const [isEditThemeDialogOpen, setIsEditThemeDialogOpen] = useState(false); // State for edit dialog
-  const [themeToEdit, setThemeToEdit] = useState<any | null>(null); // State for theme being edited
+  // Use the hook for the edit theme dialog
+  const editThemeDialog = useEditThemeDialog();
   const limit = 10;
 
   // Get theme collections for filtering
@@ -276,8 +276,9 @@ export function ViewThemesTab() {
                     </button>
                     <button
                       onClick={() => {
-                        setThemeToEdit(theme);
-                        setIsEditThemeDialogOpen(true);
+                        editThemeDialog.openDialog(theme, () => {
+                          refetch(); // Refetch themes after successful edit
+                        });
                       }}
                       className="p-1 text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                       title="Edit theme"
@@ -370,18 +371,7 @@ export function ViewThemesTab() {
       </div>
 
       {/* Edit Theme Dialog */}
-      {themeToEdit && (
-        <EditThemeDialog
-          isOpen={isEditThemeDialogOpen}
-          onClose={() => setIsEditThemeDialogOpen(false)}
-          theme={themeToEdit}
-          onSuccess={() => {
-            refetch(); // Refetch themes after successful edit
-            setIsEditThemeDialogOpen(false);
-            setThemeToEdit(null);
-          }}
-        />
-      )}
+      <EditThemeDialog />
 
       {/* Delete Confirmation Modal */}
       {deleteModal.isOpen && deleteModal.theme && (

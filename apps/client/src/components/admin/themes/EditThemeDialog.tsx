@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "react-hot-toast";
+import { useMutation } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -14,24 +15,19 @@ import {
 import { Input } from "../../ui/Input";
 import { Label } from "../../ui/label";
 import { Button } from "../../ui/Button";
-import { trpc } from "../../../utils/trpc";
+import { trpcClient } from "../../../utils/trpc";
 import { updateThemeSchema } from "../../../schemas"; // Assuming this path
-
-interface EditThemeDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
-  theme: { id: number; name: string };
-  onSuccess: () => void;
-}
 
 type FormData = z.infer<typeof updateThemeSchema>;
 
-export function EditThemeDialog({
-  isOpen,
-  onClose,
-  theme,
-  onSuccess,
-}: EditThemeDialogProps) {
+/**
+ * Hook to control the EditThemeDialog state and functionality
+ */
+export function useEditThemeDialog() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [currentTheme, setCurrentTheme] = useState<{ id: number; name: string } | null>(null);
+  const [onSuccessCallback, setOnSuccessCallback] = useState<(() => void) | undefined>(undefined);
+  
   const {
     register,
     handleSubmit,
@@ -40,34 +36,75 @@ export function EditThemeDialog({
   } = useForm<FormData>({
     resolver: zodResolver(updateThemeSchema),
     defaultValues: {
-      id: theme.id,
-      name: theme.name,
+      id: 0,
+      name: "",
     },
   });
-
-  useEffect(() => {
-    if (isOpen) {
-      reset({ id: theme.id, name: theme.name });
-    }
-  }, [isOpen, theme, reset]);
-
-  const updateThemeMutation = trpc.admin.themes.updateTheme.useMutation({
+  
+  const updateThemeMutation = useMutation({
+    mutationFn: (data: FormData) => trpcClient.admin.themes.updateTheme.mutate(data),
     onSuccess: () => {
       toast.success("Theme updated successfully!");
-      onSuccess();
-      onClose();
+      if (onSuccessCallback) {
+        onSuccessCallback();
+      }
+      handleClose();
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast.error(`Failed to update theme: ${error.message}`);
     },
   });
-
+  
+  // Open dialog and set current theme
+  const openDialog = (theme: { id: number; name: string }, successCallback?: () => void) => {
+    setCurrentTheme(theme);
+    setOnSuccessCallback(successCallback);
+    reset({ id: theme.id, name: theme.name });
+    setIsOpen(true);
+  };
+  
+  // Close the dialog
+  const handleClose = () => {
+    setIsOpen(false);
+  };
+  
+  // Submit handler
   const onSubmit = (data: FormData) => {
     updateThemeMutation.mutate(data);
   };
+  
+  return {
+    isOpen,
+    currentTheme,
+    register,
+    errors,
+    handleSubmit,
+    onSubmit,
+    handleClose,
+    openDialog,
+    isPending: updateThemeMutation.isPending,
+  };
+}
+
+/**
+ * The EditThemeDialog component that uses the useEditThemeDialog hook
+ */
+export function EditThemeDialog() {
+  const {
+    isOpen,
+    currentTheme,
+    register,
+    errors,
+    handleSubmit,
+    onSubmit,
+    handleClose,
+    isPending,
+  } = useEditThemeDialog();
+
+  if (!isOpen || !currentTheme) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Edit Theme</DialogTitle>
@@ -84,7 +121,7 @@ export function EditThemeDialog({
               id="name"
               {...register("name")}
               className="col-span-3"
-              disabled={updateThemeMutation.isPending}
+              disabled={isPending}
             />
             {errors.name && (
               <p className="col-span-4 text-right text-red-500 text-sm">
@@ -96,13 +133,13 @@ export function EditThemeDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={onClose}
-              disabled={updateThemeMutation.isPending}
+              onClick={handleClose}
+              disabled={isPending}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={updateThemeMutation.isPending}>
-              {updateThemeMutation.isPending ? "Saving..." : "Save changes"}
+            <Button type="submit" disabled={isPending}>
+              {isPending ? "Saving..." : "Save changes"}
             </Button>
           </DialogFooter>
         </form>
