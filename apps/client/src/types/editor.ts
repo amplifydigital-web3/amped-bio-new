@@ -1,5 +1,10 @@
-import { BaseBlock, BlockType } from "@/api/api.types";
-import type { Collection, MarketplaceTheme, ThemeConfig, Background } from "@ampedbio/constants";
+import type {
+  Collection,
+  MarketplaceTheme,
+  ThemeConfig,
+  Background,
+  BlockType,
+} from "@ampedbio/constants";
 
 export type UserProfile = {
   name: string;

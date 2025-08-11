@@ -2,7 +2,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Trash2, Settings, ExternalLink } from "lucide-react";
-import type { BlockType } from "@/api/api.types";
+import type { BlockType } from "@ampedbio/constants";
 import { getPlatformIcon, getPlatformName } from "../../../utils/platforms";
 
 interface SortableItemProps {

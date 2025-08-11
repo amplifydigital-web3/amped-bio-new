@@ -7,11 +7,10 @@ import type {
   Background,
   GalleryImage,
 } from "../types/editor";
-import { editUser, editBlocks, deleteBlock, addBlock as apiAddBlock } from "../api/api";
 import initialState from "../store/defaults";
 import { useAuth } from "./AuthContext";
 import toast from "react-hot-toast";
-import { BlockType } from "@/api/api.types";
+import { BlockType } from "@ampedbio/constants";
 import { formatOnelink, normalizeOnelink } from "@/utils/onelink";
 import { trpcClient } from "@/utils/trpc";
 import { exportThemeConfigAsJson, importThemeConfigFromJson } from "@/utils/theme";
@@ -161,7 +160,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         const blockOrder = state.blocks.length;
 
         console.info("🔄 Adding block to server...");
-        const response = await apiAddBlock(block);
+        const response = await trpcClient.blocks.addBlock.mutate({ type: block.type, config: block.config });
         console.info("✅ Block added to server:", response);
 
         if (response?.result) {
@@ -209,7 +208,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         }
 
         console.info("🔄 Deleting block from server...");
-        await deleteBlock(id);
+        await trpcClient.blocks.deleteBlock.mutate({ id });
         console.info("✅ Block deleted from server");
 
         setState(prevState => ({
@@ -417,7 +416,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
       }
 
       console.info("📦 Saving blocks...");
-      const blocks_status = await editBlocks(blocks);
+      const blocks_status = await trpcClient.blocks.editBlocks.mutate({ blocks });
 
       if (themeChanges && theme.id !== theme_status_id) {
         console.info("🆕 New theme created, updating ID");
@@ -428,10 +427,8 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
       }
 
       console.info("👤 Saving user profile...");
-      const status = await editUser({
+      const status = await trpcClient.user.edit.mutate({
         name: profile.name,
-        email: profile.email,
-        onelink: profile.onelink.replace(/@/g, ""),
         description: profile.bio,
         image: profile.photoUrl || "",
         reward_business_id: "",

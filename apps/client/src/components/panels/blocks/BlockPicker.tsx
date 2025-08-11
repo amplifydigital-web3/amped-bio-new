@@ -1,4 +1,4 @@
-import { BlockType, LinkBlock, MediaBlock, MediaBlockPlatform, TextBlock } from "@/api/api.types";
+import { BlockType, LinkBlock, MediaBlock, MediaBlockPlatform, TextBlock } from "@ampedbio/constants";
 import { getPlatformIcon } from "@/utils/platforms";
 import { FileText, LucideIcon } from "lucide-react";
 import { IconType } from "react-icons/lib";

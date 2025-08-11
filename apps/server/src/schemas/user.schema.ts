@@ -8,9 +8,4 @@ export const editUserSchema = z.object({
   reward_business_id: z.string().nullable().optional(),
 });
 
-export const deleteUserSchema = z.object({
-  email: z.string().email("Invalid email format"),
-});
-
 export type EditUserInput = z.infer<typeof editUserSchema>;
-export type DeleteUserInput = z.infer<typeof deleteUserSchema>;

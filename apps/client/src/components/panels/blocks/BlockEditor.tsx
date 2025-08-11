@@ -3,7 +3,7 @@ import { X } from "lucide-react";
 import { Input } from "../../ui/Input";
 import { Textarea } from "../../ui/Textarea";
 import { Button } from "../../ui/Button";
-import { BlockType, LinkBlock } from "@/api/api.types";
+import { BlockType, LinkBlock } from "@ampedbio/constants";
 import { extractUsernameFromUrl, getPlatformName, getPlatformUrl } from "@/utils/platforms";
 import { z } from "zod";
 import { Resolver, SubmitHandler, useForm } from "react-hook-form";
