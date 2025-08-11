@@ -118,7 +118,7 @@ export const addBlockSchema = z.object({
 
 // Schema for block id parameter
 export const blockIdParamSchema = z.object({
-  id: z.string().refine(val => !isNaN(Number(val)), {
+  id: z.coerce.number({
     message: "Block ID must be a valid number",
   }),
 });
