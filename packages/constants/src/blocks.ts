@@ -79,7 +79,7 @@ const textConfigSchema = z.object({
       html => {
         // Block JavaScript in various forms
         const jsPatterns = [
-          /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/i, // <script> tags
+          /<script\b[^<]*(?:(?!<\/script>)[^<]*)*<\/script>/i, // <script> tags
           /javascript:/i, // javascript: protocol
           /on\w+\s*=/i, // event handlers like onclick=
           /eval\s*\(/i, // eval() calls
