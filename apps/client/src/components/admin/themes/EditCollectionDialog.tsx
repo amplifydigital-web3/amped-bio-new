@@ -14,98 +14,94 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "../../ui/form";
 import { Input } from "../../ui/Input";
+import { Label } from "../../ui/label";
 import { Button } from "../../ui/Button";
 import { Textarea } from "../../ui/Textarea";
 import { trpcClient } from "../../../utils/trpc";
-import { updateThemeSchema } from "../../../schemas";
+import { updateCategorySchema } from "../../../schemas";
 import { TRPCClientError } from "@trpc/client";
 
-interface Theme {
+interface Category {
   id: number;
-  name: string;
+  title: string;
   description?: string | null;
 }
 
-type FormData = z.infer<typeof updateThemeSchema>;
-
-/**
- * Hook to control the EditThemeDialog state and functionality
- */
-export function useEditThemeDialog() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [theme, setTheme] = useState<Theme | null>(null);
-
-  const open = (themeData: Theme) => {
-    setTheme(themeData);
-    setIsOpen(true);
-  };
-
-  const close = () => {
-    setIsOpen(false);
-    setTheme(null);
-  };
-
-  return {
-    isOpen,
-    theme,
-    open,
-    close,
-  };
-}
-
-interface EditThemeDialogProps {
-  theme: Theme;
+interface EditCollectionDialogProps {
+  category: Category;
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-/**
- * The EditThemeDialog component that follows the same style as EditCollectionDialog
- */
-export function EditThemeDialog({
+type FormData = z.infer<typeof updateCategorySchema>;
+
+export function useEditCollectionDialog() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [category, setCategory] = useState<Category | null>(null);
+
+  const open = (cat: Category) => {
+    setCategory(cat);
+    setIsOpen(true);
+  };
+
+  const close = () => {
+    setIsOpen(false);
+    setCategory(null);
+  };
+
+  return {
+    isOpen,
+    category,
+    open,
+    close,
+  };
+}
+
+export function EditCollectionDialog({
   isOpen,
   onClose,
-  theme,
+  category,
   onSuccess,
-}: EditThemeDialogProps) {
+}: EditCollectionDialogProps) {
   const [loading, setLoading] = useState(false);
 
   const form = useForm<FormData>({
-    resolver: zodResolver(updateThemeSchema),
+    resolver: zodResolver(updateCategorySchema),
     defaultValues: {
-      id: theme?.id,
-      name: theme?.name || "",
-      description: theme?.description || "",
+      id: category?.id,
+      title: category?.title || "",
+      description: category?.description || "",
     },
   });
 
   useEffect(() => {
-    if (isOpen && theme) {
+    if (isOpen && category) {
       form.reset({
-        id: theme.id,
-        name: theme.name,
-        description: theme.description || "",
+        id: category.id,
+        title: category.title,
+        description: category.description || "",
       });
     }
-  }, [isOpen, theme, form]);
+  }, [isOpen, category, form]);
 
   const onSubmit = async (data: FormData) => {
     setLoading(true);
     try {
-      await trpcClient.admin.themes.updateTheme.mutate(data);
-      toast.success("Theme updated successfully!");
+      await trpcClient.admin.themes.updateThemeCategory.mutate(data);
+      toast.success("Collection updated successfully!");
       onSuccess();
       onClose();
     } catch (error) {
       if (error instanceof TRPCClientError) {
-        toast.error(`Failed to update theme: ${error.message}`);
+        toast.error(`Failed to update collection: ${error.message}`);
       }
     } finally {
       setLoading(false);
@@ -116,16 +112,16 @@ export function EditThemeDialog({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Edit Theme</DialogTitle>
+          <DialogTitle>Edit Collection</DialogTitle>
           <DialogDescription>
-            Make changes to the theme here. Click save when you're done.
+            Make changes to the collection here. Click save when you're done.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
             <FormField
               control={form.control}
-              name="name"
+              name="title"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Title</FormLabel>
@@ -133,7 +129,7 @@ export function EditThemeDialog({
                     <Input 
                       {...field} 
                       disabled={loading} 
-                      placeholder="Enter theme title" 
+                      placeholder="Enter collection title" 
                     />
                   </FormControl>
                   <FormMessage />
@@ -150,7 +146,7 @@ export function EditThemeDialog({
                     <Textarea 
                       {...field} 
                       disabled={loading} 
-                      placeholder="Enter theme description"
+                      placeholder="Enter collection description"
                       className="min-h-[100px] w-full"
                     />
                   </FormControl>
