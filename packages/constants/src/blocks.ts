@@ -66,7 +66,7 @@ const textConfigSchema = z.object({
 
         // Build regex pattern from allowed tags array
         const tagPattern = allowedHtmlTags.join("|");
-        const allowedTagsRegex = new RegExp(`<(?![/]?(${tagPattern})\b)[^>]+>`, "i");
+        const allowedTagsRegex = new RegExp(`<(?!\/?(${tagPattern})\\b)[^>]+>`, "i");
 
         // If the regex matches any non-allowed tags, validation fails
         return !allowedTagsRegex.test(html);
@@ -79,12 +79,12 @@ const textConfigSchema = z.object({
       html => {
         // Block JavaScript in various forms
         const jsPatterns = [
-          /<script\b[^<]*(?:(?!<\/script>).)*<[^<]*<\/script>/i, // <script> tags
+          /<script\b[^<]*(?:(?!<\/script>)[^<]*)*<\/script>/i, // <script> tags
           /javascript:/i, // javascript: protocol
           /on\w+\s*=/i, // event handlers like onclick=
           /eval\s*\(/i, // eval() calls
           /Function\s*\(/i, // Function constructor
-          /\\[\s*\\[\s*\\[\s*\\[\s*\\[\s*.*\\]\s*\]\s*\]\s*\]\s*\]/i, // Obfuscated pattern with multiple brackets
+          /\[\s*\[\s*\[\s*\[\s*\[\s*.*\]\s*\]\s*\]\s*\]\s*\]/i, // Obfuscated pattern with multiple brackets
         ];
 
         return !jsPatterns.some(pattern => pattern.test(html));

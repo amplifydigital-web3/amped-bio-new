@@ -10,6 +10,7 @@ import { FileText, LucideIcon } from "lucide-react";
 import { IconType } from "react-icons/lib";
 import { useState } from "react";
 import { BlockEditor } from "./BlockEditor";
+import { TextBlockEditor } from "./TextBlockEditor";
 
 interface BlockPickerProps {
   onAdd: (block: BlockType) => void;
@@ -114,6 +115,7 @@ export function BlockPicker({ onAdd }: BlockPickerProps) {
   };
 
   const handleSave = (config: BlockType["config"]) => {
+    console.info("Saving block:", config);
     if (editingBlock) {
       // Mantenha o mesmo tipo do bloco que estamos editando
       if (editingBlock.type === "media") {
@@ -160,9 +162,25 @@ export function BlockPicker({ onAdd }: BlockPickerProps) {
         </div>
       ))}
 
-      {editingBlock && (
-        <BlockEditor block={editingBlock} onSave={handleSave} onCancel={handleCancel} />
-      )}
+      {editingBlock && (() => {
+        if (editingBlock.type === "text") {
+          return (
+            <TextBlockEditor 
+              block={editingBlock as TextBlock} 
+              onSave={handleSave} 
+              onCancel={handleCancel} 
+            />
+          );
+        }
+        
+        return (
+          <BlockEditor 
+            block={editingBlock} 
+            onSave={handleSave} 
+            onCancel={handleCancel} 
+          />
+        );
+      })()}
     </div>
   );
 }
