@@ -16,7 +16,7 @@ export default {
         glitch: "glitch 3s infinite",
         "collapsible-down": "collapsible-down 0.2s ease-out",
         "collapsible-up": "collapsible-up 0.2s ease-out",
-		"caret-blink": "caret-blink 1.25s ease-out infinite",
+        "caret-blink": "caret-blink 1.25s ease-out infinite",
         "shimmer-slide": "shimmer-slide var(--speed) ease-in-out infinite alternate",
         "spin-around": "spin-around calc(var(--speed) * 2) infinite linear",
       },
