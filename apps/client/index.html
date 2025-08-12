@@ -1,42 +1,54 @@
 <!doctype html>
 <html lang="en">
-
-<head>
-  <script type="module">
+  <head>
+    <script type="module">
       import { Buffer } from "buffer";
       import process from "process";
       window.Buffer = Buffer;
-      window.process = process; 
-  </script>  
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Amped.Bio</title>
-  <link rel="icon" type="image/png" href="/src/assets/favicon.png">
-  <!-- web3auth -->
-  <link rel="preconnect" href="https://wallet.web3auth.io" crossorigin>
-  <link rel="preconnect" href="https://assets.web3auth.io" crossorigin>
-  <link rel="preconnect" href="https://auth.web3auth.io" crossorigin>
-  <link rel="preload" href="https://assets.web3auth.io/v1/wallet-registry.json" as="fetch" crossorigin="anonymous">
-  <link rel="preload" href="https://api.web3auth.io/signer-service/api/v2/configuration?project_id=%VITE_WEB3AUTH_CLIENT_ID%&network=%VITE_WEB3AUTH_NETWORK%" as="fetch" crossorigin="anonymous">
-  <!-- web3auth -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700&family=Open+Sans:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=Roboto:wght@400;500;700&display=swap"
-    rel="stylesheet">
-</head>
+      window.process = process;
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Amped.Bio</title>
+    <link rel="icon" type="image/png" href="/src/assets/favicon.png" />
+    <!-- web3auth -->
+    <link rel="preconnect" href="https://wallet.web3auth.io" crossorigin />
+    <link rel="preconnect" href="https://assets.web3auth.io" crossorigin />
+    <link rel="preconnect" href="https://auth.web3auth.io" crossorigin />
+    <link
+      rel="preload"
+      href="https://assets.web3auth.io/v1/wallet-registry.json"
+      as="fetch"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="preload"
+      href="https://api.web3auth.io/signer-service/api/v2/configuration?project_id=%VITE_WEB3AUTH_CLIENT_ID%&network=%VITE_WEB3AUTH_NETWORK%"
+      as="fetch"
+      crossorigin="anonymous"
+    />
+    <!-- web3auth -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700&family=Open+Sans:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
 
-<body>
-  <div id="root"></div>
-  <script type="module" src="/src/main.tsx"></script>
-  <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-SK6H61G3S1"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-SK6H61G3S1"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
 
-    gtag('config', 'G-SK6H61G3S1');
-  </script>
-</body>
+      gtag("config", "G-SK6H61G3S1");
+    </script>
+  </body>
 </html>

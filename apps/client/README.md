@@ -13,6 +13,7 @@ VITE_DEMO_MODE=true
 ```
 
 When DEMO mode is enabled:
+
 - All tRPC API calls will be intercepted
 - Mock data will be returned instead of making real API requests
 - A simulated delay (500ms) is added to mimic network latency
@@ -70,7 +71,7 @@ mockData.user.newEndpoint = {
   success: true,
   data: {
     // Your mock data here
-  }
+  },
 };
 ```
 

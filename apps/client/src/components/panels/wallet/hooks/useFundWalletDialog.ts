@@ -121,4 +121,3 @@ export function useFundWalletDialog(params: {
     handleClaim,
   };
 }
-
