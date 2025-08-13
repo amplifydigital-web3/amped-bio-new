@@ -5,8 +5,8 @@ import { s3Service } from "../../services/S3Service";
 import { uploadedFileService } from "../../services/UploadedFileService";
 import { env } from "../../env";
 import {
-  ALLOWED_AVATAR_FILE_EXTENSIONS,
-  ALLOWED_AVATAR_FILE_TYPES,
+  ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS,
+  ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES,
   ALLOWED_BACKGROUND_FILE_EXTENSIONS,
   ALLOWED_BACKGROUND_FILE_TYPES,
   ThemeConfig,
@@ -15,16 +15,16 @@ import { prisma } from "../../services/DB";
 
 const requestThemeCollectionImageSchema = z.object({
   collectionId: z.number().positive(),
-  contentType: z.string().refine(value => ALLOWED_AVATAR_FILE_TYPES.includes(value), {
-    message: `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()} formats are supported`,
+  contentType: z.string().refine(value => ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES.includes(value), {
+    message: `Only ${ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.join(", ").toUpperCase()} formats are supported`,
   }),
   fileExtension: z
     .string()
-    .refine(value => ALLOWED_AVATAR_FILE_EXTENSIONS.includes(value.toLowerCase()), {
-      message: `File extension must be ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ")}`,
+    .refine(value => ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.includes(value.toLowerCase()), {
+      message: `File extension must be ${ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.join(", ")}`,
     }),
-  fileSize: z.number().max(env.UPLOAD_LIMIT_ADMIN_AVATAR_MB * 1024 * 1024, {
-    message: `File size must be less than ${env.UPLOAD_LIMIT_ADMIN_AVATAR_MB}MB`,
+  fileSize: z.number().max(env.UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB * 1024 * 1024, {
+    message: `File size must be less than ${env.UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB}MB`,
   }),
 });
 
@@ -36,16 +36,16 @@ const confirmThemeCollectionImageSchema = z.object({
 
 const requestThemeThumbnailSchema = z.object({
   themeId: z.number().positive(),
-  contentType: z.string().refine(value => ALLOWED_AVATAR_FILE_TYPES.includes(value), {
-    message: `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()} formats are supported`,
+  contentType: z.string().refine(value => ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES.includes(value), {
+    message: `Only ${ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.join(", ").toUpperCase()} formats are supported`,
   }),
   fileExtension: z
     .string()
-    .refine(value => ALLOWED_AVATAR_FILE_EXTENSIONS.includes(value.toLowerCase()), {
-      message: `File extension must be ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ")}`,
+    .refine(value => ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.includes(value.toLowerCase()), {
+      message: `File extension must be ${ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.join(", ")}`,
     }),
-  fileSize: z.number().max(env.UPLOAD_LIMIT_ADMIN_AVATAR_MB * 1024 * 1024, {
-    message: `File size must be less than ${env.UPLOAD_LIMIT_ADMIN_AVATAR_MB}MB`,
+  fileSize: z.number().max(env.UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB * 1024 * 1024, {
+    message: `File size must be less than ${env.UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB}MB`,
   }),
 });
 
@@ -93,10 +93,10 @@ export const adminUploadRouter = router({
 
       try {
         // Check file size
-        if (input.fileSize > env.UPLOAD_LIMIT_ADMIN_AVATAR_MB * 1024 * 1024) {
+        if (input.fileSize > env.UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB * 1024 * 1024) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: `File size exceeds the ${env.UPLOAD_LIMIT_ADMIN_AVATAR_MB}MB limit`,
+            message: `File size exceeds the ${env.UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB}MB limit`,
           });
         }
 
@@ -233,10 +233,10 @@ export const adminUploadRouter = router({
 
       try {
         // Check file size
-        if (input.fileSize > env.UPLOAD_LIMIT_ADMIN_AVATAR_MB * 1024 * 1024) {
+        if (input.fileSize > env.UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB * 1024 * 1024) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: `File size exceeds the ${env.UPLOAD_LIMIT_ADMIN_AVATAR_MB}MB limit`,
+            message: `File size exceeds the ${env.UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB}MB limit`,
           });
         }
 
@@ -569,4 +569,13 @@ export const adminUploadRouter = router({
         });
       }
     }),
+
+  // Endpoint to get admin-specific upload limits from environment variables
+  getLimits: adminProcedure.query(() => {
+    return {
+      // Convert from MB to bytes for consistency with frontend file handling
+      maxCollectionThumbnailFileSize: env.UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB * 1024 * 1024,
+      maxAdminBackgroundFileSize: env.UPLOAD_LIMIT_ADMIN_BACKGROUND_MB * 1024 * 1024,
+    };
+  }),
 });

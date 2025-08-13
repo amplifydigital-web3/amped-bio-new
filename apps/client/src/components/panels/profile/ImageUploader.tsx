@@ -1,7 +1,7 @@
 import { useState, useRef, ChangeEvent } from "react";
 import { trpcClient } from "../../../utils/trpc";
 import {
-  ALLOWED_AVATAR_FILE_EXTENSIONS,
+  ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS,
   ALLOWED_AVATAR_FILE_TYPES,
 } from "@ampedbio/constants";
 import { PhotoEditor } from "./PhotoEditor";
@@ -29,15 +29,15 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
     // Validate file type
     if (!ALLOWED_AVATAR_FILE_TYPES.includes(file.type)) {
       setError(
-        `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()} images are allowed`
+        `Only ${ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.join(", ").toUpperCase()} images are allowed`
       );
       return;
     }
 
     // Validate file extension
     const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
-    if (!ALLOWED_AVATAR_FILE_EXTENSIONS.includes(fileExtension)) {
-      setError(`Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ")} file extensions are allowed`);
+    if (!ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.includes(fileExtension)) {
+      setError(`Only ${ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.join(", ")} file extensions are allowed`);
       return;
     }
 
@@ -253,7 +253,7 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
             </button>
           </div>
           <p className="text-xs text-gray-500">
-            {ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()}. Max{" "}
+            {ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.join(", ").toUpperCase()}. Max{" "}
             {(uploadLimits?.maxAvatarFileSize || 0) / (1024 * 1024)}MB.
           </p>
           {error && <p className="text-xs text-red-600">{error}</p>}

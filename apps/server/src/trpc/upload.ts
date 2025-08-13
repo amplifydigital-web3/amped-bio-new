@@ -4,23 +4,25 @@ import { TRPCError } from "@trpc/server";
 import { s3Service, FileCategory } from "../services/S3Service";
 import { uploadedFileService } from "../services/UploadedFileService";
 import {
-  ALLOWED_AVATAR_FILE_EXTENSIONS,
+  ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS,
   ALLOWED_AVATAR_FILE_TYPES,
   ALLOWED_BACKGROUND_FILE_EXTENSIONS,
   ALLOWED_BACKGROUND_FILE_TYPES,
   ThemeConfig,
+  ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS,
+  ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES,
 } from "@ampedbio/constants";
 import { prisma } from "../services/DB";
 import { env } from "../env";
 
 const requestPresignedUrlSchema = z.object({
   contentType: z.string().refine(value => ALLOWED_AVATAR_FILE_TYPES.includes(value), {
-    message: `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()} formats are supported`,
+    message: `Only ${ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.join(", ").toUpperCase()} formats are supported`,
   }),
   fileExtension: z
     .string()
-    .refine(value => ALLOWED_AVATAR_FILE_EXTENSIONS.includes(value.toLowerCase()), {
-      message: `File extension must be ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ")}`,
+    .refine(value => ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.includes(value.toLowerCase()), {
+      message: `File extension must be ${ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.join(", ")}`,
     }),
   fileSize: z.number().max(env.UPLOAD_LIMIT_PROFILE_PHOTO_MB * 1024 * 1024, {
     message: `File size must be less than ${env.UPLOAD_LIMIT_PROFILE_PHOTO_MB}MB`,

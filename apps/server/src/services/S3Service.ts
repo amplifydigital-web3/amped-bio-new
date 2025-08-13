@@ -13,8 +13,10 @@ import { env } from "../env";
 import {
   ALLOWED_AVATAR_FILE_TYPES,
   ALLOWED_BACKGROUND_FILE_TYPES,
-  ALLOWED_AVATAR_FILE_EXTENSIONS,
+  ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS,
   ALLOWED_BACKGROUND_FILE_EXTENSIONS,
+  ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES,
+  ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS,
 } from "@ampedbio/constants";
 
 export type FileCategory = "profiles" | "backgrounds" | "category";
@@ -232,7 +234,7 @@ class S3Service {
     if (category === "profiles") {
       allowedTypes = ALLOWED_AVATAR_FILE_TYPES;
       maxSize = env.UPLOAD_LIMIT_PROFILE_PHOTO_MB * 1024 * 1024;
-      allowedExtensions = ALLOWED_AVATAR_FILE_EXTENSIONS;
+      allowedExtensions = ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS;
     } else if (category === "backgrounds") {
       allowedTypes = ALLOWED_BACKGROUND_FILE_TYPES;
       maxSize = env.UPLOAD_LIMIT_BACKGROUND_MB * 1024 * 1024;

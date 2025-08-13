@@ -2,8 +2,8 @@ import { useState, useRef, ChangeEvent } from "react";
 import { Image as ImageIcon, Upload } from "lucide-react";
 import { trpcClient } from "../../../utils/trpc";
 import {
-  ALLOWED_AVATAR_FILE_EXTENSIONS,
-  ALLOWED_AVATAR_FILE_TYPES,
+  ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS,
+  ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES,
 } from "@ampedbio/constants";
 import { trpc } from "../../../utils/trpc/trpc";
 import { useQuery } from "@tanstack/react-query";
@@ -23,7 +23,7 @@ export function CategoryImageUploader({
 }: CategoryImageUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { data: uploadLimits } = useQuery(trpc.upload.getLimits.queryOptions());
+  const { data: adminUploadLimits } = useQuery(trpc.admin.upload.getLimits.queryOptions());
 
   const handleFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -33,23 +33,24 @@ export function CategoryImageUploader({
     e.target.value = "";
 
     // Validate file type
-    if (!ALLOWED_AVATAR_FILE_TYPES.includes(file.type)) {
-      const errorMsg = `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()} images are allowed`;
+    if (!ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES.includes(file.type)) {
+      const errorMsg = `Only ${ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.join(", ").toUpperCase()} images are allowed`;
       onError?.(errorMsg);
       return;
     }
 
     // Validate file extension
     const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
-    if (!ALLOWED_AVATAR_FILE_EXTENSIONS.includes(fileExtension)) {
-      const errorMsg = `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ")} file extensions are allowed`;
+    if (!ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.includes(fileExtension)) {
+      const errorMsg = `Only ${ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.join(", ")} file extensions are allowed`;
       onError?.(errorMsg);
       return;
     }
 
-    // Validate file size (max 50MB for admin)
-    if (file.size > (uploadLimits?.maxAvatarFileSize || 0)) {
-      const errorMsg = `File size must be less than ${((uploadLimits?.maxAvatarFileSize || 0) / (1024 * 1024)).toFixed(2)}MB`;
+    // Validate file size using admin-specific limits
+    if (file.size > (adminUploadLimits?.maxCollectionThumbnailFileSize || 0)) {
+      const maxSize = adminUploadLimits?.maxCollectionThumbnailFileSize || 0;
+      const errorMsg = `File size must be less than ${(maxSize / (1024 * 1024)).toFixed(2)}MB`;
       onError?.(errorMsg);
       return;
     }
@@ -74,8 +75,8 @@ export function CategoryImageUploader({
 
       // Request presigned URL from server for category image
       const presignedData =
-        await trpcClient.admin.upload.requestThemeCategoryImagePresignedUrl.mutate({
-          categoryId,
+        await trpcClient.admin.upload.requestThemeCollectionImagePresignedUrl.mutate({
+          collectionId: categoryId,
           contentType: fileType,
           fileExtension: fileExtension,
           fileSize: file.size,
@@ -111,8 +112,8 @@ export function CategoryImageUploader({
       console.log("S3 category image upload completed successfully:", uploadResponse.status);
 
       // Confirm upload with the server
-      const result = await trpcClient.admin.upload.confirmThemeCategoryImageUpload.mutate({
-        categoryId,
+      const result = await trpcClient.admin.upload.confirmThemeCollectionImageUpload.mutate({
+        collectionId: categoryId,
         fileId: presignedData.fileId,
         fileName: file.name,
       });
@@ -147,7 +148,7 @@ export function CategoryImageUploader({
           type="file"
           ref={fileInputRef}
           className="hidden"
-          accept={ALLOWED_AVATAR_FILE_TYPES.join(",")}
+          accept={ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES.join(",")}
           onChange={handleFileSelect}
         />
         <button
@@ -200,8 +201,8 @@ export function CategoryImageUploader({
 
       {/* File Requirements */}
       <p className="text-xs text-gray-500">
-        {ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()}. Max{" "}
-        {((uploadLimits?.maxAvatarFileSize || 0) / (1024 * 1024)).toFixed(2)}MB.
+        {ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.join(", ").toUpperCase()}. Max{" "}
+        {((adminUploadLimits?.maxCollectionThumbnailFileSize || 0) / (1024 * 1024)).toFixed(2)}MB.
       </p>
     </div>
   );

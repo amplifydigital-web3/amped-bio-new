@@ -25,7 +25,8 @@ import {
 // Utility function to validate file for background upload
 const validateBackgroundFile = (
   file: File,
-  uploadLimits?: { maxBackgroundFileSize?: number }
+  uploadLimits?: { maxBackgroundFileSize?: number },
+  adminLimits?: { maxAdminBackgroundFileSize?: number }
 ): { isValid: boolean; error?: string } => {
   // Check file type
   if (!ALLOWED_BACKGROUND_FILE_TYPES.includes(file.type)) {
@@ -35,8 +36,8 @@ const validateBackgroundFile = (
     };
   }
 
-  // Check file size using dynamic limits from server
-  const maxFileSize = uploadLimits?.maxBackgroundFileSize || (50 * 1024 * 1024); // Fallback to 50MB if limits not loaded
+  // Check file size using admin-specific limits if available, otherwise fall back to regular limits
+  const maxFileSize = adminLimits?.maxAdminBackgroundFileSize || uploadLimits?.maxBackgroundFileSize || (50 * 1024 * 1024); // Fallback to 50MB if limits not loaded
   if (file.size > maxFileSize) {
     return {
       isValid: false,
@@ -169,7 +170,8 @@ export function CreateThemeTab() {
   const [isAccordionOpen, setIsAccordionOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const backgroundFileInputRef = useRef<HTMLInputElement>(null);
-  const { data: limits } =  useQuery(trpc.upload.getLimits.queryOptions());
+  const { data: adminLimits } = useQuery(trpc.admin.upload.getLimits.queryOptions());
+  const { data: limits } = useQuery(trpc.upload.getLimits.queryOptions());
 
   // React Hook Form for theme creation
   const themeForm = useForm<ThemeForm>({
@@ -446,7 +448,7 @@ export function CreateThemeTab() {
 
             if (backgroundFile) {
               // Validate the downloaded file
-              const validation = validateBackgroundFile(backgroundFile, limits);
+              const validation = validateBackgroundFile(backgroundFile, limits, adminLimits);
               if (!validation.isValid) {
                 console.warn("Background file validation failed:", validation.error);
                 toast.error(`Background validation failed: ${validation.error}`);
@@ -599,7 +601,7 @@ export function CreateThemeTab() {
     if (!file) return;
 
     // Validate the selected background file
-    const validation = validateBackgroundFile(file, limits);
+    const validation = validateBackgroundFile(file, limits, adminLimits);
     if (!validation.isValid) {
       toast.error(`Background file validation failed: ${validation.error}`);
       e.target.value = ""; // Reset the input

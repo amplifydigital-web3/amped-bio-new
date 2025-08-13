@@ -1,8 +1,8 @@
 import { useState, useRef, ChangeEvent } from "react";
 import { Image as ImageIcon, Upload, X } from "lucide-react";
 import {
-  ALLOWED_AVATAR_FILE_EXTENSIONS,
-  ALLOWED_AVATAR_FILE_TYPES,
+  ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS,
+  ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES,
 } from "@ampedbio/constants";
 import { trpc } from "../../../utils/trpc/trpc";
 import { useQuery } from "@tanstack/react-query";
@@ -20,6 +20,7 @@ export function CategoryImageSelector({
 }: CategoryImageSelectorProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { data: adminUploadLimits } = useQuery(trpc.admin.upload.getLimits.queryOptions());
   const { data: uploadLimits } = useQuery(trpc.upload.getLimits.queryOptions());
 
   const handleFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -35,23 +36,24 @@ export function CategoryImageSelector({
     e.target.value = "";
 
     // Validate file type
-    if (!ALLOWED_AVATAR_FILE_TYPES.includes(file.type)) {
-      const errorMsg = `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()} images are allowed`;
+    if (!ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES.includes(file.type)) {
+      const errorMsg = `Only ${ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.join(", ").toUpperCase()} images are allowed`;
       onError?.(errorMsg);
       return;
     }
 
     // Validate file extension
     const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
-    if (!ALLOWED_AVATAR_FILE_EXTENSIONS.includes(fileExtension)) {
-      const errorMsg = `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ")} file extensions are allowed`;
+    if (!ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.includes(fileExtension)) {
+      const errorMsg = `Only ${ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.join(", ")} file extensions are allowed`;
       onError?.(errorMsg);
       return;
     }
 
-    // Validate file size (max 50MB for admin)
-    if (file.size > (uploadLimits?.maxCollectionThumbnailFileSize || 0)) {
-      const errorMsg = `File size must be less than ${((uploadLimits?.maxCollectionThumbnailFileSize || 0) / (1024 * 1024)).toFixed(2)}MB`;
+    // Validate file size using admin-specific limits
+    const maxFileSize = adminUploadLimits?.maxCollectionThumbnailFileSize || uploadLimits?.maxCollectionThumbnailFileSize || 0;
+    if (file.size > maxFileSize) {
+      const errorMsg = `File size must be less than ${(maxFileSize / (1024 * 1024)).toFixed(2)}MB`;
       onError?.(errorMsg);
       return;
     }
@@ -97,7 +99,7 @@ export function CategoryImageSelector({
           type="file"
           ref={fileInputRef}
           className="hidden"
-          accept={ALLOWED_AVATAR_FILE_TYPES.join(",")}
+          accept={ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES.join(",")}
           onChange={handleFileSelect}
         />
         <button
@@ -127,7 +129,7 @@ export function CategoryImageSelector({
 
       {/* File Requirements */}
       <p className="text-xs text-gray-500">
-        {ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()}. Max{" "}
+        {ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.join(", ").toUpperCase()}. Max{" "}
         {((uploadLimits?.maxCollectionThumbnailFileSize || 0) / (1024 * 1024)).toFixed(2)}MB.
       </p>
     </div>

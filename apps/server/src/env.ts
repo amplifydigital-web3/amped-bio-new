@@ -131,11 +131,6 @@ export const env = cleanEnv(process.env, {
     default: 1,
     example: "1",
   }),
-  UPLOAD_LIMIT_ADMIN_AVATAR_MB: num({
-    desc: "Maximum file size in MB for admin avatar uploads",
-    default: 50,
-    example: "50",
-  }),
   UPLOAD_LIMIT_ADMIN_BACKGROUND_MB: num({
     desc: "Maximum file size in MB for admin background uploads",
     default: 50,

@@ -1,7 +1,7 @@
 import React, { useCallback } from "react";
 import { Upload, Image as ImageIcon } from "lucide-react";
 import {
-  ALLOWED_AVATAR_FILE_EXTENSIONS,
+  ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS,
   ALLOWED_AVATAR_FILE_TYPES,
 } from "@ampedbio/constants";
 import { trpcClient } from "../../../utils/trpc";
@@ -26,8 +26,8 @@ export function AvatarImageUploader({ onUpload }: ImageUploaderProps) {
 
       // Validate file extension
       const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
-      if (!ALLOWED_AVATAR_FILE_EXTENSIONS.includes(fileExtension)) {
-        alert(`Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ")} file extensions are allowed`);
+      if (!ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.includes(fileExtension)) {
+        alert(`Only ${ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.join(", ")} file extensions are allowed`);
         return;
       }
 
@@ -58,7 +58,7 @@ export function AvatarImageUploader({ onUpload }: ImageUploaderProps) {
         </div>
         <p className="mt-2 text-sm text-gray-500">Drop your images here or click to upload</p>
         <p className="text-xs text-gray-400 mt-1">
-          Supports: {ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()} (Max{" "}
+          Supports: {ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.join(", ").toUpperCase()} (Max{" "}
           {(uploadLimits?.maxAvatarFileSize || 0) / (1024 * 1024)}MB)
         </p>
       </div>
