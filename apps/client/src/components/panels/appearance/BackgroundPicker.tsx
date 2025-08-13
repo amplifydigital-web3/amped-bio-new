@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, memo, useState, useEffect } from "react";
+import { useCallback, useMemo, memo, useState, useEffect } from "react";
 import { Check, ExternalLink } from "lucide-react";
 import type { Background } from "../../../types/editor";
 import { gradients, photos, videos, backgroundColors } from "../../../utils/backgrounds";

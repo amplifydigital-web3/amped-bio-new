@@ -1,7 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 import { createTRPCClient } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
-import type { AppRouter } from "../../../../server/src/trpc";
+import type { AppRouter, RouterOutputs } from "../../../../server/src/trpc";
 import { mockLink } from "./links/mock/mock-link";
 import { createHttpLink } from "./links/http-link";
 
@@ -21,3 +21,5 @@ export const trpc = createTRPCOptionsProxy<AppRouter>({
   client: trpcClient,
   queryClient,
 });
+
+export { RouterOutputs };

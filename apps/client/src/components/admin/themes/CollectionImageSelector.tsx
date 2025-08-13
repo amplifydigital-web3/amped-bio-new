@@ -20,8 +20,7 @@ export function CategoryImageSelector({
 }: CategoryImageSelectorProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { data: adminUploadLimits } = useQuery(trpc.admin.upload.getLimits.queryOptions());
-  const { data: uploadLimits } = useQuery(trpc.upload.getLimits.queryOptions());
+  const { data: limits } = useQuery(trpc.admin.upload.getLimits.queryOptions());
 
   const handleFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -51,7 +50,7 @@ export function CategoryImageSelector({
     }
 
     // Validate file size using admin-specific limits
-    const maxFileSize = adminUploadLimits?.maxCollectionThumbnailFileSize || uploadLimits?.maxCollectionThumbnailFileSize || 0;
+    const maxFileSize = limits?.maxCollectionThumbnailFileSize || 0;
     if (file.size > maxFileSize) {
       const errorMsg = `File size must be less than ${(maxFileSize / (1024 * 1024)).toFixed(2)}MB`;
       onError?.(errorMsg);
@@ -130,7 +129,7 @@ export function CategoryImageSelector({
       {/* File Requirements */}
       <p className="text-xs text-gray-500">
         {ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.join(", ").toUpperCase()}. Max{" "}
-        {((uploadLimits?.maxCollectionThumbnailFileSize || 0) / (1024 * 1024)).toFixed(2)}MB.
+        {((limits?.maxCollectionThumbnailFileSize || 0) / (1024 * 1024)).toFixed(2)}MB.
       </p>
     </div>
   );
