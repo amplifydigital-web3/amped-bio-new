@@ -13,8 +13,8 @@ import {
 } from "@ampedbio/constants";
 import { prisma } from "../../services/DB";
 
-const requestThemeCategoryImageSchema = z.object({
-  categoryId: z.number().positive(),
+const requestThemeCollectionImageSchema = z.object({
+  collectionId: z.number().positive(),
   contentType: z.string().refine(value => ALLOWED_AVATAR_FILE_TYPES.includes(value), {
     message: `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()} formats are supported`,
   }),
@@ -28,8 +28,8 @@ const requestThemeCategoryImageSchema = z.object({
   }),
 });
 
-const confirmThemeCategoryImageSchema = z.object({
-  categoryId: z.number().positive(),
+const confirmThemeCollectionImageSchema = z.object({
+  collectionId: z.number().positive(),
   fileId: z.number().positive(),
   fileName: z.string().min(1),
 });
@@ -86,8 +86,8 @@ const confirmAdminThemeBackgroundSchema = z.object({
 
 export const adminUploadRouter = router({
   // Generate a presigned URL for uploading theme category image (admin only)
-  requestThemeCategoryImagePresignedUrl: adminProcedure
-    .input(requestThemeCategoryImageSchema)
+  requestThemeCollectionImagePresignedUrl: adminProcedure
+    .input(requestThemeCollectionImageSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.sub;
 
@@ -100,32 +100,32 @@ export const adminUploadRouter = router({
           });
         }
 
-        // Check if category exists and user is admin
-        const category = await prisma.themeCategory.findUnique({
-          where: { id: input.categoryId },
+        // Check if collection exists and user is admin
+        const collection = await prisma.themeCategory.findUnique({
+          where: { id: input.collectionId },
         });
 
-        if (!category) {
+        if (!collection) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: "Category not found",
+            message: "Collection not found",
           });
         }
 
-        // Use the S3Service to generate a server presigned URL for category images
+        // Use the S3Service to generate a server presigned URL for collection images
         const { presignedUrl, fileKey } = await s3Service.getServerPresignedUploadUrl(
           "category",
           input.contentType,
           input.fileExtension,
-          input.categoryId
+          input.collectionId
         );
 
-        // TODO create service to clean up old category images
+        // TODO create service to clean up old collection images
         // Create uploaded file record immediately when presigned URL is generated
         const uploadedFile = await uploadedFileService.createUploadedFile({
           s3Key: fileKey,
           bucket: process.env.AWS_S3_BUCKET_NAME || "default-bucket",
-          fileName: `category_${input.categoryId}_${Date.now()}.${input.fileExtension}`, // Generate a name
+          fileName: `collection_${input.collectionId}_${Date.now()}.${input.fileExtension}`, // Generate a name
           fileType: input.contentType,
           size: input.fileSize,
           userId: null, // Set user_id to null for admin/server files
@@ -137,16 +137,16 @@ export const adminUploadRouter = router({
           expiresIn: 300, // Seconds
         };
       } catch (error) {
-        console.error("Error generating presigned URL for theme category image:", error);
+        console.error("Error generating presigned URL for theme collection image:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to generate upload URL for theme category image",
+          message: "Failed to generate upload URL for theme collection image",
         });
       }
     }),
 
-  confirmThemeCategoryImageUpload: adminProcedure
-    .input(confirmThemeCategoryImageSchema)
+  confirmThemeCollectionImageUpload: adminProcedure
+    .input(confirmThemeCollectionImageSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.sub;
 
@@ -170,8 +170,8 @@ export const adminUploadRouter = router({
           });
         }
 
-        const currentCategory = await prisma.themeCategory.findUnique({
-          where: { id: input.categoryId },
+        const currentCollection = await prisma.themeCategory.findUnique({
+          where: { id: input.collectionId },
           select: { image_file_id: true },
         });
 
@@ -189,22 +189,22 @@ export const adminUploadRouter = router({
         });
 
         await prisma.themeCategory.update({
-          where: { id: input.categoryId },
+          where: { id: input.collectionId },
           data: {
             image_file_id: input.fileId,
             updated_at: new Date(),
           },
         });
 
-        if (currentCategory?.image_file_id) {
+        if (currentCollection?.image_file_id) {
           try {
-            await uploadedFileService.deleteFile(currentCategory.image_file_id);
-            const prevFile = await uploadedFileService.getFileById(currentCategory.image_file_id);
+            await uploadedFileService.deleteFile(currentCollection.image_file_id);
+            const prevFile = await uploadedFileService.getFileById(currentCollection.image_file_id);
             if (prevFile) {
               await s3Service.deleteFile(prevFile.s3_key);
             }
           } catch (deleteError) {
-            console.warn("Failed to delete previous category image:", deleteError);
+            console.warn("Failed to delete previous collection image:", deleteError);
           }
         }
 
@@ -214,13 +214,13 @@ export const adminUploadRouter = router({
           imageUrl: s3Service.getFileUrl(fileKey),
         };
       } catch (error) {
-        console.error("Error updating theme category image:", error);
+        console.error("Error updating theme collection image:", error);
         if (error instanceof TRPCError) {
           throw error;
         }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to update theme category image",
+          message: "Failed to update theme collection image",
         });
       }
     }),

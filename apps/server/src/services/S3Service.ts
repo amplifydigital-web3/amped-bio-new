@@ -45,9 +45,9 @@ export interface FileExistsParams {
 }
 
 export interface GenerateServerFileKeyParams {
-  category: FileCategory | "category";
+  category: FileCategory | "collection";
   fileExtension: string;
-  categoryId?: number;
+  collectionId?: number;
   themeId?: number;
   isThumbnail?: boolean;
 }
@@ -323,13 +323,13 @@ class S3Service {
   generateServerFileKey({
     category,
     fileExtension,
-    categoryId,
+    collectionId,
     themeId,
     isThumbnail = false,
   }: GenerateServerFileKeyParams): string {
     // Validate required parameters for specific categories
-    if (category === "category" && !categoryId) {
-      throw new Error("categoryId is required for category uploads");
+    if (category === "collection" && !collectionId) {
+      throw new Error("collectionId is required for collection uploads");
     }
     if (category === "backgrounds" && !themeId) {
       throw new Error("themeId is required for backgrounds category");
@@ -342,15 +342,15 @@ class S3Service {
 
     const timestamp = Date.now();
     const randomString = crypto.randomBytes(8).toString("hex");
-    
+
     // Add thumbnail suffix if it's a thumbnail
     const thumbnailSuffix = isThumbnail ? "_thumbnail" : "";
 
     let fileKey: string;
 
-    if (category === "category" && categoryId) {
-      // For theme category image uploads
-      fileKey = `server-uploads/categories/category_${categoryId}_${timestamp}-${randomString}${thumbnailSuffix}.${fileExtension}`;
+    if (category === "collection" && collectionId) {
+      // For theme collection image uploads
+      fileKey = `server-uploads/collections/collection_${collectionId}_${timestamp}-${randomString}${thumbnailSuffix}.${fileExtension}`;
     } else if (category === "backgrounds" && themeId) {
       // For admin theme background uploads
       fileKey = `server-uploads/backgrounds/theme_${themeId}_${timestamp}-${randomString}${thumbnailSuffix}.${fileExtension}`;
@@ -361,7 +361,7 @@ class S3Service {
 
     console.info(
       "[INFO] Generated server file key",
-      JSON.stringify({ fileKey, category, categoryId, themeId, isThumbnail })
+      JSON.stringify({ fileKey, category, collectionId, themeId, isThumbnail })
     );
     return fileKey;
   }
@@ -634,10 +634,7 @@ class S3Service {
       });
 
       await s3Client.send(headObjectCommand);
-      console.info(
-        "[INFO] File exists in S3",
-        JSON.stringify({ fileKey, bucket: targetBucket })
-      );
+      console.info("[INFO] File exists in S3", JSON.stringify({ fileKey, bucket: targetBucket }));
       return true;
     } catch (error: any) {
       // If the error is NotFound (404), the file doesn't exist
@@ -719,10 +716,10 @@ class S3Service {
    * This URL is used for uploading files that belong to the server (like category images, admin themes, etc.)
    */
   async getServerPresignedUploadUrl(
-    category: FileCategory ,
+    category: FileCategory,
     contentType: string,
     fileExtension: string,
-    categoryId?: number,
+    collectionId?: number,
     themeId?: number,
     isThumbnail?: boolean
   ): Promise<{
@@ -737,12 +734,12 @@ class S3Service {
         throw new Error(validation.message || "File validation failed");
       }
 
-      const fileKey = this.generateServerFileKey({ 
-        category, 
-        fileExtension, 
-        categoryId, 
+      const fileKey = this.generateServerFileKey({
+        category,
+        fileExtension,
+        collectionId,
         themeId,
-        isThumbnail
+        isThumbnail,
       });
 
       // Get a signed URL for putting an object
@@ -756,7 +753,7 @@ class S3Service {
       console.error(
         "[ERROR] Error generating server presigned URL",
         error instanceof Error ? error.stack : error,
-        JSON.stringify({ category, contentType, categoryId, themeId, isThumbnail })
+        JSON.stringify({ category, contentType, collectionId, themeId, isThumbnail })
       );
       throw error;
     }

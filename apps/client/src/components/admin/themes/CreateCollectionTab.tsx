@@ -6,7 +6,7 @@ import { trpc, trpcClient } from "../../../utils/trpc";
 import { useMutation } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { CategoryImageSelector } from "./CategoryImageSelector";
+import { CollectionImageSelector } from "./CollectionImageSelector";
 
 const collectionSchema = z.object({
   name: z

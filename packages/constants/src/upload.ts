@@ -29,7 +29,13 @@ export const ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS = [
   "jpeg",
   "png",
   "svg",
-];tions
+];
+
+// Max file size for admin background uploads (50MB)
+export const MAX_ADMIN_BACKGROUND_FILE_SIZE = 50 * 1024 * 1024;
+
+// Max file size for collection thumbnail uploads (50MB)
+export const MAX_COLLECTION_THUMBNAIL_FILE_SIZE = 50 * 1024 * 1024;tions
  * Contains size limits, allowed file types and extensions for various upload categories
  */
 

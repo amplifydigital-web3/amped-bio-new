@@ -1,7 +1,7 @@
 import { trpc } from "../../../utils/trpc";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { List, Image as ImageIcon, Eye, EyeOff, Loader2, Pencil } from "lucide-react";
-import { CategoryImageUploader } from "./CategoryImageUploader";
+import { CollectionImageUploader } from "./CollectionImageUploader";
 import { Switch } from "../../ui/Switch";
 import { toast } from "react-hot-toast";
 import { EditCollectionDialog, useEditCollectionDialog } from "./EditCollectionDialog";
