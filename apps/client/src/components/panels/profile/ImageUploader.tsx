@@ -1,5 +1,5 @@
 import { useState, useRef, ChangeEvent } from "react";
-import { trpcClient } from "../../../utils/trpc";
+import { trpc } from "../../../utils/trpc/trpc";
 import {
   ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS,
   ALLOWED_AVATAR_FILE_TYPES,
@@ -13,14 +13,13 @@ interface ImageUploaderProps {
 }
 
 export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [showPhotoEditor, setShowPhotoEditor] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { refreshUserData } = useAuth();
-  const { data: uploadLimits } = trpcClient.upload.getLimits.useQuery();
+  const { data: uploadLimits } = trpc.upload.getLimits.useQuery();
 
   const handleFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -55,7 +54,6 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
     // Create a preview URL for the photo editor
     const objectUrl = URL.createObjectURL(file);
     setPreviewUrl(objectUrl);
-    setSelectedFile(file);
     setShowPhotoEditor(true);
   };
 
@@ -64,7 +62,6 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
       URL.revokeObjectURL(previewUrl);
     }
     setPreviewUrl(null);
-    setSelectedFile(null);
     setShowPhotoEditor(false);
   };
 

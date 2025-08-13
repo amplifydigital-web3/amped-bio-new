@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { trpc, trpcClient } from "../../../utils/trpc";
 import {
   Search,
@@ -39,7 +39,7 @@ type User = {
   } | null;
 };
 
-type EditUserFormData = z.infer<typeof editUserSchema>;
+
 
 export function UserManagement() {
   const [currentPage, setCurrentPage] = useState(1);
@@ -729,83 +729,5 @@ export function UserManagement() {
     </div>
   );
 
-  // Edit User Modal Component
-  function EditUserModal({
-    isOpen,
-    onClose,
-    user,
-    errors,
-    onChange,
-    onSubmit,
-  }: {
-    isOpen: boolean;
-    onClose: () => void;
-    user: { id: number; name: string; email: string } | null;
-    errors: { name?: string; email?: string };
-    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-    onSubmit: (e: React.FormEvent) => void;
-  }) {
-    if (!isOpen || !user) return null;
-
-    return (
-      <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
-        <div className="relative bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-semibold">Edit User</h3>
-            <button className="text-gray-500 hover:text-gray-700" onClick={onClose}>
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-
-          <form onSubmit={onSubmit}>
-            <div className="mb-4">
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                Name
-              </label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={user.name}
-                onChange={onChange}
-                className={`w-full px-3 py-2 border rounded-md ${errors.name ? "border-red-500" : "border-gray-300"}`}
-              />
-              {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
-            </div>
-
-            <div className="mb-6">
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Email
-              </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={user.email}
-                onChange={onChange}
-                className={`w-full px-3 py-2 border rounded-md ${errors.email ? "border-red-500" : "border-gray-300"}`}
-              />
-              {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
-            </div>
-
-            <div className="flex justify-end space-x-3">
-              <button
-                type="button"
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg"
-                onClick={onClose}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-              >
-                Save Changes
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    );
-  }
+  
 }

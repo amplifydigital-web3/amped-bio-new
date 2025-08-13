@@ -162,14 +162,6 @@ export function FileManagement() {
     }
   };
 
-  const getFileTypeFromMime = (mimeType: string | null): FileType => {
-    if (!mimeType) return "other";
-    if (mimeType.startsWith("image/")) return "image";
-    if (mimeType.startsWith("video/")) return "video";
-    if (mimeType.includes("pdf") || mimeType.includes("document")) return "document";
-    return "other";
-  };
-
   // Filter files based on search and filters - now handled by server
   const handleSearch = () => {
     setCurrentPage(1); // Reset to first page when searching

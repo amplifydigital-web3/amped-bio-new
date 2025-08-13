@@ -9,7 +9,7 @@ import {
   useSlate,
   withReact,
 } from "slate-react";
-import { Button, Toolbar, Menu } from "./SlateComponents";
+import { Button, Toolbar } from "./SlateComponents";
 import {
   Bold,
   Italic,
@@ -147,7 +147,7 @@ const TextEditor = ({ initialValue, onSave, debounceTime = 1000 }: RichTextEdito
         <MarkButtonGroup />
 
         {/* Alignment dropdown group */}
-        <BlockButtonDropdown icon={<AlignLeft className="w-4 h-4" />} label="Alignment">
+        <BlockButtonDropdown icon={<AlignLeft className="w-4 h-4" />}>
           <BlockButton format="left" icon={<AlignLeft className="w-4 h-4" />} label="Left" />
           <BlockButton format="center" icon={<AlignCenter className="w-4 h-4" />} label="Center" />
           <BlockButton format="right" icon={<AlignRight className="w-4 h-4" />} label="Right" />
@@ -173,11 +173,10 @@ const TextEditor = ({ initialValue, onSave, debounceTime = 1000 }: RichTextEdito
 // New dropdown component for block buttons
 interface BlockButtonDropdownProps {
   icon: ReactNode;
-  label: string;
   children: ReactNode;
 }
 
-const BlockButtonDropdown = ({ icon, label, children }: BlockButtonDropdownProps) => {
+const BlockButtonDropdown = ({ icon, children }: BlockButtonDropdownProps) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (

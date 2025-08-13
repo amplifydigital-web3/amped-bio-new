@@ -179,12 +179,6 @@ export default function StakedPoolsSection({ onNavigateToExplore }: StakedPoolsS
     }
   };
 
-  const handleUnstake = (e: React.MouseEvent, poolId: string) => {
-    e.stopPropagation();
-    console.log("Unstake from pool:", poolId);
-    // Implementation for unstaking
-  };
-
   const handleViewAllPools = () => {
     if (onNavigateToExplore) {
       onNavigateToExplore();

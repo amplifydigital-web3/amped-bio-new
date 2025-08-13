@@ -1,4 +1,3 @@
-import { css } from "./SlateComponents";
 import React, { useCallback, useMemo } from "react";
 import { Descendant, Transforms, createEditor } from "slate";
 import { withHistory } from "slate-history";
@@ -8,8 +7,6 @@ import {
   RenderElementProps,
   RenderLeafProps,
   Slate,
-  useFocused,
-  useSelected,
   withReact,
 } from "slate-react";
 
@@ -17,8 +14,6 @@ import {
   CustomEditor,
   CustomElement,
   CustomElementType,
-  ImageElement as ImageElementType,
-  RenderElementPropsFor,
 } from "./custom-types";
 
 interface ElementAttributes {
@@ -239,12 +234,6 @@ const Leaf = ({ attributes, children, leaf }: RenderLeafProps) => {
   return <span {...attributes}>{children}</span>;
 };
 
-// Default value only used when no HTML is provided
-const initialValue: Descendant[] = [
-  {
-    type: "paragraph",
-    children: [{ text: "" }],
-  },
-];
+
 
 export default SlateRenderer;

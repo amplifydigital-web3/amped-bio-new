@@ -1,7 +1,7 @@
-import React from "react";
+
 import { useEditor } from "../../../contexts/EditorContext";
 import { CreatorPoolDetail } from "../creatorpool/CreatorPoolDetail";
-import { CoinsIcon, Users, Clock, TrendingUp, Crown } from "lucide-react";
+import { CoinsIcon, Users, TrendingUp, Crown } from "lucide-react";
 
 interface Pool {
   id: string;

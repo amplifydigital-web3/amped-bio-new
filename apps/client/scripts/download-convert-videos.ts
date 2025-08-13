@@ -45,7 +45,7 @@ async function downloadFile(url: string, outputPath: string): Promise<boolean> {
     await fs.mkdir(path.dirname(outputPath), { recursive: true });
 
     // Download file using curl
-    const { stdout, stderr } = await execAsync(`curl -L "${url}" -o "${outputPath}"`);
+    const { stderr } = await execAsync(`curl -L "${url}" -o "${outputPath}"`);
     if (stderr) {
       console.warn(`Warning while downloading file: ${stderr}`);
     }
@@ -183,7 +183,6 @@ async function main() {
       const processingPromises = batch.map(async video => {
         const originalFileName = extractFilenameFromUrl(video.value);
         const baseFileName = originalFileName.replace(/\.(mp4|mov)$/, "");
-        const originalExt = path.extname(originalFileName).toLowerCase();
         const outputFileName = `${baseFileName}.mp4`;
 
         const originalPath = path.join(VIDEOS_DIR, originalFileName);

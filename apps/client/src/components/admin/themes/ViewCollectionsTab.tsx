@@ -42,10 +42,6 @@ export function ViewCollectionsTab({ refetchCategories }: ViewCollectionsTabProp
     openEditDialog(category);
   };
 
-  const handleCloseEditDialog = () => {
-    closeEditDialog();
-  };
-
   const handleEditSuccess = () => {
     refetchCategories();
     closeEditDialog();
@@ -142,8 +138,8 @@ export function ViewCollectionsTab({ refetchCategories }: ViewCollectionsTabProp
 
                 {/* Image Upload for Existing Collections */}
                 <div className="mt-4 pt-4 border-t border-gray-200">
-                  <CategoryImageUploader
-                    categoryId={category.id}
+                  <CollectionImageUploader
+                    collectionId={category.id}
                     currentImageUrl={undefined}
                     onImageUpload={(_imageUrl, _fileId) => {
                       toast.success(`Image updated for ${category.title}`);

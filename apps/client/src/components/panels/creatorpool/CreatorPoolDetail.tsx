@@ -1,11 +1,10 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   ArrowLeft,
   CoinsIcon,
   Users,
   Clock,
   TrendingUp,
-  DollarSign,
   ChevronLeft,
   ChevronRight,
   Crown,

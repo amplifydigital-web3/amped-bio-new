@@ -240,7 +240,7 @@ export function CreateThemeTab() {
       // Step 2: If there's a background file from imported theme, upload it
       if (downloadedBackgroundFile) {
         try {
-          const backgroundFileId = await uploadThemeBackground(
+          await uploadThemeBackground(
             newTheme.id,
             downloadedBackgroundFile
           );

@@ -1,4 +1,4 @@
-import React from "react";
+
 
 export default function EarningsChart() {
   // This is a simple placeholder component for the earnings chart

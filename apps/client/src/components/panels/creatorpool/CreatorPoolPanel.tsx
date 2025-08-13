@@ -1,5 +1,4 @@
-import React, { useState } from "react";
-import { useEditor } from "../../../contexts/EditorContext";
+import { useState } from "react";
 import { CreatePoolForm } from "./CreatePoolForm";
 import { PoolList } from "./PoolList";
 

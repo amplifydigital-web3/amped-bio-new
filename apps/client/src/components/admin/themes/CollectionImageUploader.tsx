@@ -8,19 +8,19 @@ import {
 import { trpc } from "../../../utils/trpc/trpc";
 import { useQuery } from "@tanstack/react-query";
 
-interface CategoryImageUploaderProps {
-  categoryId: number;
+interface CollectionImageUploaderProps {
+  collectionId: number;
   currentImageUrl?: string;
   onImageUpload: (imageUrl: string, fileId: number) => void;
   onError?: (error: string) => void;
 }
 
-export function CategoryImageUploader({
-  categoryId,
+export function CollectionImageUploader({
+  collectionId,
   currentImageUrl,
   onImageUpload,
   onError,
-}: CategoryImageUploaderProps) {
+}: CollectionImageUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { data: adminUploadLimits } = useQuery(trpc.admin.upload.getLimits.queryOptions());
@@ -65,8 +65,8 @@ export function CategoryImageUploader({
       const fileType = file.type;
       const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
 
-      console.log("Preparing to upload category image with:", {
-        categoryId,
+      console.log("Preparing to upload collection image with:", {
+        collectionId,
         contentType: fileType,
         fileExtension,
         fileName: file.name,
@@ -76,17 +76,17 @@ export function CategoryImageUploader({
       // Request presigned URL from server for category image
       const presignedData =
         await trpcClient.admin.upload.requestThemeCollectionImagePresignedUrl.mutate({
-          collectionId: categoryId,
+          collectionId: collectionId,
           contentType: fileType,
           fileExtension: fileExtension,
           fileSize: file.size,
         });
 
-      console.log("Server response - presigned URL data for category image:", presignedData);
+      console.log("Server response - presigned URL data for collection image:", presignedData);
 
       // Upload to S3
       console.log(
-        "Starting S3 upload for category image with presigned URL:",
+        "Starting S3 upload for collection image with presigned URL:",
         presignedData.presignedUrl.substring(0, 100) + "..."
       );
       const uploadResponse = await fetch(presignedData.presignedUrl, {
@@ -99,7 +99,7 @@ export function CategoryImageUploader({
 
       if (!uploadResponse.ok) {
         const errorText = await uploadResponse.text();
-        console.error("S3 category image upload failed:", {
+        console.error("S3 collection image upload failed:", {
           status: uploadResponse.status,
           statusText: uploadResponse.statusText,
           responseBody: errorText,
@@ -109,22 +109,22 @@ export function CategoryImageUploader({
         );
       }
 
-      console.log("S3 category image upload completed successfully:", uploadResponse.status);
+      console.log("S3 collection image upload completed successfully:", uploadResponse.status);
 
       // Confirm upload with the server
       const result = await trpcClient.admin.upload.confirmThemeCollectionImageUpload.mutate({
-        collectionId: categoryId,
+        collectionId: collectionId,
         fileId: presignedData.fileId,
         fileName: file.name,
       });
 
-      console.log("Server response - category image upload confirmation:", result);
+      console.log("Server response - collection image upload confirmation:", result);
 
       // Notify parent component
       onImageUpload(result.imageUrl, result.fileId);
     } catch (error: any) {
-      console.error("Error uploading category image:", error);
-      const errorMessage = error?.message || "Failed to upload category image";
+      console.error("Error uploading collection image:", error);
+      const errorMessage = error?.message || "Failed to upload collection image";
       onError?.(errorMessage);
     } finally {
       setIsUploading(false);
@@ -133,12 +133,12 @@ export function CategoryImageUploader({
 
   return (
     <div className="space-y-3">
-      <label className="block text-sm font-medium text-gray-700">Category Image</label>
+      <label className="block text-sm font-medium text-gray-700">Collection Image</label>
 
       {/* Current Image Preview */}
       {currentImageUrl && (
         <div className="relative w-24 h-24 rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
-          <img src={currentImageUrl} alt="Category" className="w-full h-full object-cover" />
+          <img src={currentImageUrl} alt="Collection" className="w-full h-full object-cover" />
         </div>
       )}
 

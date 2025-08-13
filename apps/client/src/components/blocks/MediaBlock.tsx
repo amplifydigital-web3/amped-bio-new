@@ -36,7 +36,7 @@ export function MediaBlock({ block, theme }: MediaBlockProps) {
     case "substack":
       return <SubstackBlock block={block} theme={theme} />;
     case "creator-pool":
-      return <CreatorPoolBlock block={block} theme={theme} />;
+      return <CreatorPoolBlock theme={theme} />;
     case "facebook":
       return <FacebookBlock block={block} theme={theme} />;
     case "tiktok":

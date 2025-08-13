@@ -4,14 +4,14 @@ import {
   ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS,
   ALLOWED_AVATAR_FILE_TYPES,
 } from "@ampedbio/constants";
-import { trpcClient } from "../../../utils/trpc";
+import { trpc } from "../../../utils/trpc/trpc";
 
 interface ImageUploaderProps {
   onUpload: (image: { url: string; type: string }) => void;
 }
 
 export function AvatarImageUploader({ onUpload }: ImageUploaderProps) {
-  const { data: uploadLimits } = trpcClient.upload.getLimits.useQuery();
+  const { data: uploadLimits } = trpc.upload.getLimits.useQuery();
 
   const handleFileUpload = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {

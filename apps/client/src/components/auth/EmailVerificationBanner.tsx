@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { AlertTriangle, Mail } from "lucide-react";
-import { resendEmailVerification } from "@/api/api";
+import { trpcClient } from "@/utils/trpc";
 import { useAuth } from "@/contexts/AuthContext";
 
 const EmailVerificationBanner = () => {
@@ -15,7 +15,7 @@ const EmailVerificationBanner = () => {
   const handleResendEmail = () => {
     setIsResending(true);
 
-    return resendEmailVerification(authUser.email).then(
+    return trpcClient.user.resendEmailVerification.mutate({ newEmail: authUser.email }).then(
       () => {
         setIsResending(false);
         setResendSuccess(true);
