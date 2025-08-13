@@ -50,8 +50,8 @@ export function CategoryImageSelector({
     }
 
     // Validate file size (max 50MB for admin)
-    if (file.size > (uploadLimits?.maxAvatarFileSize || 0)) {
-      const errorMsg = `File size must be less than ${((uploadLimits?.maxAvatarFileSize || 0) / (1024 * 1024)).toFixed(2)}MB`;
+    if (file.size > (uploadLimits?.maxCollectionThumbnailFileSize || 0)) {
+      const errorMsg = `File size must be less than ${((uploadLimits?.maxCollectionThumbnailFileSize || 0) / (1024 * 1024)).toFixed(2)}MB`;
       onError?.(errorMsg);
       return;
     }
