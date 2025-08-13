@@ -1,4 +1,4 @@
-import { cleanEnv, str, port, bool } from "envalid";
+import { cleanEnv, str, port, bool, num } from "envalid";
 
 export const env = cleanEnv(process.env, {
   NODE_ENV: str({
@@ -109,5 +109,41 @@ export const env = cleanEnv(process.env, {
   RECAPTCHA_SECRET_KEY: str({
     desc: "Secret key for Google reCAPTCHA verification",
     default: "",
+  }),
+  // File upload size limits (in MB)
+  UPLOAD_LIMIT_BACKGROUND_MB: num({
+    desc: "Maximum file size in MB for background uploads",
+    default: 5,
+    example: "5",
+  }),
+  UPLOAD_LIMIT_IMAGE_MB: num({
+    desc: "Maximum file size in MB for image uploads",
+    default: 2,
+    example: "2",
+  }),
+  UPLOAD_LIMIT_VIDEO_MB: num({
+    desc: "Maximum file size in MB for video uploads",
+    default: 10,
+    example: "10",
+  }),
+  UPLOAD_LIMIT_PROFILE_PHOTO_MB: num({
+    desc: "Maximum file size in MB for profile photo uploads",
+    default: 1,
+    example: "1",
+  }),
+  UPLOAD_LIMIT_ADMIN_AVATAR_MB: num({
+    desc: "Maximum file size in MB for admin avatar uploads",
+    default: 50,
+    example: "50",
+  }),
+  UPLOAD_LIMIT_ADMIN_BACKGROUND_MB: num({
+    desc: "Maximum file size in MB for admin background uploads",
+    default: 50,
+    example: "50",
+  }),
+  UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB: num({
+    desc: "Maximum file size in MB for collection thumbnail uploads",
+    default: 2,
+    example: "2",
   }),
 });

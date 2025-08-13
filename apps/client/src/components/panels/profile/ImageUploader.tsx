@@ -3,7 +3,6 @@ import { trpcClient } from "../../../utils/trpc";
 import {
   ALLOWED_AVATAR_FILE_EXTENSIONS,
   ALLOWED_AVATAR_FILE_TYPES,
-  MAX_AVATAR_FILE_SIZE,
 } from "@ampedbio/constants";
 import { PhotoEditor } from "./PhotoEditor";
 import { useAuth } from "../../../contexts/AuthContext";
@@ -21,6 +20,7 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { refreshUserData } = useAuth();
+  const { data: uploadLimits } = trpcClient.upload.getLimits.useQuery();
 
   const handleFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -42,9 +42,9 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
     }
 
     // Validate file size (max 5MB)
-    if (file.size > MAX_AVATAR_FILE_SIZE) {
+    if (file.size > (uploadLimits?.maxAvatarFileSize || 0)) {
       setError(
-        `File size must be less than ${(MAX_AVATAR_FILE_SIZE / (1024 * 1024)).toFixed(2)}MB`
+        `File size must be less than ${((uploadLimits?.maxAvatarFileSize || 0) / (1024 * 1024)).toFixed(2)}MB`
       );
       return;
     }
@@ -254,7 +254,7 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
           </div>
           <p className="text-xs text-gray-500">
             {ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()}. Max{" "}
-            {MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB.
+            {(uploadLimits?.maxAvatarFileSize || 0) / (1024 * 1024)}MB.
           </p>
           {error && <p className="text-xs text-red-600">{error}</p>}
         </div>

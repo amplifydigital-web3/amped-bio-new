@@ -3,8 +3,9 @@ import { Image as ImageIcon, Upload, X } from "lucide-react";
 import {
   ALLOWED_AVATAR_FILE_EXTENSIONS,
   ALLOWED_AVATAR_FILE_TYPES,
-  MAX_ADMIN_AVATAR_FILE_SIZE,
 } from "@ampedbio/constants";
+import { trpc } from "../../../utils/trpc/trpc";
+import { useQuery } from "@tanstack/react-query";
 
 interface CategoryImageSelectorProps {
   onFileSelect: (file: File | null) => void;
@@ -19,6 +20,7 @@ export function CategoryImageSelector({
 }: CategoryImageSelectorProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { data: uploadLimits } = useQuery(trpc.upload.getLimits.queryOptions());
 
   const handleFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -48,8 +50,8 @@ export function CategoryImageSelector({
     }
 
     // Validate file size (max 50MB for admin)
-    if (file.size > MAX_ADMIN_AVATAR_FILE_SIZE) {
-      const errorMsg = `File size must be less than ${(MAX_ADMIN_AVATAR_FILE_SIZE / (1024 * 1024)).toFixed(2)}MB`;
+    if (file.size > (uploadLimits?.maxAvatarFileSize || 0)) {
+      const errorMsg = `File size must be less than ${((uploadLimits?.maxAvatarFileSize || 0) / (1024 * 1024)).toFixed(2)}MB`;
       onError?.(errorMsg);
       return;
     }
@@ -126,7 +128,7 @@ export function CategoryImageSelector({
       {/* File Requirements */}
       <p className="text-xs text-gray-500">
         {ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()}. Max{" "}
-        {MAX_ADMIN_AVATAR_FILE_SIZE / (1024 * 1024)}MB.
+        {((uploadLimits?.maxCollectionThumbnailFileSize || 0) / (1024 * 1024)).toFixed(2)}MB.
       </p>
     </div>
   );

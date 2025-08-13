@@ -1,16 +1,16 @@
-import React, { useCallback, useMemo, memo, useState } from "react";
+import React, { useCallback, useMemo, memo, useState, useEffect } from "react";
 import { Check, ExternalLink } from "lucide-react";
 import type { Background } from "../../../types/editor";
 import { gradients, photos, videos, backgroundColors } from "../../../utils/backgrounds";
 import CollapsiblePanelWrapper from "../CollapsiblePanelWrapper";
-import { trpcClient } from "../../../utils/trpc";
+import { trpc, trpcClient } from "../../../utils/trpc";
 import { useEditor } from "../../../contexts/EditorContext";
 import {
   ALLOWED_BACKGROUND_FILE_EXTENSIONS,
   ALLOWED_BACKGROUND_FILE_TYPES,
-  MAX_BACKGROUND_FILE_SIZE,
 } from "@ampedbio/constants";
 import { FileUpload } from "../../ui/FileUpload";
+import { useQuery } from "@tanstack/react-query";
 
 interface BackgroundPickerProps {
   value?: Background;
@@ -22,9 +22,20 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [customURL, setCustomURL] = useState("");
+  const [isFirstLoading, setIsFirstLoading] = useState(true);
+  const [previousLimits, setPreviousLimits] = useState<typeof uploadLimits>(undefined);
 
   // Get profile and setUser from store for refetching theme data after upload
   const { profile, setUser } = useEditor();
+  const { data: uploadLimits, isLoading: isLoadingLimits } = useQuery(trpc.upload.getLimits.queryOptions());
+
+  // Track loading state changes and previous values
+  useEffect(() => {
+    if (!isLoadingLimits) {
+      setIsFirstLoading(false);
+      setPreviousLimits(uploadLimits);
+    }
+  }, [isLoadingLimits, uploadLimits]);
 
   const handleFileUpload = useCallback(
     async (file: File) => {
@@ -134,8 +145,12 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
         } else if (errorMessage.includes("Network Error")) {
           setUploadError("Network error. Please check your connection and try again.");
         } else if (errorMessage.includes("413") || errorMessage.includes("Payload Too Large")) {
+          // Use the same logic as in the UI to determine which limits to show
+          const currentLimits = isLoadingLimits ? previousLimits : uploadLimits;
           setUploadError(
-            `File exceeds server limit. Maximum size: ${MAX_BACKGROUND_FILE_SIZE / (1024 * 1024)}MB`
+            currentLimits?.maxBackgroundFileSize 
+              ? `File exceeds server limit. Maximum size: ${currentLimits.maxBackgroundFileSize / (1024 * 1024)}MB` 
+              : `File exceeds server limit.`
           );
         } else {
           setUploadError(errorMessage);
@@ -292,16 +307,40 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
               </div>
             )}
 
-            <FileUpload
-              acceptedExtensions={ALLOWED_BACKGROUND_FILE_EXTENSIONS}
-              maxFileSize={MAX_BACKGROUND_FILE_SIZE}
-              onFileSelect={handleFileUpload}
-              onError={setUploadError}
-              disabled={themeId === undefined}
-              isLoading={isUploading}
-              title="Upload image or video"
-              description={`Images: ${["jpg", "jpeg", "png", "svg"].join(", ").toUpperCase()} | Videos: ${["mp4", "mov", "avi", "webm"].join(", ").toUpperCase()} (Max ${MAX_BACKGROUND_FILE_SIZE / (1024 * 1024)}MB)`}
-            />
+            {/* Scenario 1: First loading - show skeleton */}
+            {(isLoadingLimits && isFirstLoading) ? (
+              <div className="border border-gray-200 rounded-lg p-4 space-y-3">
+                <div className="flex items-center space-x-2">
+                  <div className="h-4 w-12 bg-gray-200 animate-pulse rounded"></div>
+                  <div className="h-4 w-32 bg-gray-200 animate-pulse rounded"></div>
+                </div>
+                <div className="h-16 w-full bg-gray-200 animate-pulse rounded"></div>
+                <div className="h-4 w-3/4 bg-gray-200 animate-pulse rounded"></div>
+              </div>
+            ) : (
+              <FileUpload
+                acceptedExtensions={ALLOWED_BACKGROUND_FILE_EXTENSIONS}
+                // Scenario 2/3/4: Use appropriate limits value based on loading state and previous value
+                maxFileSize={isLoadingLimits ? previousLimits?.maxBackgroundFileSize : uploadLimits?.maxBackgroundFileSize}
+                onFileSelect={handleFileUpload}
+                onError={setUploadError}
+                disabled={themeId === undefined}
+                isLoading={isUploading}
+                title="Upload image or video"
+                description={(() => {
+                  // Base description without file size limit
+                  const baseDescription = `Images: ${["jpg", "jpeg", "png", "svg"].join(", ").toUpperCase()} | Videos: ${["mp4", "mov", "avi", "webm"].join(", ").toUpperCase()}`;
+                  
+                  // Determine which limits to use based on loading state
+                  const currentLimits = isLoadingLimits ? previousLimits : uploadLimits;
+                  
+                  // Add size limit if available
+                  return currentLimits?.maxBackgroundFileSize
+                    ? `${baseDescription} (Max ${currentLimits.maxBackgroundFileSize / (1024 * 1024)}MB)`
+                    : baseDescription;
+                })()}
+              />
+            )}
 
             <div className="mt-2">
               <div className="rounded-md bg-yellow-50 border border-yellow-200 px-3 py-2 flex items-start gap-2">

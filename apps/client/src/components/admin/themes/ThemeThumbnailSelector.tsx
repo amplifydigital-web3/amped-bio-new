@@ -3,8 +3,9 @@ import { Image as ImageIcon, Upload } from "lucide-react";
 import {
   ALLOWED_AVATAR_FILE_EXTENSIONS,
   ALLOWED_AVATAR_FILE_TYPES,
-  MAX_ADMIN_AVATAR_FILE_SIZE,
 } from "@ampedbio/constants";
+import { trpc } from "../../../utils/trpc/trpc";
+import { useQuery } from "@tanstack/react-query";
 
 interface ThemeThumbnailSelectorProps {
   onFileSelect: (file: File | null) => void;
@@ -21,6 +22,7 @@ export function ThemeThumbnailSelector({
 }: ThemeThumbnailSelectorProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { data: uploadLimits } = useQuery(trpc.upload.getLimits.queryOptions());
 
   // Update preview URL when selectedFile changes
   useEffect(() => {
@@ -73,8 +75,9 @@ export function ThemeThumbnailSelector({
     }
 
     // Validate file size (max 50MB for admin)
-    if (file.size > MAX_ADMIN_AVATAR_FILE_SIZE) {
-      const errorMsg = `File size must be less than ${(MAX_ADMIN_AVATAR_FILE_SIZE / (1024 * 1024)).toFixed(2)}MB`;
+    const maxFileSize = uploadLimits?.maxAvatarFileSize || 50 * 1024 * 1024; // Fallback to 50MB if limits not loaded yet
+    if (file.size > maxFileSize) {
+      const errorMsg = `File size must be less than ${(maxFileSize / (1024 * 1024)).toFixed(2)}MB`;
       onError?.(errorMsg);
       return;
     }
@@ -175,7 +178,7 @@ export function ThemeThumbnailSelector({
       {/* File Requirements */}
       <p className="text-xs text-gray-500">
         {ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()}. Max{" "}
-        {MAX_ADMIN_AVATAR_FILE_SIZE / (1024 * 1024)}MB.
+        {uploadLimits?.maxAvatarFileSize ? (uploadLimits.maxAvatarFileSize / (1024 * 1024)).toFixed(2) : '50'}MB.
       </p>
     </div>
   );

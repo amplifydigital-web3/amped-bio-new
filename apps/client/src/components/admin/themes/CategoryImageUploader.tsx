@@ -4,8 +4,9 @@ import { trpcClient } from "../../../utils/trpc";
 import {
   ALLOWED_AVATAR_FILE_EXTENSIONS,
   ALLOWED_AVATAR_FILE_TYPES,
-  MAX_ADMIN_AVATAR_FILE_SIZE,
 } from "@ampedbio/constants";
+import { trpc } from "../../../utils/trpc/trpc";
+import { useQuery } from "@tanstack/react-query";
 
 interface CategoryImageUploaderProps {
   categoryId: number;
@@ -22,6 +23,7 @@ export function CategoryImageUploader({
 }: CategoryImageUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { data: uploadLimits } = useQuery(trpc.upload.getLimits.queryOptions());
 
   const handleFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -46,8 +48,8 @@ export function CategoryImageUploader({
     }
 
     // Validate file size (max 50MB for admin)
-    if (file.size > MAX_ADMIN_AVATAR_FILE_SIZE) {
-      const errorMsg = `File size must be less than ${(MAX_ADMIN_AVATAR_FILE_SIZE / (1024 * 1024)).toFixed(2)}MB`;
+    if (file.size > (uploadLimits?.maxAvatarFileSize || 0)) {
+      const errorMsg = `File size must be less than ${((uploadLimits?.maxAvatarFileSize || 0) / (1024 * 1024)).toFixed(2)}MB`;
       onError?.(errorMsg);
       return;
     }
@@ -199,7 +201,7 @@ export function CategoryImageUploader({
       {/* File Requirements */}
       <p className="text-xs text-gray-500">
         {ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()}. Max{" "}
-        {MAX_ADMIN_AVATAR_FILE_SIZE / (1024 * 1024)}MB.
+        {((uploadLimits?.maxAvatarFileSize || 0) / (1024 * 1024)).toFixed(2)}MB.
       </p>
     </div>
   );

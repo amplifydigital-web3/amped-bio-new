@@ -3,14 +3,16 @@ import { Upload, Image as ImageIcon } from "lucide-react";
 import {
   ALLOWED_AVATAR_FILE_EXTENSIONS,
   ALLOWED_AVATAR_FILE_TYPES,
-  MAX_AVATAR_FILE_SIZE,
 } from "@ampedbio/constants";
+import { trpcClient } from "../../../utils/trpc";
 
 interface ImageUploaderProps {
   onUpload: (image: { url: string; type: string }) => void;
 }
 
 export function AvatarImageUploader({ onUpload }: ImageUploaderProps) {
+  const { data: uploadLimits } = trpcClient.upload.getLimits.useQuery();
+
   const handleFileUpload = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -30,8 +32,8 @@ export function AvatarImageUploader({ onUpload }: ImageUploaderProps) {
       }
 
       // Validate file size (max 5MB)
-      if (file.size > MAX_AVATAR_FILE_SIZE) {
-        alert(`File size must be less than ${MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB`);
+      if (file.size > (uploadLimits?.maxAvatarFileSize || 0)) {
+        alert(`File size must be less than ${(uploadLimits?.maxAvatarFileSize || 0) / (1024 * 1024)}MB`);
         return;
       }
 
@@ -57,7 +59,7 @@ export function AvatarImageUploader({ onUpload }: ImageUploaderProps) {
         <p className="mt-2 text-sm text-gray-500">Drop your images here or click to upload</p>
         <p className="text-xs text-gray-400 mt-1">
           Supports: {ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()} (Max{" "}
-          {MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB)
+          {(uploadLimits?.maxAvatarFileSize || 0) / (1024 * 1024)}MB)
         </p>
       </div>
       <input
