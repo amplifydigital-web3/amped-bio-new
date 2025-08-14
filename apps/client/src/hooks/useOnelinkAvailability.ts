@@ -47,7 +47,7 @@ export function useOnelinkAvailability(url: string, currentUrl: string = "") {
       return;
     }
 
-    setUrlStatus("Checking...");
+    setUrlStatus("Checking");
 
     // Clear any existing timer
     if (debounceTimer.current) {

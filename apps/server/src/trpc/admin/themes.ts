@@ -96,6 +96,7 @@ export const themesRouter = router({
       });
       return theme;
     } catch (error) {
+      console.error("Failed to create theme:", error);
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: "Failed to create theme",
@@ -103,7 +104,7 @@ export const themesRouter = router({
     }
   }),
 
-  updateTheme: adminProcedure.input(ThemeUpdateSchema).mutation(async ({ ctx, input }) => {
+  updateTheme: adminProcedure.input(ThemeUpdateSchema).mutation(async ({ input }) => {
     try {
       const updatedTheme = await prisma.theme.update({
         where: { id: input.id },
@@ -154,6 +155,7 @@ export const themesRouter = router({
 
       return categoriesWithResolvedImages;
     } catch (error) {
+      console.error("Failed to fetch theme categories:", error);
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: "Failed to fetch theme categories",
@@ -290,6 +292,7 @@ export const themesRouter = router({
           },
         };
       } catch (error) {
+        console.error("Failed to fetch themes:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to fetch themes",
