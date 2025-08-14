@@ -102,9 +102,7 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
   }, [block.config, block.type]);
 
   // Create a type based on union of possible schemas
-  type BlockFormData =
-    | z.infer<typeof mediaBlockSchema>
-    | z.infer<typeof linkBlockSchema>;
+  type BlockFormData = z.infer<typeof mediaBlockSchema> | z.infer<typeof linkBlockSchema>;
 
   const {
     watch,
@@ -146,11 +144,7 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
       <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">
-            Edit{" "}
-            {block.type === "media"
-              ? getPlatformName(block.config.platform)
-              : "Link"}{" "}
-            Block
+            Edit {block.type === "media" ? getPlatformName(block.config.platform) : "Link"} Block
           </h3>
           <button onClick={onCancel} className="p-1 text-gray-500 hover:text-gray-700">
             <X className="w-5 h-5" />

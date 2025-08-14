@@ -11,7 +11,6 @@ import {
   Book,
   Camera,
   Store,
-  Video,
   Heart,
   Newspaper,
   Gamepad2,

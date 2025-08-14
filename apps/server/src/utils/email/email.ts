@@ -5,7 +5,7 @@ import resetPasswordTemplate from "./ResetPasswordTemplate";
 import emailChangeTemplate from "./EmailChangeTemplate";
 import { env } from "../../env";
 
-const baseURL = env.FRONTEND_URL;;
+const baseURL = env.FRONTEND_URL;
 
 type EmailOptions = {
   to: string | string[];
@@ -112,7 +112,11 @@ export const sendPasswordResetEmail = async (email: string, token: string) => {
   });
 };
 
-export const sendEmailChangeVerification = async (email: string, newEmail: string, code: string) => {
+export const sendEmailChangeVerification = async (
+  email: string,
+  newEmail: string,
+  code: string
+) => {
   console.log(`🔄 Generating email change verification code for ${email} -> ${newEmail}`);
 
   console.log("🎨 Rendering email change template...");

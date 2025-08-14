@@ -1,12 +1,12 @@
 /**
  * THEME GALLERY ROUTER
- * 
+ *
  * This router handles public theme gallery and marketplace operations:
  * - Browsing public themes by category
  * - Getting theme details for public viewing
  * - Listing theme categories and collections
  * - Getting theme counts and metadata for gallery display
- * 
+ *
  * All methods are public and don't require authentication.
  * For user theme management operations, see theme.ts
  */
@@ -58,24 +58,31 @@ export const themeGalleryRouter = router({
       }
 
       // Resolve image URLs
-      const resolvedUserImage = result.user 
-        ? await getFileUrl({ legacyImageField: result.user.image, imageFileId: result.user.image_file_id })
+      const resolvedUserImage = result.user
+        ? await getFileUrl({
+            legacyImageField: result.user.image,
+            imageFileId: result.user.image_file_id,
+          })
         : null;
 
-      const resolvedThumbnailImage = result.thumbnailImage 
+      const resolvedThumbnailImage = result.thumbnailImage
         ? await getFileUrl({ legacyImageField: null, imageFileId: result.thumbnailImage.id })
         : null;
 
       return {
         ...result,
-        user: result.user ? {
-          ...result.user,
-          image: resolvedUserImage,
-        } : null,
-        thumbnailImage: result.thumbnailImage ? {
-          ...result.thumbnailImage,
-          url: resolvedThumbnailImage,
-        } : null,
+        user: result.user
+          ? {
+              ...result.user,
+              image: resolvedUserImage,
+            }
+          : null,
+        thumbnailImage: result.thumbnailImage
+          ? {
+              ...result.thumbnailImage,
+              url: resolvedThumbnailImage,
+            }
+          : null,
       };
     } catch (error) {
       console.error("error", error);
@@ -90,90 +97,103 @@ export const themeGalleryRouter = router({
   }),
 
   // Get themes by category ID (public access for gallery browsing)
-  getThemesByCategory: publicProcedure
-    .input(categoryIdSchema)
-    .query(async ({ input }) => {
-      const { id } = input;
+  getThemesByCategory: publicProcedure.input(categoryIdSchema).query(async ({ input }) => {
+    const { id } = input;
 
-      try {
-        const category = await prisma.themeCategory.findUnique({
-          where: {
-            id: Number(id),
-          },
-          include: {
-            categoryImage: true,
-          },
-        });
+    try {
+      const category = await prisma.themeCategory.findUnique({
+        where: {
+          id: Number(id),
+        },
+        include: {
+          categoryImage: true,
+        },
+      });
 
-        if (category === null) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: `Theme category not found: ${id}`,
-          });
-        }
-
-        const themes = await prisma.theme.findMany({
-          where: {
-            category_id: Number(id),
-            share_level: {
-              not: "private", // Only return public/shared themes
-            },
-          },
-          orderBy: {
-            updated_at: "desc",
-          },
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                image: true,
-                image_file_id: true,
-              },
-            },
-            thumbnailImage: true,
-          },
-        });
-
-        // Resolve image URLs for all themes and users
-        const themesWithResolvedImages = await Promise.all(
-          themes.map(async (theme) => ({
-            ...theme,
-            user: theme.user ? {
-              ...theme.user,
-              image: await getFileUrl({ legacyImageField: theme.user.image, imageFileId: theme.user.image_file_id }),
-            } : null,
-            thumbnailImage: theme.thumbnailImage ? {
-              ...theme.thumbnailImage,
-              url: await getFileUrl({ legacyImageField: null, imageFileId: theme.thumbnailImage.id }),
-            } : null,
-          }))
-        );
-
-        // Resolve category image URL
-        const resolvedCategoryImageFile = category.categoryImage ? {
-          ...category.categoryImage,
-          url: await getFileUrl({ legacyImageField: null, imageFileId: category.categoryImage.id }),
-        } : null;
-
-        return {
-          category: {
-            ...category,
-            categoryImage: resolvedCategoryImageFile,
-          },
-          themes: themesWithResolvedImages,
-        };
-      } catch (error) {
-        console.error("error", error);
-        if (error instanceof TRPCError) {
-          throw error;
-        }
+      if (category === null) {
         throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Server error",
+          code: "NOT_FOUND",
+          message: `Theme category not found: ${id}`,
         });
       }
-    }),
+
+      const themes = await prisma.theme.findMany({
+        where: {
+          category_id: Number(id),
+          share_level: {
+            not: "private", // Only return public/shared themes
+          },
+        },
+        orderBy: {
+          updated_at: "desc",
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+              image_file_id: true,
+            },
+          },
+          thumbnailImage: true,
+        },
+      });
+
+      // Resolve image URLs for all themes and users
+      const themesWithResolvedImages = await Promise.all(
+        themes.map(async theme => ({
+          ...theme,
+          user: theme.user
+            ? {
+                ...theme.user,
+                image: await getFileUrl({
+                  legacyImageField: theme.user.image,
+                  imageFileId: theme.user.image_file_id,
+                }),
+              }
+            : null,
+          thumbnailImage: theme.thumbnailImage
+            ? {
+                ...theme.thumbnailImage,
+                url: await getFileUrl({
+                  legacyImageField: null,
+                  imageFileId: theme.thumbnailImage.id,
+                }),
+              }
+            : null,
+        }))
+      );
+
+      // Resolve category image URL
+      const resolvedCategoryImageFile = category.categoryImage
+        ? {
+            ...category.categoryImage,
+            url: await getFileUrl({
+              legacyImageField: null,
+              imageFileId: category.categoryImage.id,
+            }),
+          }
+        : null;
+
+      return {
+        category: {
+          ...category,
+          categoryImage: resolvedCategoryImageFile,
+        },
+        themes: themesWithResolvedImages,
+      };
+    } catch (error) {
+      console.error("error", error);
+      if (error instanceof TRPCError) {
+        throw error;
+      }
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Server error",
+      });
+    }
+  }),
 
   // Get all collections/theme categories (public access for main gallery page)
   getCollections: publicProcedure.query(async () => {
@@ -203,16 +223,21 @@ export const themeGalleryRouter = router({
 
       // Resolve image URLs for all categories and transform to Collection format
       const collectionsWithResolvedImages = await Promise.all(
-        categories.map(async (category) => ({
+        categories.map(async category => ({
           id: category.id.toString(),
           name: category.name,
           description: category.description || "",
           themeCount: category._count.themes,
           isServer: true,
-          categoryImage: category.categoryImage ? {
-            ...category.categoryImage,
-            url: await getFileUrl({ legacyImageField: null, imageFileId: category.categoryImage.id }),
-          } : null,
+          categoryImage: category.categoryImage
+            ? {
+                ...category.categoryImage,
+                url: await getFileUrl({
+                  legacyImageField: null,
+                  imageFileId: category.categoryImage.id,
+                }),
+              }
+            : null,
         }))
       );
 

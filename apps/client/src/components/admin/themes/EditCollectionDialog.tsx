@@ -124,11 +124,7 @@ export function EditCollectionDialog({
                 <FormItem>
                   <FormLabel>Title</FormLabel>
                   <FormControl>
-                    <Input 
-                      {...field} 
-                      disabled={loading} 
-                      placeholder="Enter collection title" 
-                    />
+                    <Input {...field} disabled={loading} placeholder="Enter collection title" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -141,9 +137,9 @@ export function EditCollectionDialog({
                 <FormItem className="w-full">
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Textarea 
-                      {...field} 
-                      disabled={loading} 
+                    <Textarea
+                      {...field}
+                      disabled={loading}
                       placeholder="Enter collection description"
                       className="min-h-[100px] w-full"
                     />
@@ -153,12 +149,7 @@ export function EditCollectionDialog({
               )}
             />
             <DialogFooter className="pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onClose}
-                disabled={loading}
-              >
+              <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>
