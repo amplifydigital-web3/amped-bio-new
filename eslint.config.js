@@ -27,7 +27,7 @@ export default tseslint.config(
       ],
       'quotes': ['warn', 'double'],
       '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': 'error',
       'prettier/prettier': 'warn',
       "@typescript-eslint/no-namespace": "off"
     },

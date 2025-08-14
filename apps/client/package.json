@@ -9,8 +9,8 @@
   "scripts": {
     "dev": "vite",
     "dev:client-only": "vite --mode client-only",
-    "build": "tsc && vite build",
-    "build:client-only": "tsc && vite build --mode client-only",
+    "build": "tsc -b && vite build",
+    "build:client-only": "tsc -b && vite build --mode client-only",
     "lint": "eslint .",
     "preview": "vite preview",
     "format": "prettier --write .",
