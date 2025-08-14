@@ -19,7 +19,7 @@ export interface FileUrlParams {
  */
 export async function getFileUrl(params: FileUrlParams): Promise<string | null> {
   const { legacyImageField, imageFileId } = params;
-  
+
   // If we have a file ID, use the new system
   // No need to check status since the file ID only exists after successful upload confirmation
   if (imageFileId) {

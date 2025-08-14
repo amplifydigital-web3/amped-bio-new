@@ -62,8 +62,6 @@ const confirmThemeBackgroundSchema = z.object({
   mediaType: z.enum(["image", "video"]),
 });
 
-
-
 export const uploadRouter = router({
   requestAvatarPresignedUrl: privateProcedure
     .input(requestPresignedUrlSchema)

@@ -72,19 +72,21 @@ export const validate =
           errors: error.errors.map(err => ({
             path: err.path,
             message: err.message,
-            code: err.code
+            code: err.code,
           })),
           // Include the original data only in non-production environments
-          ...(env.isProd ? {} : { 
-            originalData: target === ValidationTarget.Body ? req.body : req[target],
-            schemaName: schema.description || schema.constructor.name
-          })
+          ...(env.isProd
+            ? {}
+            : {
+                originalData: target === ValidationTarget.Body ? req.body : req[target],
+                schemaName: schema.description || schema.constructor.name,
+              }),
         });
       }
       if (enableLogs) console.error("[Validation] Unexpected error during validation:", error);
       return res.status(500).json({
         message: "Internal server error during validation",
-        error: env.isProd ? undefined : (error instanceof Error ? error.message : String(error))
+        error: env.isProd ? undefined : error instanceof Error ? error.message : String(error),
       });
     }
   };

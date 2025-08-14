@@ -18,11 +18,13 @@
     "client-only": "pnpm build:packages && pnpm --filter @ampedbio/client dev:client-only",
     "client-only:install": "pnpm install --filter @ampedbio/constants --filter @ampedbio/client",
     "lint": "turbo lint",
+    "lint:fix": "turbo lint:fix",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,md}\"",
     "e2e:test": "pnpm --filter client e2e:test"
   },
   "devDependencies": {
+    "eslint-plugin-unused-imports": "^4.1.4",
     "globals": "^15.9.0",
     "prettier": "^3.2.5",
     "tsx": "^4.19.3",

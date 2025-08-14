@@ -2,15 +2,12 @@ import React, { useState } from "react";
 import {
   CoinsIcon,
   Users,
-  Clock,
   TrendingUp,
   DollarSign,
   Wallet,
-  History,
   ChevronDown,
   ChevronUp,
   ExternalLink,
-  Shield,
   Zap,
 } from "lucide-react";
 import type { ThemeConfig } from "../../types/editor";
