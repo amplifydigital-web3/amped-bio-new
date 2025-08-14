@@ -144,7 +144,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     watch: watchLogin,
   } = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
-    mode: "onBlur",
+        mode: "onBlur",
     defaultValues: {
       email: sharedEmail,
     },
@@ -158,7 +158,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     watch: watchRegister,
   } = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
-    mode: "onBlur",
+        mode: "onBlur",
     defaultValues: {
       email: sharedEmail,
     },
@@ -172,7 +172,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     watch: watchReset,
   } = useForm<z.infer<typeof resetSchema>>({
     resolver: zodResolver(resetSchema),
-    mode: "onBlur",
+        mode: "onBlur",
     defaultValues: {
       email: sharedEmail,
     },
@@ -385,7 +385,10 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               data-testid="login-email"
               autoComplete="email"
               {...registerLogin("email")}
-              onBlur={() => trackGAEvent("Input", "AuthModal", "LoginEmailInput")}
+              onBlur={(e) => {
+                registerLogin("email").onBlur(e);
+                trackGAEvent("Input", "AuthModal", "LoginEmailInput");
+              }}
             />
             <div className="relative">
               <Input
@@ -397,7 +400,10 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 data-testid="login-password"
                 autoComplete="current-password"
                 {...registerLogin("password")}
-                onBlur={() => trackGAEvent("Input", "AuthModal", "LoginPasswordInput")}
+                onBlur={(e) => {
+                  registerLogin("password").onBlur(e);
+                  trackGAEvent("Input", "AuthModal", "LoginPasswordInput");
+                }}
               />
               <button
                 type="button"
@@ -467,8 +473,14 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 autoComplete="username"
                 placeholder="your-name"
                 {...registerSignUp("onelink")}
-                onChange={handleOnelinkChange}
-                onBlur={() => trackGAEvent("Input", "AuthModal", "RegisterOnelinkInput")}
+                onChange={(e) => {
+                  registerSignUp("onelink").onChange(e);
+                  handleOnelinkChange(e);
+                }}
+                onBlur={(e) => {
+                  registerSignUp("onelink").onBlur(e);
+                  trackGAEvent("Input", "AuthModal", "RegisterOnelinkInput");
+                }}
               />
               <div className="absolute right-3 top-9">
                 <URLStatusIndicator status={urlStatus} isCurrentUrl={false} compact={true} />
@@ -497,7 +509,10 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               data-testid="register-email"
               autoComplete="email"
               {...registerSignUp("email")}
-              onBlur={() => trackGAEvent("Input", "AuthModal", "RegisterEmailInput")}
+              onBlur={(e) => {
+                registerSignUp("email").onBlur(e);
+                trackGAEvent("Input", "AuthModal", "RegisterEmailInput");
+              }}
             />
             <div className="space-y-2">
               <div className="relative">
@@ -510,7 +525,10 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                   data-testid="register-password"
                   autoComplete="new-password"
                   {...registerSignUp("password")}
-                  onBlur={() => trackGAEvent("Input", "AuthModal", "RegisterPasswordInput")}
+                  onBlur={(e) => {
+                    registerSignUp("password").onBlur(e);
+                    trackGAEvent("Input", "AuthModal", "RegisterPasswordInput");
+                  }}
                 />
                 <button
                   type="button"
@@ -615,7 +633,10 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                   data-testid="reset-email"
                   autoComplete="email"
                   {...registerReset("email")}
-                  onBlur={() => trackGAEvent("Input", "AuthModal", "ResetEmailInput")}
+                  onBlur={(e) => {
+                    registerReset("email").onBlur(e);
+                    trackGAEvent("Input", "AuthModal", "ResetEmailInput");
+                  }}
                 />
                 {isRecaptchaEnabled && (
                   <ReCAPTCHA
