@@ -659,10 +659,10 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
         </p>
         <p className="text-center text-xs text-gray-500 mt-3">
           By continuing, you agree to our{" "}
-          <a 
-            href="https://ampedbio.com/privacy-policy/" 
-            target="_blank" 
-            rel="noopener noreferrer" 
+          <a
+            href="https://ampedbio.com/privacy-policy/"
+            target="_blank"
+            rel="noopener noreferrer"
             className="text-blue-600 hover:text-blue-700 hover:underline"
             data-testid="privacy-policy-link"
           >

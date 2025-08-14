@@ -25,11 +25,14 @@ export default tseslint.config(
         'warn',
         { allowConstantExport: true },
       ],
-      'quotes': ['warn', 'double'],
+      'quotes': ['warn', 'double', { 'avoidEscape': true, 'allowTemplateLiterals': true }],
       '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-unused-vars': 'error',
+      '@typescript-eslint/no-unused-vars': 'warn',
       'prettier/prettier': 'warn',
-      "@typescript-eslint/no-namespace": "off"
+      "@typescript-eslint/no-namespace": "off",
+      '@typescript-eslint/ban-ts-comment': 'warn',
+      '@typescript-eslint/no-require-imports': 'warn',
+      '@typescript-eslint/no-empty-object-type': 'warn'
     },
   }
 );

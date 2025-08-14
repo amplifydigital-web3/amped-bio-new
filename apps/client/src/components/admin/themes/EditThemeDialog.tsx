@@ -11,14 +11,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "../../ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "../../ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../../ui/form";
 import { Input } from "../../ui/Input";
 import { Button } from "../../ui/Button";
 import { Textarea } from "../../ui/Textarea";
@@ -69,12 +62,7 @@ interface EditThemeDialogProps {
 /**
  * The EditThemeDialog component that follows the same style as EditCollectionDialog
  */
-export function EditThemeDialog({
-  isOpen,
-  onClose,
-  theme,
-  onSuccess,
-}: EditThemeDialogProps) {
+export function EditThemeDialog({ isOpen, onClose, theme, onSuccess }: EditThemeDialogProps) {
   const [loading, setLoading] = useState(false);
 
   const form = useForm<FormData>({
@@ -130,11 +118,7 @@ export function EditThemeDialog({
                 <FormItem>
                   <FormLabel>Title</FormLabel>
                   <FormControl>
-                    <Input 
-                      {...field} 
-                      disabled={loading} 
-                      placeholder="Enter theme title" 
-                    />
+                    <Input {...field} disabled={loading} placeholder="Enter theme title" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -147,9 +131,9 @@ export function EditThemeDialog({
                 <FormItem className="w-full">
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Textarea 
-                      {...field} 
-                      disabled={loading} 
+                    <Textarea
+                      {...field}
+                      disabled={loading}
                       placeholder="Enter theme description"
                       className="min-h-[100px] w-full"
                     />
@@ -159,12 +143,7 @@ export function EditThemeDialog({
               )}
             />
             <DialogFooter className="pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onClose}
-                disabled={loading}
-              >
+              <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>

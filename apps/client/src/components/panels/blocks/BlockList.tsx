@@ -76,13 +76,26 @@ export function BlockList({ blocks, onUpdate, onRemove, onReorder }: BlockListPr
         </SortableContext>
       </DndContext>
 
-      {editingBlock && (() => {
-        const block = blocks.find(b => b.id === editingBlock)!;
-        
-        if (block.type === "text") {
+      {editingBlock &&
+        (() => {
+          const block = blocks.find(b => b.id === editingBlock)!;
+
+          if (block.type === "text") {
+            return (
+              <TextBlockEditor
+                block={block as TextBlock}
+                onSave={updatedBlock => {
+                  onUpdate(editingBlock, updatedBlock);
+                  setEditingBlock(null);
+                }}
+                onCancel={() => setEditingBlock(null)}
+              />
+            );
+          }
+
           return (
-            <TextBlockEditor
-              block={block as TextBlock}
+            <BlockEditor
+              block={block}
               onSave={updatedBlock => {
                 onUpdate(editingBlock, updatedBlock);
                 setEditingBlock(null);
@@ -90,19 +103,7 @@ export function BlockList({ blocks, onUpdate, onRemove, onReorder }: BlockListPr
               onCancel={() => setEditingBlock(null)}
             />
           );
-        }
-        
-        return (
-          <BlockEditor
-            block={block}
-            onSave={updatedBlock => {
-              onUpdate(editingBlock, updatedBlock);
-              setEditingBlock(null);
-            }}
-            onCancel={() => setEditingBlock(null)}
-          />
-        );
-      })()}
+        })()}
     </div>
   );
 }

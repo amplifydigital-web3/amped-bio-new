@@ -162,25 +162,20 @@ export function BlockPicker({ onAdd }: BlockPickerProps) {
         </div>
       ))}
 
-      {editingBlock && (() => {
-        if (editingBlock.type === "text") {
-          return (
-            <TextBlockEditor 
-              block={editingBlock as TextBlock} 
-              onSave={handleSave} 
-              onCancel={handleCancel} 
-            />
-          );
-        }
-        
-        return (
-          <BlockEditor 
-            block={editingBlock} 
-            onSave={handleSave} 
-            onCancel={handleCancel} 
-          />
-        );
-      })()}
+      {editingBlock &&
+        (() => {
+          if (editingBlock.type === "text") {
+            return (
+              <TextBlockEditor
+                block={editingBlock as TextBlock}
+                onSave={handleSave}
+                onCancel={handleCancel}
+              />
+            );
+          }
+
+          return <BlockEditor block={editingBlock} onSave={handleSave} onCancel={handleCancel} />;
+        })()}
     </div>
   );
 }
