@@ -17,16 +17,9 @@ import {
   getOnelinkPublicUrl,
   formatOnelink,
 } from "@/utils/onelink";
+import { trackGAEvent } from "@/utils/ga";
 
-// Helper function for Google Analytics event tracking
-const trackGAEvent = (action: string, category: string, label: string) => {
-  if (typeof window.gtag === "function") {
-    window.gtag("event", action, {
-      event_category: category,
-      event_label: label,
-    });
-  }
-};
+
 
 interface AuthModalProps {
   onClose: (user: AuthUser) => void;
