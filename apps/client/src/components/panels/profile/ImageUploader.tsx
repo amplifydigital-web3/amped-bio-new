@@ -36,7 +36,9 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
     // Validate file extension
     const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
     if (!ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.includes(fileExtension)) {
-      setError(`Only ${ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.join(", ")} file extensions are allowed`);
+      setError(
+        `Only ${ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.join(", ")} file extensions are allowed`
+      );
       return;
     }
 

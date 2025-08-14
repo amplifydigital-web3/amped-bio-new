@@ -2,19 +2,9 @@ import React, { useCallback, useMemo } from "react";
 import { Descendant, Transforms, createEditor } from "slate";
 import { withHistory } from "slate-history";
 import { jsx } from "slate-hyperscript";
-import {
-  Editable,
-  RenderElementProps,
-  RenderLeafProps,
-  Slate,
-  withReact,
-} from "slate-react";
+import { Editable, RenderElementProps, RenderLeafProps, Slate, withReact } from "slate-react";
 
-import {
-  CustomEditor,
-  CustomElement,
-  CustomElementType,
-} from "./custom-types";
+import { CustomEditor, CustomElement, CustomElementType } from "./custom-types";
 
 interface ElementAttributes {
   type: CustomElementType;
@@ -233,7 +223,5 @@ const Leaf = ({ attributes, children, leaf }: RenderLeafProps) => {
 
   return <span {...attributes}>{children}</span>;
 };
-
-
 
 export default SlateRenderer;

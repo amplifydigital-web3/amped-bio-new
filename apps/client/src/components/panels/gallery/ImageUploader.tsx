@@ -27,13 +27,17 @@ export function AvatarImageUploader({ onUpload }: ImageUploaderProps) {
       // Validate file extension
       const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
       if (!ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.includes(fileExtension)) {
-        alert(`Only ${ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.join(", ")} file extensions are allowed`);
+        alert(
+          `Only ${ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.join(", ")} file extensions are allowed`
+        );
         return;
       }
 
       // Validate file size (max 5MB)
       if (file.size > (uploadLimits?.maxAvatarFileSize || 0)) {
-        alert(`File size must be less than ${(uploadLimits?.maxAvatarFileSize || 0) / (1024 * 1024)}MB`);
+        alert(
+          `File size must be less than ${(uploadLimits?.maxAvatarFileSize || 0) / (1024 * 1024)}MB`
+        );
         return;
       }
 

@@ -1,4 +1,3 @@
-
 import { CoinsIcon, Users, Clock, TrendingUp, ExternalLink } from "lucide-react";
 
 interface Pool {

@@ -88,9 +88,7 @@ export const adminUploadRouter = router({
   // Generate a presigned URL for uploading theme category image (admin only)
   requestThemeCollectionImagePresignedUrl: adminProcedure
     .input(requestThemeCollectionImageSchema)
-    .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
-
+    .mutation(async ({ input }) => {
       try {
         // Check file size
         if (input.fileSize > env.UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB * 1024 * 1024) {
@@ -147,9 +145,7 @@ export const adminUploadRouter = router({
 
   confirmThemeCollectionImageUpload: adminProcedure
     .input(confirmThemeCollectionImageSchema)
-    .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
-
+    .mutation(async ({ input }) => {
       try {
         const uploadedFile = await uploadedFileService.getFileById(input.fileId);
         if (!uploadedFile || uploadedFile.user_id !== null) {
@@ -228,9 +224,7 @@ export const adminUploadRouter = router({
   // Generate a presigned URL for uploading theme thumbnail (admin only)
   requestThemeThumbnailPresignedUrl: adminProcedure
     .input(requestThemeThumbnailSchema)
-    .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
-
+    .mutation(async ({ input }) => {
       try {
         // Check file size
         if (input.fileSize > env.UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB * 1024 * 1024) {
@@ -289,9 +283,7 @@ export const adminUploadRouter = router({
   // Confirm successful upload and update theme with the new thumbnail
   confirmThemeThumbnailUpload: adminProcedure
     .input(confirmThemeThumbnailSchema)
-    .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
-
+    .mutation(async ({ input }) => {
       try {
         // Get the uploaded file record and verify it's an admin file first
         const uploadedFile = await uploadedFileService.getFileById(input.fileId);
@@ -381,9 +373,7 @@ export const adminUploadRouter = router({
   // Generate a presigned URL for uploading theme background (admin only)
   requestAdminThemeBackgroundUrl: adminProcedure
     .input(requestAdminThemeBackgroundUrlSchema)
-    .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
-
+    .mutation(async ({ input }) => {
       try {
         // Check file size
         if (input.fileSize > env.UPLOAD_LIMIT_ADMIN_BACKGROUND_MB * 1024 * 1024) {
@@ -446,9 +436,7 @@ export const adminUploadRouter = router({
   // Confirm successful upload and update theme with the new background
   confirmAdminThemeBackgroundUpload: adminProcedure
     .input(confirmAdminThemeBackgroundSchema)
-    .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
-
+    .mutation(async ({ input }) => {
       try {
         // Get the uploaded file record and verify it's an admin file first
         const uploadedFile = await uploadedFileService.getFileById(input.fileId);

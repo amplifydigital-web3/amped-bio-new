@@ -48,6 +48,7 @@ export const authMiddleware = (...requiredRoles: string[]) => {
 
       next();
     } catch (error) {
+      console.error("Failed to authenticate user:", error);
       return res.status(401).json({ message: "Invalid token" });
     }
   };

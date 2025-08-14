@@ -11,8 +11,6 @@ interface ProfileTabsProps {
   onNavigateToExplore?: (tab?: "creators" | "pools" | "nfts") => void;
 }
 
-
-
 interface NFT {
   id: string;
   name: string;

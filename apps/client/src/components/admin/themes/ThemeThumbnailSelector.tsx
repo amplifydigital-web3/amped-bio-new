@@ -178,7 +178,10 @@ export function ThemeThumbnailSelector({
       {/* File Requirements */}
       <p className="text-xs text-gray-500">
         {ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.join(", ").toUpperCase()}. Max{" "}
-        {adminUploadLimits?.maxCollectionThumbnailFileSize ? (adminUploadLimits.maxCollectionThumbnailFileSize / (1024 * 1024)).toFixed(2) : '50'}MB.
+        {adminUploadLimits?.maxCollectionThumbnailFileSize
+          ? (adminUploadLimits.maxCollectionThumbnailFileSize / (1024 * 1024)).toFixed(2)
+          : "50"}
+        MB.
       </p>
     </div>
   );

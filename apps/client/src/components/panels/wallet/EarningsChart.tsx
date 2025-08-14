@@ -1,5 +1,3 @@
-
-
 export default function EarningsChart() {
   // This is a simple placeholder component for the earnings chart
   // In a real implementation, you would integrate a charting library like recharts, chart.js, etc.

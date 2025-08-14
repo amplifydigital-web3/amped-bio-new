@@ -1,4 +1,3 @@
-
 import { useEditor } from "../../../contexts/EditorContext";
 import { CreatorPoolDetail } from "../creatorpool/CreatorPoolDetail";
 import { CoinsIcon, Users, TrendingUp, Crown } from "lucide-react";

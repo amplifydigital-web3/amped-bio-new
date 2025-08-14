@@ -9,8 +9,6 @@ import {
   ALLOWED_BACKGROUND_FILE_EXTENSIONS,
   ALLOWED_BACKGROUND_FILE_TYPES,
   ThemeConfig,
-  ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS,
-  ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES,
 } from "@ampedbio/constants";
 import { prisma } from "../services/DB";
 import { env } from "../env";
@@ -408,9 +406,6 @@ export const uploadRouter = router({
         // Extract the file key from the previous image URL (if exists) - legacy system
         const previousFileKey = user.image ? s3Service.extractFileKeyFromUrl(user.image) : null;
 
-        // Get the public URL for the new profile picture
-        const profilePictureUrl = s3Service.getFileUrl(fileKey);
-
         // Update user profile picture URL and file reference in database
         await prisma.user.update({
           where: { id: userId },
@@ -430,9 +425,12 @@ export const uploadRouter = router({
           }
         }
 
+        // Get the public URL for the new profile picture
+        const profilePictureUrl = s3Service.getFileUrl(fileKey);
+
         return {
           success: true,
-          profilePictureUrl: s3Service.getFileUrl(fileKey),
+          profilePictureUrl,
           fileId: input.fileId,
         };
       } catch (error) {

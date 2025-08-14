@@ -39,8 +39,6 @@ type User = {
   } | null;
 };
 
-
-
 export function UserManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const [limit] = useState(10);
@@ -728,6 +726,4 @@ export function UserManagement() {
       )}
     </div>
   );
-
-  
 }

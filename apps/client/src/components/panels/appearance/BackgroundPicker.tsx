@@ -27,7 +27,9 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
 
   // Get profile and setUser from store for refetching theme data after upload
   const { profile, setUser } = useEditor();
-  const { data: uploadLimits, isLoading: isLoadingLimits } = useQuery(trpc.upload.getLimits.queryOptions());
+  const { data: uploadLimits, isLoading: isLoadingLimits } = useQuery(
+    trpc.upload.getLimits.queryOptions()
+  );
 
   // Track loading state changes and previous values
   useEffect(() => {
@@ -148,8 +150,8 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
           // Use the same logic as in the UI to determine which limits to show
           const currentLimits = isLoadingLimits ? previousLimits : uploadLimits;
           setUploadError(
-            currentLimits?.maxBackgroundFileSize 
-              ? `File exceeds server limit. Maximum size: ${currentLimits.maxBackgroundFileSize / (1024 * 1024)}MB` 
+            currentLimits?.maxBackgroundFileSize
+              ? `File exceeds server limit. Maximum size: ${currentLimits.maxBackgroundFileSize / (1024 * 1024)}MB`
               : `File exceeds server limit.`
           );
         } else {
@@ -308,7 +310,7 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
             )}
 
             {/* Scenario 1: First loading - show skeleton */}
-            {(isLoadingLimits && isFirstLoading) ? (
+            {isLoadingLimits && isFirstLoading ? (
               <div className="border border-gray-200 rounded-lg p-4 space-y-3">
                 <div className="flex items-center space-x-2">
                   <div className="h-4 w-12 bg-gray-200 animate-pulse rounded"></div>
@@ -321,7 +323,11 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
               <FileUpload
                 acceptedExtensions={ALLOWED_BACKGROUND_FILE_EXTENSIONS}
                 // Scenario 2/3/4: Use appropriate limits value based on loading state and previous value
-                maxFileSize={isLoadingLimits ? previousLimits?.maxBackgroundFileSize : uploadLimits?.maxBackgroundFileSize}
+                maxFileSize={
+                  isLoadingLimits
+                    ? previousLimits?.maxBackgroundFileSize
+                    : uploadLimits?.maxBackgroundFileSize
+                }
                 onFileSelect={handleFileUpload}
                 onError={setUploadError}
                 disabled={themeId === undefined}
@@ -330,10 +336,10 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
                 description={(() => {
                   // Base description without file size limit
                   const baseDescription = `Images: ${["jpg", "jpeg", "png", "svg"].join(", ").toUpperCase()} | Videos: ${["mp4", "mov", "avi", "webm"].join(", ").toUpperCase()}`;
-                  
+
                   // Determine which limits to use based on loading state
                   const currentLimits = isLoadingLimits ? previousLimits : uploadLimits;
-                  
+
                   // Add size limit if available
                   return currentLimits?.maxBackgroundFileSize
                     ? `${baseDescription} (Max ${currentLimits.maxBackgroundFileSize / (1024 * 1024)}MB)`
