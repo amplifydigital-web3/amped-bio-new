@@ -83,7 +83,10 @@ export function UserMenu() {
   if (authUser === null) {
     return (
       <>
-        <Button onClick={() => setShowAuthModal(true)} className="flex items-center space-x-2">
+        <Button onClick={() => {
+          setShowAuthModal(true);
+          window.history.replaceState(null, "", "/login");
+        }} className="flex items-center space-x-2">
           <User className="w-4 h-4" />
           <span>Sign In</span>
         </Button>
