@@ -5,13 +5,14 @@ import {
   ALLOWED_AVATAR_FILE_TYPES,
 } from "@ampedbio/constants";
 import { trpc } from "../../../utils/trpc/trpc";
+import { useQuery } from "@tanstack/react-query";
 
 interface ImageUploaderProps {
   onUpload: (image: { url: string; type: string }) => void;
 }
 
 export function AvatarImageUploader({ onUpload }: ImageUploaderProps) {
-  const { data: uploadLimits } = trpc.upload.getLimits.useQuery();
+  const { data: uploadLimits } = useQuery(trpc.upload.getLimits.queryOptions());
 
   const handleFileUpload = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {

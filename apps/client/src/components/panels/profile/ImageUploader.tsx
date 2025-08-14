@@ -1,11 +1,12 @@
 import { useState, useRef, ChangeEvent } from "react";
-import { trpc } from "../../../utils/trpc/trpc";
+import { trpc, trpcClient } from "../../../utils/trpc/trpc";
 import {
   ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS,
   ALLOWED_AVATAR_FILE_TYPES,
 } from "@ampedbio/constants";
 import { PhotoEditor } from "./PhotoEditor";
 import { useAuth } from "../../../contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
 
 interface ImageUploaderProps {
   imageUrl: string;
@@ -19,7 +20,8 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { refreshUserData } = useAuth();
-  const { data: uploadLimits } = trpc.upload.getLimits.useQuery();
+
+  const { data: uploadLimits } = useQuery(trpc.upload.getLimits.queryOptions());
 
   const handleFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

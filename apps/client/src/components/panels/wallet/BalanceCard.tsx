@@ -31,7 +31,7 @@ interface Transaction {
   receivedAt: string; // 2025-07-23T19:27:58.807Z
 }
 
-export default function ProfileTabs({ isEmpty = false, onNavigateToExplore }: ProfileTabsProps) {
+export default function ProfileTabs({ isEmpty = false }: ProfileTabsProps) {
   const [activeTab, setActiveTab] = useState<TabType>("tokens");
   const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null);
   const [isNFTModalOpen, setIsNFTModalOpen] = useState(false);
