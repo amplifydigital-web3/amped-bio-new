@@ -1,4 +1,6 @@
-import { Search } from "lucide-react";interface MarketplaceHeaderProps {
+ 
+
+interface MarketplaceHeaderProps {
   view: "grid" | "list";
   filter: string;
   sort: "popular" | "newest";
@@ -7,14 +9,7 @@ import { Search } from "lucide-react";interface MarketplaceHeaderProps {
   onSortChange: (sort: "popular" | "newest") => void;
 }
 
-export function MarketplaceHeader({
-  view,
-  filter,
-  sort,
-  onViewChange,
-  onFilterChange,
-  onSortChange,
-}: MarketplaceHeaderProps) {
+export function MarketplaceHeader(__: MarketplaceHeaderProps) {
   return (
     <div className="p-6 border-b border-gray-200 space-y-4">
       <div className="flex items-center justify-between">
@@ -24,7 +19,7 @@ export function MarketplaceHeader({
         </div>
       </div>
 
-      <div className="flex items-center space-x-4">
+      {/* <div className="flex items-center space-x-4">
         <div className="flex-1 relative">
           <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
@@ -43,7 +38,7 @@ export function MarketplaceHeader({
           <option value="popular">Most Popular</option>
           <option value="newest">Newest</option>
         </select>
-      </div>
+      </div> */}
     </div>
   );
 }

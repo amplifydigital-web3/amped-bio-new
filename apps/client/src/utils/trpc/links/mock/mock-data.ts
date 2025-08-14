@@ -1,4 +1,4 @@
-import { BlockType, User, LinkBlock, MediaBlock, TextBlock } from "@ampedbio/constants";
+import { BlockType, LinkBlock, MediaBlock, TextBlock } from "@ampedbio/constants";
 
 // Demo user for authentication
 export const demoUser = {
@@ -17,11 +17,11 @@ export const demoUser = {
 };
 
 // Create a user object that follows the User type
-const typedUser: User = {
+const typedUser = {
   id: demoUser.id,
   email: demoUser.email,
   onelink: demoUser.onelink,
-};
+} as const;
 
 // Mock data for responses
 export const mockData = {

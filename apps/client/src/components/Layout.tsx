@@ -102,10 +102,6 @@ export function Layout(props: LayoutProps) {
               </div>
             )}
             {!isLoggedIn && <div></div>}
-
-            {/* {isLoggedIn && !emailVerified && usr.email === "will@amplifydigital.ai" && (
-              <EmailVerificationBanner className="flex-shrink-0 mx-2" />
-            )} */}
             <div className="flex items-center justify-end flex-shrink-0 ml-2">
               {isLoggedIn && <SaveButton />}
               <UserMenu />

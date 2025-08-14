@@ -10,11 +10,15 @@ import {
   ExternalLink,
   Zap,
 } from "lucide-react";
-import type { ThemeConfig } from "@ampedbio/constants";
+import type { ThemeConfig } from "../../types/editor";
+import { type MediaBlock } from "@ampedbio/constants";
 
+interface CreatorPoolBlockProps {
+  block: MediaBlock;
+  theme: ThemeConfig;
+}
 
-
-export function CreatorPoolBlock({ theme }: { theme: ThemeConfig }) {
+export function CreatorPoolBlock({ theme }: CreatorPoolBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Mock data - in a real app, this would come from your smart contract

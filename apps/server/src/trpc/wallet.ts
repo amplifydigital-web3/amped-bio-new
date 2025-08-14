@@ -2,7 +2,7 @@ import { privateProcedure, router } from "./trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { env } from "../env";
-import { createWalletClient, http, parseEther, createPublicClient, isAddress } from "viem";
+import { createWalletClient, http, parseEther, isAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { prisma } from "../services/DB";
 import { getChainConfig } from "../utils/chainConfig";
@@ -11,10 +11,10 @@ import { getChainConfig } from "../utils/chainConfig";
 const chain = getChainConfig();
 
 // Create public client for fetching blockchain data
-const publicClient = createPublicClient({
-  chain,
-  transport: http(chain.rpcUrls.default.http[0]),
-});
+// const publicClient = createPublicClient({
+//   chain,
+//   transport: http(chain.rpcUrls.default.http[0]),
+// });
 
 // Schema for requesting faucet tokens
 const faucetRequestSchema = z.object({
@@ -131,8 +131,8 @@ export const walletRouter = router({
         where: { userId: userId },
       });
 
-      let lastRequestDate = null;
-      let nextAvailableDate = null;
+      let lastRequestDate: Date | null = null;
+      let nextAvailableDate: Date | null = null;
       let canRequestNow = true;
 
       // If the user has a wallet and has requested an airdrop before
