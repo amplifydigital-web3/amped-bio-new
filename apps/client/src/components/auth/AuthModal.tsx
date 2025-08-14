@@ -8,7 +8,7 @@ import type { AuthUser } from "../../types/auth";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useOnelinkAvailability } from "@/hooks/useOnelinkAvailability";
 import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
 import {
@@ -17,6 +17,9 @@ import {
   getOnelinkPublicUrl,
   formatOnelink,
 } from "@/utils/onelink";
+import { trackGAEvent } from "@/utils/ga";
+
+
 
 interface AuthModalProps {
   onClose: (user: AuthUser) => void;
@@ -87,7 +90,6 @@ const PasswordStrengthIndicator = ({ password }: { password: string }) => {
 };
 
 export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModalProps) {
-  const [form, setForm] = useState<FormType>(initialForm);
   const { signIn, signUp, resetPassword } = useAuth();
   const [loading, setLoading] = useState(false);
   const [sharedEmail, setSharedEmail] = useState("");
@@ -100,6 +102,20 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     import.meta.env.MODE !== "testing" && !!import.meta.env.VITE_RECAPTCHA_SITE_KEY
   );
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const getInitialForm = (): FormType => {
+    if (location.pathname === "/register") {
+      return "register";
+    } else if (location.pathname === "/login") {
+      return "login";
+    } else if (location.pathname === "/reset-password") {
+      return "reset";
+    }
+    return initialForm;
+  };
+
+  const [form, setForm] = useState<FormType>(getInitialForm());
 
   // Add error states for each form
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -128,7 +144,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     watch: watchLogin,
   } = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
-    mode: "onBlur",
+        mode: "onBlur",
     defaultValues: {
       email: sharedEmail,
     },
@@ -142,7 +158,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     watch: watchRegister,
   } = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
-    mode: "onBlur",
+        mode: "onBlur",
     defaultValues: {
       email: sharedEmail,
     },
@@ -156,7 +172,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     watch: watchReset,
   } = useForm<z.infer<typeof resetSchema>>({
     resolver: zodResolver(resetSchema),
-    mode: "onBlur",
+        mode: "onBlur",
     defaultValues: {
       email: sharedEmail,
     },
@@ -207,6 +223,15 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     setResetError(null);
     setResetSuccess(false);
     setForm(newForm);
+
+    // Update URL based on the new form type
+    if (newForm === "login") {
+      window.history.replaceState(null, "", "/login");
+    } else if (newForm === "register") {
+      window.history.replaceState(null, "", "/register");
+    } else if (newForm === "reset") {
+      window.history.replaceState(null, "", "/reset-password");
+    }
   };
 
   // Handle login form submission
@@ -327,7 +352,10 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
             {form === "reset" && "Reset Password"}
           </h2>
           <button
-            onClick={onCancel}
+            onClick={() => {
+              onCancel();
+              trackGAEvent("Click", "AuthModal", "CloseModalButton");
+            }}
             className="p-1 text-gray-500 hover:text-gray-700"
             aria-label="Close authentication modal"
             data-testid="auth-modal-close"
@@ -357,6 +385,10 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               data-testid="login-email"
               autoComplete="email"
               {...registerLogin("email")}
+              onBlur={(e) => {
+                registerLogin("email").onBlur(e);
+                trackGAEvent("Input", "AuthModal", "LoginEmailInput");
+              }}
             />
             <div className="relative">
               <Input
@@ -368,11 +400,18 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 data-testid="login-password"
                 autoComplete="current-password"
                 {...registerLogin("password")}
+                onBlur={(e) => {
+                  registerLogin("password").onBlur(e);
+                  trackGAEvent("Input", "AuthModal", "LoginPasswordInput");
+                }}
               />
               <button
                 type="button"
                 className="absolute right-3 top-9 text-gray-500 hover:text-gray-700"
-                onClick={() => setShowLoginPassword(!showLoginPassword)}
+                onClick={() => {
+                  setShowLoginPassword(!showLoginPassword);
+                  trackGAEvent("Click", "AuthModal", "LoginTogglePasswordButton");
+                }}
                 aria-label={showLoginPassword ? "Hide password" : "Show password"}
                 data-testid="login-toggle-password"
               >
@@ -394,6 +433,10 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               aria-disabled={loading || (isRecaptchaEnabled && !recaptchaToken)}
               aria-label="Sign In"
               data-testid="login-submit"
+              onClick={() => {
+                trackGAEvent("Click", "AuthModal", "SignInButton");
+                window.history.replaceState(null, "", "/login");
+              }}
             >
               {loading ? (
                 <span className="flex items-center justify-center">
@@ -430,7 +473,14 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 autoComplete="username"
                 placeholder="your-name"
                 {...registerSignUp("onelink")}
-                onChange={handleOnelinkChange}
+                onChange={(e) => {
+                  registerSignUp("onelink").onChange(e);
+                  handleOnelinkChange(e);
+                }}
+                onBlur={(e) => {
+                  registerSignUp("onelink").onBlur(e);
+                  trackGAEvent("Input", "AuthModal", "RegisterOnelinkInput");
+                }}
               />
               <div className="absolute right-3 top-9">
                 <URLStatusIndicator status={urlStatus} isCurrentUrl={false} compact={true} />
@@ -444,6 +494,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-600 hover:text-blue-700"
+                  onClick={() => trackGAEvent("Click", "AuthModal", "PublicURLPreviewLink")}
                 >
                   {getOnelinkPublicUrl(onelinkInput)}
                 </a>
@@ -458,6 +509,10 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               data-testid="register-email"
               autoComplete="email"
               {...registerSignUp("email")}
+              onBlur={(e) => {
+                registerSignUp("email").onBlur(e);
+                trackGAEvent("Input", "AuthModal", "RegisterEmailInput");
+              }}
             />
             <div className="space-y-2">
               <div className="relative">
@@ -470,11 +525,18 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                   data-testid="register-password"
                   autoComplete="new-password"
                   {...registerSignUp("password")}
+                  onBlur={(e) => {
+                    registerSignUp("password").onBlur(e);
+                    trackGAEvent("Input", "AuthModal", "RegisterPasswordInput");
+                  }}
                 />
                 <button
                   type="button"
                   className="absolute right-3 top-9 text-gray-500 hover:text-gray-700"
-                  onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+                  onClick={() => {
+                    setShowRegisterPassword(!showRegisterPassword);
+                    trackGAEvent("Click", "AuthModal", "RegisterTogglePasswordButton");
+                  }}
                   aria-label={showRegisterPassword ? "Hide password" : "Show password"}
                   data-testid="register-toggle-password"
                 >
@@ -514,6 +576,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               }
               aria-label="Create Account"
               data-testid="register-submit"
+              onClick={() => trackGAEvent("Click", "AuthModal", "CreateAccountButton")}
             >
               {loading ? (
                 <span className="flex items-center justify-center">
@@ -570,6 +633,10 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                   data-testid="reset-email"
                   autoComplete="email"
                   {...registerReset("email")}
+                  onBlur={(e) => {
+                    registerReset("email").onBlur(e);
+                    trackGAEvent("Input", "AuthModal", "ResetEmailInput");
+                  }}
                 />
                 {isRecaptchaEnabled && (
                   <ReCAPTCHA
@@ -586,6 +653,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                   aria-disabled={loading || (isRecaptchaEnabled && !recaptchaToken)}
                   aria-label="Send Reset Instructions"
                   data-testid="reset-submit"
+                  onClick={() => trackGAEvent("Click", "AuthModal", "SendResetInstructionsButton")}
                 >
                   {loading ? (
                     <span className="flex items-center justify-center">
@@ -606,6 +674,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                   className="inline-block mt-2 text-blue-600 hover:text-blue-700 hover:underline font-medium"
                   aria-label="Use reset token"
                   data-testid="use-reset-token"
+                  onClick={() => trackGAEvent("Click", "AuthModal", "UseResetTokenLink")}
                 >
                   Use your reset token here →
                 </Link>
@@ -620,7 +689,10 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               {"Already have an account?"}
               <button
                 type="button"
-                onClick={() => switchForm("login")}
+                onClick={() => {
+                  switchForm("login");
+                  trackGAEvent("Click", "AuthModal", "SwitchToSignInButton");
+                }}
                 className="text-blue-600 hover:text-blue-700 ml-2"
                 aria-label="Switch to sign in"
                 data-testid="switch-to-login"
@@ -634,7 +706,10 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               Don't have an account?
               <button
                 type="button"
-                onClick={() => switchForm("register")}
+                onClick={() => {
+                  switchForm("register");
+                  trackGAEvent("Click", "AuthModal", "SwitchToSignUpButton");
+                }}
                 className="text-blue-600 hover:text-blue-700 ml-2"
                 aria-label="Switch to sign up"
                 data-testid="switch-to-register"
@@ -648,7 +723,10 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
           {form !== "reset" && (
             <button
               type="button"
-              onClick={() => switchForm("reset")}
+              onClick={() => {
+                switchForm("reset");
+                trackGAEvent("Click", "AuthModal", "ForgotPasswordButton");
+              }}
               className="text-blue-600 hover:text-blue-700 ml-2"
               aria-label="Forgot Password"
               data-testid="forgot-password"
@@ -665,6 +743,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
             rel="noopener noreferrer"
             className="text-blue-600 hover:text-blue-700 hover:underline"
             data-testid="privacy-policy-link"
+            onClick={() => trackGAEvent("Click", "AuthModal", "PrivacyPolicyLink")}
           >
             Privacy Policy
           </a>

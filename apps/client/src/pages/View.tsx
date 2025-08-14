@@ -20,16 +20,21 @@ const DEFAULT_ONELINK = "landingpage";
 export function View() {
   const { onelink = "" } = useParams();
   const { authUser } = useAuth();
-  const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [blocks, setBlocks] = useState<BlockType[]>([]);
   const [theme, setTheme] = useState<Theme | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Check if we're on the register route
+  const isRegisterRoute = location.pathname === "/register";
+  const isLoginRoute = location.pathname === "/login";
+
+  const [loading, setLoading] = useState((isRegisterRoute || isLoginRoute) ? false : true);
+
   // Use default onelink when on root URL with no onelink parameter
   const effectiveOnelink =
-    ["/", "/register"].includes(location.pathname) && (!onelink || onelink === "")
+    ["/", "/register", "/login"].includes(location.pathname) && (!onelink || onelink === "")
       ? DEFAULT_ONELINK
       : onelink;
 
@@ -39,12 +44,9 @@ export function View() {
   // Determine if this is the initial/home page (no onelink parameter in URL)
   const isInitialPage = !onelink || onelink === "";
 
-  // Check if we're on the register route
-  const isRegisterRoute = location.pathname === "/register";
-
   // Determine if navbar should be shown (landingpage user, root route, or register route)
   const shouldShowNavbar =
-    normalizedOnelink === DEFAULT_ONELINK || location.pathname === "/" || isRegisterRoute;
+    normalizedOnelink === DEFAULT_ONELINK || location.pathname === "/" || isRegisterRoute || isLoginRoute;
 
   // Show auth modal when on register route and not logged in
   const [showAuthModal, setShowAuthModal] = useState(isRegisterRoute && !authUser);
@@ -52,17 +54,17 @@ export function View() {
     isRegisterRoute ? "register" : "login"
   );
 
-  // Effect to handle /register route when auth state changes
+  // Effect to handle /register or /login route when auth state changes
   useEffect(() => {
-    if (isRegisterRoute && !authUser) {
+    if ((isRegisterRoute || isLoginRoute) && !authUser) {
       setShowAuthModal(true);
-      setInitialAuthForm("register");
-    } else if (isRegisterRoute && authUser) {
+      setInitialAuthForm(isRegisterRoute ? "register" : "login");
+    } else if ((isRegisterRoute || isLoginRoute) && authUser) {
       // If already logged in, redirect to their edit page
       const formattedOnelink = formatOnelink(authUser.onelink);
       navigate(`/${formattedOnelink}/edit`);
     }
-  }, [isRegisterRoute, authUser, navigate]);
+  }, [isRegisterRoute, isLoginRoute, authUser, navigate]);
 
   // Redirect to URL with @ symbol if missing
   useEffect(() => {
@@ -73,7 +75,7 @@ export function View() {
     // 4. The onelink doesn't already start with @
     if (
       effectiveOnelink &&
-      !isRegisterRoute &&
+      !(isRegisterRoute || isLoginRoute) &&
       !(effectiveOnelink === "landingpage" && location.pathname === "/") &&
       !effectiveOnelink.startsWith("@")
     ) {
@@ -145,8 +147,8 @@ export function View() {
   // Handle auth modal close
   const handleSignIn = (user: AuthUser) => {
     setShowAuthModal(false);
-    // Clean up the URL if we were on /register
-    if (isRegisterRoute) {
+    // Clean up the URL if we were on /register or /login
+    if (isRegisterRoute || isLoginRoute) {
       navigate("/");
     }
 
@@ -160,8 +162,8 @@ export function View() {
   // Handle auth modal cancel
   const handleCancelAuth = () => {
     setShowAuthModal(false);
-    // Clean up the URL if we were on /register
-    if (isRegisterRoute) {
+    // Clean up the URL if we were on /register or /login
+    if (isRegisterRoute || isLoginRoute) {
       navigate("/");
     }
   };
