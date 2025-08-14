@@ -72,8 +72,8 @@ const requestAdminThemeBackgroundUrlSchema = z.object({
     .refine(value => ALLOWED_BACKGROUND_FILE_EXTENSIONS.includes(value.toLowerCase()), {
       message: `File extension must be ${ALLOWED_BACKGROUND_FILE_EXTENSIONS.join(", ")}`,
     }),
-  fileSize: z.number().max(env.UPLOAD_LIMIT_ADMIN_BACKGROUND_MB * 1024 * 1024, {
-    message: `File size must be less than ${env.UPLOAD_LIMIT_ADMIN_BACKGROUND_MB}MB`,
+  fileSize: z.number().max(env.UPLOAD_LIMIT_BACKGROUND_MB * 1024 * 1024, {
+    message: `File size must be less than ${env.UPLOAD_LIMIT_BACKGROUND_MB}MB`,
   }),
 });
 
@@ -376,10 +376,10 @@ export const adminUploadRouter = router({
     .mutation(async ({ input }) => {
       try {
         // Check file size
-        if (input.fileSize > env.UPLOAD_LIMIT_ADMIN_BACKGROUND_MB * 1024 * 1024) {
+        if (input.fileSize > env.UPLOAD_LIMIT_BACKGROUND_MB * 1024 * 1024) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: `File size exceeds the ${env.UPLOAD_LIMIT_ADMIN_BACKGROUND_MB}MB limit`,
+            message: `File size exceeds the ${env.UPLOAD_LIMIT_BACKGROUND_MB}MB limit`,
           });
         }
 
@@ -563,7 +563,7 @@ export const adminUploadRouter = router({
     return {
       // Convert from MB to bytes for consistency with frontend file handling
       maxCollectionThumbnailFileSize: env.UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB * 1024 * 1024,
-      maxAdminBackgroundFileSize: env.UPLOAD_LIMIT_ADMIN_BACKGROUND_MB * 1024 * 1024,
+      maxAdminBackgroundFileSize: env.UPLOAD_LIMIT_BACKGROUND_MB * 1024 * 1024,
     };
   }),
 });
