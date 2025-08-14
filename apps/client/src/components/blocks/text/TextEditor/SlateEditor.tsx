@@ -9,7 +9,7 @@ import {
   useSlate,
   withReact,
 } from "slate-react";
-import { Button, Toolbar, Menu } from "./SlateComponents";
+import { Button, Toolbar } from "./SlateComponents";
 import {
   Bold,
   Italic,

@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/Button";
 import { CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog";
 import { ArrowDownLeft, Copy, Check } from "lucide-react";

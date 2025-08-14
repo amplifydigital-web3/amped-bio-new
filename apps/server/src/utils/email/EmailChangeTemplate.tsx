@@ -1,6 +1,5 @@
 import {
   Body,
-  Button,
   Container,
   Head,
   Heading,
@@ -17,7 +16,10 @@ interface EmailChangeTemplateProps {
   newEmail?: string;
 }
 
-const EmailChangeTemplate = ({ code = "123456", newEmail = "new@example.com" }: EmailChangeTemplateProps) => {
+const EmailChangeTemplate = ({
+  code = "123456",
+  newEmail = "new@example.com",
+}: EmailChangeTemplateProps) => {
   return (
     <Html>
       <Tailwind>
@@ -35,8 +37,9 @@ const EmailChangeTemplate = ({ code = "123456", newEmail = "new@example.com" }: 
               </Heading>
 
               <Text className="text-[16px] leading-[1.5em] text-[#3d4852] mt-0 text-left">
-                You've requested to change your email address from another account to this address (<strong>{newEmail}</strong>). 
-                Please use the verification code below to confirm this change:
+                You've requested to change your email address from another account to this address (
+                <strong>{newEmail}</strong>). Please use the verification code below to confirm this
+                change:
               </Text>
 
               <Section className="text-center my-[30px]">
@@ -46,7 +49,8 @@ const EmailChangeTemplate = ({ code = "123456", newEmail = "new@example.com" }: 
               </Section>
 
               <Text className="text-[16px] leading-[1.5em] text-[#3d4852] mt-0 text-left">
-                If you did not request this email change, please ignore this message or contact support immediately.
+                If you did not request this email change, please ignore this message or contact
+                support immediately.
               </Text>
 
               <Text className="text-[16px] leading-[1.5em] text-[#3d4852] mt-0 text-left">

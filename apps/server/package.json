@@ -16,6 +16,8 @@
     "start": "node dist/index.js",
     "dev": "nodemon --verbose -r dotenv/config src/index.ts",
     "build": "tsc",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix --exit-on-fatal-error",
     "postbuild": "pnpm run prisma:migrate",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",

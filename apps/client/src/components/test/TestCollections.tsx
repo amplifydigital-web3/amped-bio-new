@@ -1,6 +1,5 @@
 // Test script to verify the collections merge functionality
 import { collections as hardcodedCollections } from "../../utils/themes";
-import { useCollections } from "../../hooks/useCollections";
 
 console.log("Hardcoded Collections:", hardcodedCollections.length);
 console.log(

@@ -1,5 +1,3 @@
-
-
 interface MarketplaceHeaderProps {
   view: "grid" | "list";
   filter: string;

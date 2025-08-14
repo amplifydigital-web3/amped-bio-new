@@ -37,34 +37,39 @@ export const themeController = {
       }
 
       // Check if there's an existing background in the theme config that needs to be deleted
-      const existingConfig = existingTheme.config as Record<string, any> || {};
-      const newConfig = config as Record<string, any> || {};
-      
+      const existingConfig = (existingTheme.config as Record<string, any>) || {};
+      const newConfig = (config as Record<string, any>) || {};
+
       // Check if the background has changed
       const existingBackground = existingConfig.background?.value;
       const newBackground = newConfig.background?.value;
-      
-      if (existingBackground && 
-          newBackground !== existingBackground && 
-          typeof existingBackground === 'string') {
-        
+
+      if (
+        existingBackground &&
+        newBackground !== existingBackground &&
+        typeof existingBackground === "string"
+      ) {
         // Extract the file key from the existing background URL
         const backgroundFileKey = s3Service.extractFileKeyFromUrl(existingBackground);
-        
+
         // Check if the file belongs to this user and theme, and delete it if it does
-        if (backgroundFileKey && 
-            s3Service.isThemeOwnerFile({ 
-              fileKey: backgroundFileKey, 
-              themeId: Number(id), 
-              userId: user_id 
-            })) {
+        if (
+          backgroundFileKey &&
+          s3Service.isThemeOwnerFile({
+            fileKey: backgroundFileKey,
+            themeId: Number(id),
+            userId: user_id,
+          })
+        ) {
           try {
-            console.info('[INFO] Deleting previous theme background during theme update', 
-              JSON.stringify({ backgroundFileKey, themeId: Number(id), userId: user_id }));
+            console.info(
+              "[INFO] Deleting previous theme background during theme update",
+              JSON.stringify({ backgroundFileKey, themeId: Number(id), userId: user_id })
+            );
             await s3Service.deleteFile(backgroundFileKey);
           } catch (deleteError) {
             // Log the error and fail the whole operation
-            console.error('Failed to delete previous background during theme update:', deleteError);
+            console.error("Failed to delete previous background during theme update:", deleteError);
             throw new Error(`Failed to delete previous background file: ${backgroundFileKey}`);
           }
         }

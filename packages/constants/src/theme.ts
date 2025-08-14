@@ -7,7 +7,7 @@ const backgroundSchema = z.object({
   id: z.string().optional(),
   label: z.string().optional(),
   thumbnail: z.string().optional(),
-  fileId: z.number().optional()
+  fileId: z.number().optional(),
 });
 
 // Schema for theme configuration with proper validation
@@ -23,7 +23,7 @@ export const themeConfigSchema = z.object({
   transparency: z.number().optional(),
   buttonEffect: z.number().optional(),
   particlesEffect: z.number().optional(),
-  heroEffect: z.number().optional()
+  heroEffect: z.number().optional(),
 });
 
 // Schema for the theme object in editTheme endpoint
