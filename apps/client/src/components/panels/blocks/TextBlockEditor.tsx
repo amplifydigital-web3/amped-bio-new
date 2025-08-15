@@ -1,4 +1,4 @@
-import { BlockType, TextBlock } from "@ampedbio/constants";
+import { TextBlock } from "@ampedbio/constants";
 import SlateEditor from "@/components/blocks/text/TextEditor/SlateEditor";
 import { Button } from "../../ui/Button";
 import { X } from "lucide-react";

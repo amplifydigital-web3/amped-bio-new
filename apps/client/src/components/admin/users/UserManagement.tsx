@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { trpc, trpcClient } from "../../../utils/trpc";
 import {
   Search,

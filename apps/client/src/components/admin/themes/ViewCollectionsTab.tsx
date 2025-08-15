@@ -11,7 +11,12 @@ interface ViewCollectionsTabProps {
 }
 
 export function ViewCollectionsTab({ refetchCategories }: ViewCollectionsTabProps) {
-  const { isOpen: isEditDialogOpen, open: openEditDialog, close: closeEditDialog, category: selectedCategory } = useEditCollectionDialog();
+  const {
+    isOpen: isEditDialogOpen,
+    open: openEditDialog,
+    close: closeEditDialog,
+    category: selectedCategory,
+  } = useEditCollectionDialog();
 
   // Queries
   const { data: categories } = useQuery(trpc.admin.themes.getThemeCategories.queryOptions());
@@ -38,7 +43,11 @@ export function ViewCollectionsTab({ refetchCategories }: ViewCollectionsTabProp
     }
   };
 
-  const handleEditClick = (category: { id: number; title: string; description?: string | null }) => {
+  const handleEditClick = (category: {
+    id: number;
+    title: string;
+    description?: string | null;
+  }) => {
     openEditDialog(category);
   };
 

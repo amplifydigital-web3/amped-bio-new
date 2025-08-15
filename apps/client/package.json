@@ -9,9 +9,10 @@
   "scripts": {
     "dev": "vite",
     "dev:client-only": "vite --mode client-only",
-    "build": "tsc && vite build",
-    "build:client-only": "tsc && vite build --mode client-only",
+    "build": "tsc -b && vite build",
+    "build:client-only": "tsc -b && vite build --mode client-only",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix --exit-on-fatal-error",
     "preview": "vite preview",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

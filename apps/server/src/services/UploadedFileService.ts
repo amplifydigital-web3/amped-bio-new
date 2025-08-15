@@ -164,7 +164,10 @@ class UploadedFileService {
   /**
    * Get URL for file based on whether it's a legacy URL or new file reference
    */
-  async getFileUrlFromReference(imageField: string | null, imageFileId: number | null): Promise<string | null> {
+  async getFileUrlFromReference(
+    imageField: string | null,
+    imageFileId: number | null
+  ): Promise<string | null> {
     // If we have a file ID, use the new system
     if (imageFileId) {
       const file = await this.getFileById(imageFileId);
@@ -191,9 +194,9 @@ class UploadedFileService {
   async migrateLegacyUrl(legacyUrl: string, userId?: number): Promise<number | null> {
     try {
       // Extract S3 key from legacy URL
-      const urlParts = legacyUrl.split('/');
-      const s3Key = urlParts.slice(-1)[0] || urlParts.slice(-2).join('/');
-      
+      const urlParts = legacyUrl.split("/");
+      const s3Key = urlParts.slice(-1)[0] || urlParts.slice(-2).join("/");
+
       if (!s3Key) return null;
 
       // Check if file already exists in our system
@@ -206,10 +209,15 @@ class UploadedFileService {
       const newFile = await this.createUploadedFile({
         s3Key,
         bucket: process.env.AWS_S3_BUCKET_NAME || "default-bucket",
-        fileName: s3Key.split('/').pop() || s3Key,
-        fileType: legacyUrl.includes('.jpg') || legacyUrl.includes('.jpeg') ? 'image/jpeg' : 
-                 legacyUrl.includes('.png') ? 'image/png' : 
-                 legacyUrl.includes('.gif') ? 'image/gif' : 'unknown',
+        fileName: s3Key.split("/").pop() || s3Key,
+        fileType:
+          legacyUrl.includes(".jpg") || legacyUrl.includes(".jpeg")
+            ? "image/jpeg"
+            : legacyUrl.includes(".png")
+              ? "image/png"
+              : legacyUrl.includes(".gif")
+                ? "image/gif"
+                : "unknown",
         userId,
       });
 

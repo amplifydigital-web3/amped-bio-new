@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowUpRight, DollarSign, User, Wallet, X, Check } from "lucide-react";
+import { ArrowUpRight, DollarSign, User, Wallet, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useBalance, useAccount, useSendTransaction, useFeeData } from "wagmi";

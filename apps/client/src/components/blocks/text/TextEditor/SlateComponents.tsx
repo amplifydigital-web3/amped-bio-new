@@ -1,4 +1,4 @@
-import React, { PropsWithChildren, ReactNode, Ref } from "react";
+import React, { PropsWithChildren, ReactNode } from "react";
 import ReactDOM from "react-dom";
 
 function cx(...classes: (string | undefined | null | false)[]): string {

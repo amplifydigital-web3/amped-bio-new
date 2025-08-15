@@ -64,7 +64,18 @@ export const dashboardRouter = router({
     const averageBlocksPerUser = totalUsers > 0 ? totalBlocks / totalUsers : 0;
 
     // Get wallet information for faucet
-    let faucetWalletInfo = null;
+    let faucetWalletInfo:
+      | {
+          address: string;
+          balance: string;
+          formattedBalance: string;
+          remainingAirdrops: number;
+          faucetAmount: number;
+          currency: string;
+          isMockMode: boolean;
+        }
+      | { error: string }
+      | null = null;
     try {
       if (!env.FAUCET_PRIVATE_KEY) {
         faucetWalletInfo = {

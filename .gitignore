@@ -55,3 +55,5 @@ lerna-debug.log*
 apps/server/tsconfig.tsbuildinfo
 apps/client/cypress/screenshots
 apps/client/.env
+apps/client/tsconfig.node.tsbuildinfo
+apps/client/tsconfig.app.tsbuildinfo

@@ -11,17 +11,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from "../../ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "../../ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../../ui/form";
 import { Input } from "../../ui/Input";
-import { Label } from "../../ui/label";
 import { Button } from "../../ui/Button";
 import { Textarea } from "../../ui/Textarea";
 import { trpcClient } from "../../../utils/trpc";
@@ -126,11 +117,7 @@ export function EditCollectionDialog({
                 <FormItem>
                   <FormLabel>Title</FormLabel>
                   <FormControl>
-                    <Input 
-                      {...field} 
-                      disabled={loading} 
-                      placeholder="Enter collection title" 
-                    />
+                    <Input {...field} disabled={loading} placeholder="Enter collection title" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -143,9 +130,9 @@ export function EditCollectionDialog({
                 <FormItem className="w-full">
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Textarea 
-                      {...field} 
-                      disabled={loading} 
+                    <Textarea
+                      {...field}
+                      disabled={loading}
                       placeholder="Enter collection description"
                       className="min-h-[100px] w-full"
                     />
@@ -155,12 +142,7 @@ export function EditCollectionDialog({
               )}
             />
             <DialogFooter className="pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onClose}
-                disabled={loading}
-              >
+              <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>

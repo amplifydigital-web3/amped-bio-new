@@ -66,7 +66,7 @@ const textConfigSchema = z.object({
 
         // Build regex pattern from allowed tags array
         const tagPattern = allowedHtmlTags.join("|");
-        const allowedTagsRegex = new RegExp(`<(?!\/?(${tagPattern})\\b)[^>]+>`, "i");
+        const allowedTagsRegex = new RegExp(`<(?!/?(${tagPattern})\b)[^>]+>`, "i");
 
         // If the regex matches any non-allowed tags, validation fails
         return !allowedTagsRegex.test(html);

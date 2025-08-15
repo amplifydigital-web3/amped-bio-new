@@ -40,7 +40,7 @@ export function ViewThemesTab() {
   });
   const [previewLoading, setPreviewLoading] = useState<number | null>(null);
   const limit = 10;
-  
+
   // Use the EditThemeDialog hook
   const editThemeDialog = useEditThemeDialog();
 
@@ -276,7 +276,7 @@ export function ViewThemesTab() {
                       )}
                     </button>
                     <button
-                      onClick={() => 
+                      onClick={() =>
                         editThemeDialog.open({
                           id: theme.id,
                           name: theme.name,
@@ -464,9 +464,9 @@ export function ViewThemesTab() {
           </div>
         </div>
       )}
-      
+
       {/* Edit Theme Dialog */}
-      <EditThemeDialog 
+      <EditThemeDialog
         isOpen={editThemeDialog.isOpen}
         onClose={editThemeDialog.close}
         theme={editThemeDialog.theme || { id: 0, name: "" }}

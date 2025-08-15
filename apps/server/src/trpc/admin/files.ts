@@ -319,7 +319,7 @@ export const filesRouter = router({
       });
 
       // If file is still being used, throw an error with details
-      const usageDetails = [];
+      const usageDetails: string[] = [];
 
       if (fileUsages.userProfiles.length > 0) {
         const users = fileUsages.userProfiles.map(u => `${u.name} (${u.email})`).join(", ");

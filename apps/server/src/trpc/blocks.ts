@@ -27,7 +27,7 @@ export const blocksRouter = router({
   }),
 
   // Get a specific block by ID
-  get: privateProcedure.input(blockIdParamSchema).query(async ({ ctx, input }) => {
+  get: privateProcedure.input(blockIdParamSchema).query(async ({ input }) => {
     const { id: blockId } = input;
     const id = Number(blockId);
 

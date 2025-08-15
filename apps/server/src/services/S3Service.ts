@@ -344,7 +344,7 @@ class S3Service {
 
     const timestamp = Date.now();
     const randomString = crypto.randomBytes(8).toString("hex");
-    
+
     // Add thumbnail suffix if it's a thumbnail
     const thumbnailSuffix = isThumbnail ? "_thumbnail" : "";
 
@@ -636,10 +636,7 @@ class S3Service {
       });
 
       await s3Client.send(headObjectCommand);
-      console.info(
-        "[INFO] File exists in S3",
-        JSON.stringify({ fileKey, bucket: targetBucket })
-      );
+      console.info("[INFO] File exists in S3", JSON.stringify({ fileKey, bucket: targetBucket }));
       return true;
     } catch (error: any) {
       // If the error is NotFound (404), the file doesn't exist
@@ -721,7 +718,7 @@ class S3Service {
    * This URL is used for uploading files that belong to the server (like category images, admin themes, etc.)
    */
   async getServerPresignedUploadUrl(
-    category: FileCategory ,
+    category: FileCategory,
     contentType: string,
     fileExtension: string,
     categoryId?: number,
@@ -739,12 +736,12 @@ class S3Service {
         throw new Error(validation.message || "File validation failed");
       }
 
-      const fileKey = this.generateServerFileKey({ 
-        category, 
-        fileExtension, 
-        categoryId, 
+      const fileKey = this.generateServerFileKey({
+        category,
+        fileExtension,
+        categoryId,
         themeId,
-        isThumbnail
+        isThumbnail,
       });
 
       // Get a signed URL for putting an object

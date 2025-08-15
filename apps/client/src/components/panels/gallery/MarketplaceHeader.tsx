@@ -1,6 +1,3 @@
-import React from "react";
-import { LayoutGrid, List, Search } from "lucide-react";
-
 interface MarketplaceHeaderProps {
   view: "grid" | "list";
   filter: string;
@@ -10,14 +7,7 @@ interface MarketplaceHeaderProps {
   onSortChange: (sort: "popular" | "newest") => void;
 }
 
-export function MarketplaceHeader({
-  view,
-  filter,
-  sort,
-  onViewChange,
-  onFilterChange,
-  onSortChange,
-}: MarketplaceHeaderProps) {
+export function MarketplaceHeader(_: MarketplaceHeaderProps) {
   return (
     <div className="p-6 border-b border-gray-200 space-y-4">
       <div className="flex items-center justify-between">
