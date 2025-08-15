@@ -113,7 +113,7 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authUser, _setAuthUser] = useState<AuthUser | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null); // Start with null (loading)
   const [jwtToken, setJwtToken] = useState<string | null>(
@@ -253,7 +253,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setError(null);
       const response = await trpcClient.auth.login.mutate({ email, password, recaptchaToken });
       updateToken(response.accessToken);
-      updateAuthUser(response.user);
+      setAuthUser(response.user);
       setIsAuthenticated(true);
       return response.user;
     } catch (error) {
@@ -277,7 +277,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         recaptchaToken,
       });
       updateToken(response.accessToken);
-      updateAuthUser(response.user);
+      setAuthUser(response.user);
       setIsAuthenticated(true);
       return response.user;
     } catch (error) {
@@ -296,6 +296,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         success: false,
         message: (error as Error).message || "Password reset request failed",
       };
+    }
+  };
+
+  const setAuthUser = (user: AuthUser | null) => {
+    _setAuthUser(user);
+    if (user) {
+      localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_USER, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(AUTH_STORAGE_KEYS.AUTH_USER);
     }
   };
 
@@ -336,7 +345,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setError(null);
       const response = await trpcClient.auth.googleAuth.mutate({ token });
       updateToken(response.accessToken);
-      updateAuthUser(response.user);
+      setAuthUser(response.user);
       setIsAuthenticated(true);
       return response.user;
     } catch (error) {
