@@ -68,23 +68,8 @@ function setRefreshTokenCookie(ctx: any, token: string, expiresAt?: Date) {
   ctx.res.setHeader("Set-Cookie", [...cookiesArray, cookieString]);
 }
 
-interface AuthResponse {
-  user: {
-    id: number;
-    email: string;
-    onelink: string;
-    role: string;
-    image: string | null;
-  };
-  accessToken: string;
-}
-
 // Helper function to handle token generation and cookie setting
-async function handleTokenGeneration(
-  ctx: any,
-  user: User,
-  imageUrl: string | null
-): Promise<AuthResponse> {
+async function handleTokenGeneration(ctx: any, user: User, imageUrl: string | null) {
   // Generate refresh token
   const refreshToken = crypto.randomBytes(32).toString("hex");
   const hashedRefreshToken = hashRefreshToken(refreshToken);
