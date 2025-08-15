@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { useAccount } from "wagmi";
 import { useWalletContext } from "@/contexts/WalletContext";
 import { AuthUser } from "@/types/auth";
+import { trackGAEvent } from "@/utils/ga";
 
 export function UserMenu() {
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -83,7 +84,11 @@ export function UserMenu() {
   if (authUser === null) {
     return (
       <>
-        <Button onClick={() => setShowAuthModal(true)} className="flex items-center space-x-2">
+        <Button onClick={() => {
+          trackGAEvent("Click", "AuthModal", "OpenModalButton");
+          setShowAuthModal(true);
+          window.history.replaceState(null, "", "/login");
+        }} className="flex items-center space-x-2">
           <User className="w-4 h-4" />
           <span>Sign In</span>
         </Button>

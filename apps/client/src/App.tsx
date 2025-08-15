@@ -38,6 +38,7 @@ function AppRouter() {
       />
       <Route path="/:onelink" element={<View />} />
       <Route path="/register" element={<View />} />
+      <Route path="/login" element={<View />} />
       <Route path="/" element={<View />} />
 
       {/* Admin Routes with nested routing */}
