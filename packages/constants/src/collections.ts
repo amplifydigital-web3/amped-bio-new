@@ -4,7 +4,7 @@ export interface MarketplaceTheme {
   description: string;
   thumbnail: string;
   tags: string[];
-  theme: import('./theme').ThemeConfig;
+  theme: import("./theme").ThemeConfig;
   user_id?: number | null; // For server themes, null means admin theme
 }
 

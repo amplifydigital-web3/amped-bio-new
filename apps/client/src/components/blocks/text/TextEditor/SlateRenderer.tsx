@@ -1,25 +1,10 @@
-import { css } from "./SlateComponents";
 import React, { useCallback, useMemo } from "react";
 import { Descendant, Transforms, createEditor } from "slate";
 import { withHistory } from "slate-history";
 import { jsx } from "slate-hyperscript";
-import {
-  Editable,
-  RenderElementProps,
-  RenderLeafProps,
-  Slate,
-  useFocused,
-  useSelected,
-  withReact,
-} from "slate-react";
+import { Editable, RenderElementProps, RenderLeafProps, Slate, withReact } from "slate-react";
 
-import {
-  CustomEditor,
-  CustomElement,
-  CustomElementType,
-  ImageElement as ImageElementType,
-  RenderElementPropsFor,
-} from "./custom-types";
+import { CustomEditor, CustomElement, CustomElementType } from "./custom-types";
 
 interface ElementAttributes {
   type: CustomElementType;

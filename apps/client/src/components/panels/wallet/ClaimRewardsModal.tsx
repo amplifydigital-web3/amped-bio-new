@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Trophy, Coins, CheckCircle, Sparkles } from "lucide-react";
+import { Trophy, Coins, CheckCircle, Sparkles } from "lucide-react";
 import {
   Dialog,
   DialogContent,

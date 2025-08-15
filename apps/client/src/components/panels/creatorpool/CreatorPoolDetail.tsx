@@ -5,7 +5,6 @@ import {
   Users,
   Clock,
   TrendingUp,
-  DollarSign,
   ChevronLeft,
   ChevronRight,
   Crown,

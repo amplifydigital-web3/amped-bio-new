@@ -14,6 +14,7 @@ import { BlockType } from "@ampedbio/constants";
 import { formatOnelink, normalizeOnelink } from "@/utils/onelink";
 import { trpcClient } from "@/utils/trpc";
 import { exportThemeConfigAsJson, importThemeConfigFromJson } from "@/utils/theme";
+import { mergeTheme } from "@/utils/mergeTheme";
 
 interface EditorContextType extends EditorState {
   changes: boolean;
@@ -81,11 +82,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
       // console.info("🎨 Setting theme...");
       setState(prevState => ({
         ...prevState,
-        theme: {
-          ...prevState.theme,
-          ...theme,
-          name: theme?.name || prevState.theme.name,
-        } as Theme,
+        theme: mergeTheme(prevState.theme, theme as unknown as Theme),
       }));
       const blocks = blocks_raw.sort((a, b) => a.order - b.order);
       // console.info(`📦 Setting ${blocks.length} blocks...`);
@@ -160,7 +157,10 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         const blockOrder = state.blocks.length;
 
         console.info("🔄 Adding block to server...");
-        const response = await trpcClient.blocks.addBlock.mutate({ type: block.type, config: block.config });
+        const response = await trpcClient.blocks.addBlock.mutate({
+          type: block.type,
+          config: block.config,
+        });
         console.info("✅ Block added to server:", response);
 
         if (response?.result) {

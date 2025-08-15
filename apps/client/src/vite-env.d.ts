@@ -26,6 +26,7 @@ interface Window {
     widget_id: number;
   };
   FreshworksWidget?: any;
+  gtag?: (...args: any[]) => void;
 }
 
 declare module "*.lottie";

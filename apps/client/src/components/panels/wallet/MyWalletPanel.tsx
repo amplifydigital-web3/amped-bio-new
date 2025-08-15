@@ -20,7 +20,6 @@ import { ProfileSection } from "./ProfileSection";
 import { cn } from "@/lib/utils";
 import { useWeb3Auth, useWeb3AuthConnect } from "@web3auth/modal/react";
 import { useAccount, useBalance } from "wagmi";
-import { useAuth } from "@/contexts/AuthContext";
 import { useWalletContext } from "@/contexts/WalletContext";
 import { type StatBoxProps } from "./types";
 

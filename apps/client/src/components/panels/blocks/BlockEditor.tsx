@@ -6,11 +6,10 @@ import { Button } from "../../ui/Button";
 import { BlockType, LinkBlock } from "@ampedbio/constants";
 import { extractUsernameFromUrl, getPlatformName, getPlatformUrl } from "@/utils/platforms";
 import { z } from "zod";
-import { Resolver, SubmitHandler, useForm } from "react-hook-form";
+import { SubmitHandler, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LinkFormInputs, linkFormSchema } from "./LinkForm";
 import { useCallback, useMemo } from "react";
-import SlateEditor from "@/components/blocks/text/TextEditor/SlateEditor";
 
 // Helper function to validate YouTube URLs
 const isValidYouTubeUrl = (url: string): boolean => {
@@ -66,17 +65,11 @@ const mediaBlockSchema = z
     }
   );
 
-const textBlockSchema = z.object({
-  content: z.string().min(1, "Content is required").trim(),
-});
-
 const linkBlockSchema = linkFormSchema;
 
 // Dynamic schema based on block type
 const createBlockSchema = (blockType: string) => {
-  if (blockType === "text") {
-    return textBlockSchema;
-  } else if (blockType === "media") {
+  if (blockType === "media") {
     return mediaBlockSchema;
   }
 
@@ -105,21 +98,11 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
       return values;
     }
 
-    // Add proper initial values for text blocks
-    if (block.type === "text") {
-      return {
-        content: block.config.content || "",
-      };
-    }
-
     return block.config;
   }, [block.config, block.type]);
 
   // Create a type based on union of possible schemas
-  type BlockFormData =
-    | z.infer<typeof textBlockSchema>
-    | z.infer<typeof mediaBlockSchema>
-    | z.infer<typeof linkBlockSchema>;
+  type BlockFormData = z.infer<typeof mediaBlockSchema> | z.infer<typeof linkBlockSchema>;
 
   const {
     watch,
@@ -128,8 +111,8 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<BlockFormData>({
-    // @ts-expect-error
-    resolver: zodResolver(blockSchema) as Resolver<BlockFormData>,
+    // @ts-expect-error - zodResolver types are a bit tricky here
+    resolver: zodResolver(blockSchema),
     defaultValues: initialValues,
     mode: "onChange",
   });
@@ -149,7 +132,7 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
 
         onSave(typedConfig);
       } else {
-        console.log("Saving non-link block:", data);
+        console.log("Saving media block:", data);
         onSave(data as BlockType["config"]);
       }
     },
@@ -161,13 +144,7 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
       <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">
-            Edit{" "}
-            {block.type === "media"
-              ? getPlatformName(block.config.platform)
-              : block.type === "link"
-                ? "Link"
-                : "Text"}{" "}
-            Block
+            Edit {block.type === "media" ? getPlatformName(block.config.platform) : "Link"} Block
           </h3>
           <button onClick={onCancel} className="p-1 text-gray-500 hover:text-gray-700">
             <X className="w-5 h-5" />
@@ -201,18 +178,6 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
                   {...register("content")}
                 />
               )}
-            </>
-          )}
-
-          {block.type === "text" && (
-            <>
-              <SlateEditor
-                initialValue={block.config.content}
-                // @ts-ignore
-                error={errors.content?.message?.toString()}
-                onSave={e => setValue("content", e)}
-              />
-              <input type="hidden" {...register("content")} value={watch("content")} />
             </>
           )}
 

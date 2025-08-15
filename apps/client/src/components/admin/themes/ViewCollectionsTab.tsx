@@ -1,15 +1,23 @@
 import { trpc } from "../../../utils/trpc";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { List, Image as ImageIcon, Eye, EyeOff, Loader2 } from "lucide-react";
+import { List, Image as ImageIcon, Eye, EyeOff, Loader2, Pencil } from "lucide-react";
 import { CategoryImageUploader } from "./CategoryImageUploader";
 import { Switch } from "../../ui/Switch";
 import { toast } from "react-hot-toast";
+import { EditCollectionDialog, useEditCollectionDialog } from "./EditCollectionDialog";
 
 interface ViewCollectionsTabProps {
   refetchCategories: () => void;
 }
 
 export function ViewCollectionsTab({ refetchCategories }: ViewCollectionsTabProps) {
+  const {
+    isOpen: isEditDialogOpen,
+    open: openEditDialog,
+    close: closeEditDialog,
+    category: selectedCategory,
+  } = useEditCollectionDialog();
+
   // Queries
   const { data: categories } = useQuery(trpc.admin.themes.getThemeCategories.queryOptions());
 
@@ -33,6 +41,23 @@ export function ViewCollectionsTab({ refetchCategories }: ViewCollectionsTabProp
     } catch (error: any) {
       toast.error(`Failed to update visibility for "${categoryTitle}": ${error.message}`);
     }
+  };
+
+  const handleEditClick = (category: {
+    id: number;
+    title: string;
+    description?: string | null;
+  }) => {
+    openEditDialog(category);
+  };
+
+  const handleCloseEditDialog = () => {
+    closeEditDialog();
+  };
+
+  const handleEditSuccess = () => {
+    refetchCategories();
+    closeEditDialog();
   };
 
   return (
@@ -74,6 +99,13 @@ export function ViewCollectionsTab({ refetchCategories }: ViewCollectionsTabProp
                       <h4 className="font-semibold text-gray-900 text-sm truncate">
                         {category.title}
                       </h4>
+                      <button
+                        onClick={() => handleEditClick(category)}
+                        className="text-gray-500 hover:text-blue-600 transition-colors duration-200 ml-2"
+                        title="Edit Collection"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
                       <div className="flex items-center space-x-2">
                         {toggleVisibilityMutation.isPending ? (
                           <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
@@ -144,6 +176,15 @@ export function ViewCollectionsTab({ refetchCategories }: ViewCollectionsTabProp
           </div>
         )}
       </div>
+
+      {selectedCategory && (
+        <EditCollectionDialog
+          isOpen={isEditDialogOpen}
+          onClose={closeEditDialog}
+          category={selectedCategory}
+          onSuccess={handleEditSuccess}
+        />
+      )}
     </div>
   );
 }

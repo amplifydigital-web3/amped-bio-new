@@ -1,22 +1,8 @@
-import React, { useState } from "react";
-import {
-  Trophy,
-  Clock,
-  Users,
-  Coins,
-  TrendingUp,
-  Target,
-  Calendar,
-  ExternalLink,
-  Plus,
-  Minus,
-  Info,
-  X,
-} from "lucide-react";
+import React from "react";
+import { Trophy, Users, Coins, TrendingUp, ExternalLink, Plus, Minus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogFooter,
   DialogTitle,
   DialogDescription,

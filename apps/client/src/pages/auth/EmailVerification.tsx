@@ -46,13 +46,8 @@ export function EmailVerification() {
     trpcClient.auth.verifyEmail
       .mutate({ token, email })
       .then(data => {
-        if (data.success) {
-          setStatus("success");
-          if (data.onelink) setOnelink(data.onelink);
-        } else {
-          setStatus("error");
-          setMessage(data.message || "Failed to verify email");
-        }
+        setStatus("success");
+        if (data.onelink) setOnelink(data.onelink);
       })
       .catch(error => {
         setStatus("error");

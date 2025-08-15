@@ -3,7 +3,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { verifyRecaptcha } from "../utils/recaptcha";
 import crypto from "crypto";
-import { sendPasswordResetEmail } from "../utils/email/email";
+import { sendPasswordResetEmail, sendEmailVerification } from "../utils/email/email";
 import { hashPassword, comparePasswords } from "../utils/password";
 import { generateAccessToken } from "../utils/token";
 import { getFileUrl } from "../utils/fileUrlResolver";
@@ -42,7 +42,7 @@ function setRefreshTokenCookie(ctx: any, token: string, expiresAt?: Date) {
 
         console.log("Cookie debug - Using FRONTEND_URL domain:", domain);
       } catch (error) {
-        console.error("Cookie debug - Invalid FRONTEND_URL:", env.FRONTEND_URL);
+        console.error("Cookie debug - Invalid FRONTEND_URL:", env.FRONTEND_URL, error);
       }
     }
   }
@@ -73,9 +73,8 @@ interface AuthResponse {
     id: number;
     email: string;
     onelink: string;
-    emailVerified: boolean;
     role: string;
-    image?: string | null;
+    image: string | null;
   };
   accessToken: string;
 }
@@ -84,7 +83,7 @@ interface AuthResponse {
 async function handleTokenGeneration(
   ctx: any,
   user: User,
-  imageUrl?: string | null
+  imageUrl: string | null
 ): Promise<AuthResponse> {
   // Generate refresh token
   const refreshToken = crypto.randomBytes(32).toString("hex");
@@ -102,15 +101,12 @@ async function handleTokenGeneration(
   // Set refresh token cookie
   setRefreshTokenCookie(ctx, refreshToken, token.expiresAt);
 
-  const emailVerified = user.email_verified_at !== null;
-
   // Return user data and access token
   return {
     user: {
       id: user.id,
       email: user.email,
       onelink: user.onelink || "",
-      emailVerified,
       role: user.role,
       image: imageUrl,
     },
@@ -181,14 +177,31 @@ export const authRouter = router({
     });
 
     // Send verification email
-    // try {
-    //   await sendEmailVerification(email, remember_token);
-    // } catch (error) {
-    //   console.error("Error sending verification email:", error);
-    //   // We continue even if email fails
-    // }
+    try {
+      await sendEmailVerification(email, remember_token);
+    } catch (error) {
+      console.error("Error sending verification email:", error);
+      // We continue even if email fails
+    }
 
-    return handleTokenGeneration(ctx, result);
+    const refreshToken = crypto.randomBytes(32).toString("hex");
+    const hashedRefreshToken = hashRefreshToken(refreshToken);
+
+    const token = await prisma.refreshToken.create({
+      data: {
+        userId: result.id,
+        token: hashedRefreshToken,
+        expiresAt: addDays(new Date(), 30), // 30 days
+      },
+    });
+
+    // Set refresh token cookie
+    setRefreshTokenCookie(ctx, refreshToken, token.expiresAt);
+
+    return {
+      user: { id: result.id, email, onelink, role: result.role, image: null },
+      accessToken: generateAccessToken({ id: result.id, email, role: result.role }),
+    };
   }),
 
   // Login user
@@ -226,13 +239,39 @@ export const authRouter = router({
       });
     }
 
+    // const emailVerified = user.email_verified_at !== null;
+
+    const refreshToken = crypto.randomBytes(32).toString("hex");
+    const hashedRefreshToken = hashRefreshToken(refreshToken);
+
+    const token = await prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        token: hashedRefreshToken,
+        expiresAt: addDays(new Date(), 30), // 30 days
+      },
+    });
+
+    // Set refresh token cookie
+    setRefreshTokenCookie(ctx, refreshToken, token.expiresAt);
+
     // Resolve user image URL (same as "me")
     const imageUrl = await getFileUrl({
       legacyImageField: user.image,
       imageFileId: user.image_file_id,
     });
 
-    return handleTokenGeneration(ctx, user, imageUrl);
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        onelink: user.onelink as string,
+        // emailVerified,
+        role: user.role,
+        image: imageUrl,
+      },
+      accessToken: generateAccessToken({ id: user.id, email: user.email, role: user.role }),
+    };
   }),
 
   logout: privateProcedure.mutation(async ({ ctx }) => {
@@ -305,6 +344,7 @@ export const authRouter = router({
       try {
         await sendPasswordResetEmail(updatedUser.email, updatedUser.remember_token);
       } catch (error) {
+        console.error("Error sending password reset email:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Error sending password reset email",
@@ -344,7 +384,7 @@ export const authRouter = router({
         id: user.id,
         email: user.email,
         onelink: user.onelink,
-        emailVerified: user.email_verified_at !== null,
+        // emailVerified: user.email_verified_at !== null,
         role: user.role,
         image: imageUrl,
       },
@@ -482,25 +522,67 @@ export const authRouter = router({
       };
     }),
 
-  getWalletToken: privateProcedure.query(async ({ ctx }) => {
-    const userId = ctx.user.sub;
+  // Send email verification
+  sendVerifyEmail: publicProcedure
+    .input(
+      z.object({
+        email: z.string().email(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { email } = input;
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "Usuário não encontrado",
+      // Find user
+      const user = await prisma.user.findUnique({
+        where: { email },
       });
-    }
 
+      if (!user) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "User not found",
+        });
+      }
+
+      // Generate new verification token
+      const remember_token = crypto.randomBytes(32).toString("hex");
+
+      // Update user with new token
+      const updatedUser = await prisma.user.update({
+        where: { id: user.id },
+        data: { remember_token },
+      });
+
+      if (!updatedUser.remember_token) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to generate verification token",
+        });
+      }
+
+      // Send verification email
+      try {
+        await sendEmailVerification(updatedUser.email, updatedUser.remember_token);
+      } catch (error) {
+        console.error("Error sending verification email:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to send verification email",
+        });
+      }
+
+      return {
+        success: true,
+        message: "Verification email sent successfully",
+      };
+    }),
+
+  getWalletToken: privateProcedure.query(async ({ ctx }) => {
     return {
       walletToken: generateAccessToken({
-        id: user.id,
-        email: user.email,
-        role: user.role,
+        id: ctx.user.sub,
+        email: ctx.user.email,
+        role: ctx.user.role,
       }),
     };
   }),
@@ -573,8 +655,6 @@ export const authRouter = router({
         legacyImageField: user.image,
         imageFileId: user.image_file_id,
       });
-
-      // Não usar a imagem do Google como fallback
 
       // Return user data and access token using our utility function
       return handleTokenGeneration(ctx, user, imageUrl);
