@@ -1,4 +1,5 @@
-import axios from "axios";
+import { OAuth2Client } from "google-auth-library";
+
 import { env } from "../env";
 
 // Interface for Google OAuth user info
@@ -12,17 +13,14 @@ interface GoogleUserInfo {
 // Function to verify Google OAuth token
 export async function verifyGoogleToken(token: string): Promise<GoogleUserInfo> {
   try {
-    const response = await axios.get("https://www.googleapis.com/oauth2/v3/userinfo", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+    const client = new OAuth2Client({ client_secret: env.GOOGLE_CLIENT_SECRET });
+    const ticket = await client.verifyIdToken({
+      idToken: token,
     });
+    const payload = ticket.getPayload();
+    if (!payload?.email) throw new Error("Google account must have an email");
 
-    if (response.status !== 200) {
-      throw new Error("Failed to verify Google token");
-    }
-
-    const data = response.data;
+    const data = payload;
 
     // Validate that the email is verified
     if (!data.email_verified) {
@@ -30,7 +28,7 @@ export async function verifyGoogleToken(token: string): Promise<GoogleUserInfo> 
     }
 
     return {
-      email: data.email,
+      email: data.email!,
       email_verified: data.email_verified,
       name: data.name,
       picture: data.picture,

@@ -12,7 +12,7 @@ import { GoogleOAuthProvider } from "@react-oauth/google";
 import App from "./App.tsx";
 
 // Get Google client ID from environment variables
-const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <GoogleOAuthProvider clientId={googleClientId}>
