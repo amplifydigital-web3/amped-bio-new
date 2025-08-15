@@ -1,4 +1,3 @@
-import React from "react";
 import type { MarketplaceTheme } from "../../../types/editor";
 import { ThemeCard } from "./ThemeCard";
 

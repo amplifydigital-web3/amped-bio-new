@@ -224,12 +224,4 @@ const Leaf = ({ attributes, children, leaf }: RenderLeafProps) => {
   return <span {...attributes}>{children}</span>;
 };
 
-// Default value only used when no HTML is provided
-const initialValue: Descendant[] = [
-  {
-    type: "paragraph",
-    children: [{ text: "" }],
-  },
-];
-
 export default SlateRenderer;

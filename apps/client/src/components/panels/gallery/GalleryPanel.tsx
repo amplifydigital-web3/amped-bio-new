@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "../../../utils/trpc/trpc";
 import { useEditor } from "../../../contexts/EditorContext";
@@ -21,7 +21,6 @@ export function GalleryPanel() {
     setMarketplaceFilter: setFilter,
     setMarketplaceSort: setSort,
     applyTheme,
-    updateThemeConfig,
   } = useEditor();
 
   // Wrapper function to handle theme application without marking as changed

@@ -1,4 +1,3 @@
-import React from "react";
 import { X, Send, DollarSign, Trophy, ExternalLink } from "lucide-react";
 import {
   Dialog,

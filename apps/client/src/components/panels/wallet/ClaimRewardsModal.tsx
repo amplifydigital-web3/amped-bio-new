@@ -44,12 +44,6 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
 
   if (!isOpen || !pool) return null;
 
-  const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget && step !== "claiming") {
-      onClose();
-    }
-  };
-
   const handleClaim = async () => {
     setStep("claiming");
 

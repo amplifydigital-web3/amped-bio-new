@@ -1,4 +1,3 @@
-import React from "react";
 import { ChevronRight, AlertTriangle } from "lucide-react";
 import type { MarketplaceTheme } from "../../../types/editor";
 

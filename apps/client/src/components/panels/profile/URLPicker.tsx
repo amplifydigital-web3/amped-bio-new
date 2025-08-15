@@ -16,8 +16,6 @@ export function URLPicker() {
 
   // Safely extract and process onelink values with default fallbacks
   const currentOnelink = normalizeOnelink(profile?.onelink || "");
-  const currentOnelinkFormatted =
-    profile?.onelinkFormatted || formatOnelink(profile?.onelink || "");
 
   // Initialize state with safe default values
   const [url, setUrl] = useState(currentOnelink || "");

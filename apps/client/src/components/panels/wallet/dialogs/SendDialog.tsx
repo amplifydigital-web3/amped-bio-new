@@ -265,7 +265,6 @@ function SendDialog({ open, onOpenChange, onSend }: SendDialogProps) {
   // Use our custom hook for dialog and transaction management
   const {
     balanceData,
-    isBalanceLoading,
     register,
     errors,
     isValid,

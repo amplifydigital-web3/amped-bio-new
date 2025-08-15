@@ -21,7 +21,7 @@ const extractRootDomain = (url: string): string => {
     const urlString = url.startsWith("http") ? url : `https://${url}`;
     const urlObj = new URL(urlString);
     return urlObj.hostname;
-  } catch (e) {
+  } catch {
     // Return the original URL if parsing fails
     return url;
   }

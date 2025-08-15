@@ -1,11 +1,10 @@
 import { QueryClient } from "@tanstack/react-query";
 import { createTRPCClient } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
-import type { AppRouter } from "../../../../server/src/trpc";
+import type { AppRouter, RouterOutputs } from "../../../../server/src/trpc";
 import { mockLink } from "./links/mock/mock-link";
 import { createHttpLink } from "./links/http-link";
 
-// Create query client for React Query
 export const queryClient = new QueryClient();
 
 // Use DEMO mode if explicitly set in environment
@@ -16,8 +15,11 @@ export const trpcClient = createTRPCClient<AppRouter>({
   links: [isDemoMode ? mockLink() : createHttpLink()],
 });
 
+// https://trpc.io/docs/client/tanstack-react-query/setup#3b-setup-without-react-context
 // Create and export the TRPC options proxy for use in components
 export const trpc = createTRPCOptionsProxy<AppRouter>({
   client: trpcClient,
   queryClient,
 });
+
+export { RouterOutputs };

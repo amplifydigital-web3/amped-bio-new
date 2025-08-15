@@ -382,7 +382,7 @@ export const themeRouter = router({
       }
 
       // Update user's theme
-      const updatedUser = await prisma.user.update({
+      await prisma.user.update({
         where: {
           id: userId,
         },

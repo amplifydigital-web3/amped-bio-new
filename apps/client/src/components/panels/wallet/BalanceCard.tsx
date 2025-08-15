@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAccount, useBalance } from "wagmi";
 import { Coins, Image, Clock, Plus, Loader, AlertCircle } from "lucide-react";
 import { Tooltip } from "../../ui/Tooltip";
@@ -9,16 +9,6 @@ type TabType = "tokens" | "nfts" | "history";
 interface ProfileTabsProps {
   isEmpty?: boolean;
   onNavigateToExplore?: (tab?: "creators" | "pools" | "nfts") => void;
-}
-
-interface Token {
-  symbol: string;
-  name: string;
-  balance: number;
-  value: number;
-  change: number;
-  changePercentage: number;
-  icon: string;
 }
 
 interface NFT {
@@ -41,7 +31,7 @@ interface Transaction {
   receivedAt: string; // 2025-07-23T19:27:58.807Z
 }
 
-export default function ProfileTabs({ isEmpty = false, onNavigateToExplore }: ProfileTabsProps) {
+export default function ProfileTabs({ isEmpty = false }: ProfileTabsProps) {
   const [activeTab, setActiveTab] = useState<TabType>("tokens");
   const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null);
   const [isNFTModalOpen, setIsNFTModalOpen] = useState(false);
@@ -143,22 +133,6 @@ export default function ProfileTabs({ isEmpty = false, onNavigateToExplore }: Pr
     { id: "nfts" as TabType, label: "NFTs", icon: Image, disabled: true },
     { id: "history" as TabType, label: "Transaction History", icon: Clock },
   ];
-
-  const handleNFTClick = (nft: NFT) => {
-    setSelectedNFT(nft);
-    setIsNFTModalOpen(true);
-  };
-
-  const handleCreateNFTs = () => {
-    console.log("Create NFTs clicked");
-    // Implementation for NFT creation flow
-  };
-
-  const handleExploreNFTs = () => {
-    if (onNavigateToExplore) {
-      onNavigateToExplore("nfts");
-    }
-  };
 
   const renderEmptyState = () => (
     <div className="text-center py-12">

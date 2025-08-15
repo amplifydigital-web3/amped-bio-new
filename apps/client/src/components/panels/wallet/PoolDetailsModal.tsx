@@ -162,10 +162,6 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
     // Implementation to open blockchain explorer
   };
 
-  const daysRemaining = Math.ceil(
-    (new Date(pool.endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
-  );
-
   return (
     <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
       <DialogContent className="max-w-4xl w-full max-h-[90vh] flex flex-col p-0">

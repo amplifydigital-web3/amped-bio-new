@@ -43,7 +43,7 @@ async function downloadFile(url: string, outputPath: string): Promise<void> {
     await fs.mkdir(path.dirname(outputPath), { recursive: true });
 
     // Download file using curl
-    const { stdout, stderr } = await execAsync(`curl -L "${url}" -o "${outputPath}"`);
+    const { stderr } = await execAsync(`curl -L "${url}" -o "${outputPath}"`);
     if (stderr) {
       console.error(`Warning while downloading file: ${stderr}`);
     }
@@ -109,7 +109,7 @@ async function generateThumbnail(videoPath: string, outputPath: string): Promise
           console.log(`Thumbnail created successfully using method ${index + 1}`);
           return;
         }
-      } catch (error) {
+      } catch {
         console.log(`Method ${index + 1} failed, trying next method...`);
         continue;
       }
