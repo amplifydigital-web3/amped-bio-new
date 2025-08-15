@@ -253,17 +253,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setError(null);
       const response = await trpcClient.auth.login.mutate({ email, password, recaptchaToken });
       updateToken(response.accessToken);
-      
-      // Ensure onelink is never null for AuthUser type
-      const user: AuthUser = {
-        ...response.user,
-        onelink: response.user.onelink || "",
-      };
-      
-      setAuthUser(user);
-      localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_USER, JSON.stringify(user));
+      updateAuthUser(response.user);
       setIsAuthenticated(true);
-      return user;
+      return response.user;
     } catch (error) {
       setError((error as Error).message);
       throw error;
@@ -285,17 +277,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         recaptchaToken,
       });
       updateToken(response.accessToken);
-      
-      // Ensure onelink is never null for AuthUser type
-      const user: AuthUser = {
-        ...response.user,
-        onelink: response.user.onelink || "",
-      };
-      
-      setAuthUser(user);
-      localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_USER, JSON.stringify(user));
+      updateAuthUser(response.user);
       setIsAuthenticated(true);
-      return user;
+      return response.user;
     } catch (error) {
       setError((error as Error).message);
       throw error;
@@ -352,17 +336,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setError(null);
       const response = await trpcClient.auth.googleAuth.mutate({ token });
       updateToken(response.accessToken);
-      
-      // Ensure onelink is never null for AuthUser type
-      const user: AuthUser = {
-        ...response.user,
-        onelink: response.user.onelink || "",
-      };
-      
-      setAuthUser(user);
-      localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_USER, JSON.stringify(user));
+      updateAuthUser(response.user);
       setIsAuthenticated(true);
-      return user;
+      return response.user;
     } catch (error) {
       setError((error as Error).message);
       throw error;
