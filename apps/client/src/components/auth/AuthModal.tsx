@@ -11,6 +11,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useOnelinkAvailability } from "@/hooks/useOnelinkAvailability";
 import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
+import { GoogleLogin } from "@react-oauth/google";
 import {
   normalizeOnelink,
   cleanOnelinkInput,
@@ -18,8 +19,6 @@ import {
   formatOnelink,
 } from "@/utils/onelink";
 import { trackGAEvent } from "@/utils/ga";
-
-
 
 interface AuthModalProps {
   onClose: (user: AuthUser) => void;
@@ -90,7 +89,7 @@ const PasswordStrengthIndicator = ({ password }: { password: string }) => {
 };
 
 export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModalProps) {
-  const { signIn, signUp, resetPassword } = useAuth();
+  const { signIn, signInWithGoogle, signUp, resetPassword } = useAuth();
   const [loading, setLoading] = useState(false);
   const [sharedEmail, setSharedEmail] = useState("");
   const isUserTyping = useRef(false);
@@ -144,7 +143,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     watch: watchLogin,
   } = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
-        mode: "onBlur",
+    mode: "onBlur",
     defaultValues: {
       email: sharedEmail,
     },
@@ -158,7 +157,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     watch: watchRegister,
   } = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
-        mode: "onBlur",
+    mode: "onBlur",
     defaultValues: {
       email: sharedEmail,
     },
@@ -172,7 +171,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     watch: watchReset,
   } = useForm<z.infer<typeof resetSchema>>({
     resolver: zodResolver(resetSchema),
-        mode: "onBlur",
+    mode: "onBlur",
     defaultValues: {
       email: sharedEmail,
     },
@@ -256,6 +255,31 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     } catch (error) {
       setLoginError((error as Error).message);
       // Reset reCAPTCHA on error
+      if (isRecaptchaEnabled && recaptchaRef.current) {
+        recaptchaRef.current.reset();
+        setRecaptchaToken(null);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle Google login
+  const handleGoogleLogin = async (token: string) => {
+    setLoading(true);
+    setLoginError(null);
+    try {
+      const user = await signInWithGoogle(token);
+      onClose(user);
+
+      // Redirect the user to their edit page with panel state set to "home"
+      if (user && user.onelink) {
+        const formattedOnelink = formatOnelink(user.onelink);
+        navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
+      }
+    } catch (error) {
+      setLoginError((error as Error).message);
+      // Reset reCAPTCHA on error if enabled
       if (isRecaptchaEnabled && recaptchaRef.current) {
         recaptchaRef.current.reset();
         setRecaptchaToken(null);
@@ -385,7 +409,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               data-testid="login-email"
               autoComplete="email"
               {...registerLogin("email")}
-              onBlur={(e) => {
+              onBlur={e => {
                 registerLogin("email").onBlur(e);
                 trackGAEvent("Input", "AuthModal", "LoginEmailInput");
               }}
@@ -400,7 +424,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 data-testid="login-password"
                 autoComplete="current-password"
                 {...registerLogin("password")}
-                onBlur={(e) => {
+                onBlur={e => {
                   registerLogin("password").onBlur(e);
                   trackGAEvent("Input", "AuthModal", "LoginPasswordInput");
                 }}
@@ -447,6 +471,42 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 "Sign In"
               )}
             </Button>
+
+            {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+              <>
+                <div className="relative flex items-center my-4">
+                  <div className="flex-grow border-t border-gray-300"></div>
+                  <span className="flex-shrink mx-4 text-gray-600 text-sm">or</span>
+                  <div className="flex-grow border-t border-gray-300"></div>
+                </div>
+
+                <div data-testid="google-sign-in">
+                  {!loading ? (
+                    <GoogleLogin
+                      onSuccess={credentialResponse => {
+                        if (credentialResponse.credential) {
+                          handleGoogleLogin(credentialResponse.credential);
+                        }
+                      }}
+                      onError={() => {
+                        setLoginError("Google login failed");
+                      }}
+                      useOneTap
+                      type="standard"
+                      theme="outline"
+                      text="continue_with"
+                      shape="rectangular"
+                      width="100%"
+                      locale="en"
+                    />
+                  ) : (
+                    <div className="w-full h-[40px] flex items-center justify-center bg-gray-100 border border-gray-300 text-gray-400 rounded text-sm">
+                      Continue with Google
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </form>
         )}
 
@@ -473,11 +533,11 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 autoComplete="username"
                 placeholder="your-name"
                 {...registerSignUp("onelink")}
-                onChange={(e) => {
+                onChange={e => {
                   registerSignUp("onelink").onChange(e);
                   handleOnelinkChange(e);
                 }}
-                onBlur={(e) => {
+                onBlur={e => {
                   registerSignUp("onelink").onBlur(e);
                   trackGAEvent("Input", "AuthModal", "RegisterOnelinkInput");
                 }}
@@ -509,7 +569,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               data-testid="register-email"
               autoComplete="email"
               {...registerSignUp("email")}
-              onBlur={(e) => {
+              onBlur={e => {
                 registerSignUp("email").onBlur(e);
                 trackGAEvent("Input", "AuthModal", "RegisterEmailInput");
               }}
@@ -525,7 +585,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                   data-testid="register-password"
                   autoComplete="new-password"
                   {...registerSignUp("password")}
-                  onBlur={(e) => {
+                  onBlur={e => {
                     registerSignUp("password").onBlur(e);
                     trackGAEvent("Input", "AuthModal", "RegisterPasswordInput");
                   }}
@@ -587,6 +647,38 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 "Create Account"
               )}
             </Button>
+
+            <div className="relative flex items-center my-4">
+              <div className="flex-grow border-t border-gray-300"></div>
+              <span className="flex-shrink mx-4 text-gray-600 text-sm">or</span>
+              <div className="flex-grow border-t border-gray-300"></div>
+            </div>
+
+            <div data-testid="google-sign-in">
+              {!loading ? (
+                <GoogleLogin
+                  onSuccess={credentialResponse => {
+                    if (credentialResponse.credential) {
+                      handleGoogleLogin(credentialResponse.credential);
+                    }
+                  }}
+                  onError={() => {
+                    setRegisterError("Google login failed");
+                  }}
+                  useOneTap
+                  type="standard"
+                  theme="outline"
+                  text="continue_with"
+                  shape="rectangular"
+                  width="100%"
+                  locale="en"
+                />
+              ) : (
+                <div className="w-full h-[40px] flex items-center justify-center bg-gray-100 border border-gray-300 text-gray-400 rounded text-sm">
+                  Continue with Google
+                </div>
+              )}
+            </div>
             {urlStatus === "Unavailable" && onelinkInput && (
               <p className="text-xs text-center text-red-600" data-testid="url-unavailable-message">
                 This URL is already taken. Please choose another one.
@@ -633,7 +725,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                   data-testid="reset-email"
                   autoComplete="email"
                   {...registerReset("email")}
-                  onBlur={(e) => {
+                  onBlur={e => {
                     registerReset("email").onBlur(e);
                     trackGAEvent("Input", "AuthModal", "ResetEmailInput");
                   }}

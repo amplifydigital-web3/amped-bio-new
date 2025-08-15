@@ -110,4 +110,8 @@ export const env = cleanEnv(process.env, {
     desc: "Secret key for Google reCAPTCHA verification",
     default: "",
   }),
+  GOOGLE_CLIENT_SECRET: str({
+    desc: "Google OAuth 2.0 Client Secret",
+    default: "",
+  }),
 });
