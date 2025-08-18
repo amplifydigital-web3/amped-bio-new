@@ -14,6 +14,7 @@ interface ImportMetaEnv {
   readonly VITE_WEB3AUTH_NETWORK: string;
   readonly VITE_RECAPTCHA_SITE_KEY: string;
   readonly VITE_SHOW_WALLET: string;
+  readonly VITE_GOOGLE_CLIENT_ID: string;
 }
 
 interface ImportMeta {

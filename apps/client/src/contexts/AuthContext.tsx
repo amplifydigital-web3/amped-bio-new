@@ -93,6 +93,7 @@ type AuthContextType = {
   isAuthenticated: boolean | null; // null = loading, true = authenticated, false = not authenticated
   jwtToken: string | null; // Add JWT token to context
   signIn: (email: string, password: string, recaptchaToken: string | null) => Promise<AuthUser>;
+  signInWithGoogle: (token: string) => Promise<AuthUser>; // Add Google auth method
   signUp: (
     onelink: string,
     email: string,
@@ -112,7 +113,7 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authUser, _setAuthUser] = useState<AuthUser | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null); // Start with null (loading)
   const [jwtToken, setJwtToken] = useState<string | null>(
@@ -253,7 +254,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const response = await trpcClient.auth.login.mutate({ email, password, recaptchaToken });
       updateToken(response.accessToken);
       setAuthUser(response.user);
-      localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_USER, JSON.stringify(response.user));
       setIsAuthenticated(true);
       return response.user;
     } catch (error) {
@@ -278,7 +278,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
       updateToken(response.accessToken);
       setAuthUser(response.user);
-      localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_USER, JSON.stringify(response.user));
       setIsAuthenticated(true);
       return response.user;
     } catch (error) {
@@ -297,6 +296,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         success: false,
         message: (error as Error).message || "Password reset request failed",
       };
+    }
+  };
+
+  const setAuthUser = (user: AuthUser | null) => {
+    _setAuthUser(user);
+    if (user) {
+      localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_USER, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(AUTH_STORAGE_KEYS.AUTH_USER);
     }
   };
 
@@ -331,6 +339,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Sign in with Google
+  const signInWithGoogle = async (token: string) => {
+    try {
+      setError(null);
+      const response = await trpcClient.auth.googleAuth.mutate({ token });
+      updateToken(response.accessToken);
+      setAuthUser(response.user);
+      setIsAuthenticated(true);
+      return response.user;
+    } catch (error) {
+      setError((error as Error).message);
+      throw error;
+    }
+  };
+
   const value = {
     authUser,
     error,
@@ -338,6 +361,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     jwtToken,
     signIn,
     signUp,
+    signInWithGoogle,
     signOut,
     resetPassword,
     updateAuthUser,
