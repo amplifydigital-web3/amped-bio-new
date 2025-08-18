@@ -13,7 +13,10 @@ interface GoogleUserInfo {
 // Function to verify Google OAuth token
 export async function verifyGoogleToken(token: string): Promise<GoogleUserInfo> {
   try {
-    const client = new OAuth2Client({ client_secret: env.GOOGLE_CLIENT_SECRET });
+    const client = new OAuth2Client({
+      client_secret: env.GOOGLE_CLIENT_SECRET,
+      client_id: env.GOOGLE_CLIENT_ID,
+    });
     const ticket = await client.verifyIdToken({
       idToken: token,
     });
