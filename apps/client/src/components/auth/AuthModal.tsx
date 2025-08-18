@@ -97,9 +97,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const recaptchaRef = useRef<ReCAPTCHA>(null);
   const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
-  const [isRecaptchaEnabled] = useState(
-    import.meta.env.MODE !== "testing" && !!import.meta.env.VITE_RECAPTCHA_SITE_KEY
-  );
+  const isRecaptchaEnabled = import.meta.env.MODE !== "testing" && !!import.meta.env.VITE_RECAPTCHA_SITE_KEY;
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -355,6 +353,63 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     }
   };
 
+  const renderReCaptcha = () => {
+    return (
+      <>
+        {isRecaptchaEnabled && (
+          <div className="flex justify-center">
+            <ReCAPTCHA
+              sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+              onChange={token => setRecaptchaToken(token)}
+              onExpired={() => setRecaptchaToken(null)}
+              ref={recaptchaRef}
+            />
+          </div>
+        )}
+      </>
+    );
+  };
+
+  const renderSignInWithGoogle = () => {
+    return (
+      <>
+        {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+          <>
+            <div className="relative flex items-center my-4">
+              <div className="flex-grow border-t border-gray-300"></div>
+              <span className="flex-shrink mx-4 text-gray-600 text-sm">or</span>
+              <div className="flex-grow border-t border-gray-300"></div>
+            </div>
+
+            <div data-testid="google-sign-in">
+              <GoogleLogin
+                onSuccess={credentialResponse => {
+                  if (credentialResponse.credential) {
+                    handleGoogleLogin(credentialResponse.credential);
+                  }
+                }}
+                onError={() => {
+                  setLoginError("Google login failed");
+                }}
+                useOneTap
+                type="standard"
+                theme="outline"
+                text="continue_with"
+                shape="rectangular"
+                width="100%"
+                locale="en"
+                size="large"
+                containerProps={{
+                  className: "flex justify-center",
+                }}
+              />
+            </div>
+          </>
+        )}
+      </>
+    );
+  };
+
   return (
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]"
@@ -442,14 +497,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 {showLoginPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
             </div>
-            {isRecaptchaEnabled && (
-              <ReCAPTCHA
-                sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
-                onChange={token => setRecaptchaToken(token)}
-                onExpired={() => setRecaptchaToken(null)}
-                ref={recaptchaRef}
-              />
-            )}
+            {renderReCaptcha()}
             <Button
               type="submit"
               className="w-full relative"
@@ -472,41 +520,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               )}
             </Button>
 
-            {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
-              <>
-                <div className="relative flex items-center my-4">
-                  <div className="flex-grow border-t border-gray-300"></div>
-                  <span className="flex-shrink mx-4 text-gray-600 text-sm">or</span>
-                  <div className="flex-grow border-t border-gray-300"></div>
-                </div>
-
-                <div data-testid="google-sign-in">
-                  {!loading ? (
-                    <GoogleLogin
-                      onSuccess={credentialResponse => {
-                        if (credentialResponse.credential) {
-                          handleGoogleLogin(credentialResponse.credential);
-                        }
-                      }}
-                      onError={() => {
-                        setLoginError("Google login failed");
-                      }}
-                      useOneTap
-                      type="standard"
-                      theme="outline"
-                      text="continue_with"
-                      shape="rectangular"
-                      width="100%"
-                      locale="en"
-                    />
-                  ) : (
-                    <div className="w-full h-[40px] flex items-center justify-center bg-gray-100 border border-gray-300 text-gray-400 rounded text-sm">
-                      Continue with Google
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
+            {renderSignInWithGoogle()}
           </form>
         )}
 
@@ -609,14 +623,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               </div>
               <PasswordStrengthIndicator password={registerPassword || ""} />
             </div>
-            {isRecaptchaEnabled && (
-              <ReCAPTCHA
-                sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
-                onChange={token => setRecaptchaToken(token)}
-                onExpired={() => setRecaptchaToken(null)}
-                ref={recaptchaRef}
-              />
-            )}
+            {renderReCaptcha()}
             <Button
               type="submit"
               className="w-full relative"
@@ -648,37 +655,8 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               )}
             </Button>
 
-            <div className="relative flex items-center my-4">
-              <div className="flex-grow border-t border-gray-300"></div>
-              <span className="flex-shrink mx-4 text-gray-600 text-sm">or</span>
-              <div className="flex-grow border-t border-gray-300"></div>
-            </div>
+            {renderSignInWithGoogle()}
 
-            <div data-testid="google-sign-in">
-              {!loading ? (
-                <GoogleLogin
-                  onSuccess={credentialResponse => {
-                    if (credentialResponse.credential) {
-                      handleGoogleLogin(credentialResponse.credential);
-                    }
-                  }}
-                  onError={() => {
-                    setRegisterError("Google login failed");
-                  }}
-                  useOneTap
-                  type="standard"
-                  theme="outline"
-                  text="continue_with"
-                  shape="rectangular"
-                  width="100%"
-                  locale="en"
-                />
-              ) : (
-                <div className="w-full h-[40px] flex items-center justify-center bg-gray-100 border border-gray-300 text-gray-400 rounded text-sm">
-                  Continue with Google
-                </div>
-              )}
-            </div>
             {urlStatus === "Unavailable" && onelinkInput && (
               <p className="text-xs text-center text-red-600" data-testid="url-unavailable-message">
                 This URL is already taken. Please choose another one.
@@ -730,14 +708,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                     trackGAEvent("Input", "AuthModal", "ResetEmailInput");
                   }}
                 />
-                {isRecaptchaEnabled && (
-                  <ReCAPTCHA
-                    sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
-                    onChange={token => setRecaptchaToken(token)}
-                    onExpired={() => setRecaptchaToken(null)}
-                    ref={recaptchaRef}
-                  />
-                )}
+                {renderReCaptcha()}
                 <Button
                   type="submit"
                   className="w-full relative"
