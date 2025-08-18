@@ -93,6 +93,10 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
   // useEffect to force web3auth to be ready and initialized
   useEffect(() => {
+    if (import.meta.env.VITE_SHOW_WALLET !== "true") {
+      return;
+    }
+
     console.info("Checking Web3Auth initialization status...", dataWeb3Auth?.web3Auth?.status);
     if (!dataWeb3Auth) return;
 
@@ -157,7 +161,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
         balance,
         isUSD,
-        setIsUSD
+        setIsUSD,
       }}
     >
       {children}
