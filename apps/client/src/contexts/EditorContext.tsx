@@ -141,19 +141,6 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
       let newBlock = block;
 
       try {
-        if (authUser === null) {
-          console.info("❌ Add Block Error: No user logged in");
-          toast.error("Authentication error");
-          console.groupEnd();
-
-          setState(prevState => ({
-            ...prevState,
-            blocks: [...prevState.blocks, block],
-          }));
-          setChanges(true);
-          return block;
-        }
-
         const blockOrder = state.blocks.length;
 
         console.info("🔄 Adding block to server...");
@@ -182,11 +169,6 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
       } catch (error) {
         console.info("❌ Error adding block:", error);
         toast.error("Error adding block");
-
-        setState(prevState => ({
-          ...prevState,
-          blocks: [...prevState.blocks, block],
-        }));
         setChanges(true);
       }
 
