@@ -61,15 +61,19 @@ const textConfigSchema = z.object({
     .min(0, "Content is required")
     .refine(
       html => {
-        // Skip validation if empty
         if (!html) return true;
 
-        // Build regex pattern from allowed tags array
-        const tagPattern = allowedHtmlTags.join("|");
-        const allowedTagsRegex = new RegExp(`<(?!/?(${tagPattern})\b)[^>]+>`, "i");
+        // Find all HTML tags in the string
+        const tagRegex = /<\/?([a-zA-Z0-9]+)\b[^>]*>/gi;
+        const allowed = new Set(allowedHtmlTags);
 
-        // If the regex matches any non-allowed tags, validation fails
-        return !allowedTagsRegex.test(html);
+        for (const match of html.matchAll(tagRegex)) {
+          const tagName = match[1].toLowerCase();
+          if (!allowed.has(tagName as (typeof allowedHtmlTags)[number])) {
+            return false;
+          }
+        }
+        return true;
       },
       {
         message: `HTML content can only contain the following tags: ${allowedHtmlTags.map(tag => `<${tag}>`).join(", ")}`,
