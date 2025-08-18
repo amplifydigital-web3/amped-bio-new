@@ -206,7 +206,8 @@ function FundWalletDialog({ open, onOpenChange }: FundWalletDialogProps) {
             </Button>
             <Button
               variant="outline"
-              className="h-auto py-4 flex flex-col items-start space-y-1"
+              className="h-auto py-4 flex flex-col items-start space-y-1 opacity-60 cursor-not-allowed"
+              disabled
               onClick={() =>
                 window.open(
                   "https://bridge.dev.revolutionchain.io/bridge?address=" + (walletAddress || ""),
