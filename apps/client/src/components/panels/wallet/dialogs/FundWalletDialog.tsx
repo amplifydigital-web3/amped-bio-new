@@ -217,7 +217,10 @@ function FundWalletDialog({ open, onOpenChange }: FundWalletDialogProps) {
               }
             >
               <DollarSign className="w-6 h-6" />
-              <span className="font-medium">Bridge</span>
+              <span className="font-medium">Bridge{" "}
+                <span className="ml-2 text-xs bg-gray-200 text-gray-600 rounded px-2 py-0.5">
+                  Soon
+                </span></span>
               <p className="text-xs text-gray-500">Transfer crypto from other networks</p>
             </Button>
             <Button
