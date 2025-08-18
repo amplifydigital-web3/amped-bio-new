@@ -114,4 +114,8 @@ export const env = cleanEnv(process.env, {
     desc: "Google OAuth 2.0 Client Secret",
     default: "",
   }),
+  GOOGLE_CLIENT_ID: str({
+    desc: "Google OAuth 2.0 Client ID",
+    default: "",
+  }),
 });
