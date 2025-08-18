@@ -9,7 +9,7 @@ import {
 } from "react";
 import { useWeb3AuthDisconnect, useWeb3AuthConnect, useWeb3Auth } from "@web3auth/modal/react";
 import { WALLET_CONNECTORS, AUTH_CONNECTION } from "@web3auth/modal";
-import { useAccount } from "wagmi";
+import { useAccount, useBalance, type UseBalanceReturnType } from "wagmi";
 import { trpcClient } from "../utils/trpc";
 import { useAuth } from "./AuthContext";
 
@@ -20,11 +20,23 @@ const INIT_THROTTLE_DURATION = 3_000; // 3 seconds throttle for initialization a
 type WalletContextType = {
   connecting: boolean;
   connect: () => Promise<void>;
+
+  balance?: UseBalanceReturnType<{
+    decimals: number;
+    formatted: string;
+    symbol: string;
+    value: bigint;
+  }>;
+  isUSD: boolean;
+  setIsUSD: (value: boolean) => void;
 };
 
 const WalletContext = createContext<WalletContextType>({
   connecting: false,
   connect: async () => {},
+
+  isUSD: false,
+  setIsUSD: () => {},
 });
 
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
@@ -33,6 +45,9 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const { connectTo, error } = useWeb3AuthConnect();
   const dataWeb3Auth = useWeb3Auth();
   const account = useAccount();
+
+  const balance = useBalance();
+  const [isUSD, setIsUSD] = useState(false);
 
   const lastConnectAttemptRef = useRef(0);
   const lastInitAttemptRef = useRef(0); // Ref to track last initialization attempt
@@ -136,7 +151,14 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <WalletContext.Provider
-      value={{ connecting: dataWeb3Auth.status === "connecting", connect: getTokenAndConnect }}
+      value={{
+        connecting: dataWeb3Auth.status === "connecting",
+        connect: getTokenAndConnect,
+
+        balance,
+        isUSD,
+        setIsUSD
+      }}
     >
       {children}
     </WalletContext.Provider>

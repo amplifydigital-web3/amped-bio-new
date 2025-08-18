@@ -8,17 +8,8 @@ type TabType = "tokens" | "nfts" | "history";
 
 interface ProfileTabsProps {
   isEmpty?: boolean;
+  loading?: boolean;
   onNavigateToExplore?: (tab?: "creators" | "pools" | "nfts") => void;
-}
-
-interface Token {
-  symbol: string;
-  name: string;
-  balance: number;
-  value: number;
-  change: number;
-  changePercentage: number;
-  icon: string;
 }
 
 interface NFT {
@@ -41,7 +32,7 @@ interface Transaction {
   receivedAt: string; // 2025-07-23T19:27:58.807Z
 }
 
-export default function ProfileTabs({ isEmpty = false, onNavigateToExplore }: ProfileTabsProps) {
+export default function ProfileTabs({ isEmpty = false, loading = false, onNavigateToExplore }: ProfileTabsProps) {
   const [activeTab, setActiveTab] = useState<TabType>("tokens");
   const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null);
   const [isNFTModalOpen, setIsNFTModalOpen] = useState(false);
@@ -59,10 +50,10 @@ export default function ProfileTabs({ isEmpty = false, onNavigateToExplore }: Pr
   });
 
   useEffect(() => {
-    if (activeTab === "history" && address) {
+    if (activeTab === "history" && address && !loading) {
       fetchTransactions(address);
     }
-  }, [activeTab, address, revoBalance]);
+  }, [activeTab, address, revoBalance, loading]);
 
   const fetchTransactions = async (walletAddress: string) => {
     setTransactionsLoading(true);
@@ -144,19 +135,118 @@ export default function ProfileTabs({ isEmpty = false, onNavigateToExplore }: Pr
     { id: "history" as TabType, label: "Transaction History", icon: Clock },
   ];
 
-  const handleNFTClick = (nft: NFT) => {
-    setSelectedNFT(nft);
-    setIsNFTModalOpen(true);
-  };
+  const renderLoadingSkeleton = () => {
+    switch (activeTab) {
+      case "tokens":
+        return (
+          <div className="py-6">
+            <div className="h-6 bg-gray-200 rounded w-32 mb-4 animate-pulse"></div>
+            <div className="bg-gray-50 rounded-lg p-4 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-6 h-6 bg-gray-200 rounded animate-pulse"></div>
+                <div>
+                  <div className="h-4 bg-gray-200 rounded w-12 mb-2 animate-pulse"></div>
+                  <div className="h-3 bg-gray-200 rounded w-40 animate-pulse"></div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="h-4 bg-gray-200 rounded w-24 mb-2 animate-pulse"></div>
+                <div className="h-3 bg-gray-200 rounded w-16 animate-pulse"></div>
+              </div>
+            </div>
+          </div>
+        );
+      
+      case "nfts":
+        return (
+          <div className="py-6">
+            <div className="h-6 bg-gray-200 rounded w-32 mb-4 animate-pulse"></div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="bg-gray-50 rounded-lg p-4">
+                  <div className="w-full h-32 bg-gray-200 rounded mb-3 animate-pulse"></div>
+                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2 animate-pulse"></div>
+                  <div className="h-3 bg-gray-200 rounded w-1/2 animate-pulse"></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
 
-  const handleCreateNFTs = () => {
-    console.log("Create NFTs clicked");
-    // Implementation for NFT creation flow
-  };
+      case "history":
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="h-6 bg-gray-200 rounded w-40 animate-pulse"></div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Transaction Hash
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Age
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      From
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      In/Out
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      To
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Value
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Fee
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <tr key={index}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="h-4 bg-gray-200 rounded w-20 animate-pulse"></div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="h-4 bg-gray-200 rounded w-16 animate-pulse"></div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="h-4 bg-gray-200 rounded w-20 animate-pulse"></div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="h-5 bg-gray-200 rounded-full w-8 animate-pulse"></div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="h-4 bg-gray-200 rounded w-20 animate-pulse"></div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="h-4 bg-gray-200 rounded w-24 animate-pulse"></div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="h-4 bg-gray-200 rounded w-16 animate-pulse"></div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
 
-  const handleExploreNFTs = () => {
-    if (onNavigateToExplore) {
-      onNavigateToExplore("nfts");
+      default:
+        return (
+          <div className="py-12">
+            <div className="w-16 h-16 bg-gray-200 rounded-full mx-auto mb-4 animate-pulse"></div>
+            <div className="h-6 bg-gray-200 rounded w-48 mx-auto mb-2 animate-pulse"></div>
+            <div className="h-4 bg-gray-200 rounded w-64 mx-auto mb-6 animate-pulse"></div>
+            <div className="h-10 bg-gray-200 rounded w-32 mx-auto animate-pulse"></div>
+          </div>
+        );
     }
   };
 
@@ -388,6 +478,10 @@ export default function ProfileTabs({ isEmpty = false, onNavigateToExplore }: Pr
   };
 
   const renderContent = () => {
+    if (loading) {
+      return renderLoadingSkeleton();
+    }
+
     if (isEmpty) {
       return renderEmptyState();
     }
@@ -420,13 +514,13 @@ export default function ProfileTabs({ isEmpty = false, onNavigateToExplore }: Pr
               return (
                 <button
                   key={tab.id}
-                  onClick={() => !tab.disabled && setActiveTab(tab.id)}
+                  onClick={() => !tab.disabled && !loading && setActiveTab(tab.id)}
                   className={`flex items-center space-x-2 whitespace-nowrap py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors duration-200 touch-manipulation ${
                     isActive
                       ? "border-blue-500 text-blue-600"
                       : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                  } ${tab.disabled ? "opacity-50 cursor-not-allowed" : ""}`}
-                  disabled={tab.disabled}
+                  } ${tab.disabled || loading ? "opacity-50 cursor-not-allowed" : ""}`}
+                  disabled={tab.disabled || loading}
                 >
                   <Icon className="w-4 h-4" />
                   <span>{tab.label}</span>
