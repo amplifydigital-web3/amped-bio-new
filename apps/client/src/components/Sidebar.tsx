@@ -13,10 +13,18 @@ import {
   Home,
   Settings,
   Wallet,
+  Send,
 } from "lucide-react";
+import { EditorPanelType } from "@/types/editor";
 
 // Define all possible navigation items
-const allNavItems = [
+const allNavItems: Array<{
+  id: EditorPanelType;
+  icon: React.ElementType;
+  label: string;
+  alwaysShow?: boolean;
+  environmentFlag?: string;
+}> = [
   { id: "home", icon: Home, label: "Home", alwaysShow: true },
   { id: "profile", icon: User, label: "Profile", alwaysShow: true },
   { id: "gallery", icon: Image, label: "Themes", alwaysShow: true },
@@ -27,7 +35,13 @@ const allNavItems = [
     id: "wallet",
     icon: Wallet,
     label: "My Wallet",
-    alwaysShow: import.meta.env.VITE_SHOW_WALLET === "true",
+    environmentFlag: "VITE_SHOW_WALLET"
+  },
+  {
+    id: "pay",
+    icon: Send,
+    label: "Pay",
+    environmentFlag: "VITE_SHOW_WALLET"
   },
   { id: "reward", icon: Sparkle, label: "Reward", alwaysShow: false },
   { id: "account", icon: Settings, label: "Account", alwaysShow: true },
@@ -36,14 +50,16 @@ const allNavItems = [
     icon: CoinsIcon,
     label: "CreatorPool",
     environmentFlag: "VITE_SHOW_CREATOR_POOL",
+    alwaysShow: false,
   },
   {
     id: "leaderboard",
     icon: Trophy,
     label: "Leaderboard",
     environmentFlag: "VITE_SHOW_CREATOR_POOL",
+    alwaysShow: false,
   },
-  { id: "rns", icon: AtSign, label: "RNS", environmentFlag: "VITE_SHOW_RNS" },
+  { id: "rns", icon: AtSign, label: "RNS", environmentFlag: "VITE_SHOW_RNS", alwaysShow: false },
 ];
 
 export function Sidebar() {

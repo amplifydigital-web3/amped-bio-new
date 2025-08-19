@@ -378,4 +378,56 @@ export const walletRouter = router({
         });
       }
     }),
+
+  // Search users by onelink or wallet address
+  searchUsers: privateProcedure
+    .input(z.string()) // Input is the search query
+    .query(async ({ input }) => {
+      const searchQuery = input.toLowerCase(); // Case-insensitive search
+
+      const users = await prisma.user.findMany({
+        where: {
+          OR: [
+            {
+              onelink: {
+                contains: searchQuery,
+              },
+            },
+            {
+              wallet: {
+                address: {
+                  contains: searchQuery,
+                },
+              },
+            },
+          ],
+        },
+        select: {
+          id: true,
+          name: true,
+          onelink: true,
+          image: true,
+          description: true,
+          wallet: {
+            select: {
+              address: true,
+            },
+          },
+        },
+        take: 10, // Limit to 10 records
+      });
+
+      // Map Prisma results to the User interface expected by the client
+      return users.map(user => ({
+        id: user.id.toString(), // Convert Int to String
+        username: user.onelink || user.name.replace(/\s/g, "").toLowerCase(), // Fallback to a derived username if onelink is null
+        displayName: user.name,
+        avatar: user.image,
+        verified: false, // No direct field in Prisma, default to false
+        mutualFriends: 0, // No direct field in Prisma, default to 0
+        lastActive: "N/A", // No direct field in Prisma, default to N/A
+        bio: user.description || undefined,
+        badges: [], // No direct field in Prisma, default to empty array
+      }));
+    }),
 });

@@ -1,6 +1,5 @@
-import { CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog";
-import { ArrowDownLeft, Copy, Check } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Copy, Check } from "lucide-react";
 import { useState } from "react";
 import { useAccount } from "wagmi";
 
@@ -29,63 +28,72 @@ function ReceiveDialog({ open, onOpenChange }: ReceiveDialogProps) {
       }, 1000);
     }
   };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md rounded-2xl">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div className="bg-purple-100 p-2 rounded-full">
-                <ArrowDownLeft className="w-5 h-5 text-purple-600" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold">Receive REVO</h2>
-                <p className="text-sm text-gray-500">Share your address to receive funds</p>
-              </div>
-            </div>
+      <DialogContent className="max-w-md rounded-xl p-0">
+        <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+          {/* Modal Header */}
+          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <h2 className="text-xl font-bold text-gray-900">Receive Assets</h2>
           </div>
-        </DialogHeader>
-        <CardContent className="text-center">
-          <div className="mb-6 bg-purple-50 p-6 rounded-xl">
-            <div className="bg-white p-3 rounded-lg mb-4 mx-auto w-48 h-48 flex items-center justify-center">
-              {address ? (
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(address)}`}
-                  alt="Wallet Address QR Code"
-                  width={160}
-                  height={160}
-                  className="mx-auto"
-                />
-              ) : (
-                <div className="text-gray-400">No address available</div>
-              )}
-            </div>
-            {address && (
-              <div className="flex flex-col items-center">
-                <span className="font-mono text-sm text-gray-500 mb-2">Wallet Address:</span>
-                <div className="flex items-center space-x-2">
-                  <span className="font-mono text-sm bg-white p-2 rounded border border-gray-200">
-                    {formatAddress(address)}
-                  </span>
-                  <div
-                    onClick={handleCopy}
-                    className="cursor-pointer h-9 w-9 flex items-center justify-center rounded-md hover:bg-gray-100"
-                  >
-                    {copied ? (
-                      <Check className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </div>
+
+          {/* Modal Content */}
+          <div className="p-6 space-y-6">
+            {/* Wallet Address Display */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Your Wallet Address
+              </label>
+              <div className="flex items-center space-x-2">
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    value={address || ""}
+                    readOnly
+                    className="w-full px-3 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm font-mono text-gray-700 pr-12 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
                 </div>
+                <button
+                  onClick={handleCopy}
+                  className="p-3 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200 flex-shrink-0"
+                  title="Copy wallet address"
+                >
+                  {copied ? (
+                    <Check className="w-5 h-5 text-green-600" />
+                  ) : (
+                    <Copy className="w-5 h-5" />
+                  )}
+                </button>
               </div>
-            )}
+            </div>
+
+            {/* QR Code */}
+            <div className="text-center">
+              <div className="inline-block p-4 bg-white rounded-xl border-2 border-gray-100 shadow-sm">
+                {address ? (
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(address)}`}
+                    alt="Wallet Address QR Code"
+                    width={160}
+                    height={160}
+                    className="block mx-auto"
+                    style={{ imageRendering: "pixelated" }}
+                  />
+                ) : (
+                  <div className="text-gray-400">No address available</div>
+                )}
+              </div>
+            </div>
+
+            {/* Instructional Text */}
+            <div className="text-center">
+              <p className="text-sm text-gray-600 leading-relaxed">
+                Scan this code or copy your address to receive tokens or NFTs to this wallet.
+              </p>
+            </div>
           </div>
-          <div className="text-sm text-gray-500">
-            <p>Send only REVO tokens to this address.</p>
-            <p className="mt-1">Sending other tokens may result in permanent loss.</p>
-          </div>
-        </CardContent>
+        </div>
       </DialogContent>
     </Dialog>
   );
