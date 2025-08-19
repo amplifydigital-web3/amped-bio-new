@@ -158,6 +158,7 @@ export const authRouter = router({
         password: hashedPassword,
         remember_token,
         role: userRole,
+        theme: null,
       },
     });
 
@@ -631,6 +632,7 @@ export const authRouter = router({
             email_verified_at: new Date(), // Email is already verified with Google
             image: null,
             role: userRole,
+            theme: null,
           },
         });
       }
