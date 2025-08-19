@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Copy, Check, User, Globe, ChevronDown, Settings } from "lucide-react";
+import { Copy, Check, User, Globe, ChevronDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Suspense } from "react";
@@ -12,6 +12,7 @@ interface ProfileSectionProps {
   address?: string;
   walletStats: StatBoxProps[];
   onProfileOptionsClick: () => void;
+  loading?: boolean;
 }
 
 type Network = "testnet" | "mainnet";
@@ -57,6 +58,7 @@ export function ProfileSection({
   address,
   walletStats,
   onProfileOptionsClick,
+  loading = false,
 }: ProfileSectionProps) {
   const { authUser } = useAuth();
   const { profile } = useEditor();
@@ -110,7 +112,7 @@ export function ProfileSection({
   };
 
   const copyAddress = () => {
-    if (address) {
+    if (address && !loading) {
       navigator.clipboard.writeText(address);
       setCopyStatus("success");
       setTimeout(() => {
@@ -118,6 +120,47 @@ export function ProfileSection({
       }, 1000);
     }
   };
+
+  if (loading) {
+    return (
+      <Card className="bg-gray-50 rounded-2xl border border-gray-200 shadow-sm relative mt-16">
+        <CardContent className={`p-6 ${isSmallScreen ? "pt-20" : ""}`}>
+          {/* Profile Header Skeleton */}
+          <div className="flex items-start justify-between mb-4 sm:mb-6">
+            {/* User Info Skeleton */}
+            <div className="flex-1 min-w-0">
+              <div className="h-6 bg-gray-300 rounded-lg mb-2 w-32 animate-pulse"></div>
+              <div className="flex items-center space-x-2">
+                <div className="h-8 bg-gray-300 rounded-full w-28 animate-pulse"></div>
+                <div className="h-8 w-8 bg-gray-300 rounded-lg animate-pulse"></div>
+              </div>
+            </div>
+
+            {/* Center Avatar Skeleton */}
+            <div className="flex-none">
+              <div className="h-32 w-32 bg-gray-300 rounded-full absolute -top-16 left-1/2 -translate-x-1/2 shadow-md animate-pulse border-4 border-white"></div>
+            </div>
+
+            {/* Network Switcher and Settings Skeleton */}
+            <div className="flex items-center space-x-2 flex-shrink-0">
+              <div className="h-10 w-24 bg-gray-300 rounded-lg animate-pulse"></div>
+              <div className="h-10 w-10 bg-gray-300 rounded-lg animate-pulse"></div>
+            </div>
+          </div>
+
+          {/* Stats Section Skeleton */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="bg-white p-4 rounded-xl border border-gray-200">
+                <div className="h-4 bg-gray-300 rounded w-16 mb-2 animate-pulse"></div>
+                <div className="h-6 bg-gray-300 rounded w-12 animate-pulse"></div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="bg-gray-50 rounded-2xl border border-gray-200 shadow-sm relative mt-16">
@@ -143,6 +186,7 @@ export function ProfileSection({
                 onClick={copyAddress}
                 className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-white rounded-lg transition-colors duration-200 flex-shrink-0"
                 title="Copy full wallet address"
+                disabled={loading}
               >
                 {copyStatus === "idle" ? (
                   <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -171,9 +215,10 @@ export function ProfileSection({
             {/* Network Switcher */}
             <div className="relative" ref={dropdownRef}>
               <button
-                onClick={() => setDropdownOpen(!dropdownOpen)}
-                className={`flex items-center space-x-2 px-3 py-2 rounded-lg border transition-colors duration-200 ${getNetworkInfo(currentNetwork).bgColor} border-gray-200 hover:shadow-sm`}
+                onClick={() => !loading && setDropdownOpen(!dropdownOpen)}
+                className={`flex items-center space-x-2 px-3 py-2 rounded-lg border transition-colors duration-200 ${getNetworkInfo(currentNetwork).bgColor} border-gray-200 hover:shadow-sm ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 title="Switch network"
+                disabled={loading}
               >
                 <div className="flex items-center space-x-2">
                   <div
@@ -194,7 +239,7 @@ export function ProfileSection({
               </button>
 
               {/* Network Dropdown */}
-              {dropdownOpen && (
+              {dropdownOpen && !loading && (
                 <>
                   {/* Backdrop */}
                   <div className="fixed inset-0 z-10" onClick={() => setDropdownOpen(false)}></div>
@@ -230,14 +275,15 @@ export function ProfileSection({
             </div>
 
             {/* Settings Button */}
-            <button
+            {/* <button
               onClick={onProfileOptionsClick}
-              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-white rounded-lg transition-colors duration-200 flex-shrink-0"
+              className={`p-2 text-gray-400 hover:text-gray-600 hover:bg-white rounded-lg transition-colors duration-200 flex-shrink-0 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
               title="Wallet Settings"
               aria-label="Profile Settings"
+              disabled={loading}
             >
               <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
+            </button> */}
           </div>
         </div>
 

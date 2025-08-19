@@ -11,6 +11,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useOnelinkAvailability } from "@/hooks/useOnelinkAvailability";
 import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
+import { GoogleLogin } from "@react-oauth/google";
 import {
   normalizeOnelink,
   cleanOnelinkInput,
@@ -18,8 +19,6 @@ import {
   formatOnelink,
 } from "@/utils/onelink";
 import { trackGAEvent } from "@/utils/ga";
-
-
 
 interface AuthModalProps {
   onClose: (user: AuthUser) => void;
@@ -90,7 +89,7 @@ const PasswordStrengthIndicator = ({ password }: { password: string }) => {
 };
 
 export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModalProps) {
-  const { signIn, signUp, resetPassword } = useAuth();
+  const { signIn, signInWithGoogle, signUp, resetPassword } = useAuth();
   const [loading, setLoading] = useState(false);
   const [sharedEmail, setSharedEmail] = useState("");
   const isUserTyping = useRef(false);
@@ -98,9 +97,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const recaptchaRef = useRef<ReCAPTCHA>(null);
   const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
-  const [isRecaptchaEnabled] = useState(
-    import.meta.env.MODE !== "testing" && !!import.meta.env.VITE_RECAPTCHA_SITE_KEY
-  );
+  const isRecaptchaEnabled = import.meta.env.MODE !== "testing" && !!import.meta.env.VITE_RECAPTCHA_SITE_KEY;
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -144,7 +141,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     watch: watchLogin,
   } = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
-        mode: "onBlur",
+    mode: "onBlur",
     defaultValues: {
       email: sharedEmail,
     },
@@ -158,7 +155,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     watch: watchRegister,
   } = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
-        mode: "onBlur",
+    mode: "onBlur",
     defaultValues: {
       email: sharedEmail,
     },
@@ -172,7 +169,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     watch: watchReset,
   } = useForm<z.infer<typeof resetSchema>>({
     resolver: zodResolver(resetSchema),
-        mode: "onBlur",
+    mode: "onBlur",
     defaultValues: {
       email: sharedEmail,
     },
@@ -265,6 +262,31 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     }
   };
 
+  // Handle Google login
+  const handleGoogleLogin = async (token: string) => {
+    setLoading(true);
+    setLoginError(null);
+    try {
+      const user = await signInWithGoogle(token);
+      onClose(user);
+
+      // Redirect the user to their edit page with panel state set to "home"
+      if (user && user.onelink) {
+        const formattedOnelink = formatOnelink(user.onelink);
+        navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
+      }
+    } catch (error) {
+      setLoginError((error as Error).message);
+      // Reset reCAPTCHA on error if enabled
+      if (isRecaptchaEnabled && recaptchaRef.current) {
+        recaptchaRef.current.reset();
+        setRecaptchaToken(null);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Handle register form submission
   const onSubmitRegister = async (data: z.infer<typeof registerSchema>) => {
     setLoading(true);
@@ -331,6 +353,63 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     }
   };
 
+  const renderReCaptcha = () => {
+    return (
+      <>
+        {isRecaptchaEnabled && (
+          <div className="flex justify-center">
+            <ReCAPTCHA
+              sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+              onChange={token => setRecaptchaToken(token)}
+              onExpired={() => setRecaptchaToken(null)}
+              ref={recaptchaRef}
+            />
+          </div>
+        )}
+      </>
+    );
+  };
+
+  const renderSignInWithGoogle = () => {
+    return (
+      <>
+        {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+          <>
+            <div className="relative flex items-center my-4">
+              <div className="flex-grow border-t border-gray-300"></div>
+              <span className="flex-shrink mx-4 text-gray-600 text-sm">or</span>
+              <div className="flex-grow border-t border-gray-300"></div>
+            </div>
+
+            <div data-testid="google-sign-in">
+              <GoogleLogin
+                onSuccess={credentialResponse => {
+                  if (credentialResponse.credential) {
+                    handleGoogleLogin(credentialResponse.credential);
+                  }
+                }}
+                onError={() => {
+                  setLoginError("Google login failed");
+                }}
+                useOneTap
+                type="standard"
+                theme="outline"
+                text="continue_with"
+                shape="rectangular"
+                width="100%"
+                locale="en"
+                size="large"
+                containerProps={{
+                  className: "flex justify-center",
+                }}
+              />
+            </div>
+          </>
+        )}
+      </>
+    );
+  };
+
   return (
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]"
@@ -385,7 +464,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               data-testid="login-email"
               autoComplete="email"
               {...registerLogin("email")}
-              onBlur={(e) => {
+              onBlur={e => {
                 registerLogin("email").onBlur(e);
                 trackGAEvent("Input", "AuthModal", "LoginEmailInput");
               }}
@@ -400,7 +479,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 data-testid="login-password"
                 autoComplete="current-password"
                 {...registerLogin("password")}
-                onBlur={(e) => {
+                onBlur={e => {
                   registerLogin("password").onBlur(e);
                   trackGAEvent("Input", "AuthModal", "LoginPasswordInput");
                 }}
@@ -418,14 +497,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 {showLoginPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
             </div>
-            {isRecaptchaEnabled && (
-              <ReCAPTCHA
-                sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
-                onChange={token => setRecaptchaToken(token)}
-                onExpired={() => setRecaptchaToken(null)}
-                ref={recaptchaRef}
-              />
-            )}
+            {renderReCaptcha()}
             <Button
               type="submit"
               className="w-full relative"
@@ -447,6 +519,8 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 "Sign In"
               )}
             </Button>
+
+            {renderSignInWithGoogle()}
           </form>
         )}
 
@@ -473,11 +547,11 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 autoComplete="username"
                 placeholder="your-name"
                 {...registerSignUp("onelink")}
-                onChange={(e) => {
+                onChange={e => {
                   registerSignUp("onelink").onChange(e);
                   handleOnelinkChange(e);
                 }}
-                onBlur={(e) => {
+                onBlur={e => {
                   registerSignUp("onelink").onBlur(e);
                   trackGAEvent("Input", "AuthModal", "RegisterOnelinkInput");
                 }}
@@ -509,7 +583,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               data-testid="register-email"
               autoComplete="email"
               {...registerSignUp("email")}
-              onBlur={(e) => {
+              onBlur={e => {
                 registerSignUp("email").onBlur(e);
                 trackGAEvent("Input", "AuthModal", "RegisterEmailInput");
               }}
@@ -525,7 +599,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                   data-testid="register-password"
                   autoComplete="new-password"
                   {...registerSignUp("password")}
-                  onBlur={(e) => {
+                  onBlur={e => {
                     registerSignUp("password").onBlur(e);
                     trackGAEvent("Input", "AuthModal", "RegisterPasswordInput");
                   }}
@@ -549,14 +623,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               </div>
               <PasswordStrengthIndicator password={registerPassword || ""} />
             </div>
-            {isRecaptchaEnabled && (
-              <ReCAPTCHA
-                sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
-                onChange={token => setRecaptchaToken(token)}
-                onExpired={() => setRecaptchaToken(null)}
-                ref={recaptchaRef}
-              />
-            )}
+            {renderReCaptcha()}
             <Button
               type="submit"
               className="w-full relative"
@@ -587,6 +654,9 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 "Create Account"
               )}
             </Button>
+
+            {renderSignInWithGoogle()}
+
             {urlStatus === "Unavailable" && onelinkInput && (
               <p className="text-xs text-center text-red-600" data-testid="url-unavailable-message">
                 This URL is already taken. Please choose another one.
@@ -633,19 +703,12 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                   data-testid="reset-email"
                   autoComplete="email"
                   {...registerReset("email")}
-                  onBlur={(e) => {
+                  onBlur={e => {
                     registerReset("email").onBlur(e);
                     trackGAEvent("Input", "AuthModal", "ResetEmailInput");
                   }}
                 />
-                {isRecaptchaEnabled && (
-                  <ReCAPTCHA
-                    sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
-                    onChange={token => setRecaptchaToken(token)}
-                    onExpired={() => setRecaptchaToken(null)}
-                    ref={recaptchaRef}
-                  />
-                )}
+                {renderReCaptcha()}
                 <Button
                   type="submit"
                   className="w-full relative"

@@ -9,7 +9,7 @@ import { toast } from "react-hot-toast";
 
 export function Editor() {
   const { onelink = "" } = useParams();
-  const { authUser, updateAuthUser } = useAuth();
+  const { authUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [authorized, setAuthorized] = useState(false);
   const { profile, setUser, setActivePanel } = useEditor();

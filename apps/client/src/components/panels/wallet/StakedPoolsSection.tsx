@@ -21,10 +21,11 @@ interface StakedPool {
 }
 
 interface StakedPoolsSectionProps {
+  loading?: boolean;
   onNavigateToExplore?: () => void;
 }
 
-export default function StakedPoolsSection({ onNavigateToExplore }: StakedPoolsSectionProps) {
+export default function StakedPoolsSection({ loading = false, onNavigateToExplore }: StakedPoolsSectionProps) {
   const [currentPage, setCurrentPage] = React.useState(1);
   const [selectedPool, setSelectedPool] = React.useState<StakedPool | null>(null);
   const [isPoolModalOpen, setIsPoolModalOpen] = React.useState(false);
@@ -191,6 +192,86 @@ export default function StakedPoolsSection({ onNavigateToExplore }: StakedPoolsS
     );
     return Math.max(0, days);
   };
+
+  // Skeleton Loading Component
+  const SkeletonLoader = () => (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 space-y-2 sm:space-y-0">
+        <div>
+          <div className="h-6 bg-gray-200 rounded animate-pulse w-40 mb-2"></div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+        </div>
+        <div className="flex items-center justify-between sm:justify-end space-x-4">
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-20"></div>
+          <div className="w-5 h-5 bg-gray-200 rounded animate-pulse"></div>
+        </div>
+      </div>
+
+      {/* Skeleton Pool Rows */}
+      <div className="space-y-0">
+        {Array.from({ length: poolsPerPage }).map((_, index) => {
+          const isLast = index === poolsPerPage - 1;
+          
+          return (
+            <div key={index} className="relative">
+              <div className={`flex items-center py-3 px-2 ${!isLast ? "border-b border-gray-100" : ""}`}>
+                {/* Left Zone - Thumbnail and Title */}
+                <div className="flex items-center space-x-3 flex-1 min-w-0" style={{ flexBasis: "56%" }}>
+                  <div className="w-10 h-10 bg-gray-200 rounded-lg animate-pulse flex-shrink-0"></div>
+                  <div className="flex-1 min-w-0">
+                    <div className="h-4 bg-gray-200 rounded animate-pulse w-32"></div>
+                  </div>
+                </div>
+
+                {/* Middle Zone - Stats Pills */}
+                <div className="hidden sm:flex items-center space-x-2 flex-shrink-0" style={{ flexBasis: "32%" }}>
+                  <div className="h-6 bg-gray-200 rounded-full animate-pulse w-12"></div>
+                  <div className="h-6 bg-gray-200 rounded-full animate-pulse w-10"></div>
+                  <div className="h-6 bg-gray-200 rounded-full animate-pulse w-8"></div>
+                </div>
+
+                {/* Mobile Stats - Show below on mobile */}
+                <div className="sm:hidden w-full mt-2">
+                  <div className="flex flex-wrap gap-1.5">
+                    <div className="h-6 bg-gray-200 rounded-full animate-pulse w-12"></div>
+                    <div className="h-6 bg-gray-200 rounded-full animate-pulse w-10"></div>
+                    <div className="h-6 bg-gray-200 rounded-full animate-pulse w-8"></div>
+                  </div>
+                </div>
+
+                {/* Right Zone - Actions */}
+                <div className="flex items-center space-x-1 flex-shrink-0 ml-2" style={{ flexBasis: "12%" }}>
+                  <div className="h-7 bg-gray-200 rounded-md animate-pulse w-12"></div>
+                  <div className="h-7 bg-gray-200 rounded-md animate-pulse w-12"></div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Skeleton Pagination */}
+      <div className="mt-4 flex flex-col sm:flex-row items-center justify-between space-y-3 sm:space-y-0">
+        <div className="h-9 bg-gray-200 rounded-lg animate-pulse w-20"></div>
+        <div className="flex items-center space-x-1 sm:space-x-2">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+          ))}
+        </div>
+        <div className="h-9 bg-gray-200 rounded-lg animate-pulse w-16"></div>
+      </div>
+
+      {/* Skeleton View All Link */}
+      <div className="mt-3 pt-3 border-t border-gray-200">
+        <div className="h-10 bg-gray-200 rounded animate-pulse w-full"></div>
+      </div>
+    </div>
+  );
+
+  // Show skeleton if loading
+  if (loading) {
+    return <SkeletonLoader />;
+  }
 
   if (allStakedPools.length === 0) {
     return (

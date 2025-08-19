@@ -7,16 +7,19 @@ import { sendPasswordResetEmail, sendEmailVerification } from "../utils/email/em
 import { hashPassword, comparePasswords } from "../utils/password";
 import { generateAccessToken } from "../utils/token";
 import { getFileUrl } from "../utils/fileUrlResolver";
+import { verifyGoogleToken } from "../utils/google-auth";
 import {
   registerSchema,
   loginSchema,
   passwordResetRequestSchema,
   processPasswordResetSchema,
 } from "../schemas/auth.schema";
+import { googleAuthSchema } from "../schemas/google-auth.schema";
 import { serialize } from "cookie";
 import { env } from "../env";
 import { addDays } from "date-fns";
 import { prisma } from "../services/DB";
+import type { User } from "@prisma/client";
 
 // Helper function to hash refresh tokens with SHA-256
 function hashRefreshToken(token: string): string {
@@ -63,6 +66,37 @@ function setRefreshTokenCookie(ctx: any, token: string, expiresAt?: Date) {
     : [String(existingCookies)];
 
   ctx.res.setHeader("Set-Cookie", [...cookiesArray, cookieString]);
+}
+
+// Helper function to handle token generation and cookie setting
+async function handleTokenGeneration(ctx: any, user: User, imageUrl: string | null) {
+  // Generate refresh token
+  const refreshToken = crypto.randomBytes(32).toString("hex");
+  const hashedRefreshToken = hashRefreshToken(refreshToken);
+
+  // Create refresh token in database
+  const token = await prisma.refreshToken.create({
+    data: {
+      userId: user.id,
+      token: hashedRefreshToken,
+      expiresAt: addDays(new Date(), 30), // 30 days
+    },
+  });
+
+  // Set refresh token cookie
+  setRefreshTokenCookie(ctx, refreshToken, token.expiresAt);
+
+  // Return user data and access token
+  return {
+    user: {
+      id: user.id,
+      email: user.email,
+      onelink: user.onelink || "",
+      role: user.role,
+      image: imageUrl,
+    },
+    accessToken: generateAccessToken({ id: user.id, email: user.email, role: user.role }),
+  };
 }
 
 export const authRouter = router({
@@ -124,6 +158,7 @@ export const authRouter = router({
         password: hashedPassword,
         remember_token,
         role: userRole,
+        theme: null,
       },
     });
 
@@ -536,5 +571,86 @@ export const authRouter = router({
         role: ctx.user.role,
       }),
     };
+  }),
+
+  // Google OAuth authentication
+  googleAuth: publicProcedure.input(googleAuthSchema).mutation(async ({ input, ctx }) => {
+    const { token } = input;
+
+    try {
+      // Verify Google token and get user info
+      const googleUser = await verifyGoogleToken(token);
+
+      if (!googleUser.email_verified) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Email not verified with Google",
+        });
+      }
+
+      // Check if user with this email exists
+      let user = await prisma.user.findUnique({
+        where: { email: googleUser.email },
+      });
+
+      if (!user) {
+        // User doesn't exist, create a new one
+        // Generate onelink from email (use part before @)
+        let onelink = googleUser.email.split("@")[0].toLowerCase();
+
+        // Clean onelink (remove special chars)
+        onelink = onelink.replace(/[^a-z0-9_-]/g, "");
+
+        // Check if onelink exists
+        const existingOnelink = await prisma.user.findFirst({
+          where: { onelink },
+        });
+
+        if (existingOnelink) {
+          // Append random string to make onelink unique
+          onelink = `${onelink}${Math.random().toString(36).substring(2, 6)}`;
+        }
+
+        // Generate a random password
+        const randomPassword = crypto.randomBytes(16).toString("hex");
+        const hashedPassword = await hashPassword(randomPassword);
+
+        // Create user
+        let userRole = "user";
+        if (env.isDevelopment) {
+          const totalUsersCount = await prisma.user.count();
+          const isFirstUser = totalUsersCount === 0;
+          userRole = isFirstUser ? "user,admin" : "user";
+        }
+
+        user = await prisma.user.create({
+          data: {
+            onelink,
+            name: googleUser.name || onelink,
+            email: googleUser.email,
+            password: hashedPassword,
+            email_verified_at: new Date(), // Email is already verified with Google
+            image: null,
+            role: userRole,
+            theme: null,
+          },
+        });
+      }
+
+      // Resolve user image URL
+      const imageUrl = await getFileUrl({
+        legacyImageField: user.image,
+        imageFileId: user.image_file_id,
+      });
+
+      // Return user data and access token using our utility function
+      return handleTokenGeneration(ctx, user, imageUrl);
+    } catch (error) {
+      console.error("Google authentication error:", error);
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: error instanceof Error ? error.message : "Google authentication failed",
+      });
+    }
   }),
 });

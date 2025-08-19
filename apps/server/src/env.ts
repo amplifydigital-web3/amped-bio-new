@@ -110,6 +110,7 @@ export const env = cleanEnv(process.env, {
     desc: "Secret key for Google reCAPTCHA verification",
     default: "",
   }),
+
   // File upload size limits (in MB)
   UPLOAD_LIMIT_BACKGROUND_MB: num({
     desc: "Maximum file size in MB for background uploads",
@@ -135,5 +136,15 @@ export const env = cleanEnv(process.env, {
     desc: "Maximum file size in MB for collection thumbnail uploads",
     default: 2,
     example: "2",
+  }),
+
+  // oauth vars
+  GOOGLE_CLIENT_SECRET: str({
+    desc: "Google OAuth 2.0 Client Secret",
+    default: "",
+  }),
+  GOOGLE_CLIENT_ID: str({
+    desc: "Google OAuth 2.0 Client ID",
+    default: "",
   }),
 });
