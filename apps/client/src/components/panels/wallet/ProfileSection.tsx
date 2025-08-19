@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Copy, Check, User, Globe, ChevronDown, Settings } from "lucide-react";
+import { Copy, Check, User, Globe, ChevronDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Suspense } from "react";
@@ -275,7 +275,7 @@ export function ProfileSection({
             </div>
 
             {/* Settings Button */}
-            <button
+            {/* <button
               onClick={onProfileOptionsClick}
               className={`p-2 text-gray-400 hover:text-gray-600 hover:bg-white rounded-lg transition-colors duration-200 flex-shrink-0 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
               title="Wallet Settings"
@@ -283,7 +283,7 @@ export function ProfileSection({
               disabled={loading}
             >
               <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
+            </button> */}
           </div>
         </div>
 

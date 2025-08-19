@@ -168,7 +168,7 @@ export function View() {
     }
   };
 
-  if (loading || !profile || !theme) {
+  if (loading || !profile) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-white">
         <img src={AMPLIFY_FULL_K} alt="Amplify Logo" className="h-12 mb-6" />
@@ -197,7 +197,7 @@ export function View() {
         onelink={normalizedOnelink}
         profile={profile}
         blocks={blocks}
-        theme={theme}
+        theme={theme ?? initialState.theme}
       />
 
       {/* Edit Button */}
