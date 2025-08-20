@@ -1,20 +1,19 @@
-import { Button } from "@/components/ui/Button";
+import {
+  Gift,
+  ArrowLeftRight,
+  Zap,
+  ArrowRight,
+  Check,
+} from "lucide-react";
+import CoinbaseIcon from "@/assets/icons/coinbase.png";
+import MoonpayIcon from "@/assets/icons/moonpay.png";
+import OnRampIcon from "@/assets/icons/onramp.png";
+import { useState, useEffect } from "react";
+import { useFundWalletDialog } from "../hooks/useFundWalletDialog";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
-import { DollarSign, CheckCircle, ExternalLink, Clock } from "lucide-react";
-import { DotLottieReact } from "@lottiefiles/dotlottie-react";
-import GiftLottie from "@/assets/lottie/gift.lottie";
-import CoinbaseIcon from "@/assets/icons/coinbase.png";
-import OnRampIcon from "@/assets/icons/onramp.png";
-import MoonPayIcon from "@/assets/icons/moonpay.png";
-import { useState, useEffect } from "react";
-import { useFundWalletDialog } from "../hooks/useFundWalletDialog";
 
 // Component to display countdown timer
 function CountdownTimer({ targetDate, onComplete }: { targetDate: Date; onComplete?: () => void }) {
@@ -78,13 +77,11 @@ function CountdownTimer({ targetDate, onComplete }: { targetDate: Date; onComple
 interface FundWalletDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  openReceiveModal: () => void;
 }
 
-function FundWalletDialog({ open, onOpenChange }: FundWalletDialogProps) {
+function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDialogProps) {
   const {
-    showSuccessDialog,
-    setShowSuccessDialog,
-    txInfo,
     faucetAmount,
     isLoadingFaucetAmount,
     claimingFaucet,
@@ -97,174 +94,258 @@ function FundWalletDialog({ open, onOpenChange }: FundWalletDialogProps) {
     onOpenChange,
   });
 
+  const [rewardClaimed, setRewardClaimed] = useState(!faucetInfo.canRequestNow);
+
+  useEffect(() => {
+    setRewardClaimed(!faucetInfo.canRequestNow);
+  }, [faucetInfo.canRequestNow]);
+
+  const handleClaimDailyReward = async () => {
+    await handleClaim();
+    setRewardClaimed(true);
+  };
+
+  const handleBridge = () => {
+    window.open(
+      "https://bridge.dev.revolutionchain.io/bridge?address=" + (walletAddress || ""),
+      "_blank",
+      "width=600,height=700,left=200,top=200"
+    );
+  };
+
+  const handleManualDeposit = () => {
+    onOpenChange(false);
+    openReceiveModal();
+  };
+
   return (
     <>
-      {/* Success Dialog */}
-      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
-        <DialogContent className="max-w-sm rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-green-600" />
-              Transaction Sent
-            </DialogTitle>
-            <DialogDescription>
-              Your daily faucet tokens claim has been submitted to the network and is awaiting
-              confirmation.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-              <p className="text-xs text-gray-500 mb-1">Transaction ID (Pending):</p>
-              <p className="text-sm font-mono break-all">{txInfo?.txid}</p>
-              <p className="text-xs text-amber-600 mt-2">
-                Note: The transaction is being processed and may take a few minutes to be confirmed.
-              </p>
-            </div>
-          </div>
-          <DialogFooter className="flex gap-2 sm:justify-between">
-            <Button variant="outline" onClick={() => setShowSuccessDialog(false)}>
-              Close
-            </Button>
-            <Button
-              onClick={() => window.open(`https://dev.revoscan.io/tx/${txInfo?.txid}`, "_blank")}
-              className="gap-2"
-            >
-              View in Explorer <ExternalLink className="w-4 h-4" />
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Main Dialog */}
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-sm rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>Fund Wallet</DialogTitle>
-            <DialogDescription>Choose a method to fund your wallet.</DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-4 py-4">
-            <Button
-              variant="outline"
-              className={`h-auto py-4 flex flex-col items-start space-y-1 relative
-                ${
-                  faucetInfo.canRequestNow
-                    ? "bg-green-50 hover:bg-green-100 text-green-700 border-green-200 hover:border-green-300"
-                    : "bg-gray-50 text-gray-500 border-gray-200"
-                } 
-                transition-all duration-200 ease-in-out`}
-              onClick={handleClaim}
-              disabled={claimingFaucet || !faucetInfo.canRequestNow}
-            >
-              <div className="w-6 h-6 flex items-center justify-start overflow-visible">
-                {faucetInfo.canRequestNow ? (
-                  <DotLottieReact
-                    src={GiftLottie}
-                    loop
-                    autoplay
-                    style={{
-                      width: "32px",
-                      height: "32px",
-                      marginLeft: "-3px",
-                      marginTop: "-3px",
-                    }}
-                  />
-                ) : (
-                  <div className="w-6 h-6 flex items-center justify-center">
-                    <Clock className="w-5 h-5" />
+        <DialogContent className="max-w-md rounded-xl p-0 bg-white">
+          {/* Modal Header */}
+          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <h2 className="text-xl font-bold text-gray-900">Fund Your Account</h2>
+          </div>
+          <div className="rounded-xl shadow-2xl max-w-md w-full p-6">
+            {/* Modal Content */}
+            <div className="space-y-4">
+              {/* Daily Reward Notification Bar */}
+              <div
+                className={`rounded-lg p-4  transition-all duration-500 ${
+                  rewardClaimed
+                    ? "bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 "
+                    : "bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div
+                      className={`p-2 rounded-lg transition-all duration-300 ${
+                        rewardClaimed ? "bg-blue-100 animate-bounce" : "bg-green-100"
+                      }`}
+                    >
+                      {rewardClaimed ? (
+                        <Check className="w-5 h-5 text-blue-600" />
+                      ) : (
+                        <Gift className="w-5 h-5 text-green-600" />
+                      )}
+                    </div>
+                    <div>
+                      <h3
+                        className={`font-semibold transition-colors duration-300 ${
+                          rewardClaimed ? "text-blue-900" : "text-green-900"
+                        }`}
+                      >
+                        {isLoadingFaucetAmount
+                          ? "Loading Faucet Info..."
+                          : faucetInfo.canRequestNow
+                            ? "Daily Reward Available!"
+                            : "Faucet on Cooldown"}
+                      </h3>
+                      <p
+                        className={`text-sm transition-colors duration-300 ${
+                          rewardClaimed ? "text-blue-700" : "text-green-700"
+                        }`}
+                      >
+                        {isLoadingFaucetAmount ? (
+                          "Loading faucet amount..."
+                        ) : !faucetInfo.canRequestNow && faucetInfo.nextAvailableDate ? (
+                          <>
+                            <span className="text-amber-600 font-medium">Available in: </span>
+                            <CountdownTimer
+                              targetDate={new Date(faucetInfo.nextAvailableDate)}
+                              onComplete={() => {
+                                // Updates the state to enable the button when the timer ends
+                                const newFaucetInfo = { ...faucetInfo, canRequestNow: true };
+                                setFaucetInfo(newFaucetInfo);
+                              }}
+                            />
+                          </>
+                        ) : faucetAmount ? (
+                          `Get ${faucetAmount.amount} ${faucetAmount.currency} tokens every day`
+                        ) : (
+                          "Get your free tokens every day"
+                        )}
+                      </p>
+                    </div>
                   </div>
-                )}
-              </div>
-              <span className="font-medium">
-                {faucetInfo.canRequestNow ? "Claim Daily Faucet" : "Faucet on Cooldown"}
-              </span>
-              <p className="text-xs text-gray-500">
-                {isLoadingFaucetAmount ? (
-                  "Loading faucet amount..."
-                ) : !faucetInfo.canRequestNow && faucetInfo.nextAvailableDate ? (
-                  <>
-                    <span className="text-amber-600 font-medium">Available in: </span>
-                    <CountdownTimer
-                      targetDate={new Date(faucetInfo.nextAvailableDate)}
-                      onComplete={() => {
-                        // Updates the state to enable the button when the timer ends
-                        const newFaucetInfo = { ...faucetInfo, canRequestNow: true };
-                        setFaucetInfo(newFaucetInfo);
-                      }}
-                    />
-                  </>
-                ) : faucetAmount ? (
-                  `Get ${faucetAmount.amount} ${faucetAmount.currency} tokens every day`
-                ) : (
-                  "Get your free tokens every day"
-                )}
-              </p>
-              {claimingFaucet && (
-                <div className="absolute inset-0 flex items-center justify-center bg-white/70 rounded-lg backdrop-blur-[1px]">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-700"></div>
+                  <button
+                    onClick={handleClaimDailyReward}
+                    disabled={claimingFaucet || !faucetInfo.canRequestNow}
+                    className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 flex items-center space-x-2 ${
+                      !faucetInfo.canRequestNow
+                        ? "bg-blue-600 text-white cursor-default"
+                        : claimingFaucet
+                          ? "bg-gray-400 text-white cursor-not-allowed"
+                          : "bg-green-600 hover:bg-green-700 text-white hover:scale-105"
+                    }`}
+                  >
+                    {claimingFaucet ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Claiming...</span>
+                      </>
+                    ) : !faucetInfo.canRequestNow ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span>Claimed!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Gift className="w-4 h-4" />
+                        <span>Claim</span>
+                      </>
+                    )}
+                  </button>
                 </div>
-              )}
-            </Button>
-            <Button
-              variant="outline"
-              className="h-auto py-4 flex flex-col items-start space-y-1 opacity-60 cursor-not-allowed"
-              disabled
-              onClick={() =>
-                window.open(
-                  "https://bridge.dev.revolutionchain.io/bridge?address=" + (walletAddress || ""),
-                  "_blank",
-                  "width=600,height=700,left=200,top=200"
-                )
-              }
-            >
-              <DollarSign className="w-6 h-6" />
-              <span className="font-medium">Bridge{" "}
-                <span className="ml-2 text-xs bg-gray-200 text-gray-600 rounded px-2 py-0.5">
-                  Soon
-                </span></span>
-              <p className="text-xs text-gray-500">Transfer crypto from other networks</p>
-            </Button>
-            <Button
-              variant="outline"
-              className="h-auto py-4 flex flex-col items-start space-y-1 opacity-60 cursor-not-allowed"
-              disabled
-            >
-              <img src={OnRampIcon} alt="Onramp" className="w-6 h-6" />
-              <span className="font-medium flex items-center">
-                Onramp{" "}
-                <span className="ml-2 text-xs bg-gray-200 text-gray-600 rounded px-2 py-0.5">
-                  Soon
-                </span>
-              </span>
-              <p className="text-xs text-gray-500">Buy crypto with fiat currency</p>
-            </Button>
-            <Button
-              variant="outline"
-              className="h-auto py-4 flex flex-col items-start space-y-1 opacity-60 cursor-not-allowed"
-              disabled
-            >
-              <img src={MoonPayIcon} alt="MoonPay" className="w-6 h-6" />
-              <span className="font-medium flex items-center">
-                MoonPay{" "}
-                <span className="ml-2 text-xs bg-gray-200 text-gray-600 rounded px-2 py-0.5">
-                  Soon
-                </span>
-              </span>
-              <p className="text-xs text-gray-500">Buy crypto with various payment methods</p>
-            </Button>
-            <Button
-              variant="outline"
-              className="h-auto py-4 flex flex-col items-start space-y-1 opacity-60 cursor-not-allowed"
-              disabled
-            >
-              <img src={CoinbaseIcon} alt="Coinbase" className="w-6 h-6" />
-              <span className="font-medium flex items-center">
-                Coinbase{" "}
-                <span className="ml-2 text-xs bg-gray-200 text-gray-600 rounded px-2 py-0.5">
-                  Soon
-                </span>
-              </span>
-              <p className="text-xs text-gray-500">Connect your Coinbase account</p>
-            </Button>
+              </div>
+
+              {/* Bridge */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow duration-200">
+                <button
+                  onClick={handleBridge}
+                  disabled={true}
+                  className="w-full flex items-center justify-between opacity-50 cursor-not-allowed"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <ArrowLeftRight className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="font-semibold text-gray-900 flex items-center">
+                        Bridge{" "}
+                        <span className="ml-2 px-2 py-1 text-xs font-semibold text-white bg-blue-500 rounded-full">
+                          Soon
+                        </span>
+                      </h3>
+                      <p className="text-sm text-gray-600">Bridge from another chain</p>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+
+              {/* Centralized Exchange */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow duration-200">
+                <button
+                  onClick={handleManualDeposit}
+                  className="w-full flex items-center justify-between"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="p-2 bg-yellow-100 rounded-lg">
+                      <Zap className="w-6 h-6 text-yellow-600" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="font-semibold text-gray-900">Centralized Exchange</h3>
+                      <p className="text-sm text-gray-600">Transfer from a centralized exchange</p>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+
+              {/* Coinbase */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow duration-200">
+                <button
+                  disabled={true}
+                  className="w-full flex items-center justify-between opacity-50 cursor-not-allowed"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <img src={CoinbaseIcon} alt="Coinbase" className="w-6 h-6" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="font-semibold text-gray-900 flex items-center">
+                        Coinbase{" "}
+                        <span className="ml-2 px-2 py-1 text-xs font-semibold text-white bg-blue-500 rounded-full">
+                          Soon
+                        </span>
+                      </h3>
+                      <p className="text-sm text-gray-600">Instant · Fees 0.5 — 2.5%</p>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+
+              {/* Moonpay */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow duration-200">
+                <button
+                  disabled={true}
+                  className="w-full flex items-center justify-between opacity-50 cursor-not-allowed"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <img src={MoonpayIcon} alt="Moonpay" className="w-6 h-6" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="font-semibold text-gray-900 flex items-center">
+                        Moonpay{" "}
+                        <span className="ml-2 px-2 py-1 text-xs font-semibold text-white bg-blue-500 rounded-full">
+                          Soon
+                        </span>
+                      </h3>
+                      <p className="text-sm text-gray-600">Instant · Fees 0.5 — 2.5%</p>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+
+              {/* OnRamp */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow duration-200">
+                <button
+                  disabled={true}
+                  className="w-full flex items-center justify-between opacity-50 cursor-not-allowed"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <img src={OnRampIcon} alt="OnRamp" className="w-6 h-6" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="font-semibold text-gray-900 flex items-center">
+                        OnRamp{" "}
+                        <span className="ml-2 px-2 py-1 text-xs font-semibold text-white bg-blue-500 rounded-full">
+                          Soon
+                        </span>
+                      </h3>
+                      <p className="text-sm text-gray-600">Instant · Fees 0.5 — 2.5%</p>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+            </div>
+            {/* Footer */}
+            <div className="p-6 pt-6 text-center">
+              <button
+                onClick={handleManualDeposit}
+                className="text-sm text-gray-600 hover:text-gray-800 underline transition-colors duration-200"
+              >
+                Deposit Funds Manually
+              </button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

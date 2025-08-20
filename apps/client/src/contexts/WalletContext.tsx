@@ -29,6 +29,8 @@ type WalletContextType = {
   }>;
   isUSD: boolean;
   setIsUSD: (value: boolean) => void;
+
+  updateBalanceDelayed: () => void;
 };
 
 const WalletContext = createContext<WalletContextType>({
@@ -37,6 +39,8 @@ const WalletContext = createContext<WalletContextType>({
 
   isUSD: false,
   setIsUSD: () => {},
+
+  updateBalanceDelayed: () => {},
 });
 
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
@@ -97,9 +101,9 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    console.info("Checking Web3Auth initialization status...", dataWeb3Auth?.web3Auth?.status);
     if (!dataWeb3Auth) return;
-
+    // console.info("Checking Web3Auth initialization status...", dataWeb3Auth?.web3Auth?.status);
+    
     if (
       dataWeb3Auth.web3Auth?.status &&
       ["ready", "connected", "initialized", "connecting"].includes(
@@ -153,6 +157,12 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [authUser, account.status, web3AuthDisconnect]);
 
+  const updateBalanceDelayed = () => {
+    setTimeout(() => {
+      balance?.refetch();
+    }, 2000);
+  }
+
   return (
     <WalletContext.Provider
       value={{
@@ -162,6 +172,8 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         balance,
         isUSD,
         setIsUSD,
+
+        updateBalanceDelayed
       }}
     >
       {children}
