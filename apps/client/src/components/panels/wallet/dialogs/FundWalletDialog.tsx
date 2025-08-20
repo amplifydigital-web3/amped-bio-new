@@ -1,8 +1,4 @@
 import {
-  CheckCircle,
-  ExternalLink,
-  Clock,
-  X,
   Gift,
   ArrowLeftRight,
   Zap,
@@ -11,16 +7,12 @@ import {
 } from "lucide-react";
 import CoinbaseIcon from "@/assets/icons/coinbase.png";
 import MoonpayIcon from "@/assets/icons/moonpay.png";
+import OnRampIcon from "@/assets/icons/onramp.png";
 import { useState, useEffect } from "react";
 import { useFundWalletDialog } from "../hooks/useFundWalletDialog";
-import { Button } from "@/components/ui/Button";
 import {
   Dialog,
   DialogContent,
-  DialogTitle,
-  DialogDescription,
-  DialogHeader,
-  DialogFooter,
 } from "@/components/ui/dialog";
 
 // Component to display countdown timer
@@ -310,6 +302,30 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
                     <div className="text-left">
                       <h3 className="font-semibold text-gray-900 flex items-center">
                         Moonpay{" "}
+                        <span className="ml-2 px-2 py-1 text-xs font-semibold text-white bg-blue-500 rounded-full">
+                          Soon
+                        </span>
+                      </h3>
+                      <p className="text-sm text-gray-600">Instant · Fees 0.5 — 2.5%</p>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+
+              {/* OnRamp */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow duration-200">
+                <button
+                  disabled={true}
+                  className="w-full flex items-center justify-between opacity-50 cursor-not-allowed"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <img src={OnRampIcon} alt="OnRamp" className="w-6 h-6" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="font-semibold text-gray-900 flex items-center">
+                        OnRamp{" "}
                         <span className="ml-2 px-2 py-1 text-xs font-semibold text-white bg-blue-500 rounded-full">
                           Soon
                         </span>

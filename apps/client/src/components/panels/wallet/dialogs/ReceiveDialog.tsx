@@ -2,6 +2,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Copy, Check } from "lucide-react";
 import { useState } from "react";
 import { useAccount } from "wagmi";
+import { QRCodeSVG } from "qrcode.react";
 
 interface ReceiveDialogProps {
   open: boolean;
@@ -72,13 +73,10 @@ function ReceiveDialog({ open, onOpenChange }: ReceiveDialogProps) {
             <div className="text-center">
               <div className="inline-block p-4 bg-white rounded-xl border-2 border-gray-100 shadow-sm">
                 {address ? (
-                  <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(address)}`}
-                    alt="Wallet Address QR Code"
-                    width={160}
-                    height={160}
+                  <QRCodeSVG
+                    value={address}
+                    size={160}
                     className="block mx-auto"
-                    style={{ imageRendering: "pixelated" }}
                   />
                 ) : (
                   <div className="text-gray-400">No address available</div>

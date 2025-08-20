@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import {
@@ -11,11 +11,12 @@ import {
 import { ArrowUpRight, DollarSign, User, Wallet, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useBalance, useAccount, useSendTransaction, useFeeData } from "wagmi";
+import { useSendTransaction, useFeeData } from "wagmi";
 import { parseEther, formatEther } from "viem";
 import { z } from "zod";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import SentLottie from "@/assets/lottie/sent.lottie";
+import { useWalletContext } from "@/contexts/WalletContext";
 
 interface SendDialogProps {
   open: boolean;
@@ -67,6 +68,7 @@ interface UseSendDialogOptions {
 
 // Custom hook to manage dialog state and transaction logic
 function useSendDialog(options?: UseSendDialogOptions) {
+  const wallet = useWalletContext();
   // Dialog state
   const [isOpen, setIsOpen] = useState(false);
   const [transactionStatus, setTransactionStatus] = useState<
@@ -75,19 +77,13 @@ function useSendDialog(options?: UseSendDialogOptions) {
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
   const [estimatedGasFee, setEstimatedGasFee] = useState<string | null>(null);
 
-  // Use wagmi hooks to get wallet data
-  const { address } = useAccount();
-  const { data: balanceData, isLoading: isBalanceLoading } = useBalance({
-    address,
-  });
-
   // Get fee data for gas estimation
   const { data: feeData } = useFeeData();
 
   // Create schema with current max balance
   const transactionSchema = useMemo(
-    () => createTransactionSchema(balanceData?.formatted),
-    [balanceData?.formatted]
+    () => createTransactionSchema(wallet.balance?.data?.formatted),
+    [wallet.balance?.data?.formatted]
   );
 
   // Set up form with zod validation
@@ -171,6 +167,8 @@ function useSendDialog(options?: UseSendDialogOptions) {
       setTimeout(() => {
         reset();
         setIsOpen(false);
+
+        wallet.updateBalanceDelayed(); // Update balance after transaction
       }, 3000); // Give user time to see success state
     } else if (sendError) {
       console.error("Transaction failed:", sendError);
@@ -190,8 +188,8 @@ function useSendDialog(options?: UseSendDialogOptions) {
 
   // Handle sending max amount
   const handleSendAll = () => {
-    if (balanceData?.formatted) {
-      setValue("amount", balanceData.formatted, { shouldValidate: true });
+    if (wallet.balance?.data?.formatted) {
+      setValue("amount", wallet.balance.data.formatted, { shouldValidate: true });
     }
   };
 
@@ -233,8 +231,6 @@ function useSendDialog(options?: UseSendDialogOptions) {
     transactionStatus,
     setTransactionStatus,
     transactionHash,
-    balanceData,
-    isBalanceLoading,
     estimatedGasFee,
 
     // Form
@@ -262,10 +258,9 @@ function useSendDialog(options?: UseSendDialogOptions) {
 }
 
 function SendDialog({ open, onOpenChange, onSend }: SendDialogProps) {
+  const wallet = useWalletContext();
   // Use our custom hook for dialog and transaction management
   const {
-    balanceData,
-    isBalanceLoading,
     register,
     errors,
     isValid,
@@ -331,7 +326,7 @@ function SendDialog({ open, onOpenChange, onSend }: SendDialogProps) {
               <div className="flex items-center space-x-1">
                 <Wallet className="w-4 h-4 text-blue-600" />
                 <span className="font-semibold text-blue-900">
-                  {balanceData?.formatted || "0"} {balanceData?.symbol || "REVO"}
+                  {wallet.balance?.data?.formatted || "0"} {wallet.balance?.data?.symbol || "REVO"}
                 </span>
               </div>
             </div>
@@ -339,12 +334,12 @@ function SendDialog({ open, onOpenChange, onSend }: SendDialogProps) {
               <div className="flex justify-between items-center pt-2 border-t border-blue-200">
                 <span className="text-sm font-medium text-blue-700">After Transaction</span>
                 <span className="font-semibold text-blue-900">
-                  {balanceData?.formatted && sendAmount
-                    ? (parseFloat(balanceData.formatted) - parseFloat(sendAmount))
+                  {wallet.balance?.data?.formatted && sendAmount
+                    ? (parseFloat(wallet.balance.data.formatted) - parseFloat(sendAmount))
                         .toFixed(18)
                         .replace(/\.?0+$/, "")
                     : "0"}{" "}
-                  {balanceData?.symbol || "REVO"}
+                  {wallet.balance?.data?.symbol || "REVO"}
                 </span>
               </div>
             )}
@@ -373,7 +368,7 @@ function SendDialog({ open, onOpenChange, onSend }: SendDialogProps) {
           {/* Amount */}
           <div className="space-y-3">
             <label className="text-sm font-semibold text-gray-900">
-              Amount ({balanceData?.symbol ?? "REVO"})
+              Amount ({wallet.balance?.data?.symbol ?? "REVO"})
             </label>
             <div className="relative w-full">
               <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -383,7 +378,7 @@ function SendDialog({ open, onOpenChange, onSend }: SendDialogProps) {
                 {...register("amount")}
                 step="0.000000000000000001"
                 min="0"
-                max={balanceData?.formatted ?? "0"}
+                max={wallet.balance?.data?.formatted ?? "0"}
                 className="w-full pl-10 pr-20 h-12 text-lg font-semibold border-2 focus:border-blue-500 bg-gray-50 focus:bg-white transition-all duration-200"
               />
               <Button
@@ -414,7 +409,7 @@ function SendDialog({ open, onOpenChange, onSend }: SendDialogProps) {
                     {parseFloat(sendAmount)
                       .toFixed(18)
                       .replace(/\.?0+$/, "")}{" "}
-                    {balanceData?.symbol ?? "REVO"}
+                    {wallet.balance?.data?.symbol ?? "REVO"}
                   </span>
                 </div>
                 <div className="flex justify-between">
