@@ -103,7 +103,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
     if (!dataWeb3Auth) return;
     // console.info("Checking Web3Auth initialization status...", dataWeb3Auth?.web3Auth?.status);
-    
+
     if (
       dataWeb3Auth.web3Auth?.status &&
       ["ready", "connected", "initialized", "connecting"].includes(
@@ -161,7 +161,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     setTimeout(() => {
       balance?.refetch();
     }, 2000);
-  }
+  };
 
   return (
     <WalletContext.Provider
@@ -173,7 +173,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         isUSD,
         setIsUSD,
 
-        updateBalanceDelayed
+        updateBalanceDelayed,
       }}
     >
       {children}

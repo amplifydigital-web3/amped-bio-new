@@ -25,7 +25,10 @@ interface StakedPoolsSectionProps {
   onNavigateToExplore?: () => void;
 }
 
-export default function StakedPoolsSection({ loading = false, onNavigateToExplore }: StakedPoolsSectionProps) {
+export default function StakedPoolsSection({
+  loading = false,
+  onNavigateToExplore,
+}: StakedPoolsSectionProps) {
   const [currentPage, setCurrentPage] = React.useState(1);
   const [selectedPool, setSelectedPool] = React.useState<StakedPool | null>(null);
   const [isPoolModalOpen, setIsPoolModalOpen] = React.useState(false);
@@ -211,12 +214,17 @@ export default function StakedPoolsSection({ loading = false, onNavigateToExplor
       <div className="space-y-0">
         {Array.from({ length: poolsPerPage }).map((_, index) => {
           const isLast = index === poolsPerPage - 1;
-          
+
           return (
             <div key={index} className="relative">
-              <div className={`flex items-center py-3 px-2 ${!isLast ? "border-b border-gray-100" : ""}`}>
+              <div
+                className={`flex items-center py-3 px-2 ${!isLast ? "border-b border-gray-100" : ""}`}
+              >
                 {/* Left Zone - Thumbnail and Title */}
-                <div className="flex items-center space-x-3 flex-1 min-w-0" style={{ flexBasis: "56%" }}>
+                <div
+                  className="flex items-center space-x-3 flex-1 min-w-0"
+                  style={{ flexBasis: "56%" }}
+                >
                   <div className="w-10 h-10 bg-gray-200 rounded-lg animate-pulse flex-shrink-0"></div>
                   <div className="flex-1 min-w-0">
                     <div className="h-4 bg-gray-200 rounded animate-pulse w-32"></div>
@@ -224,7 +232,10 @@ export default function StakedPoolsSection({ loading = false, onNavigateToExplor
                 </div>
 
                 {/* Middle Zone - Stats Pills */}
-                <div className="hidden sm:flex items-center space-x-2 flex-shrink-0" style={{ flexBasis: "32%" }}>
+                <div
+                  className="hidden sm:flex items-center space-x-2 flex-shrink-0"
+                  style={{ flexBasis: "32%" }}
+                >
                   <div className="h-6 bg-gray-200 rounded-full animate-pulse w-12"></div>
                   <div className="h-6 bg-gray-200 rounded-full animate-pulse w-10"></div>
                   <div className="h-6 bg-gray-200 rounded-full animate-pulse w-8"></div>
@@ -240,7 +251,10 @@ export default function StakedPoolsSection({ loading = false, onNavigateToExplor
                 </div>
 
                 {/* Right Zone - Actions */}
-                <div className="flex items-center space-x-1 flex-shrink-0 ml-2" style={{ flexBasis: "12%" }}>
+                <div
+                  className="flex items-center space-x-1 flex-shrink-0 ml-2"
+                  style={{ flexBasis: "12%" }}
+                >
                   <div className="h-7 bg-gray-200 rounded-md animate-pulse w-12"></div>
                   <div className="h-7 bg-gray-200 rounded-md animate-pulse w-12"></div>
                 </div>
@@ -255,7 +269,10 @@ export default function StakedPoolsSection({ loading = false, onNavigateToExplor
         <div className="h-9 bg-gray-200 rounded-lg animate-pulse w-20"></div>
         <div className="flex items-center space-x-1 sm:space-x-2">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+            <div
+              key={i}
+              className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-200 rounded-lg animate-pulse"
+            ></div>
           ))}
         </div>
         <div className="h-9 bg-gray-200 rounded-lg animate-pulse w-16"></div>

@@ -10,12 +10,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import AWS from "aws-sdk"; // Import AWS SDK for the getSignedUrlPromise method
 import crypto from "crypto";
 import { env } from "../env";
-import {
-  ALLOWED_AVATAR_FILE_TYPES,
-  ALLOWED_BACKGROUND_FILE_TYPES,
-  ALLOWED_BACKGROUND_FILE_EXTENSIONS,
-  ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS,
-} from "@ampedbio/constants";
+import { ALLOWED_AVATAR_FILE_TYPES, ALLOWED_BACKGROUND_FILE_TYPES } from "@ampedbio/constants";
 
 export type FileCategory = "profiles" | "backgrounds" | "category";
 export type S3Operation = "getObject" | "putObject" | "deleteObject";
@@ -226,18 +221,14 @@ class S3Service {
     // Get allowed file types and size limit based on category
     let allowedTypes: string[];
     let maxSize: number;
-    let allowedExtensions: string[];
 
     // Set validation rules based on file category
     if (category === "profiles") {
       allowedTypes = ALLOWED_AVATAR_FILE_TYPES;
-      maxSize = env.UPLOAD_LIMIT_PROFILE_PHOTO_MB * 1024 * 1024;
-      allowedExtensions = ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS;
+      maxSize = env.UPLOAD_LIMIT_PROFILE_PHOTO_MB;
     } else if (category === "backgrounds") {
       allowedTypes = ALLOWED_BACKGROUND_FILE_TYPES;
-      maxSize = env.UPLOAD_LIMIT_BACKGROUND_MB * 1024 * 1024;
-      // eslint-disable-next-line unused-imports/no-unused-vars
-      allowedExtensions = ALLOWED_BACKGROUND_FILE_EXTENSIONS;
+      maxSize = env.UPLOAD_LIMIT_BACKGROUND_MB;
     } else {
       // Invalid category
       return {

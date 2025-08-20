@@ -216,7 +216,7 @@ export function ProfileSection({
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => !loading && setDropdownOpen(!dropdownOpen)}
-                className={`flex items-center space-x-2 px-3 py-2 rounded-lg border transition-colors duration-200 ${getNetworkInfo(currentNetwork).bgColor} border-gray-200 hover:shadow-sm ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`flex items-center space-x-2 px-3 py-2 rounded-lg border transition-colors duration-200 ${getNetworkInfo(currentNetwork).bgColor} border-gray-200 hover:shadow-sm ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
                 title="Switch network"
                 disabled={loading}
               >

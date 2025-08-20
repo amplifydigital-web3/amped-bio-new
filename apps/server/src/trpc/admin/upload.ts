@@ -85,7 +85,7 @@ const confirmAdminThemeBackgroundSchema = z.object({
 });
 
 export const adminUploadRouter = router({
-  // Generate a presigned URL for uploading theme category image (admin only)
+  // Generate a presigned URL for uploading theme collection image (admin only)
   requestThemeCollectionImagePresignedUrl: adminProcedure
     .input(requestThemeCollectionImageSchema)
     .mutation(async ({ input }) => {

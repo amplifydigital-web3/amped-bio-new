@@ -1,12 +1,14 @@
 Project: Amped Bio
 
 Core Mandates:
+
 - Adherence to Conventions: Always prioritize and strictly follow project conventions (naming, formatting, structure, architectural patterns). Analyze surrounding code, tests, and configuration first.
 - Language: Write all new code, comments, and UI texts exclusively in English.
 - Focus & Scope: Address only the user's explicit request. Do not create temporary test scripts or exceed the clear scope of the request.
 - Clarity & Planning: For ambiguous or complex requests, explain your proposed plan briefly before proceeding.
 
 Tooling and Libraries:
+
 - Package Management: Use pnpm for all operations.
 - Monorepo Management: Leverage Turborepo and pnpm-workspace.
 - Styling: Use Tailwind CSS exclusively; do not modify or add separate CSS files.
@@ -15,6 +17,7 @@ Tooling and Libraries:
 - Alerts & Warnings: Style alerts with Tailwind CSS and an appropriate lucide-react icon.
 
 Project Specifics:
+
 - Client Location: apps/client.
 - Server Location: apps/server.
 - Shared Code: Use packages/constants for code shared between client and server.
@@ -23,6 +26,7 @@ Project Specifics:
 - Client Package Installation: For client-specific commands, filter by client (e.g., "pnpm --filter client add <package-name>" or "npx --filter client <command>").
 
 General Best Practices (for LLM):
+
 - Code Quality: Ensure clean, readable, maintainable code following lint and formatting standards.
 - Testing: Review existing tests and update or add new ones when necessary.
 - Error Handling: Implement robust error handling.

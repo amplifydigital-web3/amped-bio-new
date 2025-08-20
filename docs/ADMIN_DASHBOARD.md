@@ -13,7 +13,7 @@ The admin section now uses nested routing with the following structure:
 ```
 /admin                 - Admin Dashboard (overview)
 ├── /admin/users       - User Management
-├── /admin/themes      - Theme Management  
+├── /admin/themes      - Theme Management
 ├── /admin/blocks      - Block Management
 └── /admin/settings    - Admin Settings
 ```
@@ -21,12 +21,14 @@ The admin section now uses nested routing with the following structure:
 ## Features
 
 ### 🚀 Enhanced Navigation
+
 - **URL-based routing** - Each admin section has its own URL
 - **Breadcrumb navigation** - Clear navigation hierarchy
 - **Keyboard shortcuts** - Quick navigation with `⌘⌥ + key`
 - **Visual feedback** - Active states and hover effects
 
 ### ⌨️ Keyboard Shortcuts
+
 - `⌘⌥D` - Navigate to Dashboard
 - `⌘⌥U` - Navigate to Users
 - `⌘⌥T` - Navigate to Themes
@@ -34,6 +36,7 @@ The admin section now uses nested routing with the following structure:
 - `⌘⌥S` - Navigate to Settings
 
 ### 🎨 Improved UI/UX
+
 - **Quick Actions Bar** - Common actions for each page
 - **Notification System** - User feedback for actions
 - **Responsive Design** - Works on all screen sizes
@@ -42,12 +45,14 @@ The admin section now uses nested routing with the following structure:
 ### 📱 Components Structure
 
 #### Layout Components
+
 - `AdminLayout` - Main layout wrapper with sidebar
 - `AdminBreadcrumb` - Navigation breadcrumbs
 - `AdminQuickActions` - Action bar for each page
 - `AdminNotification` - Toast notifications
 
 #### Page Components
+
 - `AdminDashboard` - Overview with stats and charts
 - `AdminUsers` - User management interface
 - `AdminThemes` - Theme and category management
@@ -94,6 +99,7 @@ The main App.tsx now includes nested routing:
 ### Keyboard Shortcuts
 
 Implemented using a custom hook that:
+
 - Listens for `Ctrl/Cmd + Alt + key` combinations
 - Navigates to appropriate routes
 - Shows notifications when shortcuts are used
@@ -102,6 +108,7 @@ Implemented using a custom hook that:
 ### Notification System
 
 Global notification system that can be accessed via:
+
 ```javascript
 window.adminNotify.success("Title", "Message");
 window.adminNotify.error("Title", "Message");
