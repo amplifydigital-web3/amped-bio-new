@@ -25,8 +25,12 @@ export const walletAdminRouter = router({
         transport: http(chain.rpcUrls.default.http[0]),
       });
 
-      // Get wallet balance
-      const balance = await publicClient.getBalance({ address: account.address });
+      // Get wallet balance with timeout
+      const balancePromise = publicClient.getBalance({ address: account.address });
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Timeout while fetching wallet balance")), 1000)
+      );
+      const balance = await Promise.race([balancePromise, timeoutPromise]);
 
       return {
         success: true,

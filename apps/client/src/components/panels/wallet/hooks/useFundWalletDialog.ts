@@ -1,3 +1,4 @@
+import { useWalletContext } from "@/contexts/WalletContext";
 import { trpcClient } from "@/utils/trpc";
 import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
@@ -7,6 +8,7 @@ export function useFundWalletDialog(params: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const wallet = useWalletContext();
   const { open, onOpenChange } = params;
   const { address: walletAddress, isConnected } = useAccount();
 
@@ -91,6 +93,8 @@ export function useFundWalletDialog(params: {
           canRequestNow: false,
           hasWallet: true,
         });
+
+        wallet.updateBalanceDelayed();
 
         return { success: true, txid: result.transaction.hash };
       } else {
