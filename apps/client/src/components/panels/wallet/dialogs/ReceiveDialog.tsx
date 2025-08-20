@@ -73,11 +73,7 @@ function ReceiveDialog({ open, onOpenChange }: ReceiveDialogProps) {
             <div className="text-center">
               <div className="inline-block p-4 bg-white rounded-xl border-2 border-gray-100 shadow-sm">
                 {address ? (
-                  <QRCodeSVG
-                    value={address}
-                    size={160}
-                    className="block mx-auto"
-                  />
+                  <QRCodeSVG value={address} size={160} className="block mx-auto" />
                 ) : (
                   <div className="text-gray-400">No address available</div>
                 )}

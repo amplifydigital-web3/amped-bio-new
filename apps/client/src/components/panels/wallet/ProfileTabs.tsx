@@ -156,7 +156,7 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
             </div>
           </div>
         );
-      
+
       case "nfts":
         return (
           <div className="py-6">

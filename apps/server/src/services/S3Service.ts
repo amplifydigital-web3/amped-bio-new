@@ -13,8 +13,6 @@ import { env } from "../env";
 import {
   ALLOWED_AVATAR_FILE_TYPES,
   ALLOWED_BACKGROUND_FILE_TYPES,
-  ALLOWED_AVATAR_FILE_EXTENSIONS,
-  ALLOWED_BACKGROUND_FILE_EXTENSIONS,
   MAX_AVATAR_FILE_SIZE,
   MAX_BACKGROUND_FILE_SIZE,
 } from "@ampedbio/constants";
@@ -228,17 +226,14 @@ class S3Service {
     // Get allowed file types and size limit based on category
     let allowedTypes: string[];
     let maxSize: number;
-    let allowedExtensions: string[];
 
     // Set validation rules based on file category
     if (category === "profiles") {
       allowedTypes = ALLOWED_AVATAR_FILE_TYPES;
       maxSize = MAX_AVATAR_FILE_SIZE;
-      allowedExtensions = ALLOWED_AVATAR_FILE_EXTENSIONS;
     } else if (category === "backgrounds") {
       allowedTypes = ALLOWED_BACKGROUND_FILE_TYPES;
       maxSize = MAX_BACKGROUND_FILE_SIZE;
-      allowedExtensions = ALLOWED_BACKGROUND_FILE_EXTENSIONS;
     } else {
       // Invalid category
       return {

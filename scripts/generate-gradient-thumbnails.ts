@@ -2,20 +2,20 @@
 
 /**
  * Gradient Thumbnail Generator Script
- * 
+ *
  * This script reads gradient images from backgrounds.ts, generates thumbnails,
  * and saves both original images and thumbnails in the same folder.
- * 
+ *
  * Requirements:
  * - ImageMagick must be installed on your system
  *   - macOS: `brew install imagemagick`
  *   - Ubuntu/Debian: `sudo apt-get install imagemagick`
  *   - Windows: Install from imagemagick.org or `choco install imagemagick`
- * 
+ *
  * How to run:
  * 1. Make sure ImageMagick is installed on your system
  * 2. Run the script: `npx tsx scripts/generate-gradient-thumbnails.ts`
- * 
+ *
  * Output:
  * - Original images and thumbnails are saved in the same directory
  * - Each thumbnail maintains the original filename with "_thumbnail" suffix
@@ -49,16 +49,16 @@ interface ProcessResult {
 function extractFilenameFromUrl(url: string): string {
   // Remove query parameters from URL
   const urlWithoutParams = url.split("?")[0];
-  
+
   // Get filename from URL
   const parts = urlWithoutParams.split("/");
   let filename = parts[parts.length - 1];
-  
+
   // If filename doesn't have an extension, add .jpg
   if (!filename.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
     filename += ".jpg";
   }
-  
+
   return filename;
 }
 
@@ -118,15 +118,15 @@ async function generateThumbnail(imagePath: string, outputPath: string): Promise
     const commands = [
       // Method 1: Simple resize with ImageMagick
       `convert "${imagePath}" -resize 300x300 "${outputPath}"`,
-      
+
       // Method 2: With quality reduction
       `convert "${imagePath}" -resize 300x300 -quality 80 "${outputPath}"`,
-      
+
       // Method 3: Force format
       `convert "${imagePath}" -resize 300x300 -format jpg "${outputPath}"`,
-      
+
       // Method 4: Alternative approach with thumbnail
-      `convert "${imagePath}" -thumbnail 300x300 "${outputPath}"`
+      `convert "${imagePath}" -thumbnail 300x300 "${outputPath}"`,
     ];
 
     for (const [index, command] of commands.entries()) {
@@ -135,7 +135,10 @@ async function generateThumbnail(imagePath: string, outputPath: string): Promise
         await execAsync(command);
 
         // Verify the thumbnail was created
-        const exists = await fs.stat(outputPath).then(() => true).catch(() => false);
+        const exists = await fs
+          .stat(outputPath)
+          .then(() => true)
+          .catch(() => false);
         if (exists) {
           console.log(`Thumbnail created successfully using method ${index + 1}`);
           return;
@@ -174,15 +177,15 @@ async function createZipFile(sourceDir: string, outputPath: string): Promise<voi
 async function checkRequirements(): Promise<boolean> {
   try {
     // Check if ImageMagick is installed
-    await execAsync('convert -version');
-    console.log('✓ ImageMagick is installed');
+    await execAsync("convert -version");
+    console.log("✓ ImageMagick is installed");
     return true;
   } catch (error) {
-    console.error('✕ ImageMagick is not installed or not in PATH');
-    console.log('\nPlease install ImageMagick:');
-    console.log('- macOS: brew install imagemagick');
-    console.log('- Ubuntu/Debian: sudo apt-get install imagemagick');
-    console.log('- Windows: Download from imagemagick.org or use choco install imagemagick');
+    console.error("✕ ImageMagick is not installed or not in PATH");
+    console.log("\nPlease install ImageMagick:");
+    console.log("- macOS: brew install imagemagick");
+    console.log("- Ubuntu/Debian: sudo apt-get install imagemagick");
+    console.log("- Windows: Download from imagemagick.org or use choco install imagemagick");
     return false;
   }
 }
@@ -239,7 +242,7 @@ async function main(): Promise<void> {
           console.log(`Processing gradient: ${gradient.label} (${fileName})`);
           // Download gradient image
           await downloadFile(gradient.value, localImagePath);
-          
+
           // Generate thumbnail
           await generateThumbnail(localImagePath, localThumbnailPath);
 

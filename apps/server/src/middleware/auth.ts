@@ -47,7 +47,7 @@ export const authMiddleware = (...requiredRoles: string[]) => {
       }
 
       next();
-    } catch (error) {
+    } catch {
       return res.status(401).json({ message: "Invalid token" });
     }
   };
