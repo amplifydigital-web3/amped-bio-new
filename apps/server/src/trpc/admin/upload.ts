@@ -123,7 +123,7 @@ export const adminUploadRouter = router({
         const uploadedFile = await uploadedFileService.createUploadedFile({
           s3Key: fileKey,
           bucket: process.env.AWS_S3_BUCKET_NAME || "default-bucket",
-          fileName: `collection_${input.collectionId}_${Date.now()}.${input.fileExtension}`, // Generate a name
+          fileName: `category_${input.collectionId}_${Date.now()}.${input.fileExtension}`, // Generate a name
           fileType: input.contentType,
           size: input.fileSize,
           userId: null, // Set user_id to null for admin/server files
