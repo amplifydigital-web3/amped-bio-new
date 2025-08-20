@@ -66,9 +66,3 @@ export const ALLOWED_BACKGROUND_FILE_EXTENSIONS = [
   "avi",
   "webm",
 ];
-
-// Max file size for admin background uploads (50MB)
-export const MAX_ADMIN_BACKGROUND_FILE_SIZE = 50 * 1024 * 1024;
-
-// Max file size for collection thumbnail uploads (50MB)
-export const MAX_COLLECTION_THUMBNAIL_FILE_SIZE = 50 * 1024 * 1024;
