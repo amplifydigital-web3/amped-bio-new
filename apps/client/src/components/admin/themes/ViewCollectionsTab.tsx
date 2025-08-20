@@ -1,7 +1,7 @@
 import { trpc } from "../../../utils/trpc";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { List, Image as ImageIcon, Eye, EyeOff, Loader2, Pencil } from "lucide-react";
-import { CategoryImageUploader } from "./CategoryImageUploader";
+import { CollectionImageUploader } from "./CollectionImageUploader";
 import { Switch } from "../../ui/Switch";
 import { toast } from "react-hot-toast";
 import { EditCollectionDialog, useEditCollectionDialog } from "./EditCollectionDialog";
@@ -49,10 +49,6 @@ export function ViewCollectionsTab({ refetchCategories }: ViewCollectionsTabProp
     description?: string | null;
   }) => {
     openEditDialog(category);
-  };
-
-  const handleCloseEditDialog = () => {
-    closeEditDialog();
   };
 
   const handleEditSuccess = () => {
@@ -151,8 +147,8 @@ export function ViewCollectionsTab({ refetchCategories }: ViewCollectionsTabProp
 
                 {/* Image Upload for Existing Collections */}
                 <div className="mt-4 pt-4 border-t border-gray-200">
-                  <CategoryImageUploader
-                    categoryId={category.id}
+                  <CollectionImageUploader
+                    collectionId={category.id}
                     currentImageUrl={undefined}
                     onImageUpload={(_imageUrl, _fileId) => {
                       toast.success(`Image updated for ${category.title}`);

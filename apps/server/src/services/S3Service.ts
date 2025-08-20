@@ -10,12 +10,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import AWS from "aws-sdk"; // Import AWS SDK for the getSignedUrlPromise method
 import crypto from "crypto";
 import { env } from "../env";
-import {
-  ALLOWED_AVATAR_FILE_TYPES,
-  ALLOWED_BACKGROUND_FILE_TYPES,
-  MAX_AVATAR_FILE_SIZE,
-  MAX_BACKGROUND_FILE_SIZE,
-} from "@ampedbio/constants";
+import { ALLOWED_AVATAR_FILE_TYPES, ALLOWED_BACKGROUND_FILE_TYPES } from "@ampedbio/constants";
 
 export type FileCategory = "profiles" | "backgrounds" | "category";
 export type S3Operation = "getObject" | "putObject" | "deleteObject";
@@ -45,9 +40,9 @@ export interface FileExistsParams {
 }
 
 export interface GenerateServerFileKeyParams {
-  category: FileCategory | "category";
+  category: FileCategory | "collection";
   fileExtension: string;
-  categoryId?: number;
+  collectionId?: number;
   themeId?: number;
   isThumbnail?: boolean;
 }
@@ -230,10 +225,10 @@ class S3Service {
     // Set validation rules based on file category
     if (category === "profiles") {
       allowedTypes = ALLOWED_AVATAR_FILE_TYPES;
-      maxSize = MAX_AVATAR_FILE_SIZE;
+      maxSize = env.UPLOAD_LIMIT_PROFILE_PHOTO_MB;
     } else if (category === "backgrounds") {
       allowedTypes = ALLOWED_BACKGROUND_FILE_TYPES;
-      maxSize = MAX_BACKGROUND_FILE_SIZE;
+      maxSize = env.UPLOAD_LIMIT_BACKGROUND_MB;
     } else {
       // Invalid category
       return {
@@ -320,13 +315,13 @@ class S3Service {
   generateServerFileKey({
     category,
     fileExtension,
-    categoryId,
+    collectionId,
     themeId,
     isThumbnail = false,
   }: GenerateServerFileKeyParams): string {
     // Validate required parameters for specific categories
-    if (category === "category" && !categoryId) {
-      throw new Error("categoryId is required for category uploads");
+    if (category === "collection" && !collectionId) {
+      throw new Error("collectionId is required for collection uploads");
     }
     if (category === "backgrounds" && !themeId) {
       throw new Error("themeId is required for backgrounds category");
@@ -345,9 +340,9 @@ class S3Service {
 
     let fileKey: string;
 
-    if (category === "category" && categoryId) {
-      // For theme category image uploads
-      fileKey = `server-uploads/categories/category_${categoryId}_${timestamp}-${randomString}${thumbnailSuffix}.${fileExtension}`;
+    if (category === "collection" && collectionId) {
+      // For theme collection image uploads
+      fileKey = `server-uploads/collections/collection_${collectionId}_${timestamp}-${randomString}${thumbnailSuffix}.${fileExtension}`;
     } else if (category === "backgrounds" && themeId) {
       // For admin theme background uploads
       fileKey = `server-uploads/backgrounds/theme_${themeId}_${timestamp}-${randomString}${thumbnailSuffix}.${fileExtension}`;
@@ -358,7 +353,7 @@ class S3Service {
 
     console.info(
       "[INFO] Generated server file key",
-      JSON.stringify({ fileKey, category, categoryId, themeId, isThumbnail })
+      JSON.stringify({ fileKey, category, collectionId, themeId, isThumbnail })
     );
     return fileKey;
   }
@@ -716,7 +711,7 @@ class S3Service {
     category: FileCategory,
     contentType: string,
     fileExtension: string,
-    categoryId?: number,
+    collectionId?: number,
     themeId?: number,
     isThumbnail?: boolean
   ): Promise<{
@@ -734,7 +729,7 @@ class S3Service {
       const fileKey = this.generateServerFileKey({
         category,
         fileExtension,
-        categoryId,
+        collectionId,
         themeId,
         isThumbnail,
       });
@@ -750,7 +745,7 @@ class S3Service {
       console.error(
         "[ERROR] Error generating server presigned URL",
         error instanceof Error ? error.stack : error,
-        JSON.stringify({ category, contentType, categoryId, themeId, isThumbnail })
+        JSON.stringify({ category, contentType, collectionId, themeId, isThumbnail })
       );
       throw error;
     }

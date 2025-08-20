@@ -1,4 +1,3 @@
-import React from "react";
 import { Trash2, ExternalLink } from "lucide-react";
 import type { GalleryImage } from "../../../types/editor";
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { CreatePoolForm } from "./CreatePoolForm";
 import { PoolList } from "./PoolList";
 

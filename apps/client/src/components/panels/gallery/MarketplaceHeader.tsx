@@ -7,7 +7,7 @@ interface MarketplaceHeaderProps {
   onSortChange: (sort: "popular" | "newest") => void;
 }
 
-export function MarketplaceHeader(_: MarketplaceHeaderProps) {
+export function MarketplaceHeader(__: MarketplaceHeaderProps) {
   return (
     <div className="p-6 border-b border-gray-200 space-y-4">
       <div className="flex items-center justify-between">

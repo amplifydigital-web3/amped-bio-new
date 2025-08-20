@@ -6,7 +6,7 @@ import { trpc, trpcClient } from "../../../utils/trpc";
 import { useMutation } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { CategoryImageSelector } from "./CategoryImageSelector";
+import { CategoryImageSelector } from "./CollectionImageSelector";
 
 const categorySchema = z.object({
   name: z
@@ -94,14 +94,14 @@ export function CreateCategoryTab({ refetchCategories }: CreateCategoryTabProps)
     }
   };
 
-  const uploadCategoryImage = async (categoryId: number, file: File) => {
+  const uploadCategoryImage = async (collectionId: number, file: File) => {
     const fileType = file.type;
     const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
 
     // Request presigned URL
     const presignedData =
-      await trpcClient.admin.upload.requestThemeCategoryImagePresignedUrl.mutate({
-        categoryId,
+      await trpcClient.admin.upload.requestThemeCollectionImagePresignedUrl.mutate({
+        collectionId,
         contentType: fileType,
         fileExtension: fileExtension,
         fileSize: file.size,
@@ -121,8 +121,8 @@ export function CreateCategoryTab({ refetchCategories }: CreateCategoryTabProps)
     }
 
     // Confirm upload
-    await trpcClient.admin.upload.confirmThemeCategoryImageUpload.mutate({
-      categoryId,
+    await trpcClient.admin.upload.confirmThemeCollectionImageUpload.mutate({
+      collectionId,
       fileId: presignedData.fileId,
       fileName: file.name,
     });

@@ -238,6 +238,26 @@ This command will:
 - **Task Dependencies** - Proper order of execution based on task dependencies
 - **Remote Caching** - Optional remote caching for CI/CD environments
 
+## Environment Variables
+
+The server application uses several environment variables for configuration, including limits for file uploads. These variables are typically set in an `.env` file in the `apps/server` directory.
+
+### Upload Limits
+
+The following environment variables control the maximum file size for different types of uploads, specified in megabytes (MB):
+
+*   `UPLOAD_LIMIT_BACKGROUND_MB`: Maximum file size for general background image uploads.
+*   `UPLOAD_LIMIT_PROFILE_PHOTO_MB`: Maximum file size for user profile photo uploads.
+*   `UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB`: Maximum file size for collection thumbnail uploads.
+
+Example `.env` configuration for upload limits:
+
+```
+UPLOAD_LIMIT_BACKGROUND_MB=10
+UPLOAD_LIMIT_PROFILE_PHOTO_MB=2
+UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB=3
+```
+
 ## Local GitHub Actions Testing
 
 You can test GitHub Actions workflows locally using [Act](https://github.com/nektos/act), which simulates the GitHub Actions environment on your local machine.

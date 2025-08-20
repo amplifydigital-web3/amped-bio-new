@@ -3,50 +3,49 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { s3Service } from "../../services/S3Service";
 import { uploadedFileService } from "../../services/UploadedFileService";
+import { env } from "../../env";
 import {
-  ALLOWED_AVATAR_FILE_EXTENSIONS,
-  ALLOWED_AVATAR_FILE_TYPES,
-  MAX_ADMIN_AVATAR_FILE_SIZE,
+  ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS,
+  ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES,
   ALLOWED_BACKGROUND_FILE_EXTENSIONS,
   ALLOWED_BACKGROUND_FILE_TYPES,
-  MAX_ADMIN_BACKGROUND_FILE_SIZE,
   ThemeConfig,
 } from "@ampedbio/constants";
 import { prisma } from "../../services/DB";
 
-const requestThemeCategoryImageSchema = z.object({
-  categoryId: z.number().positive(),
-  contentType: z.string().refine(value => ALLOWED_AVATAR_FILE_TYPES.includes(value), {
-    message: `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()} formats are supported`,
+const requestThemeCollectionImageSchema = z.object({
+  collectionId: z.number().positive(),
+  contentType: z.string().refine(value => ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES.includes(value), {
+    message: `Only ${ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.join(", ").toUpperCase()} formats are supported`,
   }),
   fileExtension: z
     .string()
-    .refine(value => ALLOWED_AVATAR_FILE_EXTENSIONS.includes(value.toLowerCase()), {
-      message: `File extension must be ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ")}`,
+    .refine(value => ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.includes(value.toLowerCase()), {
+      message: `File extension must be ${ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.join(", ")}`,
     }),
-  fileSize: z.number().max(MAX_ADMIN_AVATAR_FILE_SIZE, {
-    message: `File size must be less than ${MAX_ADMIN_AVATAR_FILE_SIZE / (1024 * 1024)}MB`,
+  fileSize: z.number().max(env.UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB * 1024 * 1024, {
+    message: `File size must be less than ${env.UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB}MB`,
   }),
 });
 
-const confirmThemeCategoryImageSchema = z.object({
-  categoryId: z.number().positive(),
+const confirmThemeCollectionImageSchema = z.object({
+  collectionId: z.number().positive(),
   fileId: z.number().positive(),
   fileName: z.string().min(1),
 });
 
 const requestThemeThumbnailSchema = z.object({
   themeId: z.number().positive(),
-  contentType: z.string().refine(value => ALLOWED_AVATAR_FILE_TYPES.includes(value), {
-    message: `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()} formats are supported`,
+  contentType: z.string().refine(value => ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES.includes(value), {
+    message: `Only ${ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.join(", ").toUpperCase()} formats are supported`,
   }),
   fileExtension: z
     .string()
-    .refine(value => ALLOWED_AVATAR_FILE_EXTENSIONS.includes(value.toLowerCase()), {
-      message: `File extension must be ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ")}`,
+    .refine(value => ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.includes(value.toLowerCase()), {
+      message: `File extension must be ${ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.join(", ")}`,
     }),
-  fileSize: z.number().max(MAX_ADMIN_AVATAR_FILE_SIZE, {
-    message: `File size must be less than ${MAX_ADMIN_AVATAR_FILE_SIZE / (1024 * 1024)}MB`,
+  fileSize: z.number().max(env.UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB * 1024 * 1024, {
+    message: `File size must be less than ${env.UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB}MB`,
   }),
 });
 
@@ -73,8 +72,8 @@ const requestAdminThemeBackgroundUrlSchema = z.object({
     .refine(value => ALLOWED_BACKGROUND_FILE_EXTENSIONS.includes(value.toLowerCase()), {
       message: `File extension must be ${ALLOWED_BACKGROUND_FILE_EXTENSIONS.join(", ")}`,
     }),
-  fileSize: z.number().max(MAX_ADMIN_BACKGROUND_FILE_SIZE, {
-    message: `File size must be less than ${MAX_ADMIN_BACKGROUND_FILE_SIZE / (1024 * 1024)}MB`,
+  fileSize: z.number().max(env.UPLOAD_LIMIT_BACKGROUND_MB * 1024 * 1024, {
+    message: `File size must be less than ${env.UPLOAD_LIMIT_BACKGROUND_MB}MB`,
   }),
 });
 
@@ -86,45 +85,45 @@ const confirmAdminThemeBackgroundSchema = z.object({
 });
 
 export const adminUploadRouter = router({
-  // Generate a presigned URL for uploading theme category image (admin only)
-  requestThemeCategoryImagePresignedUrl: adminProcedure
-    .input(requestThemeCategoryImageSchema)
+  // Generate a presigned URL for uploading theme collection image (admin only)
+  requestThemeCollectionImagePresignedUrl: adminProcedure
+    .input(requestThemeCollectionImageSchema)
     .mutation(async ({ input }) => {
       try {
         // Check file size
-        if (input.fileSize > MAX_ADMIN_AVATAR_FILE_SIZE) {
+        if (input.fileSize > env.UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB * 1024 * 1024) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: `File size exceeds the ${MAX_ADMIN_AVATAR_FILE_SIZE / (1024 * 1024)}MB limit`,
+            message: `File size exceeds the ${env.UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB}MB limit`,
           });
         }
 
-        // Check if category exists and user is admin
-        const category = await prisma.themeCategory.findUnique({
-          where: { id: input.categoryId },
+        // Check if collection exists and user is admin
+        const collection = await prisma.themeCategory.findUnique({
+          where: { id: input.collectionId },
         });
 
-        if (!category) {
+        if (!collection) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: "Category not found",
+            message: "Collection not found",
           });
         }
 
-        // Use the S3Service to generate a server presigned URL for category images
+        // Use the S3Service to generate a server presigned URL for collection images
         const { presignedUrl, fileKey } = await s3Service.getServerPresignedUploadUrl(
           "category",
           input.contentType,
           input.fileExtension,
-          input.categoryId
+          input.collectionId
         );
 
-        // TODO create service to clean up old category images
+        // TODO create service to clean up old collection images
         // Create uploaded file record immediately when presigned URL is generated
         const uploadedFile = await uploadedFileService.createUploadedFile({
           s3Key: fileKey,
           bucket: process.env.AWS_S3_BUCKET_NAME || "default-bucket",
-          fileName: `category_${input.categoryId}_${Date.now()}.${input.fileExtension}`, // Generate a name
+          fileName: `category_${input.collectionId}_${Date.now()}.${input.fileExtension}`, // Generate a name
           fileType: input.contentType,
           size: input.fileSize,
           userId: null, // Set user_id to null for admin/server files
@@ -136,16 +135,16 @@ export const adminUploadRouter = router({
           expiresIn: 300, // Seconds
         };
       } catch (error) {
-        console.error("Error generating presigned URL for theme category image:", error);
+        console.error("Error generating presigned URL for theme collection image:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to generate upload URL for theme category image",
+          message: "Failed to generate upload URL for theme collection image",
         });
       }
     }),
 
-  confirmThemeCategoryImageUpload: adminProcedure
-    .input(confirmThemeCategoryImageSchema)
+  confirmThemeCollectionImageUpload: adminProcedure
+    .input(confirmThemeCollectionImageSchema)
     .mutation(async ({ input }) => {
       try {
         const uploadedFile = await uploadedFileService.getFileById(input.fileId);
@@ -167,8 +166,8 @@ export const adminUploadRouter = router({
           });
         }
 
-        const currentCategory = await prisma.themeCategory.findUnique({
-          where: { id: input.categoryId },
+        const currentCollection = await prisma.themeCategory.findUnique({
+          where: { id: input.collectionId },
           select: { image_file_id: true },
         });
 
@@ -186,22 +185,22 @@ export const adminUploadRouter = router({
         });
 
         await prisma.themeCategory.update({
-          where: { id: input.categoryId },
+          where: { id: input.collectionId },
           data: {
             image_file_id: input.fileId,
             updated_at: new Date(),
           },
         });
 
-        if (currentCategory?.image_file_id) {
+        if (currentCollection?.image_file_id) {
           try {
-            await uploadedFileService.deleteFile(currentCategory.image_file_id);
-            const prevFile = await uploadedFileService.getFileById(currentCategory.image_file_id);
+            await uploadedFileService.deleteFile(currentCollection.image_file_id);
+            const prevFile = await uploadedFileService.getFileById(currentCollection.image_file_id);
             if (prevFile) {
               await s3Service.deleteFile(prevFile.s3_key);
             }
           } catch (deleteError) {
-            console.warn("Failed to delete previous category image:", deleteError);
+            console.warn("Failed to delete previous collection image:", deleteError);
           }
         }
 
@@ -211,13 +210,13 @@ export const adminUploadRouter = router({
           imageUrl: s3Service.getFileUrl(fileKey),
         };
       } catch (error) {
-        console.error("Error updating theme category image:", error);
+        console.error("Error updating theme collection image:", error);
         if (error instanceof TRPCError) {
           throw error;
         }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to update theme category image",
+          message: "Failed to update theme collection image",
         });
       }
     }),
@@ -228,10 +227,10 @@ export const adminUploadRouter = router({
     .mutation(async ({ input }) => {
       try {
         // Check file size
-        if (input.fileSize > MAX_ADMIN_AVATAR_FILE_SIZE) {
+        if (input.fileSize > env.UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB * 1024 * 1024) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: `File size exceeds the ${MAX_ADMIN_AVATAR_FILE_SIZE / (1024 * 1024)}MB limit`,
+            message: `File size exceeds the ${env.UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB}MB limit`,
           });
         }
 
@@ -377,10 +376,10 @@ export const adminUploadRouter = router({
     .mutation(async ({ input }) => {
       try {
         // Check file size
-        if (input.fileSize > MAX_ADMIN_BACKGROUND_FILE_SIZE) {
+        if (input.fileSize > env.UPLOAD_LIMIT_BACKGROUND_MB * 1024 * 1024) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: `File size exceeds the ${MAX_ADMIN_BACKGROUND_FILE_SIZE / (1024 * 1024)}MB limit`,
+            message: `File size exceeds the ${env.UPLOAD_LIMIT_BACKGROUND_MB}MB limit`,
           });
         }
 
@@ -558,4 +557,13 @@ export const adminUploadRouter = router({
         });
       }
     }),
+
+  // Endpoint to get admin-specific upload limits from environment variables
+  getLimits: adminProcedure.query(() => {
+    return {
+      // Convert from MB to bytes for consistency with frontend file handling
+      maxCollectionThumbnailFileSize: env.UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB * 1024 * 1024,
+      maxAdminBackgroundFileSize: env.UPLOAD_LIMIT_BACKGROUND_MB * 1024 * 1024,
+    };
+  }),
 });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAccount, useBalance } from "wagmi";
 import { Coins, Image, Clock, Plus, Loader, AlertCircle } from "lucide-react";
 import { Tooltip } from "../../ui/Tooltip";
