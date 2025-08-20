@@ -1,19 +1,10 @@
-import {
-  Gift,
-  ArrowLeftRight,
-  Zap,
-  ArrowRight,
-  Check,
-} from "lucide-react";
+import { Gift, ArrowLeftRight, Zap, ArrowRight, Check } from "lucide-react";
 import CoinbaseIcon from "@/assets/icons/coinbase.png";
 import MoonpayIcon from "@/assets/icons/moonpay.png";
 import OnRampIcon from "@/assets/icons/onramp.png";
 import { useState, useEffect } from "react";
 import { useFundWalletDialog } from "../hooks/useFundWalletDialog";
-import {
-  Dialog,
-  DialogContent,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 // Component to display countdown timer
 function CountdownTimer({ targetDate, onComplete }: { targetDate: Date; onComplete?: () => void }) {

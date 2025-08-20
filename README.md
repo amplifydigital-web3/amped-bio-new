@@ -41,6 +41,7 @@ The client app (`apps/client`) is a React application built with:
 - **React Query** - Data fetching and caching
 
 Key directories:
+
 - `src/components/` - Reusable UI components
 - `src/pages/` - Page components and routes
 - `src/store/` - State management and stores
@@ -57,6 +58,7 @@ The server app (`apps/server`) is a Node.js application built with:
 - **Zod** - Schema validation for requests and responses
 
 Key directories:
+
 - `src/controllers/` - Request handlers for different resources
 - `src/routes/` - API route definitions
 - `src/middleware/` - Express middleware for auth, validation, etc.
@@ -71,23 +73,24 @@ Follow these instructions to get a copy of the project up and running on your lo
 ### Prerequisites
 
 Make sure you have the following installed:
+
 - [Node.js](https://nodejs.org/) (version 22.9.0 or later)
 - [pnpm](https://pnpm.io/) (version 8.15.4 or later)
 
 ### Installation
 
 1. Clone the repository:
-    ```sh
-    git clone https://github.com/yourusername/OneLink-new.git
-    ```
+   ```sh
+   git clone https://github.com/yourusername/OneLink-new.git
+   ```
 2. Navigate to the project directory:
-    ```sh
-    cd OneLink-new
-    ```
+   ```sh
+   cd OneLink-new
+   ```
 3. Install dependencies for all workspaces:
-    ```sh
-    pnpm install
-    ```
+   ```sh
+   pnpm install
+   ```
 
 ## Development
 
@@ -120,26 +123,31 @@ For more details on client-only mode, see [CLIENT_ONLY.md](docs/CLIENT_ONLY.md).
 ### Development Workflow
 
 Run client-only development (default):
+
 ```sh
 pnpm dev
 ```
 
 Run full stack development (client + server):
+
 ```sh
 pnpm dev:full
 ```
 
 Run only the client explicitly:
+
 ```sh
 pnpm --filter client dev
 ```
 
 Run only the server:
+
 ```sh
 pnpm --filter server dev
 ```
 
 Build all applications:
+
 ```sh
 pnpm build
 ```
@@ -154,6 +162,7 @@ The project uses [Prisma](https://www.prisma.io/) as an ORM for database access 
 ### Setting Up the Database
 
 1. Make sure you have a PostgreSQL database running. You can use the included Docker Compose file:
+
    ```sh
    docker-compose up -d db
    ```
@@ -214,6 +223,7 @@ pnpm --filter server npx prisma migrate reset
 ```
 
 This command will:
+
 - Drop the database
 - Create a new database
 - Apply all migrations
@@ -235,10 +245,11 @@ You can test GitHub Actions workflows locally using [Act](https://github.com/nek
 ### Prerequisites
 
 1. Install Act:
+
    ```sh
    # macOS
    brew install act
-   
+
    # Linux
    curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
    ```
@@ -248,26 +259,31 @@ You can test GitHub Actions workflows locally using [Act](https://github.com/nek
 ### Running Actions Locally
 
 To run all GitHub Actions workflows:
+
 ```sh
 act
 ```
 
 To run a specific workflow (e.g., client tests):
+
 ```sh
 act -j auth-tests
 ```
 
 To run a workflow with a specific event:
+
 ```sh
 act push
 ```
 
 To see what would be run without actually running it:
+
 ```sh
 act -n
 ```
 
 To run with specific workflow file:
+
 ```sh
 act -W .github/workflows/client-tests.yml
 ```
@@ -275,6 +291,7 @@ act -W .github/workflows/client-tests.yml
 ### Environment Variables
 
 If your workflows require environment variables, you can provide them using a `.env` file or directly in the command:
+
 ```sh
 act -s MY_SECRET=value
 ```

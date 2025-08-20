@@ -408,7 +408,6 @@ export const uploadRouter = router({
         const previousFileKey = user.image ? s3Service.extractFileKeyFromUrl(user.image) : null;
 
         // Get the public URL for the new profile picture
-        const profilePictureUrl = s3Service.getFileUrl(fileKey);
 
         // Update user profile picture URL and file reference in database
         await prisma.user.update({

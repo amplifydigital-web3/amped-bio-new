@@ -151,7 +151,7 @@ export const usersRouter = router({
       });
 
       return updatedUser;
-    } catch (error) {
+    } catch {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: "Failed to update user",
