@@ -117,11 +117,6 @@ export const env = cleanEnv(process.env, {
     default: 5,
     example: "5",
   }),
-  UPLOAD_LIMIT_IMAGE_MB: num({
-    desc: "Maximum file size in MB for image uploads",
-    default: 2,
-    example: "2",
-  }),
   UPLOAD_LIMIT_VIDEO_MB: num({
     desc: "Maximum file size in MB for video uploads",
     default: 10,

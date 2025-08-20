@@ -247,7 +247,6 @@ The server application uses several environment variables for configuration, inc
 The following environment variables control the maximum file size for different types of uploads, specified in megabytes (MB):
 
 *   `UPLOAD_LIMIT_BACKGROUND_MB`: Maximum file size for general background image uploads.
-*   `UPLOAD_LIMIT_IMAGE_MB`: Maximum file size for general image uploads.
 *   `UPLOAD_LIMIT_VIDEO_MB`: Maximum file size for video uploads.
 *   `UPLOAD_LIMIT_PROFILE_PHOTO_MB`: Maximum file size for user profile photo uploads.
 *   `UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB`: Maximum file size for collection thumbnail uploads.
@@ -256,7 +255,6 @@ Example `.env` configuration for upload limits:
 
 ```
 UPLOAD_LIMIT_BACKGROUND_MB=10
-UPLOAD_LIMIT_IMAGE_MB=5
 UPLOAD_LIMIT_VIDEO_MB=100
 UPLOAD_LIMIT_PROFILE_PHOTO_MB=2
 UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB=3
