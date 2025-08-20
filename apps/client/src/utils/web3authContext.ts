@@ -7,7 +7,7 @@ console.info("Web3Auth Client ID:", clientId);
 const web3AuthOptions: Web3AuthOptions = {
   defaultChainId: "0x12085", // revochain testnet chain ID
   clientId,
-  enableLogging: true,
+  enableLogging: false,
   web3AuthNetwork: WEB3AUTH_NETWORK.SAPPHIRE_DEVNET,
 };
 
