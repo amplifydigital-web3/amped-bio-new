@@ -3,8 +3,8 @@
   "compilerOptions": {
     "outDir": "dist",
     "esModuleInterop": true,
-    "moduleResolution": "bundler",
-    "module": "ESNext",
+    "moduleResolution": "NodeNext",
+    "module": "NodeNext",
     "target": "ESNext",
     "jsx": "react-jsx",
   },
