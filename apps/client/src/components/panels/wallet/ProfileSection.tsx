@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Copy, Check, User, Globe, ChevronDown } from "lucide-react";
+import { useChainId } from "wagmi";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Suspense } from "react";
@@ -62,8 +63,20 @@ export function ProfileSection({
   const { authUser } = useAuth();
   const { profile } = useEditor();
   const [copyStatus, setCopyStatus] = useState<"idle" | "success">("idle");
+  const chainId = useChainId();
   const [currentNetwork, setCurrentNetwork] = useState<Chain>(AVAILABLE_CHAINS[0]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    if (chainId) {
+      const connectedChain = AVAILABLE_CHAINS.find(
+        (availableChain) => availableChain.id === chainId
+      );
+      if (connectedChain) {
+        setCurrentNetwork(connectedChain);
+      }
+    }
+  }, [chainId]);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [isSmallScreen, setIsSmallScreen] = useState(false);
 

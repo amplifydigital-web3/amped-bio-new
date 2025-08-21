@@ -50,8 +50,8 @@ export const libertasTestnet = defineChain({
 });
 
 export const AVAILABLE_CHAINS: readonly [Chain, ...Chain[]] = [
-  revolutionDevnet,
   libertasTestnet,
+  revolutionDevnet,
 ] as const;
 
 export const getChainConfig = (chainId: number) => {
