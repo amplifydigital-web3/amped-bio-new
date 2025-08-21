@@ -1,4 +1,4 @@
-import { defineChain, Chain } from "viem";
+import { defineChain } from "viem";
 import { chainConfig } from "viem/zksync";
 
 export const revolutionDevnet = defineChain({
@@ -49,10 +49,7 @@ export const libertasTestnet = defineChain({
   testnet: true,
 });
 
-export const AVAILABLE_CHAINS: readonly [Chain, ...Chain[]] = [
-  libertasTestnet,
-  revolutionDevnet,
-] as const;
+export const AVAILABLE_CHAINS = [libertasTestnet, revolutionDevnet] as const;
 
 export const getChainConfig = (chainId: number) => {
   const chain = AVAILABLE_CHAINS.find(c => c.id === chainId);
