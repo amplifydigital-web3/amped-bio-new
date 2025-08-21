@@ -1,6 +1,7 @@
 {
   "extends": "@repo/typescript-config/node.json",
   "compilerOptions": {
+    "outDir": "dist",
     "jsx": "react-jsx",
     "module": "es2020"
   },
