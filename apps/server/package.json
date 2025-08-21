@@ -8,7 +8,7 @@
   "scripts": {
     "start": "node dist/index.js",
     "dev": "tsx watch -r dotenv/config src/index.ts",
-    "build": "tsc",
+    "build": "tsc && tsc-alias",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix --exit-on-fatal-error",
     "postbuild": "pnpm run prisma:migrate",
@@ -63,8 +63,7 @@
     "@types/pg": "^8.11.0",
     "@types/react": "^18.3.5",
     "nodemon": "^3.0.3",
-    "ts-node": "^10.9.2",
-    "ts-node-dev": "^2.0.0",
+    "tsc-alias": "^1.8.16",
     "tsx": "^4.19.3",
     "typescript": "5.9.2"
   }
