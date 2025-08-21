@@ -82,7 +82,7 @@
     "tailwindcss-animate": "^1.0.7",
     "tsparticles-slim": "^2.12.0",
     "viem": "2.34.0",
-    "wagmi": "2.14.15",
+    "wagmi": "2.14.8",
     "zod": "^3.25.64",
     "zustand": "^4.5.2"
   },
