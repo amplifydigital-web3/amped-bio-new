@@ -2,6 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "relatedProjects": ["prj_c8tIo0qsxmZrGas6wT0mt0wcl429"],
   "version": 2,
+  "outputDirectory": "dist",
   "routes": [
     {
       "src": "/(.*)",
