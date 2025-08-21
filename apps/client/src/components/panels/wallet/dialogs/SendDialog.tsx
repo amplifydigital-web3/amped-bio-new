@@ -76,6 +76,7 @@ function useSendDialog(options?: UseSendDialogOptions) {
   >("idle");
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
   const [estimatedGasFee, setEstimatedGasFee] = useState<string | null>(null);
+  const [isCalculatingMaxAmount, setIsCalculatingMaxAmount] = useState(false);
 
   // Get fee data for gas estimation
   const { data: feeData } = useFeeData();
@@ -107,30 +108,46 @@ function useSendDialog(options?: UseSendDialogOptions) {
   const sendAddress = watch("address");
   const sendAmount = watch("amount");
 
+  // Calculate gas fee
+  const calculateGasFee = useMemo(() => {
+    if (!feeData?.gasPrice) return null;
+    
+    const gasLimit = BigInt(21000); // Standard ETH transfer gas limit
+    const gasCost = gasLimit * feeData.gasPrice;
+    return formatEther(gasCost);
+  }, [feeData?.gasPrice]);
+
+  // Memoized max sendable amount (balance - gas fee)
+  const maxSendableAmount = useMemo(() => {
+    if (!wallet.balance?.data?.formatted || !calculateGasFee) return null;
+    
+    const currentBalance = parseFloat(wallet.balance.data.formatted);
+    const gasFeeInEth = parseFloat(calculateGasFee);
+    
+    // Calculate max sendable amount (balance - gas fee)
+    const maxAmount = currentBalance - gasFeeInEth;
+    
+    // Ensure the amount is positive
+    if (maxAmount > 0) {
+      // Format to avoid floating point precision issues and limit to reasonable decimal places
+      return maxAmount.toFixed(18).replace(/\.?0+$/, "");
+    }
+    
+    return "0";
+  }, [wallet.balance?.data?.formatted, calculateGasFee]);
+
   // Calculate estimated gas fee when inputs are valid
   useEffect(() => {
-    const calculateGasFee = async () => {
-      if (sendAddress && sendAmount && feeData?.gasPrice) {
-        try {
-          // Estimate gas cost: use a simple fixed gas limit for ETH transfer (21000)
-          // For more accuracy, you could use estimateGas from a provider
-          const gasLimit = BigInt(21000);
-          const gasCost = gasLimit * feeData.gasPrice;
-
-          // Format the gas cost to ETH with up to 18 decimal places
-          const formattedGasCost = formatEther(gasCost);
-          setEstimatedGasFee(formattedGasCost);
-        } catch (error) {
-          console.error("Error estimating gas fee:", error);
-          setEstimatedGasFee(null);
-        }
+    const calculateEstimatedGasFee = async () => {
+      if (sendAddress && sendAmount && calculateGasFee) {
+        setEstimatedGasFee(calculateGasFee);
       } else {
         setEstimatedGasFee(null);
       }
     };
 
-    calculateGasFee();
-  }, [sendAddress, sendAmount, feeData?.gasPrice]);
+    calculateEstimatedGasFee();
+  }, [sendAddress, sendAmount, calculateGasFee]);
 
   // Parse Ether value to bigint only if inputs are valid
   const parsedAmount = useMemo(() => {
@@ -186,10 +203,23 @@ function useSendDialog(options?: UseSendDialogOptions) {
     setIsOpen,
   ]);
 
-  // Handle sending max amount
-  const handleSendAll = () => {
-    if (wallet.balance?.data?.formatted) {
-      setValue("amount", wallet.balance.data.formatted, { shouldValidate: true });
+  // Handle sending max amount with gas fee calculation
+  const handleSendAll = async () => {
+    if (!maxSendableAmount) return;
+
+    setIsCalculatingMaxAmount(true);
+
+    try {
+      // Use the memoized max sendable amount
+      setValue("amount", maxSendableAmount, { shouldValidate: true });
+    } catch (error) {
+      console.error("Error setting max amount:", error);
+      // Fallback to original behavior if calculation fails
+      if (wallet.balance?.data?.formatted) {
+        setValue("amount", wallet.balance.data.formatted, { shouldValidate: true });
+      }
+    } finally {
+      setIsCalculatingMaxAmount(false);
     }
   };
 
@@ -232,6 +262,8 @@ function useSendDialog(options?: UseSendDialogOptions) {
     setTransactionStatus,
     transactionHash,
     estimatedGasFee,
+    isCalculatingMaxAmount,
+    maxSendableAmount,
 
     // Form
     register,
@@ -273,6 +305,8 @@ function SendDialog({ open, onOpenChange, onSend }: SendDialogProps) {
     transactionHash,
     sendError,
     estimatedGasFee,
+    isCalculatingMaxAmount,
+    maxSendableAmount,
     reset,
   } = useSendDialog({
     onSuccess: data => {
@@ -383,11 +417,17 @@ function SendDialog({ open, onOpenChange, onSend }: SendDialogProps) {
               />
               <Button
                 onClick={handleSendAll}
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs px-3 py-1 h-8 bg-blue-100 hover:bg-blue-200 text-blue-700 border border-blue-300 rounded-md font-medium"
+                disabled={isCalculatingMaxAmount || !maxSendableAmount || parseFloat(maxSendableAmount) <= 0}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs px-3 py-1 h-8 bg-blue-100 hover:bg-blue-200 text-blue-700 border border-blue-300 rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 variant="outline"
                 size="sm"
+                type="button"
               >
-                MAX
+                {isCalculatingMaxAmount ? (
+                  <div className="animate-spin h-3 w-3 border-2 border-blue-600 border-t-transparent rounded-full" />
+                ) : (
+                  `MAX${maxSendableAmount ? ` (${parseFloat(maxSendableAmount).toFixed(6)})` : ""}`
+                )}
               </Button>
             </div>
             {errors.amount && (
@@ -423,6 +463,15 @@ function SendDialog({ open, onOpenChange, onSend }: SendDialogProps) {
                   <span className="text-gray-600">Network Fee:</span>
                   <span className="font-medium text-gray-900">
                     ~{estimatedGasFee || "0.000000000000000100"} REVO
+                  </span>
+                </div>
+                <div className="flex justify-between font-medium pt-1 border-t border-green-200">
+                  <span className="text-gray-800">Total Cost:</span>
+                  <span className="text-gray-900">
+                    {(parseFloat(sendAmount) + parseFloat(estimatedGasFee || "0.000000000000000100"))
+                      .toFixed(18)
+                      .replace(/\.?0+$/, "")}{" "}
+                    REVO
                   </span>
                 </div>
               </div>

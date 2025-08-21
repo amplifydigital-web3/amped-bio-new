@@ -36,9 +36,7 @@ export function AdminDashboard() {
     trpc.admin.blocks.getBlockStats.queryOptions({})
   );
 
-  const { data: walletInfoData, isLoading: isWalletInfoLoading } = useQuery(
-    trpc.admin.wallet.getFaucetWalletInfo.queryOptions()
-  );
+  
 
   // Process the block type distribution data whenever blockStatsData changes
   const { blocksByType, totalBlocks } = blockStatsData || {};
@@ -68,8 +66,7 @@ export function AdminDashboard() {
     isDashboardLoading ||
     isTopOnelinksLoading ||
     isUsersLoading ||
-    isBlockStatsLoading ||
-    isWalletInfoLoading;
+    isBlockStatsLoading;
 
   // Handle refresh
   const handleRefresh = () => {
@@ -115,35 +112,7 @@ export function AdminDashboard() {
         />
 
         {/* Faucet Wallet Stats */}
-        <AdminFaucetWalletStats
-          walletInfo={
-            walletInfoData && "success" in walletInfoData && walletInfoData.success === true
-              ? {
-                  address: (walletInfoData as any).address,
-                  formattedBalance: (
-                    Number((walletInfoData as any).formattedBalance) / 1e18
-                  ).toFixed(4),
-                  remainingAirdrops: Math.floor(
-                    Number((walletInfoData as any).formattedBalance) /
-                      (Number((walletInfoData as any).faucetAmount) * 1e18)
-                  ),
-                  faucetAmount: Number((walletInfoData as any).faucetAmount),
-                  currency: (walletInfoData as any).currency,
-                  isMockMode: (walletInfoData as any).isMockMode,
-                }
-              : walletInfoData && "success" in walletInfoData && walletInfoData.success === false
-                ? {
-                    address: "",
-                    formattedBalance: "0",
-                    remainingAirdrops: 0,
-                    faucetAmount: 0,
-                    currency: "",
-                    isMockMode: false,
-                    error: (walletInfoData as any).error,
-                  }
-                : null
-          }
-        />
+        <AdminFaucetWalletStats />
       </div>
 
       {/* Block Distribution */}

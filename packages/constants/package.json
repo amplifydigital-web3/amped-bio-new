@@ -19,12 +19,12 @@
   },
   "devDependencies": {
     "tsup": "^8.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "5.9.2"
   },
   "publishConfig": {
     "access": "public"
   },
   "dependencies": {
-    "zod": "^3.25.64"
+    "zod": "3.25.64"
   }
 }
