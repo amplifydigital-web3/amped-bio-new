@@ -7,9 +7,6 @@
     "module": "NodeNext",
     "target": "ESNext",
     "jsx": "react-jsx",
-    "paths": {
-      "@repo/web3": ["../packages/web3/dist/index.js"]
-    }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "exclude": ["node_modules"]
