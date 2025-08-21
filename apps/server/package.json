@@ -8,7 +8,7 @@
   "scripts": {
     "start": "node dist/index.js",
     "dev": "tsx watch -r dotenv/config src/index.ts",
-    "build": "tsc && tsc-alias",
+    "build": "tsc && ts-add-js-extension --dir=dist",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix --exit-on-fatal-error",
     "postbuild": "pnpm run prisma:migrate",
@@ -63,6 +63,7 @@
     "@types/pg": "^8.11.0",
     "@types/react": "^18.3.5",
     "nodemon": "^3.0.3",
+    "ts-add-js-extension": "^1.6.6",
     "tsc-alias": "^1.8.16",
     "tsx": "^4.19.3",
     "typescript": "5.9.2"
