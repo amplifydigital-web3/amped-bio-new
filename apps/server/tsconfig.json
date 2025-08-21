@@ -8,7 +8,7 @@
     "target": "ESNext",
     "jsx": "react-jsx",
     "paths": {
-      "@repo/web3": ["../packages/web3/dist"]
+      "@repo/web3": ["../packages/web3/dist/index.js"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
