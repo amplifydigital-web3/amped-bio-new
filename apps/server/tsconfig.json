@@ -1,12 +1,8 @@
 {
   "extends": "@repo/typescript-config/node.json",
   "compilerOptions": {
-    "outDir": "dist",
-    "esModuleInterop": true,
-    "moduleResolution": "NodeNext",
-    "module": "NodeNext",
-    "target": "ESNext",
     "jsx": "react-jsx",
+    "module": "es2020"
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "exclude": ["node_modules"]
