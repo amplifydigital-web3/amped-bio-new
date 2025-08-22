@@ -443,6 +443,9 @@ importers:
         specifier: 3.25.64
         version: 3.25.64
     devDependencies:
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
       tsup:
         specifier: ^8.0.0
         version: 8.4.0(tsx@4.19.4)(typescript@5.9.2)
@@ -458,6 +461,9 @@ importers:
         specifier: 2.34.0
         version: 2.34.0(typescript@5.9.2)
     devDependencies:
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
       tsup:
         specifier: ^8.0.0
         version: 8.4.0(tsx@4.19.4)(typescript@5.9.2)
