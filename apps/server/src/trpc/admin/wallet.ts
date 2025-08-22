@@ -2,7 +2,7 @@ import { adminProcedure, router } from "../trpc";
 import { env } from "../../env";
 import { createPublicClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { AVAILABLE_CHAINS } from "@repo/web3";
+import { AVAILABLE_CHAINS } from "@ampedbio/web3";
 
 export const walletAdminRouter = router({
   getFaucetWalletInfo: adminProcedure.query(async () => {

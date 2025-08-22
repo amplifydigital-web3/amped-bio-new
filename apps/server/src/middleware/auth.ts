@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from "express";
+import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { JWTUser } from "../trpc/trpc";
 import { JWT_KEYS } from "../utils/token";

@@ -41,7 +41,7 @@
     "@reown/appkit": "^1.6.4",
     "@reown/appkit-adapter-wagmi": "^1.6.4",
     "@reown/appkit-wallet-button": "^1.6.4",
-    "@repo/web3": "workspace:*",
+    "@ampedbio/web3": "workspace:*",
     "@tanstack/react-query": "^5.64.2",
     "@trpc/client": "^11.1.2",
     "@trpc/react-query": "^11.1.2",
