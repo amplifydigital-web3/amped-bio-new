@@ -5,7 +5,7 @@ import { env } from "../env";
 import { createWalletClient, http, parseEther, isAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { prisma } from "../services/DB";
-import { getChainConfig } from "@repo/web3";
+import { getChainConfig } from "@ampedbio/web3";
 
 // Create public client for fetching blockchain data
 // const publicClient = createPublicClient({

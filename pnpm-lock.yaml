@@ -29,6 +29,9 @@ importers:
       '@ampedbio/constants':
         specifier: workspace:*
         version: link:../../packages/constants
+      '@ampedbio/web3':
+        specifier: workspace:*
+        version: link:../../packages/web3
       '@dnd-kit/core':
         specifier: ^6.1.0
         version: 6.3.1(react-dom@18.3.1)(react@18.3.1)
@@ -86,9 +89,6 @@ importers:
       '@reown/appkit-wallet-button':
         specifier: ^1.6.4
         version: 1.7.3(@types/react@18.3.20)(react@18.3.1)(typescript@5.9.2)(zod@3.25.64)
-      '@repo/web3':
-        specifier: workspace:*
-        version: link:../../packages/web3
       '@tanstack/react-query':
         specifier: ^5.64.2
         version: 5.74.11(react@18.3.1)
@@ -300,6 +300,9 @@ importers:
       '@ampedbio/constants':
         specifier: workspace:*
         version: link:../../packages/constants
+      '@ampedbio/web3':
+        specifier: workspace:*
+        version: link:../../packages/web3
       '@aws-sdk/client-s3':
         specifier: ^3.802.0
         version: 3.802.0
@@ -315,9 +318,6 @@ importers:
       '@react-email/render':
         specifier: ^1.0.6
         version: 1.0.6(react-dom@19.1.0)(react@19.1.0)
-      '@repo/web3':
-        specifier: workspace:*
-        version: link:../../packages/web3
       '@trpc/server':
         specifier: ^11.1.2
         version: 11.1.2(typescript@5.9.2)
@@ -458,9 +458,9 @@ importers:
         specifier: 2.34.0
         version: 2.34.0(typescript@5.9.2)
     devDependencies:
-      '@repo/typescript-config':
-        specifier: workspace:*
-        version: link:../typescript-config
+      tsup:
+        specifier: ^8.0.0
+        version: 8.4.0(tsx@4.19.4)(typescript@5.9.2)
       typescript:
         specifier: 5.9.2
         version: 5.9.2
@@ -9033,7 +9033,7 @@ packages:
     resolution: {integrity: sha512-RZNwNclF7+MS/8bDg70amg32dyeZGZxiDuQmZxKLAlQjr3jGyLx+4Kkk58UO7D2QdgFIQCovuSuZESne6RG6XQ==}
     engines: {node: '>= 6.0.0'}
     dependencies:
-      debug: 4.4.0(supports-color@5.5.0)
+      debug: 4.4.1
     transitivePeerDependencies:
       - supports-color
     dev: false
@@ -14417,6 +14417,7 @@ packages:
   /source-map@0.8.0-beta.0:
     resolution: {integrity: sha512-2ymg6oRBpebeZi9UUNsgQ89bhx01TcTkmNTGnNO88imTmbSgy4nfujrgVEFKWpMTEGA11EDkTt7mqObTPdigIA==}
     engines: {node: '>= 8'}
+    deprecated: The work that was done in this beta branch won't be included in future versions
     dependencies:
       whatwg-url: 7.1.0
     dev: true

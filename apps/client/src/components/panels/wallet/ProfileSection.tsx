@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEditor } from "@/contexts/EditorContext";
 import { StatsSection } from "./StatsSection";
 import { type StatBoxProps } from "./types";
-import { AVAILABLE_CHAINS } from "@repo/web3";
+import { AVAILABLE_CHAINS } from "@ampedbio/web3";
 import { Chain } from "viem";
 
 interface ProfileSectionProps {
