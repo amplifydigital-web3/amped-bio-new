@@ -1,9 +1,8 @@
 {
   "compilerOptions": {
-    "jsx": "react-jsx",
-    "target": "es2020",
-    "module": "CommonJS",
-    "moduleResolution": "node",
+    "target": "ES2021",
+    "module": "node16",
+    "moduleResolution": "node16",
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": true,
