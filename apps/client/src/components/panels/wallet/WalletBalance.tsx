@@ -2,8 +2,9 @@ import { Plus, ArrowUpRight, ArrowDownLeft } from "lucide-react";
 import React, { useState } from "react";
 import FundWalletDialog from "./dialogs/FundWalletDialog";
 import ReceiveDialog from "./dialogs/ReceiveDialog";
-import SendDialog from "./dialogs/SendDialog";
 import { useWalletContext } from "@/contexts/WalletContext";
+import PayModal from "../pay/dialogs/PayDialog";
+import usePayDialog from "@/hooks/usePayDialog";
 
 type WalletBalanceProps = {
   loading?: boolean;
@@ -11,10 +12,10 @@ type WalletBalanceProps = {
 
 const WalletBalance: React.FC<WalletBalanceProps> = ({ loading = false }) => {
   const wallet = useWalletContext();
-
   const [showReceiveModal, setShowReceiveModal] = useState(false);
-  const [showSendModal, setShowSendModal] = useState(false);
   const [showFundModal, setShowFundModal] = useState(false);
+
+  const payDialogHook = usePayDialog();
 
   // Skeleton Loading State
   if (loading) {
@@ -95,15 +96,6 @@ const WalletBalance: React.FC<WalletBalanceProps> = ({ loading = false }) => {
         </div>
       </div>
 
-      {/* Earnings Chart */}
-      {/* <div className="mb-4">
-              <Suspense
-                fallback={<div className="h-32 w-full bg-gray-100 rounded-lg animate-pulse"></div>}
-              >
-                <EarningsChart />
-              </Suspense>
-            </div> */}
-
       {/* Action Buttons */}
       <div className="grid grid-cols-3 gap-2 sm:gap-3">
         <button
@@ -115,7 +107,7 @@ const WalletBalance: React.FC<WalletBalanceProps> = ({ loading = false }) => {
         </button>
 
         <button
-          onClick={() => setShowSendModal(true)}
+          onClick={() => payDialogHook.openPayDialog()}
           className="flex flex-col items-center justify-center p-2 sm:p-3 bg-green-50 hover:bg-green-100 text-green-600 rounded-lg transition-colors duration-200 group touch-manipulation"
         >
           <ArrowUpRight className="w-4 h-4 sm:w-5 sm:h-5 mb-1 group-hover:scale-110 transition-transform duration-200" />
@@ -137,11 +129,7 @@ const WalletBalance: React.FC<WalletBalanceProps> = ({ loading = false }) => {
         openReceiveModal={() => setShowReceiveModal(true)}
       />
 
-      <SendDialog
-        open={showSendModal}
-        onOpenChange={setShowSendModal}
-        // onSend={handleSendTransaction}
-      />
+      <PayModal hook={payDialogHook} />
 
       <ReceiveDialog open={showReceiveModal} onOpenChange={setShowReceiveModal} />
     </div>

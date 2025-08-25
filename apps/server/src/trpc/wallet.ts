@@ -2,7 +2,7 @@ import { privateProcedure, router } from "./trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { env } from "../env";
-import { createWalletClient, http, parseEther, isAddress } from "viem";
+import { createWalletClient, http, parseEther, isAddress, Address } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { prisma } from "../services/DB";
 import { getChainConfig } from "@ampedbio/web3";
@@ -441,14 +441,10 @@ export const walletRouter = router({
       // Map Prisma results to the User interface expected by the client
       return users.map(user => ({
         id: user.id.toString(), // Convert Int to String
-        username: user.onelink || user.name.replace(/\s/g, "").toLowerCase(), // Fallback to a derived username if onelink is null
+        username: user.onelink!.toLowerCase(), // Fallback to a derived username if onelink is null
         displayName: user.name,
         avatar: user.image,
-        verified: false, // No direct field in Prisma, default to false
-        mutualFriends: 0, // No direct field in Prisma, default to 0
-        lastActive: "N/A", // No direct field in Prisma, default to N/A
-        bio: user.description || undefined,
-        badges: [], // No direct field in Prisma, default to empty array
+        walletAddress: (user.wallet?.address as Address | undefined) ?? undefined,
       }));
     }),
 });

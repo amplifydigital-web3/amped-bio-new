@@ -67,7 +67,7 @@ export function Sidebar() {
   const { activePanel, setActivePanel } = editorState;
   const navigate = useNavigate();
 
-  const handlePanelClick = (id: string) => {
+  const handlePanelClick = (id: EditorPanelType) => {
     if (id === "account") {
       navigate("/account");
     } else {

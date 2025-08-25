@@ -6,6 +6,7 @@ import type {
   ThemeConfig,
   Background,
   GalleryImage,
+  EditorPanelType,
 } from "../types/editor";
 import initialState from "../store/defaults";
 import { useAuth } from "./AuthContext";
@@ -26,7 +27,7 @@ interface EditorContextType extends EditorState {
   updateBlock: (id: number, updatedConfig: any) => void;
   reorderBlocks: (blocks: BlockType[]) => void;
   updateThemeConfig: (theme: Partial<ThemeConfig>) => void;
-  setActivePanel: (panel: string) => void;
+  setActivePanel: (panel: EditorPanelType) => void;
   setBackground: (background: Background) => void;
   setBackgroundForUpload: (background: Background) => void;
   saveChanges: () => Promise<void>;
@@ -246,7 +247,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     console.groupEnd();
   }, []);
 
-  const setActivePanel = useCallback((activePanel: string) => {
+  const setActivePanel = useCallback((activePanel: EditorPanelType) => {
     console.group("📋 Setting Active Panel");
     console.info(`Panel: ${activePanel}`);
     setState(prevState => ({
