@@ -1,12 +1,12 @@
 import { useState, useRef, ChangeEvent } from "react";
-import { trpcClient } from "../../../utils/trpc";
+import { trpc, trpcClient } from "../../../utils/trpc/trpc";
 import {
-  ALLOWED_AVATAR_FILE_EXTENSIONS,
+  ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS,
   ALLOWED_AVATAR_FILE_TYPES,
-  MAX_AVATAR_FILE_SIZE,
 } from "@ampedbio/constants";
 import { PhotoEditor } from "./PhotoEditor";
 import { useAuth } from "../../../contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
 
 interface ImageUploaderProps {
   imageUrl: string;
@@ -14,13 +14,14 @@ interface ImageUploaderProps {
 }
 
 export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [showPhotoEditor, setShowPhotoEditor] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { refreshUserData } = useAuth();
+
+  const { data: uploadLimits } = useQuery(trpc.upload.getLimits.queryOptions());
 
   const handleFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -29,22 +30,24 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
     // Validate file type
     if (!ALLOWED_AVATAR_FILE_TYPES.includes(file.type)) {
       setError(
-        `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()} images are allowed`
+        `Only ${ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.join(", ").toUpperCase()} images are allowed`
       );
       return;
     }
 
     // Validate file extension
     const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
-    if (!ALLOWED_AVATAR_FILE_EXTENSIONS.includes(fileExtension)) {
-      setError(`Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ")} file extensions are allowed`);
+    if (!ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.includes(fileExtension)) {
+      setError(
+        `Only ${ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.join(", ")} file extensions are allowed`
+      );
       return;
     }
 
     // Validate file size (max 5MB)
-    if (file.size > MAX_AVATAR_FILE_SIZE) {
+    if (file.size > (uploadLimits?.maxAvatarFileSize || 0)) {
       setError(
-        `File size must be less than ${(MAX_AVATAR_FILE_SIZE / (1024 * 1024)).toFixed(2)}MB`
+        `File size must be less than ${((uploadLimits?.maxAvatarFileSize || 0) / (1024 * 1024)).toFixed(2)}MB`
       );
       return;
     }
@@ -55,7 +58,6 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
     // Create a preview URL for the photo editor
     const objectUrl = URL.createObjectURL(file);
     setPreviewUrl(objectUrl);
-    setSelectedFile(file);
     setShowPhotoEditor(true);
   };
 
@@ -64,7 +66,6 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
       URL.revokeObjectURL(previewUrl);
     }
     setPreviewUrl(null);
-    setSelectedFile(null);
     setShowPhotoEditor(false);
   };
 
@@ -253,8 +254,8 @@ export function ImageUploader({ imageUrl, onImageChange }: ImageUploaderProps) {
             </button>
           </div>
           <p className="text-xs text-gray-500">
-            {ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()}. Max{" "}
-            {MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB.
+            {ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.join(", ").toUpperCase()}. Max{" "}
+            {(uploadLimits?.maxAvatarFileSize || 0) / (1024 * 1024)}MB.
           </p>
           {error && <p className="text-xs text-red-600">{error}</p>}
         </div>

@@ -20,27 +20,14 @@ import { toast } from "react-hot-toast";
 import {
   ALLOWED_BACKGROUND_FILE_TYPES,
   ALLOWED_BACKGROUND_FILE_EXTENSIONS,
-  MAX_ADMIN_BACKGROUND_FILE_SIZE,
 } from "@ampedbio/constants";
-
-// Utility function to get file extension from content type
-const getExtensionFromContentType = (contentType: string): string | null => {
-  const typeMap: Record<string, string> = {
-    "image/jpeg": "jpg",
-    "image/jpg": "jpg",
-    "image/png": "png",
-    "image/svg+xml": "svg",
-    "video/mp4": "mp4",
-    "video/quicktime": "mov",
-    "video/x-msvideo": "avi",
-    "video/webm": "webm",
-  };
-
-  return typeMap[contentType] || null;
-};
+import { RouterOutputs } from "@/utils/trpc/types";
 
 // Utility function to validate file for background upload
-const validateBackgroundFile = (file: File): { isValid: boolean; error?: string } => {
+const validateBackgroundFile = (
+  file: File,
+  limits?: RouterOutputs["admin"]["upload"]["getLimits"]
+): { isValid: boolean; error?: string } => {
   // Check file type
   if (!ALLOWED_BACKGROUND_FILE_TYPES.includes(file.type)) {
     return {
@@ -49,11 +36,12 @@ const validateBackgroundFile = (file: File): { isValid: boolean; error?: string 
     };
   }
 
-  // Check file size
-  if (file.size > MAX_ADMIN_BACKGROUND_FILE_SIZE) {
+  // Check file size using admin-specific limits if available, otherwise fall back to regular limits
+  const maxFileSize = limits?.maxAdminBackgroundFileSize || 50 * 1024 * 1024; // Fallback to 50MB if limits not loaded
+  if (file.size > maxFileSize) {
     return {
       isValid: false,
-      error: `File size (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds the maximum allowed size of ${MAX_ADMIN_BACKGROUND_FILE_SIZE / (1024 * 1024)}MB`,
+      error: `File size (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds the maximum allowed size of ${(maxFileSize / (1024 * 1024)).toFixed(0)}MB`,
     };
   }
 
@@ -182,6 +170,7 @@ export function CreateThemeTab() {
   const [isAccordionOpen, setIsAccordionOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const backgroundFileInputRef = useRef<HTMLInputElement>(null);
+  const { data: limits } = useQuery(trpc.admin.upload.getLimits.queryOptions());
 
   // React Hook Form for theme creation
   const themeForm = useForm<ThemeForm>({
@@ -251,10 +240,7 @@ export function CreateThemeTab() {
       // Step 2: If there's a background file from imported theme, upload it
       if (downloadedBackgroundFile) {
         try {
-          const backgroundFileId = await uploadThemeBackground(
-            newTheme.id,
-            downloadedBackgroundFile
-          );
+          await uploadThemeBackground(newTheme.id, downloadedBackgroundFile);
           backgroundUploadSuccess = true;
 
           // Note: The background upload already updates the theme config with the new file reference
@@ -458,7 +444,7 @@ export function CreateThemeTab() {
 
             if (backgroundFile) {
               // Validate the downloaded file
-              const validation = validateBackgroundFile(backgroundFile);
+              const validation = validateBackgroundFile(backgroundFile, limits);
               if (!validation.isValid) {
                 console.warn("Background file validation failed:", validation.error);
                 toast.error(`Background validation failed: ${validation.error}`);
@@ -611,7 +597,7 @@ export function CreateThemeTab() {
     if (!file) return;
 
     // Validate the selected background file
-    const validation = validateBackgroundFile(file);
+    const validation = validateBackgroundFile(file, limits);
     if (!validation.isValid) {
       toast.error(`Background file validation failed: ${validation.error}`);
       e.target.value = ""; // Reset the input

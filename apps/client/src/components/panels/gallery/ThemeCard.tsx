@@ -2,7 +2,7 @@ import { AlertTriangle } from "lucide-react";
 import type { MarketplaceTheme } from "../../../types/editor";
 import { HoverPopover } from "../../ui/popover";
 import { trpc } from "../../../utils/trpc";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { useEditor } from "../../../contexts/EditorContext";
 
@@ -12,7 +12,6 @@ interface ThemeCardProps {
 }
 
 export function ThemeCard({ theme, onApply }: ThemeCardProps) {
-  const queryClient = useQueryClient();
   const { profile, setUser } = useEditor();
 
   // Mutation for applying theme

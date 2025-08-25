@@ -6,24 +6,13 @@ export function AdminUsers() {
     window.location.reload();
   };
 
-  const handleExportUsers = () => {
-    // TODO: Implement user export functionality
-    console.log("Exporting users...");
-  };
-
-  const handleAddUser = () => {
-    // TODO: Implement add user functionality
-    console.log("Adding new user...");
-  };
-
   return (
     <div className="flex-1 overflow-auto space-y-6">
       <AdminQuickActions
         title="User Management"
         description="Manage user accounts, roles, and permissions"
         onRefresh={handleRefresh}
-        onExport={handleExportUsers}
-        onAdd={handleAddUser}
+        // onAdd={handleAddUser}
         addButtonText="Add User"
       />
 

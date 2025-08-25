@@ -84,11 +84,14 @@ export function UserMenu() {
   if (authUser === null) {
     return (
       <>
-        <Button onClick={() => {
-          trackGAEvent("Click", "AuthModal", "OpenModalButton");
-          setShowAuthModal(true);
-          window.history.replaceState(null, "", "/login");
-        }} className="flex items-center space-x-2">
+        <Button
+          onClick={() => {
+            trackGAEvent("Click", "AuthModal", "OpenModalButton");
+            setShowAuthModal(true);
+            window.history.replaceState(null, "", "/login");
+          }}
+          className="flex items-center space-x-2"
+        >
           <User className="w-4 h-4" />
           <span>Sign In</span>
         </Button>

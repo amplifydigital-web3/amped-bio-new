@@ -4,11 +4,14 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   X,
   Eye,
   EyeOff,
   ClipboardCopy,
   Check,
+  Download,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
@@ -39,11 +42,9 @@ type User = {
   } | null;
 };
 
-type EditUserFormData = z.infer<typeof editUserSchema>;
-
 export function UserManagement() {
   const [currentPage, setCurrentPage] = useState(1);
-  const [limit] = useState(10);
+  const [limit, setLimit] = useState(10);
   const [role, setRole] = useState<string | undefined>(undefined);
   const [blocked, setBlocked] = useState<boolean | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState("");
@@ -51,6 +52,7 @@ export function UserManagement() {
   const [hasSearched, setHasSearched] = useState(false);
   const [showEmails, setShowEmails] = useState(false);
   const [copiedAddressId, setCopiedAddressId] = useState<number | null>(null);
+  const [sortDescriptor, setSortDescriptor] = useState<{ column: string; direction: "asc" | "desc" }>({ column: "created_at", direction: "desc" });
 
   // Edit User Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -99,8 +101,9 @@ export function UserManagement() {
       role,
       blocked,
       search: searchQuery.length >= 2 ? searchQuery : undefined,
+      sortBy: sortDescriptor.column,
+      sortDirection: sortDescriptor.direction,
     }),
-    enabled: hasSearched || searchQuery.length >= 2 || role !== undefined || blocked !== undefined,
   });
 
   // Handle edit form submission
@@ -187,14 +190,13 @@ export function UserManagement() {
 
       // Auto-search when user types 2 or more characters
       if (value.length >= 2) {
-        setHasSearched(true);
         refetch();
-      } else if (value.length === 0 && hasSearched) {
+      } else if (value.length === 0) {
         // Clear results if search is emptied
         refetch();
       }
     },
-    [hasSearched, refetch]
+    [refetch]
   );
 
   // Handle search form submission
@@ -206,7 +208,6 @@ export function UserManagement() {
       try {
         if (searchQuery === "" || searchQuery.length >= 2) {
           setSearchError(null);
-          setHasSearched(true);
           refetch();
         } else {
           // Provide feedback that search requires at least 2 characters
@@ -227,7 +228,6 @@ export function UserManagement() {
     setBlocked(undefined);
     setCurrentPage(1);
     setSearchError(null);
-    setHasSearched(false);
   }, []);
 
   // Handle page change
@@ -264,6 +264,89 @@ export function UserManagement() {
     setShowEmails(prev => !prev);
   }, []);
 
+  const handleSort = (column: string) => {
+    setSortDescriptor(prev => {
+      if (prev.column === column) {
+        return { column, direction: prev.direction === "asc" ? "desc" : "asc" };
+      } else {
+        return { column, direction: "desc" };
+      }
+    });
+    refetch();
+  };
+
+  const renderSortArrow = (column: string) => {
+    if (sortDescriptor.column !== column) return null;
+    if (sortDescriptor.direction === "asc") {
+      return <ChevronUp className="h-4 w-4 ml-1" />;
+    } else {
+      return <ChevronDown className="h-4 w-4 ml-1" />;
+    }
+  };
+
+  const handleLimitChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setLimit(Number(e.target.value));
+    setCurrentPage(1);
+    refetch();
+  };
+
+  const handleExportCSV = () => {
+    if (!userData) return;
+
+    const escapeCSV = (str: string | number | null) => {
+      if (str === null || str === undefined) {
+        return "";
+      }
+      const string = String(str);
+      if (string.includes('"')) {
+        return `"${string.replace(/"/g, '""')}"`;
+      }
+      if (string.includes(',')) {
+        return `"${string}"`;
+      }
+      return string;
+    };
+
+    const headers = [
+      "ID",
+      "Name",
+      "Email",
+      "Onelink",
+      "Role",
+      "Status",
+      "Blocks",
+      "Themes",
+      "Date Joined",
+      "Wallet Address",
+    ];
+
+    const rows = userData.users.map(user =>
+      [
+        user.id,
+        escapeCSV(user.name),
+        escapeCSV(user.email),
+        escapeCSV(user.onelink),
+        escapeCSV(user.role),
+        escapeCSV(user.block === "yes" ? "Blocked" : "Active"),
+        user._count.blocks,
+        user._count.themes,
+        escapeCSV(formatDate(user.created_at)),
+        escapeCSV(user.wallet?.address ?? null),
+      ].join(",")
+    );
+
+    const csvContent = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "users.csv");
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="flex-1 p-6 bg-gray-50 overflow-auto">
       <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
@@ -271,23 +354,33 @@ export function UserManagement() {
 
         {/* Control Row - Search and Settings */}
         <div className="flex justify-between items-center mb-4">
-          {/* Email Visibility Toggle */}
-          <button
-            onClick={toggleEmailVisibility}
-            className="flex items-center px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition-colors"
-          >
-            {showEmails ? (
-              <>
-                <EyeOff className="h-4 w-4 mr-1.5" />
-                <span>Hide Emails</span>
-              </>
-            ) : (
-              <>
-                <Eye className="h-4 w-4 mr-1.5" />
-                <span>Show Emails</span>
-              </>
-            )}
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Email Visibility Toggle */}
+            <button
+              onClick={toggleEmailVisibility}
+              className="flex items-center px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition-colors"
+            >
+              {showEmails ? (
+                <>
+                  <EyeOff className="h-4 w-4 mr-1.5" />
+                  <span>Hide Emails</span>
+                </>
+              ) : (
+                <>
+                  <Eye className="h-4 w-4 mr-1.5" />
+                  <span>Show Emails</span>
+                </>
+              )}
+            </button>
+            <button
+              onClick={handleExportCSV}
+              disabled={!userData || userData.users.length === 0}
+              className="flex items-center px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+            >
+              <Download className="h-4 w-4 mr-1.5" />
+              <span>Export as CSV</span>
+            </button>
+          </div>
         </div>
 
         {/* Search and Filters Row */}
@@ -305,11 +398,7 @@ export function UserManagement() {
                     handleSearchChange(e);
                   }}
                   placeholder="Search users by name, email, or wallet address"
-                  className={`w-full px-4 py-2 rounded-lg border ${
-                    searchError
-                      ? "border-red-300 focus:ring-red-500"
-                      : "border-gray-300 focus:ring-blue-500"
-                  } focus:outline-none focus:ring-2`}
+                  className={`w-full px-4 py-2 rounded-lg border ${searchError ? "border-red-300 focus:ring-red-500" : "border-gray-300 focus:ring-blue-500"} focus:outline-none focus:ring-2`}
                 />
                 <button
                   type="submit"
@@ -356,15 +445,7 @@ export function UserManagement() {
         </div>
 
         {/* Users Table */}
-        {!hasSearched && !searchQuery && role === undefined && blocked === undefined ? (
-          <div className="py-16 text-center">
-            <div className="text-gray-400 mb-4">
-              <Search className="h-12 w-12 mx-auto mb-4" />
-              <p className="text-lg">Enter a search query or apply filters to show users</p>
-              <p className="text-sm">Start typing in the search box above to find users</p>
-            </div>
-          </div>
-        ) : isUsersLoading ? (
+        {isUsersLoading ? (
           <div className="flex justify-center py-10">
             <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
           </div>
@@ -374,29 +455,71 @@ export function UserManagement() {
               <table className="min-w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Name
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => handleSort("name")}
+                    >
+                      <div className="flex items-center">
+                        Name
+                        {renderSortArrow("name")}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Email
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => handleSort("email")}
+                    >
+                      <div className="flex items-center">
+                        Email
+                        {renderSortArrow("email")}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Onelink
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => handleSort("onelink")}
+                    >
+                      <div className="flex items-center">
+                        Onelink
+                        {renderSortArrow("onelink")}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Role
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => handleSort("role")}
+                    >
+                      <div className="flex items-center">
+                        Role
+                        {renderSortArrow("role")}
+                      </div>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Blocks
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => handleSort("blocks")}
+                    >
+                      <div className="flex items-center">
+                        Blocks
+                        {renderSortArrow("blocks")}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Themes
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => handleSort("themes")}
+                    >
+                      <div className="flex items-center">
+                        Themes
+                        {renderSortArrow("themes")}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date Joined
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => handleSort("created_at")}
+                    >
+                      <div className="flex items-center">
+                        Date Joined
+                        {renderSortArrow("created_at")}
+                      </div>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Wallet Address
@@ -533,18 +656,44 @@ export function UserManagement() {
             </div>
 
             {/* Pagination */}
-            {userData?.pagination && userData.pagination.pages > 1 && (
+            {userData?.pagination && (
               <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6">
-                <div className="flex justify-between w-full">
-                  <div>
+                <div className="flex-1 flex justify-between sm:hidden">
+                  <button
+                    onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => handlePageChange(Math.min(userData.pagination.pages, currentPage + 1))}
+                    disabled={currentPage === userData.pagination.pages}
+                    className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                  >
+                    Next
+                  </button>
+                </div>
+                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-x-2">
                     <p className="text-sm text-gray-700">
-                      Showing <span className="font-medium">{(currentPage - 1) * limit + 1}</span>{" "}
-                      to{" "}
+                      Showing <span className="font-medium">{(currentPage - 1) * limit + 1}</span> to{" "}
                       <span className="font-medium">
                         {Math.min(currentPage * limit, userData.pagination.total)}
-                      </span>{" "}
-                      of <span className="font-medium">{userData.pagination.total}</span> results
+                      </span>{" "}of <span className="font-medium">{userData.pagination.total}</span> results
                     </p>
+                    <div className="w-full sm:w-28">
+                      <select
+                        value={limit}
+                        onChange={handleLimitChange}
+                        className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="10">10 / page</option>
+                        <option value="20">20 / page</option>
+                        <option value="50">50 / page</option>
+                        <option value="100">100 / page</option>
+                      </select>
+                    </div>
                   </div>
                   <div>
                     <nav
@@ -554,11 +703,7 @@ export function UserManagement() {
                       <button
                         onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
                         disabled={currentPage === 1}
-                        className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
-                          currentPage === 1
-                            ? "text-gray-300 cursor-not-allowed"
-                            : "text-gray-500 hover:bg-gray-50"
-                        }`}
+                        className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${currentPage === 1 ? "text-gray-300 cursor-not-allowed" : "text-gray-500 hover:bg-gray-50"}`}
                       >
                         <span className="sr-only">Previous</span>
                         <ChevronLeft className="h-5 w-5" aria-hidden="true" />
@@ -590,11 +735,7 @@ export function UserManagement() {
                             <button
                               key={page}
                               onClick={() => handlePageChange(page)}
-                              className={`relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium ${
-                                page === currentPage
-                                  ? "text-blue-600 bg-blue-50"
-                                  : "text-gray-700 hover:bg-gray-50"
-                              }`}
+                              className={`relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium ${page === currentPage ? "text-blue-600 bg-blue-50" : "text-gray-700 hover:bg-gray-50"}`}
                             >
                               {page}
                             </button>
@@ -607,11 +748,7 @@ export function UserManagement() {
                           handlePageChange(Math.min(userData.pagination.pages, currentPage + 1))
                         }
                         disabled={currentPage === userData.pagination.pages}
-                        className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
-                          currentPage === userData.pagination.pages
-                            ? "text-gray-300 cursor-not-allowed"
-                            : "text-gray-500 hover:bg-gray-50"
-                        }`}
+                        className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${currentPage === userData.pagination.pages ? "text-gray-300 cursor-not-allowed" : "text-gray-500 hover:bg-gray-50"}`}
                       >
                         <span className="sr-only">Next</span>
                         <ChevronRight className="h-5 w-5" aria-hidden="true" />
@@ -728,84 +865,4 @@ export function UserManagement() {
       )}
     </div>
   );
-
-  // Edit User Modal Component
-  function EditUserModal({
-    isOpen,
-    onClose,
-    user,
-    errors,
-    onChange,
-    onSubmit,
-  }: {
-    isOpen: boolean;
-    onClose: () => void;
-    user: { id: number; name: string; email: string } | null;
-    errors: { name?: string; email?: string };
-    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-    onSubmit: (e: React.FormEvent) => void;
-  }) {
-    if (!isOpen || !user) return null;
-
-    return (
-      <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
-        <div className="relative bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-semibold">Edit User</h3>
-            <button className="text-gray-500 hover:text-gray-700" onClick={onClose}>
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-
-          <form onSubmit={onSubmit}>
-            <div className="mb-4">
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                Name
-              </label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={user.name}
-                onChange={onChange}
-                className={`w-full px-3 py-2 border rounded-md ${errors.name ? "border-red-500" : "border-gray-300"}`}
-              />
-              {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
-            </div>
-
-            <div className="mb-6">
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Email
-              </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={user.email}
-                onChange={onChange}
-                className={`w-full px-3 py-2 border rounded-md ${errors.email ? "border-red-500" : "border-gray-300"}`}
-              />
-              {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
-            </div>
-
-            <div className="flex justify-end space-x-3">
-              <button
-                type="button"
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg"
-                onClick={onClose}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-              >
-                Save Changes
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    );
-  }
 }

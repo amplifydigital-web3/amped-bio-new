@@ -11,10 +11,12 @@ export const usersRouter = router({
       z.object({
         ...PaginationSchema.shape,
         ...UserFilterSchema.shape,
+        sortBy: z.string().optional(),
+        sortDirection: z.enum(["asc", "desc"]).optional(),
       })
     )
     .query(async ({ input }) => {
-      const { page, limit, search, role, blocked } = input;
+      const { page, limit, search, role, blocked, sortBy, sortDirection } = input;
       const skip = (page - 1) * limit;
 
       // Build filter conditions
@@ -33,12 +35,22 @@ export const usersRouter = router({
         ...(blocked !== undefined ? { block: blocked ? "yes" : "no" } : {}),
       };
 
+      const orderBy = sortBy
+        ? sortBy === "blocks" || sortBy === "themes"
+          ? {
+              [sortBy]: {
+                _count: sortDirection || "desc",
+              },
+            }
+          : { [sortBy]: sortDirection || "desc" }
+        : { created_at: "desc" };
+
       // Get users with pagination
       const users = await prisma.user.findMany({
         skip,
         take: limit,
         where,
-        orderBy: { created_at: "desc" },
+        orderBy: orderBy as any, // Using as any to bypass strict type checking for dynamic orderBy
         select: {
           id: true,
           name: true,
@@ -151,7 +163,7 @@ export const usersRouter = router({
       });
 
       return updatedUser;
-    } catch (error) {
+    } catch {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: "Failed to update user",

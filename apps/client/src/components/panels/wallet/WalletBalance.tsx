@@ -11,7 +11,7 @@ type WalletBalanceProps = {
 
 const WalletBalance: React.FC<WalletBalanceProps> = ({ loading = false }) => {
   const wallet = useWalletContext();
-  
+
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
   const [showFundModal, setShowFundModal] = useState(false);
@@ -131,7 +131,11 @@ const WalletBalance: React.FC<WalletBalanceProps> = ({ loading = false }) => {
         </button>
       </div>
 
-      <FundWalletDialog open={showFundModal} onOpenChange={setShowFundModal} openReceiveModal={() => setShowReceiveModal(true)} />
+      <FundWalletDialog
+        open={showFundModal}
+        onOpenChange={setShowFundModal}
+        openReceiveModal={() => setShowReceiveModal(true)}
+      />
 
       <SendDialog
         open={showSendModal}

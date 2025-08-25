@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAccount, useBalance } from "wagmi";
 import { Coins, Image, Clock, Plus, Loader, AlertCircle } from "lucide-react";
 import { Tooltip } from "../../ui/Tooltip";
@@ -156,7 +156,7 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
             </div>
           </div>
         );
-      
+
       case "nfts":
         return (
           <div className="py-6">

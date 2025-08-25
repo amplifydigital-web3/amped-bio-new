@@ -1,30 +1,29 @@
-import { privateProcedure, router } from "./trpc";
+import { privateProcedure, publicProcedure, router } from "./trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { s3Service, FileCategory } from "../services/S3Service";
 import { uploadedFileService } from "../services/UploadedFileService";
 import {
-  ALLOWED_AVATAR_FILE_EXTENSIONS,
+  ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS,
   ALLOWED_AVATAR_FILE_TYPES,
-  MAX_AVATAR_FILE_SIZE,
   ALLOWED_BACKGROUND_FILE_EXTENSIONS,
   ALLOWED_BACKGROUND_FILE_TYPES,
-  MAX_BACKGROUND_FILE_SIZE,
   ThemeConfig,
 } from "@ampedbio/constants";
 import { prisma } from "../services/DB";
+import { env } from "../env";
 
 const requestPresignedUrlSchema = z.object({
   contentType: z.string().refine(value => ALLOWED_AVATAR_FILE_TYPES.includes(value), {
-    message: `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()} formats are supported`,
+    message: `Only ${ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.join(", ").toUpperCase()} formats are supported`,
   }),
   fileExtension: z
     .string()
-    .refine(value => ALLOWED_AVATAR_FILE_EXTENSIONS.includes(value.toLowerCase()), {
-      message: `File extension must be ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ")}`,
+    .refine(value => ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.includes(value.toLowerCase()), {
+      message: `File extension must be ${ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.join(", ")}`,
     }),
-  fileSize: z.number().max(MAX_AVATAR_FILE_SIZE, {
-    message: `File size must be less than ${MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB`,
+  fileSize: z.number().max(env.UPLOAD_LIMIT_PROFILE_PHOTO_MB * 1024 * 1024, {
+    message: `File size must be less than ${env.UPLOAD_LIMIT_PROFILE_PHOTO_MB}MB`,
   }),
   category: z.enum(["profiles", "backgrounds", "media", "files"]).default("profiles"),
 });
@@ -45,8 +44,8 @@ const requestThemeBackgroundUrlSchema = z.object({
     .refine(value => ALLOWED_BACKGROUND_FILE_EXTENSIONS.includes(value.toLowerCase()), {
       message: `File extension must be ${ALLOWED_BACKGROUND_FILE_EXTENSIONS.join(", ")}`,
     }),
-  fileSize: z.number().max(MAX_BACKGROUND_FILE_SIZE, {
-    message: `File size must be less than ${MAX_BACKGROUND_FILE_SIZE / (1024 * 1024)}MB`,
+  fileSize: z.number().max(env.UPLOAD_LIMIT_BACKGROUND_MB * 1024 * 1024, {
+    message: `File size must be less than ${env.UPLOAD_LIMIT_BACKGROUND_MB}MB`,
   }),
 });
 
@@ -69,10 +68,10 @@ export const uploadRouter = router({
       const userId = ctx.user.sub;
 
       try {
-        if (input.fileSize > MAX_AVATAR_FILE_SIZE) {
+        if (input.fileSize > env.UPLOAD_LIMIT_PROFILE_PHOTO_MB * 1024 * 1024) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: `File size exceeds the ${MAX_AVATAR_FILE_SIZE / (1024 * 1024)}MB limit`,
+            message: `File size exceeds the ${env.UPLOAD_LIMIT_PROFILE_PHOTO_MB}MB limit`,
           });
         }
 
@@ -112,10 +111,10 @@ export const uploadRouter = router({
       const userId = ctx.user.sub;
 
       try {
-        if (input.fileSize > MAX_BACKGROUND_FILE_SIZE) {
+        if (input.fileSize > env.UPLOAD_LIMIT_BACKGROUND_MB * 1024 * 1024) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: `File size exceeds the ${MAX_BACKGROUND_FILE_SIZE / (1024 * 1024)}MB limit`,
+            message: `File size exceeds the ${env.UPLOAD_LIMIT_BACKGROUND_MB}MB limit`,
           });
         }
 
@@ -408,7 +407,6 @@ export const uploadRouter = router({
         const previousFileKey = user.image ? s3Service.extractFileKeyFromUrl(user.image) : null;
 
         // Get the public URL for the new profile picture
-        const profilePictureUrl = s3Service.getFileUrl(fileKey);
 
         // Update user profile picture URL and file reference in database
         await prisma.user.update({
@@ -429,9 +427,12 @@ export const uploadRouter = router({
           }
         }
 
+        // Get the public URL for the new profile picture
+        const profilePictureUrl = s3Service.getFileUrl(fileKey);
+
         return {
           success: true,
-          profilePictureUrl: s3Service.getFileUrl(fileKey),
+          profilePictureUrl,
           fileId: input.fileId,
         };
       } catch (error) {
@@ -496,4 +497,14 @@ export const uploadRouter = router({
         });
       }
     }),
+
+  // Endpoint to get upload limits from environment variables
+  getLimits: publicProcedure.query(() => {
+    return {
+      // Convert from MB to bytes for consistency with frontend file handling
+      maxBackgroundFileSize: env.UPLOAD_LIMIT_BACKGROUND_MB * 1024 * 1024,
+      maxAvatarFileSize: env.UPLOAD_LIMIT_PROFILE_PHOTO_MB * 1024 * 1024,
+      maxCollectionThumbnailFileSize: env.UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB * 1024 * 1024,
+    };
+  }),
 });

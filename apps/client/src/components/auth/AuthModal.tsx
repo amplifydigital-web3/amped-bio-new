@@ -97,7 +97,8 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const recaptchaRef = useRef<ReCAPTCHA>(null);
   const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
-  const isRecaptchaEnabled = import.meta.env.MODE !== "testing" && !!import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+  const isRecaptchaEnabled =
+    import.meta.env.MODE !== "testing" && !!import.meta.env.VITE_RECAPTCHA_SITE_KEY;
   const navigate = useNavigate();
   const location = useLocation();
 

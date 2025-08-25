@@ -35,7 +35,7 @@ export function TextBlockEditor({ block, onSave, onCancel }: TextBlockEditorProp
     setValue,
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { isSubmitting },
   } = useForm<TextBlockFormData>({
     resolver: zodResolver(textBlockSchema) as Resolver<TextBlockFormData>,
     defaultValues: initialValues,

@@ -5,10 +5,7 @@ import { env } from "../env";
 import { createWalletClient, http, parseEther, isAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { prisma } from "../services/DB";
-import { getChainConfig } from "../utils/chainConfig";
-
-// Get chain configuration from centralized utility
-const chain = getChainConfig();
+import { getChainConfig } from "@ampedbio/web3";
 
 // Create public client for fetching blockchain data
 // const publicClient = createPublicClient({
@@ -21,6 +18,7 @@ const faucetRequestSchema = z.object({
   address: z.string().refine(address => address && isAddress(address), {
     message: "Invalid Ethereum address format",
   }),
+  chainId: z.number(),
 });
 
 // Schema for faucet response
@@ -119,56 +117,70 @@ export const walletRouter = router({
     }),
 
   // Get the current airdrop/faucet amount and user's last request info
-  getFaucetAmount: privateProcedure.query(async ({ ctx }) => {
-    try {
-      const userId = ctx.user.sub;
+  getFaucetAmount: privateProcedure
+    .input(
+      z.object({
+        chainId: z.number(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      try {
+        const userId = ctx.user.sub;
+        const chain = getChainConfig(input.chainId);
 
-      // Retrieve the faucet amount from environment variables
-      const faucetAmount = Number(env.FAUCET_AMOUNT);
-
-      // Find user's wallet and check their last airdrop request
-      const userWallet = await prisma.userWallet.findFirst({
-        where: { userId: userId },
-      });
-
-      let lastRequestDate: Date | null = null;
-      let nextAvailableDate: Date | null = null;
-      let canRequestNow = true;
-
-      // If the user has a wallet and has requested an airdrop before
-      if (userWallet && userWallet.last_airdrop_request) {
-        lastRequestDate = userWallet.last_airdrop_request;
-
-        // Check if it's been less than 24 hours since the last request
-        const now = new Date();
-        const timeSinceLastRequest = now.getTime() - lastRequestDate.getTime();
-        const timeRequired = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-
-        if (timeSinceLastRequest < timeRequired) {
-          // Calculate when they can request again
-          nextAvailableDate = new Date(lastRequestDate.getTime() + timeRequired);
-          canRequestNow = false;
+        if (!chain) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid chain ID provided.",
+          });
         }
+
+        // Retrieve the faucet amount from environment variables
+        const faucetAmount = Number(env.FAUCET_AMOUNT);
+
+        // Find user's wallet and check their last airdrop request
+        const userWallet = await prisma.userWallet.findFirst({
+          where: { userId: userId },
+        });
+
+        let lastRequestDate: Date | null = null;
+        let nextAvailableDate: Date | null = null;
+        let canRequestNow = true;
+
+        // If the user has a wallet and has requested an airdrop before
+        if (userWallet && userWallet.last_airdrop_request) {
+          lastRequestDate = userWallet.last_airdrop_request;
+
+          // Check if it's been less than 24 hours since the last request
+          const now = new Date();
+          const timeSinceLastRequest = now.getTime() - lastRequestDate.getTime();
+          const timeRequired = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+          if (timeSinceLastRequest < timeRequired) {
+            // Calculate when they can request again
+            nextAvailableDate = new Date(lastRequestDate.getTime() + timeRequired);
+            canRequestNow = false;
+          }
+        }
+
+        return {
+          success: true,
+          amount: faucetAmount,
+          currency: chain.nativeCurrency.symbol,
+          lastRequestDate,
+          nextAvailableDate,
+          canRequestNow,
+          hasWallet: !!userWallet,
+        };
+      } catch (error) {
+        console.error("Error getting faucet amount:", error);
+
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to retrieve faucet amount",
+        });
       }
-
-      return {
-        success: true,
-        amount: faucetAmount,
-        currency: chain.nativeCurrency.symbol,
-        lastRequestDate,
-        nextAvailableDate,
-        canRequestNow,
-        hasWallet: !!userWallet,
-      };
-    } catch (error) {
-      console.error("Error getting faucet amount:", error);
-
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Failed to retrieve faucet amount",
-      });
-    }
-  }),
+    }),
 
   // Get the wallet address linked to the current user (1:1 relationship)
   getUserWallet: privateProcedure.query(async ({ ctx }) => {
@@ -210,6 +222,14 @@ export const walletRouter = router({
 
       // Create wallet client from private key
       const account = privateKeyToAccount(env.FAUCET_PRIVATE_KEY as `0x${string}`);
+      const chain = getChainConfig(input.chainId);
+
+      if (!chain) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Invalid chain ID provided.",
+        });
+      }
 
       // Create wallet client for sending transactions
       const walletClient = createWalletClient({
@@ -323,6 +343,7 @@ export const walletRouter = router({
             hash = await walletClient.sendTransaction({
               to: input.address as `0x${string}`,
               value: amountInWei,
+              chain,
             });
 
             // We no longer wait for the transaction to be mined

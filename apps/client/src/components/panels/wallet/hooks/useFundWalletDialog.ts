@@ -10,7 +10,7 @@ export function useFundWalletDialog(params: {
 }) {
   const wallet = useWalletContext();
   const { open, onOpenChange } = params;
-  const { address: walletAddress, isConnected } = useAccount();
+  const { address: walletAddress, isConnected, chainId } = useAccount();
 
   // Dialog state
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
@@ -41,7 +41,7 @@ export function useFundWalletDialog(params: {
 
       setIsLoadingFaucetAmount(true);
       try {
-        const result = await trpcClient.wallet.getFaucetAmount.query();
+        const result = await trpcClient.wallet.getFaucetAmount.query({ chainId: chainId! });
         if (result.success) {
           setFaucetAmount({
             amount: result.amount,
@@ -78,6 +78,7 @@ export function useFundWalletDialog(params: {
     try {
       const result = await trpcClient.wallet.requestAirdrop.mutate({
         address: walletAddress,
+        chainId: chainId!,
       });
 
       if (result.success && result.transaction?.hash) {
