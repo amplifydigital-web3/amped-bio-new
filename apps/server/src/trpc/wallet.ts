@@ -2,7 +2,7 @@ import { privateProcedure, router } from "./trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { env } from "../env";
-import { createWalletClient, http, parseEther, isAddress } from "viem";
+import { createWalletClient, http, parseEther, isAddress, Address } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { prisma } from "../services/DB";
 import { getChainConfig } from "@ampedbio/web3";
@@ -398,5 +398,53 @@ export const walletRouter = router({
           message: "Failed to process airdrop request",
         });
       }
+    }),
+
+  // Search users by onelink or wallet address
+  searchUsers: privateProcedure
+    .input(z.string()) // Input is the search query
+    .query(async ({ input }) => {
+      const searchQuery = input.toLowerCase(); // Case-insensitive search
+
+      const users = await prisma.user.findMany({
+        where: {
+          OR: [
+            {
+              onelink: {
+                contains: searchQuery,
+              },
+            },
+            {
+              wallet: {
+                address: {
+                  contains: searchQuery,
+                },
+              },
+            },
+          ],
+        },
+        select: {
+          id: true,
+          name: true,
+          onelink: true,
+          image: true,
+          description: true,
+          wallet: {
+            select: {
+              address: true,
+            },
+          },
+        },
+        take: 10, // Limit to 10 records
+      });
+
+      // Map Prisma results to the User interface expected by the client
+      return users.map(user => ({
+        id: user.id.toString(), // Convert Int to String
+        username: user.onelink!.toLowerCase(), // Fallback to a derived username if onelink is null
+        displayName: user.name,
+        avatar: user.image,
+        walletAddress: (user.wallet?.address as Address | undefined) ?? undefined,
+      }));
     }),
 });
