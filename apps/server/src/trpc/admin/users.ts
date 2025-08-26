@@ -35,43 +35,104 @@ export const usersRouter = router({
         ...(blocked !== undefined ? { block: blocked ? "yes" : "no" } : {}),
       };
 
-      const orderBy = sortBy
-        ? sortBy === "blocks" || sortBy === "themes"
-          ? {
-              [sortBy]: {
-                _count: sortDirection || "desc",
-              },
-            }
-          : { [sortBy]: sortDirection || "desc" }
-        : { created_at: "desc" };
+      const totalUsers = await prisma.user.count({ where });
+      let users;
 
-      // Get users with pagination
-      const users = await prisma.user.findMany({
-        skip,
-        take: limit,
-        where,
-        orderBy: orderBy as any, // Using as any to bypass strict type checking for dynamic orderBy
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          onelink: true,
-          role: true,
-          block: true,
-          created_at: true,
-          updated_at: true,
-          image: true,
-          image_file_id: true,
-          reward_business_id: true,
-          wallet: true,
-          _count: {
-            select: {
-              blocks: true,
-              themes: true,
+      if (sortBy === "totalClicks") {
+        const usersMatchingFilter = await prisma.user.findMany({
+          where,
+          select: { id: true },
+        });
+        const userIds = usersMatchingFilter.map(u => u.id);
+
+        const blockAggregations = await prisma.block.groupBy({
+          by: ["user_id"],
+          where: { user_id: { in: userIds } },
+          _sum: { clicks: true },
+        });
+
+        const clicksMap = new Map(blockAggregations.map(agg => [agg.user_id, agg._sum.clicks || 0]));
+
+        userIds.forEach(id => {
+          if (!clicksMap.has(id)) {
+            clicksMap.set(id, 0);
+          }
+        });
+
+        const sortedUserIds = userIds.sort((a, b) => {
+          const clicksA = clicksMap.get(a) || 0;
+          const clicksB = clicksMap.get(b) || 0;
+          if (sortDirection === "asc") {
+            return clicksA - clicksB;
+          }
+          return clicksB - clicksA;
+        });
+
+        const paginatedUserIds = sortedUserIds.slice(skip, skip + limit);
+
+        users = await prisma.user.findMany({
+          where: { id: { in: paginatedUserIds } },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            onelink: true,
+            role: true,
+            block: true,
+            created_at: true,
+            updated_at: true,
+            image: true,
+            image_file_id: true,
+            reward_business_id: true,
+            wallet: true,
+            _count: {
+              select: {
+                blocks: true,
+                themes: true,
+              },
             },
           },
-        },
-      });
+        });
+
+        users.sort((a, b) => paginatedUserIds.indexOf(a.id) - paginatedUserIds.indexOf(b.id));
+      } else {
+        const orderBy = sortBy
+          ? sortBy === "blocks" || sortBy === "themes"
+            ? {
+                [sortBy]: {
+                  _count: sortDirection || "desc",
+                },
+              }
+            : { [sortBy]: sortDirection || "desc" }
+          : { created_at: "desc" };
+
+        users = await prisma.user.findMany({
+          skip,
+          take: limit,
+          where,
+          orderBy: orderBy as any, // Using as any to bypass strict type checking for dynamic orderBy
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            onelink: true,
+            role: true,
+            block: true,
+            created_at: true,
+            updated_at: true,
+            image: true,
+            image_file_id: true,
+            reward_business_id: true,
+            wallet: true,
+            _count: {
+              select: {
+                blocks: true,
+                themes: true,
+              },
+            },
+          },
+        });
+      }
 
       // Resolve image URLs for all users
       const usersWithResolvedImages = await Promise.all(
@@ -84,11 +145,33 @@ export const usersRouter = router({
         }))
       );
 
-      // Get total count for pagination
-      const totalUsers = await prisma.user.count({ where });
+      // Get user IDs for fetching click counts
+      const userIds = users.map(user => user.id);
+
+      // Get total clicks for each user
+      const clickCounts = await prisma.block.groupBy({
+        by: ["user_id"],
+        where: {
+          user_id: {
+            in: userIds,
+          },
+        },
+        _sum: {
+          clicks: true,
+        },
+      });
+
+      // Create a map for easy lookup
+      const clicksMap = new Map(clickCounts.map(count => [count.user_id, count._sum.clicks || 0]));
+
+      // Combine user data with click counts
+      const usersWithClicks = usersWithResolvedImages.map(user => ({
+        ...user,
+        totalClicks: clicksMap.get(user.id) || 0,
+      }));
 
       return {
-        users: usersWithResolvedImages,
+        users: usersWithClicks,
         pagination: {
           total: totalUsers,
           pages: Math.ceil(totalUsers / limit),
@@ -211,50 +294,60 @@ export const usersRouter = router({
     .query(async ({ input }) => {
       const { limit } = input;
 
-      // Get users with their blocks aggregated by clicks
-      const usersWithBlockStats = await prisma.user.findMany({
-        where: {
-          onelink: {
-            not: null,
-          },
-          blocks: {
-            some: {},
+      // Get top users by total block clicks
+      const topBlocks = await prisma.block.groupBy({
+        by: ["user_id"],
+        _sum: {
+          clicks: true,
+        },
+        orderBy: {
+          _sum: {
+            clicks: "desc",
           },
         },
         take: limit,
-        select: {
-          id: true,
-          name: true,
-          onelink: true,
-          blocks: {
-            select: {
-              clicks: true,
-            },
+      });
+
+      if (topBlocks.length === 0) {
+        return [];
+      }
+
+      // Get user details for the top users
+      const userIds = topBlocks.map(block => block.user_id);
+      const users = await prisma.user.findMany({
+        where: {
+          id: {
+            in: userIds,
           },
         },
-        orderBy: {
-          blocks: {
-            _count: "desc",
+        include: {
+          _count: {
+            select: {
+              blocks: true,
+            },
           },
         },
       });
 
-      // Calculate total clicks for each onelink
-      const topOnelinks = usersWithBlockStats
-        .map(user => {
-          const totalClicks = user.blocks.reduce(
-            (sum: number, block: { clicks: number }) => sum + block.clicks,
-            0
-          );
+      // Create a map for easy lookup
+      const userMap = new Map(users.map(user => [user.id, user]));
+
+      // Combine the data, preserving the order from topBlocks
+      const topOnelinks = topBlocks
+        .map(block => {
+          const user = userMap.get(block.user_id);
+          if (!user || !user.onelink) {
+            return null;
+          }
           return {
             userId: user.id,
             name: user.name,
             onelink: user.onelink,
-            totalClicks,
-            blockCount: user.blocks.length,
+            totalClicks: block._sum.clicks || 0,
+            blockCount: user._count.blocks,
           };
         })
-        .sort((a, b) => b.totalClicks - a.totalClicks);
+        .filter(Boolean);
 
       return topOnelinks;
     }),

@@ -13,6 +13,7 @@ import { TextBlock } from "./blocks/text/TextBlock";
 import { isHTML } from "@/utils/htmlutils";
 import { type BlockType } from "@ampedbio/constants";
 import { Theme, UserProfile } from "@/types/editor";
+import { trpcClient } from "@/utils/trpc";
 
 // Helper function to extract the root domain from a URL
 const extractRootDomain = (url: string): string => {
@@ -37,6 +38,12 @@ interface PreviewProps {
 
 export function Preview({ profile, blocks, theme }: PreviewProps) {
   const themeConfig = theme.config;
+
+  const handleLinkClick = (block: BlockType) => {
+    if (block.type === "link") {
+      trpcClient.blocks.registerClick.mutate({ id: block.id });
+    }
+  };
 
   // console.info("blocks preview", blocks);
 
@@ -186,6 +193,7 @@ export function Preview({ profile, blocks, theme }: PreviewProps) {
                         href={block.config.url}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={() => handleLinkClick(block)}
                         className={cn(
                           "w-full px-4 py-3 flex items-center space-x-3",
                           "transition-all duration-200",

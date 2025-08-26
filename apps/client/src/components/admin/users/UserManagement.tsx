@@ -17,6 +17,7 @@ import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { formatUserRole, formatUserStatus, formatDate } from "../../../utils/adminFormat";
 import { maskEmail } from "../../../utils/email";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 // Define schema for user edit form
 const editUserSchema = z.object({
@@ -24,22 +25,9 @@ const editUserSchema = z.object({
   email: z.string().email("Invalid email address"),
 });
 
-type User = {
-  id: number;
-  name: string;
-  email: string;
-  onelink: string | null;
-  role: string;
-  block: string;
-  image: string | null;
-  created_at: string;
-  _count: {
-    blocks: number;
-    themes: number;
-  };
-  wallet: {
-    address: string;
-  } | null;
+const truncateAddress = (addr: string) => {
+  if (!addr || addr.length <= 10) return addr;
+  return `${addr.substring(0, 6)}...${addr.substring(addr.length - 4)}`;
 };
 
 export function UserManagement() {
@@ -514,6 +502,15 @@ export function UserManagement() {
                     </th>
                     <th
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => handleSort("totalClicks")}
+                    >
+                      <div className="flex items-center">
+                        Total Clicks
+                        {renderSortArrow("totalClicks")}
+                      </div>
+                    </th>
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                       onClick={() => handleSort("created_at")}
                     >
                       <div className="flex items-center">
@@ -530,7 +527,7 @@ export function UserManagement() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {userData?.users.map((user: User) => (
+                  {userData?.users.map((user) => (
                     <tr key={user.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
@@ -589,25 +586,36 @@ export function UserManagement() {
                         {user._count.themes}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {user.totalClicks}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {formatDate(user.created_at)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {user.wallet?.address || "-"}
-                        {user.wallet?.address && (
-                          <button
-                            className="ml-2 text-gray-400 hover:text-gray-600"
-                            onClick={() => {
-                              navigator.clipboard.writeText(user.wallet?.address || "");
-                              setCopiedAddressId(user.id);
-                              setTimeout(() => setCopiedAddressId(null), 1000);
-                            }}
-                          >
-                            {copiedAddressId === user.id ? (
-                              <Check className="h-4 w-4 text-green-500" />
-                            ) : (
-                              <ClipboardCopy className="h-4 w-4" />
-                            )}
-                          </button>
+                        {user.wallet?.address ? (
+                          <div className="flex items-center">
+                            <Tooltip content={user.wallet.address}>
+                              <span className="cursor-pointer">
+                                {truncateAddress(user.wallet.address)}
+                              </span>
+                            </Tooltip>
+                            <button
+                              className="ml-2 text-gray-400 hover:text-gray-600"
+                              onClick={() => {
+                                navigator.clipboard.writeText(user.wallet?.address || "");
+                                setCopiedAddressId(user.id);
+                                setTimeout(() => setCopiedAddressId(null), 1000);
+                              }}
+                            >
+                              {copiedAddressId === user.id ? (
+                                <Check className="h-4 w-4 text-green-500" />
+                              ) : (
+                                <ClipboardCopy className="h-4 w-4" />
+                              )}
+                            </button>
+                          </div>
+                        ) : (
+                          "-"
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">

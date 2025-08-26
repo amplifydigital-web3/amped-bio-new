@@ -59,7 +59,9 @@ export function AdminDashboard() {
 
   // Get recent users and top onelinks from query results
   const recentUsers = usersData?.users || [];
-  const topOnelinks = topOnelinksData || [];
+  const topOnelinks = (topOnelinksData || []).filter(
+    (item): item is { name: string; onelink: string; userId: number; totalClicks: number; blockCount: number; } => !!item
+  );
 
   // Determine if any data is still loading
   const loading =
