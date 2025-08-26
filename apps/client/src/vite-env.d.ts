@@ -9,11 +9,14 @@ interface ImportMetaEnv {
   readonly VITE_SHOW_GALLERY: string;
   readonly VITE_API_URL: string;
   readonly VITE_DEMO_MODE: string;
+  // web3
   readonly VITE_WEB3AUTH_CLIENT_ID: string;
   readonly VITE_WEB3AUTH_AUTH_CONNECTION_ID: string;
   readonly VITE_WEB3AUTH_NETWORK: string;
-  readonly VITE_RECAPTCHA_SITE_KEY: string;
   readonly VITE_SHOW_WALLET: string;
+  readonly VITE_DEFAULT_NETWORK_ID_HEX: `0x${string}`;
+  // google
+  readonly VITE_RECAPTCHA_SITE_KEY: string;
   readonly VITE_GOOGLE_CLIENT_ID: string;
 }
 
