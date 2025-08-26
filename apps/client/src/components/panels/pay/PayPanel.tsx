@@ -19,29 +19,6 @@ import usePayDialog from "@/hooks/usePayDialog";
 import { Scanner as QRScanner } from "@yudiel/react-qr-scanner";
 import { Address, isAddress } from "viem";
 
-interface User {
-  id: string;
-  username: string;
-  displayName: string;
-  avatar: string;
-  verified: boolean;
-  mutualFriends: number;
-  lastActive: string;
-  bio?: string;
-  badges?: string[];
-}
-
-interface Transaction {
-  id: string;
-  type: "sent" | "received";
-  user: User;
-  amount: number;
-  currency: string;
-  note: string;
-  timestamp: string;
-  status: "completed" | "pending";
-}
-
 export default function PayPanel() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTab, setSelectedTab] = useState<"people" | "recent">("people");
@@ -59,8 +36,7 @@ export default function PayPanel() {
   );
 
   // Mock recent transactions (keep for now, as the request only specified searchUsers)
-  const recentTransactions: Transaction[] = [];
-
+  // const recentTransactions: Transaction[] = [];
 
   const formatAddress = (address: string) => {
     if (!address) return "";
@@ -98,7 +74,7 @@ export default function PayPanel() {
                     <User className="w-6 h-6 text-gray-500" />
                   </div>
                 )}
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
+                {/* <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div> */}
               </div>
               <div className="flex-1">
                 
@@ -125,7 +101,7 @@ export default function PayPanel() {
 
   const renderRecentTab = () => (
     <div className="space-y-4">
-      {recentTransactions.map(transaction => (
+      {/* {recentTransactions.map(transaction => (
         <div
           key={transaction.id}
           className="flex items-center justify-between p-4 hover:bg-gray-50 rounded-xl transition-colors"
@@ -186,7 +162,7 @@ export default function PayPanel() {
             </button>
           </div>
         </div>
-      ))}
+      ))} */}
     </div>
   );
 
