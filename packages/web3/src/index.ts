@@ -20,6 +20,7 @@ export const revolutionDevnet = defineChain({
     default: {
       name: "Revochain Testnet Explorer",
       url: "https://dev.revoscan.io",
+      apiUrl: "https://api.dev.revoscan.io",
     },
   },
   testnet: true,
@@ -44,6 +45,7 @@ export const libertasTestnet = defineChain({
     default: {
       name: "Libertas Testnet Explorer",
       url: "https://libertas.revoscan.io",
+      apiUrl: "https://api.libertas.revoscan.io",
     },
   },
   testnet: true,

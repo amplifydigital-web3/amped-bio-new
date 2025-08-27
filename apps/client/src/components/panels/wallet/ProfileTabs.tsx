@@ -44,10 +44,13 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
   const tokensPerPage = 3;
   const nftsPerPage = 4;
 
-  const { address } = useAccount();
+  const { address, chain } = useAccount();
   const { data: revoBalance, isLoading: isRevoBalanceLoading } = useBalance({
     address: address,
   });
+
+  const explorerUrl = chain?.blockExplorers?.default.url;
+  const explorerApiUrl = chain?.blockExplorers?.default.apiUrl;
 
   useEffect(() => {
     if (activeTab === "history" && address && !loading) {
@@ -67,7 +70,7 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
       const fromDate = sevenDaysAgo.toISOString();
 
       const response = await fetch(
-        `https://api.dev.revoscan.io/transactions?address=${walletAddress}&limit=10&page=1&toDate=${toDate}&fromDate=${fromDate}`
+        `${explorerApiUrl}/transactions?address=${walletAddress}&limit=10&page=1&toDate=${toDate}&fromDate=${fromDate}`
       );
       if (!response.ok) {
         throw new Error("Failed to fetch transactions");
@@ -416,7 +419,7 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       <Tooltip content={transaction.hash}>
                         <a
-                          href={`https://dev.revoscan.io/tx/${transaction.hash}`}
+                          href={`${explorerUrl}/tx/${transaction.hash}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-blue-600 hover:underline cursor-pointer"
@@ -431,7 +434,7 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <Tooltip content={transaction.from}>
                         <a
-                          href={`https://dev.revoscan.io/address/${transaction.from}#transactions`}
+                          href={`${explorerUrl}/address/${transaction.from}#transactions`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-blue-600 hover:underline cursor-pointer"
@@ -452,7 +455,7 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <Tooltip content={transaction.to}>
                         <a
-                          href={`https://dev.revoscan.io/address/${transaction.to}#transactions`}
+                          href={`${explorerUrl}/address/${transaction.to}#transactions`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-blue-600 hover:underline cursor-pointer"

@@ -9,6 +9,7 @@ import { useWalletContext } from "@/contexts/WalletContext";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import SentLottie from "@/assets/lottie/sent.lottie";
 import { UsePayDialogReturns } from "@/hooks/usePayDialog";
+import { useAccount } from "wagmi";
 
 interface PayModalProps {
   hook: UsePayDialogReturns;
@@ -20,8 +21,10 @@ export default function PayModal({ hook }: PayModalProps) {
   const [note, setNote] = useState("");
   const [selectedAsset, setSelectedAsset] = useState<"REVO" | "ETH" | "NFT">("REVO");
   const [step, setStep] = useState<"amount" | "confirm" | "sending" | "success" | "error">("amount");
-
+  const { chain } = useAccount();
   const wallet = useWalletContext();
+
+  const explorerUrl = chain?.blockExplorers?.default.url
 
   // Reset step when transaction status changes
   useEffect(() => {
@@ -242,7 +245,7 @@ export default function PayModal({ hook }: PayModalProps) {
       </p>
       {hook.transactionHash && (
         <a
-          href={`https://dev.revoscan.io/tx/${hook.transactionHash}`}
+          href={`${explorerUrl}/tx/${hook.transactionHash}`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-sm text-blue-600 hover:underline mt-2 inline-block"
