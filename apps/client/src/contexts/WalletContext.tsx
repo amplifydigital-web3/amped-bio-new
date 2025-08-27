@@ -51,18 +51,12 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const account = useAccount();
 
   const balance = useBalance({
+    address: account.address,
     query: {
       refetchInterval: 10000,
     },
   });
   const [isUSD, setIsUSD] = useState(false);
-
-
-  useEffect(() => {
-   
-      console.info("Balance fetched successfully:", balance.data);
-    
-  }, [balance.data]);
 
   const lastConnectAttemptRef = useRef(0);
   const lastInitAttemptRef = useRef(0); // Ref to track last initialization attempt

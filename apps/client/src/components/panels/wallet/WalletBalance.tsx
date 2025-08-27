@@ -5,7 +5,6 @@ import ReceiveDialog from "./dialogs/ReceiveDialog";
 import { useWalletContext } from "@/contexts/WalletContext";
 import PayModal from "../pay/dialogs/PayDialog";
 import usePayDialog from "@/hooks/usePayDialog";
-import { useBalance } from "wagmi";
 
 type WalletBalanceProps = {
   loading?: boolean;
@@ -17,13 +16,6 @@ const WalletBalance: React.FC<WalletBalanceProps> = ({ loading = false }) => {
   const [showFundModal, setShowFundModal] = useState(false);
 
   const payDialogHook = usePayDialog();
-
-  const balance = useBalance()
-
-
-  useEffect(() => {
-    console.info("Balance updated:", balance.data);
-  }, [balance.data]);
 
   // Skeleton Loading State
   if (loading) {
@@ -96,12 +88,10 @@ const WalletBalance: React.FC<WalletBalanceProps> = ({ loading = false }) => {
       {/* Balance Display */}
       <div className="mb-4 sm:mb-6">
         <div className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-          {wallet.balance
-            ? wallet.balance?.isLoading
+          {wallet.balance?.data !== undefined
+            ? wallet.balance.isLoading
               ? "Loading..."
-              : wallet.isUSD
-                ? `$${(parseFloat(wallet.balance?.data?.formatted ?? "0") * 2.5).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                : `${parseFloat(wallet.balance?.data?.formatted ?? "0").toFixed(4)} ${wallet.balance?.data?.symbol ?? "REVO"}`
+              : `${parseFloat(wallet.balance!.data!.formatted ?? "0").toFixed(4)} ${wallet.balance!.data!.symbol ?? "REVO"}`
             : "-"}
         </div>
       </div>
