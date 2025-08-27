@@ -53,10 +53,11 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
   const explorerApiUrl = chain?.blockExplorers?.default.apiUrl;
 
   useEffect(() => {
-    if (activeTab === "history" && address && !loading) {
+    console.info("chain", chain);
+    if (activeTab === "history" && address && chain && !loading) {
       fetchTransactions(address);
     }
-  }, [activeTab, address, revoBalance, loading]);
+  }, [activeTab, address, revoBalance, chain, loading]);
 
   const fetchTransactions = async (walletAddress: string) => {
     setTransactionsLoading(true);
