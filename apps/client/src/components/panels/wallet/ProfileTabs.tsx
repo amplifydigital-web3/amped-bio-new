@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
-import { useAccount, useBalance } from "wagmi";
+import { useState, useEffect, useMemo } from "react";
+import { useAccount, useBalance, useChainId } from "wagmi";
 import { Coins, Image, Clock, Plus, Loader, AlertCircle } from "lucide-react";
 import { Tooltip } from "../../ui/Tooltip";
 import NFTModal from "./NFTModal";
+import { getChainConfig } from "@ampedbio/web3";
 
 type TabType = "tokens" | "nfts" | "history";
 
@@ -44,16 +45,20 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
   const tokensPerPage = 3;
   const nftsPerPage = 4;
 
-  const { address, chain } = useAccount();
+  const { address } = useAccount();
+  const chainId = useChainId();
   const { data: revoBalance, isLoading: isRevoBalanceLoading } = useBalance({
     address: address,
   });
+
+  const chain = useMemo(() => {
+    return getChainConfig(chainId);
+  }, [chainId]);
 
   const explorerUrl = chain?.blockExplorers?.default.url;
   const explorerApiUrl = chain?.blockExplorers?.default.apiUrl;
 
   useEffect(() => {
-    console.info("chain", chain);
     if (activeTab === "history" && address && chain && !loading) {
       fetchTransactions(address);
     }

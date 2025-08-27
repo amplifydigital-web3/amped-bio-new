@@ -1,7 +1,6 @@
-import { defineChain } from "viem";
 import { chainConfig } from "viem/zksync";
 
-export const revolutionDevnet = defineChain({
+export const revolutionDevnet = {
   ...chainConfig,
   id: 73861,
   name: "Revochain Devnet",
@@ -24,9 +23,9 @@ export const revolutionDevnet = defineChain({
     },
   },
   testnet: true,
-});
+} as const;
 
-export const libertasTestnet = defineChain({
+export const libertasTestnet = {
   ...chainConfig,
   id: 73863,
   name: "Libertas Testnet",
@@ -49,7 +48,7 @@ export const libertasTestnet = defineChain({
     },
   },
   testnet: true,
-});
+} as const;
 
 export const AVAILABLE_CHAINS = [libertasTestnet, revolutionDevnet] as const;
 

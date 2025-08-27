@@ -50,8 +50,19 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const dataWeb3Auth = useWeb3Auth();
   const account = useAccount();
 
-  const balance = useBalance();
+  const balance = useBalance({
+    query: {
+      refetchInterval: 10000,
+    },
+  });
   const [isUSD, setIsUSD] = useState(false);
+
+
+  useEffect(() => {
+   
+      console.info("Balance fetched successfully:", balance.data);
+    
+  }, [balance.data]);
 
   const lastConnectAttemptRef = useRef(0);
   const lastInitAttemptRef = useRef(0); // Ref to track last initialization attempt
@@ -89,7 +100,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         },
       });
 
-      console.log("Wallet connected successfully");
+      console.info("Wallet connected successfully");
     } catch (error) {
       console.error("Error fetching wallet token:", error);
     }
@@ -141,8 +152,8 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         console.info("Attempting to connect wallet due to user login", {
           authUser: !!authUser,
           dataWeb3Auth: !!dataWeb3Auth,
-          account: account.status,
-          connecting: dataWeb3Auth.status,
+          accountStatus: account.status,
+          webAuthStatus: dataWeb3Auth.status,
         });
         lastConnectAttemptRef.current = now;
         getTokenAndConnect();
