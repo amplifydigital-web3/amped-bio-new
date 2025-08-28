@@ -2,6 +2,7 @@ import { useState } from "react";
 import { CreatePoolForm } from "./CreatePoolForm";
 import { PoolList } from "./PoolList";
 
+// todo delete it
 export function CreatorPoolPanel() {
   const [activeView, setActiveView] = useState<"list" | "create">("list");
 

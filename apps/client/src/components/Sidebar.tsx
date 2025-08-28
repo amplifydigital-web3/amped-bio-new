@@ -50,7 +50,7 @@ const allNavItems: Array<{
     icon: CoinsIcon,
     label: "CreatorPool",
     environmentFlag: "VITE_SHOW_CREATOR_POOL",
-    alwaysShow: false,
+    alwaysShow: true,
   },
   {
     id: "leaderboard",

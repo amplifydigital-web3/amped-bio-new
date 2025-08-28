@@ -16,9 +16,9 @@ import { HomePanel } from "./panels/home/HomePanel";
 import { MyWalletPanel } from "./panels/wallet/MyWalletPanel";
 import { Eye } from "lucide-react";
 import RewardPanel from "./panels/reward/RewardPanel.tsx";
-import { useAuth } from "@/contexts/AuthContext.tsx";
 import { EditorPanelType } from "@/types/editor.ts";
 import PayPanel from "./panels/pay/PayPanel.tsx";
+import RewardsPage from "./panels/creatorpool/RewardsPanel.tsx";
 
 interface LayoutProps {
   onelink: string;
@@ -44,7 +44,7 @@ export function Layout(props: LayoutProps) {
     account: { layout: "single", width: "full" },
 
     // Two column pages with wide panels (for data-heavy content)
-    creatorpool: { layout: "two-column", width: "wide" },
+    creatorpool: { layout: "single", width: "full" },
     leaderboard: { layout: "two-column", width: "wide" },
     rns: { layout: "two-column", width: "wide" },
 
@@ -110,7 +110,7 @@ export function Layout(props: LayoutProps) {
               {activePanel === "blocks" && <BlocksPanel />}
               {activePanel === "wallet" && <MyWalletPanel />}
               {activePanel === "pay" && <PayPanel />}
-              {activePanel === "creatorpool" && <CreatorPoolPanel />}
+              {activePanel === "creatorpool" && <RewardsPage />}
               {activePanel === "leaderboard" && <LeaderboardPanel />}
               {activePanel === "rns" && <RNSPanel />}
             </div>
