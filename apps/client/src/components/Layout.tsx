@@ -9,7 +9,7 @@ import { GalleryPanel } from "./panels/gallery/GalleryPanel";
 import { AppearancePanel } from "./panels/appearance/AppearancePanel";
 import { EffectsPanel } from "./panels/effects/EffectsPanel";
 import { BlocksPanel } from "./panels/blocks/BlocksPanel";
-import { CreatorPoolPanel } from "./panels/creatorpool/CreatorPoolPanel";
+import { RewardPoolPage } from "./panels/createrewardpool/CreatorPoolPanel.tsx";
 import { LeaderboardPanel } from "./panels/leaderboard/LeaderboardPanel";
 import { RNSPanel } from "./panels/rns/RNSPanel";
 import { HomePanel } from "./panels/home/HomePanel";
@@ -18,7 +18,7 @@ import { Eye } from "lucide-react";
 import RewardPanel from "./panels/reward/RewardPanel.tsx";
 import { EditorPanelType } from "@/types/editor.ts";
 import PayPanel from "./panels/pay/PayPanel.tsx";
-import RewardsPage from "./panels/creatorpool/RewardsPanel.tsx";
+import RewardsPage from "./panels/rewardpools/RewardsPanel.tsx";
 
 interface LayoutProps {
   onelink: string;
@@ -44,7 +44,8 @@ export function Layout(props: LayoutProps) {
     account: { layout: "single", width: "full" },
 
     // Two column pages with wide panels (for data-heavy content)
-    creatorpool: { layout: "single", width: "full" },
+    rewardPools: { layout: "single", width: "full" },
+    createRewardPool: { layout: "single", width: "full" },
     leaderboard: { layout: "two-column", width: "wide" },
     rns: { layout: "two-column", width: "wide" },
 
@@ -110,7 +111,8 @@ export function Layout(props: LayoutProps) {
               {activePanel === "blocks" && <BlocksPanel />}
               {activePanel === "wallet" && <MyWalletPanel />}
               {activePanel === "pay" && <PayPanel />}
-              {activePanel === "creatorpool" && <RewardsPage />}
+              {activePanel === "rewardPools" && <RewardsPage />}
+              {activePanel === "createRewardPool" && <RewardPoolPage />}
               {activePanel === "leaderboard" && <LeaderboardPanel />}
               {activePanel === "rns" && <RNSPanel />}
             </div>

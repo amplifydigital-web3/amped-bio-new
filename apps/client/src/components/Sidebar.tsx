@@ -43,12 +43,12 @@ const allNavItems: Array<{
     label: "Pay",
     environmentFlag: "VITE_SHOW_WALLET"
   },
-  { id: "reward", icon: Sparkle, label: "Reward", alwaysShow: false },
+  // { id: "reward", icon: Sparkle, label: "Reward", alwaysShow: false },
   { id: "account", icon: Settings, label: "Account", alwaysShow: true },
   {
-    id: "creatorpool",
+    id: "rewardPools",
     icon: CoinsIcon,
-    label: "CreatorPool",
+    label: "Reward Pools",
     environmentFlag: "VITE_SHOW_CREATOR_POOL",
     alwaysShow: true,
   },

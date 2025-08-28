@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Trophy, Gift, Users, Star, Clock, Plus, TrendingUp, Calendar, Coins, Target } from 'lucide-react';
+import { useEditor } from '@/contexts/EditorContext';
 
 interface RewardPool {
   id: string;
@@ -28,6 +29,7 @@ interface UserReward {
 }
 
 export default function RewardsPage() {
+    const editor = useEditor()
   const [activeTab, setActiveTab] = useState<'pools' | 'my-rewards' | 'create'>('pools');
 
   // Mock data for reward pools
@@ -175,6 +177,7 @@ export default function RewardsPage() {
 
   const handleCreatePool = () => {
     console.log('Creating new reward pool');
+    editor.setActivePanel('createRewardPool')
     // Implementation for creating a new reward pool
   };
 
