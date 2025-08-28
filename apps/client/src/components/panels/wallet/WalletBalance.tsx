@@ -91,7 +91,7 @@ const WalletBalance: React.FC<WalletBalanceProps> = ({ loading = false }) => {
           {wallet.balance?.data !== undefined
             ? wallet.balance.isLoading
               ? "Loading..."
-              : `${parseFloat(wallet.balance!.data!.formatted ?? "0").toFixed(4)} ${wallet.balance!.data!.symbol ?? "REVO"}`
+              : `${parseFloat(wallet.balance!.data!.formatted ?? "0").toFixed(8)} ${wallet.balance!.data!.symbol ?? "REVO"}`
             : "-"}
         </div>
       </div>

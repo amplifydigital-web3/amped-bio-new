@@ -1,15 +1,12 @@
 import React, { useState, useMemo, useEffect } from "react";
-import {
-  X,
-  Check,
-  Wallet,
-} from "lucide-react";
+import { X, Check, Wallet } from "lucide-react";
 import { formatEther } from "viem";
 import { useWalletContext } from "@/contexts/WalletContext";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import SentLottie from "@/assets/lottie/sent.lottie";
 import { UsePayDialogReturns } from "@/hooks/usePayDialog";
 import { useAccount } from "wagmi";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 interface PayModalProps {
   hook: UsePayDialogReturns;
@@ -20,11 +17,13 @@ const truncateAddress = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4
 export default function PayModal({ hook }: PayModalProps) {
   const [note, setNote] = useState("");
   const [selectedAsset, setSelectedAsset] = useState<"REVO" | "ETH" | "NFT">("REVO");
-  const [step, setStep] = useState<"amount" | "confirm" | "sending" | "success" | "error">("amount");
+  const [step, setStep] = useState<"amount" | "confirm" | "sending" | "success" | "error">(
+    "amount"
+  );
   const { chain } = useAccount();
   const wallet = useWalletContext();
 
-  const explorerUrl = chain?.blockExplorers?.default.url
+  const explorerUrl = chain?.blockExplorers?.default.url;
 
   // Reset step when transaction status changes
   useEffect(() => {
@@ -53,9 +52,7 @@ export default function PayModal({ hook }: PayModalProps) {
   const renderAmountStep = () => (
     <>
       <div className="flex items-center justify-between p-6 border-b border-gray-100">
-        <h2 className="text-xl font-bold text-gray-900">
-          Send to Address
-        </h2>
+        <h2 className="text-xl font-bold text-gray-900">Send to Address</h2>
         <button onClick={hook.closePayDialog} className="p-2 hover:bg-gray-100 rounded-full">
           <X className="w-5 h-5 text-gray-500" />
         </button>
@@ -183,26 +180,30 @@ export default function PayModal({ hook }: PayModalProps) {
         <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 space-y-2">
           <div className="flex justify-between">
             <span className="text-gray-600">Sending:</span>
-            <span className="font-medium text-gray-900">
-              {hook.sendAmount} REVO
-            </span>
+            <span className="font-medium text-gray-900">{hook.sendAmount} REVO</span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600">To:</span>
-            <span className="font-mono text-gray-900 text-xs">
-              {hook.sendAddress ? truncateAddress(hook.sendAddress) : ""}
-            </span>
+
+            <Tooltip content={<p>{hook.sendAddress}</p>}>
+              <span className="font-mono text-gray-900 text-xs cursor-pointer">
+                {hook.sendAddress ? truncateAddress(hook.sendAddress) : ""}
+              </span>
+            </Tooltip>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600">Network Fee:</span>
             <span className="font-medium text-gray-900">
-              ~{hook.estimatedGasFee ? parseFloat(hook.estimatedGasFee).toFixed(8) : '...'} REVO
+              ~{hook.estimatedGasFee ? parseFloat(hook.estimatedGasFee).toFixed(8) : "..."} REVO
             </span>
           </div>
           <div className="flex justify-between font-medium pt-2 border-t border-gray-200">
             <span className="text-gray-800">Total Cost:</span>
             <span className="text-gray-900">
-              {(parseFloat(hook.sendAmount || "0") + parseFloat(hook.estimatedGasFee || "0")).toFixed(8)} REVO
+              {(
+                parseFloat(hook.sendAmount || "0") + parseFloat(hook.estimatedGasFee || "0")
+              ).toFixed(8)}{" "}
+              REVO
             </span>
           </div>
         </div>
@@ -253,6 +254,14 @@ export default function PayModal({ hook }: PayModalProps) {
           View on explorer
         </a>
       )}
+      <div className="mt-8">
+        <button
+          onClick={hook.closePayDialog}
+          className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors"
+        >
+          Done
+        </button>
+      </div>
     </div>
   );
 
@@ -265,7 +274,7 @@ export default function PayModal({ hook }: PayModalProps) {
       <p className="text-gray-600 text-sm max-w-xs mx-auto">
         {hook.error?.message.includes("insufficient funds")
           ? "Insufficient funds for gas fee and amount."
-          : hook.error?.message ?? "An unknown error occurred."}
+          : (hook.error?.message ?? "An unknown error occurred.")}
       </p>
       <button
         onClick={() => {
