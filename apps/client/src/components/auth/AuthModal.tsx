@@ -392,7 +392,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 onError={() => {
                   setLoginError("Google login failed");
                 }}
-                useOneTap
+                // useOneTap
                 type="standard"
                 theme="outline"
                 text="continue_with"
