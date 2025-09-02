@@ -35,6 +35,7 @@ export type Theme = {
 
 export type EditorPanelType =
   | "home"
+  | "explore"
   | "profile"
   | "reward"
   | "gallery"
