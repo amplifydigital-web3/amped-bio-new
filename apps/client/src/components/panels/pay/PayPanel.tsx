@@ -1,11 +1,10 @@
-import { useState } from "react";
+import { Tooltip } from "@/components/ui/Tooltip";
+import { useMemo, useState } from "react";
 import {
   Search,
   Send,
   Users,
   Clock,
-  Verified,
-  ArrowRight,
   QrCode,
   Scan,
   User,
@@ -18,6 +17,8 @@ import PayModal from "./dialogs/PayDialog";
 import usePayDialog from "@/hooks/usePayDialog";
 import { Scanner as QRScanner } from "@yudiel/react-qr-scanner";
 import { Address, isAddress } from "viem";
+import { useChainId } from "wagmi";
+import { getChainConfig } from "@ampedbio/web3";
 
 export default function PayPanel() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -26,6 +27,12 @@ export default function PayPanel() {
 
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showQrScanner, setShowQrScanner] = useState(false);
+
+  const chainId = useChainId();
+
+  const chain = useMemo(() => {
+    return getChainConfig(chainId);
+  }, [chainId]);
 
   const {
     data: filteredUsers,
@@ -68,7 +75,11 @@ export default function PayPanel() {
             <div className="flex items-center space-x-4">
               <div className="relative">
                 {user.avatar ? (
-                  <img src={user.avatar} alt={user.displayName} className="w-12 h-12 rounded-full" />
+                  <img
+                    src={user.avatar}
+                    alt={user.displayName}
+                    className="w-12 h-12 rounded-full"
+                  />
                 ) : (
                   <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
                     <User className="w-6 h-6 text-gray-500" />
@@ -77,13 +88,30 @@ export default function PayPanel() {
                 {/* <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div> */}
               </div>
               <div className="flex-1">
-                
                 <div className="flex items-center space-x-2 text-sm text-gray-600">
-                  <span>@{user.username}</span>
-                
+                  <a
+                    href={`/@${user.username}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:underline"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    @{user.username}
+                  </a>
                 </div>
-                {user.walletAddress && <p className="text-sm text-gray-500 mt-1">{formatAddress(user.walletAddress)}</p>}
-
+                {user.walletAddress && (
+                  <Tooltip content={<p>{user.walletAddress}</p>}>
+                    <a
+                      href={`${chain?.blockExplorers.default.url}/address/${user.walletAddress}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-gray-500 mt-1 hover:underline"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      {formatAddress(user.walletAddress)}
+                    </a>
+                  </Tooltip>
+                )}
               </div>
             </div>
             <button
@@ -237,9 +265,7 @@ export default function PayPanel() {
       </div>
 
       {/* Pay Modal */}
-      <PayModal
-        hook={payDialog}
-      />
+      <PayModal hook={payDialog} />
 
       <ReceiveDialog open={showReceiveModal} onOpenChange={setShowReceiveModal} />
 
@@ -254,8 +280,7 @@ export default function PayPanel() {
             </button>
             <h2 className="text-xl font-semibold mb-4 text-center">Scan QR Code</h2>
             <QRScanner
-              onScan={(result) => {
-                
+              onScan={result => {
                 const scannedText = result.at(0)?.rawValue ?? "";
                 if (isAddress(scannedText)) {
                   payDialog.openPayDialog(scannedText as Address);
@@ -264,7 +289,7 @@ export default function PayPanel() {
                   alert("Invalid Ethereum address scanned.");
                 }
               }}
-              onError={(error) => {
+              onError={error => {
                 const err = error as Error;
                 console.error(err?.message);
                 alert("Error scanning QR code. Please try again.");
