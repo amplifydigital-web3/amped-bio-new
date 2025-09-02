@@ -382,7 +382,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               <div className="flex-grow border-t border-gray-300"></div>
             </div>
 
-            <div data-testid="google-sign-in">
+            <div data-testid="google-sign-in" className="w-full">
               <GoogleLogin
                 onSuccess={credentialResponse => {
                   if (credentialResponse.credential) {
@@ -401,7 +401,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 locale="en"
                 size="large"
                 containerProps={{
-                  className: "flex justify-center",
+                  className: "w-full",
                 }}
               />
             </div>

@@ -93,12 +93,13 @@ const usePayDialog = (options?: UsePayDialogOptions) => {
 
   // Calculate gas fee
   const calculateGasFee = useMemo(() => {
-    if (!feeData?.gasPrice) return null;
+    const gasPrice = feeData?.gasPrice || feeData?.maxFeePerGas;
+    if (!gasPrice) return null;
 
     const gasLimit = BigInt(21000); // Standard ETH transfer gas limit
-    const gasCost = gasLimit * feeData.gasPrice;
+    const gasCost = gasLimit * gasPrice;
     return formatEther(gasCost);
-  }, [feeData?.gasPrice]);
+  }, [feeData?.gasPrice, feeData?.maxFeePerGas]);
 
   // Memoized max sendable amount (balance - gas fee)
   const maxSendableAmount = useMemo(() => {
@@ -122,7 +123,7 @@ const usePayDialog = (options?: UsePayDialogOptions) => {
   // Calculate estimated gas fee when inputs are valid
   useEffect(() => {
     const calculateEstimatedGasFee = async () => {
-      if (sendAddress && sendAmount && calculateGasFee) {
+      if (sendAddress && sendAmount && isValid && calculateGasFee) {
         setEstimatedGasFee(calculateGasFee);
       } else {
         setEstimatedGasFee(null);
@@ -130,7 +131,7 @@ const usePayDialog = (options?: UsePayDialogOptions) => {
     };
 
     calculateEstimatedGasFee();
-  }, [sendAddress, sendAmount, calculateGasFee]);
+  }, [sendAddress, sendAmount, isValid, calculateGasFee]);
 
   // Parse Ether value to bigint only if inputs are valid
   const parsedAmount = useMemo(() => {
@@ -148,6 +149,7 @@ const usePayDialog = (options?: UsePayDialogOptions) => {
     isPending: isSendPending,
     isSuccess: isSendSuccess,
     error: sendError,
+    reset: resetSendTransaction,
   } = useSendTransaction();
 
   // Handle sending max amount with gas fee calculation
@@ -203,7 +205,8 @@ const usePayDialog = (options?: UsePayDialogOptions) => {
     setTransactionHash(null);
     setEstimatedGasFee(null);
     reset();
-  }, [reset]);
+    resetSendTransaction();
+  }, [reset, resetSendTransaction]);
 
   // Handle transaction state updates
   useEffect(() => {
@@ -221,10 +224,9 @@ const usePayDialog = (options?: UsePayDialogOptions) => {
       // Update balance after successful transaction
       wallet.updateBalanceDelayed();
 
-      // Auto-close dialog after 3 seconds
-      setTimeout(() => {
-        closePayDialog();
-      }, 3000);
+      // setTimeout(() => {
+      //   closePayDialog();
+      // }, 3000);
     } else if (sendError) {
       console.error("Transaction failed:", sendError);
       setTransactionStatus("error");

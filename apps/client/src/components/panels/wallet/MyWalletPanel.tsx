@@ -23,7 +23,7 @@ export function MyWalletPanel() {
       {
         icon: TrendingUp,
         label: "Total REVO",
-        value: wallet.balance?.data?.formatted ? `${parseFloat(wallet.balance?.data!.formatted).toFixed(4)} ${wallet.balance?.data?.symbol ?? "REVO"}` : '-',
+        value: wallet.balance?.data?.formatted ? `${parseFloat(wallet.balance?.data!.formatted).toFixed(8)} ${wallet.balance?.data?.symbol ?? "REVO"}` : '-',
         tooltip: "Total amount of REVO tokens in your wallet",
         color: "bg-blue-100 text-blue-600",
         soon: false,
