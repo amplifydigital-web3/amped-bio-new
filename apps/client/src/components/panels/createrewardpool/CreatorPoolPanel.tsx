@@ -48,29 +48,7 @@ export function RewardPoolPage() {
   const [poolImage, setPoolImage] = useState<string | null>(null);
   const [yourStake, setYourStake] = useState('');
   const [creatorFee, setCreatorFee] = useState(5);
-  const [stakingTiers, setStakingTiers] = useState<StakingTier[]>([
-    {
-      id: '1',
-      name: 'Bronze Supporter',
-      minStake: 100,
-      perks: ['Access to community chat', 'Monthly newsletter'],
-      color: 'bg-orange-100 text-orange-700'
-    },
-    {
-      id: '2', 
-      name: 'Silver Supporter',
-      minStake: 500,
-      perks: ['All Bronze perks', 'Exclusive content access', 'Priority support'],
-      color: 'bg-gray-100 text-gray-700'
-    },
-    {
-      id: '3',
-      name: 'Gold Supporter', 
-      minStake: 1000,
-      perks: ['All Silver perks', 'Monthly video calls', 'Custom badge'],
-      color: 'bg-yellow-100 text-yellow-700'
-    }
-  ]);
+  const [stakingTiers, setStakingTiers] = useState<StakingTier[]>([]);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -903,14 +881,12 @@ export function RewardPoolPage() {
                         className="text-lg font-semibold text-gray-900 bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2"
                       />
                     </div>
-                    {stakingTiers.length > 1 && (
-                      <button
-                        onClick={() => removeTier(tier.id)}
-                        className="p-1 text-gray-400 hover:text-red-600 transition-colors duration-200"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => removeTier(tier.id)}
+                      className="p-1 text-gray-400 hover:text-red-600 transition-colors duration-200"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">

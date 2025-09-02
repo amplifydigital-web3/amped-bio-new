@@ -52,13 +52,13 @@ const allNavItems: Array<{
     environmentFlag: "VITE_SHOW_CREATOR_POOL",
     alwaysShow: true,
   },
-  {
-    id: "leaderboard",
-    icon: Trophy,
-    label: "Leaderboard",
-    environmentFlag: "VITE_SHOW_CREATOR_POOL",
-    alwaysShow: false,
-  },
+  // {
+  //   id: "leaderboard",
+  //   icon: Trophy,
+  //   label: "Leaderboard",
+  //   environmentFlag: "VITE_SHOW_CREATOR_POOL",
+  //   alwaysShow: false,
+  // },
   { id: "rns", icon: AtSign, label: "RNS", environmentFlag: "VITE_SHOW_RNS", alwaysShow: false },
 ];
 
