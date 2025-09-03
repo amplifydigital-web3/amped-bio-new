@@ -9,7 +9,7 @@ import { GalleryPanel } from "./panels/gallery/GalleryPanel";
 import { AppearancePanel } from "./panels/appearance/AppearancePanel";
 import { EffectsPanel } from "./panels/effects/EffectsPanel";
 import { BlocksPanel } from "./panels/blocks/BlocksPanel";
-import { RewardPoolPage } from "./panels/createrewardpool/CreatorPoolPanel.tsx";
+import { CreatorPoolPanel } from "./panels/createrewardpool/CreatorPoolPanel.tsx";
 import { LeaderboardPanel } from "./panels/leaderboard/LeaderboardPanel";
 import { RNSPanel } from "./panels/rns/RNSPanel";
 import { HomePanel } from "./panels/home/HomePanel";
@@ -18,7 +18,7 @@ import { Eye } from "lucide-react";
 import RewardPanel from "./panels/reward/RewardPanel.tsx";
 import { EditorPanelType } from "@/types/editor.ts";
 import PayPanel from "./panels/pay/PayPanel.tsx";
-import RewardsPage from "./panels/rewardpools/RewardsPanel.tsx";
+// import RewardsPage from "./panels/rewardpools/RewardsPanel.tsx";
 import ExplorePage from "./panels/explore/ExplorePanel.tsx";
 
 interface LayoutProps {
@@ -80,16 +80,16 @@ export function Layout(props: LayoutProps) {
           {/* Header - Now always visible regardless of panel */}
           <div className="h-16 border-b bg-white px-6 flex items-center justify-between shrink-0 shadow-sm z-[10] overflow-x-auto">
             {/* View Button - Only show for logged in users */}
-             <div className="max-h-10 flex-shrink-0">
-                <Link
-                  to={`/${onelink}`}
-                  className="px-2 py-1 md:px-4 md:py-2 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-colors flex items-center space-x-1 md:space-x-2"
-                >
-                  <Eye className="w-3 h-3 md:w-4 md:h-4" />
-                  <span className="text-xs md:text-sm font-medium">View Page</span>
-                </Link>
-              </div>
-             
+            <div className="max-h-10 flex-shrink-0">
+              <Link
+                to={`/${onelink}`}
+                className="px-2 py-1 md:px-4 md:py-2 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-colors flex items-center space-x-1 md:space-x-2"
+              >
+                <Eye className="w-3 h-3 md:w-4 md:h-4" />
+                <span className="text-xs md:text-sm font-medium">View Page</span>
+              </Link>
+            </div>
+
             <div className="flex items-center justify-end flex-shrink-0 ml-2">
               <SaveButton />
               <UserMenu />
@@ -105,7 +105,7 @@ export function Layout(props: LayoutProps) {
               style={{ height: "calc(100vh - 64px)" }}
             >
               {activePanel === "home" && <HomePanel />}
-              {activePanel === "explore" && <ExplorePage/>}
+              {activePanel === "explore" && <ExplorePage />}
               {activePanel === "profile" && <ProfilePanel />}
               {activePanel === "reward" && <RewardPanel />}
               {activePanel === "gallery" && <GalleryPanel />}
@@ -114,8 +114,8 @@ export function Layout(props: LayoutProps) {
               {activePanel === "blocks" && <BlocksPanel />}
               {activePanel === "wallet" && <MyWalletPanel />}
               {activePanel === "pay" && <PayPanel />}
-              {activePanel === "rewardPools" && <RewardsPage />}
-              {activePanel === "createRewardPool" && <RewardPoolPage />}
+              {/* {activePanel === "rewardPools" && <RewardsPage />} */}
+              {activePanel === "createRewardPool" && <CreatorPoolPanel />}
               {activePanel === "leaderboard" && <LeaderboardPanel />}
               {activePanel === "rns" && <RNSPanel />}
             </div>

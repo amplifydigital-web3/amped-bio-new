@@ -1,8 +1,13 @@
-import React, { useState } from 'react';
-import { Search, Users, Trophy, Image, Star, TrendingUp, Eye, Heart, MessageCircle, Share2, Filter, SortDesc, Coins, ChevronDown, X } from 'lucide-react';
-import PoolDetailsModal from './PoolDetailsModal';
+import React, { useState } from "react";
+import { Search, Users, Trophy, Filter, SortDesc, Coins, ChevronDown, X } from "lucide-react";
+import PoolDetailsModal from "./PoolDetailsModal";
 // import NFTOverviewModal from './NFTOverviewModal';
-import StakingModal from './StakingModal';
+import StakingModal from "./StakingModal";
+
+interface ExplorePageProps {
+  initialTab?: "creators" | "pools";
+  onTabChange?: (tab: "creators" | "pools") => void;
+}
 
 interface Creator {
   id: string;
@@ -28,362 +33,219 @@ interface RewardPool {
   participants: number;
   maxParticipants: number;
   endDate: string;
-  status: 'active' | 'upcoming' | 'ended';
-  category: 'staking' | 'social' | 'trading' | 'community';
+  status: "active" | "ending-soon" | "completed";
+  category: "staking" | "social" | "trading" | "community";
   createdBy: string;
   image?: string;
+  stakedAmount: number;
+  stakeCurrency: string;
+  rewardCurrency: string;
+  earnedRewards: number;
+  estimatedRewards: number;
 }
 
-interface NFT {
-  id: string;
-  name: string;
-  collection: string;
-  image: string;
-  price: number;
-  currency: string;
-  creator: string;
-  likes: number;
-  views: number;
-  category: string;
-  isForSale: boolean;
-}
-
-interface ExplorePageProps {
-  initialTab?: 'creators' | 'pools' | 'nfts';
-  onTabChange?: (tab: 'creators' | 'pools' | 'nfts') => void;
-}
-
-export default function ExplorePage({ initialTab = 'creators' }: ExplorePageProps) {
-  const [activeTab, setActiveTab] = useState<'creators' | 'pools' | 'nfts'>('creators');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<string>('popular');
+export default function ExplorePage() {
+  const [activeTab, setActiveTab] = useState<"creators" | "pools">("creators");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("popular");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [selectedCreatorPool, setSelectedCreatorPool] = useState<any>(null);
   const [isCreatorPoolModalOpen, setIsCreatorPoolModalOpen] = useState(false);
-  const [selectedRewardPool, setSelectedRewardPool] = React.useState<RewardPool | null>(null);
-  const [isRewardPoolModalOpen, setIsRewardPoolModalOpen] = React.useState(false);
-  const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null);
-  const [isNFTModalOpen, setIsNFTModalOpen] = useState(false);
+
   const [selectedStakingPool, setSelectedStakingPool] = useState<any>(null);
   const [isStakingModalOpen, setIsStakingModalOpen] = useState(false);
-  const [stakingMode, setStakingMode] = useState<'stake' | 'add-stake'>('stake');
-  const [selectedRewardPoolForView, setSelectedRewardPoolForView] = useState<RewardPool | null>(null);
+  const [stakingMode, setStakingMode] = useState<"stake" | "add-stake">("stake");
+  const [selectedRewardPoolForView, setSelectedRewardPoolForView] = useState<RewardPool | null>(
+    null
+  );
   const [isRewardPoolViewModalOpen, setIsRewardPoolViewModalOpen] = useState(false);
 
   // Filter categories
   const categories = [
-    'All',
-    'Gaming',
-    'Music',
-    'Art & Design',
-    'Storytelling',
-    'Collectibles',
-    'Memberships',
-    'Education',
-    'Lifestyle',
-    'Podcasts'
+    "All",
+    "Gaming",
+    "Music",
+    "Art & Design",
+    "Storytelling",
+    "Collectibles",
+    "Memberships",
+    "Education",
+    "Lifestyle",
+    "Podcasts",
   ];
 
   // Sort options
   const sortOptions = {
     creators: [
-      { value: 'popular', label: 'Most Popular' },
-      { value: 'followers', label: 'Most Followers' },
-      { value: 'pool-stake', label: 'Pool Stake' },
-      { value: 'earnings', label: 'Highest Earnings' },
-      { value: 'newest', label: 'Newest' }
+      { value: "popular", label: "Most Popular" },
+      { value: "followers", label: "Most Followers" },
+      { value: "pool-stake", label: "Pool Stake" },
+      { value: "earnings", label: "Highest Earnings" },
+      { value: "newest", label: "Newest" },
     ],
     pools: [
-      { value: 'popular', label: 'Most Popular' },
-      { value: 'participants', label: 'Most Participants' },
-      { value: 'reward', label: 'Highest Reward' },
-      { value: 'ending-soon', label: 'Ending Soon' },
-      { value: 'newest', label: 'Newest' }
+      { value: "popular", label: "Most Popular" },
+      { value: "participants", label: "Most Participants" },
+      { value: "reward", label: "Highest Reward" },
+      { value: "ending-soon", label: "Ending Soon" },
+      { value: "newest", label: "Newest" },
     ],
-    nfts: [
-      { value: 'popular', label: 'Most Popular' },
-      { value: 'price-high', label: 'Price: High to Low' },
-      { value: 'price-low', label: 'Price: Low to High' },
-      { value: 'most-liked', label: 'Most Liked' },
-      { value: 'newest', label: 'Newest' }
-    ]
   };
 
   // Mock data for creators
   const mockCreators: Creator[] = [
     {
-      id: '1',
-      username: 'cryptoartist.eth',
-      displayName: 'CryptoArtist',
-      avatar: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=200',
-      banner: 'https://images.pexels.com/photos/844124/pexels-photo-844124.jpeg?auto=compress&cs=tinysrgb&w=800',
+      id: "1",
+      username: "cryptoartist.eth",
+      displayName: "CryptoArtist",
+      avatar:
+        "https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=200",
+      banner:
+        "https://images.pexels.com/photos/844124/pexels-photo-844124.jpeg?auto=compress&cs=tinysrgb&w=800",
       followers: 15420,
       following: 892,
       verified: true,
-      bio: 'Digital artist creating unique NFT collections. Exploring the intersection of art and technology.',
+      bio: "Digital artist creating unique NFT collections. Exploring the intersection of art and technology.",
       totalEarnings: 46,
       poolStake: 127000,
-      category: 'Art & Design'
+      category: "Art & Design",
     },
     {
-      id: '2',
-      username: 'nftcollector',
-      displayName: 'NFT Collector Pro',
-      avatar: 'https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=200',
-      banner: 'https://images.pexels.com/photos/730547/pexels-photo-730547.jpeg?auto=compress&cs=tinysrgb&w=800',
+      id: "2",
+      username: "nftcollector",
+      displayName: "NFT Collector Pro",
+      avatar:
+        "https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=200",
+      banner:
+        "https://images.pexels.com/photos/730547/pexels-photo-730547.jpeg?auto=compress&cs=tinysrgb&w=800",
       followers: 8934,
       following: 1247,
       verified: false,
-      bio: 'Passionate NFT collector and trader. Always looking for the next big thing in digital art.',
+      bio: "Passionate NFT collector and trader. Always looking for the next big thing in digital art.",
       totalEarnings: 23,
       poolStake: 89500,
-      category: 'Collectibles'
+      category: "Collectibles",
     },
     {
-      id: '3',
-      username: 'metaverse.builder',
-      displayName: 'Metaverse Builder',
-      avatar: 'https://images.pexels.com/photos/1181263/pexels-photo-1181263.jpeg?auto=compress&cs=tinysrgb&w=200',
-      banner: 'https://images.pexels.com/photos/1181244/pexels-photo-1181244.jpeg?auto=compress&cs=tinysrgb&w=800',
+      id: "3",
+      username: "metaverse.builder",
+      displayName: "Metaverse Builder",
+      avatar:
+        "https://images.pexels.com/photos/1181263/pexels-photo-1181263.jpeg?auto=compress&cs=tinysrgb&w=200",
+      banner:
+        "https://images.pexels.com/photos/1181244/pexels-photo-1181244.jpeg?auto=compress&cs=tinysrgb&w=800",
       followers: 12567,
       following: 456,
       verified: true,
-      bio: 'Building the future of virtual worlds. Creating immersive experiences in the metaverse.',
+      bio: "Building the future of virtual worlds. Creating immersive experiences in the metaverse.",
       totalEarnings: 67,
       poolStake: 203750,
-      category: 'Gaming'
+      category: "Gaming",
     },
     {
-      id: '4',
-      username: 'music.producer',
-      displayName: 'Beat Master',
-      avatar: 'https://images.pexels.com/photos/1181248/pexels-photo-1181248.jpeg?auto=compress&cs=tinysrgb&w=200',
-      banner: 'https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=800',
+      id: "4",
+      username: "music.producer",
+      displayName: "Beat Master",
+      avatar:
+        "https://images.pexels.com/photos/1181248/pexels-photo-1181248.jpeg?auto=compress&cs=tinysrgb&w=200",
+      banner:
+        "https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=800",
       followers: 7823,
       following: 234,
       verified: true,
-      bio: 'Electronic music producer creating beats for the metaverse. Exclusive tracks for supporters.',
+      bio: "Electronic music producer creating beats for the metaverse. Exclusive tracks for supporters.",
       totalEarnings: 34,
       poolStake: 65400,
-      category: 'Music'
+      category: "Music",
     },
     {
-      id: '5',
-      username: 'story.teller',
-      displayName: 'Digital Storyteller',
-      avatar: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=200',
-      banner: 'https://images.pexels.com/photos/730547/pexels-photo-730547.jpeg?auto=compress&cs=tinysrgb&w=800',
+      id: "5",
+      username: "story.teller",
+      displayName: "Digital Storyteller",
+      avatar:
+        "https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=200",
+      banner:
+        "https://images.pexels.com/photos/730547/pexels-photo-730547.jpeg?auto=compress&cs=tinysrgb&w=800",
       followers: 5432,
       following: 678,
       verified: false,
-      bio: 'Interactive storyteller crafting immersive narratives. Join my world of digital adventures.',
+      bio: "Interactive storyteller crafting immersive narratives. Join my world of digital adventures.",
       totalEarnings: 19,
       poolStake: 42300,
-      category: 'Storytelling'
-    }
+      category: "Storytelling",
+    },
   ];
 
   // Mock data for reward pools
   const mockPools: RewardPool[] = [
     {
-      id: '1',
-      title: 'REVO Staking Champions',
-      description: 'Stake 1000+ REVO tokens for 30 days and earn bonus rewards based on your staking duration.',
+      id: "1",
+      title: "REVO Staking Champions",
+      description:
+        "Stake 1000+ REVO tokens for 30 days and earn bonus rewards based on your staking duration.",
       totalReward: 50000,
-      currency: 'REVO',
+      currency: "REVO",
       participants: 247,
       maxParticipants: 500,
-      endDate: '2025-02-15',
-      status: 'active',
-      category: 'staking',
-      createdBy: 'Amped.Bio Team',
-      image: 'https://images.pexels.com/photos/844124/pexels-photo-844124.jpeg?auto=compress&cs=tinysrgb&w=400'
+      endDate: "2025-02-15",
+      status: "active",
+      category: "staking",
+      createdBy: "Amped.Bio Team",
+      image:
+        "https://images.pexels.com/photos/844124/pexels-photo-844124.jpeg?auto=compress&cs=tinysrgb&w=400",
+      stakedAmount: 1000,
+      stakeCurrency: "REVO",
+      rewardCurrency: "REVO",
+      earnedRewards: 0,
+      estimatedRewards: 500,
     },
     {
-      id: '2',
-      title: 'Social Media Engagement',
-      description: 'Share your profile, refer friends, and engage with the community to earn exclusive NFT rewards.',
+      id: "2",
+      title: "Social Media Engagement",
+      description:
+        "Share your profile, refer friends, and engage with the community to earn exclusive NFT rewards.",
       totalReward: 25,
-      currency: 'NFTs',
+      currency: "NFTs",
       participants: 892,
       maxParticipants: 1000,
-      endDate: '2025-01-31',
-      status: 'active',
-      category: 'social',
-      createdBy: 'Community DAO',
-      image: 'https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=400'
+      endDate: "2025-01-31",
+      status: "active",
+      category: "social",
+      createdBy: "Community DAO",
+      image:
+        "https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=400",
+      stakedAmount: 0,
+      stakeCurrency: "",
+      rewardCurrency: "NFTs",
+      earnedRewards: 0,
+      estimatedRewards: 0,
     },
     {
-      id: '3',
-      title: 'Trading Volume Challenge',
-      description: 'Achieve $10,000+ in trading volume this month and win ETH prizes.',
+      id: "3",
+      title: "Trading Volume Challenge",
+      description: "Achieve $10,000+ in trading volume this month and win ETH prizes.",
       totalReward: 10,
-      currency: 'ETH',
+      currency: "ETH",
       participants: 156,
       maxParticipants: 200,
-      endDate: '2025-01-31',
-      status: 'active',
-      category: 'trading',
-      createdBy: 'TradingPro',
-      image: 'https://images.pexels.com/photos/730547/pexels-photo-730547.jpeg?auto=compress&cs=tinysrgb&w=400'
-    }
+      endDate: "2025-01-31",
+      status: "active",
+      category: "trading",
+      createdBy: "TradingPro",
+      image:
+        "https://images.pexels.com/photos/730547/pexels-photo-730547.jpeg?auto=compress&cs=tinysrgb&w=400",
+      stakedAmount: 0,
+      stakeCurrency: "",
+      rewardCurrency: "ETH",
+      earnedRewards: 0,
+      estimatedRewards: 0,
+    },
   ];
 
-  // Mock data for NFTs
-  const mockNFTs: NFT[] = [
-    {
-      id: '1',
-      name: 'Cosmic Ape #1247',
-      collection: 'Cosmic Apes',
-      image: 'https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=300',
-      price: 0.85,
-      currency: 'REVO',
-      creator: 'cryptoartist.eth',
-      likes: 234,
-      views: 1567,
-      category: 'Art & Design',
-      isForSale: true
-    },
-    {
-      id: '2',
-      name: 'Digital Punk #892',
-      collection: 'Digital Punks',
-      image: 'https://images.pexels.com/photos/1181263/pexels-photo-1181263.jpeg?auto=compress&cs=tinysrgb&w=300',
-      price: 1.2,
-      currency: 'REVO',
-      creator: 'nftcollector',
-      likes: 456,
-      views: 2341,
-      category: 'Collectibles',
-      isForSale: true
-    },
-    {
-      id: '3',
-      name: 'Meta Bird #456',
-      collection: 'Meta Birds',
-      image: 'https://images.pexels.com/photos/1181244/pexels-photo-1181244.jpeg?auto=compress&cs=tinysrgb&w=300',
-      price: 0.65,
-      currency: 'REVO',
-      creator: 'metaverse.builder',
-      likes: 189,
-      views: 987,
-      category: 'Gaming',
-      isForSale: false
-    },
-    {
-      id: '4',
-      name: 'Cyber Cat #789',
-      collection: 'Cyber Cats',
-      image: 'https://images.pexels.com/photos/1181248/pexels-photo-1181248.jpeg?auto=compress&cs=tinysrgb&w=300',
-      price: 0.42,
-      currency: 'REVO',
-      creator: 'cryptoartist.eth',
-      likes: 312,
-      views: 1456,
-      category: 'Art & Design',
-      isForSale: true
-    },
-    {
-      id: '5',
-      name: 'Music NFT #123',
-      collection: 'Beat Drops',
-      image: 'https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=300',
-      price: 0.75,
-      currency: 'REVO',
-      creator: 'music.producer',
-      likes: 189,
-      views: 876,
-      category: 'Music',
-      isForSale: true
-    },
-    {
-      id: '6',
-      name: 'Space Explorer #321',
-      collection: 'Space Explorers',
-      image: 'https://images.pexels.com/photos/1181248/pexels-photo-1181248.jpeg?auto=compress&cs=tinysrgb&w=300',
-      price: 0.95,
-      currency: 'REVO',
-      creator: 'metaverse.builder',
-      likes: 278,
-      views: 1234,
-      category: 'Gaming',
-      isForSale: true
-    },
-    {
-      id: '7',
-      name: 'Digital Portrait #567',
-      collection: 'Digital Portraits',
-      image: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=300',
-      price: 1.45,
-      currency: 'REVO',
-      creator: 'cryptoartist.eth',
-      likes: 445,
-      views: 2156,
-      category: 'Art & Design',
-      isForSale: true
-    },
-    {
-      id: '8',
-      name: 'Retro Robot #890',
-      collection: 'Retro Robots',
-      image: 'https://images.pexels.com/photos/1181263/pexels-photo-1181263.jpeg?auto=compress&cs=tinysrgb&w=300',
-      price: 0.58,
-      currency: 'REVO',
-      creator: 'story.teller',
-      likes: 167,
-      views: 892,
-      category: 'Collectibles',
-      isForSale: false
-    },
-    {
-      id: '9',
-      name: 'Neon City #234',
-      collection: 'Neon Cities',
-      image: 'https://images.pexels.com/photos/1181244/pexels-photo-1181244.jpeg?auto=compress&cs=tinysrgb&w=300',
-      price: 2.1,
-      currency: 'REVO',
-      creator: 'metaverse.builder',
-      likes: 523,
-      views: 3421,
-      category: 'Art & Design',
-      isForSale: true
-    },
-    {
-      id: '10',
-      name: 'Synthwave Beat #456',
-      collection: 'Synthwave Beats',
-      image: 'https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=300',
-      price: 0.88,
-      currency: 'REVO',
-      creator: 'music.producer',
-      likes: 298,
-      views: 1567,
-      category: 'Music',
-      isForSale: true
-    },
-    {
-      id: '11',
-      name: 'Pixel Warrior #678',
-      collection: 'Pixel Warriors',
-      image: 'https://images.pexels.com/photos/1181248/pexels-photo-1181248.jpeg?auto=compress&cs=tinysrgb&w=300',
-      price: 1.25,
-      currency: 'REVO',
-      creator: 'nftcollector',
-      likes: 356,
-      views: 1789,
-      category: 'Gaming',
-      isForSale: true
-    }
-  ];
-
-  const handleFollowCreator = (creatorId: string) => {
-    console.log('Follow creator:', creatorId);
-  };
-
-  const handleViewProfile = (creatorId: string) => {
-    window.open('https://amped.bio', '_blank', 'noopener,noreferrer');
+  const handleViewProfile = (_creatorId: string) => {
+    window.open("https://amped.bio", "_blank", "noopener,noreferrer");
   };
 
   const handleStakeToCreator = (creatorId: string) => {
@@ -395,18 +257,21 @@ export default function ExplorePage({ initialTab = 'creators' }: ExplorePageProp
         title: `${creator.displayName}'s Creator Pool`,
         description: `${creator.bio} Join ${creator.displayName}'s exclusive creator pool to support their work and earn rewards based on their success. Stake REVO tokens to unlock different tiers of benefits including exclusive content, early access, and community perks.`,
         stakedAmount: 0, // User's stake in this pool
-        stakeCurrency: 'REVO',
+        stakeCurrency: "REVO",
         totalReward: creator.poolStake,
-        rewardCurrency: 'REVO',
-        endDate: '2025-06-15',
-        status: 'active' as const,
-        category: 'staking' as const,
+        rewardCurrency: "REVO",
+        endDate: "2025-06-15",
+        status: "active" as const,
+        category: "staking" as const,
         earnedRewards: 0,
         estimatedRewards: 0,
         participants: creator.poolStake > 0 ? Math.floor(creator.poolStake / 1000) : 1,
         image: creator.banner,
+        currency: "REVO", // Added missing property
+        maxParticipants: 10000, // Added missing property
+        createdBy: creator.displayName, // Added missing property
       };
-      
+
       setSelectedRewardPoolForView(creatorPool);
       setIsRewardPoolViewModalOpen(true);
     }
@@ -420,14 +285,14 @@ export default function ExplorePage({ initialTab = 'creators' }: ExplorePageProp
         id: pool.id,
         title: pool.title,
         description: pool.description,
-        stakeCurrency: 'REVO',
+        stakeCurrency: "REVO",
         image: pool.image,
         minStake: 500,
-        currentStake: 0
+        currentStake: 0,
       };
-      
+
       setSelectedStakingPool(poolForStaking);
-      setStakingMode('stake');
+      setStakingMode("stake");
       setIsStakingModalOpen(true);
     }
   };
@@ -439,55 +304,24 @@ export default function ExplorePage({ initialTab = 'creators' }: ExplorePageProp
       const poolForView = {
         ...pool,
         stakedAmount: 0, // User's stake in this pool
-        stakeCurrency: 'REVO',
+        stakeCurrency: "REVO",
         earnedRewards: 0,
-        estimatedRewards: 0
+        estimatedRewards: 0,
       };
-      
+
       setSelectedRewardPoolForView(poolForView);
       setIsRewardPoolViewModalOpen(true);
-    }
-  };
-  const handleLikeNFT = (nftId: string) => {
-    console.log('Like NFT:', nftId);
-  };
-
-  const handleViewNFT = (nftId: string) => {
-    console.log('View NFT:', nftId);
-    const nft = mockNFTs.find(n => n.id === nftId);
-    if (nft) {
-      setSelectedNFT(nft);
-      setIsNFTModalOpen(true);
-    }
-  };
-
-  const getCategoryColor = (category: string) => {
-    switch (category.toLowerCase()) {
-      case 'staking': return 'bg-blue-100 text-blue-700';
-      case 'social': return 'bg-green-100 text-green-700';
-      case 'trading': return 'bg-purple-100 text-purple-700';
-      case 'community': return 'bg-orange-100 text-orange-700';
-      case 'art': return 'bg-pink-100 text-pink-700';
-      case 'gaming': return 'bg-indigo-100 text-indigo-700';
-      case 'collectibles': return 'bg-yellow-100 text-yellow-700';
-      default: return 'bg-gray-100 text-gray-700';
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-green-100 text-green-700';
-      case 'upcoming': return 'bg-blue-100 text-blue-700';
-      case 'ended': return 'bg-gray-100 text-gray-700';
-      default: return 'bg-gray-100 text-gray-700';
     }
   };
 
   const renderCreators = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {mockCreators.map((creator) => (
-          <div key={creator.id} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
+        {mockCreators.map(creator => (
+          <div
+            key={creator.id}
+            className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden"
+          >
             {/* Banner */}
             <div className="h-24 bg-gradient-to-r from-blue-500 to-purple-600 relative">
               <img
@@ -497,7 +331,7 @@ export default function ExplorePage({ initialTab = 'creators' }: ExplorePageProp
               />
               <div className="absolute inset-0 bg-black bg-opacity-20"></div>
             </div>
-            
+
             {/* Profile Content */}
             <div className="p-6 relative">
               {/* Avatar */}
@@ -508,7 +342,7 @@ export default function ExplorePage({ initialTab = 'creators' }: ExplorePageProp
                   className="w-16 h-16 rounded-full border-4 border-white shadow-lg object-cover"
                 />
               </div>
-              
+
               {/* Creator Info */}
               <div className="mt-6">
                 <div className="flex items-center justify-between mb-2">
@@ -516,8 +350,16 @@ export default function ExplorePage({ initialTab = 'creators' }: ExplorePageProp
                     <h3 className="font-semibold text-gray-900">{creator.displayName}</h3>
                     {creator.verified && (
                       <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-                        <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        <svg
+                          className="w-2.5 h-2.5 text-white"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
                         </svg>
                       </div>
                     )}
@@ -526,7 +368,7 @@ export default function ExplorePage({ initialTab = 'creators' }: ExplorePageProp
                     <span className="px-2 py-1 rounded-full text-xs font-medium cursor-help bg-gray-100 text-gray-700">
                       {creator.poolStake.toLocaleString()} Pool Stake
                     </span>
-                    
+
                     {/* Tooltip */}
                     <div className="absolute bottom-full right-0 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
                       <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap shadow-lg">
@@ -536,10 +378,10 @@ export default function ExplorePage({ initialTab = 'creators' }: ExplorePageProp
                     </div>
                   </div>
                 </div>
-                
+
                 <p className="text-sm text-gray-500 mb-2">@{creator.username}</p>
                 <p className="text-sm text-gray-600 mb-4 line-clamp-2">{creator.bio}</p>
-                
+
                 {/* Stats */}
                 {/* Follow Button */}
                 {/* Action Buttons */}
@@ -569,19 +411,18 @@ export default function ExplorePage({ initialTab = 'creators' }: ExplorePageProp
   const renderPools = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {mockPools.map((pool) => (
-          <div key={pool.id} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
+        {mockPools.map(pool => (
+          <div
+            key={pool.id}
+            className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden"
+          >
             {pool.image && (
               <div className="h-32 bg-gradient-to-r from-blue-500 to-purple-600 relative overflow-hidden">
-                <img
-                  src={pool.image}
-                  alt={pool.title}
-                  className="w-full h-full object-cover"
-                />
+                <img src={pool.image} alt={pool.title} className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-black bg-opacity-20"></div>
               </div>
             )}
-            
+
             <div className="p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-2">{pool.title}</h3>
               <p className="text-gray-600 text-sm mb-4 line-clamp-2">{pool.description}</p>
@@ -593,7 +434,7 @@ export default function ExplorePage({ initialTab = 'creators' }: ExplorePageProp
                     {pool.totalReward.toLocaleString()} {pool.currency}
                   </span>
                 </div>
-                
+
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-500">Participants</span>
                   <span className="font-semibold text-gray-900">
@@ -607,110 +448,31 @@ export default function ExplorePage({ initialTab = 'creators' }: ExplorePageProp
                   onClick={() => handleViewPool(pool.id)}
                   className="flex-1 py-2 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-1"
                 >
-                  <Eye className="w-4 h-4" />
+                  <Users className="w-4 h-4" />
                   <span>View Pool</span>
                 </button>
-                
+
                 <button
                   onClick={() => handleJoinPool(pool.id)}
-                  disabled={pool.status === 'ended'}
+                  disabled={pool.status === "completed"}
                   className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-1 ${
-                    pool.status === 'ended'
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : pool.status === 'upcoming'
-                      ? 'bg-blue-50 text-blue-600 hover:bg-blue-100'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                    pool.status === "completed"
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                      : pool.status === "active"
+                        ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                        : "bg-blue-600 text-white hover:bg-blue-700"
                   }`}
                 >
                   <Coins className="w-4 h-4" />
-                  <span>{pool.status === 'ended' ? 'Ended' : pool.status === 'upcoming' ? 'Soon' : 'Stake'}</span>
+                  <span>
+                    {pool.status === "completed"
+                      ? "Ended"
+                      : pool.status === "active"
+                        ? "Soon"
+                        : "Stake"}
+                  </span>
                 </button>
               </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  const renderNFTs = () => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
-        {mockNFTs.map((nft) => (
-          <div 
-            key={nft.id} 
-            onClick={() => handleViewNFT(nft.id)}
-            className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-200 overflow-hidden group cursor-pointer"
-          >
-            <div className="aspect-square relative">
-              <img
-                src={nft.image}
-                alt={nft.name}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-              />
-              
-              {/* Top Right Stats */}
-              <div className="absolute top-2 right-2 flex items-center space-x-1 bg-black bg-opacity-60 rounded-full px-2 py-1">
-                <Eye className="w-3 h-3 text-white" />
-                <span className="text-xs text-white font-medium">{nft.views.toLocaleString()}</span>
-              </div>
-
-              {/* Bottom Left Stats */}
-              <div className="absolute bottom-2 left-2 flex items-center space-x-1 bg-black bg-opacity-60 rounded-full px-2 py-1">
-                <Heart className="w-3 h-3 text-white" />
-                <span className="text-xs text-white font-medium">{nft.likes.toLocaleString()}</span>
-              </div>
-
-              {/* Hover Actions */}
-              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center space-x-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleLikeNFT(nft.id);
-                    }}
-                    className="p-2 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-700 rounded-lg transition-all duration-200 shadow-lg"
-                  >
-                    <Heart className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleViewNFT(nft.id);
-                    }}
-                    className="p-2 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-700 rounded-lg transition-all duration-200 shadow-lg"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-            
-            <div className="p-3">
-              {/* NFT Name */}
-              <div className="mb-2">
-                <h5 className="font-semibold text-gray-900 text-sm truncate">{nft.name}</h5>
-                <p className="text-xs text-gray-500">{nft.collection}</p>
-              </div>
-              
-              {/* Price Section */}
-              {nft.isForSale ? (
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-bold text-gray-900">{nft.price} {nft.currency}</span>
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    Last sale: {(nft.price * 0.85).toFixed(2)} {nft.currency}
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  <div className="text-sm font-medium text-gray-600">Not for sale</div>
-                  <div className="text-xs text-gray-500">
-                    Floor: {nft.price} {nft.currency}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         ))}
@@ -735,11 +497,11 @@ export default function ExplorePage({ initialTab = 'creators' }: ExplorePageProp
               type="text"
               placeholder="Search..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={e => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          
+
           <div className="flex items-center space-x-3">
             {/* Filter Dropdown */}
             <div className="relative">
@@ -752,20 +514,19 @@ export default function ExplorePage({ initialTab = 'creators' }: ExplorePageProp
               >
                 <Filter className="w-4 h-4" />
                 <span>Filter</span>
-                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isFilterOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown
+                  className={`w-4 h-4 transition-transform duration-200 ${isFilterOpen ? "rotate-180" : ""}`}
+                />
               </button>
 
               {isFilterOpen && (
                 <>
-                  <div 
-                    className="fixed inset-0 z-10" 
-                    onClick={() => setIsFilterOpen(false)}
-                  ></div>
+                  <div className="fixed inset-0 z-10" onClick={() => setIsFilterOpen(false)}></div>
                   <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
                     <div className="px-4 py-2 text-sm font-medium text-gray-700 border-b border-gray-100">
                       Filter by Category
                     </div>
-                    {categories.map((category) => (
+                    {categories.map(category => (
                       <button
                         key={category}
                         onClick={() => {
@@ -773,7 +534,9 @@ export default function ExplorePage({ initialTab = 'creators' }: ExplorePageProp
                           setIsFilterOpen(false);
                         }}
                         className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${
-                          selectedCategory === category.toLowerCase() ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                          selectedCategory === category.toLowerCase()
+                            ? "bg-blue-50 text-blue-700"
+                            : "text-gray-700"
                         }`}
                       >
                         {category}
@@ -782,12 +545,12 @@ export default function ExplorePage({ initialTab = 'creators' }: ExplorePageProp
                         )}
                       </button>
                     ))}
-                    {selectedCategory !== 'all' && (
+                    {selectedCategory !== "all" && (
                       <>
                         <div className="border-t border-gray-100 my-1"></div>
                         <button
                           onClick={() => {
-                            setSelectedCategory('all');
+                            setSelectedCategory("all");
                             setIsFilterOpen(false);
                           }}
                           className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors duration-200"
@@ -813,20 +576,19 @@ export default function ExplorePage({ initialTab = 'creators' }: ExplorePageProp
               >
                 <SortDesc className="w-4 h-4" />
                 <span>Sort</span>
-                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isSortOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown
+                  className={`w-4 h-4 transition-transform duration-200 ${isSortOpen ? "rotate-180" : ""}`}
+                />
               </button>
 
               {isSortOpen && (
                 <>
-                  <div 
-                    className="fixed inset-0 z-10" 
-                    onClick={() => setIsSortOpen(false)}
-                  ></div>
+                  <div className="fixed inset-0 z-10" onClick={() => setIsSortOpen(false)}></div>
                   <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
                     <div className="px-4 py-2 text-sm font-medium text-gray-700 border-b border-gray-100">
                       Sort by
                     </div>
-                    {sortOptions[activeTab].map((option) => (
+                    {sortOptions[activeTab].map(option => (
                       <button
                         key={option.value}
                         onClick={() => {
@@ -834,13 +596,11 @@ export default function ExplorePage({ initialTab = 'creators' }: ExplorePageProp
                           setIsSortOpen(false);
                         }}
                         className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${
-                          sortBy === option.value ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                          sortBy === option.value ? "bg-blue-50 text-blue-700" : "text-gray-700"
                         }`}
                       >
                         {option.label}
-                        {sortBy === option.value && (
-                          <span className="float-right">✓</span>
-                        )}
+                        {sortBy === option.value && <span className="float-right">✓</span>}
                       </button>
                     ))}
                   </div>
@@ -856,11 +616,11 @@ export default function ExplorePage({ initialTab = 'creators' }: ExplorePageProp
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-8">
             <button
-              onClick={() => setActiveTab('creators')}
+              onClick={() => setActiveTab("creators")}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'creators'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                activeTab === "creators"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
             >
               <div className="flex items-center space-x-2">
@@ -869,11 +629,11 @@ export default function ExplorePage({ initialTab = 'creators' }: ExplorePageProp
               </div>
             </button>
             <button
-              onClick={() => setActiveTab('pools')}
+              onClick={() => setActiveTab("pools")}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'pools'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                activeTab === "pools"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
             >
               <div className="flex items-center space-x-2">
@@ -881,28 +641,29 @@ export default function ExplorePage({ initialTab = 'creators' }: ExplorePageProp
                 <span>Reward Pools</span>
               </div>
             </button>
-            <button
-              onClick={() => setActiveTab('nfts')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'nfts'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <Image className="w-4 h-4" />
-                <span>NFTs</span>
+            <div className="relative group">
+              <button
+                disabled
+                className="py-2 px-1 border-b-2 font-medium text-sm border-transparent text-gray-400 cursor-not-allowed"
+              >
+                <div className="flex items-center space-x-2">
+                  <span>NFTs</span>
+                </div>
+              </button>
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
+                <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap">
+                  Coming Soon
+                </div>
               </div>
-            </button>
+            </div>
           </nav>
         </div>
       </div>
 
       {/* Content */}
       <div className="min-h-screen">
-        {activeTab === 'creators' && renderCreators()}
-        {activeTab === 'pools' && renderPools()}
-        {activeTab === 'nfts' && renderNFTs()}
+        {activeTab === "creators" && renderCreators()}
+        {activeTab === "pools" && renderPools()}
       </div>
 
       {/* Creator Pool Modal */}
@@ -929,16 +690,6 @@ export default function ExplorePage({ initialTab = 'creators' }: ExplorePageProp
         />
       )}
 
-      {/* NFT Overview Modal */}
-      {/* <NFTOverviewModal
-        isOpen={isNFTModalOpen}
-        onClose={() => {
-          setIsNFTModalOpen(false);
-          setSelectedNFT(null);
-        }}
-        nft={selectedNFT}
-      /> */}
-
       {/* Staking Modal */}
       <StakingModal
         isOpen={isStakingModalOpen}
@@ -951,4 +702,19 @@ export default function ExplorePage({ initialTab = 'creators' }: ExplorePageProp
       />
     </div>
   );
+}
+
+interface RewardPool {
+  id: string;
+  title: string;
+  description: string;
+  totalReward: number;
+  currency: string;
+  participants: number;
+  maxParticipants: number;
+  endDate: string;
+  status: "active" | "ending-soon" | "completed";
+  category: "staking" | "social" | "trading" | "community";
+  createdBy: string;
+  image?: string;
 }
