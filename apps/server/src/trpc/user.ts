@@ -1,4 +1,4 @@
-import { privateProcedure, router } from "./trpc";
+import { privateProcedure, publicProcedure, router } from "./trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { sendEmailChangeVerification } from "../utils/email/email";
@@ -26,6 +26,21 @@ const confirmEmailChangeSchema = z.object({
 // Function to generate a random 6-digit code
 const generateSixDigitCode = (): string => {
   return crypto.randomInt(100000, 1000000).toString();
+};
+
+type Creator = {
+  id: string;
+  username: string;
+  displayName: string;
+  avatar: string | null;
+  banner: string | null;
+  followers: number;
+  following: number;
+  verified: boolean;
+  bio: string;
+  totalEarnings: number;
+  poolStake: number;
+  category: string;
 };
 
 export const userRouter = router({
@@ -380,5 +395,42 @@ export const userRouter = router({
           message: "Failed to resend email verification code",
         });
       }
+    }),
+    getUsers: publicProcedure
+    .input(
+      z.object({
+        search: z.string().optional(),
+      })
+    )
+    .query(async ({ input }): Promise<Creator[]> => {
+      const users = await prisma.user.findMany({
+        where: {
+          name: {
+            contains: input.search,
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+          onelink: true,
+          image: true,
+          description: true,
+        },
+      });
+
+      return users.map((user) => ({
+        id: user.id.toString(),
+        displayName: user.name,
+        username: user.onelink || "",
+        avatar: user.image,
+        bio: user.description || "",
+        banner: null, // Placeholder
+        followers: 0, 
+        following: 0,
+        verified: false,
+        totalEarnings: 0,
+        poolStake: 0,
+        category: "uncategorized",
+      }));
     }),
 });

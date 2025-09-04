@@ -1,8 +1,11 @@
-import React, { useState } from "react";
-import { Search, Users, Trophy, Filter, SortDesc, Coins, ChevronDown, X } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { useDebounce } from "@/hooks/useDebounce";
+import { Search, Users, Trophy, Filter, SortDesc, Coins, ChevronDown, X, User } from "lucide-react";
 import PoolDetailsModal from "./PoolDetailsModal";
 // import NFTOverviewModal from './NFTOverviewModal';
 import StakingModal from "./StakingModal";
+import { useQuery } from "@tanstack/react-query";
+import { trpc } from "../../../utils/trpc";
 
 interface ExplorePageProps {
   initialTab?: "creators" | "pools";
@@ -13,8 +16,8 @@ interface Creator {
   id: string;
   username: string;
   displayName: string;
-  avatar: string;
-  banner: string;
+  avatar: string | null;
+  banner: string | null;
   followers: number;
   following: number;
   verified: boolean;
@@ -36,7 +39,7 @@ interface RewardPool {
   status: "active" | "ending-soon" | "completed";
   category: "staking" | "social" | "trading" | "community";
   createdBy: string;
-  image?: string;
+  image?: string | null;
   stakedAmount: number;
   stakeCurrency: string;
   rewardCurrency: string;
@@ -46,7 +49,8 @@ interface RewardPool {
 
 export default function ExplorePage() {
   const [activeTab, setActiveTab] = useState<"creators" | "pools">("creators");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [rawSearchQuery, setRawSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(rawSearchQuery, 500);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("popular");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -61,6 +65,8 @@ export default function ExplorePage() {
     null
   );
   const [isRewardPoolViewModalOpen, setIsRewardPoolViewModalOpen] = useState(false);
+
+  const { data: creators } = useQuery(trpc.user.getUsers.queryOptions({ search: debouncedSearchQuery }));
 
   // Filter categories
   const categories = [
@@ -93,90 +99,6 @@ export default function ExplorePage() {
       { value: "newest", label: "Newest" },
     ],
   };
-
-  // Mock data for creators
-  const mockCreators: Creator[] = [
-    {
-      id: "1",
-      username: "cryptoartist.eth",
-      displayName: "CryptoArtist",
-      avatar:
-        "https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=200",
-      banner:
-        "https://images.pexels.com/photos/844124/pexels-photo-844124.jpeg?auto=compress&cs=tinysrgb&w=800",
-      followers: 15420,
-      following: 892,
-      verified: true,
-      bio: "Digital artist creating unique NFT collections. Exploring the intersection of art and technology.",
-      totalEarnings: 46,
-      poolStake: 127000,
-      category: "Art & Design",
-    },
-    {
-      id: "2",
-      username: "nftcollector",
-      displayName: "NFT Collector Pro",
-      avatar:
-        "https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=200",
-      banner:
-        "https://images.pexels.com/photos/730547/pexels-photo-730547.jpeg?auto=compress&cs=tinysrgb&w=800",
-      followers: 8934,
-      following: 1247,
-      verified: false,
-      bio: "Passionate NFT collector and trader. Always looking for the next big thing in digital art.",
-      totalEarnings: 23,
-      poolStake: 89500,
-      category: "Collectibles",
-    },
-    {
-      id: "3",
-      username: "metaverse.builder",
-      displayName: "Metaverse Builder",
-      avatar:
-        "https://images.pexels.com/photos/1181263/pexels-photo-1181263.jpeg?auto=compress&cs=tinysrgb&w=200",
-      banner:
-        "https://images.pexels.com/photos/1181244/pexels-photo-1181244.jpeg?auto=compress&cs=tinysrgb&w=800",
-      followers: 12567,
-      following: 456,
-      verified: true,
-      bio: "Building the future of virtual worlds. Creating immersive experiences in the metaverse.",
-      totalEarnings: 67,
-      poolStake: 203750,
-      category: "Gaming",
-    },
-    {
-      id: "4",
-      username: "music.producer",
-      displayName: "Beat Master",
-      avatar:
-        "https://images.pexels.com/photos/1181248/pexels-photo-1181248.jpeg?auto=compress&cs=tinysrgb&w=200",
-      banner:
-        "https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=800",
-      followers: 7823,
-      following: 234,
-      verified: true,
-      bio: "Electronic music producer creating beats for the metaverse. Exclusive tracks for supporters.",
-      totalEarnings: 34,
-      poolStake: 65400,
-      category: "Music",
-    },
-    {
-      id: "5",
-      username: "story.teller",
-      displayName: "Digital Storyteller",
-      avatar:
-        "https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=200",
-      banner:
-        "https://images.pexels.com/photos/730547/pexels-photo-730547.jpeg?auto=compress&cs=tinysrgb&w=800",
-      followers: 5432,
-      following: 678,
-      verified: false,
-      bio: "Interactive storyteller crafting immersive narratives. Join my world of digital adventures.",
-      totalEarnings: 19,
-      poolStake: 42300,
-      category: "Storytelling",
-    },
-  ];
 
   // Mock data for reward pools
   const mockPools: RewardPool[] = [
@@ -244,12 +166,12 @@ export default function ExplorePage() {
     },
   ];
 
-  const handleViewProfile = (_creatorId: string) => {
-    window.open("https://amped.bio", "_blank", "noopener,noreferrer");
+  const handleViewProfile = (username: string) => {
+    window.open(`${window.location.origin}/${username}`, "_blank", "noopener,noreferrer");
   };
 
   const handleStakeToCreator = (creatorId: string) => {
-    const creator = mockCreators.find(c => c.id === creatorId);
+    const creator = creators?.find(c => c.id === creatorId);
     if (creator) {
       // Convert creator to pool format for the pool details modal
       const creatorPool = {
@@ -317,30 +239,42 @@ export default function ExplorePage() {
   const renderCreators = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {mockCreators.map(creator => (
+        {creators?.map(creator => (
           <div
             key={creator.id}
             className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden"
           >
             {/* Banner */}
-            <div className="h-24 bg-gradient-to-r from-blue-500 to-purple-600 relative">
-              <img
-                src={creator.banner}
-                alt={`${creator.displayName} banner`}
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-black bg-opacity-20"></div>
-            </div>
+            {creator.banner ? (
+              <div className="h-24 bg-gradient-to-r from-blue-500 to-purple-600 relative">
+                <img
+                  src={creator.banner}
+                  alt={`${creator.displayName} banner`}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-black bg-opacity-20"></div>
+              </div>
+            ) : (
+              <div className="h-24 bg-gradient-to-r from-blue-500 to-purple-600 relative shadow-inner">
+                {/* Empty div for background with inset shadow */}
+              </div>
+            )}
 
             {/* Profile Content */}
             <div className="p-6 relative">
               {/* Avatar */}
               <div className="absolute -top-12 left-6">
-                <img
-                  src={creator.avatar}
-                  alt={creator.displayName}
-                  className="w-16 h-16 rounded-full border-4 border-white shadow-lg object-cover"
-                />
+                {creator.avatar ? (
+                  <img
+                    src={creator.avatar}
+                    alt={creator.displayName}
+                    className="w-16 h-16 rounded-full border-4 border-white shadow-lg object-cover"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-full border-4 border-white shadow-lg object-cover flex items-center justify-center bg-gray-200 text-gray-500">
+                    <User className="w-8 h-8" />
+                  </div>
+                )}
               </div>
 
               {/* Creator Info */}
@@ -380,20 +314,21 @@ export default function ExplorePage() {
                 </div>
 
                 <p className="text-sm text-gray-500 mb-2">@{creator.username}</p>
-                <p className="text-sm text-gray-600 mb-4 line-clamp-2">{creator.bio}</p>
+                                <div className="text-sm text-gray-600 mb-4 line-clamp-2" dangerouslySetInnerHTML={{ __html: creator.bio }} />
 
                 {/* Stats */}
                 {/* Follow Button */}
                 {/* Action Buttons */}
                 <div className="flex space-x-2">
                   <button
-                    onClick={() => handleViewProfile(creator.id)}
+                    onClick={() => handleViewProfile(creator.username)}
                     className="flex-1 py-2 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors duration-200 text-sm"
                   >
                     View Profile
                   </button>
                   <button
                     onClick={() => handleStakeToCreator(creator.id)}
+                    disabled
                     className="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-1 text-sm"
                   >
                     <Coins className="w-4 h-4" />
@@ -496,21 +431,22 @@ export default function ExplorePage() {
             <input
               type="text"
               placeholder="Search..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
+              value={rawSearchQuery}
+              onChange={e => setRawSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
 
           <div className="flex items-center space-x-3">
             {/* Filter Dropdown */}
-            <div className="relative">
+            <div className="relative group">
               <button
                 onClick={() => {
                   setIsFilterOpen(!isFilterOpen);
                   setIsSortOpen(false);
                 }}
-                className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                disabled
+                className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed"
               >
                 <Filter className="w-4 h-4" />
                 <span>Filter</span>
@@ -518,6 +454,12 @@ export default function ExplorePage() {
                   className={`w-4 h-4 transition-transform duration-200 ${isFilterOpen ? "rotate-180" : ""}`}
                 />
               </button>
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
+                <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap">
+                  Coming Soon
+                </div>
+              </div>
+            </div>
 
               {isFilterOpen && (
                 <>
@@ -566,13 +508,14 @@ export default function ExplorePage() {
             </div>
 
             {/* Sort Dropdown */}
-            <div className="relative">
+            <div className="relative group">
               <button
                 onClick={() => {
                   setIsSortOpen(!isSortOpen);
                   setIsFilterOpen(false);
                 }}
-                className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                disabled
+                className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed"
               >
                 <SortDesc className="w-4 h-4" />
                 <span>Sort</span>
@@ -580,6 +523,12 @@ export default function ExplorePage() {
                   className={`w-4 h-4 transition-transform duration-200 ${isSortOpen ? "rotate-180" : ""}`}
                 />
               </button>
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
+                <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap">
+                  Coming Soon
+                </div>
+              </div>
+            </div>
 
               {isSortOpen && (
                 <>
@@ -628,19 +577,23 @@ export default function ExplorePage() {
                 <span>Users</span>
               </div>
             </button>
-            <button
-              onClick={() => setActiveTab("pools")}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === "pools"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <Trophy className="w-4 h-4" />
-                <span>Reward Pools</span>
+            <div className="relative group">
+              <button
+                onClick={() => setActiveTab("pools")}
+                disabled
+                className={`py-2 px-1 border-b-2 font-medium text-sm border-transparent text-gray-400 cursor-not-allowed`}
+              >
+                <div className="flex items-center space-x-2">
+                  <Trophy className="w-4 h-4" />
+                  <span>Reward Pools</span>
+                </div>
+              </button>
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
+                <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap">
+                  Coming Soon
+                </div>
               </div>
-            </button>
+            </div>
             <div className="relative group">
               <button
                 disabled
@@ -716,5 +669,5 @@ interface RewardPool {
   status: "active" | "ending-soon" | "completed";
   category: "staking" | "social" | "trading" | "community";
   createdBy: string;
-  image?: string;
+  image?: string | null;
 }

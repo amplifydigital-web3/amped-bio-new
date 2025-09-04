@@ -9,7 +9,7 @@ interface StakingModalProps {
     title: string;
     description: string;
     stakeCurrency: string;
-    image?: string;
+    image?: string | null;
     minStake?: number;
     currentStake?: number;
   } | null;
@@ -350,12 +350,9 @@ export default function StakingModal({ isOpen, onClose, pool, mode }: StakingMod
         {animatingTokens.map((token) => (
           <div
             key={token.id}
-            className="absolute w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-lg"
+            className="absolute w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-lg animate-token-stake"
             style={{
-              top: '4rem',
-              left: '25%',
-              transform: 'translateX(-50%)',
-              animation: `tokenStake 2s ease-out ${token.delay}ms forwards`,
+              animationDelay: `${token.delay}ms`,
             }}
           >
             🚀
@@ -386,26 +383,6 @@ export default function StakingModal({ isOpen, onClose, pool, mode }: StakingMod
           ))}
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes tokenStake {
-          0% {
-            top: 4rem;
-            left: 25%;
-            transform: translateX(-50%) scale(1);
-            opacity: 1;
-          }
-          50% {
-            transform: translateX(-50%) scale(1.2);
-          }
-          100% {
-            top: calc(100% - 6rem);
-            left: 75%;
-            transform: translateX(50%) scale(0.8);
-            opacity: 0.8;
-          }
-        }
-      `}</style>
     </>
   );
 
