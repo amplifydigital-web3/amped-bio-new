@@ -139,16 +139,8 @@ export function CreatorPoolPanel() {
 
   const onSubmit = (data: CreatorPoolFormValues) => {
     createPool({
-      name: data.poolName,
-      description: data.poolDescription,
-      imageUrl: data.poolImage || "",
-      initialStake: data.yourStake,
-      creatorFee: data.creatorFee,
-      stakingTiers: data.stakingTiers.map(tier => ({
-        name: tier.name,
-        minStake: tier.minStake,
-        perks: tier.perks,
-      })),
+      poolName: data.poolName,
+      creatorCut: data.creatorFee,
     });
   };
 
