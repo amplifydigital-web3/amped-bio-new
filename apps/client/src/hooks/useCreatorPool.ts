@@ -1,6 +1,7 @@
-import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useWriteContract, useWaitForTransactionReceipt, useChainId } from "wagmi";
 import { type Address } from "viem";
-import { useGetNodes } from "@/hooks/useNode";
+import { useMemo } from "react";
+import { REVO_NODE_ADDRESSES } from "@ampedbio/web3";
 
 // Contract addresses
 export const CONTRACT_ADDRESSES = {
@@ -40,31 +41,40 @@ export interface CreatePoolArgs {
 }
 
 export function useCreatorPool() {
-  const { data: nodes, isLoading: isLoadingNodes } = useGetNodes();
+  const chainId = useChainId();
   const {
-    writeContract: createPool,
+    writeContractAsync: createPool,
     data: createPoolHash,
     error: createPoolError,
     isPending: isCreatingPool,
   } = useWriteContract();
 
+  const nodeAddress = useMemo(() => {
+    return REVO_NODE_ADDRESSES[chainId] || null;
+  }, [chainId]);
+
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
     hash: createPoolHash,
   });
 
-  const handleCreatePool = (args: CreatePoolArgs) => {
-    if (!nodes || nodes.length === 0) {
-      console.error("No nodes available to create a pool.");
-      return;
-    }
-    const node = nodes[0]; // Use the first node
+  const handleCreatePool = async (args: CreatePoolArgs) => {
+    try {
+      console.log("handleCreatePool called with args:", args);
+      if (!nodeAddress) {
+        console.error("No node available to create a pool.");
+        return;
+      }
+      console.log("Using node:", nodeAddress);
 
-    createPool({
-      address: CONTRACT_ADDRESSES.CREATOR_POOL_FACTORY,
-      abi: CREATOR_POOL_FACTORY_ABI,
-      functionName: "createPool",
-      args: [node, BigInt(args.creatorCut), args.poolName],
-    });
+      await createPool({
+        address: CONTRACT_ADDRESSES.CREATOR_POOL_FACTORY,
+        abi: CREATOR_POOL_FACTORY_ABI,
+        functionName: "createPool",
+        args: [nodeAddress, BigInt(args.creatorCut), args.poolName],
+      });
+    } catch (error) {
+      console.error("Error creating pool", error);
+    }
   };
 
   return {
@@ -74,7 +84,5 @@ export function useCreatorPool() {
     isCreatingPool,
     isConfirming,
     isConfirmed,
-    nodes,
-    isLoadingNodes,
   };
 }

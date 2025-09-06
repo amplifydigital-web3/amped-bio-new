@@ -47,8 +47,8 @@ interface RewardPool {
   estimatedRewards: number;
 }
 
-export default function ExplorePage() {
-  const [activeTab, setActiveTab] = useState<"creators" | "pools">("creators");
+export default function ExplorePage({ initialTab = "creators", onTabChange }: ExplorePageProps) {
+  const [activeTab, setActiveTab] = useState<"creators" | "pools">(initialTab);
   const [rawSearchQuery, setRawSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(rawSearchQuery, 500);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -57,7 +57,6 @@ export default function ExplorePage() {
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [selectedCreatorPool, setSelectedCreatorPool] = useState<any>(null);
   const [isCreatorPoolModalOpen, setIsCreatorPoolModalOpen] = useState(false);
-
   const [selectedStakingPool, setSelectedStakingPool] = useState<any>(null);
   const [isStakingModalOpen, setIsStakingModalOpen] = useState(false);
   const [stakingMode, setStakingMode] = useState<"stake" | "add-stake">("stake");
@@ -173,12 +172,11 @@ export default function ExplorePage() {
   const handleStakeToCreator = (creatorId: string) => {
     const creator = creators?.find(c => c.id === creatorId);
     if (creator) {
-      // Convert creator to pool format for the pool details modal
       const creatorPool = {
         id: `creator-pool-${creator.id}`,
         title: `${creator.displayName}'s Creator Pool`,
         description: `${creator.bio} Join ${creator.displayName}'s exclusive creator pool to support their work and earn rewards based on their success. Stake REVO tokens to unlock different tiers of benefits including exclusive content, early access, and community perks.`,
-        stakedAmount: 0, // User's stake in this pool
+        stakedAmount: 0,
         stakeCurrency: "REVO",
         totalReward: creator.poolStake,
         rewardCurrency: "REVO",
@@ -189,9 +187,9 @@ export default function ExplorePage() {
         estimatedRewards: 0,
         participants: creator.poolStake > 0 ? Math.floor(creator.poolStake / 1000) : 1,
         image: creator.banner,
-        currency: "REVO", // Added missing property
-        maxParticipants: 10000, // Added missing property
-        createdBy: creator.displayName, // Added missing property
+        currency: "REVO",
+        maxParticipants: 10000,
+        createdBy: creator.displayName,
       };
 
       setSelectedRewardPoolForView(creatorPool);
@@ -202,7 +200,6 @@ export default function ExplorePage() {
   const handleJoinPool = (poolId: string) => {
     const pool = mockPools.find(p => p.id === poolId);
     if (pool) {
-      // Convert RewardPool to the format expected by StakingModal
       const poolForStaking = {
         id: pool.id,
         title: pool.title,
@@ -222,10 +219,9 @@ export default function ExplorePage() {
   const handleViewPool = (poolId: string) => {
     const pool = mockPools.find(p => p.id === poolId);
     if (pool) {
-      // Convert RewardPool to the format expected by PoolDetailsModal
       const poolForView = {
         ...pool,
-        stakedAmount: 0, // User's stake in this pool
+        stakedAmount: 0,
         stakeCurrency: "REVO",
         earnedRewards: 0,
         estimatedRewards: 0,
@@ -244,7 +240,6 @@ export default function ExplorePage() {
             key={creator.id}
             className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden"
           >
-            {/* Banner */}
             {creator.banner ? (
               <div className="h-24 bg-gradient-to-r from-blue-500 to-purple-600 relative">
                 <img
@@ -255,14 +250,10 @@ export default function ExplorePage() {
                 <div className="absolute inset-0 bg-black bg-opacity-20"></div>
               </div>
             ) : (
-              <div className="h-24 bg-gradient-to-r from-blue-500 to-purple-600 relative shadow-inner">
-                {/* Empty div for background with inset shadow */}
-              </div>
+              <div className="h-24 bg-gradient-to-r from-blue-500 to-purple-600 relative shadow-inner"></div>
             )}
 
-            {/* Profile Content */}
             <div className="p-6 relative">
-              {/* Avatar */}
               <div className="absolute -top-12 left-6">
                 {creator.avatar ? (
                   <img
@@ -277,7 +268,6 @@ export default function ExplorePage() {
                 )}
               </div>
 
-              {/* Creator Info */}
               <div className="mt-6">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center space-x-2">
@@ -302,8 +292,6 @@ export default function ExplorePage() {
                     <span className="px-2 py-1 rounded-full text-xs font-medium cursor-help bg-gray-100 text-gray-700">
                       {creator.poolStake.toLocaleString()} Pool Stake
                     </span>
-
-                    {/* Tooltip */}
                     <div className="absolute bottom-full right-0 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
                       <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap shadow-lg">
                         Amount staked to users pool by others
@@ -314,11 +302,11 @@ export default function ExplorePage() {
                 </div>
 
                 <p className="text-sm text-gray-500 mb-2">@{creator.username}</p>
-                                <div className="text-sm text-gray-600 mb-4 line-clamp-2" dangerouslySetInnerHTML={{ __html: creator.bio }} />
+                <div
+                  className="text-sm text-gray-600 mb-4 line-clamp-2"
+                  dangerouslySetInnerHTML={{ __html: creator.bio }}
+                />
 
-                {/* Stats */}
-                {/* Follow Button */}
-                {/* Action Buttons */}
                 <div className="flex space-x-2">
                   <button
                     onClick={() => handleViewProfile(creator.username)}
@@ -369,7 +357,6 @@ export default function ExplorePage() {
                     {pool.totalReward.toLocaleString()} {pool.currency}
                   </span>
                 </div>
-
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-500">Participants</span>
                   <span className="font-semibold text-gray-900">
@@ -386,7 +373,6 @@ export default function ExplorePage() {
                   <Users className="w-4 h-4" />
                   <span>View Pool</span>
                 </button>
-
                 <button
                   onClick={() => handleJoinPool(pool.id)}
                   disabled={pool.status === "completed"}
@@ -439,7 +425,7 @@ export default function ExplorePage() {
 
           <div className="flex items-center space-x-3">
             {/* Filter Dropdown */}
-            <div className="relative group">
+            <div className="relative">
               <button
                 onClick={() => {
                   setIsFilterOpen(!isFilterOpen);
@@ -459,13 +445,11 @@ export default function ExplorePage() {
                   Coming Soon
                 </div>
               </div>
-            </div>
-
               {isFilterOpen && (
-                <>
+                <div className="relative">
                   <div className="fixed inset-0 z-10" onClick={() => setIsFilterOpen(false)}></div>
                   <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
-                    <div className="px-4 py-2 text-sm font-medium text-gray-700 border-b border-gray-100">
+                    <div className="px-4 py-2 text-sm font-medium text-gray-700 border-b border-gray-200">
                       Filter by Category
                     </div>
                     {categories.map(category => (
@@ -489,7 +473,7 @@ export default function ExplorePage() {
                     ))}
                     {selectedCategory !== "all" && (
                       <>
-                        <div className="border-t border-gray-100 my-1"></div>
+                        <div className="border-t border-gray-200 my-1"></div>
                         <button
                           onClick={() => {
                             setSelectedCategory("all");
@@ -503,12 +487,12 @@ export default function ExplorePage() {
                       </>
                     )}
                   </div>
-                </>
+                </div>
               )}
             </div>
 
             {/* Sort Dropdown */}
-            <div className="relative group">
+            <div className="relative">
               <button
                 onClick={() => {
                   setIsSortOpen(!isSortOpen);
@@ -528,13 +512,11 @@ export default function ExplorePage() {
                   Coming Soon
                 </div>
               </div>
-            </div>
-
               {isSortOpen && (
-                <>
+                <div className="relative">
                   <div className="fixed inset-0 z-10" onClick={() => setIsSortOpen(false)}></div>
                   <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
-                    <div className="px-4 py-2 text-sm font-medium text-gray-700 border-b border-gray-100">
+                    <div className="px-4 py-2 text-sm font-medium text-gray-700 border-b border-gray-200">
                       Sort by
                     </div>
                     {sortOptions[activeTab].map(option => (
@@ -553,7 +535,7 @@ export default function ExplorePage() {
                       </button>
                     ))}
                   </div>
-                </>
+                </div>
               )}
             </div>
           </div>
@@ -565,7 +547,10 @@ export default function ExplorePage() {
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-8">
             <button
-              onClick={() => setActiveTab("creators")}
+              onClick={() => {
+                setActiveTab("creators");
+                onTabChange?.("creators");
+              }}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === "creators"
                   ? "border-blue-500 text-blue-600"
@@ -579,7 +564,10 @@ export default function ExplorePage() {
             </button>
             <div className="relative group">
               <button
-                onClick={() => setActiveTab("pools")}
+                onClick={() => {
+                  setActiveTab("pools");
+                  onTabChange?.("pools");
+                }}
                 disabled
                 className={`py-2 px-1 border-b-2 font-medium text-sm border-transparent text-gray-400 cursor-not-allowed`}
               >
@@ -655,19 +643,4 @@ export default function ExplorePage() {
       />
     </div>
   );
-}
-
-interface RewardPool {
-  id: string;
-  title: string;
-  description: string;
-  totalReward: number;
-  currency: string;
-  participants: number;
-  maxParticipants: number;
-  endDate: string;
-  status: "active" | "ending-soon" | "completed";
-  category: "staking" | "social" | "trading" | "community";
-  createdBy: string;
-  image?: string | null;
 }

@@ -50,14 +50,8 @@ interface TierIconEntry {
 }
 
 export function CreatorPoolPanel() {
-  const {
-    createPool,
-    createPoolHash,
-    createPoolError,
-    isCreatingPool,
-    isConfirming,
-    isConfirmed,
-  } = useCreatorPool();
+  const { createPool, createPoolHash, createPoolError, isCreatingPool, isConfirming, isConfirmed } =
+    useCreatorPool();
 
   // const [showSummaryModal, setShowSummaryModal] = useState(false);
   // const [showTransactionModal, setShowTransactionModal] = useState(false);
@@ -137,21 +131,18 @@ export function CreatorPoolPanel() {
     );
   };
 
-  const onSubmit = (data: CreatorPoolFormValues) => {
+  const onSubmit = (data: CreatorPoolFormValues) =>
     createPool({
       poolName: data.poolName,
       creatorCut: data.creatorFee,
     });
-  };
 
   const handleLaunchPool = () => {
     // setShowSummaryModal(false);
     // setShowTransactionModal(true);
     // setTransactionStep("confirming");
-
     // const mockTxHash = "0x" + Math.random().toString(16).substr(2, 64);
     // setTransactionHash(mockTxHash);
-
     // setTimeout(() => {
     //   setTransactionStep("confirmed");
     // }, 3000);
@@ -498,8 +489,6 @@ export function CreatorPoolPanel() {
           `}</style>
         </div>
       </form>
-
-      
     </FormProvider>
   );
 }

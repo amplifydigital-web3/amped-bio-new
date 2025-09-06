@@ -61,4 +61,5 @@ export type EditorState = {
   marketplaceSort: "popular" | "newest";
   connectedWallet?: string;
   selectedPoolId: string | null;
+  hasCreatorPool: boolean;
 };

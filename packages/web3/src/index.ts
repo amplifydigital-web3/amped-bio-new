@@ -1,3 +1,4 @@
+import { type Address } from "viem";
 import { chainConfig } from "viem/zksync";
 
 export const revolutionDevnet = {
@@ -60,4 +61,9 @@ export const getChainConfig = (chainId: number) => {
 export const getCurrencySymbol = (chainId: number) => {
   const chain = getChainConfig(chainId);
   return chain ? chain.nativeCurrency.symbol : "REVO";
+};
+
+export const REVO_NODE_ADDRESSES = {
+  [libertasTestnet.id]: "0x019bbe745b5c9b70060408Bf720B1E5172EEa5A3" as Address,
+  [revolutionDevnet.id]: "0x0000000000000000000000000000000000000000" as Address,
 };

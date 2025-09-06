@@ -63,11 +63,13 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         // console.groupEnd();
         return;
       }
-      const { user, theme, blocks: blocks_raw } = onlinkData;
+      const { user, theme, blocks: blocks_raw, hasCreatorPool } = onlinkData;
       const { name, email, description, image } = user;
       const normalizedOnelink = normalizeOnelink(onelink);
       const formattedOnelink = formatOnelink(onelink);
       // console.info("👤 User data loaded:", { name, email, blocks: blocks_raw, theme });
+
+      const blocks = blocks_raw.sort((a, b) => a.order - b.order);
 
       setState(prevState => ({
         ...prevState,
@@ -79,17 +81,9 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
           bio: description ?? "",
           photoUrl: image ?? "",
         },
-      }));
-      // console.info("🎨 Setting theme...");
-      setState(prevState => ({
-        ...prevState,
         theme: mergeTheme(prevState.theme, theme as unknown as Theme),
-      }));
-      const blocks = blocks_raw.sort((a, b) => a.order - b.order);
-      // console.info(`📦 Setting ${blocks.length} blocks...`);
-      setState(prevState => ({
-        ...prevState,
         blocks: blocks as unknown as BlockType[],
+        hasCreatorPool,
       }));
       // console.info("✅ User setup complete");
       // console.groupEnd();
