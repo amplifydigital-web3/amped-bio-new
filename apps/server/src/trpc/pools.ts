@@ -9,8 +9,6 @@ export const poolsRouter = router({
   create: privateProcedure
     .input(
       z.object({
-        name: z.string(),
-        creatorCut: z.number(),
         description: z.string().optional(),
       })
     )
@@ -22,7 +20,6 @@ export const poolsRouter = router({
         pool = await prisma.creatorPool.create({
           data: {
             userId,
-            creatorCut: input.creatorCut,
             description: input.description,
           },
         });
@@ -117,6 +114,45 @@ export const poolsRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to update pool address",
+        });
+      }
+    }),
+
+  setImageForPool: privateProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        image_file_id: z.number(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user.sub;
+
+      try {
+        const pool = await prisma.creatorPool.findUnique({
+          where: { id: input.id, userId },
+        });
+
+        if (!pool) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Pool not found",
+          });
+        }
+
+        const updatedPool = await prisma.creatorPool.update({
+          where: { id: input.id },
+          data: {
+            image_file_id: input.image_file_id,
+          },
+        });
+        return updatedPool;
+      } catch (error) {
+        console.error("Error setting pool image:", error);
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to set pool image",
         });
       }
     }),

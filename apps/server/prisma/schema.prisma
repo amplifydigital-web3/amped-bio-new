@@ -174,8 +174,8 @@ model UserWallet {
 model CreatorPool {
   id            Int           @id @default(autoincrement())
   userId        Int           @unique
-  name          String
-  creatorCut    Int
+  
+  
   image_file_id Int?
   description   String?       @db.LongText
   fans          Int           @default(0)

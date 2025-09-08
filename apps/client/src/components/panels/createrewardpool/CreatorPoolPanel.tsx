@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { useForm, useFieldArray, Controller, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -21,7 +22,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { trpc } from "@/lib/trpc";
+import { trpc } from "@/utils/trpc";
 import { useCreatorPool } from "@/hooks/useCreatorPool";
 
 const stakingTierSchema = z.object({
@@ -51,10 +52,21 @@ interface TierIconEntry {
 
 export function CreatorPoolPanel() {
   const { createPool, poolAddress, isConfirmed } = useCreatorPool();
-  const createPoolMutation = trpc.pools.create.useMutation();
-  const updatePoolAddressMutation = trpc.pools.updateAddress.useMutation();
-  const requestPoolImagePresignedUrlMutation = trpc.upload.requestPoolImagePresignedUrl.useMutation();
-  const confirmPoolImageUploadMutation = trpc.upload.confirmPoolImageUpload.useMutation();
+  const createPoolMutation = useMutation({
+    ...trpc.pools.create.mutationOptions(),
+  });
+  const updatePoolAddressMutation = useMutation({
+    ...trpc.pools.updateAddress.mutationOptions(),
+  });
+  const requestPoolImagePresignedUrlMutation = useMutation({
+    ...trpc.upload.requestPoolImagePresignedUrl.mutationOptions(),
+  });
+  const confirmPoolImageUploadMutation = useMutation({
+    ...trpc.upload.confirmPoolImageUpload.mutationOptions(),
+  });
+  const setImageForPoolMutation = useMutation({
+    ...trpc.pools.setImageForPool.mutationOptions(),
+  });
   const chainId = useChainId();
 
   const [createdPoolId, setCreatedPoolId] = React.useState<number | null>(null);
@@ -163,10 +175,8 @@ export function CreatorPoolPanel() {
   const onSubmit = (data: CreatorPoolFormValues) => {
     createPoolMutation.mutate(
       {
-        name: data.poolName,
-        creatorCut: data.creatorFee,
         description: data.poolDescription,
-        image_file_id: uploadedFileId,
+        
       },
       {
         onSuccess: (createdPool) => {
@@ -183,13 +193,25 @@ export function CreatorPoolPanel() {
 
   useEffect(() => {
     if (isConfirmed && poolAddress && createdPoolId && chainId) {
-      updatePoolAddressMutation.mutate({
-        id: createdPoolId,
-        poolAddress: poolAddress,
-        chainId: chainId,
-      });
+      updatePoolAddressMutation.mutate(
+        {
+          id: createdPoolId,
+          poolAddress: poolAddress,
+          chainId: chainId,
+        },
+        {
+          onSuccess: () => {
+            if (uploadedFileId) {
+              setImageForPoolMutation.mutate({
+                id: createdPoolId,
+                image_file_id: uploadedFileId,
+              });
+            }
+          },
+        }
+      );
     }
-  }, [isConfirmed, poolAddress, createdPoolId, updatePoolAddressMutation, chainId]);
+  }, [isConfirmed, poolAddress, createdPoolId, updatePoolAddressMutation, chainId, uploadedFileId, setImageForPoolMutation]);
 
   const tierIcons: TierIconEntry[] = [
     { icon: Star, color: "text-orange-600" },
