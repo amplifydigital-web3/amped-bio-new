@@ -396,7 +396,7 @@ export const userRouter = router({
         });
       }
     }),
-    getUsers: publicProcedure
+  getUsers: publicProcedure
     .input(
       z.object({
         search: z.string().optional(),
@@ -418,14 +418,14 @@ export const userRouter = router({
         },
       });
 
-      return users.map((user) => ({
+      return users.map(user => ({
         id: user.id.toString(),
         displayName: user.name,
         username: user.onelink || "",
         avatar: user.image,
         bio: user.description || "",
         banner: null, // Placeholder
-        followers: 0, 
+        followers: 0,
         following: 0,
         verified: false,
         totalEarnings: 0,

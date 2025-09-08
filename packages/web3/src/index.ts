@@ -24,6 +24,10 @@ export const revolutionDevnet = {
     },
   },
   testnet: true,
+  contracts: {
+    NODE: { address: "0x0000000000000000000000000000000000000000" as Address },
+    CREATOR_POOL_FACTORY: { address: "0x0000000000000000000000000000000000000000" as Address },
+  },
 } as const;
 
 export const libertasTestnet = {
@@ -49,6 +53,10 @@ export const libertasTestnet = {
     },
   },
   testnet: true,
+  contracts: {
+    NODE: { address: "0x019bbe745b5c9b70060408Bf720B1E5172EEa5A3" as Address },
+    CREATOR_POOL_FACTORY: { address: "0xd4A49616cB954A2338ea1794C1EDa9d1254B23f0" as Address },
+  },
 } as const;
 
 export const AVAILABLE_CHAINS = [libertasTestnet, revolutionDevnet] as const;
@@ -64,8 +72,8 @@ export const getCurrencySymbol = (chainId: number) => {
 };
 
 export const REVO_NODE_ADDRESSES = {
-  [libertasTestnet.id]: "0x019bbe745b5c9b70060408Bf720B1E5172EEa5A3" as Address,
-  [revolutionDevnet.id]: "0x0000000000000000000000000000000000000000" as Address,
+  [libertasTestnet.id]: libertasTestnet.contracts.NODE,
+  [revolutionDevnet.id]: revolutionDevnet.contracts.NODE,
 };
 
 export const CREATOR_POOL_FACTORY_ABI = [

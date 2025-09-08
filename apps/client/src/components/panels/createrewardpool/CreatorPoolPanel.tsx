@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import { useForm, useFieldArray, Controller, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useChainId } from "wagmi";
 import {
   Users,
   Gift,
@@ -13,9 +14,7 @@ import {
   Percent,
   Info,
   X,
-  Check,
   Save,
-  Sparkles,
   Star,
   Crown,
   Zap,
@@ -56,13 +55,10 @@ export function CreatorPoolPanel() {
   const updatePoolAddressMutation = trpc.pools.updateAddress.useMutation();
   const requestPoolImagePresignedUrlMutation = trpc.upload.requestPoolImagePresignedUrl.useMutation();
   const confirmPoolImageUploadMutation = trpc.upload.confirmPoolImageUpload.useMutation();
+  const chainId = useChainId();
 
-  // const [showSummaryModal, setShowSummaryModal] = useState(false);
-  // const [showTransactionModal, setShowTransactionModal] = useState(false);
-  const [transactionStep, setTransactionStep] = useState<"confirming" | "confirmed">("confirming");
-  const [transactionHash, setTransactionHash] = useState("");
-  const [createdPoolId, setCreatedPoolId] = useState<number | null>(null);
-  const [uploadedFileId, setUploadedFileId] = useState<number | null>(null);
+  const [createdPoolId, setCreatedPoolId] = React.useState<number | null>(null);
+  const [uploadedFileId, setUploadedFileId] = React.useState<number | null>(null);
 
   const methods = useForm<CreatorPoolFormValues>({
     resolver: zodResolver(creatorPoolSchema),
@@ -186,26 +182,14 @@ export function CreatorPoolPanel() {
   };
 
   useEffect(() => {
-    if (isConfirmed && poolAddress && createdPoolId) {
+    if (isConfirmed && poolAddress && createdPoolId && chainId) {
       updatePoolAddressMutation.mutate({
         id: createdPoolId,
         poolAddress: poolAddress,
+        chainId: chainId,
       });
     }
-  }, [isConfirmed, poolAddress, createdPoolId, updatePoolAddressMutation]);
-
-  
-
-  const handleLaunchPool = () => {
-    // setShowSummaryModal(false);
-    // setShowTransactionModal(true);
-    // setTransactionStep("confirming");
-    // const mockTxHash = "0x" + Math.random().toString(16).substr(2, 64);
-    // setTransactionHash(mockTxHash);
-    // setTimeout(() => {
-    //   setTransactionStep("confirmed");
-    // }, 3000);
-  };
+  }, [isConfirmed, poolAddress, createdPoolId, updatePoolAddressMutation, chainId]);
 
   const tierIcons: TierIconEntry[] = [
     { icon: Star, color: "text-orange-600" },

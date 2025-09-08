@@ -3,10 +3,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { prisma } from "../services/DB";
 import { createPublicClient, http } from "viem";
-import { mainnet } from "viem/chains";
-import { CREATOR_POOL_FACTORY_ABI } from "@amped-bio/web3";
-
-const CREATOR_POOL_FACTORY_ADDRESS = "0xd4A49616cB954A2338ea1794C1EDa9d1254B23f0";
+import { getChainConfig, CREATOR_POOL_FACTORY_ABI } from "@ampedbio/web3";
 
 export const poolsRouter = router({
   create: privateProcedure
@@ -15,25 +12,32 @@ export const poolsRouter = router({
         name: z.string(),
         creatorCut: z.number(),
         description: z.string().optional(),
-        image_file_id: z.number().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.sub;
+      let pool: Awaited<ReturnType<typeof prisma.creatorPool.create>> | null = null;
 
       try {
-        const pool = await prisma.creatorPool.create({
+        pool = await prisma.creatorPool.create({
           data: {
             userId,
-            name: input.name,
             creatorCut: input.creatorCut,
             description: input.description,
-            image_file_id: input.image_file_id,
           },
         });
         return pool;
       } catch (error) {
         console.error("Error creating pool:", error);
+        if (pool) {
+          try {
+            await prisma.creatorPool.delete({
+              where: { id: pool.id },
+            });
+          } catch (cleanupError) {
+            console.error("Error during pool creation cleanup:", cleanupError);
+          }
+        }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to create pool",
@@ -46,6 +50,7 @@ export const poolsRouter = router({
       z.object({
         id: z.number(),
         poolAddress: z.string(),
+        chainId: z.number(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -71,13 +76,22 @@ export const poolsRouter = router({
           });
         }
 
+        const chain = getChainConfig(input.chainId);
+
+        if (!chain) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Unsupported chain ID",
+          });
+        }
+
         const publicClient = createPublicClient({
-          chain: mainnet,
+          chain: chain,
           transport: http(),
         });
 
         const contractPoolAddress = await publicClient.readContract({
-          address: CREATOR_POOL_FACTORY_ADDRESS,
+          address: chain.contracts.CREATOR_POOL_FACTORY.address,
           abi: CREATOR_POOL_FACTORY_ABI,
           functionName: "getPoolForCreator",
           args: [pool.user.wallet.address as `0x${string}`],
