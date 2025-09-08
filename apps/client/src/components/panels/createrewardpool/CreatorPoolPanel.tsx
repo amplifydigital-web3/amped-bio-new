@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm, useFieldArray, Controller, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -22,6 +22,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { trpc } from "@/lib/trpc";
 import { useCreatorPool } from "@/hooks/useCreatorPool";
 
 const stakingTierSchema = z.object({
@@ -50,13 +51,18 @@ interface TierIconEntry {
 }
 
 export function CreatorPoolPanel() {
-  const { createPool, createPoolHash, createPoolError, isCreatingPool, isConfirming, isConfirmed } =
-    useCreatorPool();
+  const { createPool, poolAddress, isConfirmed } = useCreatorPool();
+  const createPoolMutation = trpc.pools.create.useMutation();
+  const updatePoolAddressMutation = trpc.pools.updateAddress.useMutation();
+  const requestPoolImagePresignedUrlMutation = trpc.upload.requestPoolImagePresignedUrl.useMutation();
+  const confirmPoolImageUploadMutation = trpc.upload.confirmPoolImageUpload.useMutation();
 
   // const [showSummaryModal, setShowSummaryModal] = useState(false);
   // const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [transactionStep, setTransactionStep] = useState<"confirming" | "confirmed">("confirming");
   const [transactionHash, setTransactionHash] = useState("");
+  const [createdPoolId, setCreatedPoolId] = useState<number | null>(null);
+  const [uploadedFileId, setUploadedFileId] = useState<number | null>(null);
 
   const methods = useForm<CreatorPoolFormValues>({
     resolver: zodResolver(creatorPoolSchema),
@@ -95,16 +101,43 @@ export function CreatorPoolPanel() {
   const poolDescription = watch("poolDescription");
   const watchedStakingTiers = watch("stakingTiers");
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = e => {
-        if (e.target?.result && typeof e.target.result === "string") {
-          setValue("poolImage", e.target.result, { shouldValidate: true });
-        }
-      };
-      reader.readAsDataURL(file);
+      try {
+        const presignedUrlData = await requestPoolImagePresignedUrlMutation.mutateAsync({
+          contentType: file.type,
+          fileExtension: file.name.split(".").pop() || "",
+          fileSize: file.size,
+        });
+
+        const { presignedUrl, fileId } = presignedUrlData;
+
+        await fetch(presignedUrl, {
+          method: "PUT",
+          body: file,
+          headers: {
+            "Content-Type": file.type,
+          },
+        });
+
+        await confirmPoolImageUploadMutation.mutateAsync({
+          fileId,
+          fileName: file.name,
+        });
+
+        setUploadedFileId(fileId);
+
+        const reader = new FileReader();
+        reader.onload = e => {
+          if (e.target?.result && typeof e.target.result === "string") {
+            setValue("poolImage", e.target.result, { shouldValidate: true });
+          }
+        };
+        reader.readAsDataURL(file);
+      } catch (error) {
+        console.error("Error uploading image:", error);
+      }
     }
   };
 
@@ -131,11 +164,37 @@ export function CreatorPoolPanel() {
     );
   };
 
-  const onSubmit = (data: CreatorPoolFormValues) =>
-    createPool({
-      poolName: data.poolName,
-      creatorCut: data.creatorFee,
-    });
+  const onSubmit = (data: CreatorPoolFormValues) => {
+    createPoolMutation.mutate(
+      {
+        name: data.poolName,
+        creatorCut: data.creatorFee,
+        description: data.poolDescription,
+        image_file_id: uploadedFileId,
+      },
+      {
+        onSuccess: (createdPool) => {
+          setCreatedPoolId(createdPool.id);
+          createPool({
+            poolName: data.poolName,
+            creatorCut: data.creatorFee,
+            stake: data.yourStake,
+          });
+        },
+      }
+    );
+  };
+
+  useEffect(() => {
+    if (isConfirmed && poolAddress && createdPoolId) {
+      updatePoolAddressMutation.mutate({
+        id: createdPoolId,
+        poolAddress: poolAddress,
+      });
+    }
+  }, [isConfirmed, poolAddress, createdPoolId, updatePoolAddressMutation]);
+
+  
 
   const handleLaunchPool = () => {
     // setShowSummaryModal(false);
@@ -349,6 +408,10 @@ export function CreatorPoolPanel() {
                   <span>Add Tier</span>
                 </button>
               </div>
+
+              <p className="text-sm text-gray-500 mb-4">
+                Note: Staking tiers are not yet functional, but soon you'll be able to add exclusive perks for different tiers.
+              </p>
 
               <div className="space-y-4">
                 {stakingTiers.map((tier, index) => {
