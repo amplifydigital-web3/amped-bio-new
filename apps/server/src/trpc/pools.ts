@@ -4,7 +4,6 @@ import { TRPCError } from "@trpc/server";
 import { prisma } from "../services/DB";
 import { createPublicClient, http } from "viem";
 import { mainnet } from "viem/chains";
-
 import { CREATOR_POOL_FACTORY_ABI } from "@amped-bio/web3";
 
 const CREATOR_POOL_FACTORY_ADDRESS = "0xd4A49616cB954A2338ea1794C1EDa9d1254B23f0";

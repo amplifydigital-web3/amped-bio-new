@@ -67,3 +67,25 @@ export const REVO_NODE_ADDRESSES = {
   [libertasTestnet.id]: "0x019bbe745b5c9b70060408Bf720B1E5172EEa5A3" as Address,
   [revolutionDevnet.id]: "0x0000000000000000000000000000000000000000" as Address,
 };
+
+export const CREATOR_POOL_FACTORY_ABI = [
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "creator",
+        type: "address",
+      },
+    ],
+    name: "getPoolForCreator",
+    outputs: [
+      {
+        internalType: "address",
+        name: "",
+        type: "address",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
