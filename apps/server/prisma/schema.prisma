@@ -36,7 +36,7 @@ model User {
 
   refreshTokens       RefreshToken[]
   wallet              UserWallet?
-  creatorPool         CreatorPool?
+  creatorPools        CreatorPool[]
 
   @@map("users")
 }
@@ -173,8 +173,8 @@ model UserWallet {
 
 model CreatorPool {
   id            Int           @id @default(autoincrement())
-  userId        Int           @unique
-  
+  userId        Int
+  chainId       String
   
   image_file_id Int?
   description   String?       @db.LongText
@@ -184,5 +184,6 @@ model CreatorPool {
   user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   poolImage     UploadedFile? @relation("CreatorPoolImage", fields: [image_file_id], references: [id], onDelete: SetNull)
 
+  @@unique([userId, chainId])
   @@map("creator_pools")
 }

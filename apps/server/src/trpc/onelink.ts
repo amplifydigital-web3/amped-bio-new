@@ -145,7 +145,7 @@ const appRouter = router({
           onelink: onelink,
         },
         include: {
-          creatorPool: true,
+          creatorPools: true,
         },
       });
       console.info(`🔍 User lookup result: ${user ? "✅ Found" : "❌ Not found"}`);
@@ -159,7 +159,7 @@ const appRouter = router({
         });
       }
 
-      const hasCreatorPool = user.creatorPool !== null;
+      const hasCreatorPool = user.creatorPools.length > 0;
 
       const { theme: theme_id, id: user_id, name, email, description, image, image_file_id } = user;
       console.info(`👤 User data extracted - Name: ${name}, ID: ${user_id}, Theme ID: ${theme_id}`);

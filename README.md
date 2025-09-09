@@ -37,7 +37,6 @@ The client app (`apps/client`) is a React application built with:
 - **TypeScript** - Type safety across the codebase
 - **React Router** - Client-side routing
 - **Tailwind CSS** - Utility-first CSS framework for styling
-- **Zustand** - State management
 - **React Query** - Data fetching and caching
 
 Key directories:

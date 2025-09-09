@@ -2,7 +2,7 @@ import { privateProcedure, router } from "./trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { prisma } from "../services/DB";
-import { createPublicClient, http } from "viem";
+import { Address, createPublicClient, http, zeroAddress } from "viem";
 import { getChainConfig, CREATOR_POOL_FACTORY_ABI } from "@ampedbio/web3";
 
 export const poolsRouter = router({
@@ -10,31 +10,54 @@ export const poolsRouter = router({
     .input(
       z.object({
         description: z.string().optional(),
+        chainId: z.string(), // Now required and string type for large chain IDs
       })
     )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.sub;
-      let pool: Awaited<ReturnType<typeof prisma.creatorPool.create>> | null = null;
+
+      const wallet = await prisma.userWallet.findUnique({
+        where: { userId },
+      });
+
+      if (!wallet) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "User does not have a wallet",
+        });
+      }
 
       try {
-        pool = await prisma.creatorPool.create({
+        // Check if a pool already exists for this user and chain
+        const existingPool = await prisma.creatorPool.findUnique({
+          where: {
+            userId_chainId: {
+              userId,
+              chainId: input.chainId,
+            },
+          },
+        });
+
+        if (existingPool) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "Pool already exists for this chain",
+          });
+        }
+
+        const pool = await prisma.creatorPool.create({
           data: {
             userId,
+            chainId: input.chainId,
             description: input.description,
           },
         });
-        return pool;
+
+        return { id: pool.id };
       } catch (error) {
         console.error("Error creating pool:", error);
-        if (pool) {
-          try {
-            await prisma.creatorPool.delete({
-              where: { id: pool.id },
-            });
-          } catch (cleanupError) {
-            console.error("Error during pool creation cleanup:", cleanupError);
-          }
-        }
+        if (error instanceof TRPCError) throw error;
+
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to create pool",
@@ -42,38 +65,36 @@ export const poolsRouter = router({
       }
     }),
 
-  updateAddress: privateProcedure
+  confirmPoolCreation: privateProcedure
     .input(
       z.object({
-        id: z.number(),
-        poolAddress: z.string(),
-        chainId: z.number(),
+        chainId: z.string(), // Changed to string for large chain IDs
       })
     )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.sub;
 
       try {
+        // Find the pool for this specific user and chain
         const pool = await prisma.creatorPool.findUnique({
-          where: { id: input.id, userId },
+          where: {
+            userId_chainId: {
+              userId,
+              chainId: input.chainId,
+            },
+          },
           include: { user: { include: { wallet: true } } },
         });
 
         if (!pool) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: "Pool not found",
+            message: "Pool not found for this chain",
           });
         }
 
-        if (!pool.user.wallet) {
-          throw new TRPCError({
-            code: "PRECONDITION_FAILED",
-            message: "User does not have a wallet",
-          });
-        }
-
-        const chain = getChainConfig(input.chainId);
+        const chainIdNum = parseInt(input.chainId);
+        const chain = getChainConfig(chainIdNum);
 
         if (!chain) {
           throw new TRPCError({
@@ -87,27 +108,33 @@ export const poolsRouter = router({
           transport: http(),
         });
 
-        const contractPoolAddress = await publicClient.readContract({
+        const contractPoolAddress = (await publicClient.readContract({
           address: chain.contracts.CREATOR_POOL_FACTORY.address,
           abi: CREATOR_POOL_FACTORY_ABI,
           functionName: "getPoolForCreator",
-          args: [pool.user.wallet.address as `0x${string}`],
-        });
+          args: [pool.user.wallet!.address as `0x${string}`],
+        })) as Address;
 
-        if (contractPoolAddress.toLowerCase() !== input.poolAddress.toLowerCase()) {
+        if (zeroAddress === contractPoolAddress) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Pool address does not match on-chain address",
+            message: "No pool found for creator on-chain",
           });
         }
 
-        const updatedPool = await prisma.creatorPool.update({
-          where: { id: input.id },
+        await prisma.creatorPool.update({
+          where: {
+            userId_chainId: {
+              userId: pool.userId,
+              chainId: input.chainId,
+            },
+          },
           data: {
-            poolAddress: input.poolAddress,
+            poolAddress: contractPoolAddress,
           },
         });
-        return updatedPool;
+
+        return { id: pool.id };
       } catch (error) {
         console.error("Error updating pool address:", error);
         if (error instanceof TRPCError) throw error;

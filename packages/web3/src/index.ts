@@ -78,6 +78,184 @@ export const REVO_NODE_ADDRESSES = {
 
 export const CREATOR_POOL_FACTORY_ABI = [
   {
+    type: "function",
+    name: "createPool",
+    inputs: [
+      {
+        name: "node",
+        type: "address",
+      },
+      {
+        name: "creatorCut",
+        type: "uint256",
+      },
+      {
+        name: "poolName",
+        type: "string",
+      },
+    ],
+    outputs: [
+      {
+        name: "poolAddr",
+        type: "address",
+      },
+    ],
+    stateMutability: "payable",
+  },
+  {
+    type: "function",
+    name: "getAllPools",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "address[]",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getPoolForCreator",
+    inputs: [
+      {
+        name: "creator",
+        type: "address",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "address",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "event",
+    name: "CreatorPoolCreated",
+    inputs: [
+      {
+        name: "creator",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "pool",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "node",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "creatorCut",
+        type: "uint256",
+        indexed: false,
+      },
+      {
+        name: "poolName",
+        type: "string",
+        indexed: false,
+      },
+    ],
+  },
+  {
+    type: "constant",
+    name: "MAX_CREATOR_CUT",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "variable",
+    name: "creatorToPool",
+    inputs: [
+      {
+        name: "",
+        type: "address",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "address",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "variable",
+    name: "allPools",
+    inputs: [
+      {
+        name: "",
+        type: "uint256",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "address",
+      },
+    ],
+    stateMutability: "view",
+  },
+] as const;
+
+export const NODE_ABI = [
+  {
+    type: "function",
+    name: "createPool",
+    inputs: [
+      {
+        internalType: "address",
+        name: "node",
+        type: "address",
+      },
+      {
+        internalType: "uint256",
+        name: "creatorCut",
+        type: "uint256",
+      },
+      {
+        internalType: "string",
+        name: "poolName",
+        type: "string",
+      },
+    ],
+    outputs: [
+      {
+        internalType: "address",
+        name: "poolAddr",
+        type: "address",
+      },
+    ],
+    stateMutability: "payable",
+  },
+  {
+    type: "function",
+    name: "getAllPools",
+    inputs: [],
+    outputs: [
+      {
+        internalType: "address[]",
+        name: "",
+        type: "address[]",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getPoolForCreator",
     inputs: [
       {
         internalType: "address",
@@ -85,7 +263,6 @@ export const CREATOR_POOL_FACTORY_ABI = [
         type: "address",
       },
     ],
-    name: "getPoolForCreator",
     outputs: [
       {
         internalType: "address",
@@ -94,6 +271,92 @@ export const CREATOR_POOL_FACTORY_ABI = [
       },
     ],
     stateMutability: "view",
+  },
+  {
     type: "function",
+    name: "creatorToPool",
+    inputs: [
+      {
+        internalType: "address",
+        name: "",
+        type: "address",
+      },
+    ],
+    outputs: [
+      {
+        internalType: "address",
+        name: "",
+        type: "address",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "allPools",
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
+    ],
+    outputs: [
+      {
+        internalType: "address",
+        name: "",
+        type: "address",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "MAX_CREATOR_CUT",
+    inputs: [],
+    outputs: [
+      {
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "event",
+    name: "CreatorPoolCreated",
+    inputs: [
+      {
+        indexed: true,
+        internalType: "address",
+        name: "creator",
+        type: "address",
+      },
+      {
+        indexed: true,
+        internalType: "address",
+        name: "pool",
+        type: "address",
+      },
+      {
+        indexed: true,
+        internalType: "address",
+        name: "node",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "creatorCut",
+        type: "uint256",
+      },
+      {
+        indexed: false,
+        internalType: "string",
+        name: "poolName",
+        type: "string",
+      },
+    ],
   },
 ] as const;

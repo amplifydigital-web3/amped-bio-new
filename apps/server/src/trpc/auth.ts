@@ -196,7 +196,7 @@ export const authRouter = router({
     const user = await prisma.user.findUnique({
       where: { email },
       include: {
-        creatorPool: true,
+        creatorPools: true,
       },
     });
 
@@ -229,7 +229,7 @@ export const authRouter = router({
       ctx,
       user,
       imageUrl,
-      !!user.creatorPool && !!user.creatorPool.poolAddress
+      !!user.creatorPools.length && !!user.creatorPools[0]?.poolAddress
     );
   }),
 
@@ -324,7 +324,7 @@ export const authRouter = router({
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
-        creatorPool: true,
+        creatorPools: true,
       },
     });
 
@@ -349,7 +349,7 @@ export const authRouter = router({
         // emailVerified: user.email_verified_at !== null,
         role: user.role,
         image: imageUrl,
-        hasPool: !!user.creatorPool && !!user.creatorPool.poolAddress,
+        hasPool: !!user.creatorPools.length && !!user.creatorPools[0]?.poolAddress,
       },
     };
   }),
@@ -565,10 +565,10 @@ export const authRouter = router({
       }
 
       // Check if user with this email exists
-      let user: (User & { creatorPool: CreatorPool | null }) | null = await prisma.user.findUnique({
+      let user: (User & { creatorPools: CreatorPool[] }) | null = await prisma.user.findUnique({
         where: { email: googleUser.email },
         include: {
-          creatorPool: true,
+          creatorPools: true,
         },
       });
 
@@ -614,7 +614,7 @@ export const authRouter = router({
             theme: null,
           },
         });
-        user = { ...newUser, creatorPool: null };
+        user = { ...newUser, creatorPools: [] };
       }
 
       // Resolve user image URL
@@ -628,7 +628,7 @@ export const authRouter = router({
         ctx,
         user,
         imageUrl,
-        !!user.creatorPool && !!user.creatorPool.poolAddress
+        user.creatorPools.length > 0 && !!user.creatorPools[0].poolAddress
       );
     } catch (error) {
       console.error("Google authentication error:", error);

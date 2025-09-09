@@ -62,6 +62,7 @@
     "framer-motion": "^12.0.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.474.0",
+    "next-themes": "^0.4.6",
     "qrcode.react": "^4.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -78,14 +79,13 @@
     "slate-history": "^0.113.1",
     "slate-hyperscript": "^0.100.0",
     "slate-react": "^0.114.2",
-    "styled-components": "^6.1.14",
+    "sonner": "^2.0.7",
     "tailwind-merge": "^3.0.1",
     "tailwindcss-animate": "^1.0.7",
     "tsparticles-slim": "^2.12.0",
     "viem": "2.34.0",
     "wagmi": "2.14.8",
-    "zod": "^3.25.64",
-    "zustand": "^4.5.2"
+    "zod": "^3.25.64"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
