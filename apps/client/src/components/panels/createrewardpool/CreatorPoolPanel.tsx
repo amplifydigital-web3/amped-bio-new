@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useForm, useFieldArray, Controller, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useAccount, useChainId } from "wagmi";
+import { useAccount, useBalance, useChainId } from "wagmi";
 import {
   Users,
   Gift,
@@ -37,7 +37,7 @@ const creatorPoolSchema = z.object({
   poolName: z.string().min(1, "Pool name is required"),
   poolDescription: z.string().min(1, "Pool description is required"),
   poolImage: z.string().optional().nullable(),
-  yourStake: z.number().min(1, "Your initial stake must be at least 1"),
+  yourStake: z.number().min(0, "Your initial stake must be at least 0"),
   creatorFee: z.number().min(0).max(100),
   stakingTiers: z.array(stakingTierSchema),
 });
@@ -51,7 +51,7 @@ interface TierIconEntry {
 }
 
 export function CreatorPoolPanel() {
-  const { isConnected } = useAccount();
+  const { address, isConnected } = useAccount();
   const { createPool, poolAddress, isConfirmed } = useCreatorPool();
 
   const createPoolMutation = useMutation(trpc.pools.create.mutationOptions());
@@ -61,6 +61,10 @@ export function CreatorPoolPanel() {
   const setImageForPoolMutation = useMutation(trpc.pools.setImageForPool.mutationOptions());
 
   const chainId = useChainId();
+
+  const { data: revoBalance } = useBalance({
+    address,
+  });
 
   const [createdPoolId, setCreatedPoolId] = React.useState<number | null>(null);
   const [uploadedFileId, setUploadedFileId] = React.useState<number | null>(null);
@@ -101,6 +105,10 @@ export function CreatorPoolPanel() {
   const poolName = watch("poolName");
   const poolDescription = watch("poolDescription");
   const watchedStakingTiers = watch("stakingTiers");
+
+  // Check if user has sufficient balance (only check if they're staking > 0)
+  const hasSufficientBalance = revoBalance && yourStake > 0 ? yourStake <= Number(revoBalance.formatted) : true;
+  const showInsufficientBalanceWarning = yourStake > 0 && revoBalance && !hasSufficientBalance;
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -448,7 +456,7 @@ export function CreatorPoolPanel() {
                   <Info className="w-4 h-4 text-gray-400 cursor-help" />
                   <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
                     <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap">
-                      Amount you stake to bootstrap your pool
+                      Amount you stake to bootstrap your pool (0 or more)
                     </div>
                   </div>
                 </div>
@@ -457,7 +465,7 @@ export function CreatorPoolPanel() {
                 <input
                   type="number"
                   {...register("yourStake", { valueAsNumber: true })}
-                  placeholder="1000"
+                  placeholder="0"
                   className="w-full px-4 py-3 pr-16 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">
@@ -466,6 +474,16 @@ export function CreatorPoolPanel() {
               </div>
               {errors.yourStake && (
                 <p className="text-red-500 text-sm mt-1">{errors.yourStake.message}</p>
+              )}
+              {revoBalance && (
+                <div className="mt-2 text-sm text-gray-600">
+                  Your balance: {Number(revoBalance.formatted).toFixed(2)} REVO
+                </div>
+              )}
+              {showInsufficientBalanceWarning && (
+                <div className="mt-2 text-sm text-red-600">
+                  Insufficient balance. Please reduce your stake amount.
+                </div>
               )}
             </div>
 
@@ -647,9 +665,9 @@ export function CreatorPoolPanel() {
             <div className="flex justify-center pt-6">
               <button
                 type="submit"
-                disabled={!isValid}
+                disabled={!isValid || showInsufficientBalanceWarning}
                 className={`flex items-center space-x-3 px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200 ${
-                  isValid
+                  isValid && !showInsufficientBalanceWarning
                     ? "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105"
                     : "bg-gray-300 text-gray-500 cursor-not-allowed"
                 }`}
