@@ -1,5 +1,5 @@
 import { Tooltip } from "@/components/ui/Tooltip";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Search,
   Send,
@@ -9,6 +9,8 @@ import {
   Scan,
   User,
   X,
+  Loader,
+  AlertCircle,
 } from "lucide-react";
 import { trpc } from "@/utils/trpc/trpc";
 import { useQuery } from "@tanstack/react-query";
@@ -17,8 +19,18 @@ import PayModal from "./dialogs/PayDialog";
 import usePayDialog from "@/hooks/usePayDialog";
 import { Scanner as QRScanner } from "@yudiel/react-qr-scanner";
 import { Address, isAddress } from "viem";
-import { useChainId } from "wagmi";
+import { useChainId, useAccount } from "wagmi";
 import { getChainConfig } from "@ampedbio/web3";
+
+interface Transaction {
+  from: string;
+  to: string;
+  hash: string;
+  value: string;
+  gasPrice: string;
+  method: string;
+  receivedAt: string; // 2025-07-23T19:27:58.807Z
+}
 
 export default function PayPanel() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -27,12 +39,20 @@ export default function PayPanel() {
 
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showQrScanner, setShowQrScanner] = useState(false);
+  
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactionsLoading, setTransactionsLoading] = useState(false);
+  const [transactionsError, setTransactionsError] = useState<string | null>(null);
 
   const chainId = useChainId();
+  const { address } = useAccount();
 
   const chain = useMemo(() => {
     return getChainConfig(chainId);
   }, [chainId]);
+
+  const explorerApiUrl = chain?.blockExplorers?.default.apiUrl;
+  const explorerUrl = chain?.blockExplorers?.default.url;
 
   const {
     data: filteredUsers,
@@ -42,12 +62,74 @@ export default function PayPanel() {
     trpc.wallet.searchUsers.queryOptions(searchQuery, { enabled: searchQuery.length > 0 })
   );
 
-  // Mock recent transactions (keep for now, as the request only specified searchUsers)
-  // const recentTransactions: Transaction[] = [];
+  useEffect(() => {
+    if (selectedTab === "recent" && address && explorerApiUrl) {
+      fetchTransactions(address);
+    }
+  }, [selectedTab, address, explorerApiUrl]);
+
+  const fetchTransactions = async (walletAddress: string) => {
+    setTransactionsLoading(true);
+    setTransactionsError(null);
+    try {
+      const now = new Date();
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(now.getDate() - 7);
+
+      const toDate = now.toISOString();
+      const fromDate = sevenDaysAgo.toISOString();
+
+      const response = await fetch(
+        `${explorerApiUrl}/transactions?address=${walletAddress}&limit=10&page=1&toDate=${toDate}&fromDate=${fromDate}`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch transactions");
+      }
+      const data = await response.json();
+      setTransactions(data.items);
+    } catch (error) {
+      setTransactionsError("Could not load transaction history.");
+      console.error(error);
+    } finally {
+      setTransactionsLoading(false);
+    }
+  };
 
   const formatAddress = (address: string) => {
     if (!address) return "";
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
+  const formatHash = (hash: string) => {
+    if (!hash) return "";
+    return `${hash.substring(0, 6)}...${hash.substring(hash.length - 4)}`;
+  };
+
+  const timeAgo = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    let interval = seconds / 31536000;
+    if (interval > 1) return `${Math.floor(interval)} years ago`;
+    interval = seconds / 2592000;
+    if (interval > 1) return `${Math.floor(interval)} months ago`;
+    interval = seconds / 86400;
+    if (interval > 1) return `${Math.floor(interval)} days ago`;
+    interval = seconds / 3600;
+    if (interval > 1) return `${Math.floor(interval)} hours ago`;
+    interval = seconds / 60;
+    if (interval > 1) return `${Math.floor(interval)} minutes ago`;
+    return `${Math.floor(seconds)} seconds ago`;
+  };
+
+  const formatValue = (value: string, symbol: string) => {
+    try {
+      const ethValue = parseFloat(value) / Math.pow(10, 18);
+      return `${ethValue.toFixed(4)} ${symbol}`;
+    } catch (e) {
+      return "N/A";
+    }
   };
 
   const renderPeopleTab = () => {
@@ -127,72 +209,91 @@ export default function PayPanel() {
     );
   };
 
-  const renderRecentTab = () => (
-    <div className="space-y-4">
-      {/* {recentTransactions.map(transaction => (
-        <div
-          key={transaction.id}
-          className="flex items-center justify-between p-4 hover:bg-gray-50 rounded-xl transition-colors"
-        >
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              {transaction.user.avatar ? (
-                <img
-                  src={transaction.user.avatar}
-                  alt={transaction.user.displayName}
-                  className="w-12 h-12 rounded-full"
-                />
-              ) : (
+  const renderRecentTab = () => {
+    // Filtrar apenas transações do tipo OUT (enviadas)
+    const outTransactions = transactions.filter(
+      transaction => transaction.from.toLowerCase() === address?.toLowerCase()
+    );
+
+    if (transactionsLoading) {
+      return (
+        <div className="flex items-center justify-center py-12">
+          <Loader className="w-8 h-8 text-gray-400 animate-spin" />
+          <p className="ml-3 text-gray-500">Loading transaction history...</p>
+        </div>
+      );
+    }
+
+    if (transactionsError) {
+      return (
+        <div className="text-center py-12 text-red-600">
+          <AlertCircle className="w-12 h-12 mx-auto mb-3" />
+          <p>{transactionsError}</p>
+        </div>
+      );
+    }
+
+    if (outTransactions.length === 0) {
+      return (
+        <div className="text-center py-12">
+          <Clock className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+          <p className="text-gray-500">No recent transactions found.</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        {outTransactions.map(transaction => (
+          <div
+            key={transaction.hash}
+            className="flex items-center justify-between p-4 hover:bg-gray-50 rounded-xl transition-colors"
+          >
+            <div className="flex items-center space-x-4">
+              <div className="relative">
                 <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
                   <User className="w-6 h-6 text-gray-500" />
                 </div>
-              )}
-              <div
-                className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center ${
-                  transaction.type === "sent" ? "bg-red-500" : "bg-green-500"
-                }`}
+                <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center bg-red-500">
+                  <Send className="w-3 h-3 text-white" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center space-x-2">
+                  <span className="font-semibold text-gray-900">Paid to</span>
+                  <Tooltip content={transaction.to}>
+                    <a
+                      href={`${explorerUrl}/address/${transaction.to}#transactions`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline cursor-pointer"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      {formatAddress(transaction.to)}
+                    </a>
+                  </Tooltip>
+                </div>
+                <div className="text-sm text-gray-600">
+                  <span>{timeAgo(transaction.receivedAt)}</span>
+                </div>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="font-semibold text-red-600">
+                -{formatValue(transaction.value, chain?.nativeCurrency.symbol || "REVO")}
+              </div>
+              <button
+                onClick={() => payDialog.openPayDialog(transaction.to as Address)}
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
               >
-                {transaction.type === "sent" ? (
-                  <ArrowRight className="w-3 h-3 text-white" />
-                ) : (
-                  <ArrowRight className="w-3 h-3 text-white rotate-180" />
-                )}
-              </div>
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center space-x-2">
-                <span className="font-semibold text-gray-900">
-                  {transaction.type === "sent" ? "Paid" : "Received from"}{" "}
-                  {transaction.user.displayName}
-                </span>
-                {transaction.user.verified && <Verified className="w-4 h-4 text-blue-500" />}
-              </div>
-              <div className="text-sm text-gray-600">
-                {transaction.note && <span>"{transaction.note}" • </span>}
-                <span>{transaction.timestamp}</span>
-              </div>
+                Pay again
+              </button>
             </div>
           </div>
-          <div className="text-right">
-            <div
-              className={`font-semibold ${
-                transaction.type === "sent" ? "text-red-600" : "text-green-600"
-              }`}
-            >
-              {transaction.type === "sent" ? "-" : "+"}
-              {transaction.amount} {transaction.currency}
-            </div>
-            <button
-              onClick={() => payDialog.openPayDialog()}
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-            >
-              Pay again
-            </button>
-          </div>
-        </div>
-      ))} */}
-    </div>
-  );
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
