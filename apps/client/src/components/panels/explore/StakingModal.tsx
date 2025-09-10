@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Coins, TrendingUp, Shield, AlertCircle, Check, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { X, Coins, TrendingUp, Shield, AlertCircle, Check, Sparkles } from "lucide-react";
 
 interface StakingModalProps {
   isOpen: boolean;
@@ -13,19 +13,19 @@ interface StakingModalProps {
     minStake?: number;
     currentStake?: number;
   } | null;
-  mode: 'stake' | 'add-stake';
+  mode: "stake" | "add-stake";
 }
 
 export default function StakingModal({ isOpen, onClose, pool, mode }: StakingModalProps) {
-  const [step, setStep] = useState<'amount' | 'confirm' | 'staking' | 'success'>('amount');
-  const [amount, setAmount] = useState('');
-  const [userBalance] = useState(15420.50); // Mock user balance
+  const [step, setStep] = useState<"amount" | "confirm" | "staking" | "success">("amount");
+  const [amount, setAmount] = useState("");
+  const [userBalance] = useState(15420.5); // Mock user balance
   const [animatingTokens, setAnimatingTokens] = useState<Array<{ id: number; delay: number }>>([]);
 
   useEffect(() => {
     if (isOpen) {
-      setStep('amount');
-      setAmount('');
+      setStep("amount");
+      setAmount("");
       setAnimatingTokens([]);
     }
   }, [isOpen]);
@@ -33,25 +33,25 @@ export default function StakingModal({ isOpen, onClose, pool, mode }: StakingMod
   if (!isOpen || !pool) return null;
 
   const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget && step !== 'staking') {
+    if (e.target === e.currentTarget && step !== "staking") {
       onClose();
     }
   };
 
   const handleStake = async () => {
-    setStep('staking');
-    
+    setStep("staking");
+
     // Create multiple token animations with staggered delays
     const tokens = Array.from({ length: 6 }, (_, i) => ({
       id: i,
-      delay: i * 200 // Stagger by 200ms
+      delay: i * 200, // Stagger by 200ms
     }));
     setAnimatingTokens(tokens);
 
     // Simulate API call delay
     setTimeout(() => {
-      setStep('success');
-      
+      setStep("success");
+
       // Auto-close after showing success
       setTimeout(() => {
         onClose();
@@ -60,7 +60,7 @@ export default function StakingModal({ isOpen, onClose, pool, mode }: StakingMod
   };
 
   const handleClose = () => {
-    if (step !== 'staking') {
+    if (step !== "staking") {
       onClose();
     }
   };
@@ -74,7 +74,7 @@ export default function StakingModal({ isOpen, onClose, pool, mode }: StakingMod
     <>
       <div className="flex items-center justify-between p-6 border-b border-gray-200">
         <h2 className="text-xl font-bold text-gray-900">
-          {mode === 'stake' ? 'Stake to Pool' : 'Add to Stake'}
+          {mode === "stake" ? "Stake to Pool" : "Add to Stake"}
         </h2>
         <button
           onClick={handleClose}
@@ -107,7 +107,7 @@ export default function StakingModal({ isOpen, onClose, pool, mode }: StakingMod
         </div>
 
         {/* Current Stake Info (for add-stake mode) */}
-        {mode === 'add-stake' && pool.currentStake && (
+        {mode === "add-stake" && pool.currentStake && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex items-center space-x-2 mb-2">
               <Shield className="w-4 h-4 text-blue-600" />
@@ -135,28 +135,28 @@ export default function StakingModal({ isOpen, onClose, pool, mode }: StakingMod
         {/* Amount Input */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Amount to {mode === 'stake' ? 'Stake' : 'Add'}
+            Amount to {mode === "stake" ? "Stake" : "Add"}
           </label>
           <div className="relative">
             <input
               type="number"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={e => setAmount(e.target.value)}
               placeholder="0.00"
               className={`w-full px-4 py-4 text-2xl font-bold text-center border rounded-xl focus:ring-2 focus:border-transparent transition-all duration-200 ${
-                amount && !isValidAmount 
-                  ? 'border-red-300 focus:ring-red-500 bg-red-50' 
-                  : 'border-gray-300 focus:ring-blue-500'
+                amount && !isValidAmount
+                  ? "border-red-300 focus:ring-red-500 bg-red-50"
+                  : "border-gray-300 focus:ring-blue-500"
               }`}
             />
             <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">
               {pool.stakeCurrency}
             </div>
           </div>
-          
+
           {/* Quick Amount Buttons */}
           <div className="flex space-x-2 mt-3">
-            {[25, 50, 75, 100].map((percentage) => {
+            {[25, 50, 75, 100].map(percentage => {
               const quickAmount = (userBalance * percentage) / 100;
               return (
                 <button
@@ -178,21 +178,22 @@ export default function StakingModal({ isOpen, onClose, pool, mode }: StakingMod
               <div className="flex items-center space-x-2 text-red-600 text-sm">
                 <AlertCircle className="w-4 h-4" />
                 <span>
-                  {numericAmount > userBalance 
-                    ? 'Insufficient balance' 
-                    : 'Please enter a valid amount'
-                  }
+                  {numericAmount > userBalance
+                    ? "Insufficient balance"
+                    : "Please enter a valid amount"}
                 </span>
               </div>
             )}
-            
+
             {pool.minStake && numericAmount > 0 && numericAmount < pool.minStake && (
               <div className="flex items-center space-x-2 text-orange-600 text-sm">
                 <AlertCircle className="w-4 h-4" />
-                <span>Minimum stake: {pool.minStake.toLocaleString()} {pool.stakeCurrency}</span>
+                <span>
+                  Minimum stake: {pool.minStake.toLocaleString()} {pool.stakeCurrency}
+                </span>
               </div>
             )}
-            
+
             {canProceed && (
               <div className="flex items-center space-x-2 text-green-600 text-sm">
                 <Check className="w-4 h-4" />
@@ -204,12 +205,12 @@ export default function StakingModal({ isOpen, onClose, pool, mode }: StakingMod
 
         {/* Stake Button */}
         <button
-          onClick={() => setStep('confirm')}
+          onClick={() => setStep("confirm")}
           disabled={!canProceed}
           className={`w-full py-4 font-semibold rounded-xl transition-all duration-200 ${
             canProceed
-              ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl'
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              ? "bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl"
+              : "bg-gray-300 text-gray-500 cursor-not-allowed"
           }`}
         >
           Continue
@@ -223,7 +224,7 @@ export default function StakingModal({ isOpen, onClose, pool, mode }: StakingMod
       <div className="flex items-center justify-between p-6 border-b border-gray-200">
         <h2 className="text-xl font-bold text-gray-900">Confirm Stake</h2>
         <button
-          onClick={() => setStep('amount')}
+          onClick={() => setStep("amount")}
           className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200"
         >
           <X className="w-5 h-5" />
@@ -261,22 +262,22 @@ export default function StakingModal({ isOpen, onClose, pool, mode }: StakingMod
             {parseFloat(amount).toLocaleString()} {pool.stakeCurrency}
           </h3>
           <p className="text-gray-600">
-            {mode === 'stake' ? 'Initial stake amount' : 'Additional stake amount'}
+            {mode === "stake" ? "Initial stake amount" : "Additional stake amount"}
           </p>
         </div>
 
         {/* Transaction Summary */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
           <h4 className="font-medium text-blue-900 text-sm">Transaction Summary</h4>
-          
+
           <div className="flex justify-between text-sm">
             <span className="text-blue-700">Stake Amount:</span>
             <span className="font-medium text-blue-900">
               {parseFloat(amount).toLocaleString()} {pool.stakeCurrency}
             </span>
           </div>
-          
-          {mode === 'add-stake' && pool.currentStake && (
+
+          {mode === "add-stake" && pool.currentStake && (
             <div className="flex justify-between text-sm">
               <span className="text-blue-700">Current Stake:</span>
               <span className="font-medium text-blue-900">
@@ -284,11 +285,12 @@ export default function StakingModal({ isOpen, onClose, pool, mode }: StakingMod
               </span>
             </div>
           )}
-          
+
           <div className="flex justify-between text-sm border-t border-blue-200 pt-1">
             <span className="text-blue-700">New Total Stake:</span>
             <span className="font-bold text-blue-900">
-              {((pool.currentStake || 0) + parseFloat(amount)).toLocaleString()} {pool.stakeCurrency}
+              {((pool.currentStake || 0) + parseFloat(amount)).toLocaleString()}{" "}
+              {pool.stakeCurrency}
             </span>
           </div>
         </div>
@@ -308,7 +310,7 @@ export default function StakingModal({ isOpen, onClose, pool, mode }: StakingMod
         {/* Action Buttons */}
         <div className="flex space-x-3">
           <button
-            onClick={() => setStep('amount')}
+            onClick={() => setStep("amount")}
             className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors duration-200"
           >
             Back
@@ -331,7 +333,7 @@ export default function StakingModal({ isOpen, onClose, pool, mode }: StakingMod
         <h2 className="text-xl font-bold text-gray-900">Processing Stake</h2>
       </div>
 
-      <div className="p-6 relative overflow-hidden" style={{ minHeight: '400px' }}>
+      <div className="p-6 relative overflow-hidden" style={{ minHeight: "400px" }}>
         {/* Wallet Icon - Source */}
         <div className="absolute top-8 left-1/4 transform -translate-x-1/2">
           <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-100 to-emerald-100 flex items-center justify-center border-4 border-white shadow-lg">
@@ -347,7 +349,7 @@ export default function StakingModal({ isOpen, onClose, pool, mode }: StakingMod
         </div>
 
         {/* Animated Tokens */}
-        {animatingTokens.map((token) => (
+        {animatingTokens.map(token => (
           <div
             key={token.id}
             className="absolute w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-lg animate-token-stake"
@@ -375,8 +377,8 @@ export default function StakingModal({ isOpen, onClose, pool, mode }: StakingMod
               key={i}
               className="absolute w-4 h-4 text-blue-400 animate-pulse"
               style={{
-                top: `${15 + (i * 12)}%`,
-                left: `${10 + (i * 12)}%`,
+                top: `${15 + i * 12}%`,
+                left: `${10 + i * 12}%`,
                 animationDelay: `${i * 300}ms`,
               }}
             />
@@ -402,7 +404,11 @@ export default function StakingModal({ isOpen, onClose, pool, mode }: StakingMod
         <div>
           <h3 className="text-2xl font-bold text-green-900 mb-2">Staking Complete!</h3>
           <p className="text-gray-600 mb-4">
-            You've successfully staked <strong>{parseFloat(amount).toLocaleString()} {pool.stakeCurrency}</strong> to {pool.title}
+            You've successfully staked{" "}
+            <strong>
+              {parseFloat(amount).toLocaleString()} {pool.stakeCurrency}
+            </strong>{" "}
+            to {pool.title}
           </p>
         </div>
 
@@ -411,7 +417,8 @@ export default function StakingModal({ isOpen, onClose, pool, mode }: StakingMod
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-green-700">Your Total Stake</span>
             <span className="text-lg font-bold text-green-900">
-              {((pool.currentStake || 0) + parseFloat(amount)).toLocaleString()} {pool.stakeCurrency}
+              {((pool.currentStake || 0) + parseFloat(amount)).toLocaleString()}{" "}
+              {pool.stakeCurrency}
             </span>
           </div>
           <div className="flex items-center space-x-2 text-sm text-green-600">
@@ -421,23 +428,21 @@ export default function StakingModal({ isOpen, onClose, pool, mode }: StakingMod
         </div>
 
         {/* Auto-close notice */}
-        <p className="text-xs text-gray-500">
-          This window will close automatically...
-        </p>
+        <p className="text-xs text-gray-500">This window will close automatically...</p>
       </div>
     </>
   );
 
   return (
-    <div 
+    <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
       onClick={handleOverlayClick}
     >
       <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden">
-        {step === 'amount' && renderAmountStep()}
-        {step === 'confirm' && renderConfirmStep()}
-        {step === 'staking' && renderStakingStep()}
-        {step === 'success' && renderSuccessStep()}
+        {step === "amount" && renderAmountStep()}
+        {step === "confirm" && renderConfirmStep()}
+        {step === "staking" && renderStakingStep()}
+        {step === "success" && renderSuccessStep()}
       </div>
     </div>
   );

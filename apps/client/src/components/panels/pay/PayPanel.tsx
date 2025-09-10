@@ -39,7 +39,7 @@ export default function PayPanel() {
 
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showQrScanner, setShowQrScanner] = useState(false);
-  
+
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [transactionsError, setTransactionsError] = useState<string | null>(null);

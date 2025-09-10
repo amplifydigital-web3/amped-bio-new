@@ -40,7 +40,10 @@ export function UserManagement() {
   const [hasSearched, setHasSearched] = useState(false);
   const [showEmails, setShowEmails] = useState(false);
   const [copiedAddressId, setCopiedAddressId] = useState<number | null>(null);
-  const [sortDescriptor, setSortDescriptor] = useState<{ column: string; direction: "asc" | "desc" }>({ column: "created_at", direction: "desc" });
+  const [sortDescriptor, setSortDescriptor] = useState<{
+    column: string;
+    direction: "asc" | "desc";
+  }>({ column: "created_at", direction: "desc" });
 
   // Edit User Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -289,7 +292,7 @@ export function UserManagement() {
       if (string.includes('"')) {
         return `"${string.replace(/"/g, '""')}"`;
       }
-      if (string.includes(',')) {
+      if (string.includes(",")) {
         return `"${string}"`;
       }
       return string;
@@ -527,7 +530,7 @@ export function UserManagement() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {userData?.users.map((user) => (
+                  {userData?.users.map(user => (
                     <tr key={user.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
@@ -675,7 +678,9 @@ export function UserManagement() {
                     Previous
                   </button>
                   <button
-                    onClick={() => handlePageChange(Math.min(userData.pagination.pages, currentPage + 1))}
+                    onClick={() =>
+                      handlePageChange(Math.min(userData.pagination.pages, currentPage + 1))
+                    }
                     disabled={currentPage === userData.pagination.pages}
                     className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                   >
@@ -685,10 +690,12 @@ export function UserManagement() {
                 <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                   <div className="flex items-center gap-x-2">
                     <p className="text-sm text-gray-700">
-                      Showing <span className="font-medium">{(currentPage - 1) * limit + 1}</span> to{" "}
+                      Showing <span className="font-medium">{(currentPage - 1) * limit + 1}</span>{" "}
+                      to{" "}
                       <span className="font-medium">
                         {Math.min(currentPage * limit, userData.pagination.total)}
-                      </span>{" "}of <span className="font-medium">{userData.pagination.total}</span> results
+                      </span>{" "}
+                      of <span className="font-medium">{userData.pagination.total}</span> results
                     </p>
                     <div className="w-full sm:w-28">
                       <select

@@ -1,5 +1,5 @@
 import { Plus, ArrowUpRight, ArrowDownLeft } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import FundWalletDialog from "./dialogs/FundWalletDialog";
 import ReceiveDialog from "./dialogs/ReceiveDialog";
 import { useWalletContext } from "@/contexts/WalletContext";

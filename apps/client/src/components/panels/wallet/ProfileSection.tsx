@@ -69,9 +69,7 @@ export function ProfileSection({
 
   useEffect(() => {
     if (chainId) {
-      const connectedChain = AVAILABLE_CHAINS.find(
-        (availableChain) => availableChain.id === chainId
-      );
+      const connectedChain = AVAILABLE_CHAINS.find(availableChain => availableChain.id === chainId);
       if (connectedChain) {
         setCurrentNetwork(connectedChain);
       }
@@ -88,10 +86,7 @@ export function ProfileSection({
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setDropdownOpen(false);
       }
     };
@@ -168,10 +163,7 @@ export function ProfileSection({
           {/* Stats Section Skeleton */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
             {Array.from({ length: 6 }).map((_, index) => (
-              <div
-                key={index}
-                className="bg-white p-4 rounded-xl border border-gray-200"
-              >
+              <div key={index} className="bg-white p-4 rounded-xl border border-gray-200">
                 <div className="h-4 bg-gray-300 rounded w-16 mb-2 animate-pulse"></div>
                 <div className="h-6 bg-gray-300 rounded w-12 animate-pulse"></div>
               </div>
@@ -223,10 +215,7 @@ export function ProfileSection({
               className="h-32 w-32 cursor-pointer border-4 border-white rounded-full absolute -top-16 left-1/2 -translate-x-1/2 shadow-md"
               onClick={onProfileOptionsClick}
             >
-              <AvatarImage
-                src={profile.photoUrl || profile.photoCmp || ""}
-                alt="Profile"
-              />
+              <AvatarImage src={profile.photoUrl || profile.photoCmp || ""} alt="Profile" />
               <AvatarFallback>
                 <User className="w-16 h-16 text-gray-300" />
               </AvatarFallback>
@@ -246,12 +235,8 @@ export function ProfileSection({
                 disabled={loading}
               >
                 <div className="flex items-center space-x-2">
-                  <div
-                    className={`w-2 h-2 rounded-full ${currentNetworkInfo.dotColor}`}
-                  ></div>
-                  <Globe
-                    className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${currentNetworkInfo.color}`}
-                  />
+                  <div className={`w-2 h-2 rounded-full ${currentNetworkInfo.dotColor}`}></div>
+                  <Globe className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${currentNetworkInfo.color}`} />
                   <span
                     className={`text-xs sm:text-sm font-medium ${currentNetworkInfo.color} hidden sm:inline`}
                   >
@@ -261,9 +246,7 @@ export function ProfileSection({
                 <ChevronDown
                   className={`w-3 h-3 sm:w-4 sm:h-4 ${
                     currentNetworkInfo.color
-                  } transition-transform duration-200 ${
-                    dropdownOpen ? "rotate-180" : ""
-                  }`}
+                  } transition-transform duration-200 ${dropdownOpen ? "rotate-180" : ""}`}
                 />
               </button>
 
@@ -271,10 +254,7 @@ export function ProfileSection({
               {dropdownOpen && !loading && (
                 <>
                   {/* Backdrop */}
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setDropdownOpen(false)}
-                  ></div>
+                  <div className="fixed inset-0 z-10" onClick={() => setDropdownOpen(false)}></div>
 
                   {/* Dropdown Menu */}
                   <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
@@ -290,23 +270,15 @@ export function ProfileSection({
                             isActive ? "bg-gray-50" : ""
                           }`}
                         >
-                          <div
-                            className={`w-2.5 h-2.5 rounded-full ${networkInfo.dotColor}`}
-                          ></div>
-                          <Globe
-                            className={`w-4 h-4 ${networkInfo.color}`}
-                          />
+                          <div className={`w-2.5 h-2.5 rounded-full ${networkInfo.dotColor}`}></div>
+                          <Globe className={`w-4 h-4 ${networkInfo.color}`} />
                           <div className="flex-1">
                             <div className={`font-medium ${networkInfo.color}`}>
                               {networkInfo.name}
                             </div>
-                            <div className="text-xs text-gray-500">
-                              {networkInfo.description}
-                            </div>
+                            <div className="text-xs text-gray-500">{networkInfo.description}</div>
                           </div>
-                          {isActive && (
-                            <Check className="w-4 h-4 text-green-600" />
-                          )}
+                          {isActive && <Check className="w-4 h-4 text-green-600" />}
                         </button>
                       );
                     })}

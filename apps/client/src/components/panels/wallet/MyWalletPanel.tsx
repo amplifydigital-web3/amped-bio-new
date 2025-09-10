@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState, useMemo } from "react";
-import { Users, Info, Trophy, Coins, TrendingUp, Gift, Target } from "lucide-react";
+import { Users, Trophy, Coins, TrendingUp, Gift, Target } from "lucide-react";
 import { ProfileSection } from "./ProfileSection";
 import { useAccount } from "wagmi";
 import { useWalletContext } from "@/contexts/WalletContext";
@@ -23,7 +23,9 @@ export function MyWalletPanel() {
       {
         icon: TrendingUp,
         label: "Total REVO",
-        value: wallet.balance?.data?.formatted ? `${parseFloat(wallet.balance?.data!.formatted).toFixed(8)} ${wallet.balance?.data?.symbol ?? "REVO"}` : '-',
+        value: wallet.balance?.data?.formatted
+          ? `${parseFloat(wallet.balance?.data!.formatted).toFixed(8)} ${wallet.balance?.data?.symbol ?? "REVO"}`
+          : "-",
         tooltip: "Total amount of REVO tokens in your wallet",
         color: "bg-blue-100 text-blue-600",
         soon: false,

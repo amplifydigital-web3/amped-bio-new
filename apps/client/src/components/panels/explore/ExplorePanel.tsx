@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Search, Users, Trophy, Filter, SortDesc, Coins, ChevronDown, X, User } from "lucide-react";
 import PoolDetailsModal from "./PoolDetailsModal";
@@ -65,7 +65,9 @@ export default function ExplorePage({ initialTab = "creators", onTabChange }: Ex
   );
   const [isRewardPoolViewModalOpen, setIsRewardPoolViewModalOpen] = useState(false);
 
-  const { data: creators } = useQuery(trpc.user.getUsers.queryOptions({ search: debouncedSearchQuery }));
+  const { data: creators } = useQuery(
+    trpc.user.getUsers.queryOptions({ search: debouncedSearchQuery })
+  );
 
   // Filter categories
   const categories = [

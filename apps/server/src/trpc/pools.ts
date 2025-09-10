@@ -28,8 +28,8 @@ export const poolsRouter = router({
       }
 
       try {
-        // Check if a pool already exists for this user and chain
-        const existingPool = await prisma.creatorPool.findUnique({
+        // First, try to find an existing pool for this user and chain
+        let pool = await prisma.creatorPool.findUnique({
           where: {
             userId_chainId: {
               userId,
@@ -38,29 +38,42 @@ export const poolsRouter = router({
           },
         });
 
-        if (existingPool) {
+        // If a pool exists but doesn't have an address, return it
+        if (pool && !pool.poolAddress) {
+          return pool;
+        }
+
+        // If no pool exists, create a new one
+        if (!pool) {
+          pool = await prisma.creatorPool.create({
+            data: {
+              description: input.description,
+              chainId: input.chainId,
+              user: {
+                connect: {
+                  id: userId,
+                },
+              },
+            },
+          });
+        }
+
+        // If we get here, there's either a new pool or an existing pool with an address
+        // In the case of an existing pool with an address, we should throw an error
+        if (pool.poolAddress) {
           throw new TRPCError({
             code: "CONFLICT",
             message: "Pool already exists for this chain",
           });
         }
 
-        const pool = await prisma.creatorPool.create({
-          data: {
-            userId,
-            chainId: input.chainId,
-            description: input.description,
-          },
-        });
-
-        return { id: pool.id };
+        return pool;
       } catch (error) {
-        console.error("Error creating pool:", error);
+        console.error("Error creating/getting pool:", error);
         if (error instanceof TRPCError) throw error;
-
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to create pool",
+          message: "Failed to create/get pool",
         });
       }
     }),
@@ -141,6 +154,36 @@ export const poolsRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to update pool address",
+        });
+      }
+    }),
+
+  deletePoolOnError: privateProcedure
+    .input(
+      z.object({
+        chainId: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user.sub;
+
+      try {
+        // Find and delete the pool for this specific user and chain
+        const pool = await prisma.creatorPool.delete({
+          where: {
+            userId_chainId: {
+              userId,
+              chainId: input.chainId,
+            },
+          },
+        });
+
+        return { id: pool.id, deleted: true };
+      } catch (error) {
+        console.error("Error deleting pool:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to delete pool",
         });
       }
     }),

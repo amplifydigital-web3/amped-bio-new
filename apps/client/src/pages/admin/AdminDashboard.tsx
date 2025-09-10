@@ -36,8 +36,6 @@ export function AdminDashboard() {
     trpc.admin.blocks.getBlockStats.queryOptions({})
   );
 
-  
-
   // Process the block type distribution data whenever blockStatsData changes
   const { blocksByType, totalBlocks } = blockStatsData || {};
 
@@ -60,15 +58,20 @@ export function AdminDashboard() {
   // Get recent users and top onelinks from query results
   const recentUsers = usersData?.users || [];
   const topOnelinks = (topOnelinksData || []).filter(
-    (item): item is { name: string; onelink: string; userId: number; totalClicks: number; blockCount: number; } => !!item
+    (
+      item
+    ): item is {
+      name: string;
+      onelink: string;
+      userId: number;
+      totalClicks: number;
+      blockCount: number;
+    } => !!item
   );
 
   // Determine if any data is still loading
   const loading =
-    isDashboardLoading ||
-    isTopOnelinksLoading ||
-    isUsersLoading ||
-    isBlockStatsLoading;
+    isDashboardLoading || isTopOnelinksLoading || isUsersLoading || isBlockStatsLoading;
 
   // Handle refresh
   const handleRefresh = () => {
