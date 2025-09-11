@@ -25,33 +25,86 @@ import toast from "react-hot-toast";
 import { trpcClient } from "@/utils/trpc";
 import { useCreatorPool } from "@/hooks/useCreatorPool";
 import { PoolSummaryModal } from "./PoolSummaryModal";
+import { TransactionModal } from "./TransactionModal";
 
 // Helper function to parse TRPC errors and extract user-friendly messages
 const parseTRPCError = (error: unknown): string => {
+  // Log the complete error for debugging
+  console.error("Full error details:", error);
+  
   if (error instanceof TRPCClientError) {
-    // Handle contract revert errors
+    // Handle the specific error format you mentioned
+    // This will specifically extract "exceeds block gas limit" from the JSON structure
+    if (error.message.includes("exceeds block gas limit")) {
+      // Try multiple approaches to extract the message
+      // Approach 1: Look for the specific pattern with "exceeds block gas limit"
+      const gasLimitMatch = error.message.match(/"message"\s*:\s*"([^"]*exceeds block gas limit[^"]*)"/i);
+      if (gasLimitMatch && gasLimitMatch[1]) {
+        return `Transaction failed: ${gasLimitMatch[1]}`;
+      }
+      
+      // Approach 2: More general message extraction
+      const anyMessageMatch = error.message.match(/"message"\s*:\s*"([^"]+)"/);
+      if (anyMessageMatch && anyMessageMatch[1]) {
+        return `Transaction failed: ${anyMessageMatch[1]}`;
+      }
+      
+      // Approach 3: If the error message is very long, try to find a shorter meaningful part
+      if (error.message.length > 200) {
+        // Look for common error patterns
+        const commonErrors = [
+          "exceeds block gas limit",
+          "failed to sign message",
+          "insufficient funds",
+          "transaction underpriced"
+        ];
+        
+        for (const errorMsg of commonErrors) {
+          if (error.message.includes(errorMsg)) {
+            return `Transaction failed: ${errorMsg}`;
+          }
+        }
+      }
+      
+      // Fallback
+      return "Transaction failed: exceeds block gas limit. Please try again with a lower stake amount or contact support.";
+    }
+    
+    // Handle transaction signature errors
+    if (error.message.includes("Transaction Signature:")) {
+      const signatureMatch = error.message.match(/Transaction Signature:\s*([^.]+)/i);
+      if (signatureMatch && signatureMatch[1]) {
+        return `Transaction failed: ${signatureMatch[1].trim()}`;
+      }
+    }
+    
+    // Handle contract revert errors with reason
     if (error.message.includes("reverted with the following reason")) {
-      // Extract the specific reason from the revert message
       const reasonMatch = error.message.match(
-        /reverted with the following reason:\s*([^.]+(?:\.[^.]+)*)/i
+        /reverted with the following reason:\s*([^.]+)/i
       );
       if (reasonMatch && reasonMatch[1]) {
         return reasonMatch[1].trim();
       }
-
-      // Handle gas limit errors specifically
-      if (error.message.includes("exceeds block gas limit")) {
-        return "Transaction failed: exceeds block gas limit. Please try again with a lower stake amount or contact support.";
-      }
-
-      // Handle other common contract errors
-      if (error.message.includes("failed to sign message")) {
-        return "Transaction failed: unable to sign transaction. Please check your wallet connection and try again.";
-      }
     }
 
-    // Handle generic TRPC errors
+    // Handle other common contract errors
+    if (error.message.includes("failed to sign message")) {
+      return "Transaction failed: unable to sign transaction. Please check your wallet connection and try again.";
+    }
+
+    // Handle generic TRPC errors - try to parse JSON errors
     if (error.message) {
+      // Try to extract clean error message from JSON if it's a JSON string
+      try {
+        const errorObj = JSON.parse(error.message);
+        if (errorObj.message) {
+          return `Transaction failed: ${errorObj.message}`;
+        }
+      } catch (e) {
+        // If it's not JSON, return as is
+        return error.message;
+      }
       return error.message;
     }
   }
@@ -103,10 +156,11 @@ export function CreatorPoolPanel() {
   const [formData, setFormData] = React.useState<CreatorPoolFormValues | null>(null);
   const [isLaunching, setIsLaunching] = React.useState(false);
   const [showTransactionModal, setShowTransactionModal] = React.useState(false);
-  const [transactionStep, setTransactionStep] = React.useState<"confirming" | "confirmed">(
+  const [transactionStep, setTransactionStep] = React.useState<"confirming" | "confirmed" | "error">(
     "confirming"
   );
   const [transactionHash, setTransactionHash] = React.useState<string | null>(null);
+  const [transactionError, setTransactionError] = React.useState<string | null>(null);
 
   // Effect to confirm pool existence when panel opens and user has a pool address but hasn't confirmed it
   useEffect(() => {
@@ -273,6 +327,7 @@ export function CreatorPoolPanel() {
     setShowSummaryModal(false);
     setShowTransactionModal(true);
     setTransactionStep("confirming");
+    setTransactionError(null);
     let createdPoolId: number | null = null;
 
     try {
@@ -313,7 +368,7 @@ export function CreatorPoolPanel() {
       setTransactionStep("confirmed");
       toast.success("Pool created successfully!");
     } catch (error) {
-      console.error("Error creating pool:", error);
+      console.error("Error creating pool - Full error details:", error);
 
       // If we created a pool in the database but failed later, delete it
       if (createdPoolId) {
@@ -328,10 +383,9 @@ export function CreatorPoolPanel() {
       }
 
       const errorMessage = parseTRPCError(error);
+      setTransactionError(errorMessage);
+      setTransactionStep("error");
       toast.error(`Failed to create pool: ${errorMessage}`);
-
-      // Close transaction modal on error
-      setShowTransactionModal(false);
     } finally {
       setIsLaunching(false);
     }
@@ -862,201 +916,30 @@ export function CreatorPoolPanel() {
         isLaunching={isLaunching}
       />
 
-      {/* Transaction Confirmation Modal */}
-      {showTransactionModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
-            {transactionStep === "confirming" ? (
-              // Confirming Transaction Step
-              <>
-                <div className="p-6 text-center">
-                  <div className="mb-6">
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4 animate-pulse">
-                      <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                    </div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">Confirming Transaction</h3>
-                    <p className="text-gray-600">
-                      Your reward pool is being created on the blockchain...
-                    </p>
-                  </div>
-
-                  {/* Transaction Hash */}
-                  {transactionHash && (
-                    <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                      <div className="text-sm text-gray-500 mb-1">Transaction Hash</div>
-                      <div className="font-mono text-xs text-gray-700 break-all">
-                        {transactionHash}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Progress Animation */}
-                  <div className="space-y-3">
-                    <div className="flex items-center space-x-3 text-sm">
-                      <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                      <span className="text-gray-700">Broadcasting transaction...</span>
-                    </div>
-                    <div className="flex items-center space-x-3 text-sm">
-                      <div className="w-4 h-4 bg-gray-300 rounded-full animate-pulse"></div>
-                      <span className="text-gray-500">Waiting for confirmation...</span>
-                    </div>
-                    <div className="flex items-center space-x-3 text-sm">
-                      <div className="w-4 h-4 bg-gray-300 rounded-full"></div>
-                      <span className="text-gray-400">Pool deployment...</span>
-                    </div>
-                  </div>
-                </div>
-              </>
-            ) : (
-              // Transaction Confirmed Step
-              <>
-                {/* Close Button */}
-                <div className="flex justify-end p-4 pb-0">
-                  <button
-                    onClick={() => {
-                      setShowTransactionModal(false);
-                      if (transactionStep === "confirmed") {
-                        // Handle successful pool creation
-                        console.log("Pool launched successfully:", {
-                          poolName,
-                          poolDescription,
-                          poolImage,
-                          yourStake,
-                          creatorFee,
-                          watchedStakingTiers,
-                          transactionHash,
-                        });
-                      }
-                    }}
-                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                <div className="p-6 text-center">
-                  <div className="mb-6">
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4 animate-bounce">
-                      <svg
-                        className="w-8 h-8 text-green-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M5 13l4 4L19 7"
-                        ></path>
-                      </svg>
-                    </div>
-                    <h3 className="text-xl font-bold text-green-900 mb-2">
-                      Transaction Confirmed!
-                    </h3>
-                    <p className="text-gray-600">
-                      Your reward pool has been successfully created and deployed.
-                    </p>
-                  </div>
-
-                  {/* Transaction Details */}
-                  <div className="bg-green-50 rounded-lg p-4 mb-4 border border-green-200">
-                    <div className="text-sm text-green-700 mb-2 font-medium">
-                      Pool Created Successfully
-                    </div>
-                    <div className="text-xs text-green-600">Pool Name: {formData?.poolName}</div>
-                    <div className="text-xs text-green-600">
-                      Initial Stake: {formData?.yourStake} REVO
-                    </div>
-                    <div className="text-xs text-green-600">
-                      Creator Fee: {formData?.creatorFee}%
-                    </div>
-                  </div>
-
-                  {/* Block Explorer Link */}
-                  {transactionHash && (
-                    <div className="mb-4">
-                      <a
-                        href={`https://etherscan.io/tx/${transactionHash}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 text-sm"
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                          ></path>
-                        </svg>
-                        <span>View on Block Explorer</span>
-                      </a>
-                    </div>
-                  )}
-
-                  {/* Success Steps */}
-                  <div className="space-y-2 text-left">
-                    <div className="flex items-center space-x-3 text-sm">
-                      <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
-                        <svg
-                          className="w-2.5 h-2.5 text-white"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </div>
-                      <span className="text-green-700">Transaction broadcasted</span>
-                    </div>
-                    <div className="flex items-center space-x-3 text-sm">
-                      <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
-                        <svg
-                          className="w-2.5 h-2.5 text-white"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </div>
-                      <span className="text-green-700">Block confirmation received</span>
-                    </div>
-                    <div className="flex items-center space-x-3 text-sm">
-                      <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
-                        <svg
-                          className="w-2.5 h-2.5 text-white"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </div>
-                      <span className="text-green-700">Pool deployed successfully</span>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      <TransactionModal
+        isOpen={showTransactionModal}
+        onClose={() => {
+          setShowTransactionModal(false);
+          if (transactionStep === "confirmed" && formData) {
+            // Handle successful pool creation
+            console.log("Pool launched successfully:", {
+              poolName: formData.poolName,
+              poolDescription: formData.poolDescription,
+              poolImage: formData.poolImage,
+              yourStake: formData.yourStake,
+              creatorFee: formData.creatorFee,
+              stakingTiers: formData.stakingTiers,
+              transactionHash,
+            });
+          }
+        }}
+        transactionStep={transactionStep}
+        transactionHash={transactionHash}
+        poolName={formData?.poolName}
+        yourStake={formData?.yourStake}
+        creatorFee={formData?.creatorFee}
+        errorMessage={transactionError || undefined}
+      />
     </FormProvider>
   );
 }
