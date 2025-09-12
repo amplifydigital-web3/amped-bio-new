@@ -1,12 +1,6 @@
-import {
-  useWriteContract,
-  useWaitForTransactionReceipt,
-  useChainId,
-  useAccount,
-  useReadContract,
-} from "wagmi";
-import { type Address, parseEther, decodeEventLog, zeroAddress } from "viem";
-import { useEffect, useMemo } from "react";
+import { useChainId, useAccount, useReadContract, useWalletClient } from "wagmi";
+import { type Address, parseEther, zeroAddress } from "viem";
+import { useMemo } from "react";
 import { CREATOR_POOL_FACTORY_ABI, getChainConfig } from "@ampedbio/web3";
 
 export interface CreatePoolArgs {
@@ -18,6 +12,7 @@ export interface CreatePoolArgs {
 export function useCreatorPool() {
   const chainId = useChainId();
   const { address: userAddress } = useAccount();
+  const { data: walletClient } = useWalletClient();
 
   const chain = useMemo(() => {
     return getChainConfig(chainId);
@@ -48,76 +43,35 @@ export function useCreatorPool() {
     return contractPoolAddress as Address;
   }, [contractPoolAddress, isReadingPoolAddress]);
 
-  const {
-    writeContractAsync: createPool,
-    data: createPoolHash,
-    error: createPoolError,
-    isPending: isCreatingPool,
-  } = useWriteContract();
-
-  const {
-    data: receipt,
-    isLoading: isConfirming,
-    isSuccess: isConfirmed,
-  } = useWaitForTransactionReceipt({
-    hash: createPoolHash,
-  });
-
-  useEffect(() => {
-    if (isConfirmed && receipt) {
-      const event = receipt.logs
-        .map(log => {
-          try {
-            return decodeEventLog({
-              abi: CREATOR_POOL_FACTORY_ABI,
-              data: log.data,
-              topics: log.topics,
-            });
-          } catch (e) {
-            return null;
-          }
-        })
-        .find(event => event?.eventName === "PoolCreated");
-
-      if (event && event.args) {
-        // This will override the read contract value with the newly created pool address
-        // The read contract will eventually update to reflect this as well
-      }
-    }
-  }, [isConfirmed, receipt]);
-
   const handleCreatePool = async (args: CreatePoolArgs) => {
-    try {
-      console.log("handleCreatePool called with args:", args);
-      if (!chain?.contracts.NODE.address) {
-        const error = new Error("No node available to create a pool.");
-        console.error(error.message);
-        throw error;
-      }
-      console.log("Using node:", chain.contracts.NODE);
-
-      const hash = await createPool({
-        address: chain.contracts.CREATOR_POOL_FACTORY.address,
-        abi: CREATOR_POOL_FACTORY_ABI,
-        functionName: "createPool",
-        args: [chain.contracts.NODE.address, BigInt(args.creatorCut), args.poolName],
-        value: parseEther(args.stake.toString()),
-      });
-
-      return hash;
-    } catch (error) {
-      console.error("Error creating pool", error);
-      throw error; // Rethrow the error
+    if (!chain?.contracts.NODE.address) {
+      const error = new Error("No node available to create a pool.");
+      console.error(error.message);
+      throw error;
     }
+    console.log("Calling createPool on factory:", {
+      chainId,
+      factoryAddress: chain.contracts.CREATOR_POOL_FACTORY.address,
+      nodeAddress: chain.contracts.NODE.address,
+      creatorCut: args.creatorCut,
+      poolName: args.poolName,
+      stake: args.stake,
+    });
+
+    const hash = await walletClient!.writeContract({
+      address: chain.contracts.CREATOR_POOL_FACTORY.address,
+      abi: CREATOR_POOL_FACTORY_ABI,
+      functionName: "createPool",
+      args: [chain.contracts.NODE.address, BigInt(args.creatorCut), args.poolName],
+      value: parseEther(args.stake.toString()),
+      gas: BigInt(2000000), // Add explicit gas limit
+    });
+
+    return hash;
   };
 
   return {
     createPool: handleCreatePool,
-    createPoolHash,
-    createPoolError,
-    isCreatingPool,
-    isConfirming,
-    isConfirmed,
     poolAddress,
     isLoading: isReadingPoolAddress,
   };

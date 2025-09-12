@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { useForm, useFieldArray, Controller, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useAccount, useBalance, useChainId } from "wagmi";
+import { useAccount, useBalance, useChainId, usePublicClient } from "wagmi";
 import { TRPCClientError } from "@trpc/client";
 import {
   Users,
@@ -26,29 +26,32 @@ import { trpcClient } from "@/utils/trpc";
 import { useCreatorPool } from "@/hooks/useCreatorPool";
 import { PoolSummaryModal } from "./PoolSummaryModal";
 import { TransactionModal } from "./TransactionModal";
+import { type ContractFunctionExecutionError } from "viem";
 
 // Helper function to parse TRPC errors and extract user-friendly messages
 const parseTRPCError = (error: unknown): string => {
   // Log the complete error for debugging
   console.error("Full error details:", error);
-  
+
   if (error instanceof TRPCClientError) {
     // Handle the specific error format you mentioned
     // This will specifically extract "exceeds block gas limit" from the JSON structure
     if (error.message.includes("exceeds block gas limit")) {
       // Try multiple approaches to extract the message
       // Approach 1: Look for the specific pattern with "exceeds block gas limit"
-      const gasLimitMatch = error.message.match(/"message"\s*:\s*"([^"]*exceeds block gas limit[^"]*)"/i);
+      const gasLimitMatch = error.message.match(
+        /"message"\s*:\s*"([^"]*exceeds block gas limit[^"]*)"/i
+      );
       if (gasLimitMatch && gasLimitMatch[1]) {
         return `Transaction failed: ${gasLimitMatch[1]}`;
       }
-      
+
       // Approach 2: More general message extraction
       const anyMessageMatch = error.message.match(/"message"\s*:\s*"([^"]+)"/);
       if (anyMessageMatch && anyMessageMatch[1]) {
         return `Transaction failed: ${anyMessageMatch[1]}`;
       }
-      
+
       // Approach 3: If the error message is very long, try to find a shorter meaningful part
       if (error.message.length > 200) {
         // Look for common error patterns
@@ -56,20 +59,20 @@ const parseTRPCError = (error: unknown): string => {
           "exceeds block gas limit",
           "failed to sign message",
           "insufficient funds",
-          "transaction underpriced"
+          "transaction underpriced",
         ];
-        
+
         for (const errorMsg of commonErrors) {
           if (error.message.includes(errorMsg)) {
             return `Transaction failed: ${errorMsg}`;
           }
         }
       }
-      
+
       // Fallback
       return "Transaction failed: exceeds block gas limit. Please try again with a lower stake amount or contact support.";
     }
-    
+
     // Handle transaction signature errors
     if (error.message.includes("Transaction Signature:")) {
       const signatureMatch = error.message.match(/Transaction Signature:\s*([^.]+)/i);
@@ -77,12 +80,10 @@ const parseTRPCError = (error: unknown): string => {
         return `Transaction failed: ${signatureMatch[1].trim()}`;
       }
     }
-    
+
     // Handle contract revert errors with reason
     if (error.message.includes("reverted with the following reason")) {
-      const reasonMatch = error.message.match(
-        /reverted with the following reason:\s*([^.]+)/i
-      );
+      const reasonMatch = error.message.match(/reverted with the following reason:\s*([^.]+)/i);
       if (reasonMatch && reasonMatch[1]) {
         return reasonMatch[1].trim();
       }
@@ -148,6 +149,7 @@ interface TierIconEntry {
 }
 
 export function CreatorPoolPanel() {
+  const client = usePublicClient();
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const { createPool, poolAddress, isLoading: isPoolLoading } = useCreatorPool();
@@ -156,9 +158,9 @@ export function CreatorPoolPanel() {
   const [formData, setFormData] = React.useState<CreatorPoolFormValues | null>(null);
   const [isLaunching, setIsLaunching] = React.useState(false);
   const [showTransactionModal, setShowTransactionModal] = React.useState(false);
-  const [transactionStep, setTransactionStep] = React.useState<"confirming" | "confirmed" | "error">(
-    "confirming"
-  );
+  const [transactionStep, setTransactionStep] = React.useState<
+    "confirming" | "confirmed" | "error"
+  >("confirming");
   const [transactionHash, setTransactionHash] = React.useState<string | null>(null);
   const [transactionError, setTransactionError] = React.useState<string | null>(null);
 
@@ -340,15 +342,37 @@ export function CreatorPoolPanel() {
       createdPoolId = createdPool.id;
       setCreatedPoolId(createdPoolId);
 
-      // Then create the pool on the contract
-      const hash = await createPool({
-        poolName: formData.poolName,
-        creatorCut: formData.creatorFee,
-        stake: formData.yourStake,
-      });
+      try {
+        // Then create the pool on the contract
+        const hash = await createPool({
+          poolName: formData.poolName,
+          creatorCut: formData.creatorFee,
+          stake: formData.yourStake,
+        });
 
-      // Set transaction hash for display
-      setTransactionHash(hash);
+        // Set transaction hash for display
+        setTransactionHash(hash);
+        // wait for confirmation
+        await client!.waitForTransactionReceipt({ hash, confirmations: 2 });
+      } catch (createPoolError) {
+        const e = createPoolError as ContractFunctionExecutionError;
+        const message = e.cause.message ?? e.message;
+        console.error("Error creating pool on contract:", createPoolError);
+
+        if (message.includes("exceeds block gas limit")) {
+          toast.error("Transaction failed: Exceeds block gas limit");
+          setTransactionError("Transaction failed: Exceeds block gas limit");
+        } else if (message.includes("insufficient funds for gas + value")) {
+          toast.error("Transaction failed: Insufficient funds for gas + value");
+          setTransactionError("Transaction failed: Insufficient funds for gas + value");
+        } else {
+          toast.error(message);
+          setTransactionError(message);
+        }
+        setTransactionStep("error");
+
+        return;
+      }
 
       // After the contract pool is created, confirm it in the database
       await trpcClient.pools.confirmPoolCreation.mutate({

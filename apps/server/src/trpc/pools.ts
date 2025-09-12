@@ -38,6 +38,8 @@ export const poolsRouter = router({
           },
         });
 
+        console.info("Checked for existing pool in database:", pool);
+
         // If a pool exists but doesn't have an address, return it
         if (pool && !pool.poolAddress) {
           return pool;
@@ -99,6 +101,8 @@ export const poolsRouter = router({
           include: { user: { include: { wallet: true } } },
         });
 
+        console.info("Fetched pool from database:", pool);
+
         if (!pool) {
           throw new TRPCError({
             code: "NOT_FOUND",
@@ -127,6 +131,8 @@ export const poolsRouter = router({
           functionName: "getPoolForCreator",
           args: [pool.user.wallet!.address as `0x${string}`],
         })) as Address;
+
+        console.info("Fetched pool address from chain:", contractPoolAddress);
 
         if (zeroAddress === contractPoolAddress) {
           throw new TRPCError({

@@ -28,6 +28,7 @@ export const revolutionDevnet = {
     NODE: { address: "0x0000000000000000000000000000000000000000" as Address },
     CREATOR_POOL_FACTORY: { address: "0x0000000000000000000000000000000000000000" as Address },
   },
+  gas: 5_000_000,
 } as const;
 
 export const libertasTestnet = {
@@ -57,6 +58,7 @@ export const libertasTestnet = {
     NODE: { address: "0x019bbe745b5c9b70060408Bf720B1E5172EEa5A3" as Address },
     CREATOR_POOL_FACTORY: { address: "0xd4A49616cB954A2338ea1794C1EDa9d1254B23f0" as Address },
   },
+  gas: 5_000_000,
 } as const;
 
 export const AVAILABLE_CHAINS = [libertasTestnet, revolutionDevnet] as const;
