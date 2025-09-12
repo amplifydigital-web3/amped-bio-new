@@ -45,9 +45,7 @@ export function TransactionModal({
               {transactionHash && (
                 <div className="bg-gray-50 rounded-lg p-4 mb-4">
                   <div className="text-sm text-gray-500 mb-1">Transaction Hash</div>
-                  <div className="font-mono text-xs text-gray-700 break-all">
-                    {transactionHash}
-                  </div>
+                  <div className="font-mono text-xs text-gray-700 break-all">{transactionHash}</div>
                 </div>
               )}
 
@@ -86,21 +84,15 @@ export function TransactionModal({
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-4">
                   <AlertCircle className="w-8 h-8 text-red-600" />
                 </div>
-                <h3 className="text-xl font-bold text-red-900 mb-2">
-                  Transaction Failed
-                </h3>
-                <p className="text-gray-600">
-                  There was an error creating your reward pool.
-                </p>
+                <h3 className="text-xl font-bold text-red-900 mb-2">Transaction Failed</h3>
+                <p className="text-gray-600">There was an error creating your reward pool.</p>
               </div>
 
               {/* Error Message */}
               {errorMessage && (
                 <div className="bg-red-50 rounded-lg p-4 mb-4 border border-red-200 text-left">
                   <div className="text-sm text-red-700 font-medium mb-1">Error Details</div>
-                  <div className="text-xs text-red-600 font-mono break-words">
-                    {errorMessage}
-                  </div>
+                  <div className="text-xs text-red-600 font-mono break-words">{errorMessage}</div>
                 </div>
               )}
 
@@ -144,9 +136,7 @@ export function TransactionModal({
                     ></path>
                   </svg>
                 </div>
-                <h3 className="text-xl font-bold text-green-900 mb-2">
-                  Transaction Confirmed!
-                </h3>
+                <h3 className="text-xl font-bold text-green-900 mb-2">Transaction Confirmed!</h3>
                 <p className="text-gray-600">
                   Your reward pool has been successfully created and deployed.
                 </p>
@@ -158,12 +148,8 @@ export function TransactionModal({
                   Pool Created Successfully
                 </div>
                 <div className="text-xs text-green-600">Pool Name: {poolName}</div>
-                <div className="text-xs text-green-600">
-                  Initial Stake: {yourStake} REVO
-                </div>
-                <div className="text-xs text-green-600">
-                  Creator Fee: {creatorFee}%
-                </div>
+                <div className="text-xs text-green-600">Initial Stake: {yourStake} REVO</div>
+                <div className="text-xs text-green-600">Creator Fee: {creatorFee}%</div>
               </div>
 
               {/* Block Explorer Link */}
@@ -175,12 +161,7 @@ export function TransactionModal({
                     rel="noopener noreferrer"
                     className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 text-sm"
                   >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -197,11 +178,7 @@ export function TransactionModal({
               <div className="space-y-2 text-left">
                 <div className="flex items-center space-x-3 text-sm">
                   <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
-                    <svg
-                      className="w-2.5 h-2.5 text-white"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
+                    <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
                       <path
                         fillRule="evenodd"
                         d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -213,11 +190,7 @@ export function TransactionModal({
                 </div>
                 <div className="flex items-center space-x-3 text-sm">
                   <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
-                    <svg
-                      className="w-2.5 h-2.5 text-white"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
+                    <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
                       <path
                         fillRule="evenodd"
                         d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -229,11 +202,7 @@ export function TransactionModal({
                 </div>
                 <div className="flex items-center space-x-3 text-sm">
                   <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
-                    <svg
-                      className="w-2.5 h-2.5 text-white"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
+                    <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
                       <path
                         fillRule="evenodd"
                         d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"

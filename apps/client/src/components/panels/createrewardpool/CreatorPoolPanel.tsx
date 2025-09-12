@@ -1,14 +1,12 @@
 import React, { useEffect } from "react";
 import { useForm, useFieldArray, Controller, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { useAccount, useBalance, useChainId, usePublicClient } from "wagmi";
 import { TRPCClientError } from "@trpc/client";
 import {
   Users,
   Gift,
   Coins,
-  Target,
   Trophy,
   Plus,
   Upload,
@@ -19,13 +17,14 @@ import {
   Star,
   Crown,
   Zap,
-  type LucideIcon,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { trpcClient } from "@/utils/trpc";
 import { useCreatorPool } from "@/hooks/useCreatorPool";
 import { PoolSummaryModal } from "./PoolSummaryModal";
 import { TransactionModal } from "./TransactionModal";
+import { PerksSection } from "./PerksSection";
+import { creatorPoolSchema } from "./types";
 import { type ContractFunctionExecutionError } from "viem";
 
 // Helper function to parse TRPC errors and extract user-friendly messages
@@ -119,34 +118,7 @@ const parseTRPCError = (error: unknown): string => {
   return "An unknown error occurred. Please try again.";
 };
 
-const stakingTierSchema = z.object({
-  id: z.string(),
-  name: z.string().min(1, "Tier name is required"),
-  minStake: z.number().min(0, "Minimum stake must be non-negative"),
-  perks: z.array(z.string().min(1, "Perk description is required")).optional(), // Make perks optional
-  color: z.string(),
-});
-
-const creatorPoolSchema = z.object({
-  poolName: z.string().min(1, "Pool name is required"),
-  poolDescription: z.string().min(1, "Pool description is required"),
-  poolImage: z.string().optional().nullable(),
-  yourStake: z.number().min(0, "Your initial stake must be at least 0"),
-  creatorFee: z.number().min(0).max(100),
-  stakingTiers: z.array(stakingTierSchema).optional(), // Make staking tiers optional
-});
-
-type CreatorPoolFormValues = z.infer<typeof creatorPoolSchema> & {
-  stakingTiers?: StakingTier[]; // Make stakingTiers optional in the form values as well
-};
-type StakingTier = z.infer<typeof stakingTierSchema> & {
-  perks?: string[]; // Make perks optional in the TypeScript type as well
-};
-
-interface TierIconEntry {
-  icon: LucideIcon;
-  color: string;
-}
+import type { CreatorPoolFormValues, StakingTier, TierIconEntry } from "./types";
 
 export function CreatorPoolPanel() {
   const client = usePublicClient();
@@ -240,9 +212,6 @@ export function CreatorPoolPanel() {
   const poolImage = watch("poolImage");
   const yourStake = watch("yourStake");
   const creatorFee = watch("creatorFee");
-  const poolName = watch("poolName");
-  const poolDescription = watch("poolDescription");
-  const watchedStakingTiers = watch("stakingTiers") || []; // Default to empty array if undefined
 
   // Check if user has sufficient balance (only check if they're staking > 0)
   const hasSufficientBalance =
@@ -303,18 +272,7 @@ export function CreatorPoolPanel() {
     });
   };
 
-  const addPerkToTier = (tierIndex: number) => {
-    const currentPerks = watch(`stakingTiers.${tierIndex}.perks`) || [];
-    setValue(`stakingTiers.${tierIndex}.perks`, [...currentPerks, "New perk"]);
-  };
-
-  const removePerk = (tierIndex: number, perkIndex: number) => {
-    const currentPerks = watch(`stakingTiers.${tierIndex}.perks`) || [];
-    setValue(
-      `stakingTiers.${tierIndex}.perks`,
-      currentPerks.filter((_, index) => index !== perkIndex)
-    );
-  };
+  // Perks functionality has been moved to the PerksSection component
 
   const onSubmit = async (data: CreatorPoolFormValues) => {
     // Store form data and show summary modal instead of directly creating the pool
@@ -852,39 +810,7 @@ export function CreatorPoolPanel() {
                       </div>
 
                       <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <label className="block text-sm font-medium text-gray-700">
-                            Perks & Benefits
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => addPerkToTier(index)}
-                            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                          >
-                            + Add Perk
-                          </button>
-                        </div>
-                        <div className="space-y-2">
-                          {(watch(`stakingTiers.${index}.perks`) || []).map((_, perkIndex) => (
-                            <div key={perkIndex} className="flex items-center space-x-2">
-                              <Target className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                              <input
-                                type="text"
-                                {...register(`stakingTiers.${index}.perks.${perkIndex}`)}
-                                className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              />
-                              {(watch(`stakingTiers.${index}.perks`) || []).length > 1 && (
-                                <button
-                                  type="button"
-                                  onClick={() => removePerk(index, perkIndex)}
-                                  className="p-1 text-gray-400 hover:text-red-600 transition-colors duration-200"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              )}
-                            </div>
-                          ))}
-                        </div>
+                        <PerksSection tierIndex={index} />
                       </div>
                     </div>
                   );
