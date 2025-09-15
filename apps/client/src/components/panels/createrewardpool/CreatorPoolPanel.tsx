@@ -135,6 +135,7 @@ export function CreatorPoolPanel() {
   >("confirming");
   const [transactionHash, setTransactionHash] = React.useState<string | null>(null);
   const [transactionError, setTransactionError] = React.useState<string | null>(null);
+  const [poolImage, setPoolImage] = React.useState<string | null>(null);
 
   // Effect to confirm pool existence when panel opens and user has a pool address but hasn't confirmed it
   useEffect(() => {
@@ -183,8 +184,7 @@ export function CreatorPoolPanel() {
     defaultValues: {
       poolName: "",
       poolDescription: "",
-      poolImage: null,
-      yourStake: 0,
+      initialStake: 0,
       creatorFee: 5,
       stakingTiers: [], // Start with empty array
     },
@@ -209,14 +209,13 @@ export function CreatorPoolPanel() {
     name: "stakingTiers",
   });
 
-  const poolImage = watch("poolImage");
-  const yourStake = watch("yourStake");
+  const initialStake = watch("initialStake");
   const creatorFee = watch("creatorFee");
 
   // Check if user has sufficient balance (only check if they're staking > 0)
   const hasSufficientBalance =
-    revoBalance && yourStake > 0 ? yourStake <= Number(revoBalance.formatted) : true;
-  const showInsufficientBalanceWarning = yourStake > 0 && revoBalance && !hasSufficientBalance;
+    revoBalance && initialStake > 0 ? initialStake <= Number(revoBalance.formatted) : true;
+  const showInsufficientBalanceWarning = initialStake > 0 && revoBalance && !hasSufficientBalance;
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -250,7 +249,7 @@ export function CreatorPoolPanel() {
         const reader = new FileReader();
         reader.onload = e => {
           if (e.target?.result && typeof e.target.result === "string") {
-            setValue("poolImage", e.target.result, { shouldValidate: true });
+            setPoolImage(e.target.result);
           }
         };
         reader.readAsDataURL(file);
@@ -305,7 +304,7 @@ export function CreatorPoolPanel() {
         const hash = await createPool({
           poolName: formData.poolName,
           creatorCut: formData.creatorFee,
-          stake: formData.yourStake,
+          stake: formData.initialStake,
         });
 
         // Set transaction hash for display
@@ -651,7 +650,7 @@ export function CreatorPoolPanel() {
               <div className="relative">
                 <input
                   type="number"
-                  {...register("yourStake", { valueAsNumber: true })}
+                  {...register("initialStake", { valueAsNumber: true })}
                   placeholder="0"
                   className="w-full px-4 py-3 pr-16 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
@@ -659,8 +658,8 @@ export function CreatorPoolPanel() {
                   REVO
                 </div>
               </div>
-              {errors.yourStake && (
-                <p className="text-red-500 text-sm mt-1">{errors.yourStake.message}</p>
+              {errors.initialStake && (
+                <p className="text-red-500 text-sm mt-1">{errors.initialStake.message}</p>
               )}
               {revoBalance && (
                 <div className="mt-2 text-sm text-gray-600">
@@ -864,6 +863,7 @@ export function CreatorPoolPanel() {
         formData={formData!}
         onLaunch={handleLaunchPool}
         isLaunching={isLaunching}
+        poolImage={poolImage}
       />
 
       <TransactionModal
@@ -875,8 +875,7 @@ export function CreatorPoolPanel() {
             console.log("Pool launched successfully:", {
               poolName: formData.poolName,
               poolDescription: formData.poolDescription,
-              poolImage: formData.poolImage,
-              yourStake: formData.yourStake,
+              initialStake: formData.initialStake,
               creatorFee: formData.creatorFee,
               stakingTiers: formData.stakingTiers,
               transactionHash,
@@ -886,7 +885,7 @@ export function CreatorPoolPanel() {
         transactionStep={transactionStep}
         transactionHash={transactionHash}
         poolName={formData?.poolName}
-        yourStake={formData?.yourStake}
+        initialStake={formData?.initialStake}
         creatorFee={formData?.creatorFee}
         errorMessage={transactionError || undefined}
       />

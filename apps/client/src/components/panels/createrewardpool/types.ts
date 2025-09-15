@@ -12,8 +12,7 @@ export const stakingTierSchema = z.object({
 export const creatorPoolSchema = z.object({
   poolName: z.string().min(1, "Pool name is required"),
   poolDescription: z.string().min(1, "Pool description is required"),
-  poolImage: z.string().optional().nullable(),
-  yourStake: z.number().min(0, "Your initial stake must be at least 0"),
+  initialStake: z.number().min(0, "Your initial stake must be at least 0"),
   creatorFee: z.number().min(0).max(100),
   stakingTiers: z.array(stakingTierSchema).optional(), // Make staking tiers optional
 });
