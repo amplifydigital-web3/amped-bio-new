@@ -12,7 +12,7 @@
       "cache": false
     },
     "dev": {
-      "dependsOn": ["^build", "prisma:generate"],
+      "dependsOn": ["prisma:generate"],
       "cache": false,
       "persistent": true
     },

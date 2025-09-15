@@ -242,14 +242,14 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const setActivePanel = useCallback((activePanel: EditorPanelType) => {
-    console.group("📋 Setting Active Panel");
-    console.info(`Panel: ${activePanel}`);
+    // console.group("📋 Setting Active Panel");
+    // console.info(`Panel: ${activePanel}`);
     setState(prevState => ({
       ...prevState,
       activePanel,
     }));
-    console.info("✅ Active panel set");
-    console.groupEnd();
+    // console.info("✅ Active panel set");
+    // console.groupEnd();
   }, []);
 
   const setBackground = useCallback((background: Background) => {

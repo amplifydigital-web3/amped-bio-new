@@ -4,6 +4,32 @@ import { TRPCError } from "@trpc/server";
 import { prisma } from "../services/DB";
 import { Address, createPublicClient, http, zeroAddress } from "viem";
 import { getChainConfig, CREATOR_POOL_FACTORY_ABI } from "@ampedbio/web3";
+import {
+  ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS,
+  ALLOWED_AVATAR_FILE_TYPES,
+} from "@ampedbio/constants";
+import { env } from "../env";
+import { s3Service } from "../services/S3Service";
+import { uploadedFileService } from "../services/UploadedFileService";
+
+const requestPoolImagePresignedUrlSchema = z.object({
+  contentType: z.string().refine(value => ALLOWED_AVATAR_FILE_TYPES.includes(value), {
+    message: `Only ${ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.join(", ").toUpperCase()} formats are supported`,
+  }),
+  fileExtension: z
+    .string()
+    .refine(value => ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.includes(value.toLowerCase()), {
+      message: `File extension must be ${ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.join(", ")}`,
+    }),
+  fileSize: z.number().max(env.UPLOAD_LIMIT_PROFILE_PHOTO_MB * 1024 * 1024, {
+    message: `File size must be less than ${env.UPLOAD_LIMIT_PROFILE_PHOTO_MB}MB`,
+  }),
+});
+
+const confirmPoolImageUploadSchema = z.object({
+  fileId: z.number().positive(),
+  fileName: z.string().min(1),
+});
 
 export const poolsRouter = router({
   create: privateProcedure
@@ -83,84 +109,82 @@ export const poolsRouter = router({
   confirmPoolCreation: privateProcedure
     .input(
       z.object({
+        // poolAddress: z.string(),
         chainId: z.string(), // Changed to string for large chain IDs
       })
     )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.sub;
 
-      try {
-        // Find the pool for this specific user and chain
-        const pool = await prisma.creatorPool.findUnique({
-          where: {
-            userId_chainId: {
-              userId,
-              chainId: input.chainId,
-            },
-          },
-          include: { user: { include: { wallet: true } } },
-        });
+      const userWallet = await prisma.userWallet.findUnique({
+        where: { userId },
+      });
 
-        console.info("Fetched pool from database:", pool);
-
-        if (!pool) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Pool not found for this chain",
-          });
-        }
-
-        const chainIdNum = parseInt(input.chainId);
-        const chain = getChainConfig(chainIdNum);
-
-        if (!chain) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Unsupported chain ID",
-          });
-        }
-
-        const publicClient = createPublicClient({
-          chain: chain,
-          transport: http(),
-        });
-
-        const contractPoolAddress = (await publicClient.readContract({
-          address: chain.contracts.CREATOR_POOL_FACTORY.address,
-          abi: CREATOR_POOL_FACTORY_ABI,
-          functionName: "getPoolForCreator",
-          args: [pool.user.wallet!.address as `0x${string}`],
-        })) as Address;
-
-        console.info("Fetched pool address from chain:", contractPoolAddress);
-
-        if (zeroAddress === contractPoolAddress) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "No pool found for creator on-chain",
-          });
-        }
-
-        await prisma.creatorPool.update({
-          where: {
-            userId_chainId: {
-              userId: pool.userId,
-              chainId: input.chainId,
-            },
-          },
-          data: {
-            poolAddress: contractPoolAddress,
-          },
-        });
-
-        return { id: pool.id };
-      } catch (error) {
-        console.error("Error updating pool address:", error);
-        if (error instanceof TRPCError) throw error;
+      if (!userWallet) {
         throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to update pool address",
+          code: "PRECONDITION_FAILED",
+          message: "User does not have a wallet",
         });
+      }
+
+      const chain = getChainConfig(parseInt(input.chainId));
+
+      if (!chain) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Unsupported chain ID",
+        });
+      }
+
+      const publicClient = createPublicClient({
+        chain: chain,
+        transport: http(),
+      });
+
+      const poolAddress = (await publicClient.readContract({
+        address: chain.contracts.CREATOR_POOL_FACTORY.address,
+        abi: CREATOR_POOL_FACTORY_ABI,
+        functionName: "getPoolForCreator",
+        args: [userWallet!.address as `0x${string}`],
+      })) as Address;
+
+      console.info("Fetched pool address from chain:", poolAddress);
+
+      if (zeroAddress === poolAddress) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No pool found for creator on-chain",
+        });
+      }
+
+      let pool = await prisma.creatorPool.findUnique({
+        where: {
+          userId_chainId: {
+            userId,
+            chainId: input.chainId,
+          },
+        },
+      });
+
+      if (pool !== null) {
+        await prisma.creatorPool.update({
+          where: { id: pool.id },
+          data: { poolAddress },
+        });
+        return { id: pool.id };
+      } else {
+        pool = await prisma.creatorPool.create({
+          data: {
+            chainId: input.chainId,
+            poolAddress,
+            user: {
+              connect: {
+                id: userId,
+              },
+            },
+          },
+        });
+        return { id: pool.id };
       }
     }),
 
@@ -229,6 +253,106 @@ export const poolsRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to set pool image",
+        });
+      }
+    }),
+
+  requestPoolImagePresignedUrl: privateProcedure
+    .input(requestPoolImagePresignedUrlSchema)
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user.sub;
+
+      try {
+        if (input.fileSize > env.UPLOAD_LIMIT_POOL_IMAGE_MB * 1024 * 1024) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `File size exceeds the ${env.UPLOAD_LIMIT_POOL_IMAGE_MB}MB limit`,
+          });
+        }
+
+        const { presignedUrl, fileKey } = await s3Service.getPresignedUploadUrl(
+          "pool-images",
+          userId,
+          input.contentType,
+          input.fileExtension
+        );
+
+        const uploadedFile = await uploadedFileService.createUploadedFile({
+          s3Key: fileKey,
+          bucket: process.env.AWS_S3_BUCKET_NAME || "default-bucket",
+          fileName: `pool-image_${Date.now()}.${input.fileExtension}`,
+          fileType: input.contentType,
+          size: input.fileSize,
+          userId: userId,
+        });
+
+        return {
+          presignedUrl,
+          fileId: uploadedFile.id,
+          expiresIn: 300,
+        };
+      } catch (error) {
+        console.error("Error generating presigned URL for pool image:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to generate upload URL",
+        });
+      }
+    }),
+
+  confirmPoolImageUpload: privateProcedure
+    .input(confirmPoolImageUploadSchema)
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user.sub;
+
+      try {
+        const uploadedFile = await uploadedFileService.getFileById(input.fileId);
+        if (!uploadedFile || uploadedFile.user_id !== userId) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "File record not found or access denied.",
+          });
+        }
+
+        const fileKey = uploadedFile.s3_key;
+        const bucket = uploadedFile.bucket;
+
+        const fileExists = await s3Service.fileExists({ fileKey, bucket });
+        if (!fileExists) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "File not found in S3. Please upload the file first.",
+          });
+        }
+
+        await uploadedFileService.updateFileStatus({
+          id: input.fileId,
+          status: "COMPLETED",
+        });
+
+        await prisma.uploadedFile.update({
+          where: { id: input.fileId },
+          data: {
+            file_name: input.fileName,
+            updated_at: new Date(),
+          },
+        });
+
+        const poolImageUrl = s3Service.getFileUrl(fileKey);
+
+        return {
+          success: true,
+          poolImageUrl,
+          fileId: input.fileId,
+        };
+      } catch (error) {
+        console.error("Error updating pool image:", error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to update pool image",
         });
       }
     }),
