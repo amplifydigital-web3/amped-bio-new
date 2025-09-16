@@ -64,7 +64,7 @@ export function useCreatorPool() {
       functionName: "createPool",
       args: [chain.contracts.NODE.address, BigInt(args.creatorCut), args.poolName],
       value: parseEther(args.stake.toString()),
-      gas: BigInt(2000000), // Add explicit gas limit
+      gas: BigInt(5000000), // Add explicit gas limit
     });
 
     return hash;

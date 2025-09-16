@@ -226,7 +226,7 @@ export function CreatorPoolPanel() {
     const file = event.target.files?.[0];
     if (file) {
       try {
-        const presignedUrlData = await trpcClient.upload.requestPoolImagePresignedUrl.mutate({
+        const presignedUrlData = await trpcClient.pools.requestPoolImagePresignedUrl.mutate({
           contentType: file.type,
           fileExtension: file.name.split(".").pop() || "",
           fileSize: file.size,
@@ -242,7 +242,7 @@ export function CreatorPoolPanel() {
           },
         });
 
-        await trpcClient.upload.confirmPoolImageUpload.mutate({
+        await trpcClient.pools.confirmPoolImageUpload.mutate({
           fileId,
           fileName: file.name,
         });
@@ -314,7 +314,18 @@ export function CreatorPoolPanel() {
         // Set transaction hash for display
         setTransactionHash(hash);
         // wait for confirmation
-        await client!.waitForTransactionReceipt({ hash, confirmations: 2 });
+        const res = await client!.waitForTransactionReceipt({ hash, confirmations: 2 });
+
+        console.info("Transaction:", res);
+
+        if (res.status == "reverted") {
+          const errorMessage = "Unknown error";
+          console.error("Error waiting for transaction confirmation:", errorMessage);
+          toast.error(`Transaction failed: ${errorMessage}`);
+          setTransactionError(errorMessage);
+          setTransactionStep("error");
+          return;
+        }
       } catch (createPoolError) {
         const e = createPoolError as ContractFunctionExecutionError;
         const message = e.cause.message ?? e.message;
