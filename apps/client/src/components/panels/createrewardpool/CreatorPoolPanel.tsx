@@ -25,7 +25,8 @@ import { PoolSummaryModal } from "./PoolSummaryModal";
 import { TransactionModal } from "./TransactionModal";
 import { PerksSection } from "./PerksSection";
 import { creatorPoolSchema } from "./types";
-import { type ContractFunctionExecutionError } from "viem";
+import { type ContractFunctionExecutionError, decodeEventLog } from "viem";
+import { CREATOR_POOL_FACTORY_ABI } from "@ampedbio/web3";
 import { CreatorPoolPanelSkeleton } from "./CreatorPoolPanelSkeleton";
 
 // Helper function to parse TRPC errors and extract user-friendly messages
@@ -319,8 +320,22 @@ export function CreatorPoolPanel() {
         console.info("Transaction:", res);
 
         if (res.status == "reverted") {
-          const errorMessage = "Unknown error";
-          console.error("Error waiting for transaction confirmation:", errorMessage);
+          let errorMessage = "Transaction reverted";
+          console.log("Transaction reverted. Inspecting logs:", res.logs);
+          for (const log of res.logs) {
+            try {
+              const decodedLog = decodeEventLog({
+                abi: CREATOR_POOL_FACTORY_ABI,
+                data: log.data,
+                topics: log.topics,
+              });
+              console.log("Decoded Log from receipt:", decodedLog);
+              // Assuming the event name can be used as an error message
+              errorMessage = decodedLog.eventName;
+            } catch {
+              // Ignore logs that don't match the ABI
+            }
+          }
           toast.error(`Transaction failed: ${errorMessage}`);
           setTransactionError(errorMessage);
           setTransactionStep("error");
