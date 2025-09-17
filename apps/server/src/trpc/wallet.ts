@@ -2,16 +2,18 @@ import { privateProcedure, router } from "./trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { env } from "../env";
-import { createWalletClient, http, parseEther, isAddress, Address } from "viem";
+import {
+  createWalletClient,
+  http,
+  parseEther,
+  isAddress,
+  Address,
+  createPublicClient,
+  formatEther,
+} from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { prisma } from "../services/DB";
 import { getChainConfig } from "@ampedbio/web3";
-
-// Create public client for fetching blockchain data
-// const publicClient = createPublicClient({
-//   chain,
-//   transport: http(chain.rpcUrls.default.http[0]),
-// });
 
 // Schema for requesting faucet tokens
 const faucetRequestSchema = z.object({
@@ -137,6 +139,31 @@ export const walletRouter = router({
 
         // Retrieve the faucet amount from environment variables
         const faucetAmount = Number(env.FAUCET_AMOUNT);
+        let hasSufficientFunds = true; // Assume true by default
+
+        // If not in mock mode, check the actual balance of the faucet
+        if (env.FAUCET_MOCK_MODE !== "true") {
+          if (!env.FAUCET_PRIVATE_KEY) {
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: "Faucet not configured",
+            });
+          }
+
+          const publicClient = createPublicClient({
+            chain,
+            transport: http(chain.rpcUrls.default.http[0]),
+          });
+
+          const account = privateKeyToAccount(env.FAUCET_PRIVATE_KEY as `0x${string}`);
+          const balance = await publicClient.getBalance({ address: account.address });
+          const balanceInEther = parseFloat(formatEther(balance));
+
+          // Check if the faucet has enough balance for the airdrop
+          if (balanceInEther < faucetAmount) {
+            hasSufficientFunds = false;
+          }
+        }
 
         // Find user's wallet and check their last airdrop request
         const userWallet = await prisma.userWallet.findFirst({
@@ -171,6 +198,7 @@ export const walletRouter = router({
           nextAvailableDate,
           canRequestNow,
           hasWallet: !!userWallet,
+          hasSufficientFunds, // Return the flag to the client
         };
       } catch (error) {
         console.error("Error getting faucet amount:", error);
@@ -237,6 +265,27 @@ export const walletRouter = router({
         chain,
         transport: http(chain.rpcUrls.default.http[0]),
       });
+
+      // If not in mock mode, check the actual balance of the faucet
+      if (env.FAUCET_MOCK_MODE !== "true") {
+        const publicClient = createPublicClient({
+          chain,
+          transport: http(chain.rpcUrls.default.http[0]),
+        });
+
+        const balance = await publicClient.getBalance({ address: account.address });
+        const balanceInEther = parseFloat(formatEther(balance));
+        const faucetAmount = Number(env.FAUCET_AMOUNT);
+
+        // Check if the faucet has enough balance for the airdrop
+        if (balanceInEther < faucetAmount) {
+          throw new TRPCError({
+            code: "FORBIDDEN", // Custom error code for insufficient funds
+            message:
+              "The faucet does not have enough funds to complete this transaction. Please try again later.",
+          });
+        }
+      }
 
       try {
         const now = new Date();

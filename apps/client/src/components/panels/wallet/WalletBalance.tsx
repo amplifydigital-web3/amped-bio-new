@@ -60,7 +60,9 @@ const WalletBalance: React.FC<WalletBalanceProps> = ({ loading = false }) => {
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 space-y-2 sm:space-y-0">
         <h3 className="text-lg font-semibold text-gray-900">Wallet Balance</h3>
-        <div className="flex items-center space-x-3">
+        {/* Currency Toggle (REVO/USD) - Disabled for now
+        }
+        {/* <div className="flex items-center space-x-3">
           <span
             className={`text-sm font-medium transition-colors duration-200 ${!wallet.isUSD ? "text-purple-600" : "text-gray-500"}`}
           >
@@ -82,7 +84,7 @@ const WalletBalance: React.FC<WalletBalanceProps> = ({ loading = false }) => {
           >
             USD
           </span>
-        </div>
+        </div>*/}
       </div>
 
       {/* Balance Display */}

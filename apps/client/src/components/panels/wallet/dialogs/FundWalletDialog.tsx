@@ -150,9 +150,11 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
                       >
                         {isLoadingFaucetAmount
                           ? "Loading Faucet Info..."
-                          : faucetInfo.canRequestNow
-                            ? "Daily Reward Available!"
-                            : "Faucet on Cooldown"}
+                          : !faucetInfo.hasSufficientFunds
+                            ? "Faucet Out of Funds"
+                            : faucetInfo.canRequestNow
+                              ? "Daily Reward Available!"
+                              : "Faucet on Cooldown"}
                       </h3>
                       <p
                         className={`text-sm transition-colors duration-300 ${
@@ -161,6 +163,8 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
                       >
                         {isLoadingFaucetAmount ? (
                           "Loading faucet amount..."
+                        ) : !faucetInfo.hasSufficientFunds ? (
+                          "The faucet is temporarily out of funds. Please check back later."
                         ) : !faucetInfo.canRequestNow && faucetInfo.nextAvailableDate ? (
                           <>
                             <span className="text-amber-600 font-medium">Available in: </span>
@@ -183,11 +187,13 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
                   </div>
                   <button
                     onClick={handleClaimDailyReward}
-                    disabled={claimingFaucet || !faucetInfo.canRequestNow}
+                    disabled={
+                      claimingFaucet || !faucetInfo.canRequestNow || !faucetInfo.hasSufficientFunds
+                    }
                     className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 flex items-center space-x-2 ${
                       !faucetInfo.canRequestNow
                         ? "bg-blue-600 text-white cursor-default"
-                        : claimingFaucet
+                        : claimingFaucet || !faucetInfo.hasSufficientFunds
                           ? "bg-gray-400 text-white cursor-not-allowed"
                           : "bg-green-600 hover:bg-green-700 text-white hover:scale-105"
                     }`}
@@ -201,6 +207,11 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
                       <>
                         <Check className="w-4 h-4" />
                         <span>Claimed!</span>
+                      </>
+                    ) : !faucetInfo.hasSufficientFunds ? (
+                      <>
+                        <Gift className="w-4 h-4" />
+                        <span>Out of Funds</span>
                       </>
                     ) : (
                       <>

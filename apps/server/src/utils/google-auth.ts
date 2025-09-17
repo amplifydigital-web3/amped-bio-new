@@ -1,7 +1,3 @@
-import { OAuth2Client } from "google-auth-library";
-
-import { env } from "../env";
-
 // Interface for Google OAuth user info
 interface GoogleUserInfo {
   email: string;
@@ -11,19 +7,23 @@ interface GoogleUserInfo {
 }
 
 // Function to verify Google OAuth token
-export async function verifyGoogleToken(token: string): Promise<GoogleUserInfo> {
+export async function verifyGoogleToken(accessToken: string): Promise<GoogleUserInfo> {
   try {
-    const client = new OAuth2Client({
-      client_secret: env.GOOGLE_CLIENT_SECRET,
-      client_id: env.GOOGLE_CLIENT_ID,
+    const response = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
     });
-    const ticket = await client.verifyIdToken({
-      idToken: token,
-    });
-    const payload = ticket.getPayload();
-    if (!payload?.email) throw new Error("Google account must have an email");
 
-    const data = payload;
+    if (!response.ok) {
+      throw new Error("Failed to fetch user info from Google");
+    }
+
+    const data = await response.json();
+
+    if (!data.email) {
+      throw new Error("Google account must have an email");
+    }
 
     // Validate that the email is verified
     if (!data.email_verified) {

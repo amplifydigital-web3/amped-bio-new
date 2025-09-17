@@ -27,11 +27,13 @@ export function useFundWalletDialog(params: {
     nextAvailableDate: Date | null;
     canRequestNow: boolean;
     hasWallet: boolean;
+    hasSufficientFunds: boolean; // New state for faucet balance
   }>({
     lastRequestDate: null,
     nextAvailableDate: null,
     canRequestNow: true,
     hasWallet: false,
+    hasSufficientFunds: true, // Default to true
   });
 
   // Fetch faucet amount when the dialog is opened
@@ -52,6 +54,7 @@ export function useFundWalletDialog(params: {
             nextAvailableDate: result.nextAvailableDate ? new Date(result.nextAvailableDate) : null,
             canRequestNow: result.canRequestNow,
             hasWallet: result.hasWallet,
+            hasSufficientFunds: result.hasSufficientFunds, // Update based on API response
           });
         } else {
           toast.error("Unable to get faucet information. Please try again later.");
@@ -65,12 +68,18 @@ export function useFundWalletDialog(params: {
     };
 
     fetchFaucetAmount();
-  }, [open]);
+  }, [chainId, open]);
 
   // Function to handle the faucet claim process
   const handleClaim = async (): Promise<{ success: boolean; txid?: string }> => {
     if (!isConnected || claimingFaucet || !walletAddress) {
       toast.error("Wallet not connected or already claiming.");
+      return { success: false };
+    }
+
+    // Prevent claim if faucet has insufficient funds
+    if (!faucetInfo.hasSufficientFunds) {
+      toast.error("The faucet is currently out of funds. Please try again later.");
       return { success: false };
     }
 
@@ -88,12 +97,13 @@ export function useFundWalletDialog(params: {
         // Update faucet state after successful claim
         const now = new Date();
         const nextDate = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
-        setFaucetInfo({
+        setFaucetInfo(prev => ({
+          ...prev,
           lastRequestDate: now,
           nextAvailableDate: nextDate,
           canRequestNow: false,
           hasWallet: true,
-        });
+        }));
 
         wallet.updateBalanceDelayed();
 
@@ -103,8 +113,14 @@ export function useFundWalletDialog(params: {
         return { success: false };
       }
     } catch (error: any) {
-      console.error("Error claiming faucet tokens:", error);
-      toast.error(error.message || "An unexpected error occurred.");
+      // Handle specific error for insufficient funds
+      if (error.data?.code === "FORBIDDEN") {
+        toast.error("The faucet is out of funds. Please try again later.");
+        setFaucetInfo(prev => ({ ...prev, hasSufficientFunds: false }));
+      } else {
+        console.error("Error claiming faucet tokens:", error);
+        toast.error(error.message || "An unexpected error occurred.");
+      }
       return { success: false };
     } finally {
       setClaimingFaucet(false);
