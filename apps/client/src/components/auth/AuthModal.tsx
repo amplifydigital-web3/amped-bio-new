@@ -11,7 +11,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useOnelinkAvailability } from "@/hooks/useOnelinkAvailability";
 import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
-import { GoogleLogin } from "@react-oauth/google";
+import { useGoogleLogin } from "@react-oauth/google";
+import { GoogleLoginButton } from "./GoogleLoginButton";
 import {
   normalizeOnelink,
   cleanOnelinkInput,
@@ -263,29 +264,47 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     }
   };
 
-  // Handle Google login
-  const handleGoogleLogin = async (token: string) => {
-    setLoading(true);
-    setLoginError(null);
-    try {
-      const user = await signInWithGoogle(token);
-      onClose(user);
+  const handleGoogleLogin = useGoogleLogin({
+    onSuccess: async tokenResponse => {
+      setLoading(true);
+      setLoginError(null);
+      try {
+        const user = await signInWithGoogle(tokenResponse.access_token);
+        onClose(user);
 
-      // Redirect the user to their edit page with panel state set to "home"
-      if (user && user.onelink) {
-        const formattedOnelink = formatOnelink(user.onelink);
-        navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
+        if (user && user.onelink) {
+          const formattedOnelink = formatOnelink(user.onelink);
+          navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
+        }
+      } catch (error) {
+        setLoginError((error as Error).message);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      setLoginError((error as Error).message);
-      // Reset reCAPTCHA on error if enabled
-      if (isRecaptchaEnabled && recaptchaRef.current) {
-        recaptchaRef.current.reset();
-        setRecaptchaToken(null);
-      }
-    } finally {
-      setLoading(false);
-    }
+    },
+    onError: () => {
+      setLoginError("Google login failed");
+    },
+  });
+
+  const renderSignInWithGoogle = () => {
+    return (
+      <>
+        {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+          <>
+            <div className="relative flex items-center my-4">
+              <div className="flex-grow border-t border-gray-300"></div>
+              <span className="flex-shrink mx-4 text-gray-600 text-sm">or</span>
+              <div className="flex-grow border-t border-gray-300"></div>
+            </div>
+
+            <div data-testid="google-sign-in" className="w-full">
+              <GoogleLoginButton onClick={() => handleGoogleLogin()} />
+            </div>
+          </>
+        )}
+      </>
+    );
   };
 
   // Handle register form submission
@@ -366,46 +385,6 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               ref={recaptchaRef}
             />
           </div>
-        )}
-      </>
-    );
-  };
-
-  const renderSignInWithGoogle = () => {
-    return (
-      <>
-        {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
-          <>
-            <div className="relative flex items-center my-4">
-              <div className="flex-grow border-t border-gray-300"></div>
-              <span className="flex-shrink mx-4 text-gray-600 text-sm">or</span>
-              <div className="flex-grow border-t border-gray-300"></div>
-            </div>
-
-            <div data-testid="google-sign-in" className="w-full">
-              <GoogleLogin
-                onSuccess={credentialResponse => {
-                  if (credentialResponse.credential) {
-                    handleGoogleLogin(credentialResponse.credential);
-                  }
-                }}
-                onError={() => {
-                  setLoginError("Google login failed");
-                }}
-                // useOneTap
-                type="standard"
-                theme="outline"
-                text="continue_with"
-                shape="rectangular"
-                width="100%"
-                locale="en"
-                size="large"
-                containerProps={{
-                  className: "w-full",
-                }}
-              />
-            </div>
-          </>
         )}
       </>
     );
