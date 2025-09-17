@@ -11,6 +11,7 @@ import { useWeb3AuthDisconnect, useWeb3AuthConnect, useWeb3Auth } from "@web3aut
 import { WALLET_CONNECTORS, AUTH_CONNECTION } from "@web3auth/modal";
 import { useAccount, useBalance, type UseBalanceReturnType } from "wagmi";
 import { trpcClient } from "../utils/trpc";
+import { TRPCClientError } from "@trpc/client";
 import { useAuth } from "./AuthContext";
 
 const TIMEOUT_DURATION = 10_000; // 2 seconds in milliseconds
@@ -161,6 +162,33 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       web3AuthDisconnect();
     }
   }, [authUser, account.status, web3AuthDisconnect]);
+
+  useEffect(() => {
+    const linkAddress = async () => {
+      if (account.status === "connected" && account.address) {
+        try {
+          const data = await trpcClient.wallet.linkWalletAddress.mutate({
+            address: account.address,
+          });
+          console.info("Wallet address linked successfully:", data.message);
+        } catch (error) {
+          if (error instanceof TRPCClientError) {
+            // Don't show conflict errors, as they are expected
+            if (error.data?.code !== "CONFLICT") {
+              console.error("Error linking wallet address:", error);
+            } else {
+              console.info("Wallet already linked:", error.message);
+            }
+          } else {
+            // Handle other errors
+            console.error("An unexpected error occurred:", error);
+          }
+        }
+      }
+    };
+
+    linkAddress();
+  }, [account.status, account.address]);
 
   const updateBalanceDelayed = () => {
     setTimeout(() => {
