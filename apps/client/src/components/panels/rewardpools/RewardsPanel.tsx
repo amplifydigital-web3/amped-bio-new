@@ -1,6 +1,17 @@
-import React, { useState } from 'react';
-import { Trophy, Gift, Users, Star, Clock, Plus, TrendingUp, Calendar, Coins, Target } from 'lucide-react';
-import { useEditor } from '@/contexts/EditorContext';
+import React, { useState } from "react";
+import {
+  Trophy,
+  Gift,
+  Users,
+  Star,
+  Clock,
+  Plus,
+  TrendingUp,
+  Calendar,
+  Coins,
+  Target,
+} from "lucide-react";
+import { useEditor } from "@/contexts/EditorContext";
 
 interface RewardPool {
   id: string;
@@ -11,8 +22,8 @@ interface RewardPool {
   participants: number;
   maxParticipants: number;
   endDate: string;
-  status: 'active' | 'upcoming' | 'ended';
-  category: 'staking' | 'social' | 'trading' | 'community';
+  status: "active" | "upcoming" | "ended";
+  category: "staking" | "social" | "trading" | "community";
   requirements: string[];
   createdBy: string;
   image?: string;
@@ -24,160 +35,184 @@ interface UserReward {
   amount: number;
   currency: string;
   earnedDate: string;
-  status: 'claimed' | 'pending' | 'available';
+  status: "claimed" | "pending" | "available";
   poolId: string;
 }
 
 export default function RewardsPage() {
-    const editor = useEditor()
-  const [activeTab, setActiveTab] = useState<'pools' | 'my-rewards' | 'create'>('pools');
+  const editor = useEditor();
+  const [activeTab, setActiveTab] = useState<"pools" | "my-rewards" | "create">("pools");
 
   // Mock data for reward pools
   const rewardPools: RewardPool[] = [
     {
-      id: '1',
-      title: 'REVO Staking Champions',
-      description: 'Stake 1000+ REVO tokens for 30 days and earn bonus rewards based on your staking duration.',
+      id: "1",
+      title: "REVO Staking Champions",
+      description:
+        "Stake 1000+ REVO tokens for 30 days and earn bonus rewards based on your staking duration.",
       totalReward: 50000,
-      currency: 'REVO',
+      currency: "REVO",
       participants: 247,
       maxParticipants: 500,
-      endDate: '2025-02-15',
-      status: 'active',
-      category: 'staking',
-      requirements: ['Stake minimum 1000 REVO', 'Hold for 30 days', 'Complete KYC'],
-      createdBy: 'Amped.Bio Team',
-      image: 'https://images.pexels.com/photos/844124/pexels-photo-844124.jpeg?auto=compress&cs=tinysrgb&w=400'
+      endDate: "2025-02-15",
+      status: "active",
+      category: "staking",
+      requirements: ["Stake minimum 1000 REVO", "Hold for 30 days", "Complete KYC"],
+      createdBy: "Amped.Bio Team",
+      image:
+        "https://images.pexels.com/photos/844124/pexels-photo-844124.jpeg?auto=compress&cs=tinysrgb&w=400",
     },
     {
-      id: '2',
-      title: 'Social Media Engagement',
-      description: 'Share your profile, refer friends, and engage with the community to earn exclusive NFT rewards.',
+      id: "2",
+      title: "Social Media Engagement",
+      description:
+        "Share your profile, refer friends, and engage with the community to earn exclusive NFT rewards.",
       totalReward: 25,
-      currency: 'NFTs',
+      currency: "NFTs",
       participants: 892,
       maxParticipants: 1000,
-      endDate: '2025-01-31',
-      status: 'active',
-      category: 'social',
-      requirements: ['Share profile 5 times', 'Refer 3 friends', 'Post weekly updates'],
-      createdBy: 'Community DAO',
-      image: 'https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=400'
+      endDate: "2025-01-31",
+      status: "active",
+      category: "social",
+      requirements: ["Share profile 5 times", "Refer 3 friends", "Post weekly updates"],
+      createdBy: "Community DAO",
+      image:
+        "https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=400",
     },
     {
-      id: '3',
-      title: 'Trading Volume Challenge',
-      description: 'Achieve $10,000+ in trading volume this month and win ETH prizes.',
+      id: "3",
+      title: "Trading Volume Challenge",
+      description: "Achieve $10,000+ in trading volume this month and win ETH prizes.",
       totalReward: 10,
-      currency: 'ETH',
+      currency: "ETH",
       participants: 156,
       maxParticipants: 200,
-      endDate: '2025-01-31',
-      status: 'active',
-      category: 'trading',
-      requirements: ['$10,000+ trading volume', 'Minimum 20 trades', 'Verified account'],
-      createdBy: 'TradingPro',
-      image: 'https://images.pexels.com/photos/730547/pexels-photo-730547.jpeg?auto=compress&cs=tinysrgb&w=400'
+      endDate: "2025-01-31",
+      status: "active",
+      category: "trading",
+      requirements: ["$10,000+ trading volume", "Minimum 20 trades", "Verified account"],
+      createdBy: "TradingPro",
+      image:
+        "https://images.pexels.com/photos/730547/pexels-photo-730547.jpeg?auto=compress&cs=tinysrgb&w=400",
     },
     {
-      id: '4',
-      title: 'Creator Spotlight',
-      description: 'Submit your best content and get featured. Top creators win USDC rewards.',
+      id: "4",
+      title: "Creator Spotlight",
+      description: "Submit your best content and get featured. Top creators win USDC rewards.",
       totalReward: 5000,
-      currency: 'USDC',
+      currency: "USDC",
       participants: 67,
       maxParticipants: 100,
-      endDate: '2025-02-28',
-      status: 'upcoming',
-      category: 'community',
-      requirements: ['Submit original content', 'Get 100+ likes', 'Follow guidelines'],
-      createdBy: 'CreatorDAO',
-      image: 'https://images.pexels.com/photos/1181263/pexels-photo-1181263.jpeg?auto=compress&cs=tinysrgb&w=400'
-    }
+      endDate: "2025-02-28",
+      status: "upcoming",
+      category: "community",
+      requirements: ["Submit original content", "Get 100+ likes", "Follow guidelines"],
+      createdBy: "CreatorDAO",
+      image:
+        "https://images.pexels.com/photos/1181263/pexels-photo-1181263.jpeg?auto=compress&cs=tinysrgb&w=400",
+    },
   ];
 
   // Mock data for user rewards
   const userRewards: UserReward[] = [
     {
-      id: '1',
-      title: 'Early Adopter Bonus',
+      id: "1",
+      title: "Early Adopter Bonus",
       amount: 500,
-      currency: 'REVO',
-      earnedDate: '2025-01-10',
-      status: 'available',
-      poolId: '1'
+      currency: "REVO",
+      earnedDate: "2025-01-10",
+      status: "available",
+      poolId: "1",
     },
     {
-      id: '2',
-      title: 'Social Engagement NFT',
+      id: "2",
+      title: "Social Engagement NFT",
       amount: 1,
-      currency: 'NFT',
-      earnedDate: '2025-01-08',
-      status: 'claimed',
-      poolId: '2'
+      currency: "NFT",
+      earnedDate: "2025-01-08",
+      status: "claimed",
+      poolId: "2",
     },
     {
-      id: '3',
-      title: 'Staking Milestone',
+      id: "3",
+      title: "Staking Milestone",
       amount: 250,
-      currency: 'REVO',
-      earnedDate: '2025-01-05',
-      status: 'pending',
-      poolId: '1'
-    }
+      currency: "REVO",
+      earnedDate: "2025-01-05",
+      status: "pending",
+      poolId: "1",
+    },
   ];
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
-      case 'staking': return <Coins className="w-4 h-4" />;
-      case 'social': return <Users className="w-4 h-4" />;
-      case 'trading': return <TrendingUp className="w-4 h-4" />;
-      case 'community': return <Star className="w-4 h-4" />;
-      default: return <Gift className="w-4 h-4" />;
+      case "staking":
+        return <Coins className="w-4 h-4" />;
+      case "social":
+        return <Users className="w-4 h-4" />;
+      case "trading":
+        return <TrendingUp className="w-4 h-4" />;
+      case "community":
+        return <Star className="w-4 h-4" />;
+      default:
+        return <Gift className="w-4 h-4" />;
     }
   };
 
   const getCategoryColor = (category: string) => {
     switch (category) {
-      case 'staking': return 'bg-blue-100 text-blue-700';
-      case 'social': return 'bg-green-100 text-green-700';
-      case 'trading': return 'bg-purple-100 text-purple-700';
-      case 'community': return 'bg-orange-100 text-orange-700';
-      default: return 'bg-gray-100 text-gray-700';
+      case "staking":
+        return "bg-blue-100 text-blue-700";
+      case "social":
+        return "bg-green-100 text-green-700";
+      case "trading":
+        return "bg-purple-100 text-purple-700";
+      case "community":
+        return "bg-orange-100 text-orange-700";
+      default:
+        return "bg-gray-100 text-gray-700";
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-green-100 text-green-700';
-      case 'upcoming': return 'bg-blue-100 text-blue-700';
-      case 'ended': return 'bg-gray-100 text-gray-700';
-      default: return 'bg-gray-100 text-gray-700';
+      case "active":
+        return "bg-green-100 text-green-700";
+      case "upcoming":
+        return "bg-blue-100 text-blue-700";
+      case "ended":
+        return "bg-gray-100 text-gray-700";
+      default:
+        return "bg-gray-100 text-gray-700";
     }
   };
 
   const getRewardStatusColor = (status: string) => {
     switch (status) {
-      case 'available': return 'bg-green-100 text-green-700';
-      case 'claimed': return 'bg-gray-100 text-gray-700';
-      case 'pending': return 'bg-yellow-100 text-yellow-700';
-      default: return 'bg-gray-100 text-gray-700';
+      case "available":
+        return "bg-green-100 text-green-700";
+      case "claimed":
+        return "bg-gray-100 text-gray-700";
+      case "pending":
+        return "bg-yellow-100 text-yellow-700";
+      default:
+        return "bg-gray-100 text-gray-700";
     }
   };
 
   const handleJoinPool = (poolId: string) => {
-    console.log('Joining pool:', poolId);
+    console.log("Joining pool:", poolId);
     // Implementation for joining a reward pool
   };
 
   const handleClaimReward = (rewardId: string) => {
-    console.log('Claiming reward:', rewardId);
+    console.log("Claiming reward:", rewardId);
     // Implementation for claiming a reward
   };
 
   const handleCreatePool = () => {
-    console.log('Creating new reward pool');
-    editor.setActivePanel('createRewardPool')
+    console.log("Creating new reward pool");
+    editor.setActivePanel("createRewardPool");
     // Implementation for creating a new reward pool
   };
 
@@ -198,27 +233,30 @@ export default function RewardsPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {rewardPools.map((pool) => (
-          <div key={pool.id} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
+        {rewardPools.map(pool => (
+          <div
+            key={pool.id}
+            className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden"
+          >
             {pool.image && (
               <div className="h-32 bg-gradient-to-r from-blue-500 to-purple-600 relative overflow-hidden">
-                <img
-                  src={pool.image}
-                  alt={pool.title}
-                  className="w-full h-full object-cover"
-                />
+                <img src={pool.image} alt={pool.title} className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-black bg-opacity-20"></div>
               </div>
             )}
-            
+
             <div className="p-6">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center space-x-2">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center space-x-1 ${getCategoryColor(pool.category)}`}>
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium flex items-center space-x-1 ${getCategoryColor(pool.category)}`}
+                  >
                     {getCategoryIcon(pool.category)}
                     <span className="capitalize">{pool.category}</span>
                   </span>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(pool.status)}`}>
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(pool.status)}`}
+                  >
                     {pool.status}
                   </span>
                 </div>
@@ -234,7 +272,7 @@ export default function RewardsPage() {
                     {pool.totalReward.toLocaleString()} {pool.currency}
                   </span>
                 </div>
-                
+
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-500">Participants</span>
                   <span className="font-semibold text-gray-900">
@@ -243,7 +281,7 @@ export default function RewardsPage() {
                 </div>
 
                 <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
+                  <div
                     className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                     style={{ width: `${(pool.participants / pool.maxParticipants) * 100}%` }}
                   ></div>
@@ -275,16 +313,20 @@ export default function RewardsPage() {
 
               <button
                 onClick={() => handleJoinPool(pool.id)}
-                disabled={pool.status === 'ended'}
+                disabled={pool.status === "ended"}
                 className={`w-full py-2 px-4 rounded-lg font-medium transition-colors duration-200 ${
-                  pool.status === 'ended'
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : pool.status === 'upcoming'
-                    ? 'bg-blue-50 text-blue-600 hover:bg-blue-100'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                  pool.status === "ended"
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                    : pool.status === "upcoming"
+                      ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                      : "bg-blue-600 text-white hover:bg-blue-700"
                 }`}
               >
-                {pool.status === 'ended' ? 'Pool Ended' : pool.status === 'upcoming' ? 'Coming Soon' : 'Join Pool'}
+                {pool.status === "ended"
+                  ? "Pool Ended"
+                  : pool.status === "upcoming"
+                    ? "Coming Soon"
+                    : "Join Pool"}
               </button>
             </div>
           </div>
@@ -301,11 +343,13 @@ export default function RewardsPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {userRewards.map((reward) => (
+        {userRewards.map(reward => (
           <div key={reward.id} className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
             <div className="flex items-start justify-between mb-3">
               <h3 className="font-semibold text-gray-900">{reward.title}</h3>
-              <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${getRewardStatusColor(reward.status)}`}>
+              <span
+                className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${getRewardStatusColor(reward.status)}`}
+              >
                 {reward.status}
               </span>
             </div>
@@ -320,7 +364,7 @@ export default function RewardsPage() {
               </div>
             </div>
 
-            {reward.status === 'available' && (
+            {reward.status === "available" && (
               <button
                 onClick={() => handleClaimReward(reward.id)}
                 className="w-full py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors duration-200"
@@ -329,13 +373,13 @@ export default function RewardsPage() {
               </button>
             )}
 
-            {reward.status === 'pending' && (
+            {reward.status === "pending" && (
               <div className="w-full py-2 px-4 bg-yellow-50 text-yellow-700 rounded-lg text-center text-sm font-medium">
                 Processing...
               </div>
             )}
 
-            {reward.status === 'claimed' && (
+            {reward.status === "claimed" && (
               <div className="w-full py-2 px-4 bg-gray-50 text-gray-500 rounded-lg text-center text-sm font-medium">
                 Already Claimed
               </div>
@@ -350,7 +394,7 @@ export default function RewardsPage() {
           <h3 className="text-lg font-medium text-gray-900 mb-2">No rewards yet</h3>
           <p className="text-gray-500 mb-6">Join reward pools to start earning!</p>
           <button
-            onClick={() => setActiveTab('pools')}
+            onClick={() => setActiveTab("pools")}
             className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200"
           >
             Browse Pools
@@ -372,7 +416,8 @@ export default function RewardsPage() {
           <Plus className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">Pool Creation Coming Soon</h3>
           <p className="text-gray-500 mb-6 max-w-md mx-auto">
-            We're working on an intuitive pool creation interface. Soon you'll be able to create custom reward pools with flexible requirements and rewards.
+            We're working on an intuitive pool creation interface. Soon you'll be able to create
+            custom reward pools with flexible requirements and rewards.
           </p>
           <div className="flex items-center justify-center space-x-4 text-sm text-gray-500">
             <div className="flex items-center space-x-2">
@@ -440,21 +485,21 @@ export default function RewardsPage() {
       <div className="mb-8">
         <nav className="flex space-x-8 border-b border-gray-200">
           {[
-            { id: 'pools', label: 'Reward Pools', icon: Trophy },
-            { id: 'my-rewards', label: 'My Rewards', icon: Gift },
-            { id: 'create', label: 'Create Pool', icon: Plus }
-          ].map((tab) => {
+            { id: "pools", label: "Reward Pools", icon: Trophy },
+            { id: "my-rewards", label: "My Rewards", icon: Gift },
+            { id: "create", label: "Create Pool", icon: Plus },
+          ].map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
-            
+
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
                 className={`flex items-center space-x-2 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
                   isActive
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               >
                 <Icon className="w-4 h-4" />
@@ -466,9 +511,9 @@ export default function RewardsPage() {
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'pools' && renderPools()}
-      {activeTab === 'my-rewards' && renderMyRewards()}
-      {activeTab === 'create' && renderCreatePool()}
+      {activeTab === "pools" && renderPools()}
+      {activeTab === "my-rewards" && renderMyRewards()}
+      {activeTab === "create" && renderCreatePool()}
     </div>
   );
 }

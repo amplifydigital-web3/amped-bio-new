@@ -51,7 +51,9 @@ export const usersRouter = router({
           _sum: { clicks: true },
         });
 
-        const clicksMap = new Map(blockAggregations.map(agg => [agg.user_id, agg._sum.clicks || 0]));
+        const clicksMap = new Map(
+          blockAggregations.map(agg => [agg.user_id, agg._sum.clicks || 0])
+        );
 
         userIds.forEach(id => {
           if (!clicksMap.has(id)) {

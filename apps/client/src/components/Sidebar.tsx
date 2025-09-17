@@ -4,11 +4,9 @@ import {
   User,
   Palette,
   Sparkles,
-  Sparkle,
   LayoutGrid,
   Image,
   CoinsIcon,
-  Trophy,
   AtSign,
   Home,
   Settings,
@@ -35,13 +33,13 @@ const allNavItems: Array<{
     id: "wallet",
     icon: Wallet,
     label: "My Wallet",
-    environmentFlag: "VITE_SHOW_WALLET"
+    environmentFlag: "VITE_SHOW_WALLET",
   },
   {
     id: "pay",
     icon: Send,
     label: "Pay",
-    environmentFlag: "VITE_SHOW_WALLET"
+    environmentFlag: "VITE_SHOW_WALLET",
   },
   // { id: "reward", icon: Sparkle, label: "Reward", alwaysShow: false },
   { id: "account", icon: Settings, label: "Account", alwaysShow: true },

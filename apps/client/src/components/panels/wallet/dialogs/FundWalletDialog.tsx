@@ -187,7 +187,9 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
                   </div>
                   <button
                     onClick={handleClaimDailyReward}
-                    disabled={claimingFaucet || !faucetInfo.canRequestNow || !faucetInfo.hasSufficientFunds}
+                    disabled={
+                      claimingFaucet || !faucetInfo.canRequestNow || !faucetInfo.hasSufficientFunds
+                    }
                     className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 flex items-center space-x-2 ${
                       !faucetInfo.canRequestNow
                         ? "bg-blue-600 text-white cursor-default"

@@ -1,6 +1,5 @@
-import React, { useState, useMemo, useEffect } from "react";
-import { X, Check, Wallet } from "lucide-react";
-import { formatEther } from "viem";
+import React, { useState, useEffect } from "react";
+import { X } from "lucide-react";
 import { useWalletContext } from "@/contexts/WalletContext";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import SentLottie from "@/assets/lottie/sent.lottie";

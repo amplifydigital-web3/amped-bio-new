@@ -10,17 +10,21 @@ import { trpc } from "../../../utils/trpc";
 export function AdminFaucetWalletStats() {
   const [copied, setCopied] = useState(false);
 
-  const { data: walletInfoData, isLoading, isError } = useQuery(
-    trpc.admin.wallet.getFaucetWalletInfo.queryOptions()
-  );
+  const {
+    data: walletInfoData,
+    isLoading,
+    isError,
+  } = useQuery(trpc.admin.wallet.getFaucetWalletInfo.queryOptions());
 
-  const walletInfo = walletInfoData && "success" in walletInfoData && walletInfoData.success === true
-    ? walletInfoData
-    : null;
+  const walletInfo =
+    walletInfoData && "success" in walletInfoData && walletInfoData.success === true
+      ? walletInfoData
+      : null;
 
-  const error = walletInfoData && "success" in walletInfoData && walletInfoData.success === false
-    ? (walletInfoData as any).error
-    : null;
+  const error =
+    walletInfoData && "success" in walletInfoData && walletInfoData.success === false
+      ? (walletInfoData as any).error
+      : null;
 
   // Handle copy to clipboard
   const handleCopyAddress = () => {
@@ -110,27 +114,30 @@ export function AdminFaucetWalletStats() {
           <p className="text-xs text-gray-500">Balances Across Networks</p>
           {(walletInfo as any).balances.length > 0 ? (
             (walletInfo as any).balances.map((chainBalance: any) => {
-              const remainingAirdrops = 
+              const remainingAirdrops =
                 isNaN(Number(chainBalance.balance)) ||
                 isNaN(Number((walletInfo as any).faucetAmount)) ||
                 Number((walletInfo as any).faucetAmount) === 0
                   ? NaN
                   : Math.floor(
-                      Number(chainBalance.balance) / (Number((walletInfo as any).faucetAmount) * 1e18)
+                      Number(chainBalance.balance) /
+                        (Number((walletInfo as any).faucetAmount) * 1e18)
                     );
               return (
                 <div key={chainBalance.chainId} className="grid grid-cols-2 gap-4 border-t pt-2">
                   <div>
-                    <p className="text-xs text-gray-500 mb-1">
-                      {chainBalance.chainName} Balance
-                    </p>
+                    <p className="text-xs text-gray-500 mb-1">{chainBalance.chainName} Balance</p>
                     <p className="text-lg font-semibold">
-                      {isNaN(Number(chainBalance.formattedBalance)) || chainBalance.formattedBalance === "N/A" ? (
+                      {isNaN(Number(chainBalance.formattedBalance)) ||
+                      chainBalance.formattedBalance === "N/A" ? (
                         <Tooltip content="Could not fetch balance for this chain">
                           <span>-</span>
                         </Tooltip>
                       ) : (
-                        <>{(Number(chainBalance.formattedBalance) / 1e18).toFixed(4)}{" "}{chainBalance.currency}</>
+                        <>
+                          {(Number(chainBalance.formattedBalance) / 1e18).toFixed(4)}{" "}
+                          {chainBalance.currency}
+                        </>
                       )}
                     </p>
                   </div>
@@ -140,7 +147,9 @@ export function AdminFaucetWalletStats() {
                       <Tooltip
                         content={
                           isNaN(remainingAirdrops) ? (
-                            <p className="text-xs max-w-xs">Could not calculate remaining airdrops.</p>
+                            <p className="text-xs max-w-xs">
+                              Could not calculate remaining airdrops.
+                            </p>
                           ) : (
                             <p className="text-xs max-w-xs">
                               Estimated number of airdrops left based on current balance and faucet
