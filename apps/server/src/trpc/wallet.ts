@@ -9,18 +9,17 @@ import {
   Address,
   createPublicClient,
   formatEther,
-  isAddress,
+  keccak256,
 } from "viem";
-import { privateKeyToAccount, publicKeyToAddress } from "viem/accounts";
+import { privateKeyToAccount } from "viem/accounts";
+import { getAddress } from "viem/utils";
 import { prisma } from "../services/DB";
 import { getChainConfig } from "@ampedbio/web3";
 import * as jose from "jose";
 
 // Schema for requesting faucet tokens
 const faucetRequestSchema = z.object({
-  address: z.string().refine(address => address && isAddress(address), {
-    message: "Invalid Ethereum address format",
-  }),
+  publicKey: z.string(),
   chainId: z.number(),
   idToken: z.string(),
 });
@@ -42,25 +41,38 @@ const faucetResponseSchema = z.object({
 
 const JWKS = jose.createRemoteJWKSet(new URL("https://api-auth.web3auth.io/jwks"));
 
-async function verifyWeb3AuthIdToken(idToken: string, walletAddress: string) {
+// taken from https://web3auth.io/docs/authentication/id-token#using-jwks-endpoint
+async function verifyWeb3AuthIdToken(idToken: string, appPubKey: string) {
   try {
     const { payload } = await jose.jwtVerify(idToken, JWKS, {
       algorithms: ["ES256"],
     });
 
-    if (!Array.isArray(payload.wallets) || payload.wallets.length === 0) {
-      throw new Error("Wallets not found in ID token");
-    }
+    const wallets = (payload as any).wallets || [];
+    const normalizedAppKey = appPubKey.toLowerCase().replace(/^0x/, "");
 
-    console.info("Wallets found in ID token:", payload.wallets);
+    const isValid = wallets.some((wallet: any) => {
+      if (wallet.type !== "web3auth_app_key") return false;
 
-    // Assuming the first wallet is the primary one
-    const isAddressValid = payload.wallets.some(wallet => {
-      const derivedAddress = publicKeyToAddress(`0x${wallet.public_key}`);
-      return derivedAddress.toLowerCase() === walletAddress.toLowerCase();
+      const walletKey = wallet.public_key.toLowerCase();
+
+      // Direct key comparison for ed25519 keys
+      if (walletKey === normalizedAppKey) return true;
+
+      // Handle compressed secp256k1 keys
+      if (
+        wallet.curve === "secp256k1" &&
+        walletKey.length === 66 &&
+        normalizedAppKey.length === 128
+      ) {
+        const compressedWithoutPrefix = walletKey.substring(2);
+        return normalizedAppKey.startsWith(compressedWithoutPrefix);
+      }
+
+      return false;
     });
 
-    if (!isAddressValid) {
+    if (!isValid) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
         message: "Wallet address does not match the one in the ID token.",
@@ -82,9 +94,7 @@ export const walletRouter = router({
   linkWalletAddress: privateProcedure
     .input(
       z.object({
-        address: z.string().refine(address => address && isAddress(address), {
-          message: "Invalid Ethereum address format",
-        }),
+        publicKey: z.string(),
         idToken: z.string(),
       })
     )
@@ -92,7 +102,10 @@ export const walletRouter = router({
       const userId = ctx.user.sub;
 
       // Verify the Web3Auth ID token and get the wallet address
-      await verifyWeb3AuthIdToken(input.idToken, input.address);
+      await verifyWeb3AuthIdToken(input.idToken, input.publicKey);
+
+      // Convert the public key to an Ethereum address
+      const address = web3AuthPublicKeyToAddress(input.publicKey);
 
       try {
         // Check if the user already has a linked wallet (1:1 relationship)
@@ -102,7 +115,7 @@ export const walletRouter = router({
 
         if (existingUserWallet) {
           // If user already has a different wallet, we don't allow linking multiple wallets
-          if (existingUserWallet.address !== input.address) {
+          if (existingUserWallet.address !== address) {
             throw new TRPCError({
               code: "CONFLICT",
               message:
@@ -120,23 +133,22 @@ export const walletRouter = router({
 
         // Check if the address is already linked to any user
         const existingWalletAddress = await prisma.userWallet.findUnique({
-          where: { address: input.address },
+          where: { address: address },
         });
 
         if (existingWalletAddress) {
-          // If the wallet is linked to another user, return success but do not link.
-          return {
-            success: true,
+          // If the wallet is linked to another user, return an error.
+          throw new TRPCError({
+            code: "CONFLICT",
             message: "This wallet address is already linked to another account.",
-            wallet: existingWalletAddress,
-          };
+          });
         }
 
         // Create a new wallet link
         const now = new Date();
         const newWallet = await prisma.userWallet.create({
           data: {
-            address: input.address,
+            address: address,
             userId: userId,
             created_at: now,
             updated_at: now,
@@ -283,58 +295,61 @@ export const walletRouter = router({
     .input(faucetRequestSchema)
     .output(faucetResponseSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      try {
+        const userId = ctx.user.sub;
 
-      // Verify the Web3Auth ID token and get the wallet address
-      await verifyWeb3AuthIdToken(input.idToken, input.address);
+        // Verify the Web3Auth ID token and get the wallet address
+        await verifyWeb3AuthIdToken(input.idToken, input.publicKey);
 
-      if (!env.FAUCET_PRIVATE_KEY) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Faucet not configured",
-        });
-      }
+        const address = web3AuthPublicKeyToAddress(input.publicKey);
 
-      // Create wallet client from private key
-      const account = privateKeyToAccount(env.FAUCET_PRIVATE_KEY as `0x${string}`);
-      const chain = getChainConfig(input.chainId);
+        if (!env.FAUCET_PRIVATE_KEY) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Faucet not configured",
+          });
+        }
 
-      if (!chain) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Invalid chain ID provided.",
-        });
-      }
+        // Create wallet client from private key
+        const account = privateKeyToAccount(env.FAUCET_PRIVATE_KEY as `0x${string}`);
+        const chain = getChainConfig(input.chainId);
 
-      // Create wallet client for sending transactions
-      const walletClient = createWalletClient({
-        account,
-        chain,
-        transport: http(chain.rpcUrls.default.http[0]),
-      });
+        if (!chain) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid chain ID provided.",
+          });
+        }
 
-      // If not in mock mode, check the actual balance of the faucet
-      if (env.FAUCET_MOCK_MODE !== "true") {
-        const publicClient = createPublicClient({
+        // Create wallet client for sending transactions
+        const walletClient = createWalletClient({
+          account,
           chain,
           transport: http(chain.rpcUrls.default.http[0]),
         });
 
-        const balance = await publicClient.getBalance({ address: account.address });
-        const balanceInEther = parseFloat(formatEther(balance));
-        const faucetAmount = Number(env.FAUCET_AMOUNT);
-
-        // Check if the faucet has enough balance for the airdrop
-        if (balanceInEther < faucetAmount) {
-          throw new TRPCError({
-            code: "FORBIDDEN", // Custom error code for insufficient funds
-            message:
-              "The faucet does not have enough funds to complete this transaction. Please try again later.",
+        // If not in mock mode, check the actual balance of the faucet
+        if (env.FAUCET_MOCK_MODE !== "true") {
+          const publicClient = createPublicClient({
+            chain,
+            transport: http(chain.rpcUrls.default.http[0]),
           });
-        }
-      }
 
-      const now = new Date();
+          const balance = await publicClient.getBalance({ address: account.address });
+          const balanceInEther = parseFloat(formatEther(balance));
+          const faucetAmount = Number(env.FAUCET_AMOUNT);
+
+          // Check if the faucet has enough balance for the airdrop
+          if (balanceInEther < faucetAmount) {
+            throw new TRPCError({
+              code: "FORBIDDEN", // Custom error code for insufficient funds
+              message:
+                "The faucet does not have enough funds to complete this transaction. Please try again later.",
+            });
+          }
+        }
+
+        const now = new Date();
 
         // Find user's wallet (1:1 relationship - each user can have only one wallet)
         let wallet = await prisma.userWallet.findFirst({
@@ -345,20 +360,20 @@ export const walletRouter = router({
         if (!wallet) {
           // Check if address is already linked to another user
           const existingAddress = await prisma.userWallet.findUnique({
-            where: { address: input.address },
+            where: { address: address },
           });
 
           if (existingAddress) {
-            return {
-              success: true,
+            throw new TRPCError({
+              code: "CONFLICT",
               message: "This wallet address is already linked to another account.",
-            };
+            });
           }
 
           // Create new wallet link
           wallet = await prisma.userWallet.create({
             data: {
-              address: input.address,
+              address: address,
               userId,
               last_airdrop_request: now,
               created_at: now,
@@ -367,7 +382,7 @@ export const walletRouter = router({
           });
         } else {
           // User has a wallet already, check if it's the same address
-          if (wallet.address !== input.address) {
+          if (wallet.address !== address) {
             throw new TRPCError({
               code: "FORBIDDEN",
               message: "This address doesn't match the wallet linked to your account",
@@ -419,7 +434,7 @@ export const walletRouter = router({
             ).join("")}`;
 
             console.log(
-              `[MOCK MODE] Simulating sending ${faucetAmount} ${chain.nativeCurrency.symbol} from ${account.address} to ${input.address}`
+              `[MOCK MODE] Simulating sending ${faucetAmount} ${chain.nativeCurrency.symbol} from ${account.address} to ${address}`
             );
             console.log(`[MOCK MODE] Generated dummy transaction hash: ${hash}`);
 
@@ -431,12 +446,12 @@ export const walletRouter = router({
             const amountInWei = parseEther(faucetAmount.toString());
 
             console.log(
-              `Sending ${faucetAmount} ${chain.nativeCurrency.symbol} from ${account.address} to ${input.address}`
+              `Sending ${faucetAmount} ${chain.nativeCurrency.symbol} from ${account.address} to ${address}`
             );
 
             // Send transaction using wallet client and return immediately without waiting for confirmation
             hash = await walletClient.sendTransaction({
-              to: input.address as `0x${string}`,
+              to: address,
               value: amountInWei,
               chain,
             });
@@ -459,8 +474,8 @@ export const walletRouter = router({
           return {
             success: true,
             message: isMockMode
-              ? `[MOCK MODE] Simulated sending ${faucetAmount} ${chain.nativeCurrency.symbol} tokens to ${input.address}`
-              : `Transaction sent with ${faucetAmount} ${chain.nativeCurrency.symbol} tokens to ${input.address}! Waiting for network confirmation.`,
+              ? `[MOCK MODE] Simulated sending ${faucetAmount} ${chain.nativeCurrency.symbol} tokens to ${address}`
+              : `Transaction sent with ${faucetAmount} ${chain.nativeCurrency.symbol} tokens to ${address}! Waiting for network confirmation.`,
             transaction,
           };
         } catch (txError) {
@@ -543,3 +558,22 @@ export const walletRouter = router({
       }));
     }),
 });
+
+// viem's publicKeyToAddress assumes the public key is uncompressed, but Web3Auth provides a compressed key.
+// This function converts a compressed secp256k1 public key to an Ethereum address.
+function web3AuthPublicKeyToAddress(publicKey: string) {
+  // 1. Remove '0x' prefix if present
+  const publicKeyHex = publicKey.startsWith("0x") ? publicKey.slice(2) : publicKey;
+
+  // 2. Convert hex string to Uint8Array
+  const publicKeyBytes = Uint8Array.from(
+    publicKeyHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))
+  );
+
+  // 3. Hash the public key bytes with keccak256
+  const hash = keccak256(publicKeyBytes);
+
+  // 4. Take the last 20 bytes (40 hex chars) as the address
+  const address = `0x${hash.slice(-40)}`;
+  return getAddress(address);
+}

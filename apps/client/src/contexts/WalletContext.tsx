@@ -7,7 +7,12 @@ import {
   useState,
   useContext,
 } from "react";
-import { useWeb3AuthDisconnect, useWeb3AuthConnect, useWeb3Auth } from "@web3auth/modal/react";
+import {
+  useWeb3AuthDisconnect,
+  useWeb3AuthConnect,
+  useWeb3Auth,
+  useIdentityToken,
+} from "@web3auth/modal/react";
 import { WALLET_CONNECTORS, AUTH_CONNECTION } from "@web3auth/modal";
 import { useAccount, useBalance, type UseBalanceReturnType } from "wagmi";
 import { trpcClient } from "../utils/trpc";
@@ -32,6 +37,8 @@ type WalletContextType = {
   setIsUSD: (value: boolean) => void;
 
   updateBalanceDelayed: () => void;
+
+  publicKey: string | null;
 };
 
 const WalletContext = createContext<WalletContextType>({
@@ -42,6 +49,8 @@ const WalletContext = createContext<WalletContextType>({
   setIsUSD: () => {},
 
   updateBalanceDelayed: () => {},
+
+  publicKey: null,
 });
 
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
@@ -50,6 +59,12 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const { connectTo, error } = useWeb3AuthConnect();
   const dataWeb3Auth = useWeb3Auth();
   const account = useAccount();
+
+  const {
+    getIdentityToken,
+  } = useIdentityToken();
+
+  const [publicKey, setPublicKey] = useState<string | null>(null); // State to store public key
 
   const balance = useBalance({
     address: account.address,
@@ -166,18 +181,15 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const linkAddress = async () => {
       if (account.status === "connected" && account.address) {
+        const idToken = await getIdentityToken();
+
+        const pubKey = await dataWeb3Auth?.provider?.request({ method: "public_key" });
+        setPublicKey(pubKey as string); // Store the public key in state
+
         try {
-          const userInfo = await dataWeb3Auth.web3Auth?.getUserInfo();
-          const idToken = userInfo?.idToken;
-
-          if (!idToken) {
-            console.error("Could not get idToken from Web3Auth.");
-            return;
-          }
-
           const data = await trpcClient.wallet.linkWalletAddress.mutate({
-            address: account.address,
-            idToken,
+            publicKey: pubKey as string,
+            idToken: idToken,
           });
           console.info("Wallet address linked successfully:", data.message);
         } catch (error) {
@@ -197,7 +209,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     };
 
     linkAddress();
-  }, [account.status, account.address, dataWeb3Auth.web3Auth]);
+  }, [account.status, account.address]);
 
   const updateBalanceDelayed = () => {
     setTimeout(() => {
@@ -216,6 +228,8 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         setIsUSD,
 
         updateBalanceDelayed,
+
+        publicKey,
       }}
     >
       {children}
