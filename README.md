@@ -37,7 +37,6 @@ The client app (`apps/client`) is a React application built with:
 - **TypeScript** - Type safety across the codebase
 - **React Router** - Client-side routing
 - **Tailwind CSS** - Utility-first CSS framework for styling
-- **Zustand** - State management
 - **React Query** - Data fetching and caching
 
 Key directories:
@@ -246,9 +245,9 @@ The server application uses several environment variables for configuration, inc
 
 The following environment variables control the maximum file size for different types of uploads, specified in megabytes (MB):
 
-*   `UPLOAD_LIMIT_BACKGROUND_MB`: Maximum file size for general background image uploads.
-*   `UPLOAD_LIMIT_PROFILE_PHOTO_MB`: Maximum file size for user profile photo uploads.
-*   `UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB`: Maximum file size for collection thumbnail uploads.
+- `UPLOAD_LIMIT_BACKGROUND_MB`: Maximum file size for general background image uploads.
+- `UPLOAD_LIMIT_PROFILE_PHOTO_MB`: Maximum file size for user profile photo uploads.
+- `UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB`: Maximum file size for collection thumbnail uploads.
 
 Example `.env` configuration for upload limits:
 

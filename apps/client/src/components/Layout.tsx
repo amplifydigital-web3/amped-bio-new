@@ -9,7 +9,7 @@ import { GalleryPanel } from "./panels/gallery/GalleryPanel";
 import { AppearancePanel } from "./panels/appearance/AppearancePanel";
 import { EffectsPanel } from "./panels/effects/EffectsPanel";
 import { BlocksPanel } from "./panels/blocks/BlocksPanel";
-import { RewardPoolPage } from "./panels/createrewardpool/CreatorPoolPanel.tsx";
+import { CreatorPoolPanel } from "./panels/createrewardpool/CreatorPoolPanel.tsx";
 import { LeaderboardPanel } from "./panels/leaderboard/LeaderboardPanel";
 import { RNSPanel } from "./panels/rns/RNSPanel";
 import { HomePanel } from "./panels/home/HomePanel";
@@ -18,7 +18,8 @@ import { Eye } from "lucide-react";
 import RewardPanel from "./panels/reward/RewardPanel.tsx";
 import { EditorPanelType } from "@/types/editor.ts";
 import PayPanel from "./panels/pay/PayPanel.tsx";
-import RewardsPage from "./panels/rewardpools/RewardsPanel.tsx";
+// import RewardsPage from "./panels/rewardpools/RewardsPanel.tsx";
+import ExplorePage from "./panels/explore/ExplorePanel.tsx";
 
 interface LayoutProps {
   onelink: string;
@@ -38,6 +39,7 @@ export function Layout(props: LayoutProps) {
   const panelConfigs: Record<EditorPanelType, PanelConfig> = {
     // Single column pages (full width)
     home: { layout: "single", width: "full" },
+    explore: { layout: "single", width: "full" },
     reward: { layout: "single", width: "full" },
     wallet: { layout: "single", width: "full" },
     pay: { layout: "single", width: "full" },
@@ -103,6 +105,7 @@ export function Layout(props: LayoutProps) {
               style={{ height: "calc(100vh - 64px)" }}
             >
               {activePanel === "home" && <HomePanel />}
+              {activePanel === "explore" && <ExplorePage />}
               {activePanel === "profile" && <ProfilePanel />}
               {activePanel === "reward" && <RewardPanel />}
               {activePanel === "gallery" && <GalleryPanel />}
@@ -111,8 +114,8 @@ export function Layout(props: LayoutProps) {
               {activePanel === "blocks" && <BlocksPanel />}
               {activePanel === "wallet" && <MyWalletPanel />}
               {activePanel === "pay" && <PayPanel />}
-              {activePanel === "rewardPools" && <RewardsPage />}
-              {activePanel === "createRewardPool" && <RewardPoolPage />}
+              {/* {activePanel === "rewardPools" && <RewardsPage />} */}
+              {activePanel === "createRewardPool" && <CreatorPoolPanel />}
               {activePanel === "leaderboard" && <LeaderboardPanel />}
               {activePanel === "rns" && <RNSPanel />}
             </div>

@@ -122,6 +122,11 @@ export const env = cleanEnv(process.env, {
     default: 1,
     example: "1",
   }),
+  UPLOAD_LIMIT_POOL_IMAGE_MB: num({
+    desc: "Maximum file size in MB for pool image uploads",
+    default: 2,
+    example: "2",
+  }),
   UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB: num({
     desc: "Maximum file size in MB for collection thumbnail uploads",
     default: 2,

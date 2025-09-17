@@ -12,6 +12,7 @@ import {
   Settings,
   Wallet,
   Send,
+  Search,
 } from "lucide-react";
 import { EditorPanelType } from "@/types/editor";
 
@@ -24,6 +25,13 @@ const allNavItems: Array<{
   environmentFlag?: string;
 }> = [
   { id: "home", icon: Home, label: "Home", alwaysShow: true },
+  {
+    id: "explore",
+    icon: Search,
+    label: "Explore",
+    environmentFlag: "VITE_SHOW_CREATOR_POOL",
+    alwaysShow: true,
+  },
   { id: "profile", icon: User, label: "Profile", alwaysShow: true },
   { id: "gallery", icon: Image, label: "Themes", alwaysShow: true },
   { id: "appearance", icon: Palette, label: "Appearance", alwaysShow: true },
@@ -44,7 +52,7 @@ const allNavItems: Array<{
   // { id: "reward", icon: Sparkle, label: "Reward", alwaysShow: false },
   { id: "account", icon: Settings, label: "Account", alwaysShow: true },
   {
-    id: "rewardPools",
+    id: "createRewardPool",
     icon: CoinsIcon,
     label: "Reward Pools",
     environmentFlag: "VITE_SHOW_CREATOR_POOL",

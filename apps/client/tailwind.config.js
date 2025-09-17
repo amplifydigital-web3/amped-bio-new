@@ -19,6 +19,7 @@ export default {
         "caret-blink": "caret-blink 1.25s ease-out infinite",
         "shimmer-slide": "shimmer-slide var(--speed) ease-in-out infinite alternate",
         "spin-around": "spin-around calc(var(--speed) * 2) infinite linear",
+        "token-stake": "tokenStake 2s ease-out forwards",
       },
       keyframes: {
         wiggle: {
@@ -66,6 +67,23 @@ export default {
           },
           "100%": {
             transform: "translateZ(0) rotate(360deg)",
+          },
+        },
+        tokenStake: {
+          "0%": {
+            top: "4rem",
+            left: "25%",
+            transform: "translateX(-50%) scale(1)",
+            opacity: "1",
+          },
+          "50%": {
+            transform: "translateX(-50%) scale(1.2)",
+          },
+          "100%": {
+            top: "calc(100% - 6rem)",
+            left: "75%",
+            transform: "translateX(50%) scale(0.8)",
+            opacity: "0.8",
           },
         },
       },

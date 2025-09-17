@@ -74,6 +74,7 @@ const initialState: EditorState = {
   marketplaceFilter: "",
   marketplaceSort: "popular",
   selectedPoolId: null,
+  hasCreatorPool: false,
 };
 
 const defaultbio = "This is your default Bio! 🚀";

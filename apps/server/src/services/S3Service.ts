@@ -12,7 +12,7 @@ import crypto from "crypto";
 import { env } from "../env";
 import { ALLOWED_AVATAR_FILE_TYPES, ALLOWED_BACKGROUND_FILE_TYPES } from "@ampedbio/constants";
 
-export type FileCategory = "profiles" | "backgrounds" | "category";
+export type FileCategory = "profiles" | "backgrounds" | "category" | "pool-images";
 export type S3Operation = "getObject" | "putObject" | "deleteObject";
 
 export interface GenerateFileKeyParams {

@@ -12,6 +12,13 @@ export const ALLOWED_AVATAR_FILE_TYPES = [
   "image/svg+xml",
 ];
 
+export const ALLOWED_POOL_IMAGE = [
+  // Images
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+];
+
 // Allowed file extensions for avatar uploads (images only)
 export const ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS = [
   // Images
@@ -19,6 +26,13 @@ export const ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS = [
   "jpeg",
   "png",
   "svg",
+];
+
+export const ALLOWED_POOL_IMAGE_FILE_EXTENSIONS = [
+  // Images
+  "jpg",
+  "jpeg",
+  "png",
 ];
 
 // Allowed MIME types for collection thumbnail uploads (images only)

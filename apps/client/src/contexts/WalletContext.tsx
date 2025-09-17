@@ -94,7 +94,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         },
       });
 
-      console.info("Wallet connected successfully");
+      // console.info("Wallet connected successfully");
     } catch (error) {
       console.error("Error fetching wallet token:", error);
     }
@@ -143,12 +143,12 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     ) {
       const now = Date.now();
       if (now - lastConnectAttemptRef.current >= THROTTLE_DURATION) {
-        console.info("Attempting to connect wallet due to user login", {
-          authUser: !!authUser,
-          dataWeb3Auth: !!dataWeb3Auth,
-          accountStatus: account.status,
-          webAuthStatus: dataWeb3Auth.status,
-        });
+        // console.info("Attempting to connect wallet due to user login", {
+        //   authUser: !!authUser,
+        //   dataWeb3Auth: !!dataWeb3Auth,
+        //   accountStatus: account.status,
+        //   webAuthStatus: dataWeb3Auth.status,
+        // });
         lastConnectAttemptRef.current = now;
         getTokenAndConnect();
       }
