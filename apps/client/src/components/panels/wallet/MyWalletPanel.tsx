@@ -31,7 +31,7 @@ export function MyWalletPanel() {
       {
         icon: Coins,
         label: "My Stake",
-        value: "8,750 REVO",
+        value: "0 REVO",
         tooltip: "Total amount of REVO tokens you have staked across all pools",
         color: "bg-green-100 text-green-600",
         soon: true,
@@ -39,7 +39,7 @@ export function MyWalletPanel() {
       {
         icon: Users,
         label: "Staked to Me",
-        value: "15,420 REVO",
+        value: "0 REVO",
         tooltip: "Total amount of REVO staked in pools you have created",
         color: "bg-purple-100 text-purple-600",
         soon: true,
@@ -47,7 +47,7 @@ export function MyWalletPanel() {
       {
         icon: Gift,
         label: "Earnings to Date",
-        value: "1,250 REVO",
+        value: "0 REVO",
         tooltip: "Total rewards earned from all your staking activities",
         color: "bg-orange-100 text-orange-600",
         soon: true,
@@ -55,7 +55,7 @@ export function MyWalletPanel() {
       {
         icon: Trophy,
         label: "Stakers Supporting You",
-        value: "89",
+        value: "0",
         tooltip: "Number of users who have staked in pools you created",
         color: "bg-indigo-100 text-indigo-600",
         soon: true,
@@ -63,7 +63,7 @@ export function MyWalletPanel() {
       {
         icon: Target,
         label: "Creator Pools Joined",
-        value: "6",
+        value: "0",
         tooltip: "Number of different reward pools you are currently participating in",
         color: "bg-pink-100 text-pink-600",
         soon: true,
