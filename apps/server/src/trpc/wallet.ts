@@ -6,14 +6,15 @@ import {
   createWalletClient,
   http,
   parseEther,
-  isAddress,
   Address,
   createPublicClient,
   formatEther,
+  isAddress,
 } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
+import { privateKeyToAccount, publicKeyToAddress } from "viem/accounts";
 import { prisma } from "../services/DB";
 import { getChainConfig } from "@ampedbio/web3";
+import * as jose from "jose";
 
 // Schema for requesting faucet tokens
 const faucetRequestSchema = z.object({
@@ -21,6 +22,7 @@ const faucetRequestSchema = z.object({
     message: "Invalid Ethereum address format",
   }),
   chainId: z.number(),
+  idToken: z.string(),
 });
 
 // Schema for faucet response
@@ -38,6 +40,43 @@ const faucetResponseSchema = z.object({
     .optional(),
 });
 
+const JWKS = jose.createRemoteJWKSet(new URL("https://api-auth.web3auth.io/jwks"));
+
+async function verifyWeb3AuthIdToken(idToken: string, walletAddress: string) {
+  try {
+    const { payload } = await jose.jwtVerify(idToken, JWKS, {
+      algorithms: ["ES256"],
+    });
+
+    if (!Array.isArray(payload.wallets) || payload.wallets.length === 0) {
+      throw new Error("Wallets not found in ID token");
+    }
+
+    console.info("Wallets found in ID token:", payload.wallets);
+
+    // Assuming the first wallet is the primary one
+    const isAddressValid = payload.wallets.some(wallet => {
+      const derivedAddress = publicKeyToAddress(`0x${wallet.public_key}`);
+      return derivedAddress.toLowerCase() === walletAddress.toLowerCase();
+    });
+
+    if (!isAddressValid) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Wallet address does not match the one in the ID token.",
+      });
+    }
+
+    return payload;
+  } catch (error) {
+    console.error("ID token verification failed:", error);
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Invalid ID token.",
+    });
+  }
+}
+
 export const walletRouter = router({
   // Link a wallet address to the current user (1:1 relationship)
   linkWalletAddress: privateProcedure
@@ -46,10 +85,14 @@ export const walletRouter = router({
         address: z.string().refine(address => address && isAddress(address), {
           message: "Invalid Ethereum address format",
         }),
+        idToken: z.string(),
       })
     )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.sub;
+
+      // Verify the Web3Auth ID token and get the wallet address
+      await verifyWeb3AuthIdToken(input.idToken, input.address);
 
       try {
         // Check if the user already has a linked wallet (1:1 relationship)
@@ -81,11 +124,12 @@ export const walletRouter = router({
         });
 
         if (existingWalletAddress) {
-          // If the wallet is linked to another user, throw an error
-          throw new TRPCError({
-            code: "CONFLICT",
-            message: "This wallet address is already linked to another account",
-          });
+          // If the wallet is linked to another user, return success but do not link.
+          return {
+            success: true,
+            message: "This wallet address is already linked to another account.",
+            wallet: existingWalletAddress,
+          };
         }
 
         // Create a new wallet link
@@ -241,6 +285,9 @@ export const walletRouter = router({
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.sub;
 
+      // Verify the Web3Auth ID token and get the wallet address
+      await verifyWeb3AuthIdToken(input.idToken, input.address);
+
       if (!env.FAUCET_PRIVATE_KEY) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
@@ -287,8 +334,7 @@ export const walletRouter = router({
         }
       }
 
-      try {
-        const now = new Date();
+      const now = new Date();
 
         // Find user's wallet (1:1 relationship - each user can have only one wallet)
         let wallet = await prisma.userWallet.findFirst({
@@ -303,10 +349,10 @@ export const walletRouter = router({
           });
 
           if (existingAddress) {
-            throw new TRPCError({
-              code: "FORBIDDEN",
-              message: "This wallet address is already linked to another account",
-            });
+            return {
+              success: true,
+              message: "This wallet address is already linked to another account.",
+            };
           }
 
           // Create new wallet link

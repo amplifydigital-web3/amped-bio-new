@@ -167,8 +167,17 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     const linkAddress = async () => {
       if (account.status === "connected" && account.address) {
         try {
+          const userInfo = await dataWeb3Auth.web3Auth?.getUserInfo();
+          const idToken = userInfo?.idToken;
+
+          if (!idToken) {
+            console.error("Could not get idToken from Web3Auth.");
+            return;
+          }
+
           const data = await trpcClient.wallet.linkWalletAddress.mutate({
             address: account.address,
+            idToken,
           });
           console.info("Wallet address linked successfully:", data.message);
         } catch (error) {
@@ -188,7 +197,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     };
 
     linkAddress();
-  }, [account.status, account.address]);
+  }, [account.status, account.address, dataWeb3Auth.web3Auth]);
 
   const updateBalanceDelayed = () => {
     setTimeout(() => {

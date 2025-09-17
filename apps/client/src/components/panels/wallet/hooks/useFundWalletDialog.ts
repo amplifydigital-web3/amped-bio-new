@@ -3,6 +3,7 @@ import { trpcClient } from "@/utils/trpc";
 import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { useAccount } from "wagmi";
+import { useWeb3Auth } from "@web3auth/modal/react";
 
 export function useFundWalletDialog(params: {
   open: boolean;
@@ -11,6 +12,7 @@ export function useFundWalletDialog(params: {
   const wallet = useWalletContext();
   const { open, onOpenChange } = params;
   const { address: walletAddress, isConnected, chainId } = useAccount();
+  const dataWeb3Auth = useWeb3Auth();
 
   // Dialog state
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
@@ -85,8 +87,17 @@ export function useFundWalletDialog(params: {
 
     setClaimingFaucet(true);
     try {
+      const userInfo = await dataWeb3Auth.web3Auth?.getUserInfo();
+      const idToken = userInfo?.idToken;
+
+      if (!idToken) {
+        toast.error("Could not get user session. Please try again.");
+        return { success: false };
+      }
+
       const result = await trpcClient.wallet.requestAirdrop.mutate({
         address: walletAddress,
+        idToken,
         chainId: chainId!,
       });
 
