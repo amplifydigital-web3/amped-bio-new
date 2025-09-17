@@ -605,6 +605,7 @@ export function CreatorPoolPanel() {
                         min="0"
                         max="100"
                         {...field}
+                        onChange={(e) => field.onChange(parseInt(e.target.value, 10))}
                         className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
                       />
                       <div className="flex justify-between text-xs text-gray-500 mt-1">
