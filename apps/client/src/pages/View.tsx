@@ -30,7 +30,7 @@ export function View() {
   const isRegisterRoute = location.pathname === "/register";
   const isLoginRoute = location.pathname === "/login";
 
-  const [loading, setLoading] = useState((isRegisterRoute || isLoginRoute) ? false : true);
+  const [loading, setLoading] = useState(isRegisterRoute || isLoginRoute ? false : true);
 
   // Use default onelink when on root URL with no onelink parameter
   const effectiveOnelink =
@@ -46,7 +46,10 @@ export function View() {
 
   // Determine if navbar should be shown (landingpage user, root route, or register route)
   const shouldShowNavbar =
-    normalizedOnelink === DEFAULT_ONELINK || location.pathname === "/" || isRegisterRoute || isLoginRoute;
+    normalizedOnelink === DEFAULT_ONELINK ||
+    location.pathname === "/" ||
+    isRegisterRoute ||
+    isLoginRoute;
 
   // Show auth modal when on register route and not logged in
   const [showAuthModal, setShowAuthModal] = useState(isRegisterRoute && !authUser);

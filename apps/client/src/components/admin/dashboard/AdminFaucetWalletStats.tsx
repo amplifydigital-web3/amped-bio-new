@@ -4,31 +4,38 @@ import { Wallet, Copy, Info, AlertTriangle } from "lucide-react";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { truncateAddress } from "../../../utils/blockchain";
 
-interface AdminFaucetWalletStatsProps {
-  walletInfo: {
-    address: string;
-    formattedBalance: string;
-    remainingAirdrops: number;
-    faucetAmount: number;
-    currency: string;
-    isMockMode: boolean;
-    error?: string;
-  } | null;
-}
+import { useQuery } from "@tanstack/react-query";
+import { trpc } from "../../../utils/trpc";
 
-export function AdminFaucetWalletStats({ walletInfo }: AdminFaucetWalletStatsProps) {
+export function AdminFaucetWalletStats() {
   const [copied, setCopied] = useState(false);
+
+  const {
+    data: walletInfoData,
+    isLoading,
+    isError,
+  } = useQuery(trpc.admin.wallet.getFaucetWalletInfo.queryOptions());
+
+  const walletInfo =
+    walletInfoData && "success" in walletInfoData && walletInfoData.success === true
+      ? walletInfoData
+      : null;
+
+  const error =
+    walletInfoData && "success" in walletInfoData && walletInfoData.success === false
+      ? (walletInfoData as any).error
+      : null;
 
   // Handle copy to clipboard
   const handleCopyAddress = () => {
-    if (!walletInfo?.address) return;
+    if (!(walletInfo as any)?.address) return;
 
-    navigator.clipboard.writeText(walletInfo.address);
+    navigator.clipboard.writeText((walletInfo as any).address);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  if (!walletInfo) {
+  if (isLoading) {
     return (
       <Card>
         <CardHeader className="pb-2">
@@ -45,7 +52,7 @@ export function AdminFaucetWalletStats({ walletInfo }: AdminFaucetWalletStatsPro
     );
   }
 
-  if (walletInfo.error) {
+  if (isError || error) {
     return (
       <Card>
         <CardHeader className="pb-2">
@@ -63,12 +70,16 @@ export function AdminFaucetWalletStats({ walletInfo }: AdminFaucetWalletStatsPro
     );
   }
 
+  if (!walletInfo) {
+    return null; // Or some other fallback if walletInfo is null after loading and no error
+  }
+
   return (
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-medium flex items-center gap-2">
           <Wallet className="h-4 w-4" /> Faucet Wallet
-          {walletInfo.isMockMode && (
+          {(walletInfo as any).isMockMode && (
             <Tooltip
               content={
                 <p className="text-xs max-w-xs">
@@ -95,44 +106,82 @@ export function AdminFaucetWalletStats({ walletInfo }: AdminFaucetWalletStatsPro
             </button>
           </div>
           <p className="text-sm font-mono bg-gray-50 p-2 rounded-md overflow-auto whitespace-nowrap">
-            {truncateAddress(walletInfo.address, 12, 8)}
+            {truncateAddress((walletInfo as any).address, 12, 8)}
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-xs text-gray-500 mb-1">Balance</p>
-            <p className="text-lg font-semibold">
-              {parseFloat(walletInfo.formattedBalance).toFixed(4)} {walletInfo.currency}
-            </p>
-          </div>
-
-          <div>
-            <div className="flex items-center gap-1 mb-1">
-              <p className="text-xs text-gray-500">Remaining Airdrops</p>
-              <Tooltip
-                content={
-                  <p className="text-xs max-w-xs">
-                    Estimated number of airdrops left based on current balance and faucet amount per
-                    airdrop ({walletInfo.faucetAmount} {walletInfo.currency})
-                  </p>
-                }
-              >
-                <Info className="h-3 w-3 text-gray-400" />
-              </Tooltip>
-            </div>
-            <p
-              className={`text-lg font-semibold ${
-                walletInfo.remainingAirdrops < 10
-                  ? "text-red-600"
-                  : walletInfo.remainingAirdrops < 50
-                    ? "text-amber-600"
-                    : "text-green-600"
-              }`}
-            >
-              ~{walletInfo.remainingAirdrops.toLocaleString()}
-            </p>
-          </div>
+        <div className="space-y-2">
+          <p className="text-xs text-gray-500">Balances Across Networks</p>
+          {(walletInfo as any).balances.length > 0 ? (
+            (walletInfo as any).balances.map((chainBalance: any) => {
+              const remainingAirdrops =
+                isNaN(Number(chainBalance.balance)) ||
+                isNaN(Number((walletInfo as any).faucetAmount)) ||
+                Number((walletInfo as any).faucetAmount) === 0
+                  ? NaN
+                  : Math.floor(
+                      Number(chainBalance.balance) /
+                        (Number((walletInfo as any).faucetAmount) * 1e18)
+                    );
+              return (
+                <div key={chainBalance.chainId} className="grid grid-cols-2 gap-4 border-t pt-2">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">{chainBalance.chainName} Balance</p>
+                    <p className="text-lg font-semibold">
+                      {isNaN(Number(chainBalance.formattedBalance)) ||
+                      chainBalance.formattedBalance === "N/A" ? (
+                        <Tooltip content="Could not fetch balance for this chain">
+                          <span>-</span>
+                        </Tooltip>
+                      ) : (
+                        <>
+                          {(Number(chainBalance.formattedBalance) / 1e18).toFixed(4)}{" "}
+                          {chainBalance.currency}
+                        </>
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1 mb-1">
+                      <p className="text-xs text-gray-500">Remaining Airdrops</p>
+                      <Tooltip
+                        content={
+                          isNaN(remainingAirdrops) ? (
+                            <p className="text-xs max-w-xs">
+                              Could not calculate remaining airdrops.
+                            </p>
+                          ) : (
+                            <p className="text-xs max-w-xs">
+                              Estimated number of airdrops left based on current balance and faucet
+                              amount per airdrop ({(walletInfo as any).faucetAmount}{" "}
+                              {chainBalance.currency}) on {chainBalance.chainName}
+                            </p>
+                          )
+                        }
+                      >
+                        <Info className="h-3 w-3 text-gray-400" />
+                      </Tooltip>
+                    </div>
+                    <p
+                      className={`text-lg font-semibold ${
+                        isNaN(remainingAirdrops)
+                          ? "text-gray-500"
+                          : remainingAirdrops < 10
+                            ? "text-red-600"
+                            : remainingAirdrops < 50
+                              ? "text-amber-600"
+                              : "text-green-600"
+                      }`}
+                    >
+                      {isNaN(remainingAirdrops) ? "-" : `~${remainingAirdrops.toLocaleString()}`}
+                    </p>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <p className="text-sm text-gray-500">No balances available.</p>
+          )}
         </div>
       </CardContent>
     </Card>

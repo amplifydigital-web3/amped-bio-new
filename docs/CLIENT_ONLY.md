@@ -45,6 +45,7 @@ Client-only mode uses a special environment configuration file at `apps/client/.
 ### Mock Data
 
 Mock data is defined in:
+
 - `apps/client/src/utils/trpc/links/mock/mock-data.ts`
 - `apps/client/src/utils/trpc/links/mock/mock-link.ts`
 

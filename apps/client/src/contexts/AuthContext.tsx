@@ -217,7 +217,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_USER, JSON.stringify(user));
         setIsAuthenticated(true);
 
-        // We don't need to connect to wallet here anymore
         // The dedicated effect above will handle the connection when token and Web3Auth are ready
       } else {
         // Token is invalid, try to refresh

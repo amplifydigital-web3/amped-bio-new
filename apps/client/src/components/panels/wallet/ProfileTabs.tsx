@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
-import { useAccount, useBalance } from "wagmi";
+import { useState, useEffect, useMemo } from "react";
+import { useAccount, useBalance, useChainId } from "wagmi";
 import { Coins, Image, Clock, Plus, Loader, AlertCircle } from "lucide-react";
 import { Tooltip } from "../../ui/Tooltip";
 import NFTModal from "./NFTModal";
+import { getChainConfig } from "@ampedbio/web3";
 
 type TabType = "tokens" | "nfts" | "history";
 
@@ -45,15 +46,23 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
   const nftsPerPage = 4;
 
   const { address } = useAccount();
+  const chainId = useChainId();
   const { data: revoBalance, isLoading: isRevoBalanceLoading } = useBalance({
     address: address,
   });
 
+  const chain = useMemo(() => {
+    return getChainConfig(chainId);
+  }, [chainId]);
+
+  const explorerUrl = chain?.blockExplorers?.default.url;
+  const explorerApiUrl = chain?.blockExplorers?.default.apiUrl;
+
   useEffect(() => {
-    if (activeTab === "history" && address && !loading) {
+    if (activeTab === "history" && address && chain && !loading) {
       fetchTransactions(address);
     }
-  }, [activeTab, address, revoBalance, loading]);
+  }, [activeTab, address, revoBalance, chain, loading]);
 
   const fetchTransactions = async (walletAddress: string) => {
     setTransactionsLoading(true);
@@ -67,7 +76,7 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
       const fromDate = sevenDaysAgo.toISOString();
 
       const response = await fetch(
-        `https://api.dev.revoscan.io/transactions?address=${walletAddress}&limit=10&page=1&toDate=${toDate}&fromDate=${fromDate}`
+        `${explorerApiUrl}/transactions?address=${walletAddress}&limit=10&page=1&toDate=${toDate}&fromDate=${fromDate}`
       );
       if (!response.ok) {
         throw new Error("Failed to fetch transactions");
@@ -156,7 +165,7 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
             </div>
           </div>
         );
-      
+
       case "nfts":
         return (
           <div className="py-6">
@@ -416,7 +425,7 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       <Tooltip content={transaction.hash}>
                         <a
-                          href={`https://dev.revoscan.io/tx/${transaction.hash}`}
+                          href={`${explorerUrl}/tx/${transaction.hash}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-blue-600 hover:underline cursor-pointer"
@@ -431,7 +440,7 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <Tooltip content={transaction.from}>
                         <a
-                          href={`https://dev.revoscan.io/address/${transaction.from}#transactions`}
+                          href={`${explorerUrl}/address/${transaction.from}#transactions`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-blue-600 hover:underline cursor-pointer"
@@ -452,7 +461,7 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <Tooltip content={transaction.to}>
                         <a
-                          href={`https://dev.revoscan.io/address/${transaction.to}#transactions`}
+                          href={`${explorerUrl}/address/${transaction.to}#transactions`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-blue-600 hover:underline cursor-pointer"

@@ -33,11 +33,27 @@ export type Theme = {
   config: ThemeConfig;
 };
 
+export type EditorPanelType =
+  | "home"
+  | "profile"
+  | "reward"
+  | "gallery"
+  | "appearance"
+  | "effects"
+  | "blocks"
+  | "rewardPools"
+  | "createRewardPool"
+  | "leaderboard"
+  | "rns"
+  | "wallet"
+  | "pay"
+  | "account";
+
 export type EditorState = {
   profile: UserProfile;
   blocks: BlockType[];
   theme: Theme;
-  activePanel: string;
+  activePanel: EditorPanelType;
   gallery: GalleryImage[];
   marketplaceView: "grid" | "list";
   marketplaceFilter: string;

@@ -2,8 +2,9 @@ import { Plus, ArrowUpRight, ArrowDownLeft } from "lucide-react";
 import React, { useState } from "react";
 import FundWalletDialog from "./dialogs/FundWalletDialog";
 import ReceiveDialog from "./dialogs/ReceiveDialog";
-import SendDialog from "./dialogs/SendDialog";
 import { useWalletContext } from "@/contexts/WalletContext";
+import PayModal from "../pay/dialogs/PayDialog";
+import usePayDialog from "@/hooks/usePayDialog";
 
 type WalletBalanceProps = {
   loading?: boolean;
@@ -11,10 +12,10 @@ type WalletBalanceProps = {
 
 const WalletBalance: React.FC<WalletBalanceProps> = ({ loading = false }) => {
   const wallet = useWalletContext();
-  
   const [showReceiveModal, setShowReceiveModal] = useState(false);
-  const [showSendModal, setShowSendModal] = useState(false);
   const [showFundModal, setShowFundModal] = useState(false);
+
+  const payDialogHook = usePayDialog();
 
   // Skeleton Loading State
   if (loading) {
@@ -59,7 +60,9 @@ const WalletBalance: React.FC<WalletBalanceProps> = ({ loading = false }) => {
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 space-y-2 sm:space-y-0">
         <h3 className="text-lg font-semibold text-gray-900">Wallet Balance</h3>
-        <div className="flex items-center space-x-3">
+        {/* Currency Toggle (REVO/USD) - Disabled for now
+        }
+        {/* <div className="flex items-center space-x-3">
           <span
             className={`text-sm font-medium transition-colors duration-200 ${!wallet.isUSD ? "text-purple-600" : "text-gray-500"}`}
           >
@@ -81,28 +84,19 @@ const WalletBalance: React.FC<WalletBalanceProps> = ({ loading = false }) => {
           >
             USD
           </span>
-        </div>
+        </div>*/}
       </div>
 
       {/* Balance Display */}
       <div className="mb-4 sm:mb-6">
         <div className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-          {wallet.balance?.isLoading
-            ? "Loading..."
-            : wallet.isUSD
-              ? `$${(parseFloat(wallet.balance?.data?.formatted ?? "0") * 2.5).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-              : `${parseFloat(wallet.balance?.data?.formatted ?? "0").toFixed(4)} ${wallet.balance?.data?.symbol ?? "REVO"}`}
+          {wallet.balance?.data !== undefined
+            ? wallet.balance.isLoading
+              ? "Loading..."
+              : `${parseFloat(wallet.balance!.data!.formatted ?? "0").toFixed(8)} ${wallet.balance!.data!.symbol ?? "REVO"}`
+            : "-"}
         </div>
       </div>
-
-      {/* Earnings Chart */}
-      {/* <div className="mb-4">
-              <Suspense
-                fallback={<div className="h-32 w-full bg-gray-100 rounded-lg animate-pulse"></div>}
-              >
-                <EarningsChart />
-              </Suspense>
-            </div> */}
 
       {/* Action Buttons */}
       <div className="grid grid-cols-3 gap-2 sm:gap-3">
@@ -115,7 +109,7 @@ const WalletBalance: React.FC<WalletBalanceProps> = ({ loading = false }) => {
         </button>
 
         <button
-          onClick={() => setShowSendModal(true)}
+          onClick={() => payDialogHook.openPayDialog()}
           className="flex flex-col items-center justify-center p-2 sm:p-3 bg-green-50 hover:bg-green-100 text-green-600 rounded-lg transition-colors duration-200 group touch-manipulation"
         >
           <ArrowUpRight className="w-4 h-4 sm:w-5 sm:h-5 mb-1 group-hover:scale-110 transition-transform duration-200" />
@@ -131,13 +125,13 @@ const WalletBalance: React.FC<WalletBalanceProps> = ({ loading = false }) => {
         </button>
       </div>
 
-      <FundWalletDialog open={showFundModal} onOpenChange={setShowFundModal} />
-
-      <SendDialog
-        open={showSendModal}
-        onOpenChange={setShowSendModal}
-        // onSend={handleSendTransaction}
+      <FundWalletDialog
+        open={showFundModal}
+        onOpenChange={setShowFundModal}
+        openReceiveModal={() => setShowReceiveModal(true)}
       />
+
+      <PayModal hook={payDialogHook} />
 
       <ReceiveDialog open={showReceiveModal} onOpenChange={setShowReceiveModal} />
     </div>

@@ -1,4 +1,4 @@
-import { cleanEnv, str, port, bool } from "envalid";
+import { cleanEnv, str, port, bool, num } from "envalid";
 
 export const env = cleanEnv(process.env, {
   NODE_ENV: str({
@@ -110,6 +110,25 @@ export const env = cleanEnv(process.env, {
     desc: "Secret key for Google reCAPTCHA verification",
     default: "",
   }),
+
+  // File upload size limits (in MB)
+  UPLOAD_LIMIT_BACKGROUND_MB: num({
+    desc: "Maximum file size in MB for background uploads",
+    default: 5,
+    example: "5",
+  }),
+  UPLOAD_LIMIT_PROFILE_PHOTO_MB: num({
+    desc: "Maximum file size in MB for profile photo uploads",
+    default: 1,
+    example: "1",
+  }),
+  UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB: num({
+    desc: "Maximum file size in MB for collection thumbnail uploads",
+    default: 2,
+    example: "2",
+  }),
+
+  // oauth vars
   GOOGLE_CLIENT_SECRET: str({
     desc: "Google OAuth 2.0 Client Secret",
     default: "",

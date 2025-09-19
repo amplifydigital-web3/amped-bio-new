@@ -1,10 +1,11 @@
 import { useState, useRef, ChangeEvent, useEffect } from "react";
 import { Image as ImageIcon, Upload } from "lucide-react";
 import {
-  ALLOWED_AVATAR_FILE_EXTENSIONS,
-  ALLOWED_AVATAR_FILE_TYPES,
-  MAX_ADMIN_AVATAR_FILE_SIZE,
+  ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS,
+  ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES,
 } from "@ampedbio/constants";
+import { trpc } from "../../../utils/trpc/trpc";
+import { useQuery } from "@tanstack/react-query";
 
 interface ThemeThumbnailSelectorProps {
   onFileSelect: (file: File | null) => void;
@@ -21,6 +22,7 @@ export function ThemeThumbnailSelector({
 }: ThemeThumbnailSelectorProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { data: adminUploadLimits } = useQuery(trpc.admin.upload.getLimits.queryOptions());
 
   // Update preview URL when selectedFile changes
   useEffect(() => {
@@ -58,23 +60,24 @@ export function ThemeThumbnailSelector({
     e.target.value = "";
 
     // Validate file type
-    if (!ALLOWED_AVATAR_FILE_TYPES.includes(file.type)) {
-      const errorMsg = `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()} images are allowed`;
+    if (!ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES.includes(file.type)) {
+      const errorMsg = `Only ${ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.join(", ").toUpperCase()} images are allowed`;
       onError?.(errorMsg);
       return;
     }
 
     // Validate file extension
     const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
-    if (!ALLOWED_AVATAR_FILE_EXTENSIONS.includes(fileExtension)) {
-      const errorMsg = `Only ${ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ")} file extensions are allowed`;
+    if (!ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.includes(fileExtension)) {
+      const errorMsg = `Only ${ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.join(", ")} file extensions are allowed`;
       onError?.(errorMsg);
       return;
     }
 
-    // Validate file size (max 50MB for admin)
-    if (file.size > MAX_ADMIN_AVATAR_FILE_SIZE) {
-      const errorMsg = `File size must be less than ${(MAX_ADMIN_AVATAR_FILE_SIZE / (1024 * 1024)).toFixed(2)}MB`;
+    // Validate file size using admin-specific limits
+    const maxFileSize = adminUploadLimits?.maxCollectionThumbnailFileSize || 50 * 1024 * 1024; // Fallback to 50MB if limits not loaded yet
+    if (file.size > maxFileSize) {
+      const errorMsg = `File size must be less than ${(maxFileSize / (1024 * 1024)).toFixed(2)}MB`;
       onError?.(errorMsg);
       return;
     }
@@ -168,14 +171,17 @@ export function ThemeThumbnailSelector({
         type="file"
         ref={fileInputRef}
         className="hidden"
-        accept={ALLOWED_AVATAR_FILE_TYPES.join(",")}
+        accept={ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES.join(",")}
         onChange={handleFileSelect}
       />
 
       {/* File Requirements */}
       <p className="text-xs text-gray-500">
-        {ALLOWED_AVATAR_FILE_EXTENSIONS.join(", ").toUpperCase()}. Max{" "}
-        {MAX_ADMIN_AVATAR_FILE_SIZE / (1024 * 1024)}MB.
+        {ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS.join(", ").toUpperCase()}. Max{" "}
+        {adminUploadLimits?.maxCollectionThumbnailFileSize
+          ? (adminUploadLimits.maxCollectionThumbnailFileSize / (1024 * 1024)).toFixed(2)
+          : "50"}
+        MB.
       </p>
     </div>
   );

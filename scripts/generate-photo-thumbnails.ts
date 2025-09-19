@@ -2,20 +2,20 @@
 
 /**
  * Photo Thumbnail Generator Script (TypeScript version)
- * 
+ *
  * This script reads photos from backgrounds.ts, generates thumbnails,
  * and saves both original photos and thumbnails in the same folder.
- * 
+ *
  * Requirements:
  * - ImageMagick must be installed on your system
  *   - macOS: `brew install imagemagick`
  *   - Ubuntu/Debian: `sudo apt-get install imagemagick`
  *   - Windows: Install from imagemagick.org or `choco install imagemagick`
- * 
+ *
  * How to run:
  * 1. Make sure ImageMagick is installed on your system
  * 2. Run the script: `npx tsx scripts/generate-photo-thumbnails.ts`
- * 
+ *
  * Output:
  * - Original photos and thumbnails are saved in the same directory
  * - Each thumbnail maintains the original filename with "_thumbnail" suffix
@@ -33,7 +33,7 @@ import type { Background } from "../apps/client/src/types/editor";
 const execAsync = promisify(exec);
 
 // Use a timestamp to ensure a unique directory for each run
-const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
 const TEMP_DIR = path.join(os.tmpdir(), `photo-thumbnails-${timestamp}`);
 const PHOTOS_DIR = path.join(TEMP_DIR, "photos-with-thumbnails");
 const ZIP_OUTPUT = path.resolve(__dirname, `../photos-with-thumbnails-${timestamp}.zip`);
@@ -50,20 +50,20 @@ interface ProcessResult {
 function extractFilenameFromUrl(url: string): string {
   // Remove query parameters from URL
   const urlWithoutParams = url.split("?")[0];
-  
+
   // Get the path portion from URL
   const parts = urlWithoutParams.split("/");
   const lastPart = parts[parts.length - 1];
-  
+
   // For Unsplash URLs, they typically have a random ID as the last part
   // We'll use this ID as the filename
   let filename = lastPart;
-  
+
   // If filename doesn't have an extension, add .jpg
   if (!filename.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
     filename += ".jpg";
   }
-  
+
   return filename;
 }
 
@@ -123,15 +123,15 @@ async function generateThumbnail(imagePath: string, outputPath: string): Promise
     const commands = [
       // Method 1: Simple resize with ImageMagick
       `convert "${imagePath}" -resize 300x300 "${outputPath}"`,
-      
+
       // Method 2: With quality reduction
       `convert "${imagePath}" -resize 300x300 -quality 80 "${outputPath}"`,
-      
+
       // Method 3: Force format
       `convert "${imagePath}" -resize 300x300 -format jpg "${outputPath}"`,
-      
+
       // Method 4: Alternative approach with thumbnail
-      `convert "${imagePath}" -thumbnail 300x300 "${outputPath}"`
+      `convert "${imagePath}" -thumbnail 300x300 "${outputPath}"`,
     ];
 
     for (const [index, command] of commands.entries()) {
@@ -140,7 +140,10 @@ async function generateThumbnail(imagePath: string, outputPath: string): Promise
         await execAsync(command);
 
         // Verify the thumbnail was created
-        const exists = await fs.stat(outputPath).then(() => true).catch(() => false);
+        const exists = await fs
+          .stat(outputPath)
+          .then(() => true)
+          .catch(() => false);
         if (exists) {
           console.log(`Thumbnail created successfully using method ${index + 1}`);
           return;
@@ -179,15 +182,15 @@ async function createZipFile(sourceDir: string, outputPath: string): Promise<voi
 async function checkRequirements(): Promise<boolean> {
   try {
     // Check if ImageMagick is installed
-    await execAsync('convert -version');
-    console.log('✓ ImageMagick is installed');
+    await execAsync("convert -version");
+    console.log("✓ ImageMagick is installed");
     return true;
   } catch (error) {
-    console.error('✕ ImageMagick is not installed or not in PATH');
-    console.log('\nPlease install ImageMagick:');
-    console.log('- macOS: brew install imagemagick');
-    console.log('- Ubuntu/Debian: sudo apt-get install imagemagick');
-    console.log('- Windows: Download from imagemagick.org or use choco install imagemagick');
+    console.error("✕ ImageMagick is not installed or not in PATH");
+    console.log("\nPlease install ImageMagick:");
+    console.log("- macOS: brew install imagemagick");
+    console.log("- Ubuntu/Debian: sudo apt-get install imagemagick");
+    console.log("- Windows: Download from imagemagick.org or use choco install imagemagick");
     return false;
   }
 }
@@ -249,7 +252,7 @@ async function main(): Promise<void> {
           console.log(`Processing photo: ${originalFilename}`);
           // Download photo
           await downloadFile(photo.value, localPhotoPath);
-          
+
           // Generate thumbnail
           await generateThumbnail(localPhotoPath, localThumbnailPath);
 

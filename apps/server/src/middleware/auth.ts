@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from "express";
+import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { JWTUser } from "../trpc/trpc";
 import { JWT_KEYS } from "../utils/token";
@@ -47,7 +47,7 @@ export const authMiddleware = (...requiredRoles: string[]) => {
       }
 
       next();
-    } catch (error) {
+    } catch {
       return res.status(401).json({ message: "Invalid token" });
     }
   };

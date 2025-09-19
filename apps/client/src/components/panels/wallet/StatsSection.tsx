@@ -1,11 +1,8 @@
 import { useState } from "react";
-import { DollarSign, Coins, TrendingUp, Gem, User, Trophy } from "lucide-react";
 import { StatBoxProps } from "./types";
 
 interface StatsSectionProps {
-  stats?: StatBoxProps[];
-  balanceFormatted?: string;
-  balanceSymbol?: string;
+  stats: StatBoxProps[];
 }
 
 function StatBox({ icon: Icon, label, value, tooltip, color, soon }: StatBoxProps) {
@@ -54,62 +51,10 @@ function StatBox({ icon: Icon, label, value, tooltip, color, soon }: StatBoxProp
   );
 }
 
-export function StatsSection({ stats, balanceFormatted, balanceSymbol }: StatsSectionProps) {
-  // If stats are provided, use them; otherwise use the default stats
-  const displayStats: StatBoxProps[] = stats || [
-    {
-      icon: DollarSign,
-      label: "Total REVO",
-      value: `${parseFloat(balanceFormatted ?? "0").toFixed(4)} ${balanceSymbol ?? "REVO"}`,
-      tooltip: "Total amount of REVO tokens in your wallet",
-      color: "bg-blue-100 text-blue-600",
-      soon: false,
-    },
-    {
-      icon: Coins,
-      label: "My Stake",
-      value: "8,750 REVO",
-      tooltip: "Total amount of REVO tokens you have staked across all pools",
-      color: "bg-indigo-100 text-indigo-600",
-      soon: true,
-    },
-    {
-      icon: TrendingUp,
-      label: "Staked to Me",
-      value: "15,420 REVO",
-      tooltip: "Total amount of REVO staked in pools you have created",
-      color: "bg-green-100 text-green-600",
-      soon: true,
-    },
-    {
-      icon: Gem,
-      label: "Earnings to Date",
-      value: "1,250 REVO",
-      tooltip: "Total rewards earned from all your staking activities",
-      color: "bg-purple-100 text-purple-600",
-      soon: true,
-    },
-    {
-      icon: User,
-      label: "Stakers Supporting You",
-      value: "89",
-      tooltip: "Number of users who have staked in pools you created",
-      color: "bg-yellow-100 text-yellow-600",
-      soon: true,
-    },
-    {
-      icon: Trophy,
-      label: "Creator Pools Joined",
-      value: "6",
-      tooltip: "Number of different reward pools you are currently participating in",
-      color: "bg-pink-100 text-pink-600",
-      soon: true,
-    },
-  ];
-
+export function StatsSection({ stats }: StatsSectionProps) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
-      {displayStats.map((stat, index) => (
+      {stats.map((stat, index) => (
         <StatBox
           key={index}
           icon={stat.icon}

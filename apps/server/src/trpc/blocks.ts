@@ -1,4 +1,4 @@
-import { privateProcedure, router } from "./trpc";
+import { privateProcedure, publicProcedure, router } from "./trpc";
 import { z } from "zod";
 import { prisma } from "../services/DB";
 import { TRPCError } from "@trpc/server";
@@ -215,6 +215,28 @@ export const blocksRouter = router({
         code: "INTERNAL_SERVER_ERROR",
         message: "Server error",
       });
+    }
+  }),
+
+  registerClick: publicProcedure.input(blockIdParamSchema).mutation(async ({ input }) => {
+    const { id } = input;
+
+    try {
+      await prisma.block.update({
+        where: {
+          id: id,
+        },
+        data: {
+          clicks: {
+            increment: 1,
+          },
+        },
+      });
+
+      return true;
+    } catch (error) {
+      console.error(`error registering click for block ${id}`, error);
+      return false;
     }
   }),
 });

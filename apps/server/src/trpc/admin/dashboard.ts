@@ -1,9 +1,5 @@
 import { adminProcedure, router } from "../trpc";
 import { prisma } from "../../services/DB";
-import { env } from "../../env";
-import { createPublicClient, formatEther, http } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
-import { getChainConfig } from "../../utils/chainConfig";
 
 export const dashboardRouter = router({
   getDashboardStats: adminProcedure.query(async () => {
@@ -63,65 +59,6 @@ export const dashboardRouter = router({
     // Calculate average blocks per user
     const averageBlocksPerUser = totalUsers > 0 ? totalBlocks / totalUsers : 0;
 
-    // Get wallet information for faucet
-    let faucetWalletInfo:
-      | {
-          address: string;
-          balance: string;
-          formattedBalance: string;
-          remainingAirdrops: number;
-          faucetAmount: number;
-          currency: string;
-          isMockMode: boolean;
-        }
-      | { error: string }
-      | null = null;
-    try {
-      if (!env.FAUCET_PRIVATE_KEY) {
-        faucetWalletInfo = {
-          error: "Faucet not configured",
-        };
-      } else {
-        // Get chain configuration from centralized utility
-        const chain = getChainConfig();
-
-        // Create account from private key
-        const account = privateKeyToAccount(env.FAUCET_PRIVATE_KEY as `0x${string}`);
-
-        // Create public client for fetching blockchain data
-        const publicClient = createPublicClient({
-          chain,
-          transport: http(chain.rpcUrls.default.http[0]),
-        });
-
-        // Get wallet balance
-        const balance = await publicClient.getBalance({ address: account.address });
-
-        // Format balance to human-readable format
-        const formattedBalance = formatEther(balance);
-
-        // Calculate remaining airdrops based on balance and faucet amount
-        const faucetAmount = Number(env.FAUCET_AMOUNT);
-        const remainingAirdrops =
-          faucetAmount > 0 ? parseFloat(formattedBalance) / faucetAmount : 0;
-
-        faucetWalletInfo = {
-          address: account.address,
-          balance: balance.toString(),
-          formattedBalance,
-          remainingAirdrops: Math.floor(remainingAirdrops),
-          faucetAmount,
-          currency: chain.nativeCurrency.symbol,
-          isMockMode: env.FAUCET_MOCK_MODE === "true",
-        };
-      }
-    } catch (error) {
-      console.error("Error getting faucet wallet info:", error);
-      faucetWalletInfo = {
-        error: "Failed to get faucet wallet information",
-      };
-    }
-
     return {
       userStats: {
         totalUsers,
@@ -135,7 +72,6 @@ export const dashboardRouter = router({
         averageBlocksPerUser: parseFloat(averageBlocksPerUser.toFixed(1)),
         mostPopularBlockType: mostPopularBlockType.length > 0 ? mostPopularBlockType[0].type : null,
       },
-      faucetWalletInfo,
     };
   }),
 });

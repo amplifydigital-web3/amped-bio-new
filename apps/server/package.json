@@ -5,17 +5,10 @@
   "engines": {
     "node": ">=20.19.1"
   },
-  "main": "./dist/trpc/index.js",
-  "exports": {
-    "./trpc": {
-      "import": "./dist/trpc/index.js",
-      "types": "./dist/trpc/index.d.ts"
-    }
-  },
   "scripts": {
     "start": "node dist/index.js",
-    "dev": "nodemon --verbose -r dotenv/config src/index.ts",
-    "build": "tsc",
+    "dev": "tsx watch -r dotenv/config src/index.ts",
+    "build": "tsc && ts-add-js-extension --dir=dist",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix --exit-on-fatal-error",
     "postbuild": "pnpm run prisma:migrate",
@@ -32,6 +25,7 @@
     "@prisma/client": "6.7.0",
     "@react-email/components": "^0.0.36",
     "@react-email/render": "^1.0.6",
+    "@ampedbio/web3": "workspace:*",
     "@trpc/server": "^11.1.2",
     "@vercel/related-projects": "^1.0.0",
     "aws-sdk": "^2.1692.0",
@@ -48,15 +42,17 @@
     "express-async-errors": "^3.1.1",
     "google-auth-library": "^10.2.1",
     "helmet": "^8.1.0",
+    "jose": "^5.6.3",
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^6.10.0",
     "prisma": "^6.2.1",
     "react": "^19",
     "react-dom": "^19",
-    "viem": "^2.28.1",
-    "zod": "^3.25.64"
+    "viem": "2.34.0",
+    "zod": "3.25.64"
   },
   "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
     "@types/bcrypt": "^5.0.2",
     "@types/compression": "^1.7.5",
     "@types/cookie-parser": "^1.4.9",
@@ -68,8 +64,9 @@
     "@types/pg": "^8.11.0",
     "@types/react": "^18.3.5",
     "nodemon": "^3.0.3",
-    "ts-node": "^10.9.2",
+    "ts-add-js-extension": "^1.6.6",
+    "tsc-alias": "^1.8.16",
     "tsx": "^4.19.3",
-    "typescript": "^5.7.2"
+    "typescript": "5.9.2"
   }
 }

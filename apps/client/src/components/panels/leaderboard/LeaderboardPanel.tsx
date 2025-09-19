@@ -1,6 +1,5 @@
-import React from "react";
 import { useEditor } from "../../../contexts/EditorContext";
-import { CreatorPoolDetail } from "../creatorpool/CreatorPoolDetail";
+// import { CreatorPoolDetail } from "../rewardpools/CreatorPoolDetail";
 import { CoinsIcon, Users, TrendingUp, Crown } from "lucide-react";
 
 interface Pool {
@@ -99,9 +98,9 @@ export function LeaderboardPanel() {
     return new Intl.NumberFormat("en-US").format(value);
   };
 
-  if (selectedPoolId) {
-    return <CreatorPoolDetail poolId={selectedPoolId} onBack={() => setSelectedPoolId(null)} />;
-  }
+  // if (selectedPoolId) {
+  //   return <CreatorPoolDetail poolId={selectedPoolId} onBack={() => setSelectedPoolId(null)} />;
+  // }
 
   return (
     <div className="p-6 space-y-8">

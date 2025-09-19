@@ -9,32 +9,20 @@ import { GalleryPanel } from "./panels/gallery/GalleryPanel";
 import { AppearancePanel } from "./panels/appearance/AppearancePanel";
 import { EffectsPanel } from "./panels/effects/EffectsPanel";
 import { BlocksPanel } from "./panels/blocks/BlocksPanel";
-import { CreatorPoolPanel } from "./panels/creatorpool/CreatorPoolPanel";
+import { RewardPoolPage } from "./panels/createrewardpool/CreatorPoolPanel.tsx";
 import { LeaderboardPanel } from "./panels/leaderboard/LeaderboardPanel";
 import { RNSPanel } from "./panels/rns/RNSPanel";
 import { HomePanel } from "./panels/home/HomePanel";
 import { MyWalletPanel } from "./panels/wallet/MyWalletPanel";
 import { Eye } from "lucide-react";
 import RewardPanel from "./panels/reward/RewardPanel.tsx";
-import { useAuth } from "@/contexts/AuthContext.tsx";
+import { EditorPanelType } from "@/types/editor.ts";
+import PayPanel from "./panels/pay/PayPanel.tsx";
+import RewardsPage from "./panels/rewardpools/RewardsPanel.tsx";
 
 interface LayoutProps {
   onelink: string;
 }
-
-type PanelType =
-  | "home"
-  | "profile"
-  | "reward"
-  | "gallery"
-  | "appearance"
-  | "effects"
-  | "blocks"
-  | "creatorpool"
-  | "leaderboard"
-  | "rns"
-  | "wallet"
-  | "account";
 
 interface PanelConfig {
   layout: "single" | "two-column";
@@ -45,19 +33,19 @@ export function Layout(props: LayoutProps) {
   const { onelink } = props;
   const { activePanel, profile, blocks, theme } = useEditor();
   // const emailVerified = useAuth(state => state.authUser.emailVerified);
-  const { authUser } = useAuth();
-  const isLoggedIn = authUser !== null;
 
   // Define layout configuration for each panel
-  const panelConfigs: Record<PanelType, PanelConfig> = {
+  const panelConfigs: Record<EditorPanelType, PanelConfig> = {
     // Single column pages (full width)
     home: { layout: "single", width: "full" },
     reward: { layout: "single", width: "full" },
     wallet: { layout: "single", width: "full" },
+    pay: { layout: "single", width: "full" },
     account: { layout: "single", width: "full" },
 
     // Two column pages with wide panels (for data-heavy content)
-    creatorpool: { layout: "two-column", width: "wide" },
+    rewardPools: { layout: "single", width: "full" },
+    createRewardPool: { layout: "single", width: "full" },
     leaderboard: { layout: "two-column", width: "wide" },
     rns: { layout: "two-column", width: "wide" },
 
@@ -69,7 +57,7 @@ export function Layout(props: LayoutProps) {
     blocks: { layout: "two-column", width: "standard" },
   };
 
-  const currentConfig = panelConfigs[activePanel as PanelType] || {
+  const currentConfig = panelConfigs[activePanel as EditorPanelType] || {
     layout: "two-column",
     width: "standard",
   };
@@ -90,20 +78,18 @@ export function Layout(props: LayoutProps) {
           {/* Header - Now always visible regardless of panel */}
           <div className="h-16 border-b bg-white px-6 flex items-center justify-between shrink-0 shadow-sm z-[10] overflow-x-auto">
             {/* View Button - Only show for logged in users */}
-            {isLoggedIn && (
-              <div className="max-h-10 flex-shrink-0">
-                <Link
-                  to={`/${onelink}`}
-                  className="px-2 py-1 md:px-4 md:py-2 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-colors flex items-center space-x-1 md:space-x-2"
-                >
-                  <Eye className="w-3 h-3 md:w-4 md:h-4" />
-                  <span className="text-xs md:text-sm font-medium">View Page</span>
-                </Link>
-              </div>
-            )}
-            {!isLoggedIn && <div></div>}
+            <div className="max-h-10 flex-shrink-0">
+              <Link
+                to={`/${onelink}`}
+                className="px-2 py-1 md:px-4 md:py-2 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-colors flex items-center space-x-1 md:space-x-2"
+              >
+                <Eye className="w-3 h-3 md:w-4 md:h-4" />
+                <span className="text-xs md:text-sm font-medium">View Page</span>
+              </Link>
+            </div>
+
             <div className="flex items-center justify-end flex-shrink-0 ml-2">
-              {isLoggedIn && <SaveButton />}
+              <SaveButton />
               <UserMenu />
             </div>
           </div>
@@ -124,7 +110,9 @@ export function Layout(props: LayoutProps) {
               {activePanel === "effects" && <EffectsPanel />}
               {activePanel === "blocks" && <BlocksPanel />}
               {activePanel === "wallet" && <MyWalletPanel />}
-              {activePanel === "creatorpool" && <CreatorPoolPanel />}
+              {activePanel === "pay" && <PayPanel />}
+              {activePanel === "rewardPools" && <RewardsPage />}
+              {activePanel === "createRewardPool" && <RewardPoolPage />}
               {activePanel === "leaderboard" && <LeaderboardPanel />}
               {activePanel === "rns" && <RNSPanel />}
             </div>
