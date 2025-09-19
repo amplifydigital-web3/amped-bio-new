@@ -48,7 +48,6 @@ const allNavItems: Array<{
     icon: CoinsIcon,
     label: "Reward Pools",
     environmentFlag: "VITE_SHOW_CREATOR_POOL",
-    alwaysShow: true,
   },
   // {
   //   id: "leaderboard",
