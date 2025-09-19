@@ -10,7 +10,7 @@ console.info("Web3Auth Default Chain ID:", defaultChainId);
 const web3AuthOptions: Web3AuthOptions = {
   defaultChainId,
   clientId,
-  enableLogging: false,
+  enableLogging: true,
   web3AuthNetwork: web3AuthNetwork,
 };
 
