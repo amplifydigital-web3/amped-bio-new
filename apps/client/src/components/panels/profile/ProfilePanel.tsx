@@ -3,11 +3,12 @@ import { ProfileForm } from "./ProfileForm";
 import { ImageUploader } from "./ImageUploader";
 import { useEditor } from "../../../contexts/EditorContext";
 import { URLPicker } from "./URLPicker";
+import { EffectsTabContent } from "./EffectsTabContent";
 import { Download, Upload, AlertTriangle } from "lucide-react";
 
 export function ProfilePanel() {
   const { profile, theme, setProfile, exportTheme, importTheme } = useEditor();
-  const [activeTab, setActiveTab] = useState("general");
+  const [activeTab, setActiveTab] = useState<"general" | "appearance" | "effects" | "theme">("general");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Check if theme is from server (user_id = null)
@@ -77,6 +78,7 @@ export function ProfilePanel() {
           >
             Effects
           </button>
+
           <button
             className={`px-3 py-2 text-sm font-medium rounded-md ${
               activeTab === "theme"
@@ -130,12 +132,7 @@ export function ProfilePanel() {
         )}
 
         {activeTab === "effects" && (
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Effects</h2>
-            <p className="text-sm text-gray-500">
-              Apply special effects to your profile.
-            </p>
-          </div>
+          <EffectsTabContent />
         )}
 
         {activeTab === "theme" && (

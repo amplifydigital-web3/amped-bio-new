@@ -39,7 +39,6 @@ export type EditorPanelType =
   | "reward"
   | "gallery"
   | "appearance"
-  | "effects"
   | "blocks"
   | "rewardPools"
   | "createRewardPool"
