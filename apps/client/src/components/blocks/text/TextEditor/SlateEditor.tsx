@@ -164,7 +164,7 @@ const TextEditor = ({ initialValue, onSave, debounceTime = 1000 }: RichTextEdito
         placeholder="Enter some rich text…"
         spellCheck
         autoFocus
-        className="min-h-[200px] p-2"
+        className="min-h-[200px] p-2 border border-gray-400 rounded-md"
       />
     </Slate>
   );

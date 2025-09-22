@@ -56,25 +56,26 @@ export function ProfilePanel() {
           >
             General
           </button>
+
           <button
             className={`px-3 py-2 text-sm font-medium rounded-md ${
-              activeTab === "photo"
+              activeTab === "appearance"
                 ? "bg-gray-100 text-gray-900"
                 : "text-gray-500 hover:text-gray-700"
             }`}
-            onClick={() => setActiveTab("photo")}
+            onClick={() => setActiveTab("appearance")}
           >
-            Profile Photo
+            Appearance
           </button>
           <button
             className={`px-3 py-2 text-sm font-medium rounded-md ${
-              activeTab === "url"
+              activeTab === "effects"
                 ? "bg-gray-100 text-gray-900"
                 : "text-gray-500 hover:text-gray-700"
             }`}
-            onClick={() => setActiveTab("url")}
+            onClick={() => setActiveTab("effects")}
           >
-            URL Settings
+            Effects
           </button>
           <button
             className={`px-3 py-2 text-sm font-medium rounded-md ${
@@ -84,7 +85,7 @@ export function ProfilePanel() {
             }`}
             onClick={() => setActiveTab("theme")}
           >
-            Theme Management
+            Theme
           </button>
         </nav>
       </div>
@@ -92,19 +93,13 @@ export function ProfilePanel() {
       <div className="p-6 space-y-8">
         {activeTab === "general" && (
           <>
-            <div className="space-y-2">
+            {/* <div className="space-y-2">
               <h2 className="text-lg font-semibold text-gray-900">Profile</h2>
               <p className="text-sm text-gray-500">
                 Customize your profile information and appearance
               </p>
-            </div>
+            </div> */}
 
-            <ProfileForm profile={profile} onUpdate={handleProfileUpdate} />
-          </>
-        )}
-
-        {activeTab === "photo" && (
-          <>
             <div className="space-y-2">
               <h2 className="text-lg font-semibold text-gray-900">Profile Photo</h2>
               <p className="text-sm text-gray-500">Upload or update your profile photo</p>
@@ -114,18 +109,33 @@ export function ProfilePanel() {
               imageUrl={profile.photoUrl || ""}
               onImageChange={url => handleProfileUpdate("photoUrl", url)}
             />
-          </>
-        )}
 
-        {activeTab === "url" && (
-          <>
-            <div className="space-y-2">
-              <h2 className="text-lg font-semibold text-gray-900">URL Settings</h2>
-              <p className="text-sm text-gray-500">Configure your profile URL</p>
-            </div>
+            <hr className="my-6 border-gray-200" />
+
+            <ProfileForm profile={profile} onUpdate={handleProfileUpdate} />
+
+            <hr className="my-6 border-gray-200" />
 
             <URLPicker />
           </>
+        )}
+
+        {activeTab === "appearance" && (
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Appearance</h2>
+            <p className="text-sm text-gray-500">
+              Customize the look and feel of your profile.
+            </p>
+          </div>
+        )}
+
+        {activeTab === "effects" && (
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Effects</h2>
+            <p className="text-sm text-gray-500">
+              Apply special effects to your profile.
+            </p>
+          </div>
         )}
 
         {activeTab === "theme" && (
