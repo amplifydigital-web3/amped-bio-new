@@ -12,12 +12,68 @@ export const dashboardRouter = router({
     lastWeek.setDate(lastWeek.getDate() - 7);
     lastWeek.setHours(0, 0, 0, 0);
 
+    // Two weeks ago date for filtering
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+    twoWeeksAgo.setHours(0, 0, 0, 0);
+
+    // Last month's date for filtering
+    const lastMonth = new Date();
+    lastMonth.setMonth(lastMonth.getMonth() - 1);
+    lastMonth.setHours(0, 0, 0, 0);
+
+    // Two months ago date for filtering
+    const twoMonthsAgo = new Date();
+    twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+    twoMonthsAgo.setHours(0, 0, 0, 0);
+
+    // This week's date for filtering
+    const thisWeek = new Date();
+    thisWeek.setDate(thisWeek.getDate() - 7);
+    thisWeek.setHours(0, 0, 0, 0);
+
+    // This month's date for filtering
+    const thisMonth = new Date();
+    thisMonth.setDate(1); // First day of current month
+    thisMonth.setHours(0, 0, 0, 0);
+
+    // First day of last month
+    const firstDayOfLastMonth = new Date();
+    firstDayOfLastMonth.setMonth(firstDayOfLastMonth.getMonth() - 1);
+    firstDayOfLastMonth.setDate(1);
+    firstDayOfLastMonth.setHours(0, 0, 0, 0);
+    
+    // Last day of last month
+    const lastDayOfLastMonth = new Date();
+    lastDayOfLastMonth.setDate(1); // First day of current month
+    lastDayOfLastMonth.setHours(0, 0, 0, 0);
+    lastDayOfLastMonth.setDate(lastDayOfLastMonth.getDate() - 1); // Last day of previous month
+
     // User statistics
     const totalUsers = await prisma.user.count();
     const newThisWeek = await prisma.user.count({
       where: {
         created_at: {
           gte: lastWeek,
+        },
+      },
+    });
+    
+    // Users last week
+    const usersLastWeek = await prisma.user.count({
+      where: {
+        created_at: {
+          gte: twoWeeksAgo,
+          lt: lastWeek,
+        },
+      },
+    });
+
+    // Count active users based on valid refresh tokens
+    const activeUsers = await prisma.refreshToken.count({
+      where: {
+        expiresAt: {
+          gte: new Date(), // Valid (not expired) refresh tokens
         },
       },
     });
@@ -43,6 +99,17 @@ export const dashboardRouter = router({
         },
       },
     });
+    
+    // Blocks created last week
+    const blocksCreatedLastWeek = await prisma.block.count({
+      where: {
+        created_at: {
+          gte: lastWeek,
+          lt: today,
+        },
+      },
+    });
+    
     const mostPopularBlockType = await prisma.block.groupBy({
       by: ["type"],
       _count: {
@@ -59,18 +126,90 @@ export const dashboardRouter = router({
     // Calculate average blocks per user
     const averageBlocksPerUser = totalUsers > 0 ? totalBlocks / totalUsers : 0;
 
+    // Click statistics
+    // Total clicks across all blocks
+    const totalClicksResult = await prisma.block.aggregate({
+      _sum: {
+        clicks: true,
+      },
+    });
+    const totalClicks = totalClicksResult._sum.clicks || 0;
+
+    // Clicks this week
+    const clicksThisWeekResult = await prisma.block.aggregate({
+      _sum: {
+        clicks: true,
+      },
+      where: {
+        updated_at: {
+          gte: thisWeek,
+        },
+      },
+    });
+    const clicksThisWeek = clicksThisWeekResult._sum.clicks || 0;
+
+    // Clicks last week
+    const clicksLastWeekResult = await prisma.block.aggregate({
+      _sum: {
+        clicks: true,
+      },
+      where: {
+        updated_at: {
+          gte: lastWeek,
+          lt: thisWeek,
+        },
+      },
+    });
+    const clicksLastWeek = clicksLastWeekResult._sum.clicks || 0;
+
+    // Clicks this month
+    const clicksThisMonthResult = await prisma.block.aggregate({
+      _sum: {
+        clicks: true,
+      },
+      where: {
+        updated_at: {
+          gte: thisMonth,
+        },
+      },
+    });
+    const clicksThisMonth = clicksThisMonthResult._sum.clicks || 0;
+
+    // Clicks last month
+    const clicksLastMonthResult = await prisma.block.aggregate({
+      _sum: {
+        clicks: true,
+      },
+      where: {
+        updated_at: {
+          gte: firstDayOfLastMonth,
+          lte: lastDayOfLastMonth,
+        },
+      },
+    });
+    const clicksLastMonth = clicksLastMonthResult._sum.clicks || 0;
+
     return {
       userStats: {
         totalUsers,
         newThisWeek,
+        usersLastWeek,
+        activeUsers,
         rewardProgramUsers,
         rewardProgramPercentage: parseFloat(rewardProgramPercentage.toFixed(1)),
       },
       blockStats: {
         totalBlocks,
         blocksCreatedToday,
+        blocksCreatedLastWeek,
         averageBlocksPerUser: parseFloat(averageBlocksPerUser.toFixed(1)),
         mostPopularBlockType: mostPopularBlockType.length > 0 ? mostPopularBlockType[0].type : null,
+        // Click statistics
+        totalClicks,
+        clicksThisWeek,
+        clicksLastWeek,
+        clicksThisMonth,
+        clicksLastMonth,
       },
     };
   }),

@@ -12,6 +12,7 @@ import {
   AdminLoadingSpinner,
   AdminLoadingError,
   AdminFaucetWalletStats,
+  AdminClickStats,
 } from "../../components/admin";
 import { AdminQuickActions } from "../../components/admin";
 
@@ -54,6 +55,13 @@ export function AdminDashboard() {
   // Direct access to the data returned from the server
   const userStats = dashboardStats?.userStats || null;
   const blockStats = dashboardStats?.blockStats || null;
+  const clickStats = {
+    totalClicks: blockStats?.totalClicks || 0,
+    clicksThisWeek: blockStats?.clicksThisWeek || 0,
+    clicksLastWeek: blockStats?.clicksLastWeek || 0,
+    clicksThisMonth: blockStats?.clicksThisMonth || 0,
+    clicksLastMonth: blockStats?.clicksLastMonth || 0,
+  };
 
   // Get recent users and top onelinks from query results
   const recentUsers = usersData?.users || [];
@@ -100,14 +108,29 @@ export function AdminDashboard() {
         isLoading={loading}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Users Stats */}
-        <AdminUserStats totalUsers={userStats.totalUsers} newThisWeek={userStats.newThisWeek} />
+        <AdminUserStats 
+          totalUsers={userStats.totalUsers} 
+          newThisWeek={userStats.newThisWeek} 
+          usersLastWeek={userStats.usersLastWeek}
+          activeUsers={userStats.activeUsers}
+        />
 
         {/* Blocks Stats */}
         <AdminBlockStats
           totalBlocks={blockStats.totalBlocks}
           blocksCreatedToday={blockStats.blocksCreatedToday}
+          blocksCreatedLastWeek={blockStats.blocksCreatedLastWeek}
+        />
+
+        {/* Click Stats */}
+        <AdminClickStats
+          totalClicks={clickStats.totalClicks}
+          clicksThisWeek={clickStats.clicksThisWeek}
+          clicksLastWeek={clickStats.clicksLastWeek}
+          clicksThisMonth={clickStats.clicksThisMonth}
+          clicksLastMonth={clickStats.clicksLastMonth}
         />
 
         {/* Reward Program Stats */}
