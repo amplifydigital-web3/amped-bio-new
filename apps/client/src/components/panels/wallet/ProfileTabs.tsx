@@ -132,7 +132,7 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
     try {
       // Assuming gasPrice is in wei and we want to display it in Gwei or similar
       const gweiPrice = parseFloat(gasPrice) / Math.pow(10, 9);
-      return `${gweiPrice.toFixed(4)} Gwei`;
+      return `${gweiPrice.toFixed(4)} GweiR`;
     } catch (e) {
       return "N/A";
     }
