@@ -1,4 +1,5 @@
 import { useEditor } from "../contexts/EditorContext";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   User,
   LayoutGrid,
@@ -56,9 +57,16 @@ const allNavItems: Array<{
 export function Sidebar() {
   const editorState = useEditor();
   const { activePanel, setActivePanel } = editorState;
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const handlePanelClick = (id: EditorPanelType) => {
     setActivePanel(id);
+    
+    // Update the URL with the panel parameter
+    const searchParams = new URLSearchParams(location.search);
+    searchParams.set('p', id);
+    navigate(`${location.pathname}?${searchParams.toString()}`, { replace: true });
   };
 
   return (
