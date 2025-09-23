@@ -4,6 +4,7 @@ import { ImageUploader } from "./ImageUploader";
 import { useEditor } from "../../../contexts/EditorContext";
 import { URLPicker } from "./URLPicker";
 import { EffectsTabContent } from "./EffectsTabContent";
+import { AppearanceTabContent } from "./AppearanceTabContent";
 import { Download, Upload, AlertTriangle } from "lucide-react";
 
 export function ProfilePanel() {
@@ -123,12 +124,7 @@ export function ProfilePanel() {
         )}
 
         {activeTab === "appearance" && (
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Appearance</h2>
-            <p className="text-sm text-gray-500">
-              Customize the look and feel of your profile.
-            </p>
-          </div>
+          <AppearanceTabContent />
         )}
 
         {activeTab === "effects" && (

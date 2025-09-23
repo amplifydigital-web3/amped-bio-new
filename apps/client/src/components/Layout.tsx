@@ -6,7 +6,6 @@ import SaveButton from "./panels/SaveButton.tsx";
 import { useEditor } from "../contexts/EditorContext";
 import { ProfilePanel } from "./panels/profile/ProfilePanel";
 import { GalleryPanel } from "./panels/gallery/GalleryPanel";
-import { AppearancePanel } from "./panels/appearance/AppearancePanel";
 import { BlocksPanel } from "./panels/blocks/BlocksPanel";
 import { RewardPoolPage } from "./panels/createrewardpool/CreatorPoolPanel.tsx";
 import { LeaderboardPanel } from "./panels/leaderboard/LeaderboardPanel";
@@ -51,7 +50,6 @@ export function Layout(props: LayoutProps) {
     // Two column pages with standard panels (for editing/configuration)
     gallery: { layout: "two-column", width: "standard" },
     profile: { layout: "two-column", width: "standard" },
-    appearance: { layout: "two-column", width: "standard" },
     blocks: { layout: "two-column", width: "standard" },
   };
 
@@ -104,7 +102,6 @@ export function Layout(props: LayoutProps) {
               {activePanel === "profile" && <ProfilePanel />}
               {activePanel === "reward" && <RewardPanel />}
               {activePanel === "gallery" && <GalleryPanel />}
-              {activePanel === "appearance" && <AppearancePanel />}
               {activePanel === "blocks" && <BlocksPanel />}
               {activePanel === "wallet" && <MyWalletPanel />}
               {activePanel === "pay" && <PayPanel />}
