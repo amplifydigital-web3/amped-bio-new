@@ -1,23 +1,17 @@
 import { useState, useRef } from "react";
-import { ProfileForm } from "./ProfileForm";
-import { ImageUploader } from "./ImageUploader";
 import { useEditor } from "../../../contexts/EditorContext";
-import { URLPicker } from "./URLPicker";
 import { EffectsTabContent } from "./EffectsTabContent";
 import { AppearanceTabContent } from "./AppearanceTabContent";
+import { GeneralTabContent } from "./GeneralTabContent";
 import { Download, Upload, AlertTriangle } from "lucide-react";
 
 export function ProfilePanel() {
-  const { profile, theme, setProfile, exportTheme, importTheme } = useEditor();
+  const { theme, exportTheme, importTheme } = useEditor();
   const [activeTab, setActiveTab] = useState<"general" | "appearance" | "effects" | "theme">("general");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Check if theme is from server (user_id = null)
   const isServerTheme = theme.user_id === null;
-
-  const handleProfileUpdate = (field: string, value: string) => {
-    setProfile({ ...profile, [field]: value });
-  };
 
   const handleExportTheme = () => {
     const filename = prompt("Enter a name for your theme file:", "My Theme");
@@ -95,32 +89,7 @@ export function ProfilePanel() {
 
       <div className="p-6 space-y-8">
         {activeTab === "general" && (
-          <>
-            {/* <div className="space-y-2">
-              <h2 className="text-lg font-semibold text-gray-900">Profile</h2>
-              <p className="text-sm text-gray-500">
-                Customize your profile information and appearance
-              </p>
-            </div> */}
-
-            <div className="space-y-2">
-              <h2 className="text-lg font-semibold text-gray-900">Profile Photo</h2>
-              <p className="text-sm text-gray-500">Upload or update your profile photo</p>
-            </div>
-
-            <ImageUploader
-              imageUrl={profile.photoUrl || ""}
-              onImageChange={url => handleProfileUpdate("photoUrl", url)}
-            />
-
-            <hr className="my-6 border-gray-200" />
-
-            <ProfileForm profile={profile} onUpdate={handleProfileUpdate} />
-
-            <hr className="my-6 border-gray-200" />
-
-            <URLPicker />
-          </>
+          <GeneralTabContent />
         )}
 
         {activeTab === "appearance" && (

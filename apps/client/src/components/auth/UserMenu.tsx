@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { LogOut, User, Settings, ArrowRight, Wallet } from "lucide-react";
+import { LogOut, User, ArrowRight, Wallet } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useEditor } from "../../contexts/EditorContext";
 import { AuthModal } from "./AuthModal";
@@ -71,9 +71,7 @@ export function UserMenu() {
     return nav(`/@${authUser?.onelink}`);
   };
 
-  const handleNavigateToAccount = () => {
-    return nav("/account");
-  };
+  
 
   const handleNavigateToWallet = () => {
     if (authUser?.onelink) {
@@ -160,10 +158,7 @@ export function UserMenu() {
             <span>My Wallet</span>
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem onClick={handleNavigateToAccount}>
-          <Settings className="w-4 h-4 mr-2" />
-          <span>My Account</span>
-        </DropdownMenuItem>
+        
         <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
           <LogOut className="w-4 h-4 mr-2" />
           <span>Sign Out</span>

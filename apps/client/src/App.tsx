@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Editor } from "./pages/Editor";
 import { View } from "./pages/View";
-import { Account } from "./pages/Account";
+
 import { AdminLayout } from "./pages/admin/AdminLayout";
 import {
   AdminDashboard,
@@ -58,14 +58,7 @@ function AppRouter() {
         <Route path="settings" element={<AdminSettings />} />
       </Route>
 
-      <Route
-        path="/account"
-        element={
-          <ProtectedRoute>
-            <Account />
-          </ProtectedRoute>
-        }
-      />
+      
 
       {/* Authentication Routes */}
       <Route path="/auth/verify-email/:token?" element={<EmailVerification />} />

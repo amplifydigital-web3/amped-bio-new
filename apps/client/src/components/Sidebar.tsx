@@ -1,4 +1,3 @@
-import { useNavigate } from "react-router-dom";
 import { useEditor } from "../contexts/EditorContext";
 import {
   User,
@@ -7,7 +6,6 @@ import {
   CoinsIcon,
   AtSign,
   Home,
-  Settings,
   Wallet,
   Send,
 } from "lucide-react";
@@ -38,7 +36,7 @@ const allNavItems: Array<{
     environmentFlag: "VITE_SHOW_WALLET",
   },
   // { id: "reward", icon: Sparkle, label: "Reward", alwaysShow: false },
-  { id: "account", icon: Settings, label: "Account", alwaysShow: true },
+  
   {
     id: "rewardPools",
     icon: CoinsIcon,
@@ -58,14 +56,9 @@ const allNavItems: Array<{
 export function Sidebar() {
   const editorState = useEditor();
   const { activePanel, setActivePanel } = editorState;
-  const navigate = useNavigate();
 
   const handlePanelClick = (id: EditorPanelType) => {
-    if (id === "account") {
-      navigate("/account");
-    } else {
-      setActivePanel(id);
-    }
+    setActivePanel(id);
   };
 
   return (
