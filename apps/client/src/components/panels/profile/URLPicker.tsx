@@ -89,13 +89,13 @@ export function URLPicker() {
   };
 
   return (
-    <div className="w-full bg-white rounded-md p-4">
+    <div className="w-full bg-white rounded-md">
       <div className="space-y-2 mb-4">
         <h3 className="text-sm font-medium text-gray-700">Your Public URL</h3>
         <p className="text-xs text-gray-500">Choose a unique URL for your public profile</p>
       </div>
 
-      <div className="flex flex-col space-y-4">
+      <div className="flex flex-col">
         <div className="relative w-full">
           <div className="flex items-center w-full">
             <div className="bg-gray-100 text-gray-500 px-3 py-2 rounded-l-md border-y border-l border-gray-300 text-sm whitespace-nowrap">
