@@ -100,16 +100,24 @@ export function Editor() {
     setAuthorized(true);
   }, [normalizedOnelink, authUser, nav, formattedOnelink]);
 
-  // Set active panel from location state or default to home
+  // Set active panel from URL query parameter or location state
   useEffect(() => {
+    // Parse query parameters
+    const searchParams = new URLSearchParams(location.search);
+    const panelParam = searchParams.get("p");
+    
+    // Check if a specific panel was passed in the URL query parameter
+    if (panelParam) {
+      setActivePanel(panelParam as any);
+    } 
     // Check if a specific panel was passed in the navigation state
-    if (location.state && location.state.panel) {
+    else if (location.state && location.state.panel) {
       setActivePanel(location.state.panel);
     } else if (authUser === null) {
       // For unauthenticated users, set to home
       setActivePanel("home");
     }
-  }, [location.state, authUser, setActivePanel]);
+  }, [location.search, location.state, authUser, setActivePanel]);
 
   useEffect(() => {
     if (normalizedOnelink && normalizedOnelink !== profile.onelink) {

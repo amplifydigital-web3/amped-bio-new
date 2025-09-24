@@ -1,15 +1,12 @@
-import { useNavigate } from "react-router-dom";
 import { useEditor } from "../contexts/EditorContext";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   User,
-  Palette,
-  Sparkles,
   LayoutGrid,
   Image,
   CoinsIcon,
   AtSign,
   Home,
-  Settings,
   Wallet,
   Send,
 } from "lucide-react";
@@ -26,8 +23,6 @@ const allNavItems: Array<{
   { id: "home", icon: Home, label: "Home", alwaysShow: true },
   { id: "profile", icon: User, label: "Profile", alwaysShow: true },
   { id: "gallery", icon: Image, label: "Themes", alwaysShow: true },
-  { id: "appearance", icon: Palette, label: "Appearance", alwaysShow: true },
-  { id: "effects", icon: Sparkles, label: "Effects", alwaysShow: true },
   { id: "blocks", icon: LayoutGrid, label: "Blocks", alwaysShow: true },
   {
     id: "wallet",
@@ -42,7 +37,7 @@ const allNavItems: Array<{
     environmentFlag: "VITE_SHOW_WALLET",
   },
   // { id: "reward", icon: Sparkle, label: "Reward", alwaysShow: false },
-  { id: "account", icon: Settings, label: "Account", alwaysShow: true },
+  
   {
     id: "rewardPools",
     icon: CoinsIcon,
@@ -63,13 +58,15 @@ export function Sidebar() {
   const editorState = useEditor();
   const { activePanel, setActivePanel } = editorState;
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handlePanelClick = (id: EditorPanelType) => {
-    if (id === "account") {
-      navigate("/account");
-    } else {
-      setActivePanel(id);
-    }
+    setActivePanel(id);
+    
+    // Update the URL with the panel parameter
+    const searchParams = new URLSearchParams(location.search);
+    searchParams.set('p', id);
+    navigate(`${location.pathname}?${searchParams.toString()}`, { replace: true });
   };
 
   return (

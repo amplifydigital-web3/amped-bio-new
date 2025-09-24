@@ -1,6 +1,7 @@
 import SlateEditor from "@/components/blocks/text/TextEditor/SlateEditor";
 import type { UserProfile } from "../../../types/editor";
 import { Input } from "@/components/ui/Input";
+import { Label } from "@/components/ui/label";
 
 interface ProfileFormProps {
   profile: UserProfile;
@@ -24,13 +25,18 @@ export function ProfileForm({ profile, onUpdate }: ProfileFormProps) {
         placeholder="Your professional title or tagline"
       /> */}
 
-      <SlateEditor
-        // label="Bio"
-        initialValue={profile.bio}
-        onSave={e => onUpdate("bio", e)}
-        // placeholder="Tell your story..."
-        // rows={4}
-      />
+      <div>
+        <Label htmlFor="bio" className="text-sm font-medium text-gray-700">
+          Bio
+        </Label>
+        <SlateEditor
+          // label="Bio"
+          initialValue={profile.bio}
+          onSave={e => onUpdate("bio", e)}
+          // placeholder="Tell your story..."
+          // rows={4}
+        />
+      </div>
     </div>
   );
 }

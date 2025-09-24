@@ -38,8 +38,6 @@ export type EditorPanelType =
   | "profile"
   | "reward"
   | "gallery"
-  | "appearance"
-  | "effects"
   | "blocks"
   | "rewardPools"
   | "createRewardPool"
