@@ -4,7 +4,7 @@ import { Input } from "../../ui/Input";
 import { Textarea } from "../../ui/Textarea";
 import { Button } from "../../ui/Button";
 import { BlockType, LinkBlock } from "@ampedbio/constants";
-import { extractUsernameFromUrl, getPlatformName, getPlatformUrl } from "@/utils/platforms";
+import { extractUsernameFromUrl, getPlatformName, getPlatformUrl, type PlatformId } from "@/utils/platforms";
 import { z } from "zod";
 import { SubmitHandler, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -92,9 +92,14 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
     if (block.type === "link" && block.config.url && block.config.platform) {
       const values = { ...block.config };
       const username = extractUsernameFromUrl(block.config.platform, block.config.url);
+      // Only update the url field if we successfully extracted a username
+      // If extraction fails, we keep the original config, but this means the full URL
+      // might be displayed in the form field, which could cause issues on save
       if (username) {
         values.url = username;
       }
+      // If extraction failed, we leave values.url as block.config.url, which might be the full URL
+      // This can cause issues when saving, so we need to be careful in the submit handler
       return values;
     }
 
@@ -127,7 +132,24 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
         const typedConfig = data as LinkBlock["config"];
         // Only modify URL if we have both platform and username
         if (typedConfig.platform && typedConfig.platform !== "custom") {
-          typedConfig.url = getPlatformUrl(typedConfig.platform, typedConfig.url);
+          // Check if the url field already contains a complete URL for this platform
+          // to prevent double processing that can cause duplication
+          const platformUrlPattern = getPlatformUrl(typedConfig.platform, "").replace("{{username}}", "");
+          if (typedConfig.url.startsWith(platformUrlPattern)) {
+            // The URL field already contains a full URL for this platform, so don't process again
+            // We should extract the username properly and reconstruct it to validate format
+            const extractedUsername = extractUsernameFromUrl(typedConfig.platform as PlatformId, typedConfig.url);
+            if (extractedUsername) {
+              // Reconstruct with properly extracted username to ensure correct format
+              typedConfig.url = getPlatformUrl(typedConfig.platform, extractedUsername);
+            } else {
+              // If extraction fails, we have a malformed URL but avoid further corruption
+              // Keep as is to prevent more serious damage
+            }
+          } else {
+            // Normal case: treat the url field as a username/handle and construct the full URL
+            typedConfig.url = getPlatformUrl(typedConfig.platform, typedConfig.url);
+          }
         }
 
         onSave(typedConfig);
