@@ -40,6 +40,7 @@ export const mediaPlataforms = [
   "tiktok",
   "discord",
   "twitch",
+  "vimeo",
 ] as const;
 
 export type PlatformId = (typeof allowedPlatforms)[number];

@@ -18,7 +18,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { SlSocialSpotify } from "react-icons/sl";
-import { FaTiktok, FaXTwitter } from "react-icons/fa6";
+import { FaTiktok, FaXTwitter, FaVimeo } from "react-icons/fa6";
 import { type IconType } from "react-icons/lib";
 import { allowedPlatforms } from "@ampedbio/constants";
 
@@ -157,6 +157,12 @@ const platformsInfo: PlatformInfo[] = [
     name: "Spotify",
     icon: SlSocialSpotify,
     color: "#1DB954",
+  },
+  {
+    id: "vimeo",
+    name: "Vimeo",
+    icon: FaVimeo,
+    color: "#1AB394",
   },
   // Apps
   {

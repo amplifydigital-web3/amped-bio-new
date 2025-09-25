@@ -11,6 +11,7 @@ import { CreatorPoolBlock } from "./CreatorPoolBlock";
 import { MediaBlock as MediaBlockType } from "@ampedbio/constants";
 import { FacebookBlock } from "./FacebookBlock";
 import { TiktokBlock } from "./TiktokBlock";
+import { VimeoBlock } from "./VimeoBlock";
 
 interface MediaBlockProps {
   block: MediaBlockType;
@@ -41,6 +42,8 @@ export function MediaBlock({ block, theme }: MediaBlockProps) {
       return <FacebookBlock block={block} theme={theme} />;
     case "tiktok":
       return <TiktokBlock block={block} theme={theme} />;
+    case "vimeo":
+      return <VimeoBlock block={block} theme={theme} />;
     default:
       return null;
   }
