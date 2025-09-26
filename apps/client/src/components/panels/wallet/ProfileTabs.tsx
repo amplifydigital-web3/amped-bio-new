@@ -82,7 +82,7 @@ const RenderAddressProfile: React.FC<{ address: Address; explorerUrl: string }> 
             <User className="w-4 h-4 text-gray-400" />
           </div>
         )}
-        {data.onelink}
+        @{data.onelink}
       </a>
     </Tooltip>
   );
