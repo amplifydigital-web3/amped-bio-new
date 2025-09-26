@@ -560,14 +560,12 @@ export const walletRouter = router({
 
   // Get user details by wallet address
   getUserByAddress: privateProcedure
-    .input(z.string()) // Input is the wallet address
+    .input(z.object({ address: z.string().min(42).max(42) })) // Input is the wallet address
     .query(async ({ input }) => {
-      const address = input.toLowerCase(); // Normalize address to lowercase for consistent comparison
-
       // Find user by wallet address
       const userWallet = await prisma.userWallet.findUnique({
         where: {
-          address: address,
+          address: input.address as Address,
         },
         include: {
           user: {
@@ -586,7 +584,7 @@ export const walletRouter = router({
 
       return {
         name: userWallet.user.name,
-        littlelink: userWallet.user.onelink,
+        onelink: userWallet.user.onelink,
         image: userWallet.user.image,
       };
     }),
