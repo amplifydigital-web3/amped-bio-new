@@ -24,6 +24,7 @@ export const allowedPlatforms = [
   "email",
   "document",
   "custom",
+  "vimeo",
 ] as const;
 
 export const mediaPlataforms = [
@@ -40,6 +41,7 @@ export const mediaPlataforms = [
   "tiktok",
   "discord",
   "twitch",
+  "vimeo",
 ] as const;
 
 export type PlatformId = (typeof allowedPlatforms)[number];

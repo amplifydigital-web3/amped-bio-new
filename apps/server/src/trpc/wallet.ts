@@ -557,6 +557,37 @@ export const walletRouter = router({
         walletAddress: (user.wallet?.address as Address | undefined) ?? undefined,
       }));
     }),
+
+  // Get user details by wallet address
+  getUserByAddress: privateProcedure
+    .input(z.object({ address: z.string().min(42).max(42) })) // Input is the wallet address
+    .query(async ({ input }) => {
+      // Find user by wallet address
+      const userWallet = await prisma.userWallet.findUnique({
+        where: {
+          address: input.address as Address,
+        },
+        include: {
+          user: {
+            select: {
+              name: true,
+              onelink: true,
+              image: true,
+            },
+          },
+        },
+      });
+
+      if (!userWallet || !userWallet.user) {
+        return null; // Return null as requested when not found
+      }
+
+      return {
+        name: userWallet.user.name,
+        onelink: userWallet.user.onelink,
+        image: userWallet.user.image,
+      };
+    }),
 });
 
 // viem's publicKeyToAddress assumes the public key is uncompressed, but Web3Auth provides a compressed key.

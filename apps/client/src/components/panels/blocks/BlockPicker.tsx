@@ -47,6 +47,7 @@ const blockTypes: {
         type: "media",
       },
       { id: "tiktok", name: "TikTok", icon: getPlatformIcon("tiktok"), type: "media" },
+      { id: "vimeo", name: "Vimeo", icon: getPlatformIcon("vimeo"), type: "media" },
     ],
   },
   // {
