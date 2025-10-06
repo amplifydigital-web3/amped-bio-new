@@ -3,8 +3,7 @@ import React, { useState } from "react";
 import FundWalletDialog from "./dialogs/FundWalletDialog";
 import ReceiveDialog from "./dialogs/ReceiveDialog";
 import { useWalletContext } from "@/contexts/WalletContext";
-import PayModal from "../pay/dialogs/PayDialog";
-import usePayDialog from "@/hooks/usePayDialog";
+import { useEditor } from "@/contexts/EditorContext";
 
 type WalletBalanceProps = {
   loading?: boolean;
@@ -15,7 +14,7 @@ const WalletBalance: React.FC<WalletBalanceProps> = ({ loading = false }) => {
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showFundModal, setShowFundModal] = useState(false);
 
-  const payDialogHook = usePayDialog();
+  const { setActivePanel } = useEditor();
 
   // Skeleton Loading State
   if (loading) {
@@ -109,7 +108,7 @@ const WalletBalance: React.FC<WalletBalanceProps> = ({ loading = false }) => {
         </button>
 
         <button
-          onClick={() => payDialogHook.openPayDialog()}
+          onClick={() => setActivePanel("pay")}
           className="flex flex-col items-center justify-center p-2 sm:p-3 bg-green-50 hover:bg-green-100 text-green-600 rounded-lg transition-colors duration-200 group touch-manipulation"
         >
           <ArrowUpRight className="w-4 h-4 sm:w-5 sm:h-5 mb-1 group-hover:scale-110 transition-transform duration-200" />
@@ -130,8 +129,6 @@ const WalletBalance: React.FC<WalletBalanceProps> = ({ loading = false }) => {
         onOpenChange={setShowFundModal}
         openReceiveModal={() => setShowReceiveModal(true)}
       />
-
-      <PayModal hook={payDialogHook} />
 
       <ReceiveDialog open={showReceiveModal} onOpenChange={setShowReceiveModal} />
     </div>

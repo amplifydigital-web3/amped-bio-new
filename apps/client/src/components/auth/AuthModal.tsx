@@ -399,21 +399,6 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
           </button>
         </div>
 
-        {form === "register" && (
-          <p className="text-sm text-gray-600 mb-4 text-center">
-            Amped.Bio is more than a link-in-bio - it's your passport into the{" "}
-            <a
-              href="https://www.revolutionnetwork.io"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:text-blue-700 hover:underline"
-            >
-              Revolution Network
-            </a>
-            . Your amped.bio profile doubles as your wallet and hub for staking into Reward Pools.
-          </p>
-        )}
-
         {form === "login" && (
           <form
             onSubmit={handleSubmitLogin(onSubmitLogin)}
@@ -777,6 +762,20 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
             Privacy Policy
           </a>
         </p>
+        {(form === "login" || form === "register") && (
+          <p className="text-center text-sm text-gray-600 mt-3">
+            Amped.Bio is more than a link-in-bio - it's your passport into the{" "}
+            <a
+              href="https://www.revolutionnetwork.io"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-700 hover:underline"
+            >
+              Revolution Network
+            </a>
+            . Your amped.bio profile doubles as your wallet and hub for staking into Reward Pools.
+          </p>
+        )}
         <CaptchaDialog 
           isOpen={isOpen} 
           onClose={closeCaptcha}
