@@ -126,7 +126,7 @@ export const sendEmailChangeVerification = async (
 
   console.log("📨 Sending email change verification code...");
   return sendEmail({
-    to: newEmail, // Send to the new email address
+    to: email, // Send to the current/old email address for verification
     subject: "Amped.Bio Email Change Verification",
     html_body: htmlContent,
   });
