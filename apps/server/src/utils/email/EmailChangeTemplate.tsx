@@ -37,8 +37,7 @@ const EmailChangeTemplate = ({
               </Heading>
 
               <Text className="text-[16px] leading-[1.5em] text-[#3d4852] mt-0 text-left">
-                You've requested to change your email address from another account to this address (
-                <strong>{newEmail}</strong>). Please use the verification code below to confirm this
+                You've requested to change your email address to <strong>{newEmail}</strong>. Please use the verification code below to confirm this
                 change:
               </Text>
 

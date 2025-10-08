@@ -23,6 +23,7 @@ import { useAuth } from "@/contexts/AuthContext";
 // Define validation schemas using Zod
 const initiateEmailSchema = z
   .object({
+    currentEmail: z.string().email({ message: "Please enter a valid email address" }),
     newEmail: z.string().email({ message: "Please enter a valid email address" }),
     confirmEmail: z.string().email({ message: "Please enter a valid email address" }),
   })
@@ -52,6 +53,7 @@ export function EmailChangeDialog({ isOpen, onClose }: EmailChangeDialogProps) {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newEmail, setNewEmail] = useState("");
+  const [currentEmail, setCurrentEmail] = useState("");
   const [expiresAt, setExpiresAt] = useState<Date | null>(null);
   const [remainingTime, setRemainingTime] = useState<string | null>(null);
   const [retryAfterTimestamp, setRetryAfterTimestamp] = useState<Date | null>(null);
@@ -205,12 +207,14 @@ export function EmailChangeDialog({ isOpen, onClose }: EmailChangeDialogProps) {
 
     try {
       const response = await trpcClient.user.initiateEmailChange.mutate({
+        currentEmail: data.currentEmail,
         newEmail: data.newEmail,
       });
 
       if (response.success) {
         setStep("verification");
         setNewEmail(data.newEmail);
+        setCurrentEmail(data.currentEmail); // Store the current email for resending
         setExpiresAt(new Date(response.expiresAt));
       } else {
         setError(response.message || "Failed to send verification code");
@@ -261,6 +265,7 @@ export function EmailChangeDialog({ isOpen, onClose }: EmailChangeDialogProps) {
 
     try {
       const response = await trpcClient.user.resendEmailVerification.mutate({
+        currentEmail: currentEmail, // Use the current email the user entered when starting the process
         newEmail: newEmail,
       });
 
@@ -297,6 +302,7 @@ export function EmailChangeDialog({ isOpen, onClose }: EmailChangeDialogProps) {
       setSuccess(false);
       setError(null);
       setNewEmail("");
+      setCurrentEmail("");
       setExpiresAt(null);
       setRemainingTime(null);
       setResendCooldown(0); // Clear any active cooldown
@@ -381,16 +387,24 @@ export function EmailChangeDialog({ isOpen, onClose }: EmailChangeDialogProps) {
           <form onSubmit={handleSubmitInitiate(onSubmitInitiateEmail)} className="space-y-5">
             <div>
               <p className="text-sm text-gray-600 mb-5">
-                Enter your new email address below. We'll send a verification code to confirm the
+                Enter your current and new email addresses below. We'll send a verification code to your current email to confirm the
                 change.
               </p>
+            </div>
 
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Current Email
-              </label>
-              <div className="px-3.5 py-2.5 border border-gray-200 bg-gray-50 rounded-lg mb-4">
-                <p className="text-gray-700">{authUser?.email}</p>
-              </div>
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-gray-700">Current Email Address</label>
+              <input
+                type="email"
+                className={`w-full px-3.5 py-2.5 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  initiateErrors.currentEmail ? "border-red-500" : "border-gray-300"
+                }`}
+                placeholder="Enter your current email address"
+                {...registerInitiate("currentEmail")}
+              />
+              {initiateErrors.currentEmail && (
+                <p className="mt-1.5 text-sm text-red-600">{initiateErrors.currentEmail.message}</p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -410,7 +424,7 @@ export function EmailChangeDialog({ isOpen, onClose }: EmailChangeDialogProps) {
 
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-gray-700">
-                Confirm Email Address
+                Confirm New Email Address
               </label>
               <input
                 type="email"
@@ -455,7 +469,7 @@ export function EmailChangeDialog({ isOpen, onClose }: EmailChangeDialogProps) {
           // Step 2: Verify code form - Updated with Form components
           <div className="space-y-5">
             <p className="text-sm text-gray-600 mb-5">
-              We've sent a verification code to <span className="font-medium">{newEmail}</span>.
+              We've sent a verification code to your <span className="font-medium">current email ({authUser?.email})</span>.
               Enter the 6-digit code below to verify your new email address.
             </p>
 
