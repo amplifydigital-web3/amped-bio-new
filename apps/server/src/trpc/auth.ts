@@ -20,11 +20,7 @@ import { env } from "../env";
 import { addDays } from "date-fns";
 import { prisma } from "../services/DB";
 import type { User, CreatorPool } from "@prisma/client";
-
-// Helper function to hash refresh tokens with SHA-256
-function hashRefreshToken(token: string): string {
-  return crypto.createHash("sha256").update(token).digest("hex");
-}
+import { hashRefreshToken } from "../utils/tokenHash";
 
 // Helper function to set refresh token cookie
 function setRefreshTokenCookie(ctx: any, token: string, expiresAt?: Date) {

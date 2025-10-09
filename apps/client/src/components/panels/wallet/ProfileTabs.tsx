@@ -1,11 +1,19 @@
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useAccount, useBalance, useChainId } from "wagmi";
-import { Coins, Image, Clock, Plus, Loader, AlertCircle } from "lucide-react";
+import { Coins, Image, Clock, Plus, Loader, AlertCircle, User } from "lucide-react";
 import { Tooltip } from "../../ui/Tooltip";
 import NFTModal from "./NFTModal";
 import { getChainConfig } from "@ampedbio/web3";
+import { trpc } from "@/utils/trpc";
+import { useQuery } from "@tanstack/react-query";
+import { Address } from "viem";
 
 type TabType = "tokens" | "nfts" | "history";
+
+const formatAddress = (address: string) => {
+  if (!address) return "";
+  return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+};
 
 interface ProfileTabsProps {
   isEmpty?: boolean;
@@ -32,6 +40,53 @@ interface Transaction {
   method: string;
   receivedAt: string; // 2025-07-23T19:27:58.807Z
 }
+
+const RenderAddressProfile: React.FC<{ address: Address; explorerUrl: string }> = ({
+  address,
+  explorerUrl,
+}) => {
+  const { data } = useQuery(trpc.wallet.getUserByAddress.queryOptions({ address }));
+  const currentUrl = window.location.origin;
+
+  if (!data?.onelink) {
+    return (
+      <Tooltip content={address}>
+        <a
+          href={`${explorerUrl}/address/${address}#transactions`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:underline cursor-pointer"
+        >
+          {formatAddress(address)}
+        </a>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <Tooltip content={data.onelink}>
+      <a
+        href={`${currentUrl}/@${data.onelink}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-600 hover:underline cursor-pointer flex items-center"
+      >
+        {data.image ? (
+          <img
+            src={data.image}
+            alt="User Avatar"
+            className="w-6 h-6 rounded-full mr-2 object-cover"
+          />
+        ) : (
+          <div className="w-6 h-6 rounded-full mr-2 bg-gray-200 flex items-center justify-center">
+            <User className="w-4 h-4 text-gray-400" />
+          </div>
+        )}
+        @{data.onelink}
+      </a>
+    </Tooltip>
+  );
+};
 
 export default function ProfileTabs({ isEmpty = false, loading = false }: ProfileTabsProps) {
   const [activeTab, setActiveTab] = useState<TabType>("tokens");
@@ -91,11 +146,6 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
     }
   };
 
-  const formatAddress = (address: string) => {
-    if (!address) return "";
-    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
-  };
-
   const formatHash = (hash: string) => {
     if (!hash) return "";
     return `${hash.substring(0, 6)}...${hash.substring(hash.length - 4)}`;
@@ -132,7 +182,7 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
     try {
       // Assuming gasPrice is in wei and we want to display it in Gwei or similar
       const gweiPrice = parseFloat(gasPrice) / Math.pow(10, 9);
-      return `${gweiPrice.toFixed(4)} Gwei`;
+      return `${gweiPrice.toFixed(4)} GweiR`;
     } catch (e) {
       return "N/A";
     }
@@ -438,16 +488,10 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
                       {timeAgo(transaction.receivedAt)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <Tooltip content={transaction.from}>
-                        <a
-                          href={`${explorerUrl}/address/${transaction.from}#transactions`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline cursor-pointer"
-                        >
-                          {formatAddress(transaction.from)}
-                        </a>
-                      </Tooltip>
+                      <RenderAddressProfile
+                        address={transaction.from as Address}
+                        explorerUrl={explorerUrl!}
+                      />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <span
@@ -459,16 +503,10 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <Tooltip content={transaction.to}>
-                        <a
-                          href={`${explorerUrl}/address/${transaction.to}#transactions`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline cursor-pointer"
-                        >
-                          {formatAddress(transaction.to)}
-                        </a>
-                      </Tooltip>
+                      <RenderAddressProfile
+                        address={transaction.to as Address}
+                        explorerUrl={explorerUrl!}
+                      />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatValue(transaction.value)}

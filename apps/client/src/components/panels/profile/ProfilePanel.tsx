@@ -1,21 +1,17 @@
 import { useState, useRef } from "react";
-import { ProfileForm } from "./ProfileForm";
-import { ImageUploader } from "./ImageUploader";
 import { useEditor } from "../../../contexts/EditorContext";
-import { URLPicker } from "./URLPicker";
+import { EffectsTabContent } from "./EffectsTabContent";
+import { AppearanceTabContent } from "./AppearanceTabContent";
+import { GeneralTabContent } from "./GeneralTabContent";
 import { Download, Upload, AlertTriangle } from "lucide-react";
 
 export function ProfilePanel() {
-  const { profile, theme, setProfile, exportTheme, importTheme } = useEditor();
-  const [activeTab, setActiveTab] = useState("general");
+  const { theme, exportTheme, importTheme } = useEditor();
+  const [activeTab, setActiveTab] = useState<"general" | "appearance" | "effects" | "theme">("general");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Check if theme is from server (user_id = null)
   const isServerTheme = theme.user_id === null;
-
-  const handleProfileUpdate = (field: string, value: string) => {
-    setProfile({ ...profile, [field]: value });
-  };
 
   const handleExportTheme = () => {
     const filename = prompt("Enter a name for your theme file:", "My Theme");
@@ -56,26 +52,28 @@ export function ProfilePanel() {
           >
             General
           </button>
+
           <button
             className={`px-3 py-2 text-sm font-medium rounded-md ${
-              activeTab === "photo"
+              activeTab === "appearance"
                 ? "bg-gray-100 text-gray-900"
                 : "text-gray-500 hover:text-gray-700"
             }`}
-            onClick={() => setActiveTab("photo")}
+            onClick={() => setActiveTab("appearance")}
           >
-            Profile Photo
+            Appearance
           </button>
           <button
             className={`px-3 py-2 text-sm font-medium rounded-md ${
-              activeTab === "url"
+              activeTab === "effects"
                 ? "bg-gray-100 text-gray-900"
                 : "text-gray-500 hover:text-gray-700"
             }`}
-            onClick={() => setActiveTab("url")}
+            onClick={() => setActiveTab("effects")}
           >
-            URL Settings
+            Effects
           </button>
+
           <button
             className={`px-3 py-2 text-sm font-medium rounded-md ${
               activeTab === "theme"
@@ -84,48 +82,22 @@ export function ProfilePanel() {
             }`}
             onClick={() => setActiveTab("theme")}
           >
-            Theme Management
+            Theme
           </button>
         </nav>
       </div>
 
       <div className="p-6 space-y-8">
         {activeTab === "general" && (
-          <>
-            <div className="space-y-2">
-              <h2 className="text-lg font-semibold text-gray-900">Profile</h2>
-              <p className="text-sm text-gray-500">
-                Customize your profile information and appearance
-              </p>
-            </div>
-
-            <ProfileForm profile={profile} onUpdate={handleProfileUpdate} />
-          </>
+          <GeneralTabContent />
         )}
 
-        {activeTab === "photo" && (
-          <>
-            <div className="space-y-2">
-              <h2 className="text-lg font-semibold text-gray-900">Profile Photo</h2>
-              <p className="text-sm text-gray-500">Upload or update your profile photo</p>
-            </div>
-
-            <ImageUploader
-              imageUrl={profile.photoUrl || ""}
-              onImageChange={url => handleProfileUpdate("photoUrl", url)}
-            />
-          </>
+        {activeTab === "appearance" && (
+          <AppearanceTabContent />
         )}
 
-        {activeTab === "url" && (
-          <>
-            <div className="space-y-2">
-              <h2 className="text-lg font-semibold text-gray-900">URL Settings</h2>
-              <p className="text-sm text-gray-500">Configure your profile URL</p>
-            </div>
-
-            <URLPicker />
-          </>
+        {activeTab === "effects" && (
+          <EffectsTabContent />
         )}
 
         {activeTab === "theme" && (

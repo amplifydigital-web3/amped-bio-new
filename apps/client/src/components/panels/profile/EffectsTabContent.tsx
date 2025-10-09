@@ -1,10 +1,10 @@
-import { ButtonEffectsPicker } from "./ButtonEffectsPicker";
-import { ParticlesEffectPicker } from "./ParticlesEffectPicker";
-import { HeroEffectPicker } from "./HeroEffectPicker";
+import { ButtonEffectsPicker } from "../effects/ButtonEffectsPicker";
+import { ParticlesEffectPicker } from "../effects/ParticlesEffectPicker";
+import { HeroEffectPicker } from "../effects/HeroEffectPicker";
 import { useEditor } from "../../../contexts/EditorContext";
 import { AlertTriangle } from "lucide-react";
 
-export function EffectsPanel() {
+export function EffectsTabContent() {
   const { theme, updateThemeConfig } = useEditor();
   const themeConfig = theme.config;
 
@@ -12,7 +12,7 @@ export function EffectsPanel() {
   const isNotCustomizable = theme.user_id === null;
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="space-y-8">
       <div className="space-y-2">
         <h2 className="text-lg font-semibold text-gray-900">Effects</h2>
         <p className="text-sm text-gray-500">

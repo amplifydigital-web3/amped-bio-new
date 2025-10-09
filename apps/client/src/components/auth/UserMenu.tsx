@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { LogOut, User, Settings, ArrowRight, Wallet } from "lucide-react";
+import { LogOut, User, ArrowRight, Wallet } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useEditor } from "../../contexts/EditorContext";
 import { AuthModal } from "./AuthModal";
@@ -47,6 +47,13 @@ export function UserMenu() {
     // Redirect to the edit page instead of public profile
     if (user && user.onelink) {
       const formattedOnelink = formatOnelink(user.onelink);
+      // Check if there's a panel parameter in the current URL
+      const searchParams = new URLSearchParams(window.location.search);
+      const panelParam = searchParams.get("p");
+      
+      if (panelParam) {
+        return nav(`/${formattedOnelink}/edit?p=${panelParam}`);
+      }
       return nav(`/${formattedOnelink}/edit`);
     }
     return nav("/");
@@ -71,13 +78,17 @@ export function UserMenu() {
     return nav(`/@${authUser?.onelink}`);
   };
 
-  const handleNavigateToAccount = () => {
-    return nav("/account");
-  };
+  
 
   const handleNavigateToWallet = () => {
     if (authUser?.onelink) {
-      return nav(`/${formatOnelink(authUser.onelink)}/edit`, { state: { panel: "wallet" } });
+      return nav(`/${formatOnelink(authUser.onelink)}/edit?p=wallet`);
+    }
+  };
+
+  const handleNavigateToProfile = () => {
+    if (authUser?.onelink) {
+      return nav(`/${formatOnelink(authUser.onelink)}/edit?p=profile`);
     }
   };
 
@@ -150,7 +161,7 @@ export function UserMenu() {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
-        <DropdownMenuItem onClick={() => nav(`/${formatOnelink(authUser.onelink)}/edit`)}>
+        <DropdownMenuItem onClick={handleNavigateToProfile}>
           <User className="w-4 h-4 mr-2" />
           <span>Edit Profile</span>
         </DropdownMenuItem>
@@ -160,10 +171,7 @@ export function UserMenu() {
             <span>My Wallet</span>
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem onClick={handleNavigateToAccount}>
-          <Settings className="w-4 h-4 mr-2" />
-          <span>My Account</span>
-        </DropdownMenuItem>
+        
         <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
           <LogOut className="w-4 h-4 mr-2" />
           <span>Sign Out</span>

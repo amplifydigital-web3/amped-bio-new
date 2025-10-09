@@ -3,18 +3,21 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { sendEmailChangeVerification } from "../utils/email/email";
 import { generateAccessToken } from "../utils/token";
+import { hashRefreshToken } from "../utils/tokenHash";
 import crypto from "crypto";
 import { prisma } from "../services/DB";
 import { editUserSchema } from "../schemas/user.schema";
 
 // Schema for initiating email change
 const initiateEmailChangeSchema = z.object({
-  newEmail: z.string().email({ message: "Invalid email address format" }),
+  currentEmail: z.string().email({ message: "Invalid current email address format" }),
+  newEmail: z.string().email({ message: "Invalid new email address format" }),
 });
 
 // Schema for resending email verification
 const resendEmailVerificationSchema = z.object({
-  newEmail: z.string().email({ message: "Invalid email address format" }),
+  currentEmail: z.string().email({ message: "Invalid current email address format" }),
+  newEmail: z.string().email({ message: "Invalid new email address format" }),
 });
 
 // Schema for confirming email change
@@ -104,6 +107,14 @@ export const userRouter = router({
           });
         }
 
+        // Verify that the current email matches the user's actual email
+        if (user.email !== input.currentEmail) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Current email does not match your account email",
+          });
+        }
+
         // Check if the new email is already in use
         const existingEmailUser = await prisma.user.findUnique({
           where: { email: input.newEmail },
@@ -171,7 +182,7 @@ export const userRouter = router({
           },
         });
 
-        // Send verification email with the code
+        // Send verification email with the code to the user's current email
         await sendEmailChangeVerification(user.email, input.newEmail, code);
 
         return {
@@ -275,6 +286,30 @@ export const userRouter = router({
           data: { used: true },
         });
 
+        // Delete all refresh tokens except for the current session's token
+        // Get the current refresh token from the request
+        const currentRefreshToken = ctx.req.cookies["refresh-token"];
+        if (currentRefreshToken) {
+          const hashedCurrentRefreshToken = hashRefreshToken(currentRefreshToken);
+
+          // Delete all refresh tokens for this user except the current one
+          await prisma.refreshToken.deleteMany({
+            where: {
+              userId: userId,
+              token: {
+                not: hashedCurrentRefreshToken, // Keep only the current token
+              },
+            },
+          });
+        } else {
+          // If no refresh token is available in the request, delete all refresh tokens
+          await prisma.refreshToken.deleteMany({
+            where: {
+              userId: userId,
+            },
+          });
+        }
+
         // Generate new JWT token with updated email
         const token = generateAccessToken({
           id: userId,
@@ -315,6 +350,14 @@ export const userRouter = router({
           throw new TRPCError({
             code: "NOT_FOUND",
             message: "User not found",
+          });
+        }
+
+        // Verify that the current email matches the user's actual email
+        if (user.email !== input.currentEmail) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Current email does not match your account email",
           });
         }
 
@@ -376,7 +419,7 @@ export const userRouter = router({
           },
         });
 
-        // Send verification email with the code
+        // Send verification email with the code to the user's current email
         await sendEmailChangeVerification(user.email, input.newEmail, code);
 
         return {

@@ -1,5 +1,5 @@
 import { Tooltip } from "@/components/ui/Tooltip";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import {
   Search,
   Send,
@@ -37,6 +37,39 @@ export default function PayPanel() {
   const [selectedTab, setSelectedTab] = useState<"people" | "recent">("people");
   const payDialog = usePayDialog();
 
+  // Debounce search query
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+
+  // Custom debounce hook
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500); // 500ms debounce
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [searchQuery]);
+
+  // Check if the debounced search query is a valid Ethereum address
+  useEffect(() => {
+    if (debouncedSearchQuery && isAddress(debouncedSearchQuery)) {
+      payDialog.openPayDialog(debouncedSearchQuery as Address);
+      setSearchQuery(""); // Clear the search query after opening the dialog
+    }
+  }, [debouncedSearchQuery, payDialog]);
+
+  // Update the query options to use debounced search query
+  const {
+    data: filteredUsers,
+    isLoading,
+    isError,
+  } = useQuery(
+    trpc.wallet.searchUsers.queryOptions(debouncedSearchQuery, {
+      enabled: debouncedSearchQuery.length > 0,
+    })
+  );
+
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showQrScanner, setShowQrScanner] = useState(false);
 
@@ -53,14 +86,6 @@ export default function PayPanel() {
 
   const explorerApiUrl = chain?.blockExplorers?.default.apiUrl;
   const explorerUrl = chain?.blockExplorers?.default.url;
-
-  const {
-    data: filteredUsers,
-    isLoading,
-    isError,
-  } = useQuery(
-    trpc.wallet.searchUsers.queryOptions(searchQuery, { enabled: searchQuery.length > 0 })
-  );
 
   useEffect(() => {
     if (selectedTab === "recent" && address && explorerApiUrl) {
@@ -245,51 +270,16 @@ export default function PayPanel() {
     return (
       <div className="space-y-4">
         {outTransactions.map(transaction => (
-          <div
+          <PayRow
             key={transaction.hash}
-            className="flex items-center justify-between p-4 hover:bg-gray-50 rounded-xl transition-colors"
-          >
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
-                  <User className="w-6 h-6 text-gray-500" />
-                </div>
-                <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center bg-red-500">
-                  <Send className="w-3 h-3 text-white" />
-                </div>
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center space-x-2">
-                  <span className="font-semibold text-gray-900">Paid to</span>
-                  <Tooltip content={transaction.to}>
-                    <a
-                      href={`${explorerUrl}/address/${transaction.to}#transactions`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline cursor-pointer"
-                      onClick={e => e.stopPropagation()}
-                    >
-                      {formatAddress(transaction.to)}
-                    </a>
-                  </Tooltip>
-                </div>
-                <div className="text-sm text-gray-600">
-                  <span>{timeAgo(transaction.receivedAt)}</span>
-                </div>
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="font-semibold text-red-600">
-                -{formatValue(transaction.value, chain?.nativeCurrency.symbol || "REVO")}
-              </div>
-              <button
-                onClick={() => payDialog.openPayDialog(transaction.to as Address)}
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-              >
-                Pay again
-              </button>
-            </div>
-          </div>
+            transaction={transaction}
+            explorerUrl={explorerUrl}
+            formatAddress={formatAddress}
+            timeAgo={timeAgo}
+            formatValue={formatValue}
+            chain={chain}
+            payDialog={payDialog}
+          />
         ))}
       </div>
     );
@@ -326,7 +316,7 @@ export default function PayPanel() {
         <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
         <input
           type="text"
-          placeholder="Search people..."
+          placeholder="Search people or paste address..."
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           className="w-full pl-12 pr-4 py-4 bg-gray-50 border-0 rounded-xl text-lg focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
@@ -406,3 +396,84 @@ export default function PayPanel() {
     </div>
   );
 }
+
+const PayRow: React.FC<{
+  transaction: Transaction;
+  explorerUrl: string | undefined;
+  formatAddress: (address: string) => string;
+  timeAgo: (timestamp: string) => string;
+  formatValue: (value: string, symbol: string) => string;
+  chain: any;
+  payDialog: ReturnType<typeof usePayDialog>;
+}> = ({ transaction, explorerUrl, formatAddress, timeAgo, formatValue, chain, payDialog }) => {
+  const { data } = useQuery(trpc.wallet.getUserByAddress.queryOptions({ address: transaction.to }));
+
+  const currentUrl = window.location.origin;
+
+  return (
+    <div
+      key={transaction.hash}
+      className="flex items-center justify-between p-4 hover:bg-gray-50 rounded-xl transition-colors"
+    >
+      <div className="flex items-center space-x-4">
+        <div className="relative">
+          <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
+            {data?.image ? (
+              <img
+                src={data.image}
+                alt="User Avatar"
+                className="w-12 h-12 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
+                <User className="w-6 h-6 text-gray-500" />
+              </div>
+            )}
+          </div>
+          <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center bg-red-500">
+            <Send className="w-3 h-3 text-white" />
+          </div>
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center space-x-2">
+            <span className="font-semibold text-gray-900">Paid to</span>
+            <Tooltip content={transaction.to}>
+              <span>
+                {data?.onelink && (
+                  <>
+                    <a href={`${currentUrl}/@${data.onelink}`} target="_blank" rel="noopener noreferrer">
+                      @{data.onelink}
+                    </a>{" "}
+                  </>
+                )}
+                <a
+                  href={`${explorerUrl}/address/${transaction.to}#transactions`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline cursor-pointer"
+                  onClick={e => e.stopPropagation()}
+                >
+                  {formatAddress(transaction.to)}
+                </a>
+              </span>
+            </Tooltip>
+          </div>
+          <div className="text-sm text-gray-600">
+            <span>{timeAgo(transaction.receivedAt)}</span>
+          </div>
+        </div>
+      </div>
+      <div className="text-right">
+        <div className="font-semibold text-red-600">
+          -{formatValue(transaction.value, chain?.nativeCurrency.symbol || "REVO")}
+        </div>
+        <button
+          onClick={() => payDialog.openPayDialog(transaction.to as Address)}
+          className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+        >
+          Pay again
+        </button>
+      </div>
+    </div>
+  );
+};

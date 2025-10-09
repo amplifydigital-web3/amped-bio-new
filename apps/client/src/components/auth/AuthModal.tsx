@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { X, Loader2, Eye, EyeOff, Check, X as XIcon, AlertCircle } from "lucide-react";
-import ReCAPTCHA from "react-google-recaptcha";
 import { useAuth } from "../../contexts/AuthContext";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
@@ -13,6 +12,7 @@ import { useOnelinkAvailability } from "@/hooks/useOnelinkAvailability";
 import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
 import { useGoogleLogin } from "@react-oauth/google";
 import { GoogleLoginButton } from "./GoogleLoginButton";
+import { useCaptcha, CaptchaDialog } from "@/hooks/useCaptcha";
 import {
   normalizeOnelink,
   cleanOnelinkInput,
@@ -91,13 +91,12 @@ const PasswordStrengthIndicator = ({ password }: { password: string }) => {
 
 export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModalProps) {
   const { signIn, signInWithGoogle, signUp, resetPassword } = useAuth();
+  const { isOpen, openCaptcha, closeCaptcha, handleSubmit } = useCaptcha();
   const [loading, setLoading] = useState(false);
   const [sharedEmail, setSharedEmail] = useState("");
   const isUserTyping = useRef(false);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
-  const recaptchaRef = useRef<ReCAPTCHA>(null);
-  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
   const isRecaptchaEnabled =
     import.meta.env.MODE !== "testing" && !!import.meta.env.VITE_RECAPTCHA_SITE_KEY;
   const navigate = useNavigate();
@@ -238,13 +237,16 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     setLoading(true);
     setLoginError(null);
     try {
-      const loginData = {
-        email: data.email,
-        password: data.password,
-        recaptchaToken: recaptchaToken,
-      };
+      // Get reCAPTCHA token using the new hook
+      const recaptchaToken = isRecaptchaEnabled ? await openCaptcha() : null;
+      
+      if (recaptchaToken === null && isRecaptchaEnabled) {
+        // User cancelled the captcha
+        setLoading(false);
+        return;
+      }
 
-      const user = await signIn(loginData.email, loginData.password, loginData.recaptchaToken);
+      const user = await signIn(data.email, data.password, recaptchaToken);
       onClose(user);
 
       // Redirect the user to their edit page with panel state set to "home"
@@ -254,11 +256,6 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
       }
     } catch (error) {
       setLoginError((error as Error).message);
-      // Reset reCAPTCHA on error
-      if (isRecaptchaEnabled && recaptchaRef.current) {
-        recaptchaRef.current.reset();
-        setRecaptchaToken(null);
-      }
     } finally {
       setLoading(false);
     }
@@ -312,18 +309,20 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     setLoading(true);
     setRegisterError(null);
     try {
-      const registerData = {
-        onelink: data.onelink,
-        email: data.email,
-        password: data.password,
-        recaptchaToken: recaptchaToken,
-      };
+      // Get reCAPTCHA token using the new hook
+      const recaptchaToken = isRecaptchaEnabled ? await openCaptcha() : null;
+      
+      if (recaptchaToken === null && isRecaptchaEnabled) {
+        // User cancelled the captcha
+        setLoading(false);
+        return;
+      }
 
       const user = await signUp(
-        registerData.onelink,
-        registerData.email,
-        registerData.password,
-        registerData.recaptchaToken
+        data.onelink,
+        data.email,
+        data.password,
+        recaptchaToken
       );
       onClose(user);
 
@@ -334,11 +333,6 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
       }
     } catch (error) {
       setRegisterError((error as Error).message);
-      // Reset reCAPTCHA on error
-      if (isRecaptchaEnabled && recaptchaRef.current) {
-        recaptchaRef.current.reset();
-        setRecaptchaToken(null);
-      }
     } finally {
       setLoading(false);
     }
@@ -350,44 +344,26 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     setResetError(null);
     setResetSuccess(false);
     try {
+      // Get reCAPTCHA token using the new hook
+      const recaptchaToken = isRecaptchaEnabled ? await openCaptcha() : null;
+      
+      if (recaptchaToken === null && isRecaptchaEnabled) {
+        // User cancelled the captcha
+        setLoading(false);
+        return;
+      }
+
       const response = await resetPassword(data.email, recaptchaToken);
       if (response.success) {
         setResetSuccess(true);
       } else {
         setResetError(response.message || "Failed to reset password");
-        // Reset reCAPTCHA on error response
-        if (isRecaptchaEnabled && recaptchaRef.current) {
-          recaptchaRef.current.reset();
-          setRecaptchaToken(null);
-        }
       }
     } catch (error) {
       setResetError((error as Error).message);
-      // Reset reCAPTCHA on error
-      if (isRecaptchaEnabled && recaptchaRef.current) {
-        recaptchaRef.current.reset();
-        setRecaptchaToken(null);
-      }
     } finally {
       setLoading(false);
     }
-  };
-
-  const renderReCaptcha = () => {
-    return (
-      <>
-        {isRecaptchaEnabled && (
-          <div className="flex justify-center">
-            <ReCAPTCHA
-              sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
-              onChange={token => setRecaptchaToken(token)}
-              onExpired={() => setRecaptchaToken(null)}
-              ref={recaptchaRef}
-            />
-          </div>
-        )}
-      </>
-    );
   };
 
   return (
@@ -477,12 +453,11 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 {showLoginPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
             </div>
-            {renderReCaptcha()}
             <Button
               type="submit"
               className="w-full relative"
-              disabled={loading || (isRecaptchaEnabled && !recaptchaToken)}
-              aria-disabled={loading || (isRecaptchaEnabled && !recaptchaToken)}
+              disabled={loading}
+              aria-disabled={loading}
               aria-label="Sign In"
               data-testid="login-submit"
               onClick={() => {
@@ -603,7 +578,6 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
               </div>
               <PasswordStrengthIndicator password={registerPassword || ""} />
             </div>
-            {renderReCaptcha()}
             <Button
               type="submit"
               className="w-full relative"
@@ -611,15 +585,13 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                 loading ||
                 urlStatus === "Unavailable" ||
                 !isValid ||
-                !onelinkInput ||
-                (isRecaptchaEnabled && !recaptchaToken)
+                !onelinkInput
               }
               aria-disabled={
                 loading ||
                 urlStatus === "Unavailable" ||
                 !isValid ||
-                !onelinkInput ||
-                (isRecaptchaEnabled && !recaptchaToken)
+                !onelinkInput
               }
               aria-label="Create Account"
               data-testid="register-submit"
@@ -688,12 +660,11 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
                     trackGAEvent("Input", "AuthModal", "ResetEmailInput");
                   }}
                 />
-                {renderReCaptcha()}
                 <Button
                   type="submit"
                   className="w-full relative"
-                  disabled={loading || (isRecaptchaEnabled && !recaptchaToken)}
-                  aria-disabled={loading || (isRecaptchaEnabled && !recaptchaToken)}
+                  disabled={loading}
+                  aria-disabled={loading}
                   aria-label="Send Reset Instructions"
                   data-testid="reset-submit"
                   onClick={() => trackGAEvent("Click", "AuthModal", "SendResetInstructionsButton")}
@@ -791,6 +762,25 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
             Privacy Policy
           </a>
         </p>
+        {(form === "login" || form === "register") && (
+          <p className="text-center text-sm text-gray-600 mt-3">
+            Amped.Bio is more than a link-in-bio - it's your passport into the{" "}
+            <a
+              href="https://www.revolutionnetwork.io"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-700 hover:underline"
+            >
+              Revolution Network
+            </a>
+            . Your amped.bio profile doubles as your wallet and hub for staking into Reward Pools.
+          </p>
+        )}
+        <CaptchaDialog 
+          isOpen={isOpen} 
+          onClose={closeCaptcha}
+          onSubmit={handleSubmit}
+        />
       </div>
     </div>
   );
