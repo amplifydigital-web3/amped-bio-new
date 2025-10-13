@@ -1,5 +1,6 @@
 import { adminProcedure, router } from "../trpc";
 import { prisma } from "../../services/DB";
+import { z } from "zod";
 
 export const dashboardRouter = router({
   getDashboardStats: adminProcedure.query(async () => {
@@ -213,4 +214,30 @@ export const dashboardRouter = router({
       },
     };
   }),
+
+  getBanner: adminProcedure.query(async () => {
+    const banner = await prisma.siteSettings.findUnique({
+      where: { setting_key: "dashboard_banner" },
+    });
+    return banner?.setting_value || "";
+  }),
+
+  updateBanner: adminProcedure
+    .input(z.object({ 
+      bannerObject: z.string() // JSON string containing url and text
+    }))
+    .mutation(async ({ input }) => {
+      return prisma.siteSettings.upsert({
+        where: { setting_key: "dashboard_banner" },
+        update: {
+          setting_value: input.bannerObject,
+          value_type: "JSON",
+        },
+        create: {
+          setting_key: "dashboard_banner",
+          setting_value: input.bannerObject,
+          value_type: "JSON",
+        },
+      });
+    }),
 });

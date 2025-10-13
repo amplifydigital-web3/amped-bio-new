@@ -13,6 +13,7 @@ import {
   AdminLoadingError,
   AdminFaucetWalletStats,
   AdminClickStats,
+  AdminBannerSettings,
 } from "../../components/admin";
 import { AdminQuickActions } from "../../components/admin";
 
@@ -107,6 +108,8 @@ export function AdminDashboard() {
         onRefresh={handleRefresh}
         isLoading={loading}
       />
+
+      <AdminBannerSettings />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Users Stats */}
