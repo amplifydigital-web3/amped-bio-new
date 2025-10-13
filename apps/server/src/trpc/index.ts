@@ -8,6 +8,7 @@ import { themeRouter } from "./theme";
 import { themeGalleryRouter } from "./themeGallery";
 import { walletRouter } from "./wallet";
 import { blocksRouter } from "./blocks";
+import { publicSettingsRouter } from "./publicSettings";
 import { inferRouterOutputs } from "@trpc/server";
 
 // Merge all routers
@@ -21,6 +22,7 @@ const mergedRouter = router({
   themeGallery: themeGalleryRouter,
   wallet: walletRouter,
   blocks: blocksRouter,
+  public: publicSettingsRouter,
 });
 
 export type AppRouter = typeof mergedRouter;
