@@ -14,8 +14,7 @@ The admin section now uses nested routing with the following structure:
 /admin                 - Admin Dashboard (overview)
 ├── /admin/users       - User Management
 ├── /admin/themes      - Theme Management
-├── /admin/blocks      - Block Management
-└── /admin/settings    - Admin Settings
+└── /admin/blocks      - Block Management
 ```
 
 ## Features
@@ -33,7 +32,6 @@ The admin section now uses nested routing with the following structure:
 - `⌘⌥U` - Navigate to Users
 - `⌘⌥T` - Navigate to Themes
 - `⌘⌥B` - Navigate to Blocks
-- `⌘⌥S` - Navigate to Settings
 
 ### 🎨 Improved UI/UX
 
@@ -57,7 +55,6 @@ The admin section now uses nested routing with the following structure:
 - `AdminUsers` - User management interface
 - `AdminThemes` - Theme and category management
 - `AdminBlocks` - Block management (placeholder)
-- `AdminSettings` - System settings (placeholder)
 
 ## File Structure
 
@@ -69,7 +66,6 @@ src/
 │   ├── AdminUsers.tsx       # User management page
 │   ├── AdminThemes.tsx      # Theme management page
 │   ├── AdminBlocks.tsx      # Block management page
-│   ├── AdminSettings.tsx    # Settings page
 │   └── index.ts             # Exports
 ├── components/admin/
 │   ├── AdminBreadcrumb.tsx  # Breadcrumb navigation
@@ -92,7 +88,6 @@ The main App.tsx now includes nested routing:
   <Route path="users" element={<AdminUsers />} />
   <Route path="themes" element={<AdminThemes />} />
   <Route path="blocks" element={<AdminBlocks />} />
-  <Route path="settings" element={<AdminSettings />} />
 </Route>
 ```
 

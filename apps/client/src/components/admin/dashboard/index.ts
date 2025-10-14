@@ -7,3 +7,4 @@ export * from "./AdminTopOnelinks";
 export * from "./AdminRecentUsers";
 export * from "./AdminFaucetWalletStats";
 export * from "./AdminClickStats";
+export * from "./AdminBannerSettings";

@@ -150,11 +150,13 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
                       >
                         {isLoadingFaucetAmount
                           ? "Loading Faucet Info..."
-                          : !faucetInfo.hasSufficientFunds
-                            ? "Faucet Out of Funds"
-                            : faucetInfo.canRequestNow
-                              ? "Daily Reward Available!"
-                              : "Faucet on Cooldown"}
+                          : !faucetInfo.faucetEnabled
+                            ? "Faucet Temporarily Disabled"
+                            : !faucetInfo.hasSufficientFunds
+                              ? "Faucet Out of Funds"
+                              : faucetInfo.canRequestNow
+                                ? "Daily Reward Available!"
+                                : "Faucet on Cooldown"}
                       </h3>
                       <p
                         className={`text-sm transition-colors duration-300 ${
@@ -163,6 +165,8 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
                       >
                         {isLoadingFaucetAmount ? (
                           "Loading faucet amount..."
+                        ) : !faucetInfo.faucetEnabled ? (
+                          "The faucet is temporarily disabled. Please check back later."
                         ) : !faucetInfo.hasSufficientFunds ? (
                           "The faucet is temporarily out of funds. Please check back later."
                         ) : !faucetInfo.canRequestNow && faucetInfo.nextAvailableDate ? (
@@ -188,20 +192,27 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
                   <button
                     onClick={handleClaimDailyReward}
                     disabled={
-                      claimingFaucet || !faucetInfo.canRequestNow || !faucetInfo.hasSufficientFunds
+                      !faucetInfo.faucetEnabled || claimingFaucet || !faucetInfo.canRequestNow || !faucetInfo.hasSufficientFunds
                     }
                     className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 flex items-center space-x-2 ${
-                      !faucetInfo.canRequestNow
-                        ? "bg-blue-600 text-white cursor-default"
-                        : claimingFaucet || !faucetInfo.hasSufficientFunds
-                          ? "bg-gray-400 text-white cursor-not-allowed"
-                          : "bg-green-600 hover:bg-green-700 text-white hover:scale-105"
+                      !faucetInfo.faucetEnabled
+                        ? "bg-gray-400 text-white cursor-not-allowed"
+                        : !faucetInfo.canRequestNow
+                          ? "bg-blue-600 text-white cursor-default"
+                          : claimingFaucet || !faucetInfo.hasSufficientFunds
+                            ? "bg-gray-400 text-white cursor-not-allowed"
+                            : "bg-green-600 hover:bg-green-700 text-white hover:scale-105"
                     }`}
                   >
                     {claimingFaucet ? (
                       <>
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                         <span>Claiming...</span>
+                      </>
+                    ) : !faucetInfo.faucetEnabled ? (
+                      <>
+                        <Gift className="w-4 h-4" />
+                        <span>Disabled</span>
                       </>
                     ) : !faucetInfo.canRequestNow ? (
                       <>
