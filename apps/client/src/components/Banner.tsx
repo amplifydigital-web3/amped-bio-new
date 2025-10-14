@@ -7,6 +7,7 @@ import {
   XCircle, 
   X 
 } from "lucide-react";
+import { useEditor } from "../contexts/EditorContext";
 
 interface BannerProps {
   message: string;
@@ -15,7 +16,7 @@ interface BannerProps {
   onClose?: () => void;
   autoHide?: boolean;
   autoHideDelay?: number; // in milliseconds, default 5000ms (5 seconds)
-  url?: string; // Optional URL to navigate to when the banner is clicked
+  panel?: "home" | "profile" | "reward" | "gallery" | "blocks" | "rewardPools" | "createRewardPool" | "leaderboard" | "rns" | "wallet" | "pay" | "account"; // Optional panel to redirect to
 }
 
 export const Banner: React.FC<BannerProps> = ({ 
@@ -25,10 +26,11 @@ export const Banner: React.FC<BannerProps> = ({
   onClose,
   autoHide = false,
   autoHideDelay = 5000,
-  url
+  panel
 }) => {
   const [isVisible, setIsVisible] = useState(show);
   const navigate = useNavigate();
+  const { setActivePanel, profile } = useEditor();
 
   useEffect(() => {
     setIsVisible(show);
@@ -64,19 +66,24 @@ export const Banner: React.FC<BannerProps> = ({
   };
 
   const handleClick = () => {
-    if (url) {
-      // Check if it's an external URL or internal path
-      if (url.startsWith('http')) {
-        window.open(url, '_blank');
+    if (profile && profile.onelink) {
+      if (panel) {
+        // If a panel is specified, navigate to the user's editor route with panel state
+        // The Editor component will handle setting the active panel from location.state
+        navigate(`/@${profile.onelink}/edit`, { state: { panel } });
       } else {
-        navigate(url);
+        // If no panel is specified, just navigate to the user's editor route
+        navigate(`/@${profile.onelink}/edit`);
       }
+    } else {
+      // Fallback if profile is not available (shouldn't happen in the editor context)
+      console.error("Banner: Profile not available, cannot navigate to editor");
     }
   };
 
   return (
     <div 
-      className={`p-4 ${bannerStyles[type]} border-b flex items-start ${url ? 'cursor-pointer hover:opacity-90' : ''}`}
+      className={`p-4 ${bannerStyles[type]} border-b flex items-start cursor-pointer hover:opacity-90`}
       onClick={handleClick}
     >
       <div className="flex items-center">

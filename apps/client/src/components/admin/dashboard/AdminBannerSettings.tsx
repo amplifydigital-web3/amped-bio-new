@@ -4,55 +4,41 @@ import { trpcClient } from "../../../utils/trpc/trpc";
 import { Input } from "../../../components/ui/Input";
 import { Button } from "../../../components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-
-const bannerSchema = z.object({
-  url: z.string().min(1, { message: "URL or path is required." }),
-  text: z.string().min(1, { message: "Visible text is required." }),
-});
+import { Switch } from "../../../components/ui/Switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
+import { useState, useEffect } from "react";
+import { BannerData } from "../../../../../../apps/server/src/schemas/banner";
 
 export function AdminBannerSettings() {
   const queryClient = useQueryClient();
 
-  // Get the existing banner data (which might be a JSON string)
+  // Get the existing banner data
   const { data: bannerData, isLoading } = useQuery(
     trpc.admin.dashboard.getBanner.queryOptions()
   );
 
-  // Parse the banner data, handling both old format (just URL) and new format (JSON with URL and text)
-  let initialBannerData = { url: "", text: "" };
-  if (bannerData) {
-    try {
-      // Try to parse as JSON first (new format)
-      const parsed = JSON.parse(bannerData);
-      if (typeof parsed === 'object' && parsed !== null) {
-        initialBannerData = {
-          url: parsed.url || "",
-          text: parsed.text || "",
-        };
-      } else {
-        // Old format (just URL string)
-        initialBannerData = {
-          url: bannerData,
-          text: "Banner Link", // Default text for old banners
-        };
-      }
-    } catch (e) {
-      // Handle old format (just URL string)
-      initialBannerData = {
-        url: bannerData,
-        text: "Banner Link", // Default text
-      };
+  const [text, setText] = useState("");
+  const [type, setType] = useState<BannerData["type"]>("info");
+  const [enabled, setEnabled] = useState(false);
+  const [panel, setPanel] = useState<BannerData["panel"] | "">("");
+
+  useEffect(() => {
+    if (bannerData) {
+      setText(bannerData.text || "");
+      // Validate the banner type against allowed values and default to "info" if null/empty
+      const validTypes = ["info", "warning", "success", "error"];
+      const bannerType = bannerData.type && validTypes.includes(bannerData.type) 
+        ? bannerData.type as BannerData["type"]
+        : "info";
+      setType(bannerType);
+      setEnabled(bannerData.enabled || false);
+      setPanel(bannerData.panel || "");
     }
-  }
+  }, [bannerData]);
 
   const updateBanner = useMutation({
-    mutationFn: async (data: { url: string; text: string }) => {
-      // Send as JSON object
-      const bannerObject = JSON.stringify(data);
-      return trpcClient.admin.dashboard.updateBanner.mutate({ bannerObject });
+    mutationFn: async (data: BannerData) => {
+      return trpcClient.admin.dashboard.updateBanner.mutate({ bannerObject: data });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -61,35 +47,29 @@ export function AdminBannerSettings() {
     },
   });
 
-  const { register, handleSubmit, formState: { errors }, reset } = useForm({
-    resolver: zodResolver(bannerSchema),
-    values: initialBannerData,
-  });
-
-  const onSubmit = (data: { url: string; text: string }) => {
-    updateBanner.mutate(data);
-  };
-
-  // Reset form if banner data changes (in case of refresh)
-  if (bannerData) {
-    try {
-      const parsed = JSON.parse(bannerData);
-      if (typeof parsed === 'object' && parsed !== null && 
-          (initialBannerData.url !== parsed.url || initialBannerData.text !== parsed.text)) {
-        reset({
-          url: parsed.url || "",
-          text: parsed.text || "",
-        });
-      }
-    } catch (e) {
-      if (initialBannerData.url !== bannerData) {
-        reset({
-          url: bannerData,
-          text: "Banner Link",
-        });
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // If banner is enabled, validate that text is not empty
+    if (enabled) {
+      if (!text.trim()) {
+        console.error("Visible text is required when banner is enabled");
+        return;
       }
     }
-  }
+    
+    // Ensure type is valid before submitting
+    const validTypes = ["info", "warning", "success", "error"];
+    const validType = validTypes.includes(type) ? type as BannerData["type"] : "info";
+    updateBanner.mutate({ text, type: validType, enabled, panel: panel || undefined });
+  };
+
+  const handleToggle = (checked: boolean) => {
+    setEnabled(checked);
+    // Ensure type is valid before submitting
+    const validTypes = ["info", "warning", "success", "error"];
+    const validType = validTypes.includes(type) ? type as BannerData["type"] : "info";
+    updateBanner.mutate({ text, type: validType, enabled: checked, panel: panel || undefined });
+  };
 
   return (
     <Card>
@@ -98,23 +78,66 @@ export function AdminBannerSettings() {
         <CardDescription>Set the banner link (URL or path) and visible text for the admin dashboard.</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">URL or Path</label>
-            <Input 
-              {...register("url")} 
-              placeholder="https://example.com or /path/to/page" 
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-sm font-medium text-gray-700">Show Banner</span>
+              <p className="text-xs text-gray-500">Toggle to show or hide the dashboard banner</p>
+            </div>
+            <Switch
+              checked={!!enabled}
+              onChange={handleToggle}
+              aria-label="Toggle banner visibility"
             />
-            {errors.url && <p className="text-red-500 text-sm mt-1">{errors.url.message}</p>}
           </div>
+          
+
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Visible Text</label>
             <Input 
-              {...register("text")} 
+              value={text}
+              onChange={(e) => setText(e.target.value)}
               placeholder="Click here" 
             />
-            {errors.text && <p className="text-red-500 text-sm mt-1">{errors.text.message}</p>}
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Banner Type</label>
+            <Select onValueChange={(value) => setType(value as BannerData["type"])} value={type}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select banner type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="info">Info</SelectItem>
+                <SelectItem value="warning">Warning</SelectItem>
+                <SelectItem value="error">Error</SelectItem>
+                <SelectItem value="success">Success</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Panel (Optional)</label>
+            <Select onValueChange={(value) => setPanel(value as BannerData["panel"])} value={panel || undefined} defaultValue="">
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select panel (optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="home">Home</SelectItem>
+                <SelectItem value="profile">Profile</SelectItem>
+                <SelectItem value="reward">Reward</SelectItem>
+                <SelectItem value="gallery">Gallery</SelectItem>
+                <SelectItem value="blocks">Blocks</SelectItem>
+                <SelectItem value="rewardPools">Reward Pools</SelectItem>
+                <SelectItem value="createRewardPool">Create Reward Pool</SelectItem>
+                <SelectItem value="leaderboard">Leaderboard</SelectItem>
+                <SelectItem value="rns">RNS</SelectItem>
+                <SelectItem value="wallet">Wallet</SelectItem>
+                <SelectItem value="pay">Pay</SelectItem>
+                <SelectItem value="account">Account</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           
           <Button type="submit" disabled={updateBanner.isPending}>

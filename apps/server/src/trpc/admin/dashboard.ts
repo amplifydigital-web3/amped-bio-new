@@ -216,7 +216,9 @@ export const dashboardRouter = router({
     };
   }),
 
-  getBanner: adminProcedure.query(async () => {
+  getBanner: adminProcedure
+    .output(bannerSchema)
+    .query(async () => {
     const banner = await prisma.siteSettings.findUnique({
       where: { setting_key: "dashboard_banner" },
     });
@@ -225,25 +227,31 @@ export const dashboardRouter = router({
       // Return an empty banner object if none exists
       const emptyBanner = {
         text: "",
-        path: "",
+        type: "info" as const,
         enabled: false,
+        panel: undefined,
       };
-      return JSON.stringify(emptyBanner);
+      return emptyBanner;
     }
 
     // Validate and return the existing banner
     try {
-      const bannerData = JSON.parse(banner.setting_value);
-
-      return JSON.stringify(bannerData);
+      let bannerData = JSON.parse(banner.setting_value);
+      // Ensure type defaults to "info" if null or empty
+      if (!bannerData.type) {
+        bannerData.type = "info";
+      }
+      // Ensure the returned object conforms to the bannerSchema
+      return bannerSchema.parse(bannerData);
     } catch (error) {
-      // If parsing fails, return an empty banner object
+      // If parsing or validation fails, return an empty banner object
       const emptyBanner = {
         text: "",
-        path: "",
+        type: "info" as const,
         enabled: false,
+        panel: undefined,
       };
-      return JSON.stringify(emptyBanner);
+      return emptyBanner;
     }
   }),
 

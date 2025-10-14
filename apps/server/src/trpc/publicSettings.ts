@@ -6,7 +6,11 @@ import { z } from "zod";
 export const publicSettingsRouter = router({
   getBanner: publicProcedure
     .input(z.void()) // Define empty input
-    .output(bannerSchema.nullable())
+    .output(z.object({
+      message: z.string(),
+      type: z.enum(["info", "warning", "success", "error"]),
+      panel: z.enum(["home", "profile", "reward", "gallery", "blocks", "rewardPools", "createRewardPool", "leaderboard", "rns", "wallet", "pay", "account"]).optional(),
+    }).nullable())
     .query(async () => {
       // Look for a dashboard banner setting in the database (using the consistent key)
       const banner = await prisma.siteSettings.findUnique({
@@ -27,16 +31,19 @@ export const publicSettingsRouter = router({
           return null;
         }
         
-        // Map 'path' to 'url' and 'text' to 'message' for the frontend component
+        // Check if banner has meaningful content, return null if empty
+        if (!bannerData.text?.trim()) {
+          return null;
+        }
+        
+        // Map 'text' to 'message' for the frontend component
         const result = {
-          ...bannerData,
-          url: bannerData.path,  // Map path to url for frontend
           message: bannerData.text, // Map text to message for frontend
-          autoHide: false  // Fixed value - never auto-hide
+          type: bannerData.type || "info", // Default to 'info' if type is null or empty
+          panel: bannerData.panel, // Include panel field if present
         };
         
-        // Validate the final data against our schema
-        return bannerSchema.parse(result);
+        return result;
       } catch (error) {
         // If parsing fails, return null to indicate no valid banner
         console.error('Error parsing banner setting:', error);

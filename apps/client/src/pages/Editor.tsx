@@ -149,16 +149,8 @@ export function Editor() {
 
   return (
     <div className="h-screen flex flex-col">
-      {/* Show the banner only if there's banner data in the database */}
-      {!bannerLoading && bannerData && (
-        <Banner 
-          message={bannerData.message || "Notice"} 
-          type={bannerData.type || "info"} 
-          url={bannerData.url}
-        />
-      )}
       <div className="flex-1 overflow-hidden">
-        <Layout onelink={normalizedOnelink} />
+        <Layout onelink={normalizedOnelink} bannerData={bannerData} bannerLoading={bannerLoading} />
       </div>
     </div>
   );
