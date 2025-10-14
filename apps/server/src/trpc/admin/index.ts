@@ -6,6 +6,7 @@ import { dashboardRouter } from "./dashboard";
 import { filesRouter } from "./files";
 import { adminUploadRouter } from "./upload";
 import { walletAdminRouter } from "./wallet";
+import { settingsRouter } from "./settings";
 
 export const adminRouter = router({
   // User Management
@@ -28,4 +29,7 @@ export const adminRouter = router({
 
   // Wallet Management (Admin Only)
   wallet: walletAdminRouter,
+
+  // Site Settings
+  settings: settingsRouter,
 });

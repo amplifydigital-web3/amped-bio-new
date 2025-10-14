@@ -4,17 +4,39 @@ import { Wallet, Copy, Info, AlertTriangle } from "lucide-react";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { truncateAddress } from "../../../utils/blockchain";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "../../../utils/trpc";
+import { trpcClient } from "../../../utils/trpc/trpc";
+import { Switch } from "../../../components/ui/Switch";
 
 export function AdminFaucetWalletStats() {
   const [copied, setCopied] = useState(false);
+  const queryClient = useQueryClient();
 
   const {
     data: walletInfoData,
     isLoading,
     isError,
   } = useQuery(trpc.admin.wallet.getFaucetWalletInfo.queryOptions());
+
+  const { data: faucetStatus, isLoading: isFaucetStatusLoading } = useQuery(
+    trpc.admin.settings.getFaucetStatus.queryOptions()
+  );
+
+  const setFaucetStatus = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      return trpcClient.admin.settings.setFaucetStatus.mutate({ enabled });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: trpc.admin.settings.getFaucetStatus.queryOptions().queryKey,
+      });
+    },
+  });
+
+  const handleFaucetToggle = (enabled: boolean) => {
+    setFaucetStatus.mutate(enabled);
+  };
 
   const walletInfo =
     walletInfoData && "success" in walletInfoData && walletInfoData.success === true
@@ -38,10 +60,20 @@ export function AdminFaucetWalletStats() {
   if (isLoading) {
     return (
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-medium flex items-center gap-2">
-            <Wallet className="h-4 w-4" /> Faucet Wallet
-          </CardTitle>
+        <CardHeader className="pb-2 flex flex-row items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-base font-medium flex items-center gap-2">
+              <Wallet className="h-4 w-4" /> Faucet Wallet
+            </CardTitle>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500">Faucet Enabled</span>
+            <Switch
+              checked={faucetStatus || false}
+              onChange={handleFaucetToggle}
+              disabled={true}
+            />
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-24">
@@ -55,10 +87,20 @@ export function AdminFaucetWalletStats() {
   if (isError || error) {
     return (
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-medium flex items-center gap-2">
-            <Wallet className="h-4 w-4" /> Faucet Wallet
-          </CardTitle>
+        <CardHeader className="pb-2 flex flex-row items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-base font-medium flex items-center gap-2">
+              <Wallet className="h-4 w-4" /> Faucet Wallet
+            </CardTitle>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500">Faucet Enabled</span>
+            <Switch
+              checked={faucetStatus || false}
+              onChange={handleFaucetToggle}
+              disabled={isFaucetStatusLoading || setFaucetStatus.isPending}
+            />
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2 text-amber-600">
@@ -76,23 +118,33 @@ export function AdminFaucetWalletStats() {
 
   return (
     <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base font-medium flex items-center gap-2">
-          <Wallet className="h-4 w-4" /> Faucet Wallet
-          {(walletInfo as any).isMockMode && (
-            <Tooltip
-              content={
-                <p className="text-xs max-w-xs">
-                  The faucet is running in mock mode. No actual tokens are being sent.
-                </p>
-              }
-            >
-              <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2 py-0.5 rounded">
-                Mock Mode
-              </span>
-            </Tooltip>
-          )}
-        </CardTitle>
+      <CardHeader className="pb-2 flex flex-row items-center justify-between">
+        <div className="flex items-center gap-2">
+          <CardTitle className="text-base font-medium flex items-center gap-2">
+            <Wallet className="h-4 w-4" /> Faucet Wallet
+            {(walletInfo as any).isMockMode && (
+              <Tooltip
+                content={
+                  <p className="text-xs max-w-xs">
+                    The faucet is running in mock mode. No actual tokens are being sent.
+                  </p>
+                }
+              >
+                <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2 py-0.5 rounded">
+                  Mock Mode
+                </span>
+              </Tooltip>
+            )}
+          </CardTitle>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-500">Faucet Enabled</span>
+          <Switch
+            checked={faucetStatus || false}
+            onChange={handleFaucetToggle}
+            disabled={isFaucetStatusLoading || setFaucetStatus.isPending}
+          />
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
         <div>

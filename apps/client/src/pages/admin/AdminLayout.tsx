@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { BarChart3, Users, Layers, Settings, LogOut, Home, Hexagon, Files } from "lucide-react";
+import { BarChart3, Users, Layers, LogOut, Home, Hexagon, Files } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { AdminHeader } from "../../components/admin";
 import { AdminBreadcrumb } from "../../components/admin";
@@ -21,7 +21,6 @@ export function AdminLayout() {
     { id: "blocks", icon: Layers, label: "Blocks", path: "/admin/blocks", shortcut: "⌘⌥B" },
     { id: "themes", icon: Hexagon, label: "Themes", path: "/admin/themes", shortcut: "⌘⌥T" },
     { id: "files", icon: Files, label: "Files", path: "/admin/files", shortcut: "⌘⌥F" },
-    { id: "settings", icon: Settings, label: "Settings", path: "/admin/settings", shortcut: "⌘⌥S" },
   ];
 
   // Handle logout
@@ -48,8 +47,6 @@ export function AdminLayout() {
         return "Theme Management";
       case "/admin/files":
         return "File Management";
-      case "/admin/settings":
-        return "Admin Settings";
       default:
         return "Admin Dashboard";
     }
@@ -115,7 +112,7 @@ export function AdminLayout() {
           {/* Keyboard Shortcuts Info */}
           <div className="mt-4 px-4 py-2 bg-gray-50 rounded-lg">
             <p className="text-xs text-gray-500 font-medium mb-1">Keyboard Shortcuts</p>
-            <p className="text-xs text-gray-400">⌘⌥ + D/U/B/T/F/S</p>
+            <p className="text-xs text-gray-400">⌘⌥ + D/U/B/T/F</p>
           </div>
         </div>
       </div>

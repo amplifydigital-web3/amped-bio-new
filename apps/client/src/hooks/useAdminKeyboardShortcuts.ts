@@ -33,10 +33,7 @@ export function useAdminKeyboardShortcuts() {
             navigateTo = "/admin/files";
             pageName = "File Management";
             break;
-          case "s":
-            navigateTo = "/admin/settings";
-            pageName = "Admin Settings";
-            break;
+
           default:
             return;
         }

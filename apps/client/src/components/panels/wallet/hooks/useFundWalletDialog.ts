@@ -30,52 +30,58 @@ export function useFundWalletDialog(params: {
     canRequestNow: boolean;
     hasWallet: boolean;
     hasSufficientFunds: boolean; // New state for faucet balance
+    faucetEnabled: boolean;
   }>({
     lastRequestDate: null,
     nextAvailableDate: null,
     canRequestNow: true,
     hasWallet: false,
     hasSufficientFunds: true, // Default to true
+    faucetEnabled: false,
   });
 
-  // Fetch faucet amount when the dialog is opened
+  // Fetch faucet amount and status when the dialog is opened
   useEffect(() => {
-    const fetchFaucetAmount = async () => {
+    const fetchFaucetData = async () => {
       if (!open) return;
 
       setIsLoadingFaucetAmount(true);
       try {
         const result = await trpcClient.wallet.getFaucetAmount.query({ chainId: chainId! });
-        if (result.success) {
-          setFaucetAmount({
-            amount: result.amount,
-            currency: result.currency,
-          });
-          setFaucetInfo({
-            lastRequestDate: result.lastRequestDate ? new Date(result.lastRequestDate) : null,
-            nextAvailableDate: result.nextAvailableDate ? new Date(result.nextAvailableDate) : null,
-            canRequestNow: result.canRequestNow,
-            hasWallet: result.hasWallet,
-            hasSufficientFunds: result.hasSufficientFunds, // Update based on API response
-          });
-        } else {
-          toast.error("Unable to get faucet information. Please try again later.");
-        }
+        // If result is returned, it means it was successful
+        setFaucetAmount({
+          amount: result.amount,
+          currency: result.currency,
+        });
+        setFaucetInfo({
+          lastRequestDate: result.lastRequestDate ? new Date(result.lastRequestDate) : null,
+          nextAvailableDate: result.nextAvailableDate ? new Date(result.nextAvailableDate) : null,
+          canRequestNow: result.canRequestNow,
+          hasWallet: result.hasWallet,
+          hasSufficientFunds: result.hasSufficientFunds, // Update based on API response
+          faucetEnabled: result.faucetEnabled, // Set global faucet status
+        });
       } catch (error: any) {
-        console.error("Failed to fetch faucet amount:", error);
+        console.error("Failed to fetch faucet amount or status:", error);
         toast.error(error.message || "Unable to get faucet information. Please try again later.");
       } finally {
         setIsLoadingFaucetAmount(false);
       }
     };
 
-    fetchFaucetAmount();
+    fetchFaucetData();
   }, [chainId, open]);
 
   // Function to handle the faucet claim process
   const handleClaim = async (): Promise<{ success: boolean; txid?: string }> => {
     if (!isConnected || claimingFaucet || !walletAddress) {
       toast.error("Wallet not connected or already claiming.");
+      return { success: false };
+    }
+
+    // Prevent claim if faucet is globally disabled
+    if (!faucetInfo.faucetEnabled) {
+      toast.error("The faucet is temporarily disabled.");
       return { success: false };
     }
 

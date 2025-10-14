@@ -171,3 +171,18 @@ model UserWallet {
 
   @@map("user_wallets")
 }
+
+enum SettingValueType {
+  STRING
+  NUMBER
+  BOOLEAN
+  JSON
+}
+
+model SiteSettings {
+  setting_key   String @id
+  setting_value String @db.LongText
+  value_type    SettingValueType
+
+  @@map("site_settings")
+}
