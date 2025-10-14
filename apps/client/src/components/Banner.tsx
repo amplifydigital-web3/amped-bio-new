@@ -1,53 +1,35 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { 
-  Info, 
-  AlertTriangle, 
-  CheckCircle, 
-  XCircle, 
-  X 
-} from "lucide-react";
+import { Info, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import { useEditor } from "../contexts/EditorContext";
 
 interface BannerProps {
   message: string;
   type?: "info" | "warning" | "success" | "error";
   show?: boolean;
-  onClose?: () => void;
-  autoHide?: boolean;
-  autoHideDelay?: number; // in milliseconds, default 5000ms (5 seconds)
-  panel?: "home" | "profile" | "reward" | "gallery" | "blocks" | "rewardPools" | "createRewardPool" | "leaderboard" | "rns" | "wallet" | "pay" | "account"; // Optional panel to redirect to
+  panel?:
+    | "home"
+    | "profile"
+    | "reward"
+    | "gallery"
+    | "blocks"
+    | "rewardPools"
+    | "createRewardPool"
+    | "leaderboard"
+    | "rns"
+    | "wallet"
+    | "pay"
+    | "account"; // Optional panel to redirect to
 }
 
-export const Banner: React.FC<BannerProps> = ({ 
-  message, 
-  type = "info", 
-  show = true, 
-  onClose,
-  autoHide = false,
-  autoHideDelay = 5000,
-  panel
-}) => {
+export const Banner: React.FC<BannerProps> = ({ message, type = "info", show = true, panel }) => {
   const [isVisible, setIsVisible] = useState(show);
   const navigate = useNavigate();
-  const { setActivePanel, profile } = useEditor();
+  const { profile } = useEditor();
 
   useEffect(() => {
     setIsVisible(show);
   }, [show]);
-
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (autoHide && isVisible) {
-      timer = setTimeout(() => {
-        setIsVisible(false);
-        if (onClose) onClose(); // Call onClose when auto-hiding
-      }, autoHideDelay);
-    }
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
-  }, [autoHide, isVisible, onClose, autoHideDelay]);
 
   if (!isVisible) return null;
 
@@ -82,7 +64,7 @@ export const Banner: React.FC<BannerProps> = ({
   };
 
   return (
-    <div 
+    <div
       className={`p-4 ${bannerStyles[type]} border-b flex items-start cursor-pointer hover:opacity-90`}
       onClick={handleClick}
     >
@@ -90,19 +72,6 @@ export const Banner: React.FC<BannerProps> = ({
         {iconMap[type]}
         <span className="font-medium">{message}</span>
       </div>
-      {(onClose || autoHide) && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation(); // Prevent click from propagating to the banner container
-            setIsVisible(false);
-            if (onClose) onClose();
-          }}
-          className="ml-auto text-current hover:opacity-75 focus:outline-none"
-          aria-label="Close banner"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      )}
     </div>
   );
 };
