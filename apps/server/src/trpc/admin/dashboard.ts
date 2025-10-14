@@ -226,7 +226,7 @@ export const dashboardRouter = router({
       const emptyBanner = {
         text: "",
         path: "",
-        enabled: false
+        enabled: false,
       };
       return JSON.stringify(emptyBanner);
     }
@@ -241,7 +241,7 @@ export const dashboardRouter = router({
       const emptyBanner = {
         text: "",
         path: "",
-        enabled: false
+        enabled: false,
       };
       return JSON.stringify(emptyBanner);
     }
@@ -284,7 +284,7 @@ export const dashboardRouter = router({
         text: "Notice",
         path: "",
         type: "info",
-        enabled: false
+        enabled: false,
       };
 
       // If there's an existing banner configuration, parse it and update only the enabled property
