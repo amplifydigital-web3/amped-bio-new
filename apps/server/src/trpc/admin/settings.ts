@@ -1,7 +1,6 @@
 import { adminProcedure, router } from "../trpc";
 import { z } from "zod";
 import { prisma } from "../../services/DB";
-import { SettingValueType } from "@prisma/client";
 
 export const settingsRouter = router({
   getFaucetStatus: adminProcedure.query(async () => {

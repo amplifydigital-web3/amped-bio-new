@@ -155,7 +155,6 @@ export function Editor() {
           message={bannerData.message || "Notice"} 
           type={bannerData.type || "info"} 
           url={bannerData.url}
-          autoHide={bannerData.autoHide || false}
         />
       )}
       <div className="flex-1 overflow-hidden">
