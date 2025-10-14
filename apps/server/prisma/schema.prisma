@@ -180,8 +180,8 @@ enum SettingValueType {
 }
 
 model SiteSettings {
-  setting_key   String @id @unique
-  setting_value String
+  setting_key   String @id
+  setting_value String @db.LongText
   value_type    SettingValueType
 
   @@map("site_settings")

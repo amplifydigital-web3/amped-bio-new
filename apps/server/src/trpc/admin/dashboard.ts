@@ -3,6 +3,16 @@ import { prisma } from "../../services/DB";
 import { z } from "zod";
 import { bannerSchema } from "../../schemas/banner";
 
+// Function to check if text contains links
+const containsLink = (text: string): boolean => {
+  // Regular expression to detect URLs (http, https, ftp) with domain and path
+  const protocolUrlRegex = /(?:https?|ftp):\/\/[^\s/$.?#].[^\s]*/i;
+  // Regular expression to detect www. links
+  const wwwUrlRegex = /www\.[^\s]+\.[^\s]+/i;
+
+  return protocolUrlRegex.test(text) || wwwUrlRegex.test(text);
+};
+
 export const dashboardRouter = router({
   getDashboardStats: adminProcedure.query(async () => {
     // Today's date for filtering
@@ -216,9 +226,7 @@ export const dashboardRouter = router({
     };
   }),
 
-  getBanner: adminProcedure
-    .output(bannerSchema)
-    .query(async () => {
+  getBanner: adminProcedure.output(bannerSchema).query(async () => {
     const banner = await prisma.siteSettings.findUnique({
       where: { setting_key: "dashboard_banner" },
     });
@@ -236,14 +244,14 @@ export const dashboardRouter = router({
 
     // Validate and return the existing banner
     try {
-      let bannerData = JSON.parse(banner.setting_value);
+      const bannerData = JSON.parse(banner.setting_value);
       // Ensure type defaults to "info" if null or empty
       if (!bannerData.type) {
         bannerData.type = "info";
       }
       // Ensure the returned object conforms to the bannerSchema
       return bannerSchema.parse(bannerData);
-    } catch (error) {
+    } catch {
       // If parsing or validation fails, return an empty banner object
       const emptyBanner = {
         text: "",
@@ -262,6 +270,11 @@ export const dashboardRouter = router({
       })
     )
     .mutation(async ({ input }) => {
+      // Check if the banner text contains any links
+      if (containsLink(input.bannerObject.text)) {
+        throw new Error("Banner text cannot contain links");
+      }
+
       return prisma.siteSettings.upsert({
         where: { setting_key: "dashboard_banner" },
         update: {
@@ -299,7 +312,7 @@ export const dashboardRouter = router({
       if (currentBanner) {
         try {
           bannerData = JSON.parse(currentBanner.setting_value);
-        } catch (error) {
+        } catch {
           // If parsing fails, use the default banner data
         }
       }

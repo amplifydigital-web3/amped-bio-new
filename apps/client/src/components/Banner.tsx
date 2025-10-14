@@ -34,17 +34,17 @@ export const Banner: React.FC<BannerProps> = ({ message, type = "info", show = t
   if (!isVisible) return null;
 
   const bannerStyles = {
-    info: "bg-blue-50 border-blue-200 text-blue-800",
-    warning: "bg-yellow-50 border-yellow-200 text-yellow-800",
-    success: "bg-green-50 border-green-200 text-green-800",
-    error: "bg-red-50 border-red-200 text-red-800",
+    info: "bg-gradient-to-r from-cyan-500 to-blue-500 text-white border-cyan-400",
+    warning: "bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-400",
+    success: "bg-gradient-to-r from-emerald-500 to-green-500 text-white border-emerald-400",
+    error: "bg-gradient-to-r from-rose-500 to-red-500 text-white border-rose-400",
   };
 
   const iconMap = {
-    info: <Info className="w-5 h-5 mr-2" />,
-    warning: <AlertTriangle className="w-5 h-5 mr-2" />,
-    success: <CheckCircle className="w-5 h-5 mr-2" />,
-    error: <XCircle className="w-5 h-5 mr-2" />,
+    info: <Info className="w-5 h-5 mr-2 text-blue-100" />,
+    warning: <AlertTriangle className="w-5 h-5 mr-2 text-orange-100" />,
+    success: <CheckCircle className="w-5 h-5 mr-2 text-green-100" />,
+    error: <XCircle className="w-5 h-5 mr-2 text-red-100" />,
   };
 
   const handleClick = () => {

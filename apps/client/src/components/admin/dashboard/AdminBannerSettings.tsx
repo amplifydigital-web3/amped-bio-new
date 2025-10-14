@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Switch } from "../../../components/ui/Switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
 import { useState, useEffect } from "react";
-import { BannerData } from "../../../../../../apps/server/src/schemas/banner";
+import { BannerData } from "@ampedbio/constants";
 
 export function AdminBannerSettings() {
   const queryClient = useQueryClient();
