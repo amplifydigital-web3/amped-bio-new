@@ -1,5 +1,17 @@
 import { adminProcedure, router } from "../trpc";
 import { prisma } from "../../services/DB";
+import { z } from "zod";
+import { bannerSchema } from "../../schemas/banner";
+
+// Function to check if text contains links
+const containsLink = (text: string): boolean => {
+  // Regular expression to detect URLs (http, https, ftp) with domain and path
+  const protocolUrlRegex = /(?:https?|ftp):\/\/[^\s/$.?#].[^\s]*/i;
+  // Regular expression to detect www. links
+  const wwwUrlRegex = /www\.[^\s]+\.[^\s]+/i;
+
+  return protocolUrlRegex.test(text) || wwwUrlRegex.test(text);
+};
 
 export const dashboardRouter = router({
   getDashboardStats: adminProcedure.query(async () => {
@@ -42,7 +54,7 @@ export const dashboardRouter = router({
     firstDayOfLastMonth.setMonth(firstDayOfLastMonth.getMonth() - 1);
     firstDayOfLastMonth.setDate(1);
     firstDayOfLastMonth.setHours(0, 0, 0, 0);
-    
+
     // Last day of last month
     const lastDayOfLastMonth = new Date();
     lastDayOfLastMonth.setDate(1); // First day of current month
@@ -58,7 +70,7 @@ export const dashboardRouter = router({
         },
       },
     });
-    
+
     // Users last week
     const usersLastWeek = await prisma.user.count({
       where: {
@@ -99,7 +111,7 @@ export const dashboardRouter = router({
         },
       },
     });
-    
+
     // Blocks created last week
     const blocksCreatedLastWeek = await prisma.block.count({
       where: {
@@ -109,7 +121,7 @@ export const dashboardRouter = router({
         },
       },
     });
-    
+
     const mostPopularBlockType = await prisma.block.groupBy({
       by: ["type"],
       _count: {
@@ -213,4 +225,113 @@ export const dashboardRouter = router({
       },
     };
   }),
+
+  getBanner: adminProcedure.output(bannerSchema).query(async () => {
+    const banner = await prisma.siteSettings.findUnique({
+      where: { setting_key: "dashboard_banner" },
+    });
+
+    if (!banner) {
+      // Return an empty banner object if none exists
+      const emptyBanner = {
+        text: "",
+        type: "info" as const,
+        enabled: false,
+        panel: undefined,
+      };
+      return emptyBanner;
+    }
+
+    // Validate and return the existing banner
+    try {
+      const bannerData = JSON.parse(banner.setting_value);
+      // Ensure type defaults to "info" if null or empty
+      if (!bannerData.type) {
+        bannerData.type = "info";
+      }
+      // Ensure the returned object conforms to the bannerSchema
+      return bannerSchema.parse(bannerData);
+    } catch {
+      // If parsing or validation fails, return an empty banner object
+      const emptyBanner = {
+        text: "",
+        type: "info" as const,
+        enabled: false,
+        panel: undefined,
+      };
+      return emptyBanner;
+    }
+  }),
+
+  updateBanner: adminProcedure
+    .input(
+      z.object({
+        bannerObject: bannerSchema,
+      })
+    )
+    .mutation(async ({ input }) => {
+      // Check if the banner text contains any links
+      if (containsLink(input.bannerObject.text)) {
+        throw new Error("Banner text cannot contain links");
+      }
+
+      return prisma.siteSettings.upsert({
+        where: { setting_key: "dashboard_banner" },
+        update: {
+          setting_value: JSON.stringify(input.bannerObject),
+          value_type: "JSON",
+        },
+        create: {
+          setting_key: "dashboard_banner",
+          setting_value: JSON.stringify(input.bannerObject),
+          value_type: "JSON",
+        },
+      });
+    }),
+
+  updateBannerEnabled: adminProcedure
+    .input(
+      z.object({
+        enabled: z.boolean(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      // Get the current banner configuration
+      const currentBanner = await prisma.siteSettings.findUnique({
+        where: { setting_key: "dashboard_banner" },
+      });
+
+      let bannerData = {
+        text: "Notice",
+        path: "",
+        type: "info",
+        enabled: false,
+      };
+
+      // If there's an existing banner configuration, parse it and update only the enabled property
+      if (currentBanner) {
+        try {
+          bannerData = JSON.parse(currentBanner.setting_value);
+        } catch {
+          // If parsing fails, use the default banner data
+        }
+      }
+
+      // Update the enabled property
+      bannerData.enabled = input.enabled;
+
+      // Save the updated banner configuration
+      return prisma.siteSettings.upsert({
+        where: { setting_key: "dashboard_banner" },
+        update: {
+          setting_value: JSON.stringify(bannerData),
+          value_type: "JSON",
+        },
+        create: {
+          setting_key: "dashboard_banner",
+          setting_value: JSON.stringify(bannerData),
+          value_type: "JSON",
+        },
+      });
+    }),
 });

@@ -1,11 +1,14 @@
 import { useParams, useLocation } from "react-router-dom";
 import { Layout } from "../components/Layout";
+import { Banner } from "../components/Banner";
 import { useAuth } from "../contexts/AuthContext";
 import { useEffect, useState } from "react";
 import { useEditor } from "../contexts/EditorContext";
 import { useNavigate } from "react-router-dom";
 import { normalizeOnelink, formatOnelink, isEquivalentOnelink } from "@/utils/onelink";
 import { toast } from "react-hot-toast";
+import { trpc } from "../utils/trpc";
+import { useQuery } from "@tanstack/react-query";
 
 export function Editor() {
   const { onelink = "" } = useParams();
@@ -15,6 +18,11 @@ export function Editor() {
   const { profile, setUser, setActivePanel } = useEditor();
   const nav = useNavigate();
   const location = useLocation();
+
+  // Fetch the public banner data from the database
+  const { data: bannerData, isLoading: bannerLoading } = useQuery(
+    trpc.public.getBanner.queryOptions(),
+  );
 
   // Normalize onelink to handle @ symbols in URLs
   const normalizedOnelink = normalizeOnelink(onelink);
@@ -140,8 +148,10 @@ export function Editor() {
   }
 
   return (
-    <div className="h-screen">
-      <Layout onelink={normalizedOnelink} />
+    <div className="h-screen flex flex-col">
+      <div className="flex-1 overflow-hidden">
+        <Layout onelink={normalizedOnelink} bannerData={bannerData} bannerLoading={bannerLoading} />
+      </div>
     </div>
   );
 }

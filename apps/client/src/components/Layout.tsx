@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { Banner } from "./Banner";
 import { Sidebar } from "./Sidebar";
 import { Preview } from "./Preview";
 import { UserMenu } from "./auth/UserMenu";
@@ -21,6 +22,8 @@ import ExplorePage from "./panels/explore/ExplorePanel.tsx";
 
 interface LayoutProps {
   onelink: string;
+  bannerData?: { message: string; type: "info" | "warning" | "success" | "error"; panel?: "home" | "profile" | "reward" | "gallery" | "blocks" | "rewardPools" | "createRewardPool" | "leaderboard" | "rns" | "wallet" | "pay" | "account" } | null;
+  bannerLoading?: boolean;
 }
 
 interface PanelConfig {
@@ -28,8 +31,7 @@ interface PanelConfig {
   width: "standard" | "wide" | "full";
 }
 
-export function Layout(props: LayoutProps) {
-  const { onelink } = props;
+export function Layout({ onelink, bannerData, bannerLoading }: LayoutProps) {
   const { activePanel, profile, blocks, theme } = useEditor();
   // const emailVerified = useAuth(state => state.authUser.emailVerified);
 
@@ -73,6 +75,16 @@ export function Layout(props: LayoutProps) {
       <div className="flex flex-col md:flex-row w-full">
         <Sidebar />
         <main className="flex-1 flex flex-col overflow-hidden">
+          {/* Show the banner if available and not loading */}
+          {!bannerLoading && bannerData && (
+            <div className="bg-white border-b z-[11]">
+              <Banner 
+                message={bannerData.message || "Notice"} 
+                type={bannerData.type || "info"} 
+                panel={bannerData.panel}
+              />
+            </div>
+          )}
           {/* Header - Now always visible regardless of panel */}
           <div className="h-16 border-b bg-white px-6 flex items-center justify-between shrink-0 shadow-sm z-[10] overflow-x-auto">
             {/* View Button - Only show for logged in users */}

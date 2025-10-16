@@ -193,6 +193,26 @@ export const walletRouter = router({
           });
         }
 
+        // Retrieve the faucet enabled status
+        const faucetStatus = await prisma.siteSettings.findUnique({
+          where: { setting_key: "faucet_enabled" },
+        });
+        const faucetEnabled = faucetStatus?.setting_value === "true";
+
+        // If faucet is disabled, return early with relevant info
+        if (!faucetEnabled) {
+          return {
+            amount: 0,
+            currency: chain.nativeCurrency.symbol,
+            lastRequestDate: null,
+            nextAvailableDate: null,
+            canRequestNow: false,
+            hasWallet: false,
+            hasSufficientFunds: false,
+            faucetEnabled: false, // Indicate that the faucet is disabled
+          };
+        }
+
         // Retrieve the faucet amount from environment variables
         const faucetAmount = Number(env.FAUCET_AMOUNT);
         let hasSufficientFunds = true; // Assume true by default
@@ -247,7 +267,6 @@ export const walletRouter = router({
         }
 
         return {
-          success: true,
           amount: faucetAmount,
           currency: chain.nativeCurrency.symbol,
           lastRequestDate,
@@ -255,6 +274,7 @@ export const walletRouter = router({
           canRequestNow,
           hasWallet: !!userWallet,
           hasSufficientFunds, // Return the flag to the client
+          faucetEnabled, // Return the faucet enabled status
         };
       } catch (error) {
         console.error("Error getting faucet amount:", error);
