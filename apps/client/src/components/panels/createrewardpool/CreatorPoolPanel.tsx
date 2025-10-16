@@ -331,7 +331,7 @@ export function CreatorPoolPanel() {
               });
               console.log("Decoded Log from receipt:", decodedLog);
               // Assuming the event name can be used as an error message
-              errorMessage = decodedLog.eventName;
+              errorMessage = decodedLog.eventName ?? "Unknown error";
             } catch {
               // Ignore logs that don't match the ABI
             }
