@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { useAccount } from "wagmi";
 import { useIdentityToken } from "@web3auth/modal/react";
+import { isForceMetamask } from "@/utils/auth";
 
 export function useFundWalletDialog(params: {
   open: boolean;
@@ -100,11 +101,19 @@ export function useFundWalletDialog(params: {
         return { success: false };
       }
 
-      const result = await trpcClient.wallet.requestAirdrop.mutate({
+      const faucetRequestData: any = {
         publicKey: wallet.publicKey!,
-        idToken,
         chainId: chainId!,
-      });
+      };
+
+      // If force MetaMask mode is enabled, pass the address directly instead of using Web3Auth
+      if (isForceMetamask) {
+        faucetRequestData.address = wallet.address;
+      } else {
+        faucetRequestData.idToken = idToken;
+      }
+
+      const result = await trpcClient.wallet.requestAirdrop.mutate(faucetRequestData);
 
       if (result.success && result.transaction?.hash) {
         setTxInfo({ txid: result.transaction.hash });

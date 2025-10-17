@@ -7,7 +7,7 @@ import { Web3AuthWalletProvider } from "./Web3AuthWalletProvider";
 import { WagmiProvider, createConfig, http } from "wagmi";
 import { injected } from "wagmi/connectors";
 import { MetaMaskWalletProvider } from "./MetaMaskWalletProvider";
-import { AVAILABLE_CHAINS } from "@amped/web3";
+import { AVAILABLE_CHAINS } from "@ampedbio/web3";
 import { isForceMetamask } from "../utils/auth";
 
 // Standard Wagmi config for direct MetaMask mode

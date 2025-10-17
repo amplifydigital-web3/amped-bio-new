@@ -21,7 +21,8 @@ import * as jose from "jose";
 const faucetRequestSchema = z.object({
   publicKey: z.string(),
   chainId: z.number(),
-  idToken: z.string(),
+  idToken: z.string().optional(), // Optional for development
+  address: z.string().optional(), // Optional address for development
 });
 
 // Schema for faucet response
@@ -95,17 +96,34 @@ export const walletRouter = router({
     .input(
       z.object({
         publicKey: z.string(),
-        idToken: z.string(),
+        idToken: z.string().optional(), // Optional for development
+        address: z.string().optional(), // Optional address for development
       })
     )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.sub;
 
-      // Verify the Web3Auth ID token and get the wallet address
-      await verifyWeb3AuthIdToken(input.idToken, input.publicKey);
+      let address: Address;
 
-      // Convert the public key to an Ethereum address
-      const address = web3AuthPublicKeyToAddress(input.publicKey);
+      // In development, allow direct address linking without Web3Auth verification
+      if (env.NODE_ENV === "development" && input.address) {
+        address = getAddress(input.address as Address);
+      } else {
+        // In production or when no address is provided, verify the Web3Auth ID token
+        if (!input.idToken) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Web3Auth ID token is required in production mode or when direct address linking is not used. In production, wallet linking must be authenticated through Web3Auth.",
+          });
+        }
+
+        // Verify the Web3Auth ID token and get the wallet address
+        await verifyWeb3AuthIdToken(input.idToken, input.publicKey);
+
+        // Convert the public key to an Ethereum address
+        address = web3AuthPublicKeyToAddress(input.publicKey);
+      }
 
       try {
         // Check if the user already has a linked wallet (1:1 relationship)
@@ -318,10 +336,26 @@ export const walletRouter = router({
       try {
         const userId = ctx.user.sub;
 
-        // Verify the Web3Auth ID token and get the wallet address
-        await verifyWeb3AuthIdToken(input.idToken, input.publicKey);
+        let address: Address;
 
-        const address = web3AuthPublicKeyToAddress(input.publicKey);
+        // In development, allow direct address usage without Web3Auth verification
+        if (env.NODE_ENV === "development" && input.address) {
+          address = getAddress(input.address as Address);
+        } else {
+          // In production or when no address is provided, verify the Web3Auth ID token
+          if (!input.idToken) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "Web3Auth ID token is required in production mode or when direct address linking is not used. In production, faucet requests must be authenticated through Web3Auth.",
+            });
+          }
+
+          // Verify the Web3Auth ID token and get the wallet address
+          await verifyWeb3AuthIdToken(input.idToken, input.publicKey);
+
+          address = web3AuthPublicKeyToAddress(input.publicKey);
+        }
 
         if (!env.FAUCET_PRIVATE_KEY) {
           throw new TRPCError({

@@ -15,23 +15,40 @@ export const useMetaMaskWallet = () => {
   const account = useAccount();
 
   const handleConnect = useCallback(async () => {
-    if (connectors[0]) {
-      connect({ connector: connectors[0] });
+    // Prioritize specific injected wallets like MetaMask over generic "Injected"
+    const preferredOrder = ["io.metamask", "app.phantom", "injected"]; // Order by preference
+
+    for (const connectorId of preferredOrder) {
+      const connector = connectors.find(c => c.id === connectorId && c.type === "injected");
+      if (connector) {
+        try {
+          connect({ connector });
+          return;
+        } catch (error) {
+          console.log(`Failed to connect with ${connector.name}:`, error);
+        }
+      }
     }
+
+    console.log("No preferred injected connector available");
   }, [connect, connectors]);
+
+  // Check if injected connectors are available
+  const injectedConnectorAvailable =
+    connectors.some(connector => connector.type === "injected") &&
+    typeof window !== "undefined" &&
+    !!window.ethereum;
 
   return {
     ...account,
     connect: handleConnect,
     disconnect,
-    isReady: account.status === "connected",
+    isReady: injectedConnectorAvailable, // Ready when injected connector is available
   };
 };
 
 export const useWeb3AuthWallet = () => {
-  const {
-    disconnect: web3AuthDisconnect,
-  } = useWeb3AuthDisconnect();
+  const { disconnect: web3AuthDisconnect } = useWeb3AuthDisconnect();
   const { connectTo, error } = useWeb3AuthConnect();
   const dataWeb3Auth = useWeb3Auth();
   const account = useAccount();
@@ -56,7 +73,7 @@ export const useWeb3AuthWallet = () => {
     ...account,
     connect: getTokenAndConnect,
     disconnect: web3AuthDisconnect,
-    isReady: dataWeb3Auth.status === 'ready',
+    isReady: dataWeb3Auth.status === "ready",
     error,
     getIdentityToken,
   };
