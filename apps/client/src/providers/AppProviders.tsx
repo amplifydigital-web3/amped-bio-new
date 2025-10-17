@@ -9,6 +9,7 @@ import { injected } from "wagmi/connectors";
 import { MetaMaskWalletProvider } from "./MetaMaskWalletProvider";
 import { AVAILABLE_CHAINS } from "@ampedbio/web3";
 import { isForceMetamask } from "../utils/auth";
+import { AuthProvider } from "../contexts/AuthContext";
 
 // Standard Wagmi config for direct MetaMask mode
 const wagmiConfig = createConfig({
@@ -24,7 +25,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
   if (isForceMetamask) {
     return (
       <WagmiProvider config={wagmiConfig}>
-        <MetaMaskWalletProvider>{children}</MetaMaskWalletProvider>
+        <AuthProvider>
+          <MetaMaskWalletProvider>{children}</MetaMaskWalletProvider>
+        </AuthProvider>
       </WagmiProvider>
     );
   }
@@ -32,7 +35,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <Web3AuthProvider config={web3AuthContextConfig}>
       <Web3AuthWagmiProvider>
-        <Web3AuthWalletProvider>{children}</Web3AuthWalletProvider>
+        <AuthProvider>
+          <Web3AuthWalletProvider>{children}</Web3AuthWalletProvider>
+        </AuthProvider>
       </Web3AuthWagmiProvider>
     </Web3AuthProvider>
   );

@@ -95,7 +95,7 @@ export const walletRouter = router({
   linkWalletAddress: privateProcedure
     .input(
       z.object({
-        publicKey: z.string(),
+        publicKey: z.string().optional(), // Optional for development direct address linking
         idToken: z.string().optional(), // Optional for development
         address: z.string().optional(), // Optional address for development
       })
@@ -110,11 +110,11 @@ export const walletRouter = router({
         address = getAddress(input.address as Address);
       } else {
         // In production or when no address is provided, verify the Web3Auth ID token
-        if (!input.idToken) {
+        if (!input.idToken || !input.publicKey) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message:
-              "Web3Auth ID token is required in production mode or when direct address linking is not used. In production, wallet linking must be authenticated through Web3Auth.",
+              "Web3Auth ID token and public key are required in production mode or when direct address linking is not used. In production, wallet linking must be authenticated through Web3Auth.",
           });
         }
 

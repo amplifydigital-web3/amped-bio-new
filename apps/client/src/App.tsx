@@ -16,7 +16,6 @@ import { initParticlesEngine } from "@tsparticles/react";
 import { loadAll } from "@tsparticles/all";
 import { EmailVerification, EmailVerificationResent, PasswordReset } from "./pages/auth";
 import { Toaster } from "react-hot-toast";
-import { AuthProvider } from "./contexts/AuthContext";
 import { EditorProvider } from "./contexts/EditorContext";
 import { useTokenExpiration } from "./hooks/useTokenExpiration";
 
@@ -73,14 +72,12 @@ function App() {
   }, []);
 
   return (
-    <AuthProvider>
-      <EditorProvider>
-        <BrowserRouter>
-          <AppRouter />
-          <Toaster />
-        </BrowserRouter>
-      </EditorProvider>
-    </AuthProvider>
+    <EditorProvider>
+      <BrowserRouter>
+        <AppRouter />
+        <Toaster />
+      </BrowserRouter>
+    </EditorProvider>
   );
 }
 
