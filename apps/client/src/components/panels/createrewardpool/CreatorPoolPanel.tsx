@@ -28,6 +28,7 @@ import { creatorPoolSchema } from "./types";
 import { type ContractFunctionExecutionError, decodeEventLog } from "viem";
 import { CREATOR_POOL_FACTORY_ABI } from "@ampedbio/web3";
 import { CreatorPoolPanelSkeleton } from "./CreatorPoolPanelSkeleton";
+import DashboardPage from "./PoolDashboardPage";
 
 // Helper function to parse TRPC errors and extract user-friendly messages
 const parseTRPCError = (error: unknown): string => {
@@ -414,30 +415,9 @@ export function CreatorPoolPanel() {
     return <CreatorPoolPanelSkeleton />;
   }
 
-  // If we've loaded and the user already has a pool, show a message
+  // If we've loaded and the user already has a pool, show the dashboard
   if (poolAddress) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 md:px-8 py-8">
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center">
-          <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-6">
-            <Trophy className="w-8 h-8 text-green-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">You Already Have a Pool!</h2>
-          <p className="text-gray-600 mb-6">
-            You've already created a reward pool on this network. You can manage your existing pool
-            instead.
-          </p>
-          <div className="flex justify-center gap-4">
-            <button
-              onClick={() => window.location.reload()}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200"
-            >
-              Refresh
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    return <DashboardPage />;
   }
 
   return (
