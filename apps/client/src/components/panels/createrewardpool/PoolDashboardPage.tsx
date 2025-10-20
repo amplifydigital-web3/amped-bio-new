@@ -1,6 +1,13 @@
-import React, { useState } from 'react';
-import { Trophy, Users, Coins, TrendingUp, Crown, Star, Medal, Award, Eye, ChevronLeft, ChevronRight, Activity, ArrowUp, ArrowDown, Gift, Clock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Trophy, Users, Coins, TrendingUp, Crown, Star, Medal, Award, Eye, ChevronLeft, ChevronRight, Activity, ArrowUp, ArrowDown, Gift, Clock, Edit3 } from 'lucide-react';
 import PoolDetailsModal from '../wallet/PoolDetailsModal';
+import { trpc } from '@/utils/trpc';
+import { useMutation } from '@tanstack/react-query';
+import { useAccount, useChainId, useReadContract } from 'wagmi';
+import { CREATOR_POOL_ABI, getChainConfig } from '@ampedbio/web3';
+import { Address } from 'viem';
+import { useQuery } from '@tanstack/react-query';
+import { trpcClient } from '@/utils/trpc';
 
 interface Fan {
   id: string;
@@ -26,38 +33,245 @@ interface PoolActivity {
 export default function DashboardPage() {
   const [showUSD, setShowUSD] = useState(false);
   const [isPoolModalOpen, setIsPoolModalOpen] = useState(false);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [descriptionInput, setDescriptionInput] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [currentHistoryPage, setCurrentHistoryPage] = useState(1);
   const fansPerPage = 10;
   const activitiesPerPage = 8;
   const revoToUSD = 0.25;
+  
+  const { address: userAddress } = useAccount();
+  const chainId = useChainId();
+  const chainConfig = getChainConfig(chainId);
 
-  // Mock user's pool data
-  const userPool = {
-    id: 'user-pool-1',
-    title: "CryptoTrader's Elite Pool",
-    name: "CryptoTrader's Elite Pool",
-    description: "Join my exclusive staking pool for premium trading insights, early access to market analysis, and community rewards. Stake REVO tokens to unlock different tiers of benefits and earn rewards based on your commitment level.",
-    image: 'https://images.pexels.com/photos/844124/pexels-photo-844124.jpeg?auto=compress&cs=tinysrgb&w=600',
-    totalStake: 125420,
-    totalRewards: 8750,
-    totalFans: 247,
-    createdDate: '2024-12-15',
-    stakedAmount: 0, // User's own stake in their pool (0 since it's their pool)
-    stakeCurrency: 'REVO',
-    rewardCurrency: 'REVO',
-    endDate: '2025-06-15',
-    status: 'active' as const,
-    category: 'staking' as const,
-    earnedRewards: 0,
-    estimatedRewards: 0,
-    participants: 247,
-    totalReward: 8750
-  };
+  // Fetch pool data from backend
+  const { data: poolData, isLoading: isPoolLoading, refetch } = useQuery({
+    queryKey: ['pools.getPool', chainId],
+    queryFn: async () => {
+      return await trpcClient.pools.getPool.query({ chainId: chainId.toString() });
+    },
+    enabled: !!userAddress && !!chainId,
+  });
 
+  // Mutation for updating pool description
+  const updateDescriptionMutation = useMutation({
+    ...trpc.pools.updateDescription.mutationOptions(),
+  });
+
+  // Get pool address from the backend data
+  const poolAddress = poolData?.poolAddress as Address | undefined;
+
+  // Set description input when pool data loads
+  useEffect(() => {
+    if (poolData?.description) {
+      setDescriptionInput(poolData.description);
+    }
+  }, [poolData?.description]);
+
+  // Refetch pool data after successful update to get the new description
+  useEffect(() => {
+    if (updateDescriptionMutation.isSuccess && !isEditingDescription) {
+      // Refetch the query to update the UI with new description
+      refetch();
+    }
+  }, [updateDescriptionMutation.isSuccess, isEditingDescription, refetch]);
+
+
+
+  // Fetch additional blockchain data for the pool
+  const { data: poolName } = useReadContract({
+    address: poolAddress,
+    abi: CREATOR_POOL_ABI,
+    functionName: 'poolName',
+    query: {
+      enabled: !!poolAddress,
+    },
+  });
+
+  const { data: totalStaked } = useReadContract({
+    address: poolAddress,
+    abi: CREATOR_POOL_ABI,
+    functionName: 'totalStaked',
+    query: {
+      enabled: !!poolAddress,
+    },
+  });
+
+  const { data: creatorCut } = useReadContract({
+    address: poolAddress,
+    abi: CREATOR_POOL_ABI,
+    functionName: 'creatorCut',
+    query: {
+      enabled: !!poolAddress,
+    },
+  });
+
+  // Fan leaderboard data - For now this is mock data since we don't have a way to fetch these from the blockchain yet
+  // In a real implementation, this would come from a backend service that tracks pool participants
+  const fans: Fan[] = React.useMemo(() => {
+    // This would normally come from an API call to fetch fan data
+    // For now, create mock data with realistic values derived from pool data
+    const mockFanCount = poolData?.fans || 10;
+    const mockFans: Fan[] = [];
+    
+    for (let i = 0; i < mockFanCount; i++) {
+      const stakeAmount = Math.floor(Math.random() * 50000) + 100; // Random stake between 100-50100
+      const rewards = Math.floor(stakeAmount * 0.05); // Rewards based on stake
+      const tier = Math.min(Math.floor(stakeAmount / 10000) + 1, 4); // Tier based on stake amount
+      
+      mockFans.push({
+        id: `fan-${i + 1}`,
+        username: `user_${Math.random().toString(36).substring(2, 10)}`,
+        avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${Math.random().toString(36).substring(2, 10)}&backgroundColor=b6e3f4,c0aede,d1d4f9,fbcfe8,f9a8d4,f1f0ff`,
+        stakedAmount: stakeAmount,
+        joinDate: new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Random date in the last 30 days
+        tier: tier,
+        totalRewards: rewards
+      });
+    }
+    
+    // Sort by staked amount (descending) to create leaderboard
+    return mockFans.sort((a, b) => b.stakedAmount - a.stakedAmount);
+  }, [poolData?.fans]);
+
+  // Pool activity data - For now this is mock data since we don't have a way to fetch this from the blockchain yet
+  const poolActivities: PoolActivity[] = React.useMemo(() => {
+    // This would normally come from an API call to fetch pool activity
+    const mockActivity: PoolActivity[] = [];
+    const activityTypes: ('stake' | 'unstake' | 'claim')[] = ['stake', 'unstake', 'claim'];
+    
+    for (let i = 0; i < 17; i++) {
+      const type = activityTypes[Math.floor(Math.random() * activityTypes.length)];
+      const amount = type === 'stake' ? Math.floor(Math.random() * 10000) + 100 : 
+                    type === 'unstake' ? Math.floor(Math.random() * 5000) + 50 : 
+                    Math.floor(Math.random() * 200) + 10;
+      
+      mockActivity.push({
+        id: `activity-${i + 1}`,
+        type: type,
+        user: `user_${Math.random().toString(36).substring(2, 8)}`,
+        avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${Math.random().toString(36).substring(2, 10)}&backgroundColor=b6e3f4,c0aede,d1d4f9,fbcfe8,f9a8d4,f1f0ff`,
+        amount: amount,
+        currency: 'REVO',
+        timestamp: new Date(Date.now() - Math.floor(Math.random() * 7 * 24 * 60 * 60 * 1000)).toISOString(), // Random time in the last 7 days
+        txHash: `0x${Math.random().toString(16).substring(2, 12)}...${Math.random().toString(16).substring(2, 8)}`
+      });
+    }
+    
+    // Sort by timestamp (newest first)
+    return mockActivity.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }, []);
+
+  // Calculate pagination
+  const totalPages = React.useMemo(() => Math.ceil(fans.length / fansPerPage), [fans, fansPerPage]);
+  const startIndex = React.useMemo(() => (currentPage - 1) * fansPerPage, [currentPage, fansPerPage]);
+  const endIndex = React.useMemo(() => startIndex + fansPerPage, [startIndex, fansPerPage]);
+  const currentFans = React.useMemo(() => fans.slice(startIndex, endIndex), [fans, startIndex, endIndex]);
+
+  // Calculate history pagination
+  const totalHistoryPages = React.useMemo(() => Math.ceil(poolActivities.length / activitiesPerPage), [poolActivities, activitiesPerPage]);
+  const historyStartIndex = React.useMemo(() => (currentHistoryPage - 1) * activitiesPerPage, [currentHistoryPage, activitiesPerPage]);
+  const historyEndIndex = React.useMemo(() => historyStartIndex + activitiesPerPage, [historyStartIndex, activitiesPerPage]);
+  const currentActivities = React.useMemo(() => poolActivities.slice(historyStartIndex, historyEndIndex), [poolActivities, historyStartIndex, historyEndIndex]);
+
+  const handlePreviousPage = React.useCallback(() => {
+    setCurrentPage(prev => Math.max(prev - 1, 1));
+  }, []);
+
+  const handleNextPage = React.useCallback(() => {
+    setCurrentPage(prev => Math.min(prev + 1, totalPages));
+  }, [totalPages]);
+
+  const handlePageClick = React.useCallback((page: number) => {
+    setCurrentPage(page);
+  }, []);
+
+  const handlePreviousHistoryPage = React.useCallback(() => {
+    setCurrentHistoryPage(prev => Math.max(prev - 1, 1));
+  }, []);
+
+  const handleNextHistoryPage = React.useCallback(() => {
+    setCurrentHistoryPage(prev => Math.min(prev + 1, totalHistoryPages));
+  }, [totalHistoryPages]);
+
+  const handleHistoryPageClick = React.useCallback((page: number) => {
+    setCurrentHistoryPage(page);
+  }, []);
+
+  // Helper function to format amounts from Wei to readable format
+  const formatFromWei = React.useCallback((weiValue: bigint | number) => {
+    const numValue = typeof weiValue === 'bigint' ? Number(weiValue) : weiValue;
+    return numValue / 1e18; // Convert from wei to token amount
+  }, []);
+
+  const formatValue = React.useCallback((value: number, currency: string = 'REVO') => {
+    if (showUSD && currency === 'REVO') {
+      return `${(value * revoToUSD).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+    return `${value.toLocaleString()} ${currency}`;
+  }, [showUSD, revoToUSD]);
+
+  const getTierInfo = React.useCallback((tierLevel: number) => {
+    const tiers = [
+      { level: 1, name: 'Bronze Tier', gradient: 'bg-gradient-to-r from-amber-500 to-orange-600', textColor: 'text-white', icon: '🥉' },
+      { level: 2, name: 'Silver Tier', gradient: 'bg-gradient-to-r from-gray-300 to-gray-500', textColor: 'text-gray-900', icon: '🥈' },
+      { level: 3, name: 'Gold Tier', gradient: 'bg-gradient-to-r from-yellow-400 to-yellow-600', textColor: 'text-gray-900', icon: '🥇' },
+      { level: 4, name: 'Diamond Tier', gradient: 'bg-gradient-to-r from-blue-400 to-purple-600', textColor: 'text-white', icon: '💎' }
+    ];
+    return tiers.find(t => t.level === tierLevel) || tiers[0];
+  }, []);
+
+  const getRankIcon = React.useCallback((index: number) => {
+    switch (index) {
+      case 0: return <Crown className="w-5 h-5 text-yellow-500" />;
+      case 1: return <Medal className="w-5 h-5 text-gray-400" />;
+      case 2: return <Award className="w-5 h-5 text-orange-500" />;
+      default: return <Star className="w-4 h-4 text-gray-400" />;
+    }
+  }, []);
+
+  const getActivityIcon = React.useCallback((type: string) => {
+    switch (type) {
+      case 'stake': return <ArrowUp className="w-4 h-4 text-green-600" />;
+      case 'unstake': return <ArrowDown className="w-4 h-4 text-red-600" />;
+      case 'claim': return <Gift className="w-4 h-4 text-blue-600" />;
+      default: return <Activity className="w-4 h-4 text-gray-600" />;
+    }
+  }, []);
+
+  const getActivityColor = React.useCallback((type: string) => {
+    switch (type) {
+      case 'stake': return 'bg-green-50 border-green-200';
+      case 'unstake': return 'bg-red-50 border-red-200';
+      case 'claim': return 'bg-blue-50 border-blue-200';
+      default: return 'bg-gray-50 border-gray-200';
+    }
+  }, []);
+
+  const getActivityText = React.useCallback((type: string) => {
+    switch (type) {
+      case 'stake': return 'Staked';
+      case 'unstake': return 'Unstaked';
+      case 'claim': return 'Claimed';
+      default: return 'Activity';
+    }
+  }, []);
+
+  const formatTimeAgo = React.useCallback((timestamp: string) => {
+    const now = new Date();
+    const activityTime = new Date(timestamp);
+    const diffInHours = Math.floor((now.getTime() - activityTime.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return 'Just now';
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 7) return `${diffInDays}d ago`;
+    return activityTime.toLocaleDateString();
+  }, []);
 
   // Mock time series data for total rewards over time
-  const generateRewardsData = () => {
+  const generateRewardsData = React.useCallback(() => {
     const data: { date: string; dailyRewards: number; totalRewards: number }[] = [];
     let cumulativeRewards = 0;
     
@@ -71,7 +285,7 @@ export default function DashboardPage() {
       
       // Ensure we end up close to our current total
       if (i === 0) {
-        cumulativeRewards = userPool.totalRewards;
+        cumulativeRewards = poolData?.revoStaked || 0;
       }
       
       data.push({
@@ -82,10 +296,10 @@ export default function DashboardPage() {
     }
     
     return data;
-  };
+  }, [poolData?.revoStaked]);
 
   // Mock time series data for total stake over time
-  const generateStakeData = () => {
+  const generateStakeData = React.useCallback(() => {
     const data: { date: string; stake: number }[] = [];
     const baseValue = 80000;
     let currentValue = baseValue;
@@ -100,7 +314,7 @@ export default function DashboardPage() {
       
       // Ensure we end up at our current total
       if (i === 0) {
-        currentValue = userPool.totalStake;
+        currentValue = totalStaked ? Number(totalStaked) / 1e18 : baseValue;
       }
       
       data.push({
@@ -110,524 +324,54 @@ export default function DashboardPage() {
     }
     
     return data;
-  };
+  }, [totalStaked]);
 
-  const rewardsData = generateRewardsData();
-  const stakeData = generateStakeData();
+  const rewardsData = React.useMemo(() => generateRewardsData(), [generateRewardsData]);
+  const stakeData = React.useMemo(() => generateStakeData(), [generateStakeData]);
 
   // Combine the data for the chart
-  const chartData = rewardsData.map((reward, index) => ({
+  const chartData = React.useMemo(() => rewardsData.map((reward, index) => ({
     date: reward.date,
     dailyRewards: reward.dailyRewards,
     totalRewards: reward.totalRewards,
     stake: stakeData[index].stake
-  }));
+  })), [rewardsData, stakeData]);
 
-  // Mock fan leaderboard data - expanded to 25 fans for pagination demo
-  const fans: Fan[] = [
-    {
-      id: '1',
-      username: 'whale_investor',
-      avatar: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=100',
-      stakedAmount: 50000,
-      joinDate: '2024-12-16',
-      tier: 4,
-      totalRewards: 2500
-    },
-    {
-      id: '2',
-      username: 'crypto_enthusiast',
-      avatar: 'https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=100',
-      stakedAmount: 25000,
-      joinDate: '2024-12-18',
-      tier: 4,
-      totalRewards: 1250
-    },
-    {
-      id: '3',
-      username: 'diamond_hands',
-      avatar: 'https://images.pexels.com/photos/1181263/pexels-photo-1181263.jpeg?auto=compress&cs=tinysrgb&w=100',
-      stakedAmount: 15000,
-      joinDate: '2024-12-20',
-      tier: 3,
-      totalRewards: 900
-    },
-    {
-      id: '4',
-      username: 'hodl_master',
-      avatar: 'https://images.pexels.com/photos/1181244/pexels-photo-1181244.jpeg?auto=compress&cs=tinysrgb&w=100',
-      stakedAmount: 12000,
-      joinDate: '2024-12-22',
-      tier: 3,
-      totalRewards: 720
-    },
-    {
-      id: '5',
-      username: 'staking_pro',
-      avatar: 'https://images.pexels.com/photos/1181248/pexels-photo-1181248.jpeg?auto=compress&cs=tinysrgb&w=100',
-      stakedAmount: 8000,
-      joinDate: '2024-12-25',
-      tier: 3,
-      totalRewards: 480
-    },
-    {
-      id: '6',
-      username: 'defi_lover',
-      avatar: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=100',
-      stakedAmount: 5500,
-      joinDate: '2025-01-02',
-      tier: 3,
-      totalRewards: 275
-    },
-    {
-      id: '7',
-      username: 'yield_farmer',
-      avatar: 'https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=100',
-      stakedAmount: 3000,
-      joinDate: '2025-01-05',
-      tier: 2,
-      totalRewards: 225
-    },
-    {
-      id: '8',
-      username: 'token_collector',
-      avatar: 'https://images.pexels.com/photos/1181263/pexels-photo-1181263.jpeg?auto=compress&cs=tinysrgb&w=100',
-      stakedAmount: 2500,
-      joinDate: '2025-01-08',
-      tier: 2,
-      totalRewards: 187
-    },
-    {
-      id: '9',
-      username: 'crypto_newbie',
-      avatar: 'https://images.pexels.com/photos/1181244/pexels-photo-1181244.jpeg?auto=compress&cs=tinysrgb&w=100',
-      stakedAmount: 2000,
-      joinDate: '2025-01-10',
-      tier: 2,
-      totalRewards: 150
-    },
-    {
-      id: '10',
-      username: 'blockchain_fan',
-      avatar: 'https://images.pexels.com/photos/1181248/pexels-photo-1181248.jpeg?auto=compress&cs=tinysrgb&w=100',
-      stakedAmount: 1800,
-      joinDate: '2025-01-12',
-      tier: 2,
-      totalRewards: 135
-    },
-    {
-      id: '11',
-      username: 'defi_explorer',
-      avatar: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=100',
-      stakedAmount: 1500,
-      joinDate: '2025-01-14',
-      tier: 2,
-      totalRewards: 112
-    },
-    {
-      id: '12',
-      username: 'yield_hunter',
-      avatar: 'https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=100',
-      stakedAmount: 1200,
-      joinDate: '2025-01-16',
-      tier: 1,
-      totalRewards: 90
-    },
-    {
-      id: '13',
-      username: 'token_staker',
-      avatar: 'https://images.pexels.com/photos/1181263/pexels-photo-1181263.jpeg?auto=compress&cs=tinysrgb&w=100',
-      stakedAmount: 1000,
-      joinDate: '2025-01-18',
-      tier: 1,
-      totalRewards: 75
-    },
-    {
-      id: '14',
-      username: 'crypto_believer',
-      avatar: 'https://images.pexels.com/photos/1181244/pexels-photo-1181244.jpeg?auto=compress&cs=tinysrgb&w=100',
-      stakedAmount: 900,
-      joinDate: '2025-01-20',
-      tier: 1,
-      totalRewards: 67
-    },
-    {
-      id: '15',
-      username: 'pool_supporter',
-      avatar: 'https://images.pexels.com/photos/1181248/pexels-photo-1181248.jpeg?auto=compress&cs=tinysrgb&w=100',
-      stakedAmount: 800,
-      joinDate: '2025-01-22',
-      tier: 1,
-      totalRewards: 60
-    },
-    {
-      id: '16',
-      username: 'revo_holder',
-      avatar: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=100',
-      stakedAmount: 750,
-      joinDate: '2025-01-24',
-      tier: 1,
-      totalRewards: 56
-    },
-    {
-      id: '17',
-      username: 'staking_rookie',
-      avatar: 'https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=100',
-      stakedAmount: 650,
-      joinDate: '2025-01-26',
-      tier: 1,
-      totalRewards: 48
-    },
-    {
-      id: '18',
-      username: 'crypto_enthusiast2',
-      avatar: 'https://images.pexels.com/photos/1181263/pexels-photo-1181263.jpeg?auto=compress&cs=tinysrgb&w=100',
-      stakedAmount: 600,
-      joinDate: '2025-01-28',
-      tier: 1,
-      totalRewards: 45
-    },
-    {
-      id: '19',
-      username: 'token_lover',
-      avatar: 'https://images.pexels.com/photos/1181244/pexels-photo-1181244.jpeg?auto=compress&cs=tinysrgb&w=100',
-      stakedAmount: 550,
-      joinDate: '2025-01-30',
-      tier: 1,
-      totalRewards: 41
-    },
-    {
-      id: '20',
-      username: 'defi_starter',
-      avatar: 'https://images.pexels.com/photos/1181248/pexels-photo-1181248.jpeg?auto=compress&cs=tinysrgb&w=100',
-      stakedAmount: 500,
-      joinDate: '2025-02-01',
-      tier: 1,
-      totalRewards: 37
-    },
-    {
-      id: '21',
-      username: 'blockchain_learner',
-      avatar: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=100',
-      stakedAmount: 450,
-      joinDate: '2025-02-03',
-      tier: 1,
-      totalRewards: 33
-    },
-    {
-      id: '22',
-      username: 'crypto_student',
-      avatar: 'https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=100',
-      stakedAmount: 400,
-      joinDate: '2025-02-05',
-      tier: 1,
-      totalRewards: 30
-    },
-    {
-      id: '23',
-      username: 'pool_participant',
-      avatar: 'https://images.pexels.com/photos/1181263/pexels-photo-1181263.jpeg?auto=compress&cs=tinysrgb&w=100',
-      stakedAmount: 350,
-      joinDate: '2025-02-07',
-      tier: 1,
-      totalRewards: 26
-    },
-    {
-      id: '24',
-      username: 'staking_beginner',
-      avatar: 'https://images.pexels.com/photos/1181244/pexels-photo-1181244.jpeg?auto=compress&cs=tinysrgb&w=100',
-      stakedAmount: 300,
-      joinDate: '2025-02-09',
-      tier: 1,
-      totalRewards: 22
-    },
-    {
-      id: '25',
-      username: 'revo_fan',
-      avatar: 'https://images.pexels.com/photos/1181248/pexels-photo-1181248.jpeg?auto=compress&cs=tinysrgb&w=100',
-      stakedAmount: 250,
-      joinDate: '2025-02-11',
-      tier: 1,
-      totalRewards: 18
+  // Get pool details combining backend and blockchain data
+  const userPool = React.useMemo(() => {
+    if (!poolData) {
+      return null;
     }
-  ];
 
-  // Mock pool activity data
-  const poolActivities: PoolActivity[] = [
-    {
-      id: '1',
-      type: 'stake',
-      user: 'whale_investor',
-      avatar: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=100',
-      amount: 50000,
-      currency: 'REVO',
-      timestamp: '2025-01-15T14:30:00Z',
-      txHash: '0xabc123...'
-    },
-    {
-      id: '2',
-      type: 'claim',
-      user: 'crypto_enthusiast',
-      avatar: 'https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=100',
-      amount: 125,
-      currency: 'REVO',
-      timestamp: '2025-01-15T12:15:00Z',
-      txHash: '0xdef456...'
-    },
-    {
-      id: '3',
-      type: 'stake',
-      user: 'diamond_hands',
-      avatar: 'https://images.pexels.com/photos/1181263/pexels-photo-1181263.jpeg?auto=compress&cs=tinysrgb&w=100',
-      amount: 15000,
-      currency: 'REVO',
-      timestamp: '2025-01-15T10:45:00Z',
-      txHash: '0xghi789...'
-    },
-    {
-      id: '4',
-      type: 'unstake',
-      user: 'hodl_master',
-      avatar: 'https://images.pexels.com/photos/1181244/pexels-photo-1181244.jpeg?auto=compress&cs=tinysrgb&w=100',
-      amount: 2000,
-      currency: 'REVO',
-      timestamp: '2025-01-15T09:20:00Z',
-      txHash: '0xjkl012...'
-    },
-    {
-      id: '5',
-      type: 'claim',
-      user: 'staking_pro',
-      avatar: 'https://images.pexels.com/photos/1181248/pexels-photo-1181248.jpeg?auto=compress&cs=tinysrgb&w=100',
-      amount: 75,
-      currency: 'REVO',
-      timestamp: '2025-01-14T16:30:00Z',
-      txHash: '0xmno345...'
-    },
-    {
-      id: '6',
-      type: 'stake',
-      user: 'defi_lover',
-      avatar: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=100',
-      amount: 5500,
-      currency: 'REVO',
-      timestamp: '2025-01-14T14:15:00Z',
-      txHash: '0xpqr678...'
-    },
-    {
-      id: '7',
-      type: 'stake',
-      user: 'yield_farmer',
-      avatar: 'https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=100',
-      amount: 3000,
-      currency: 'REVO',
-      timestamp: '2025-01-14T11:45:00Z',
-      txHash: '0xstu901...'
-    },
-    {
-      id: '8',
-      type: 'claim',
-      user: 'token_collector',
-      avatar: 'https://images.pexels.com/photos/1181263/pexels-photo-1181263.jpeg?auto=compress&cs=tinysrgb&w=100',
-      amount: 50,
-      currency: 'REVO',
-      timestamp: '2025-01-14T09:30:00Z',
-      txHash: '0xvwx234...'
-    },
-    {
-      id: '9',
-      type: 'unstake',
-      user: 'crypto_newbie',
-      avatar: 'https://images.pexels.com/photos/1181244/pexels-photo-1181244.jpeg?auto=compress&cs=tinysrgb&w=100',
-      amount: 500,
-      currency: 'REVO',
-      timestamp: '2025-01-13T15:20:00Z',
-      txHash: '0xyzab567...'
-    },
-    {
-      id: '10',
-      type: 'stake',
-      user: 'blockchain_fan',
-      avatar: 'https://images.pexels.com/photos/1181248/pexels-photo-1181248.jpeg?auto=compress&cs=tinysrgb&w=100',
-      amount: 1800,
-      currency: 'REVO',
-      timestamp: '2025-01-13T13:10:00Z',
-      txHash: '0xcdef890...'
-    },
-    {
-      id: '11',
-      type: 'claim',
-      user: 'defi_explorer',
-      avatar: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=100',
-      amount: 40,
-      currency: 'REVO',
-      timestamp: '2025-01-13T10:45:00Z',
-      txHash: '0xghij123...'
-    },
-    {
-      id: '12',
-      type: 'stake',
-      user: 'yield_hunter',
-      avatar: 'https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=100',
-      amount: 1200,
-      currency: 'REVO',
-      timestamp: '2025-01-12T16:20:00Z',
-      txHash: '0xklmn456...'
-    },
-    {
-      id: '13',
-      type: 'unstake',
-      user: 'token_staker',
-      avatar: 'https://images.pexels.com/photos/1181263/pexels-photo-1181263.jpeg?auto=compress&cs=tinysrgb&w=100',
-      amount: 300,
-      currency: 'REVO',
-      timestamp: '2025-01-12T14:30:00Z',
-      txHash: '0xopqr789...'
-    },
-    {
-      id: '14',
-      type: 'claim',
-      user: 'crypto_believer',
-      avatar: 'https://images.pexels.com/photos/1181244/pexels-photo-1181244.jpeg?auto=compress&cs=tinysrgb&w=100',
-      amount: 35,
-      currency: 'REVO',
-      timestamp: '2025-01-12T11:15:00Z',
-      txHash: '0xstuv012...'
-    },
-    {
-      id: '15',
-      type: 'stake',
-      user: 'pool_supporter',
-      avatar: 'https://images.pexels.com/photos/1181248/pexels-photo-1181248.jpeg?auto=compress&cs=tinysrgb&w=100',
-      amount: 800,
-      currency: 'REVO',
-      timestamp: '2025-01-11T17:45:00Z',
-      txHash: '0xwxyz345...'
-    },
-    {
-      id: '16',
-      type: 'claim',
-      user: 'revo_holder',
-      avatar: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=100',
-      amount: 28,
-      currency: 'REVO',
-      timestamp: '2025-01-11T15:30:00Z',
-      txHash: '0xabcd678...'
-    },
-    {
-      id: '17',
-      type: 'stake',
-      user: 'staking_rookie',
-      avatar: 'https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=100',
-      amount: 650,
-      currency: 'REVO',
-      timestamp: '2025-01-11T12:20:00Z',
-      txHash: '0xefgh901...'
-    }
-  ];
-  // Calculate pagination
-  const totalPages = Math.ceil(fans.length / fansPerPage);
-  const startIndex = (currentPage - 1) * fansPerPage;
-  const endIndex = startIndex + fansPerPage;
-  const currentFans = fans.slice(startIndex, endIndex);
+    // Convert blockchain values from BigInt to numbers
+    const totalStake = totalStaked ? Number(totalStaked) / 1e18 : 0; // Convert from wei to token amount
+    const creatorFee = creatorCut ? Number(creatorCut) : 0;
 
-  // Calculate history pagination
-  const totalHistoryPages = Math.ceil(poolActivities.length / activitiesPerPage);
-  const historyStartIndex = (currentHistoryPage - 1) * activitiesPerPage;
-  const historyEndIndex = historyStartIndex + activitiesPerPage;
-  const currentActivities = poolActivities.slice(historyStartIndex, historyEndIndex);
-
-  const handlePreviousPage = () => {
-    setCurrentPage(prev => Math.max(prev - 1, 1));
-  };
-
-  const handleNextPage = () => {
-    setCurrentPage(prev => Math.min(prev + 1, totalPages));
-  };
-
-  const handlePageClick = (page: number) => {
-    setCurrentPage(page);
-  };
-
-  const handlePreviousHistoryPage = () => {
-    setCurrentHistoryPage(prev => Math.max(prev - 1, 1));
-  };
-
-  const handleNextHistoryPage = () => {
-    setCurrentHistoryPage(prev => Math.min(prev + 1, totalHistoryPages));
-  };
-
-  const handleHistoryPageClick = (page: number) => {
-    setCurrentHistoryPage(page);
-  };
-
-  const formatValue = (value: number, currency: string = 'REVO') => {
-    if (showUSD && currency === 'REVO') {
-      return `$${(value * revoToUSD).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    }
-    return `${value.toLocaleString()} ${currency}`;
-  };
-
-  const getTierInfo = (tierLevel: number) => {
-    const tiers = [
-      { level: 1, name: 'Bronze Tier', color: 'bg-orange-100 text-orange-700', icon: '🥉' },
-      { level: 2, name: 'Silver Tier', color: 'bg-gray-100 text-gray-700', icon: '🥈' },
-      { level: 3, name: 'Gold Tier', color: 'bg-yellow-100 text-yellow-700', icon: '🥇' },
-      { level: 4, name: 'Diamond Tier', color: 'bg-blue-100 text-blue-700', icon: '💎' }
-    ];
-    return tiers.find(t => t.level === tierLevel) || tiers[0];
-  };
-
-  const getRankIcon = (index: number) => {
-    switch (index) {
-      case 0: return <Crown className="w-5 h-5 text-yellow-500" />;
-      case 1: return <Medal className="w-5 h-5 text-gray-400" />;
-      case 2: return <Award className="w-5 h-5 text-orange-500" />;
-      default: return <Star className="w-4 h-4 text-gray-400" />;
-    }
-  };
-
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case 'stake': return <ArrowUp className="w-4 h-4 text-green-600" />;
-      case 'unstake': return <ArrowDown className="w-4 h-4 text-red-600" />;
-      case 'claim': return <Gift className="w-4 h-4 text-blue-600" />;
-      default: return <Activity className="w-4 h-4 text-gray-600" />;
-    }
-  };
-
-  const getActivityColor = (type: string) => {
-    switch (type) {
-      case 'stake': return 'bg-green-50 border-green-200';
-      case 'unstake': return 'bg-red-50 border-red-200';
-      case 'claim': return 'bg-blue-50 border-blue-200';
-      default: return 'bg-gray-50 border-gray-200';
-    }
-  };
-
-  const getActivityText = (type: string) => {
-    switch (type) {
-      case 'stake': return 'Staked';
-      case 'unstake': return 'Unstaked';
-      case 'claim': return 'Claimed';
-      default: return 'Activity';
-    }
-  };
-
-  const formatTimeAgo = (timestamp: string) => {
-    const now = new Date();
-    const activityTime = new Date(timestamp);
-    const diffInHours = Math.floor((now.getTime() - activityTime.getTime()) / (1000 * 60 * 60));
-    
-    if (diffInHours < 1) return 'Just now';
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    const diffInDays = Math.floor(diffInHours / 24);
-    if (diffInDays < 7) return `${diffInDays}d ago`;
-    return activityTime.toLocaleDateString();
-  };
+    return {
+      id: poolData.id.toString(),
+      title: poolName || poolData.description || "Pool Title",
+      name: poolName || poolData.description || "Pool Name", 
+      description: poolData.description || "Pool description not available",
+      image: poolData.imageUrl || 'https://images.pexels.com/photos/844124/pexels-photo-844124.jpeg?auto=compress&cs=tinysrgb&w=600',
+      totalStake: totalStake,
+      totalRewards: poolData.revoStaked || 0, // Using revoStaked from the database model
+      totalFans: poolData.fans || 0, // Using fans from the database model
+      createdDate: new Date().toISOString().split('T')[0], // Using current date since createdAt is not in the type
+      stakedAmount: 0, // User's own stake in their pool (0 since it's their pool)
+      stakeCurrency: 'REVO',
+      rewardCurrency: 'REVO',
+      endDate: new Date().toISOString().split('T')[0], // Using current date since updatedAt is not in the type
+      status: 'active' as const,
+      category: 'staking' as const,
+      earnedRewards: 0,
+      estimatedRewards: 0,
+      participants: poolData.fans || 0, // Using fans from the database model
+      totalReward: poolData.revoStaked || 0 // Using revoStaked from the database model
+    };
+  }, [poolData, poolName, totalStaked, creatorCut]);
 
   // Create line chart path
-  const createDualAxisChartElements = () => {
+  const createDualAxisChartElements = React.useCallback(() => {
     const chartWidth = 900;
     const chartHeight = 400;
     const padding = { top: 40, right: 110, bottom: 80, left: 120 };
@@ -677,7 +421,7 @@ export default function DashboardPage() {
     ).join(' ');
     
     // Create left Y-axis labels (Total Stake) - 5 evenly spaced labels
-    const leftYLabels: { value: number; y: number }[] = [];
+    const leftYLabels: { value: number; y: number }[] = []
     const labelCount = 5;
     for (let i = 0; i < labelCount; i++) {
       const value = stakeMin + (adjustedStakeRange * i / (labelCount - 1));
@@ -686,7 +430,7 @@ export default function DashboardPage() {
     }
     
     // Create right Y-axis labels (Daily Rewards) - 5 evenly spaced labels
-    const rightYLabels: { value: number; y: number }[] = [];
+    const rightYLabels: { value: number; y: number }[] = []
     for (let i = 0; i < labelCount; i++) {
       const value = minDailyRewards + (dailyRewardsRange * i / (labelCount - 1));
       const y = padding.top + plotHeight - (i / (labelCount - 1)) * plotHeight;
@@ -716,13 +460,72 @@ export default function DashboardPage() {
       chartHeight, 
       padding 
     };
-  };
-  
-  const chartElements = createDualAxisChartElements();
+  }, [chartData]);
 
-  const handleViewPool = () => {
+  const chartElements = React.useMemo(() => createDualAxisChartElements(), [createDualAxisChartElements]);
+
+  const handleViewPool = React.useCallback(() => {
     setIsPoolModalOpen(true);
+  }, []);
+
+  // Handle description update
+  const handleUpdateDescription = async () => {
+    if (!chainId || !descriptionInput.trim()) return;
+
+    try {
+      await updateDescriptionMutation.mutateAsync({
+        chainId: chainId.toString(),
+        description: descriptionInput.trim(),
+      });
+      
+      // Exit edit mode after successful update
+      setIsEditingDescription(false);
+    } catch (error) {
+      console.error('Error updating description:', error);
+      // In a real app, you'd show an error message to the user
+      alert('Failed to update description. Please try again.');
+    }
   };
+
+  const handleEditDescription = () => {
+    if (poolData?.description) {
+      setDescriptionInput(poolData.description);
+    }
+    setIsEditingDescription(true);
+  };
+
+  const handleCancelEdit = () => {
+    // Revert to original description
+    if (poolData?.description) {
+      setDescriptionInput(poolData.description);
+    }
+    setIsEditingDescription(false);
+  };
+
+  // Show loading state while fetching data
+  if (isPoolLoading) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 md:px-8 py-8 flex justify-center items-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading pool data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If no pool data is available after loading, show an error message
+  if (!userPool) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 md:px-8 py-8 flex justify-center items-center h-64">
+        <div className="text-center">
+          <p className="text-gray-600">No pool data available.</p>
+        </div>
+      </div>
+    );
+  }
+
+
 
   return (
     <div className="max-w-6xl mx-auto px-4 md:px-8 py-8">
@@ -773,7 +576,51 @@ export default function DashboardPage() {
           <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">{userPool.title}</h2>
-              <p className="text-gray-600 leading-relaxed">{userPool.description}</p>
+              {isEditingDescription ? (
+                <div className="space-y-3">
+                  <textarea
+                    value={descriptionInput}
+                    onChange={(e) => setDescriptionInput(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[100px]"
+                    placeholder="Enter pool description..."
+                    maxLength={500}
+                  />
+                  <div className="text-sm text-gray-500 text-right">{descriptionInput.length}/500 characters</div>
+                  <div className="flex space-x-3 pt-2">
+                    <button
+                      onClick={handleUpdateDescription}
+                      disabled={updateDescriptionMutation.isPending}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 disabled:opacity-50 flex items-center"
+                    >
+                      {updateDescriptionMutation.isPending && (
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      )}
+                      {updateDescriptionMutation.isPending ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                      onClick={handleCancelEdit}
+                      disabled={updateDescriptionMutation.isPending}
+                      className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium transition-colors duration-200 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-gray-600 leading-relaxed">{userPool.description}</p>
+                  <button
+                    onClick={handleEditDescription}
+                    className="mt-3 inline-flex items-center space-x-1 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors duration-200"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    <span>Edit Description</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* View Pool Button */}
@@ -1098,7 +945,7 @@ export default function DashboardPage() {
                     <p className="text-sm text-gray-500">Rewards</p>
                   </div>
                   
-                  <div className={`px-3 py-1 rounded-full text-xs font-medium ${tierInfo.color}`}>
+                  <div className={`px-3 py-1 rounded-full text-xs font-medium ${tierInfo.gradient} ${tierInfo.textColor}`}>
                     {tierInfo.icon} {tierInfo.name}
                   </div>
                 </div>
