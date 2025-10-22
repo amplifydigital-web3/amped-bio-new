@@ -641,7 +641,7 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
             ? {
                 id: pool.id,
                 title: pool.title,
-                description: pool.description,
+                description: pool.description ?? "",
                 stakeCurrency: pool.stakeCurrency,
                 imageUrl: pool.imageUrl,
                 minStake: 100,

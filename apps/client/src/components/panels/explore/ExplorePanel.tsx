@@ -153,7 +153,7 @@ export default function ExplorePage({ initialTab = "creators", onTabChange }: Ex
       const poolForStaking = {
         id: pool.id,
         title: pool.title,
-        description: pool.description,
+        description: pool.description ?? "",
         stakeCurrency: "REVO",
         image: pool.imageUrl,
         minStake: 500,
@@ -188,6 +188,7 @@ export default function ExplorePage({ initialTab = "creators", onTabChange }: Ex
         createdBy: pool.createdBy || "Unknown", // Placeholder
         stakedAmount: 0,
         stakeCurrency: "REVO",
+        rewardCurrency: pool.rewardCurrency || "REVO",
         earnedRewards: 0,
         estimatedRewards: 0,
       };
@@ -544,26 +545,22 @@ export default function ExplorePage({ initialTab = "creators", onTabChange }: Ex
                 <span>Users</span>
               </div>
             </button>
-            <div className="relative group">
-              <button
-                onClick={() => {
-                  setActiveTab("pools");
-                  onTabChange?.("pools");
-                }}
-                disabled
-                className={`py-2 px-1 border-b-2 font-medium text-sm border-transparent text-gray-400 cursor-not-allowed`}
-              >
-                <div className="flex items-center space-x-2">
-                  <Trophy className="w-4 h-4" />
-                  <span>Reward Pools</span>
-                </div>
-              </button>
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
-                <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap">
-                  Coming Soon
-                </div>
+            <button
+              onClick={() => {
+                setActiveTab("pools");
+                onTabChange?.("pools");
+              }}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === "pools"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              <div className="flex items-center space-x-2">
+                <Trophy className="w-4 h-4" />
+                <span>Reward Pools</span>
               </div>
-            </div>
+            </button>
             <div className="relative group">
               <button
                 disabled
