@@ -20,9 +20,9 @@ interface PoolDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   pool: {
-    id: string;
+    id: number;
     title: string;
-    description: string;
+    description: string | null;
     stakedAmount: number;
     stakeCurrency: string;
     totalReward: number;
@@ -33,7 +33,11 @@ interface PoolDetailsModalProps {
     earnedRewards: number;
     estimatedRewards: number;
     participants: number;
-    image?: string | null;
+    imageUrl?: string | null;
+    chainId: string;
+    userId: number;
+    poolAddress: string | null;
+    image_file_id: number | null;
   } | null;
 }
 
@@ -300,9 +304,9 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
               {/* Pool Image */}
               <div className="relative h-64">
                 <div className="h-full rounded-2xl overflow-hidden border border-gray-100 shadow-sm bg-gradient-to-br from-blue-50 to-purple-50">
-                  {pool.image ? (
+                  {pool.imageUrl ? (
                     <img
-                      src={pool.image}
+                      src={pool.imageUrl}
                       alt={`${pool.title} pool`}
                       className="w-full h-full object-cover"
                     />
@@ -639,7 +643,7 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
                 title: pool.title,
                 description: pool.description,
                 stakeCurrency: pool.stakeCurrency,
-                image: pool.image,
+                imageUrl: pool.imageUrl,
                 minStake: 100,
                 currentStake: pool.stakedAmount,
               }

@@ -7,20 +7,23 @@ interface AdminUserStatsProps {
   activeUsers?: number;
 }
 
-export const AdminUserStats = ({ 
-  totalUsers, 
+export const AdminUserStats = ({
+  totalUsers,
   newThisWeek,
   usersLastWeek,
-  activeUsers
+  activeUsers,
 }: AdminUserStatsProps) => {
   // Calculate percentage change for new users this week
-  const userGrowthPercentage = usersLastWeek && usersLastWeek > 0 
-    ? Math.round(((newThisWeek - usersLastWeek) / usersLastWeek) * 100) 
-    : newThisWeek > 0 ? 100 : 0;
+  const userGrowthPercentage =
+    usersLastWeek && usersLastWeek > 0
+      ? Math.round(((newThisWeek - usersLastWeek) / usersLastWeek) * 100)
+      : newThisWeek > 0
+        ? 100
+        : 0;
 
   // Determine if growth is positive
   const isPositiveGrowth = userGrowthPercentage >= 0;
-  
+
   return (
     <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
       <div className="flex items-center justify-between">
@@ -35,9 +38,11 @@ export const AdminUserStats = ({
             <div className="flex items-center">
               <span className="text-sm font-medium">{newThisWeek.toLocaleString()}</span>
               {usersLastWeek !== undefined && (
-                <span className={`ml-2 text-xs font-medium flex items-center ${
-                  isPositiveGrowth ? "text-green-600" : "text-red-600"
-                }`}>
+                <span
+                  className={`ml-2 text-xs font-medium flex items-center ${
+                    isPositiveGrowth ? "text-green-600" : "text-red-600"
+                  }`}
+                >
                   {isPositiveGrowth ? (
                     <TrendingUp className="h-3 w-3 mr-1" />
                   ) : (

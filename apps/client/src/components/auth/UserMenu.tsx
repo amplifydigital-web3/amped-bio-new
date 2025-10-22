@@ -50,7 +50,7 @@ export function UserMenu() {
       // Check if there's a panel parameter in the current URL
       const searchParams = new URLSearchParams(window.location.search);
       const panelParam = searchParams.get("p");
-      
+
       if (panelParam) {
         return nav(`/${formattedOnelink}/edit?p=${panelParam}`);
       }
@@ -77,8 +77,6 @@ export function UserMenu() {
   const handleNavtoHome = () => {
     return nav(`/@${authUser?.onelink}`);
   };
-
-  
 
   const handleNavigateToWallet = () => {
     if (authUser?.onelink) {
@@ -171,7 +169,7 @@ export function UserMenu() {
             <span>My Wallet</span>
           </DropdownMenuItem>
         )}
-        
+
         <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
           <LogOut className="w-4 h-4 mr-2" />
           <span>Sign Out</span>

@@ -15,10 +15,13 @@ import { AuthProvider } from "../contexts/AuthContext";
 const wagmiConfig = createConfig({
   chains: AVAILABLE_CHAINS,
   connectors: [injected()],
-  transports: AVAILABLE_CHAINS.reduce((obj: Record<number, ReturnType<typeof http>>, chain) => {
-    obj[chain.id] = http();
-    return obj;
-  }, {} as Record<number, ReturnType<typeof http>>),
+  transports: AVAILABLE_CHAINS.reduce(
+    (obj: Record<number, ReturnType<typeof http>>, chain) => {
+      obj[chain.id] = http();
+      return obj;
+    },
+    {} as Record<number, ReturnType<typeof http>>
+  ),
 });
 
 export function AppProviders({ children }: { children: ReactNode }) {

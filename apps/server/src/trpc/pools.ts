@@ -1,28 +1,25 @@
-import { privateProcedure, router } from "./trpc";
+import { privateProcedure, publicProcedure, router } from "./trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { prisma } from "../services/DB";
 import { Address, createPublicClient, http, zeroAddress } from "viem";
 import { getChainConfig, CREATOR_POOL_FACTORY_ABI } from "@ampedbio/web3";
-import {
-  ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS,
-  ALLOWED_AVATAR_FILE_TYPES,
-} from "@ampedbio/constants";
+import { ALLOWED_POOL_IMAGE_FILE_EXTENSIONS, ALLOWED_POOL_IMAGE } from "@ampedbio/constants";
 import { env } from "../env";
 import { s3Service } from "../services/S3Service";
 import { uploadedFileService } from "../services/UploadedFileService";
 
 const requestPoolImagePresignedUrlSchema = z.object({
-  contentType: z.string().refine(value => ALLOWED_AVATAR_FILE_TYPES.includes(value), {
-    message: `Only ${ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.join(", ").toUpperCase()} formats are supported`,
+  contentType: z.string().refine(value => ALLOWED_POOL_IMAGE.includes(value), {
+    message: `Only ${ALLOWED_POOL_IMAGE_FILE_EXTENSIONS.join(", ").toUpperCase()} formats are supported`,
   }),
   fileExtension: z
     .string()
-    .refine(value => ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.includes(value.toLowerCase()), {
-      message: `File extension must be ${ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS.join(", ")}`,
+    .refine(value => ALLOWED_POOL_IMAGE_FILE_EXTENSIONS.includes(value.toLowerCase()), {
+      message: `File extension must be ${ALLOWED_POOL_IMAGE_FILE_EXTENSIONS.join(", ")}`,
     }),
-  fileSize: z.number().max(env.UPLOAD_LIMIT_PROFILE_PHOTO_MB * 1024 * 1024, {
-    message: `File size must be less than ${env.UPLOAD_LIMIT_PROFILE_PHOTO_MB}MB`,
+  fileSize: z.number().max(env.UPLOAD_LIMIT_POOL_IMAGE_MB * 1024 * 1024, {
+    message: `File size must be less than ${env.UPLOAD_LIMIT_POOL_IMAGE_MB}MB`,
   }),
 });
 
@@ -341,11 +338,11 @@ export const poolsRouter = router({
           fileId: uploadedFile.id,
           expiresIn: 300,
         };
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error generating presigned URL for pool image:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to generate upload URL",
+          message: `Failed to generate upload URL: ${error.message || error}`,
         });
       }
     }),
@@ -403,6 +400,62 @@ export const poolsRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to update pool image",
+        });
+      }
+    }),
+
+  getPools: publicProcedure
+    .input(
+      z.object({
+        search: z.string().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      try {
+        const whereClause: any = {};
+        if (input.search) {
+          whereClause.OR = [
+            { description: { contains: input.search, mode: "insensitive" } },
+            { title: { contains: input.search, mode: "insensitive" } },
+          ];
+        }
+
+        const pools = await prisma.creatorPool.findMany({
+          where: whereClause,
+          include: {
+            poolImage: {
+              select: {
+                s3_key: true,
+                bucket: true,
+              },
+            },
+          },
+        });
+
+        return pools.map(pool => ({
+          ...pool,
+          imageUrl: pool.poolImage ? s3Service.getFileUrl(pool.poolImage.s3_key) : null,
+          title: pool.description || `Pool ${pool.id}`, // Placeholder for title
+          totalReward: 0, // Placeholder
+          currency: "REVO", // Placeholder
+          participants: 0, // Placeholder
+          maxParticipants: 100, // Placeholder
+          endDate: new Date().toISOString(), // Placeholder
+          status: "active", // Placeholder
+          category: "staking", // Placeholder
+          createdBy: "Unknown", // Placeholder
+          stakedAmount: 0, // Placeholder
+          stakeCurrency: "REVO", // Placeholder
+          rewardCurrency: "REVO", // Placeholder
+          earnedRewards: 0, // Placeholder
+          estimatedRewards: 0, // Placeholder
+        }));
+      } catch (error) {
+        console.error("Error fetching pools:", error);
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch pools",
         });
       }
     }),

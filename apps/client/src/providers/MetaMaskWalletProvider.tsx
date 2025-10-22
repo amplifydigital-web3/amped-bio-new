@@ -1,8 +1,4 @@
-import {
-  ReactNode,
-  useState,
-  useEffect,
-} from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { useBalance } from "wagmi";
 import { TRPCClientError } from "@trpc/client";
 import { WalletContext } from "../contexts/WalletContext";

@@ -10,7 +10,11 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import AWS from "aws-sdk"; // Import AWS SDK for the getSignedUrlPromise method
 import crypto from "crypto";
 import { env } from "../env";
-import { ALLOWED_AVATAR_FILE_TYPES, ALLOWED_BACKGROUND_FILE_TYPES } from "@ampedbio/constants";
+import {
+  ALLOWED_AVATAR_FILE_TYPES,
+  ALLOWED_BACKGROUND_FILE_TYPES,
+  ALLOWED_POOL_IMAGE,
+} from "@ampedbio/constants";
 
 export type FileCategory = "profiles" | "backgrounds" | "category" | "pool-images";
 export type S3Operation = "getObject" | "putObject" | "deleteObject";
@@ -229,11 +233,14 @@ class S3Service {
     } else if (category === "backgrounds") {
       allowedTypes = ALLOWED_BACKGROUND_FILE_TYPES;
       maxSize = env.UPLOAD_LIMIT_BACKGROUND_MB;
+    } else if (category === "pool-images") {
+      allowedTypes = ALLOWED_POOL_IMAGE;
+      maxSize = env.UPLOAD_LIMIT_POOL_IMAGE_MB;
     } else {
       // Invalid category
       return {
         valid: false,
-        message: `Invalid file category: ${category}. Allowed categories are 'profiles' and 'backgrounds'.`,
+        message: `Invalid file category: ${category}. Allowed categories are 'profiles', 'backgrounds', and 'pool-images'.`,
       };
     }
 

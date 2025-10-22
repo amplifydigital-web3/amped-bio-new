@@ -1,9 +1,4 @@
-import {
-  useEffect,
-  ReactNode,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, ReactNode, useRef, useState } from "react";
 import { useBalance } from "wagmi";
 import { TRPCClientError } from "@trpc/client";
 import { useAuth } from "../contexts/AuthContext";
@@ -34,12 +29,7 @@ export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) =>
   }, [wallet.error]);
 
   useEffect(() => {
-    if (
-      authUser &&
-      wallet &&
-      wallet.status !== "connected" &&
-      wallet.status !== "connecting"
-    ) {
+    if (authUser && wallet && wallet.status !== "connected" && wallet.status !== "connecting") {
       const now = Date.now();
       if (now - lastConnectAttemptRef.current >= THROTTLE_DURATION) {
         lastConnectAttemptRef.current = now;

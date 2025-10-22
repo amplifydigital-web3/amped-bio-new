@@ -4,13 +4,7 @@ import { Editor } from "./pages/Editor";
 import { View } from "./pages/View";
 
 import { AdminLayout } from "./pages/admin/AdminLayout";
-import {
-  AdminDashboard,
-  AdminUsers,
-  AdminThemes,
-  AdminBlocks,
-  AdminFiles,
-} from "./pages/admin";
+import { AdminDashboard, AdminUsers, AdminThemes, AdminBlocks, AdminFiles } from "./pages/admin";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { initParticlesEngine } from "@tsparticles/react";
 import { loadAll } from "@tsparticles/all";
@@ -53,8 +47,6 @@ function AppRouter() {
         <Route path="blocks" element={<AdminBlocks />} />
         <Route path="files" element={<AdminFiles />} />
       </Route>
-
-      
 
       {/* Authentication Routes */}
       <Route path="/auth/verify-email/:token?" element={<EmailVerification />} />

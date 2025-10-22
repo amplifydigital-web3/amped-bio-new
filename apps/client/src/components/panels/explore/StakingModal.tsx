@@ -5,11 +5,11 @@ interface StakingModalProps {
   isOpen: boolean;
   onClose: () => void;
   pool: {
-    id: string;
+    id: number;
     title: string;
     description: string;
     stakeCurrency: string;
-    image?: string | null;
+    imageUrl?: string | null;
     minStake?: number;
     currentStake?: number;
   } | null;
@@ -88,9 +88,9 @@ export default function StakingModal({ isOpen, onClose, pool, mode }: StakingMod
         {/* Pool Info */}
         <div className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
           <div className="w-12 h-12 rounded-lg overflow-hidden border border-gray-200 bg-gray-100 flex-shrink-0">
-            {pool.image ? (
+            {pool.imageUrl ? (
               <img
-                src={pool.image}
+                src={pool.imageUrl}
                 alt={`${pool.title} pool`}
                 className="w-full h-full object-cover"
               />
@@ -235,9 +235,9 @@ export default function StakingModal({ isOpen, onClose, pool, mode }: StakingMod
         {/* Pool Info */}
         <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
           <div className="w-10 h-10 rounded-lg overflow-hidden border border-gray-200 bg-gray-100 flex-shrink-0">
-            {pool.image ? (
+            {pool.imageUrl ? (
               <img
-                src={pool.image}
+                src={pool.imageUrl}
                 alt={`${pool.title} pool`}
                 className="w-full h-full object-cover"
               />

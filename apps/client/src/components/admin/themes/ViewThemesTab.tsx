@@ -172,7 +172,7 @@ export function ViewThemesTab() {
             onChange={e =>
               handleCategoryFilter(e.target.value ? Number(e.target.value) : undefined)
             }
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-4 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">All Collections</option>
             {categories?.map(category => (

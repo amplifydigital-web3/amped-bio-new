@@ -91,11 +91,7 @@ export function PoolSummaryModal({
           <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200">
             <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-white shadow-sm bg-gray-100 flex-shrink-0">
               {poolImage ? (
-                <img
-                  src={poolImage}
-                  alt="Pool preview"
-                  className="w-full h-full object-cover"
-                />
+                <img src={poolImage} alt="Pool preview" className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
                   <Trophy className="w-8 h-8 text-gray-500" />
@@ -113,7 +109,9 @@ export function PoolSummaryModal({
               <div className="flex items-center space-x-4 mt-2 text-sm">
                 <div className="flex items-center space-x-1">
                   <Coins className="w-4 h-4 text-green-600" />
-                  <span className="text-gray-700">Initial: {formData.initialStake || "0"} REVO</span>
+                  <span className="text-gray-700">
+                    Initial: {formData.initialStake || "0"} REVO
+                  </span>
                 </div>
                 <div className="flex items-center space-x-1">
                   <Percent className="w-4 h-4 text-orange-600" />

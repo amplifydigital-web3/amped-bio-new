@@ -387,13 +387,15 @@ export function EmailChangeDialog({ isOpen, onClose }: EmailChangeDialogProps) {
           <form onSubmit={handleSubmitInitiate(onSubmitInitiateEmail)} className="space-y-5">
             <div>
               <p className="text-sm text-gray-600 mb-5">
-                Enter your current and new email addresses below. We'll send a verification code to your current email to confirm the
-                change.
+                Enter your current and new email addresses below. We'll send a verification code to
+                your current email to confirm the change.
               </p>
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-gray-700">Current Email Address</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Current Email Address
+              </label>
               <input
                 type="email"
                 className={`w-full px-3.5 py-2.5 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
@@ -469,8 +471,9 @@ export function EmailChangeDialog({ isOpen, onClose }: EmailChangeDialogProps) {
           // Step 2: Verify code form - Updated with Form components
           <div className="space-y-5">
             <p className="text-sm text-gray-600 mb-5">
-              We've sent a verification code to your <span className="font-medium">current email ({authUser?.email})</span>.
-              Enter the 6-digit code below to verify your new email address.
+              We've sent a verification code to your{" "}
+              <span className="font-medium">current email ({authUser?.email})</span>. Enter the
+              6-digit code below to verify your new email address.
             </p>
 
             {expiresAt && remainingTime && (

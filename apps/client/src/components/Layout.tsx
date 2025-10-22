@@ -22,7 +22,23 @@ import ExplorePage from "./panels/explore/ExplorePanel.tsx";
 
 interface LayoutProps {
   onelink: string;
-  bannerData?: { message: string; type: "info" | "warning" | "success" | "error"; panel?: "home" | "profile" | "reward" | "gallery" | "blocks" | "rewardPools" | "createRewardPool" | "leaderboard" | "rns" | "wallet" | "pay" | "account" } | null;
+  bannerData?: {
+    message: string;
+    type: "info" | "warning" | "success" | "error";
+    panel?:
+      | "home"
+      | "profile"
+      | "reward"
+      | "gallery"
+      | "blocks"
+      | "rewardPools"
+      | "createRewardPool"
+      | "leaderboard"
+      | "rns"
+      | "wallet"
+      | "pay"
+      | "account";
+  } | null;
   bannerLoading?: boolean;
 }
 
@@ -78,9 +94,9 @@ export function Layout({ onelink, bannerData, bannerLoading }: LayoutProps) {
           {/* Show the banner if available and not loading */}
           {!bannerLoading && bannerData && (
             <div className="bg-white border-b z-[11]">
-              <Banner 
-                message={bannerData.message || "Notice"} 
-                type={bannerData.type || "info"} 
+              <Banner
+                message={bannerData.message || "Notice"}
+                type={bannerData.type || "info"}
                 panel={bannerData.panel}
               />
             </div>

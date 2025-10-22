@@ -28,9 +28,15 @@ interface Creator {
 }
 
 interface RewardPool {
-  id: string;
+  id: number;
+  description: string | null;
+  chainId: string;
+  userId: number;
+  poolAddress: string | null;
+  image_file_id: number | null;
+  imageUrl?: string | null;
+  // Placeholder fields for client-side derivation or future server implementation
   title: string;
-  description: string;
   totalReward: number;
   currency: string;
   participants: number;
@@ -39,7 +45,6 @@ interface RewardPool {
   status: "active" | "ending-soon" | "completed";
   category: "staking" | "social" | "trading" | "community";
   createdBy: string;
-  image?: string | null;
   stakedAmount: number;
   stakeCurrency: string;
   rewardCurrency: string;
@@ -101,71 +106,11 @@ export default function ExplorePage({ initialTab = "creators", onTabChange }: Ex
     ],
   };
 
-  // Mock data for reward pools
-  const mockPools: RewardPool[] = [
-    {
-      id: "1",
-      title: "REVO Staking Champions",
-      description:
-        "Stake 1000+ REVO tokens for 30 days and earn bonus rewards based on your staking duration.",
-      totalReward: 50000,
-      currency: "REVO",
-      participants: 247,
-      maxParticipants: 500,
-      endDate: "2025-02-15",
-      status: "active",
-      category: "staking",
-      createdBy: "Amped.Bio Team",
-      image:
-        "https://images.pexels.com/photos/844124/pexels-photo-844124.jpeg?auto=compress&cs=tinysrgb&w=400",
-      stakedAmount: 1000,
-      stakeCurrency: "REVO",
-      rewardCurrency: "REVO",
-      earnedRewards: 0,
-      estimatedRewards: 500,
-    },
-    {
-      id: "2",
-      title: "Social Media Engagement",
-      description:
-        "Share your profile, refer friends, and engage with the community to earn exclusive NFT rewards.",
-      totalReward: 25,
-      currency: "NFTs",
-      participants: 892,
-      maxParticipants: 1000,
-      endDate: "2025-01-31",
-      status: "active",
-      category: "social",
-      createdBy: "Community DAO",
-      image:
-        "https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=400",
-      stakedAmount: 0,
-      stakeCurrency: "",
-      rewardCurrency: "NFTs",
-      earnedRewards: 0,
-      estimatedRewards: 0,
-    },
-    {
-      id: "3",
-      title: "Trading Volume Challenge",
-      description: "Achieve $10,000+ in trading volume this month and win ETH prizes.",
-      totalReward: 10,
-      currency: "ETH",
-      participants: 156,
-      maxParticipants: 200,
-      endDate: "2025-01-31",
-      status: "active",
-      category: "trading",
-      createdBy: "TradingPro",
-      image:
-        "https://images.pexels.com/photos/730547/pexels-photo-730547.jpeg?auto=compress&cs=tinysrgb&w=400",
-      stakedAmount: 0,
-      stakeCurrency: "",
-      rewardCurrency: "ETH",
-      earnedRewards: 0,
-      estimatedRewards: 0,
-    },
-  ];
+  const { data: pools, isLoading: isLoadingPools } = useQuery(
+    trpc.pools.getPools.queryOptions({
+      search: debouncedSearchQuery,
+    })
+  );
 
   const handleViewProfile = (username: string) => {
     window.open(`${window.location.origin}/${username}`, "_blank", "noopener,noreferrer");
@@ -174,8 +119,8 @@ export default function ExplorePage({ initialTab = "creators", onTabChange }: Ex
   const handleStakeToCreator = (creatorId: string) => {
     const creator = creators?.find(c => c.id === creatorId);
     if (creator) {
-      const creatorPool = {
-        id: `creator-pool-${creator.id}`,
+      const creatorPool: RewardPool = {
+        id: parseInt(creator.id), // Convert creator.id to number
         title: `${creator.displayName}'s Creator Pool`,
         description: `${creator.bio} Join ${creator.displayName}'s exclusive creator pool to support their work and earn rewards based on their success. Stake REVO tokens to unlock different tiers of benefits including exclusive content, early access, and community perks.`,
         stakedAmount: 0,
@@ -188,26 +133,29 @@ export default function ExplorePage({ initialTab = "creators", onTabChange }: Ex
         earnedRewards: 0,
         estimatedRewards: 0,
         participants: creator.poolStake > 0 ? Math.floor(creator.poolStake / 1000) : 1,
-        image: creator.banner,
+        imageUrl: creator.banner, // Use imageUrl instead of image
         currency: "REVO",
         maxParticipants: 10000,
         createdBy: creator.displayName,
+        chainId: "", // Default value
+        userId: 0, // Default value
+        poolAddress: null, // Default value
+        image_file_id: null, // Default value
       };
-
       setSelectedRewardPoolForView(creatorPool);
       setIsRewardPoolViewModalOpen(true);
     }
   };
 
-  const handleJoinPool = (poolId: string) => {
-    const pool = mockPools.find(p => p.id === poolId);
+  const handleJoinPool = (poolId: number) => {
+    const pool = pools?.find(p => p.id === poolId);
     if (pool) {
       const poolForStaking = {
         id: pool.id,
         title: pool.title,
         description: pool.description,
         stakeCurrency: "REVO",
-        image: pool.image,
+        image: pool.imageUrl,
         minStake: 500,
         currentStake: 0,
       };
@@ -218,11 +166,26 @@ export default function ExplorePage({ initialTab = "creators", onTabChange }: Ex
     }
   };
 
-  const handleViewPool = (poolId: string) => {
-    const pool = mockPools.find(p => p.id === poolId);
+  const handleViewPool = (poolId: number) => {
+    const pool = pools?.find(p => p.id === poolId);
     if (pool) {
-      const poolForView = {
-        ...pool,
+      const poolForView: RewardPool = {
+        id: pool.id,
+        description: pool.description,
+        chainId: pool.chainId,
+        userId: pool.userId,
+        poolAddress: pool.poolAddress,
+        image_file_id: pool.image_file_id,
+        imageUrl: pool.imageUrl,
+        title: pool.title || "Untitled Pool", // Placeholder
+        totalReward: pool.totalReward || 0, // Placeholder
+        currency: pool.currency || "REVO", // Placeholder
+        participants: pool.participants || 0, // Placeholder
+        maxParticipants: pool.maxParticipants || 0, // Placeholder
+        endDate: pool.endDate || "", // Placeholder
+        status: (pool.status || "active") as "active" | "ending-soon" | "completed", // Placeholder
+        category: (pool.category || "staking") as "staking" | "social" | "trading" | "community", // Placeholder
+        createdBy: pool.createdBy || "Unknown", // Placeholder
         stakedAmount: 0,
         stakeCurrency: "REVO",
         earnedRewards: 0,
@@ -333,76 +296,93 @@ export default function ExplorePage({ initialTab = "creators", onTabChange }: Ex
     </div>
   );
 
-  const renderPools = () => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {mockPools.map(pool => (
-          <div
-            key={pool.id}
-            className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden"
-          >
-            {pool.image && (
-              <div className="h-32 bg-gradient-to-r from-blue-500 to-purple-600 relative overflow-hidden">
-                <img src={pool.image} alt={pool.title} className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-black bg-opacity-20"></div>
-              </div>
-            )}
+  const renderPools = () => {
+    if (isLoadingPools) {
+      return <div className="text-center py-8">Loading reward pools...</div>;
+    }
 
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">{pool.title}</h3>
-              <p className="text-gray-600 text-sm mb-4 line-clamp-2">{pool.description}</p>
+    if (!pools || pools.length === 0) {
+      return <div className="text-center py-8 text-gray-500">No reward pools found.</div>;
+    }
 
-              <div className="space-y-3 mb-4">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Total Stake</span>
-                  <span className="font-semibold text-gray-900">
-                    {pool.totalReward.toLocaleString()} {pool.currency}
-                  </span>
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {pools.map(pool => (
+            <div
+              key={pool.id}
+              className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden"
+            >
+              {pool.imageUrl && (
+                <div className="h-32 bg-gradient-to-r from-blue-500 to-purple-600 relative overflow-hidden">
+                  <img
+                    src={pool.imageUrl}
+                    alt={pool.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black bg-opacity-20"></div>
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Participants</span>
-                  <span className="font-semibold text-gray-900">
-                    {pool.participants.toLocaleString()}
-                  </span>
-                </div>
-              </div>
+              )}
 
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => handleViewPool(pool.id)}
-                  className="flex-1 py-2 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-1"
-                >
-                  <Users className="w-4 h-4" />
-                  <span>View Pool</span>
-                </button>
-                <button
-                  onClick={() => handleJoinPool(pool.id)}
-                  disabled={pool.status === "completed"}
-                  className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-1 ${
-                    pool.status === "completed"
-                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                      : pool.status === "active"
-                        ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                        : "bg-blue-600 text-white hover:bg-blue-700"
-                  }`}
-                >
-                  <Coins className="w-4 h-4" />
-                  <span>
-                    {pool.status === "completed"
-                      ? "Ended"
-                      : pool.status === "active"
-                        ? "Soon"
-                        : "Stake"}
-                  </span>
-                </button>
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  {pool.title ?? "Untitled Pool"}
+                </h3>
+                <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                  {pool.description ?? "No description available."}
+                </p>
+
+                <div className="space-y-3 mb-4">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">Total Stake</span>
+                    <span className="font-semibold text-gray-900">
+                      {(pool.totalReward ?? 0).toLocaleString()} {pool.currency ?? "REVO"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">Participants</span>
+                    <span className="font-semibold text-gray-900">
+                      {(pool.participants ?? 0).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => handleViewPool(pool.id)}
+                    className="flex-1 py-2 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-1"
+                  >
+                    <Users className="w-4 h-4" />
+                    <span>View Pool</span>
+                  </button>
+                  <button
+                    onClick={() => handleJoinPool(pool.id)}
+                    disabled={(pool.status ?? "active") === "completed"}
+                    className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-1 ${
+                      (pool.status ?? "active") === "completed"
+                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        : (pool.status ?? "active") === "active"
+                          ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                          : "bg-blue-600 text-white hover:bg-blue-700"
+                    }`}
+                  >
+                    <Coins className="w-4 h-4" />
+                    <span>
+                      {(pool.status ?? "active") === "completed"
+                        ? "Ended"
+                        : (pool.status ?? "active") === "active"
+                          ? "Soon"
+                          : "Stake"}
+                    </span>
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
-    </div>
-  );
-
+    );
+  };
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-8 py-8">
       {/* Header */}

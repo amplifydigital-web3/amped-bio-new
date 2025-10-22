@@ -45,7 +45,7 @@ const allNavItems: Array<{
     environmentFlag: "VITE_SHOW_WALLET",
   },
   // { id: "reward", icon: Sparkle, label: "Reward", alwaysShow: false },
-  
+
   {
     id: "createRewardPool",
     icon: CoinsIcon,
@@ -70,10 +70,10 @@ export function Sidebar() {
 
   const handlePanelClick = (id: EditorPanelType) => {
     setActivePanel(id);
-    
+
     // Update the URL with the panel parameter
     const searchParams = new URLSearchParams(location.search);
-    searchParams.set('p', id);
+    searchParams.set("p", id);
     navigate(`${location.pathname}?${searchParams.toString()}`, { replace: true });
   };
 

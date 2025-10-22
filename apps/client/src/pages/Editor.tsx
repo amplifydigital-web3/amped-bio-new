@@ -21,7 +21,7 @@ export function Editor() {
 
   // Fetch the public banner data from the database
   const { data: bannerData, isLoading: bannerLoading } = useQuery(
-    trpc.public.getBanner.queryOptions(),
+    trpc.public.getBanner.queryOptions()
   );
 
   // Normalize onelink to handle @ symbols in URLs
@@ -113,11 +113,11 @@ export function Editor() {
     // Parse query parameters
     const searchParams = new URLSearchParams(location.search);
     const panelParam = searchParams.get("p");
-    
+
     // Check if a specific panel was passed in the URL query parameter
     if (panelParam) {
       setActivePanel(panelParam as any);
-    } 
+    }
     // Check if a specific panel was passed in the navigation state
     else if (location.state && location.state.panel) {
       setActivePanel(location.state.panel);
