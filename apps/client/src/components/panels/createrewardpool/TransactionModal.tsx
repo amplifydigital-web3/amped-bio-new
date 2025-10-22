@@ -87,11 +87,41 @@ export function TransactionModal({
                 <p className="text-gray-600">There was an error creating your reward pool.</p>
               </div>
 
+              {/* Transaction Hash */}
+              {transactionHash && (
+                <div className="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-200">
+                  <div className="text-sm text-gray-500 mb-1">Transaction Hash</div>
+                  <div className="font-mono text-xs text-gray-700 break-all">{transactionHash}</div>
+                </div>
+              )}
+
               {/* Error Message */}
               {errorMessage && (
                 <div className="bg-red-50 rounded-lg p-4 mb-4 border border-red-200 text-left">
                   <div className="text-sm text-red-700 font-medium mb-1">Error Details</div>
                   <div className="text-xs text-red-600 font-mono break-words">{errorMessage}</div>
+                </div>
+              )}
+
+              {/* Block Explorer Link */}
+              {transactionHash && (
+                <div className="mb-4">
+                  <a
+                    href={`https://etherscan.io/tx/${transactionHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 text-sm"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                      ></path>
+                    </svg>
+                    <span>View on Block Explorer</span>
+                  </a>
                 </div>
               )}
 

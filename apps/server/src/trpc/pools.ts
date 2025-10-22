@@ -32,6 +32,56 @@ const confirmPoolImageUploadSchema = z.object({
 });
 
 export const poolsRouter = router({
+  getPool: privateProcedure
+    .input(
+      z.object({
+        chainId: z.string(), // Now required and string type for large chain IDs
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.user.sub;
+
+      try {
+        // Find the pool for this user and chain
+        const pool = await prisma.creatorPool.findUnique({
+          where: {
+            userId_chainId: {
+              userId,
+              chainId: input.chainId,
+            },
+          },
+          include: {
+            poolImage: {
+              select: {
+                s3_key: true,
+                bucket: true,
+              },
+            },
+          },
+        });
+
+        if (!pool) {
+          return null;
+        }
+
+        // Construct the image URL from the s3_key if available
+        const imageUrl = pool.poolImage ? s3Service.getFileUrl(pool.poolImage.s3_key) : null;
+
+        // Return the pool data with additional image URL if available
+        return {
+          ...pool,
+          imageUrl: imageUrl,
+        };
+      } catch (error) {
+        console.error("Error fetching pool:", error);
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch pool",
+        });
+      }
+    }),
+
   create: privateProcedure
     .input(
       z.object({
@@ -353,6 +403,56 @@ export const poolsRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to update pool image",
+        });
+      }
+    }),
+
+  updateDescription: privateProcedure
+    .input(
+      z.object({
+        chainId: z.string(),
+        description: z.string().min(1).max(500), // Description between 1 and 500 characters
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user.sub;
+
+      try {
+        // Find the pool for this user and chain
+        const pool = await prisma.creatorPool.findUnique({
+          where: {
+            userId_chainId: {
+              userId,
+              chainId: input.chainId,
+            },
+          },
+        });
+
+        if (!pool) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Pool not found",
+          });
+        }
+
+        // Update the pool description
+        const updatedPool = await prisma.creatorPool.update({
+          where: { id: pool.id },
+          data: {
+            description: input.description,
+          },
+        });
+
+        return {
+          ...updatedPool,
+          message: "Pool description updated successfully",
+        };
+      } catch (error) {
+        console.error("Error updating pool description:", error);
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to update pool description",
         });
       }
     }),

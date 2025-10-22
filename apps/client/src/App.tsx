@@ -16,10 +16,8 @@ import { initParticlesEngine } from "@tsparticles/react";
 import { loadAll } from "@tsparticles/all";
 import { EmailVerification, EmailVerificationResent, PasswordReset } from "./pages/auth";
 import { Toaster } from "react-hot-toast";
-import { AuthProvider } from "./contexts/AuthContext";
 import { EditorProvider } from "./contexts/EditorContext";
 import { useTokenExpiration } from "./hooks/useTokenExpiration";
-import { WalletProvider } from "./contexts/WalletContext";
 
 function AppRouter() {
   // Use the token expiration hook inside the router context
@@ -74,16 +72,12 @@ function App() {
   }, []);
 
   return (
-    <AuthProvider>
-      <WalletProvider>
-        <EditorProvider>
-          <BrowserRouter>
-            <AppRouter />
-            <Toaster />
-          </BrowserRouter>
-        </EditorProvider>
-      </WalletProvider>
-    </AuthProvider>
+    <EditorProvider>
+      <BrowserRouter>
+        <AppRouter />
+        <Toaster />
+      </BrowserRouter>
+    </EditorProvider>
   );
 }
 

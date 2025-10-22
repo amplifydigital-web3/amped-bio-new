@@ -56,7 +56,7 @@ export const libertasTestnet = {
   testnet: true,
   contracts: {
     NODE: { address: "0x019bbe745b5c9b70060408Bf720B1E5172EEa5A3" as Address },
-    CREATOR_POOL_FACTORY: { address: "0xf2aca28bf2115247e147f1c3fcbf55d0fc32fb55" as Address },
+    CREATOR_POOL_FACTORY: { address: "0xb922eEbE938b982F0Db377C69FdA40C1CeB4cf40" as Address },
   },
   gas: 5_000_000,
 } as const;
