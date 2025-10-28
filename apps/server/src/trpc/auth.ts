@@ -19,7 +19,7 @@ import { serialize } from "cookie";
 import { env } from "../env";
 import { addDays } from "date-fns";
 import { prisma } from "../services/DB";
-import type { User, CreatorPool } from "@prisma/client";
+import type { User } from "@prisma/client";
 import { hashRefreshToken } from "../utils/tokenHash";
 
 // Helper function to set refresh token cookie
@@ -191,9 +191,6 @@ export const authRouter = router({
     // Find user
     const user = await prisma.user.findUnique({
       where: { email },
-      include: {
-        creatorPools: true,
-      },
     });
 
     if (!user) {
@@ -225,7 +222,7 @@ export const authRouter = router({
       ctx,
       user,
       imageUrl,
-      !!user.creatorPools.length && !!user.creatorPools[0]?.poolAddress
+      false // Placeholder - we'll need to determine this differently since pools are now related to wallet
     );
   }),
 
@@ -319,9 +316,6 @@ export const authRouter = router({
     // Find user
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: {
-        creatorPools: true,
-      },
     });
 
     if (!user) {
@@ -345,7 +339,7 @@ export const authRouter = router({
         // emailVerified: user.email_verified_at !== null,
         role: user.role,
         image: imageUrl,
-        hasPool: !!user.creatorPools.length && !!user.creatorPools[0]?.poolAddress,
+        hasPool: false, // Placeholder - we'll need to determine this differently since pools are now related to wallet
       },
     };
   }),
@@ -561,11 +555,8 @@ export const authRouter = router({
       }
 
       // Check if user with this email exists
-      let user: (User & { creatorPools: CreatorPool[] }) | null = await prisma.user.findUnique({
+      let user: User | null = await prisma.user.findUnique({
         where: { email: googleUser.email },
-        include: {
-          creatorPools: true,
-        },
       });
 
       if (!user) {
@@ -610,7 +601,7 @@ export const authRouter = router({
             theme: null,
           },
         });
-        user = { ...newUser, creatorPools: [] };
+        user = { ...newUser };
       }
 
       // Resolve user image URL
@@ -624,7 +615,7 @@ export const authRouter = router({
         ctx,
         user,
         imageUrl,
-        user.creatorPools.length > 0 && !!user.creatorPools[0].poolAddress
+        false // Placeholder - we'll need to determine this differently since pools are now related to wallet
       );
     } catch (error) {
       console.error("Google authentication error:", error);

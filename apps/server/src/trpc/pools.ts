@@ -39,11 +39,22 @@ export const poolsRouter = router({
       const userId = ctx.user.sub;
 
       try {
-        // Find the pool for this user and chain
+        const wallet = await prisma.userWallet.findUnique({
+          where: { userId },
+        });
+
+        if (!wallet) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "User does not have a wallet",
+          });
+        }
+
+        // Find the pool for this wallet and chain
         const pool = await prisma.creatorPool.findUnique({
           where: {
-            userId_chainId: {
-              userId,
+            walletId_chainId: {
+              walletId: wallet.id,
               chainId: input.chainId,
             },
           },
@@ -100,12 +111,37 @@ export const poolsRouter = router({
         });
       }
 
+      const chain = getChainConfig(parseInt(input.chainId));
+
+      if (!chain) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Unsupported chain ID",
+        });
+      }
+
+      const publicClient = createPublicClient({
+        chain: chain,
+        transport: http(),
+      });
+
       try {
-        // First, try to find an existing pool for this user and chain
+        const wallet = await prisma.userWallet.findUnique({
+          where: { userId },
+        });
+
+        if (!wallet) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "User does not have a wallet",
+          });
+        }
+
+        // First, try to find an existing pool for this wallet and chain
         let pool = await prisma.creatorPool.findUnique({
           where: {
-            userId_chainId: {
-              userId,
+            walletId_chainId: {
+              walletId: wallet.id,
               chainId: input.chainId,
             },
           },
@@ -118,27 +154,55 @@ export const poolsRouter = router({
           return pool;
         }
 
+        // If a pool exists with an address, check if it still exists on-chain
+        if (pool && pool.poolAddress) {
+          try {
+            // Check if the pool address in our DB actually exists as a valid contract on-chain
+            const codeAtAddress = await publicClient.getCode({
+              address: pool.poolAddress as `0x${string}`,
+            });
+
+            // If there's no code at the address, the pool contract doesn't exist
+            if (codeAtAddress === "0x") {
+              // The pool in our database doesn't exist on-chain anymore, clear the address
+              console.info(
+                `Clearing pool address ${pool.poolAddress} that no longer exists on-chain for user ${userId} and chain ${input.chainId}`
+              );
+              pool = await prisma.creatorPool.update({
+                where: { id: pool.id },
+                data: { poolAddress: null },
+              });
+              return pool;
+            } else {
+              // The contract still exists at the address, return conflict error as before
+              throw new TRPCError({
+                code: "CONFLICT",
+                message: "Pool already exists for this chain",
+              });
+            }
+          } catch (verificationError) {
+            // If we get an error when trying to verify the contract, just return the error
+            // Don't assume the pool doesn't exist and remove the address
+            console.error(`Error verifying pool contract at stored address: ${verificationError}`);
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: "Failed to verify pool on blockchain. Please try again later.",
+            });
+          }
+        }
+
         // If no pool exists, create a new one
         if (!pool) {
           pool = await prisma.creatorPool.create({
             data: {
               description: input.description,
               chainId: input.chainId,
-              user: {
+              wallet: {
                 connect: {
-                  id: userId,
+                  id: wallet.id,
                 },
               },
             },
-          });
-        }
-
-        // If we get here, there's either a new pool or an existing pool with an address
-        // In the case of an existing pool with an address, we should throw an error
-        if (pool.poolAddress) {
-          throw new TRPCError({
-            code: "CONFLICT",
-            message: "Pool already exists for this chain",
           });
         }
 
@@ -204,10 +268,22 @@ export const poolsRouter = router({
         });
       }
 
+      // Find the wallet for the user
+      const wallet = await prisma.userWallet.findUnique({
+        where: { userId },
+      });
+
+      if (!wallet) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "User does not have a wallet",
+        });
+      }
+
       let pool = await prisma.creatorPool.findUnique({
         where: {
-          userId_chainId: {
-            userId,
+          walletId_chainId: {
+            walletId: wallet.id,
             chainId: input.chainId,
           },
         },
@@ -224,9 +300,9 @@ export const poolsRouter = router({
           data: {
             chainId: input.chainId,
             poolAddress,
-            user: {
+            wallet: {
               connect: {
-                id: userId,
+                id: wallet.id,
               },
             },
           },
@@ -244,12 +320,24 @@ export const poolsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.sub;
 
+      // Find the wallet for the user
+      const wallet = await prisma.userWallet.findUnique({
+        where: { userId },
+      });
+
+      if (!wallet) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "User does not have a wallet",
+        });
+      }
+
       try {
-        // Find and delete the pool for this specific user and chain
+        // Find and delete the pool for this specific wallet and chain
         const pool = await prisma.creatorPool.delete({
           where: {
-            userId_chainId: {
-              userId,
+            walletId_chainId: {
+              walletId: wallet.id,
               chainId: input.chainId,
             },
           },
@@ -276,11 +364,23 @@ export const poolsRouter = router({
       const userId = ctx.user.sub;
 
       try {
-        const pool = await prisma.creatorPool.findUnique({
-          where: { id: input.id, userId },
+        const wallet = await prisma.userWallet.findUnique({
+          where: { userId },
         });
 
-        if (!pool) {
+        if (!wallet) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "User does not have a wallet",
+          });
+        }
+
+        // First, find the pool to make sure it belongs to this wallet
+        const pool = await prisma.creatorPool.findUnique({
+          where: { id: input.id },
+        });
+
+        if (!pool || pool.walletId !== wallet.id) {
           throw new TRPCError({
             code: "NOT_FOUND",
             message: "Pool not found",
@@ -471,11 +571,22 @@ export const poolsRouter = router({
       const userId = ctx.user.sub;
 
       try {
-        // Find the pool for this user and chain
+        const wallet = await prisma.userWallet.findUnique({
+          where: { userId },
+        });
+
+        if (!wallet) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "User does not have a wallet",
+          });
+        }
+
+        // Find the pool for this wallet and chain
         const pool = await prisma.creatorPool.findUnique({
           where: {
-            userId_chainId: {
-              userId,
+            walletId_chainId: {
+              walletId: wallet.id,
               chainId: input.chainId,
             },
           },
@@ -509,4 +620,303 @@ export const poolsRouter = router({
         });
       }
     }),
+
+  addStake: privateProcedure
+    .input(
+      z.object({
+        chainId: z.string(),
+        amount: z.string().transform(val => BigInt(val)), // Accept as string and convert to BigInt
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user.sub;
+
+      try {
+        // Get the user's wallet
+        const userWallet = await prisma.userWallet.findUnique({
+          where: { userId },
+        });
+
+        if (!userWallet) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "User does not have a wallet",
+          });
+        }
+
+        // Get the pool for this wallet and chain
+        const pool = await prisma.creatorPool.findUnique({
+          where: {
+            walletId_chainId: {
+              walletId: userWallet.id,
+              chainId: input.chainId,
+            },
+          },
+        });
+
+        if (!pool) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Pool not found",
+          });
+        }
+
+        // Create or update the stake record
+        const stakedPool = await prisma.stakedPool.upsert({
+          where: {
+            userWalletId_poolId: {
+              userWalletId: userWallet.id,
+              poolId: pool.id,
+            },
+          },
+          update: {
+            stakeAmount: {
+              increment: input.amount,
+            },
+            updatedAt: new Date(),
+          },
+          create: {
+            userWalletId: userWallet.id,
+            poolId: pool.id,
+            stakeAmount: input.amount,
+          },
+        });
+
+        return {
+          success: true,
+          userWalletId: userWallet.id,
+          poolId: pool.id,
+          newStakeAmount: stakedPool.stakeAmount.toString(),
+          message: "Stake added successfully",
+        };
+      } catch (error) {
+        console.error("Error adding stake:", error);
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to add stake",
+        });
+      }
+    }),
+
+  removeStake: privateProcedure
+    .input(
+      z.object({
+        chainId: z.string(),
+        amount: z.string().transform(val => BigInt(val)), // Accept as string and convert to BigInt
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user.sub;
+
+      try {
+        // Get the user's wallet
+        const userWallet = await prisma.userWallet.findUnique({
+          where: { userId },
+        });
+
+        if (!userWallet) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "User does not have a wallet",
+          });
+        }
+
+        // Get the pool for this wallet and chain
+        const pool = await prisma.creatorPool.findUnique({
+          where: {
+            walletId_chainId: {
+              walletId: userWallet.id,
+              chainId: input.chainId,
+            },
+          },
+        });
+
+        if (!pool) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Pool not found",
+          });
+        }
+
+        // Check if the staked pool record exists
+        const stakedPool = await prisma.stakedPool.findUnique({
+          where: {
+            userWalletId_poolId: {
+              userWalletId: userWallet.id,
+              poolId: pool.id,
+            },
+          },
+        });
+
+        if (!stakedPool) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "No stake record found for this pool",
+          });
+        }
+
+        if (stakedPool.stakeAmount < input.amount) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Cannot remove stake of ${input.amount}, current stake is only ${stakedPool.stakeAmount}`,
+          });
+        }
+
+        // Update the stake record
+        const updatedStakedPool = await prisma.stakedPool.update({
+          where: {
+            userWalletId_poolId: {
+              userWalletId: userWallet.id,
+              poolId: pool.id,
+            },
+          },
+          data: {
+            stakeAmount: {
+              decrement: input.amount,
+            },
+            updatedAt: new Date(),
+          },
+        });
+
+        // If the stake amount becomes 0, delete the record
+        let deleted = false;
+        if (updatedStakedPool.stakeAmount === 0n) {
+          await prisma.stakedPool.delete({
+            where: {
+              userWalletId_poolId: {
+                userWalletId: userWallet.id,
+                poolId: pool.id,
+              },
+            },
+          });
+          deleted = true;
+        }
+
+        return {
+          success: true,
+          userWalletId: userWallet.id,
+          poolId: pool.id,
+          remainingStakeAmount: updatedStakedPool.stakeAmount.toString(),
+          deleted,
+          message: deleted ? "All stake removed and record deleted" : "Stake removed successfully",
+        };
+      } catch (error) {
+        console.error("Error removing stake:", error);
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to remove stake",
+        });
+      }
+    }),
+
+  getUserPoolStake: privateProcedure
+    .input(
+      z.object({
+        chainId: z.string(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.user.sub;
+
+      try {
+        // Get the user's wallet
+        const userWallet = await prisma.userWallet.findUnique({
+          where: { userId },
+        });
+
+        if (!userWallet) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "User does not have a wallet",
+          });
+        }
+
+        // Get the pool for this wallet and chain
+        const pool = await prisma.creatorPool.findUnique({
+          where: {
+            walletId_chainId: {
+              walletId: userWallet.id,
+              chainId: input.chainId,
+            },
+          },
+        });
+
+        if (!pool) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Pool not found",
+          });
+        }
+
+        // Get the stake amount for this user's wallet in this pool
+        const stakedPool = await prisma.stakedPool.findUnique({
+          where: {
+            userWalletId_poolId: {
+              userWalletId: userWallet.id,
+              poolId: pool.id,
+            },
+          },
+        });
+
+        return {
+          userWalletId: userWallet.id,
+          poolId: pool.id,
+          stakeAmount: stakedPool?.stakeAmount?.toString() || "0",
+          hasStake: !!stakedPool,
+        };
+      } catch (error) {
+        console.error("Error getting user pool stake:", error);
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to get user pool stake",
+        });
+      }
+    }),
+
+  getUserStakes: privateProcedure.query(async ({ ctx }) => {
+    const userId = ctx.user.sub;
+
+    try {
+      // Get the user's wallet
+      const userWallet = await prisma.userWallet.findUnique({
+        where: { userId },
+      });
+
+      if (!userWallet) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "User does not have a wallet",
+        });
+      }
+
+      // Get all stakes for this user's wallet
+      const userStakes = await prisma.stakedPool.findMany({
+        where: {
+          userWalletId: userWallet.id,
+        },
+        include: {
+          pool: true,
+        },
+      });
+
+      return userStakes.map(stake => ({
+        userWalletId: stake.userWalletId,
+        poolId: stake.poolId,
+        poolChainId: stake.pool.chainId,
+        stakeAmount: stake.stakeAmount.toString(),
+        createdAt: stake.createdAt,
+        updatedAt: stake.updatedAt,
+      }));
+    } catch (error) {
+      console.error("Error getting user stakes:", error);
+      if (error instanceof TRPCError) throw error;
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to get user stakes",
+      });
+    }
+  }),
 });

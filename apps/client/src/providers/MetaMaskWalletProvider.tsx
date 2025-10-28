@@ -60,6 +60,7 @@ export const MetaMaskWalletProvider = ({ children }: { children: ReactNode }) =>
         updateBalanceDelayed,
         publicKey: null,
         address: wallet.address,
+        getIdentityToken: undefined,
       }}
     >
       {children}

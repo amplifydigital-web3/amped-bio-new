@@ -618,7 +618,8 @@ export function CreatorPoolPanel() {
                 <button
                   type="button"
                   onClick={addTier}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200"
+                  disabled
+                  className="flex items-center space-x-2 px-4 py-2 bg-gray-300 text-gray-500 rounded-lg font-medium cursor-not-allowed"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add Tier</span>

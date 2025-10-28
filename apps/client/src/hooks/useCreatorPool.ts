@@ -1,17 +1,7 @@
-import {
-  useChainId,
-  useAccount,
-  useReadContract,
-  useWalletClient,
-  usePublicClient,
-} from "wagmi";
+import { useChainId, useAccount, useReadContract, useWalletClient } from "wagmi";
 import { type Address, parseEther, zeroAddress } from "viem";
 import { useMemo } from "react";
-import {
-  CREATOR_POOL_ABI,
-  CREATOR_POOL_FACTORY_ABI,
-  getChainConfig,
-} from "@ampedbio/web3";
+import { CREATOR_POOL_FACTORY_ABI, getChainConfig } from "@ampedbio/web3";
 
 export interface CreatePoolArgs {
   creatorCut: number;
@@ -23,26 +13,23 @@ export function useCreatorPool() {
   const chainId = useChainId();
   const { address: userAddress } = useAccount();
   const { data: walletClient } = useWalletClient();
-  const publicClient = usePublicClient();
 
   const chain = useMemo(() => {
     return getChainConfig(chainId);
   }, [chainId]);
 
   // Use wagmi's useReadContract hook to get the pool address
-  const { data: contractPoolAddress, isLoading: isReadingPoolAddress } =
-    useReadContract({
-      address: chain?.contracts?.CREATOR_POOL_FACTORY?.address,
-      abi: CREATOR_POOL_FACTORY_ABI,
-      functionName: "getPoolForCreator",
-      args: userAddress ? [userAddress] : undefined,
-      query: {
-        enabled:
-          !!chainId &&
-          !!userAddress &&
-          !!chain?.contracts?.CREATOR_POOL_FACTORY?.address,
-      },
-    });
+  const { data: contractPoolAddress, isLoading: isReadingPoolAddress } = useReadContract({
+    address: chain?.contracts?.CREATOR_POOL_FACTORY?.address,
+    abi: CREATOR_POOL_FACTORY_ABI,
+    functionName: "getPoolForCreator",
+    args: userAddress ? [userAddress] : undefined,
+    query: {
+      enabled: !!chainId && !!userAddress && !!chain?.contracts?.CREATOR_POOL_FACTORY?.address,
+    },
+  });
+
+  console.info("contractPoolAddress", contractPoolAddress);
 
   const poolAddress = useMemo(() => {
     // If we're still reading or there's no data, return null
@@ -57,24 +44,6 @@ export function useCreatorPool() {
 
     return contractPoolAddress as Address;
   }, [contractPoolAddress, isReadingPoolAddress]);
-
-  const getFanStake = async (fanAddress: Address) => {
-    if (!poolAddress || !publicClient) {
-      return null;
-    }
-    try {
-      const stake = await publicClient.readContract({
-        address: poolAddress,
-        abi: CREATOR_POOL_ABI,
-        functionName: "fanStakes",
-        args: [fanAddress],
-      });
-      return stake as bigint;
-    } catch (error) {
-      console.error("Error fetching fan stake:", error);
-      return null;
-    }
-  };
 
   const handleCreatePool = async (args: CreatePoolArgs) => {
     if (!chain?.contracts.NODE.address) {
@@ -91,15 +60,15 @@ export function useCreatorPool() {
       stake: args.stake,
     });
 
-    const hash = await walletClient!.writeContract({
+    if (!walletClient) {
+      throw new Error("Wallet client not available");
+    }
+
+    const hash = await walletClient.writeContract({
       address: chain.contracts.CREATOR_POOL_FACTORY.address,
       abi: CREATOR_POOL_FACTORY_ABI,
       functionName: "createPool",
-      args: [
-        chain.contracts.NODE.address,
-        BigInt(args.creatorCut),
-        args.poolName,
-      ],
+      args: [chain.contracts.NODE.address, BigInt(args.creatorCut), args.poolName],
       value: parseEther(args.stake.toString()),
       gas: BigInt(5000000), // Add explicit gas limit
     });
@@ -111,6 +80,5 @@ export function useCreatorPool() {
     createPool: handleCreatePool,
     poolAddress,
     isLoading: isReadingPoolAddress,
-    getFanStake,
   };
 }

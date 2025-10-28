@@ -88,6 +88,7 @@ export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) =>
         updateBalanceDelayed,
         publicKey,
         address: wallet.address,
+        getIdentityToken: wallet.getIdentityToken,
       }}
     >
       {children}

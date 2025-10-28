@@ -11,6 +11,7 @@ export type WalletContextType = {
   updateBalanceDelayed: () => void;
   publicKey: string | null;
   address?: `0x${string}` | undefined;
+  getIdentityToken?: () => Promise<string> | undefined;
 };
 
 export const WalletContext = createContext<WalletContextType>({
@@ -22,6 +23,7 @@ export const WalletContext = createContext<WalletContextType>({
   updateBalanceDelayed: () => {},
   publicKey: null,
   address: undefined,
+  getIdentityToken: undefined,
 });
 
 export const useWalletContext = () => {

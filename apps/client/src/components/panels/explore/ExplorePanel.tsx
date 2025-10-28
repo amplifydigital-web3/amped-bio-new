@@ -173,7 +173,7 @@ export default function ExplorePage({ initialTab = "creators", onTabChange }: Ex
         id: pool.id,
         description: pool.description,
         chainId: pool.chainId,
-        userId: pool.userId,
+        userId: pool.walletId, // Use walletId instead of userId since pools now relate to wallets
         poolAddress: pool.poolAddress,
         image_file_id: pool.image_file_id,
         imageUrl: pool.imageUrl,

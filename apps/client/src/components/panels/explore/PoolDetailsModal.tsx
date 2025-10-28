@@ -11,8 +11,8 @@ import {
   Share2,
 } from "lucide-react";
 import StakingModal from "./StakingModal";
-import { useCreatorPool } from "../../../hooks/useCreatorPool";
-import { useAccount } from "wagmi";
+import { usePoolReader } from "../../../hooks/usePoolReader";
+import { useAccount, usePublicClient } from "wagmi";
 import { formatEther } from "viem";
 
 interface PoolDetailsModalProps {
@@ -45,8 +45,9 @@ export default function PoolDetailsModal({
   onClose,
   pool,
 }: PoolDetailsModalProps) {
-  const { getFanStake } = useCreatorPool();
+  const { getFanStake, creatorCut: contractCreatorCut, isReadingCreatorCut } = usePoolReader(pool?.poolAddress as `0x${string}` | undefined);
   const { address: userAddress } = useAccount();
+  const publicClient = usePublicClient();
   const [fanStake, setFanStake] = useState("0");
 
   const [isStakingModalOpen, setIsStakingModalOpen] = useState(false);
@@ -55,16 +56,16 @@ export default function PoolDetailsModal({
   );
 
   useEffect(() => {
-    if (isOpen && pool?.poolAddress && userAddress) {
+    if (isOpen && pool?.poolAddress && userAddress && publicClient) {
       const fetchStake = async () => {
-        const stake = await getFanStake(userAddress);
+        const stake = await getFanStake(publicClient, userAddress);
         if (stake !== null) {
           setFanStake(formatEther(stake));
         }
       };
       fetchStake();
     }
-  }, [isOpen, pool?.poolAddress, userAddress, getFanStake]);
+  }, [isOpen, pool?.poolAddress, userAddress, getFanStake, publicClient]);
 
   if (!isOpen || !pool) return null;
 
@@ -306,7 +307,11 @@ export default function PoolDetailsModal({
                         Take Rate:
                       </span>
                       <span className="text-sm font-semibold text-gray-900">
-                        2.5%
+                        {isReadingCreatorCut 
+                          ? "Loading..." 
+                          : contractCreatorCut !== undefined && contractCreatorCut !== null 
+                            ? `${Number(contractCreatorCut) / 100}%` 
+                            : "N/A"}
                       </span>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
