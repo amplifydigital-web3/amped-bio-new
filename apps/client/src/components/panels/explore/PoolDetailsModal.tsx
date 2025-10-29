@@ -12,8 +12,12 @@ import {
 } from "lucide-react";
 import StakingModal from "./StakingModal";
 import { usePoolReader } from "../../../hooks/usePoolReader";
-import { useAccount, usePublicClient } from "wagmi";
-import { formatEther } from "viem";
+import { useAccount, usePublicClient, useWriteContract } from "wagmi";
+import { formatEther, parseEther } from "viem";
+import { L2_BASE_TOKEN_ABI, getChainConfig } from "@ampedbio/web3";
+import { useMemo } from "react";
+import { trpc, trpcClient } from "../../../utils/trpc";
+import { useMutation } from "@tanstack/react-query";
 
 interface PoolDetailsModalProps {
   isOpen: boolean;
@@ -49,11 +53,108 @@ export default function PoolDetailsModal({
   const { address: userAddress } = useAccount();
   const publicClient = usePublicClient();
   const [fanStake, setFanStake] = useState("0");
+  const [isStaking, setIsStaking] = useState(false);
+  const [stakeActionError, setStakeActionError] = useState<string | null>(null);
+  const [pendingStakeOperation, setPendingStakeOperation] = useState<{type: 'stake' | 'unstake', amount: string} | null>(null);
 
   const [isStakingModalOpen, setIsStakingModalOpen] = useState(false);
-  const [stakingMode, setStakingMode] = useState<"stake" | "add-stake">(
+  const [stakingMode, setStakingMode] = useState<"stake" | "add-stake" | "reduce-stake">(
     "stake"
   );
+
+  const { 
+    writeContract: writeL2TokenContract, 
+    data: l2TokenHash,
+    isPending: isL2TokenWritePending,
+    error: l2TokenWriteError 
+  } = useWriteContract();
+  
+  const addStakeMutation = useMutation(trpc.pools.addStake.mutationOptions());
+  const removeStakeMutation = useMutation(trpc.pools.removeStake.mutationOptions());
+
+  // Get chain configuration based on pool's chainId
+  const chain = useMemo(() => {
+    const chainId = parseInt(pool?.chainId || '0');
+    return getChainConfig(chainId);
+  }, [pool?.chainId]);
+
+  // Get the L2BaseToken contract address based on the chain
+  const getL2BaseTokenAddress = (): `0x${string}` | undefined => {
+    if (!chain) return undefined;
+    return chain.contracts.L2_BASE_TOKEN?.address;
+  };
+
+  // Handle transaction confirmation for stake/unstake
+  useEffect(() => {
+    if (l2TokenHash && publicClient && pendingStakeOperation) {
+      const handleTransactionConfirmation = async () => {
+        try {
+          // Wait for the transaction to be confirmed
+          await publicClient.waitForTransactionReceipt({
+            hash: l2TokenHash,
+          });
+          console.log("Transaction confirmed:", l2TokenHash);
+
+          // Update the local stake display after successful transaction
+          if (pendingStakeOperation.type === 'stake') {
+            const newStake = (parseFloat(fanStake) + parseFloat(pendingStakeOperation.amount)).toString();
+            setFanStake(newStake);
+            
+            // Update the backend database to record the stake
+            if (pool?.chainId) {
+              try {
+                // Convert the amount to BigInt (as expected by the backend)
+                const amountInWei = parseEther(pendingStakeOperation.amount);
+                
+                await addStakeMutation.mutateAsync({
+                  chainId: pool.chainId,
+                  amount: amountInWei.toString(), // Convert to string for transmission
+                });
+                
+                console.log("Stake recorded in database successfully");
+              } catch (dbError) {
+                console.error("Error recording stake in database:", dbError);
+                // We don't want to fail the UI if the DB update fails, just log the error
+                setStakeActionError("Stake successful on chain, but failed to update records");
+              }
+            }
+          } else if (pendingStakeOperation.type === 'unstake') {
+            const newStake = (Math.max(0, parseFloat(fanStake) - parseFloat(pendingStakeOperation.amount))).toString();
+            setFanStake(newStake);
+            
+            // Update the backend database to record the unstake
+            if (pool?.chainId) {
+              try {
+                // Convert the amount to BigInt (as expected by the backend)
+                const amountInWei = parseEther(pendingStakeOperation.amount);
+                
+                await removeStakeMutation.mutateAsync({
+                  chainId: pool.chainId,
+                  amount: amountInWei.toString(), // Convert to string for transmission
+                });
+                
+                console.log("Unstake recorded in database successfully");
+              } catch (dbError) {
+                console.error("Error recording unstake in database:", dbError);
+                // We don't want to fail the UI if the DB update fails, just log the error
+                setStakeActionError("Unstake successful on chain, but failed to update records");
+              }
+            }
+          }
+          
+          // Reset the pending operation
+          setPendingStakeOperation(null);
+        } catch (error) {
+          console.error("Error waiting for transaction:", error);
+          setStakeActionError(`Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        } finally {
+          setIsStaking(false);
+        }
+      };
+
+      handleTransactionConfirmation();
+    }
+  }, [l2TokenHash, publicClient, pendingStakeOperation, fanStake, pool?.chainId, addStakeMutation, removeStakeMutation, parseEther]);
 
   useEffect(() => {
     if (isOpen && pool?.poolAddress && userAddress && publicClient) {
@@ -67,7 +168,7 @@ export default function PoolDetailsModal({
     }
   }, [isOpen, pool?.poolAddress, userAddress, getFanStake, publicClient]);
 
-  if (!isOpen || !pool) return null;
+  if (!isOpen || !pool || !pool.poolAddress) return null;
 
   const handleOverlayClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
@@ -160,8 +261,87 @@ export default function PoolDetailsModal({
   };
 
   const handleReduceStake = () => {
-    console.log("Reduce stake from pool:", pool.id);
-    // Implementation for reducing stake
+    setStakingMode("reduce-stake");
+    setIsStakingModalOpen(true);
+  };
+
+  const handleStakeToPool = async (amount: string) => {
+    if (!pool.poolAddress || !userAddress) {
+      console.error("Pool address or user address is missing");
+      return;
+    }
+    
+    const tokenAddress = getL2BaseTokenAddress();
+    if (!tokenAddress) {
+      console.error("L2BaseToken contract address is not configured for this chain");
+      setStakeActionError("L2BaseToken contract address is not configured for this chain");
+      return;
+    }
+    
+    try {
+      setIsStaking(true);
+      setStakeActionError(null);
+      
+      // Convert amount to proper format (assuming it's in Ether)
+      const parsedAmount = parseEther(amount);
+      
+      // Set pending operation for stake
+      setPendingStakeOperation({ type: 'stake', amount });
+      
+      // Call the stake function on the L2BaseToken contract, passing the pool address as the destination
+      writeL2TokenContract({
+        address: tokenAddress, // The L2BaseToken contract address
+        abi: L2_BASE_TOKEN_ABI,
+        functionName: 'stake',
+        args: [pool.poolAddress as `0x${string}`], // Stake to the pool address
+        value: parsedAmount, // Amount to stake
+      });
+      
+    } catch (error) {
+      console.error("Error staking to pool:", error);
+      setStakeActionError(`Failed to stake: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsStaking(false);
+    }
+  };
+  
+  const handleUnstakeFromPool = async (amount: string) => {
+    if (!pool.poolAddress || !userAddress) {
+      console.error("Pool address or user address is missing");
+      return;
+    }
+    
+    const tokenAddress = getL2BaseTokenAddress();
+    if (!tokenAddress) {
+      console.error("L2BaseToken contract address is not configured for this chain");
+      setStakeActionError("L2BaseToken contract address is not configured for this chain");
+      return;
+    }
+    
+    try {
+      setIsStaking(true);
+      setStakeActionError(null);
+      
+      // Convert amount to proper format (assuming it's in Ether)
+      const parsedAmount = parseEther(amount);
+      
+      // Set pending operation for unstake
+      setPendingStakeOperation({ type: 'unstake', amount });
+      
+      // Call the unstake function on the L2BaseToken contract
+      writeL2TokenContract({
+        address: tokenAddress, // The L2BaseToken contract address
+        abi: L2_BASE_TOKEN_ABI,
+        functionName: 'unstake',
+        args: [pool.poolAddress as `0x${string}`, parsedAmount], // Unstake from the pool address with specified amount
+      });
+      
+    } catch (error) {
+      console.error("Error unstaking from pool:", error);
+      setStakeActionError(`Failed to unstake: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsStaking(false);
+    }
   };
 
   const handleViewOnExplorer = () => {
@@ -321,6 +501,13 @@ export default function PoolDetailsModal({
                 </div>
               </div>
             </div>
+
+            {/* Stake Action Error Message */}
+            {stakeActionError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-700 text-sm">{stakeActionError}</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -340,18 +527,20 @@ export default function PoolDetailsModal({
             <div className="flex items-center space-x-3">
               <button
                 onClick={handleReduceStake}
-                className="flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm"
+                className="flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm disabled:opacity-50"
+                disabled={isStaking}
               >
                 <Minus className="w-4 h-4" />
-                <span>Reduce Stake</span>
+                <span>{isStaking ? 'Processing...' : 'Reduce Stake'}</span>
               </button>
 
               <button
                 onClick={handleAddStake}
-                className="flex items-center justify-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm"
+                className="flex items-center justify-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm disabled:opacity-50"
+                disabled={isStaking}
               >
                 <Plus className="w-4 h-4" />
-                <span>Add Stake</span>
+                <span>{isStaking ? 'Processing...' : 'Add Stake'}</span>
               </button>
             </div>
           </div>
@@ -370,12 +559,14 @@ export default function PoolDetailsModal({
                 description: pool.description ?? "",
                 stakeCurrency: pool.stakeCurrency,
                 imageUrl: pool.imageUrl,
-                minStake: 100,
+                minStake: 0,
                 currentStake: parseFloat(fanStake),
               }
             : null
         }
         mode={stakingMode}
+        onStake={handleStakeToPool}
+        onUnstake={handleUnstakeFromPool}
       />
     </div>
   );
