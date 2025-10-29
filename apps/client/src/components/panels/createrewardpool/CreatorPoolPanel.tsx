@@ -186,12 +186,14 @@ export function CreatorPoolPanel() {
 
   const [uploadedFileId, setUploadedFileId] = React.useState<number | null>(null);
 
+  const INITIAL_STAKE_ETH = 0.001; // 1e15 wei
+
   const methods = useForm<CreatorPoolFormValues>({
     resolver: zodResolver(creatorPoolSchema),
     defaultValues: {
       poolName: "",
       poolDescription: "",
-      initialStake: 0,
+      initialStake: INITIAL_STAKE_ETH, // Use the constant
       creatorFee: 5,
       stakingTiers: [], // Start with empty array
     },
@@ -216,13 +218,14 @@ export function CreatorPoolPanel() {
     name: "stakingTiers",
   });
 
-  const initialStake = watch("initialStake");
   const creatorFee = watch("creatorFee");
 
-  // Check if user has sufficient balance (only check if they're staking > 0)
+  // Check if user has sufficient balance for the fixed initial stake
   const hasSufficientBalance =
-    revoBalance && initialStake > 0 ? initialStake <= Number(revoBalance.formatted) : true;
-  const showInsufficientBalanceWarning = initialStake > 0 && revoBalance && !hasSufficientBalance;
+    revoBalance && INITIAL_STAKE_ETH > 0
+      ? INITIAL_STAKE_ETH <= Number(revoBalance.formatted)
+      : true;
+  const showInsufficientBalanceWarning = INITIAL_STAKE_ETH > 0 && revoBalance && !hasSufficientBalance;
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -310,7 +313,7 @@ export function CreatorPoolPanel() {
         const hash = await createPool({
           poolName: formData.poolName,
           creatorCut: formData.creatorFee,
-          stake: formData.initialStake,
+          stake: INITIAL_STAKE_ETH, // Fixed initial stake (1e15 wei)
         });
 
         // Set transaction hash for display
@@ -333,9 +336,7 @@ export function CreatorPoolPanel() {
               console.log("Decoded Log from receipt:", decodedLog);
               // Assuming the event name can be used as an error message
               errorMessage = decodedLog.eventName ?? "Unknown error";
-            } catch {
-              // Ignore logs that don't match the ABI
-            }
+            } catch {}
           }
           toast.error(`Transaction failed: ${errorMessage}`);
           setTransactionError(errorMessage);
@@ -512,46 +513,7 @@ export function CreatorPoolPanel() {
               </div>
             </div>
 
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <Coins className="w-5 h-5 text-green-600" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900">Your Initial Stake</h3>
-                <div className="group relative">
-                  <Info className="w-4 h-4 text-gray-400 cursor-help" />
-                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
-                    <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap">
-                      Amount you stake to bootstrap your pool (0 or more)
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="relative">
-                <input
-                  type="number"
-                  {...register("initialStake", { valueAsNumber: true })}
-                  placeholder="0"
-                  className="w-full px-4 py-3 pr-16 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">
-                  REVO
-                </div>
-              </div>
-              {errors.initialStake && (
-                <p className="text-red-500 text-sm mt-1">{errors.initialStake.message}</p>
-              )}
-              {revoBalance && (
-                <div className="mt-2 text-sm text-gray-600">
-                  Your balance: {Number(revoBalance.formatted).toFixed(2)} REVO
-                </div>
-              )}
-              {showInsufficientBalanceWarning && (
-                <div className="mt-2 text-sm text-red-600">
-                  Insufficient balance. Please reduce your stake amount.
-                </div>
-              )}
-            </div>
+
 
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
               <div className="flex items-center space-x-3 mb-4">
