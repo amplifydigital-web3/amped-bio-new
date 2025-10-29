@@ -186,7 +186,7 @@ export function CreatorPoolPanel() {
 
   const [uploadedFileId, setUploadedFileId] = React.useState<number | null>(null);
 
-  const INITIAL_STAKE_ETH = 0.001; // 1e15 wei
+  const INITIAL_STAKE_ETH = 0.0015; // 1e15 wei
 
   const methods = useForm<CreatorPoolFormValues>({
     resolver: zodResolver(creatorPoolSchema),
@@ -729,7 +729,7 @@ export function CreatorPoolPanel() {
         transactionStep={transactionStep}
         transactionHash={transactionHash}
         poolName={formData?.poolName}
-        initialStake={formData?.initialStake}
+
         creatorFee={formData?.creatorFee}
         errorMessage={transactionError || undefined}
       />

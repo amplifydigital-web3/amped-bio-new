@@ -6,7 +6,6 @@ interface TransactionModalProps {
   transactionStep: "confirming" | "confirmed" | "error";
   transactionHash: string | null;
   poolName?: string;
-  initialStake?: number;
   creatorFee?: number;
   errorMessage?: string;
 }
@@ -17,7 +16,6 @@ export function TransactionModal({
   transactionStep,
   transactionHash,
   poolName,
-  initialStake,
   creatorFee,
   errorMessage,
 }: TransactionModalProps) {
@@ -177,7 +175,7 @@ export function TransactionModal({
                   Pool Created Successfully
                 </div>
                 <div className="text-xs text-green-600">Pool Name: {poolName}</div>
-                <div className="text-xs text-green-600">Initial Stake: {initialStake} REVO</div>
+
                 <div className="text-xs text-green-600">Creator Fee: {creatorFee}%</div>
               </div>
 

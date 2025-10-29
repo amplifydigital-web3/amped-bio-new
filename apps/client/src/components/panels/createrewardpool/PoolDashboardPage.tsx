@@ -50,7 +50,6 @@ interface PoolActivity {
 }
 
 export default function DashboardPage() {
-  const [showUSD, setShowUSD] = useState(false);
   const [isPoolModalOpen, setIsPoolModalOpen] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [descriptionInput, setDescriptionInput] = useState("");
@@ -59,7 +58,6 @@ export default function DashboardPage() {
   const [isImageUploadModalOpen, setIsImageUploadModalOpen] = useState(false);
   const fansPerPage = 10;
   const activitiesPerPage = 8;
-  const revoToUSD = 0.25;
 
   const { address: userAddress } = useAccount();
   const chainId = useChainId();
@@ -86,7 +84,7 @@ export default function DashboardPage() {
   // Get pool address from the backend data
   const poolAddress = poolData?.poolAddress as Address | undefined;
 
-  // Set description input when pool data loads
+    // Set description input when pool data loads
   useEffect(() => {
     if (poolData?.description) {
       setDescriptionInput(poolData.description);
@@ -100,6 +98,9 @@ export default function DashboardPage() {
       refetch();
     }
   }, [updateDescriptionMutation.isSuccess, isEditingDescription, refetch]);
+
+
+
 
   const handleImageUploadClick = React.useCallback(() => {
     setIsImageUploadModalOpen(true);
@@ -279,15 +280,9 @@ export default function DashboardPage() {
     return numValue / 1e18; // Convert from wei to token amount
   }, []);
 
-  const formatValue = React.useCallback(
-    (value: number, currency: string = "REVO") => {
-      if (showUSD && currency === "REVO") {
-        return `${(value * revoToUSD).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-      }
-      return `${value.toLocaleString()} ${currency}`;
-    },
-    [showUSD, revoToUSD]
-  );
+  const formatValue = React.useCallback((value: number, currency: string = "REVO") => {
+    return `${value.toLocaleString()} ${currency}`;
+  }, []);
 
   const getTierInfo = React.useCallback((tierLevel: number) => {
     const tiers = [
@@ -473,9 +468,7 @@ export default function DashboardPage() {
       title: poolName || poolData.description || "Pool Title",
       name: poolName || poolData.description || "Pool Name",
       description: poolData.description || "Pool description not available",
-      image:
-        poolData.imageUrl ||
-        "https://images.pexels.com/photos/844124/pexels-photo-844124.jpeg?auto=compress&cs=tinysrgb&w=600",
+      image: poolData.imageUrl,
       totalStake: totalStake,
       totalRewards: poolData.revoStaked || 0, // Using revoStaked from the database model
       totalFans: poolData.fans || 0, // Using fans from the database model
@@ -665,30 +658,7 @@ export default function DashboardPage() {
           <p className="text-gray-600">Manage and monitor your reward pool performance</p>
         </div>
 
-        {/* USD Toggle */}
-        <div className="flex items-center space-x-3 bg-white border border-gray-200 rounded-lg p-2">
-          <span
-            className={`text-sm font-medium transition-colors duration-200 ${!showUSD ? "text-purple-600" : "text-gray-500"}`}
-          >
-            REVO
-          </span>
-          <button
-            onClick={() => setShowUSD(!showUSD)}
-            className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 hover:bg-gray-300"
-            title={`Switch to ${showUSD ? "REVO" : "USD"}`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform duration-200 ${
-                showUSD ? "translate-x-6" : "translate-x-1"
-              }`}
-            />
-          </button>
-          <span
-            className={`text-sm font-medium transition-colors duration-200 ${showUSD ? "text-green-600" : "text-gray-500"}`}
-          >
-            USD
-          </span>
-        </div>
+
       </div>
 
       {/* Pool Overview */}
@@ -696,13 +666,25 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Pool Image */}
           <div className="relative h-64 group">
-            <div className="h-full rounded-xl overflow-hidden border border-gray-100 shadow-sm">
-              <img
-                src={userPool.image}
-                alt={`${userPool.name} pool`}
-                className="w-full h-full object-cover"
-              />
-            </div>
+            {userPool.image ? (
+              <div className="h-full rounded-xl overflow-hidden border border-gray-100 shadow-sm">
+                <img
+                  src={userPool.image}
+                  alt={`${userPool.name} pool`}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ) : (
+              <div
+                className="h-full rounded-xl border border-gray-200 shadow-sm flex items-center justify-center bg-gray-50 cursor-pointer"
+                onClick={handleImageUploadClick}
+              >
+                <div className="text-center text-gray-500">
+                  <Edit3 className="w-12 h-12 mx-auto mb-2" />
+                  <p className="text-sm font-medium">Upload Pool Image</p>
+                </div>
+              </div>
+            )}
             <button
               onClick={handleImageUploadClick}
               className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"
@@ -716,7 +698,7 @@ export default function DashboardPage() {
           <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">{userPool.title}</h2>
-              {isEditingDescription ? (
+                            {isEditingDescription ? (
                 <div className="space-y-3">
                   <textarea
                     value={descriptionInput}
@@ -778,7 +760,7 @@ export default function DashboardPage() {
                     <span>Edit Description</span>
                   </button>
                 </div>
-              )}
+              )}           
             </div>
 
             {/* View Pool Button */}
@@ -1293,7 +1275,7 @@ export default function DashboardPage() {
         isOpen={isImageUploadModalOpen}
         onClose={() => setIsImageUploadModalOpen(false)}
         onUploadSuccess={handleImageUploadSuccess}
-        currentImageUrl={userPool.image}
+        currentImageUrl={userPool.image ?? undefined}
       />
     </div>
   );
