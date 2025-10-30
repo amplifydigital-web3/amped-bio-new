@@ -168,6 +168,7 @@ model UserWallet {
   user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   creatorPools         CreatorPool[]
   stakedPools          StakedPool[]
+  stakeEvents          StakeEvent[]
 
   @@map("user_wallets")
 }
@@ -185,6 +186,7 @@ model CreatorPool {
   wallet        UserWallet    @relation(fields: [walletId], references: [id], onDelete: Cascade)
   poolImage     UploadedFile? @relation("CreatorPoolImage", fields: [image_file_id], references: [id], onDelete: SetNull)
   stakedPools   StakedPool[]
+  stakeEvents   StakeEvent[]
 
   @@unique([walletId, chainId])
   @@map("creator_pools")
@@ -218,4 +220,19 @@ model StakedPool {
 
   @@unique([userWalletId, poolId]) // Each wallet can only have one staking entry per pool
   @@map("staked_pools")
+}
+
+model StakeEvent {
+  id           Int           @id @default(autoincrement())
+  userWalletId Int
+  poolId       Int
+  amount       BigInt        // The amount of tokens staked or unstaked (positive for stake, negative for unstake)
+  eventType    String        // "stake" or "unstake"
+  transactionHash String?    // Transaction hash for verification
+  createdAt    DateTime      @default(now())
+
+  userWallet   UserWallet    @relation(fields: [userWalletId], references: [id], onDelete: Cascade)
+  pool         CreatorPool   @relation(fields: [poolId], references: [id], onDelete: Cascade)
+
+  @@map("stake_events")
 }

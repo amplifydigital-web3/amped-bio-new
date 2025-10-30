@@ -26,7 +26,7 @@ interface PoolDetailsModalProps {
     earnedRewards: number;
     estimatedRewards: number;
     participants: number;
-    image?: string;
+    image?: string | null;
   } | null;
 }
 
