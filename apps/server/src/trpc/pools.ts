@@ -3,7 +3,12 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { prisma } from "../services/DB";
 import { Address, createPublicClient, http, zeroAddress, decodeEventLog } from "viem";
-import { getChainConfig, CREATOR_POOL_FACTORY_ABI, L2_BASE_TOKEN_ABI } from "@ampedbio/web3";
+import {
+  getChainConfig,
+  CREATOR_POOL_FACTORY_ABI,
+  L2_BASE_TOKEN_ABI,
+  CREATOR_POOL_ABI,
+} from "@ampedbio/web3";
 import { ALLOWED_POOL_IMAGE_FILE_EXTENSIONS, ALLOWED_POOL_IMAGE } from "@ampedbio/constants";
 import { env } from "../env";
 import { s3Service } from "../services/S3Service";
@@ -974,17 +979,50 @@ export const poolsRouter = router({
         // Process all logs to find Stake events
         const parsedStakes: { delegator: Address; delegatee: Address; amount: bigint }[] = [];
         for (const log of transactionReceipt.logs) {
+          let decodedLog;
+          let eventType = "";
+          let isUnstakeEvent = false;
+
+          // Try to decode as Stake event from L2BaseToken first
           try {
-            // Attempt to decode the event log using the ABI
-            const decodedLog = decodeEventLog({
+            decodedLog = decodeEventLog({
               abi: L2_BASE_TOKEN_ABI,
               eventName: "Stake",
               data: log.data,
               topics: log.topics,
             });
+            eventType = "Stake";
+          } catch (error) {
+            // If it's not a Stake event, try Unstake event from L2BaseToken
+            try {
+              decodedLog = decodeEventLog({
+                abi: L2_BASE_TOKEN_ABI,
+                eventName: "Unstake",
+                data: log.data,
+                topics: log.topics,
+              });
+              eventType = "Unstake";
+              isUnstakeEvent = true;
+            } catch (error) {
+              // If it's not a Stake or Unstake event, try FanStaked event from CreatorPool
+              try {
+                decodedLog = decodeEventLog({
+                  abi: CREATOR_POOL_ABI,
+                  eventName: "FanStaked",
+                  data: log.data,
+                  topics: log.topics,
+                });
+                eventType = "FanStaked";
+              } catch (error) {
+                // Skip logs that don't match any of these event signatures
+                continue;
+              }
+            }
+          }
 
+          // Handle Stake event (from L2BaseToken)
+          if (eventType === "Stake") {
             // Extract the values from the decoded log
-            // The decoded args format might vary, so we'll use type assertion carefully
             const args = decodedLog.args as any; // Using any temporarily until we confirm the ABI structure
 
             // Based on the error message, it seems the actual decoded args have 'from', 'to', and 'amount'
@@ -994,16 +1032,36 @@ export const poolsRouter = router({
               delegatee: args.to || (args.delegatee as Address),
               amount: args.amount as bigint,
             });
-          } catch (error) {
-            // Skip logs that don't match the Stake event signature
-            continue;
+          }
+          // Handle Unstake event (from L2BaseToken)
+          else if (eventType === "Unstake") {
+            // Extract the values from the decoded log
+            const args = decodedLog.args as any; // Using any temporarily until we confirm the ABI structure
+
+            // For unstake events, we need to mark the amount as negative
+            parsedStakes.push({
+              delegator: args.from || (args.delegator as Address),
+              delegatee: args.to || (args.delegatee as Address),
+              amount: -1n * (args.amount as bigint), // Negative amount for unstake
+            });
+          }
+          // Handle FanStaked event (from CreatorPool) - This would be for different logic
+          else if (eventType === "FanStaked") {
+            // For FanStaked events, we also need the pool address
+            // Since this event is emitted by the pool contract, log.address contains the pool address
+            const args = decodedLog.args as any;
+            parsedStakes.push({
+              delegator: transactionReceipt.from, // The fan who staked is the transaction sender
+              delegatee: log.address, // The CreatorPool address (from log address)
+              amount: args.amount as bigint,
+            });
           }
         }
 
         if (parsedStakes.length === 0) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "No Stake event found in transaction logs",
+            message: "No Stake, Unstake or FanStaked event found in transaction logs",
           });
         }
 
@@ -1040,6 +1098,10 @@ export const poolsRouter = router({
             });
           }
 
+          // Determine the event type based on the amount sign
+          let eventType = stake.amount >= 0n ? 'stake' : 'unstake';
+          let actualAmount = stake.amount >= 0n ? stake.amount : -stake.amount;
+          
           // Create or update the stake record in the database
           await prisma.stakedPool.upsert({
             where: {
@@ -1050,14 +1112,25 @@ export const poolsRouter = router({
             },
             update: {
               stakeAmount: {
-                increment: stake.amount,
+                increment: actualAmount,
               },
               updatedAt: new Date(),
             },
             create: {
               userWalletId: userWallet.id,
               poolId: pool.id,
-              stakeAmount: stake.amount,
+              stakeAmount: actualAmount,
+            },
+          });
+
+          // Create a stake event record to track this transaction
+          await prisma.stakeEvent.create({
+            data: {
+              userWalletId: userWallet.id,
+              poolId: pool.id,
+              amount: actualAmount,
+              eventType,
+              transactionHash: input.hash,
             },
           });
 
