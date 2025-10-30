@@ -2,8 +2,8 @@ import { privateProcedure, publicProcedure, router } from "./trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { prisma } from "../services/DB";
-import { Address, createPublicClient, http, zeroAddress } from "viem";
-import { getChainConfig, CREATOR_POOL_FACTORY_ABI } from "@ampedbio/web3";
+import { Address, createPublicClient, http, zeroAddress, decodeEventLog } from "viem";
+import { getChainConfig, CREATOR_POOL_FACTORY_ABI, L2_BASE_TOKEN_ABI } from "@ampedbio/web3";
 import { ALLOWED_POOL_IMAGE_FILE_EXTENSIONS, ALLOWED_POOL_IMAGE } from "@ampedbio/constants";
 import { env } from "../env";
 import { s3Service } from "../services/S3Service";
@@ -919,4 +919,175 @@ export const poolsRouter = router({
       });
     }
   }),
+
+  confirmStake: privateProcedure
+    .input(
+      z.object({
+        chainId: z.string(),
+        hash: z.string().regex(/^0x[0-9a-fA-F]{64}$/, "Invalid transaction hash format"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user.sub;
+
+      try {
+        // Get the user's wallet
+        const userWallet = await prisma.userWallet.findUnique({
+          where: { userId },
+        });
+
+        if (!userWallet) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "User does not have a wallet",
+          });
+        }
+
+        // Validate the chain
+        const chain = getChainConfig(parseInt(input.chainId));
+
+        if (!chain) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Unsupported chain ID",
+          });
+        }
+
+        // Create a public client to interact with the blockchain
+        const publicClient = createPublicClient({
+          chain: chain,
+          transport: http(),
+        });
+
+        // Get transaction receipt to parse logs
+        const transactionReceipt = await publicClient.getTransactionReceipt({
+          hash: input.hash as `0x${string}`,
+        });
+
+        if (!transactionReceipt) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Transaction not found or not confirmed on the blockchain",
+          });
+        }
+
+        // Process all logs to find Stake events
+        const parsedStakes: { delegator: Address; delegatee: Address; amount: bigint }[] = [];
+        for (const log of transactionReceipt.logs) {
+          try {
+            // Attempt to decode the event log using the ABI
+            const decodedLog = decodeEventLog({
+              abi: L2_BASE_TOKEN_ABI,
+              eventName: "Stake",
+              data: log.data,
+              topics: log.topics,
+            });
+
+            // Extract the values from the decoded log
+            // The decoded args format might vary, so we'll use type assertion carefully
+            const args = decodedLog.args as any; // Using any temporarily until we confirm the ABI structure
+
+            // Based on the error message, it seems the actual decoded args have 'from', 'to', and 'amount'
+            // Let's assume 'from' is the delegator and 'to' is the delegatee (pool address)
+            parsedStakes.push({
+              delegator: args.from || (args.delegator as Address),
+              delegatee: args.to || (args.delegatee as Address),
+              amount: args.amount as bigint,
+            });
+          } catch (error) {
+            // Skip logs that don't match the Stake event signature
+            continue;
+          }
+        }
+
+        if (parsedStakes.length === 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "No Stake event found in transaction logs",
+          });
+        }
+
+        // For each parsed stake, update the database
+        for (const stake of parsedStakes) {
+          // Find the pool based on the delegatee address
+          const pool = await prisma.creatorPool.findUnique({
+            where: {
+              poolAddress: stake.delegatee,
+            },
+          });
+
+          if (!pool) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: `Pool with address ${stake.delegatee} not found in database`,
+            });
+          }
+
+          // Validate that the transaction sender matches the delegator in the event
+          if (transactionReceipt.from.toLowerCase() !== stake.delegator.toLowerCase()) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `Transaction sender does not match the delegator in the stake event (${transactionReceipt.from} vs ${stake.delegator})`,
+            });
+          }
+
+          // Validate that the pool belongs to the correct user wallet and chain
+          if (pool.walletId !== userWallet.id || pool.chainId !== input.chainId) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message:
+                "Stake event is for a pool that does not belong to the current user or chain",
+            });
+          }
+
+          // Create or update the stake record in the database
+          await prisma.stakedPool.upsert({
+            where: {
+              userWalletId_poolId: {
+                userWalletId: userWallet.id,
+                poolId: pool.id,
+              },
+            },
+            update: {
+              stakeAmount: {
+                increment: stake.amount,
+              },
+              updatedAt: new Date(),
+            },
+            create: {
+              userWalletId: userWallet.id,
+              poolId: pool.id,
+              stakeAmount: stake.amount,
+            },
+          });
+
+          console.info(
+            `Stake confirmed for user ${userId} in pool ${pool.id}, amount: ${stake.amount.toString()}`
+          );
+        }
+
+        return {
+          success: true,
+          message: `Successfully confirmed ${parsedStakes.length} stake(s)`,
+          stakes: parsedStakes.map(stake => ({
+            delegator: stake.delegator,
+            delegatee: stake.delegatee,
+            amount: stake.amount.toString(),
+          })),
+        };
+      } catch (error) {
+        console.error("Error confirming stake:", error);
+        if (error instanceof TRPCError) throw error;
+        if (error instanceof Error) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: `Failed to confirm stake: ${error.message}`,
+          });
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to confirm stake",
+        });
+      }
+    }),
 });
