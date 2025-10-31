@@ -1237,4 +1237,112 @@ export const poolsRouter = router({
         });
       }
     }),
+
+  getPoolDashboard: publicProcedure
+    .input(
+      z.object({
+        poolId: z.number(),
+      })
+    )
+    .query(async ({ input }) => {
+      const { poolId } = input;
+
+      try {
+        // Total Stake
+        const stakeEvents = await prisma.stakeEvent.findMany({
+          where: { poolId },
+        });
+
+        const totalStake = stakeEvents.reduce((acc, event) => {
+          if (event.eventType === "stake") {
+            return acc + event.amount;
+          } else {
+            return acc - event.amount;
+          }
+        }, 0n);
+
+        // Total Fans
+        const totalFans = await prisma.stakeEvent.groupBy({
+          by: ['userWalletId'],
+          where: { poolId },
+          _count: {
+            userWalletId: true,
+          },
+        });
+
+        // Top Fans
+        const fanStakes: { [key: number]: bigint } = {};
+        stakeEvents.forEach(event => {
+          if (!fanStakes[event.userWalletId]) {
+            fanStakes[event.userWalletId] = 0n;
+          }
+          if (event.eventType === "stake") {
+            fanStakes[event.userWalletId] += event.amount;
+          } else {
+            fanStakes[event.userWalletId] -= event.amount;
+          }
+        });
+
+        const sortedFans = Object.entries(fanStakes)
+          .sort(([, a], [, b]) => (a > b ? -1 : 1))
+          .slice(0, 10);
+
+        const topFans = await Promise.all(
+          sortedFans.map(async ([userWalletId, amount]) => {
+            const wallet = await prisma.userWallet.findUnique({
+              where: { id: Number(userWalletId) },
+              include: {
+                user: {
+                  select: {
+                    onelink: true,
+                  },
+                },
+              },
+            });
+            return {
+              onelink: wallet?.user?.onelink || wallet?.address,
+              amount: amount.toString(),
+            };
+          })
+        );
+
+        // Recent Activity
+        const recentActivity = await prisma.stakeEvent.findMany({
+          where: { poolId },
+          orderBy: {
+            createdAt: "desc",
+          },
+          take: 10,
+          include: {
+            userWallet: {
+              include: {
+                user: {
+                  select: {
+                    onelink: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        return {
+          totalStake: totalStake.toString(),
+          totalFans: totalFans.length,
+          topFans,
+          recentActivity: recentActivity.map(event => ({
+            ...event,
+            amount: event.amount.toString(),
+            onelink: event.userWallet.user?.onelink || event.userWallet.address,
+          })),
+        };
+      } catch (error) {
+        console.error("Error fetching pool dashboard:", error);
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch pool dashboard",
+        });
+      }
+    }),
 });

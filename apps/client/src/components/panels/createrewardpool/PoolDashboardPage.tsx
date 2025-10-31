@@ -67,7 +67,7 @@ export default function DashboardPage() {
   const {
     data: poolData,
     isLoading: isPoolLoading,
-    refetch,
+    refetch: refetchPoolData,
   } = useQuery({
     queryKey: ["pools.getPool", chainId],
     queryFn: async () => {
@@ -75,6 +75,15 @@ export default function DashboardPage() {
     },
     enabled: !!userAddress && !!chainId,
   });
+
+  const {
+    data: dashboardData,
+    isLoading: isDashboardLoading,
+    error: dashboardError,
+    refetch: refetchDashboardData,
+  } = useQuery(
+    trpc.pools.getPoolDashboard.queryOptions({ poolId: poolData?.id! }, { enabled: !!poolData?.id })
+  );
 
   // Mutation for updating pool description
   const updateDescriptionMutation = useMutation({
@@ -84,7 +93,7 @@ export default function DashboardPage() {
   // Get pool address from the backend data
   const poolAddress = poolData?.poolAddress as Address | undefined;
 
-    // Set description input when pool data loads
+  // Set description input when pool data loads
   useEffect(() => {
     if (poolData?.description) {
       setDescriptionInput(poolData.description);
@@ -95,12 +104,15 @@ export default function DashboardPage() {
   useEffect(() => {
     if (updateDescriptionMutation.isSuccess && !isEditingDescription) {
       // Refetch the query to update the UI with new description
-      refetch();
+      refetchPoolData();
+      refetchDashboardData();
     }
-  }, [updateDescriptionMutation.isSuccess, isEditingDescription, refetch]);
-
-
-
+  }, [
+    updateDescriptionMutation.isSuccess,
+    isEditingDescription,
+    refetchPoolData,
+    refetchDashboardData,
+  ]);
 
   const handleImageUploadClick = React.useCallback(() => {
     setIsImageUploadModalOpen(true);
@@ -116,7 +128,7 @@ export default function DashboardPage() {
             image_file_id: fileId,
           })
           .then(() => {
-            refetch(); // Refetch pool data to show the new image
+            refetchPoolData(); // Refetch pool data to show the new image
           })
           .catch(error => {
             console.error("Error setting pool image:", error);
@@ -124,7 +136,7 @@ export default function DashboardPage() {
           });
       }
     },
-    [poolData?.id, refetch]
+    [poolData?.id, refetchPoolData]
   );
 
   // Fetch additional blockchain data for the pool
@@ -155,70 +167,34 @@ export default function DashboardPage() {
     },
   });
 
-  // Fan leaderboard data - For now this is mock data since we don't have a way to fetch these from the blockchain yet
-  // In a real implementation, this would come from a backend service that tracks pool participants
-  const fans: Fan[] = React.useMemo(() => {
-    // This would normally come from an API call to fetch fan data
-    // For now, create mock data with realistic values derived from pool data
-    const mockFanCount = poolData?.fans || 10;
-    const mockFans: Fan[] = [];
-
-    for (let i = 0; i < mockFanCount; i++) {
-      const stakeAmount = Math.floor(Math.random() * 50000) + 100; // Random stake between 100-50100
-      const rewards = Math.floor(stakeAmount * 0.05); // Rewards based on stake
-      const tier = Math.min(Math.floor(stakeAmount / 10000) + 1, 4); // Tier based on stake amount
-
-      mockFans.push({
-        id: `fan-${i + 1}`,
-        username: `user_${Math.random().toString(36).substring(2, 10)}`,
-        avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${Math.random().toString(36).substring(2, 10)}&backgroundColor=b6e3f4,c0aede,d1d4f9,fbcfe8,f9a8d4,f1f0ff`,
-        stakedAmount: stakeAmount,
-        joinDate: new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .split("T")[0], // Random date in the last 30 days
-        tier: tier,
-        totalRewards: rewards,
-      });
-    }
-
-    // Sort by staked amount (descending) to create leaderboard
-    return mockFans.sort((a, b) => b.stakedAmount - a.stakedAmount);
-  }, [poolData?.fans]);
-
-  // Pool activity data - For now this is mock data since we don't have a way to fetch this from the blockchain yet
-  const poolActivities: PoolActivity[] = React.useMemo(() => {
-    // This would normally come from an API call to fetch pool activity
-    const mockActivity: PoolActivity[] = [];
-    const activityTypes: ("stake" | "unstake" | "claim")[] = ["stake", "unstake", "claim"];
-
-    for (let i = 0; i < 17; i++) {
-      const type = activityTypes[Math.floor(Math.random() * activityTypes.length)];
-      const amount =
-        type === "stake"
-          ? Math.floor(Math.random() * 10000) + 100
-          : type === "unstake"
-            ? Math.floor(Math.random() * 5000) + 50
-            : Math.floor(Math.random() * 200) + 10;
-
-      mockActivity.push({
-        id: `activity-${i + 1}`,
-        type: type,
-        user: `user_${Math.random().toString(36).substring(2, 8)}`,
-        avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${Math.random().toString(36).substring(2, 10)}&backgroundColor=b6e3f4,c0aede,d1d4f9,fbcfe8,f9a8d4,f1f0ff`,
-        amount: amount,
-        currency: "REVO",
-        timestamp: new Date(
-          Date.now() - Math.floor(Math.random() * 7 * 24 * 60 * 60 * 1000)
-        ).toISOString(), // Random time in the last 7 days
-        txHash: `0x${Math.random().toString(16).substring(2, 12)}...${Math.random().toString(16).substring(2, 8)}`,
-      });
-    }
-
-    // Sort by timestamp (newest first)
-    return mockActivity.sort(
-      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  const fans = React.useMemo(() => {
+    return (
+      dashboardData?.topFans.map(fan => ({
+        id: fan.onelink || "",
+        username: fan.onelink || "",
+        avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${fan.onelink}&backgroundColor=b6e3f4,c0aede,d1d4f9,fbcfe8,f9a8d4,f1f0ff`,
+        stakedAmount: Number(fan.amount),
+        joinDate: new Date().toISOString().split("T")[0], // Placeholder, as joinDate is not in topFans
+        tier: 1, // Placeholder, as tier is not in topFans
+        totalRewards: 0, // Placeholder, as totalRewards is not in topFans
+      })) || []
     );
-  }, []);
+  }, [dashboardData?.topFans]);
+
+  const poolActivities: PoolActivity[] = React.useMemo(() => {
+    return (
+      dashboardData?.recentActivity.map(activity => ({
+        id: activity.id.toString(),
+        type: activity.eventType as "stake" | "unstake" | "claim",
+        user: activity.onelink || "",
+        avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${activity.onelink}&backgroundColor=b6e3f4,c0aede,d1d4f9,fbcfe8,f9a8d4,f1f0ff`,
+        amount: Number(activity.amount),
+        currency: "REVO",
+        timestamp: activity.createdAt,
+        txHash: activity.transactionHash || undefined,
+      })) || []
+    );
+  }, [dashboardData?.recentActivity]);
 
   // Calculate pagination
   const totalPages = React.useMemo(() => Math.ceil(fans.length / fansPerPage), [fans, fansPerPage]);
@@ -455,12 +431,12 @@ export default function DashboardPage() {
 
   // Get pool details combining backend and blockchain data
   const userPool = React.useMemo(() => {
-    if (!poolData) {
+    if (!poolData || !dashboardData) {
       return null;
     }
 
     // Convert blockchain values from BigInt to numbers
-    const totalStake = totalStaked ? Number(totalStaked) / 1e18 : 0; // Convert from wei to token amount
+    const totalStake = Number(dashboardData.totalStake) / 1e18; // Convert from wei to token amount
     const creatorFee = creatorCut ? Number(creatorCut) : 0;
 
     return {
@@ -471,7 +447,7 @@ export default function DashboardPage() {
       image: poolData.imageUrl,
       totalStake: totalStake,
       totalRewards: poolData.revoStaked || 0, // Using revoStaked from the database model
-      totalFans: poolData.fans || 0, // Using fans from the database model
+      totalFans: dashboardData.totalFans, // Using totalFans from dashboardData
       createdDate: new Date().toISOString().split("T")[0], // Using current date since createdAt is not in the type
       stakedAmount: 0, // User's own stake in their pool (0 since it's their pool)
       stakeCurrency: "REVO",
@@ -481,10 +457,10 @@ export default function DashboardPage() {
       category: "staking" as const,
       earnedRewards: 0,
       estimatedRewards: 0,
-      participants: poolData.fans || 0, // Using fans from the database model
+      participants: dashboardData.totalFans, // Using totalFans from dashboardData
       totalReward: poolData.revoStaked || 0, // Using revoStaked from the database model
     };
-  }, [poolData, poolName, totalStaked, creatorCut]);
+  }, [poolData, poolName, creatorCut, dashboardData]);
 
   // Create line chart path
   const createDualAxisChartElements = React.useCallback(() => {
@@ -657,8 +633,6 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Pool Dashboard</h1>
           <p className="text-gray-600">Manage and monitor your reward pool performance</p>
         </div>
-
-
       </div>
 
       {/* Pool Overview */}
@@ -698,7 +672,7 @@ export default function DashboardPage() {
           <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">{userPool.title}</h2>
-                            {isEditingDescription ? (
+              {isEditingDescription ? (
                 <div className="space-y-3">
                   <textarea
                     value={descriptionInput}
@@ -760,7 +734,7 @@ export default function DashboardPage() {
                     <span>Edit Description</span>
                   </button>
                 </div>
-              )}           
+              )}
             </div>
 
             {/* View Pool Button */}
