@@ -540,20 +540,20 @@ export const poolsRouter = router({
         return pools.map(pool => ({
           ...pool,
           imageUrl: pool.poolImage ? s3Service.getFileUrl(pool.poolImage.s3_key) : null,
-          title: pool.description || `Pool ${pool.id}`, // Placeholder for title
-          totalReward: 0, // Placeholder
-          currency: "REVO", // Placeholder
-          participants: 0, // Placeholder
-          maxParticipants: 100, // Placeholder
-          endDate: new Date().toISOString(), // Placeholder
-          status: "active", // Placeholder
-          category: "staking", // Placeholder
-          createdBy: "Unknown", // Placeholder
-          stakedAmount: 0, // Placeholder
-          stakeCurrency: "REVO", // Placeholder
-          rewardCurrency: "REVO", // Placeholder
-          earnedRewards: 0, // Placeholder
-          estimatedRewards: 0, // Placeholder
+          title: pool.description || `Pool ${pool.id}`,
+          totalReward: 0,
+          currency: "REVO",
+          participants: 0,
+          maxParticipants: 100,
+          endDate: new Date().toISOString(),
+          status: "active",
+          category: "staking",
+          createdBy: "Unknown",
+          stakedAmount: 0,
+          stakeCurrency: "REVO",
+          rewardCurrency: "REVO",
+          earnedRewards: 0,
+          estimatedRewards: 0,
         }));
       } catch (error) {
         console.error("Error fetching pools:", error);
@@ -569,7 +569,7 @@ export const poolsRouter = router({
     .input(
       z.object({
         chainId: z.string(),
-        description: z.string().min(1).max(500), // Description between 1 and 500 characters
+        description: z.string().min(1).max(500),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -587,7 +587,6 @@ export const poolsRouter = router({
           });
         }
 
-        // Find the pool for this wallet and chain
         const pool = await prisma.creatorPool.findUnique({
           where: {
             walletId_chainId: {
@@ -604,7 +603,6 @@ export const poolsRouter = router({
           });
         }
 
-        // Update the pool description
         const updatedPool = await prisma.creatorPool.update({
           where: { id: pool.id },
           data: {
@@ -630,14 +628,13 @@ export const poolsRouter = router({
     .input(
       z.object({
         chainId: z.string(),
-        amount: z.string().transform(val => BigInt(val)), // Accept as string and convert to BigInt
+        amount: z.string().transform(val => BigInt(val)),
       })
     )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.sub;
 
       try {
-        // Get the user's wallet
         const userWallet = await prisma.userWallet.findUnique({
           where: { userId },
         });
@@ -649,7 +646,6 @@ export const poolsRouter = router({
           });
         }
 
-        // Get the pool for this wallet and chain
         const pool = await prisma.creatorPool.findUnique({
           where: {
             walletId_chainId: {
@@ -666,7 +662,6 @@ export const poolsRouter = router({
           });
         }
 
-        // Create or update the stake record
         const stakedPool = await prisma.stakedPool.upsert({
           where: {
             userWalletId_poolId: {
@@ -708,14 +703,13 @@ export const poolsRouter = router({
     .input(
       z.object({
         chainId: z.string(),
-        amount: z.string().transform(val => BigInt(val)), // Accept as string and convert to BigInt
+        amount: z.string().transform(val => BigInt(val)),
       })
     )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.sub;
 
       try {
-        // Get the user's wallet
         const userWallet = await prisma.userWallet.findUnique({
           where: { userId },
         });
@@ -727,7 +721,6 @@ export const poolsRouter = router({
           });
         }
 
-        // Get the pool for this wallet and chain
         const pool = await prisma.creatorPool.findUnique({
           where: {
             walletId_chainId: {
@@ -744,7 +737,6 @@ export const poolsRouter = router({
           });
         }
 
-        // Check if the staked pool record exists
         const stakedPool = await prisma.stakedPool.findUnique({
           where: {
             userWalletId_poolId: {
@@ -768,7 +760,6 @@ export const poolsRouter = router({
           });
         }
 
-        // Update the stake record
         const updatedStakedPool = await prisma.stakedPool.update({
           where: {
             userWalletId_poolId: {
@@ -784,7 +775,6 @@ export const poolsRouter = router({
           },
         });
 
-        // If the stake amount becomes 0, delete the record
         let deleted = false;
         if (updatedStakedPool.stakeAmount === 0n) {
           await prisma.stakedPool.delete({
@@ -826,7 +816,6 @@ export const poolsRouter = router({
       const userId = ctx.user.sub;
 
       try {
-        // Get the user's wallet
         const userWallet = await prisma.userWallet.findUnique({
           where: { userId },
         });
@@ -838,7 +827,6 @@ export const poolsRouter = router({
           });
         }
 
-        // Get the pool for this wallet and chain
         const pool = await prisma.creatorPool.findUnique({
           where: {
             walletId_chainId: {
@@ -855,7 +843,6 @@ export const poolsRouter = router({
           });
         }
 
-        // Get the stake amount for this user's wallet in this pool
         const stakedPool = await prisma.stakedPool.findUnique({
           where: {
             userWalletId_poolId: {
@@ -885,7 +872,6 @@ export const poolsRouter = router({
     const userId = ctx.user.sub;
 
     try {
-      // Get the user's wallet
       const userWallet = await prisma.userWallet.findUnique({
         where: { userId },
       });
@@ -897,7 +883,6 @@ export const poolsRouter = router({
         });
       }
 
-      // Get all stakes for this user's wallet
       const userStakes = await prisma.stakedPool.findMany({
         where: {
           userWalletId: userWallet.id,
@@ -936,7 +921,6 @@ export const poolsRouter = router({
       const userId = ctx.user.sub;
 
       try {
-        // Get the user's wallet
         const userWallet = await prisma.userWallet.findUnique({
           where: { userId },
         });
@@ -948,7 +932,6 @@ export const poolsRouter = router({
           });
         }
 
-        // Validate the chain
         const chain = getChainConfig(parseInt(input.chainId));
 
         if (!chain) {
@@ -958,13 +941,11 @@ export const poolsRouter = router({
           });
         }
 
-        // Create a public client to interact with the blockchain
         const publicClient = createPublicClient({
           chain: chain,
           transport: http(),
         });
 
-        // Get transaction receipt to parse logs
         const transactionReceipt = await publicClient.getTransactionReceipt({
           hash: input.hash as `0x${string}`,
         });
@@ -976,98 +957,35 @@ export const poolsRouter = router({
           });
         }
 
-        // Process all logs to find Stake events
         const parsedStakes: { delegator: Address; delegatee: Address; amount: bigint }[] = [];
         for (const log of transactionReceipt.logs) {
-          let decodedLog;
-          let eventType = "";
-          let isUnstakeEvent = false;
-
-          // Try to decode as Stake event from L2BaseToken first
           try {
-            decodedLog = decodeEventLog({
-              abi: L2_BASE_TOKEN_ABI,
-              eventName: "Stake",
+            const decodedLog = decodeEventLog({
+              abi: CREATOR_POOL_ABI,
+              eventName: "FanStaked",
               data: log.data,
               topics: log.topics,
             });
-            eventType = "Stake";
-          } catch (error) {
-            // If it's not a Stake event, try Unstake event from L2BaseToken
-            try {
-              decodedLog = decodeEventLog({
-                abi: L2_BASE_TOKEN_ABI,
-                eventName: "Unstake",
-                data: log.data,
-                topics: log.topics,
-              });
-              eventType = "Unstake";
-              isUnstakeEvent = true;
-            } catch (error) {
-              // If it's not a Stake or Unstake event, try FanStaked event from CreatorPool
-              try {
-                decodedLog = decodeEventLog({
-                  abi: CREATOR_POOL_ABI,
-                  eventName: "FanStaked",
-                  data: log.data,
-                  topics: log.topics,
-                });
-                eventType = "FanStaked";
-              } catch (error) {
-                // Skip logs that don't match any of these event signatures
-                continue;
-              }
-            }
-          }
-
-          // Handle Stake event (from L2BaseToken)
-          if (eventType === "Stake") {
-            // Extract the values from the decoded log
-            const args = decodedLog.args as any; // Using any temporarily until we confirm the ABI structure
-
-            // Based on the error message, it seems the actual decoded args have 'from', 'to', and 'amount'
-            // Let's assume 'from' is the delegator and 'to' is the delegatee (pool address)
-            parsedStakes.push({
-              delegator: args.from || (args.delegator as Address),
-              delegatee: args.to || (args.delegatee as Address),
-              amount: args.amount as bigint,
-            });
-          }
-          // Handle Unstake event (from L2BaseToken)
-          else if (eventType === "Unstake") {
-            // Extract the values from the decoded log
-            const args = decodedLog.args as any; // Using any temporarily until we confirm the ABI structure
-
-            // For unstake events, we need to mark the amount as negative
-            parsedStakes.push({
-              delegator: args.from || (args.delegator as Address),
-              delegatee: args.to || (args.delegatee as Address),
-              amount: -1n * (args.amount as bigint), // Negative amount for unstake
-            });
-          }
-          // Handle FanStaked event (from CreatorPool) - This would be for different logic
-          else if (eventType === "FanStaked") {
-            // For FanStaked events, we also need the pool address
-            // Since this event is emitted by the pool contract, log.address contains the pool address
             const args = decodedLog.args as any;
             parsedStakes.push({
-              delegator: transactionReceipt.from, // The fan who staked is the transaction sender
-              delegatee: log.address, // The CreatorPool address (from log address)
+              delegator: transactionReceipt.from,
+              delegatee: log.address,
               amount: args.amount as bigint,
             });
+          } catch (error) {
+            // Not a FanStaked event, ignore
+            continue;
           }
         }
 
         if (parsedStakes.length === 0) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "No Stake, Unstake or FanStaked event found in transaction logs",
+            message: "No FanStaked event found in transaction logs",
           });
         }
 
-        // For each parsed stake, update the database
         for (const stake of parsedStakes) {
-          // Find the pool based on the delegatee address
           const pool = await prisma.creatorPool.findUnique({
             where: {
               poolAddress: stake.delegatee,
@@ -1081,7 +999,6 @@ export const poolsRouter = router({
             });
           }
 
-          // Validate that the transaction sender matches the delegator in the event
           if (transactionReceipt.from.toLowerCase() !== stake.delegator.toLowerCase()) {
             throw new TRPCError({
               code: "BAD_REQUEST",
@@ -1089,7 +1006,6 @@ export const poolsRouter = router({
             });
           }
 
-          // Validate that the pool belongs to the correct user wallet and chain
           if (pool.walletId !== userWallet.id || pool.chainId !== input.chainId) {
             throw new TRPCError({
               code: "FORBIDDEN",
@@ -1097,12 +1013,7 @@ export const poolsRouter = router({
                 "Stake event is for a pool that does not belong to the current user or chain",
             });
           }
-
-          // Determine the event type based on the amount sign
-          let eventType = stake.amount >= 0n ? 'stake' : 'unstake';
-          let actualAmount = stake.amount >= 0n ? stake.amount : -stake.amount;
           
-          // Create or update the stake record in the database
           await prisma.stakedPool.upsert({
             where: {
               userWalletId_poolId: {
@@ -1112,24 +1023,23 @@ export const poolsRouter = router({
             },
             update: {
               stakeAmount: {
-                increment: actualAmount,
+                increment: stake.amount,
               },
               updatedAt: new Date(),
             },
             create: {
               userWalletId: userWallet.id,
               poolId: pool.id,
-              stakeAmount: actualAmount,
+              stakeAmount: stake.amount,
             },
           });
 
-          // Create a stake event record to track this transaction
           await prisma.stakeEvent.create({
             data: {
               userWalletId: userWallet.id,
               poolId: pool.id,
-              amount: actualAmount,
-              eventType,
+              amount: stake.amount,
+              eventType: "stake",
               transactionHash: input.hash,
             },
           });
@@ -1160,6 +1070,170 @@ export const poolsRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to confirm stake",
+        });
+      }
+    }),
+
+  confirmUnstake: privateProcedure
+    .input(
+      z.object({
+        chainId: z.string(),
+        hash: z.string().regex(/^0x[0-9a-fA-F]{64}$/, "Invalid transaction hash format"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user.sub;
+
+      try {
+        const userWallet = await prisma.userWallet.findUnique({
+          where: { userId },
+        });
+
+        if (!userWallet) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "User does not have a wallet",
+          });
+        }
+
+        const chain = getChainConfig(parseInt(input.chainId));
+
+        if (!chain) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Unsupported chain ID",
+          });
+        }
+
+        const publicClient = createPublicClient({
+          chain: chain,
+          transport: http(),
+        });
+
+        const transactionReceipt = await publicClient.getTransactionReceipt({
+          hash: input.hash as `0x${string}`,
+        });
+
+        if (!transactionReceipt) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Transaction not found or not confirmed on the blockchain",
+          });
+        }
+
+        const parsedUnstakes: { delegator: Address; delegatee: Address; amount: bigint }[] = [];
+        for (const log of transactionReceipt.logs) {
+          try {
+            const decodedLog = decodeEventLog({
+              abi: L2_BASE_TOKEN_ABI,
+              eventName: "FanUnstaked",
+              data: log.data,
+              topics: log.topics,
+            });
+            const args = decodedLog.args as any;
+            parsedUnstakes.push({
+              delegator: transactionReceipt.from,
+              delegatee: args._from || (args.delegatee as Address),
+              amount: args.amount as bigint,
+            });
+          } catch (error) {
+            // Not a FanUnstaked event, ignore
+            continue;
+          }
+        }
+
+        if (parsedUnstakes.length === 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "No FanUnstaked event found in transaction logs",
+          });
+        }
+
+        for (const unstake of parsedUnstakes) {
+          const pool = await prisma.creatorPool.findUnique({
+            where: {
+              poolAddress: unstake.delegatee,
+            },
+          });
+
+          if (!pool) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: `Pool with address ${unstake.delegatee} not found in database`,
+            });
+          }
+
+          if (transactionReceipt.from.toLowerCase() !== unstake.delegator.toLowerCase()) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `Transaction sender does not match the delegator in the unstake event (${transactionReceipt.from} vs ${unstake.delegator})`,
+            });
+          }
+
+          if (pool.walletId !== userWallet.id || pool.chainId !== input.chainId) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message:
+                "Unstake event is for a pool that does not belong to the current user or chain",
+            });
+          }
+
+          await prisma.stakedPool.upsert({
+            where: {
+              userWalletId_poolId: {
+                userWalletId: userWallet.id,
+                poolId: pool.id,
+              },
+            },
+            update: {
+              stakeAmount: {
+                decrement: unstake.amount,
+              },
+              updatedAt: new Date(),
+            },
+            create: {
+              userWalletId: userWallet.id,
+              poolId: pool.id,
+              stakeAmount: -unstake.amount,
+            },
+          });
+
+          await prisma.stakeEvent.create({
+            data: {
+              userWalletId: userWallet.id,
+              poolId: pool.id,
+              amount: unstake.amount,
+              eventType: "unstake",
+              transactionHash: input.hash,
+            },
+          });
+
+          console.info(
+            `Unstake confirmed for user ${userId} in pool ${pool.id}, amount: ${unstake.amount.toString()}`
+          );
+        }
+
+        return {
+          success: true,
+          message: `Successfully confirmed ${parsedUnstakes.length} unstake(s)`,
+          unstakes: parsedUnstakes.map(unstake => ({
+            delegator: unstake.delegator,
+            delegatee: unstake.delegatee,
+            amount: unstake.amount.toString(),
+          })),
+        };
+      } catch (error) {
+        console.error("Error confirming unstake:", error);
+        if (error instanceof TRPCError) throw error;
+        if (error instanceof Error) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: `Failed to confirm unstake: ${error.message}`,
+          });
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to confirm unstake",
         });
       }
     }),

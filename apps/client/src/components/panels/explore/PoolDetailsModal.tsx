@@ -69,8 +69,8 @@ export default function PoolDetailsModal({
     error: l2TokenWriteError 
   } = useWriteContract();
   
-  const removeStakeMutation = useMutation(trpc.pools.removeStake.mutationOptions());
   const confirmStakeMutation = useMutation(trpc.pools.confirmStake.mutationOptions());
+  const confirmUnstakeMutation = useMutation(trpc.pools.confirmUnstake.mutationOptions());
 
   // Get chain configuration based on pool's chainId
   const chain = useMemo(() => {
@@ -122,17 +122,14 @@ export default function PoolDetailsModal({
             // Update the backend database to record the unstake
             if (pool?.chainId) {
               try {
-                // Convert the amount to BigInt (as expected by the backend)
-                const amountInWei = parseEther(pendingStakeOperation.amount);
-                
-                await removeStakeMutation.mutateAsync({
+                await confirmUnstakeMutation.mutateAsync({
                   chainId: pool.chainId,
-                  amount: amountInWei.toString(), // Convert to string for transmission
+                  hash: l2TokenHash,
                 });
                 
-                console.log("Unstake recorded in database successfully");
+                console.log("Unstake confirmed and recorded in database successfully");
               } catch (dbError) {
-                console.error("Error recording unstake in database:", dbError);
+                console.error("Error confirming unstake in database:", dbError);
                 // We don't want to fail the UI if the DB update fails, just log the error
                 setStakeActionError("Unstake successful on chain, but failed to update records");
               }
@@ -151,7 +148,7 @@ export default function PoolDetailsModal({
 
       handleTransactionConfirmation();
     }
-  }, [l2TokenHash, publicClient, pendingStakeOperation, fanStake, pool?.chainId, confirmStakeMutation, removeStakeMutation, parseEther]);
+  }, [l2TokenHash, publicClient, pendingStakeOperation, fanStake, pool?.chainId, confirmStakeMutation, confirmUnstakeMutation, parseEther]);
 
   useEffect(() => {
     if (isOpen && pool?.poolAddress && userAddress && publicClient) {

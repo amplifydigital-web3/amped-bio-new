@@ -176,7 +176,7 @@ export function TransactionModal({
                 </div>
                 <div className="text-xs text-green-600">Pool Name: {poolName}</div>
 
-                <div className="text-xs text-green-600">Creator Fee: {creatorFee}%</div>
+                <div className="text-xs text-green-600">Creator Fee: {(creatorFee ?? 0) / 100}%</div>
               </div>
 
               {/* Block Explorer Link */}

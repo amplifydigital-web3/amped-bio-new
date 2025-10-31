@@ -68,7 +68,11 @@ export function useCreatorPool() {
       address: chain.contracts.CREATOR_POOL_FACTORY.address,
       abi: CREATOR_POOL_FACTORY_ABI,
       functionName: "createPool",
-      args: [chain.contracts.NODE.address, BigInt(args.creatorCut), args.poolName],
+      args: [
+        chain.contracts.NODE.address,
+        BigInt(args.creatorCut * 100),
+        args.poolName,
+      ],
       value: parseEther(args.stake.toString()),
       gas: BigInt(5000000), // Add explicit gas limit
     });

@@ -223,16 +223,17 @@ model StakedPool {
 }
 
 model StakeEvent {
-  id           Int           @id @default(autoincrement())
-  userWalletId Int
-  poolId       Int
-  amount       BigInt        // The amount of tokens staked or unstaked (positive for stake, negative for unstake)
-  eventType    String        // "stake" or "unstake"
-  transactionHash String?    // Transaction hash for verification
-  createdAt    DateTime      @default(now())
+  id                Int        @id @default(autoincrement())
+  userWalletId      Int
+  poolId            Int
+  amount            BigInt // The amount of tokens staked or unstaked (positive for stake, negative for unstake)
+  eventType         String // "stake" or "unstake"
+  transactionHash   String // Transaction hash for verification
+  createdAt         DateTime   @default(now())
 
-  userWallet   UserWallet    @relation(fields: [userWalletId], references: [id], onDelete: Cascade)
-  pool         CreatorPool   @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  userWallet UserWallet @relation(fields: [userWalletId], references: [id], onDelete: Cascade)
+  pool       CreatorPool @relation(fields: [poolId], references: [id], onDelete: Cascade)
 
+  @@unique([transactionHash, userWalletId, poolId])
   @@map("stake_events")
 }
