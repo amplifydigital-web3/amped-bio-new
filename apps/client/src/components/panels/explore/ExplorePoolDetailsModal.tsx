@@ -19,34 +19,19 @@ import { useMemo } from "react";
 import { trpc, trpcClient } from "../../../utils/trpc";
 import { useMutation } from "@tanstack/react-query";
 
-interface PoolDetailsModalProps {
+import { RewardPool } from "../explore/ExplorePanel";
+
+interface ExplorePoolDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  pool: {
-    id: number;
-    title: string;
-    description: string | null;
-    stakedAmount: number;
-    stakeCurrency: string;
-    totalReward: number;
-    rewardCurrency: string;
-    category: "staking" | "social" | "trading" | "community";
-    earnedRewards: number;
-    estimatedRewards: number;
-    participants: number;
-    imageUrl?: string | null;
-    chainId: string;
-    userId: number;
-    poolAddress: string | null;
-    image_file_id: number | null;
-  } | null;
+  pool: RewardPool;
 }
 
-export default function PoolDetailsModal({
+export default function ExplorePoolDetailsModal({
   isOpen,
   onClose,
   pool,
-}: PoolDetailsModalProps) {
+}: ExplorePoolDetailsModalProps) {
   const { getFanStake, creatorCut: contractCreatorCut, isReadingCreatorCut } = usePoolReader(pool?.poolAddress as `0x${string}` | undefined);
   const { address: userAddress } = useAccount();
   const publicClient = usePublicClient();

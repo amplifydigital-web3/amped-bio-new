@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Search, Users, Trophy, Filter, SortDesc, Coins, ChevronDown, X, User } from "lucide-react";
-import PoolDetailsModal from "./PoolDetailsModal";
+import PoolDetailsModal from "./ExplorePoolDetailsModal";
 // import NFTOverviewModal from './NFTOverviewModal';
 import StakingModal from "./StakingModal";
 import { useQuery } from "@tanstack/react-query";
@@ -27,7 +27,7 @@ interface Creator {
   category: string;
 }
 
-interface RewardPool {
+export interface RewardPool {
   id: number;
   description: string | null;
   chainId: string;
