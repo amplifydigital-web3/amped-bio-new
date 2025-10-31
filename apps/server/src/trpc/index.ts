@@ -8,7 +8,7 @@ import { themeRouter } from "./theme";
 import { themeGalleryRouter } from "./themeGallery";
 import { walletRouter } from "./wallet";
 import { blocksRouter } from "./blocks";
-import { poolsRouter } from "./pools";
+import { poolsRouter } from "./pools/index";
 import { publicSettingsRouter } from "./publicSettings";
 import { inferRouterOutputs } from "@trpc/server";
 

@@ -44,7 +44,6 @@ interface PoolActivity {
   user: string;
   avatar: string;
   amount: number;
-  currency: string;
   timestamp: string;
   txHash?: string;
 }
@@ -71,7 +70,7 @@ export default function DashboardPage() {
   } = useQuery({
     queryKey: ["pools.getPool", chainId],
     queryFn: async () => {
-      return await trpcClient.pools.getPool.query({ chainId: chainId.toString() });
+      return await trpcClient.pools.creator.getPool.query({ chainId: chainId.toString() });
     },
     enabled: !!userAddress && !!chainId,
   });
@@ -82,12 +81,12 @@ export default function DashboardPage() {
     error: dashboardError,
     refetch: refetchDashboardData,
   } = useQuery(
-    trpc.pools.getPoolDashboard.queryOptions({ poolId: poolData?.id! }, { enabled: !!poolData?.id })
+    trpc.pools.creator.getPoolDashboard.queryOptions({ poolId: poolData?.id! }, { enabled: !!poolData?.id })
   );
 
   // Mutation for updating pool description
   const updateDescriptionMutation = useMutation({
-    ...trpc.pools.updateDescription.mutationOptions(),
+    ...trpc.pools.creator.updateDescription.mutationOptions(),
   });
 
   // Get pool address from the backend data
@@ -122,7 +121,7 @@ export default function DashboardPage() {
     (fileId: number) => {
       // After successful upload, update the pool image in the database
       if (poolData?.id) {
-        trpcClient.pools.setImageForPool
+        trpcClient.pools.creator.setImageForPool
           .mutate({
             id: poolData.id,
             image_file_id: fileId,
@@ -189,7 +188,7 @@ export default function DashboardPage() {
         user: activity.onelink || "",
         avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${activity.onelink}&backgroundColor=b6e3f4,c0aede,d1d4f9,fbcfe8,f9a8d4,f1f0ff`,
         amount: Number(activity.amount),
-        currency: "REVO",
+
         timestamp: activity.createdAt,
         txHash: activity.transactionHash || undefined,
       })) || []
@@ -256,8 +255,11 @@ export default function DashboardPage() {
     return numValue / 1e18; // Convert from wei to token amount
   }, []);
 
-  const formatValue = React.useCallback((value: number, currency: string = "REVO") => {
-    return `${value.toLocaleString()} ${currency}`;
+  const currencySymbol = chainConfig?.nativeCurrency.symbol || "REVO";
+
+  const formatValue = React.useCallback((value: number | string, currencySymbol: string) => {
+    const numValue = typeof value === 'string' ? parseFloat(value) || 0 : value;
+    return `${numValue.toLocaleString()} ${currencySymbol}`;
   }, []);
 
   const getTierInfo = React.useCallback((tierLevel: number) => {
@@ -396,8 +398,7 @@ export default function DashboardPage() {
       totalFans: dashboardData.totalFans, // Using totalFans from dashboardData
       createdDate: new Date().toISOString().split("T")[0], // Using current date since createdAt is not in the type
       stakedAmount: 0, // User's own stake in their pool (0 since it's their pool)
-      stakeCurrency: "REVO",
-      rewardCurrency: "REVO",
+      chainId: poolData.chainId,
       category: "staking" as const,
       earnedRewards: 0,
       estimatedRewards: 0,
@@ -670,7 +671,7 @@ export default function DashboardPage() {
             <span className="text-sm text-gray-500">Total Stake</span>
           </div>
           <div className="space-y-1">
-            <p className="text-2xl font-bold text-gray-900">{formatValue(userPool.totalStake)}</p>
+            <p className="text-2xl font-bold text-gray-900">{formatValue(userPool.totalStake, currencySymbol)}</p>
             <p className="text-sm text-green-600 flex items-center">
               <TrendingUp className="w-4 h-4 mr-1" />
               {dashboardData?.totalStakePercentageChange.toFixed(2)}% this month
@@ -910,12 +911,12 @@ export default function DashboardPage() {
 
                 <div className="flex items-center space-x-6">
                   <div className="text-right">
-                    <p className="font-semibold text-gray-900">{formatValue(fan.stakedAmount)}</p>
+                    <p className="font-semibold text-gray-900">{formatValue(fan.stakedAmount, currencySymbol)}</p>
                     <p className="text-sm text-gray-500">Staked</p>
                   </div>
 
                   <div className="text-right">
-                    <p className="font-semibold text-green-600">{formatValue(fan.totalRewards)}</p>
+                    <p className="font-semibold text-green-600">{formatValue(fan.totalRewards, currencySymbol)}</p>
                     <p className="text-sm text-gray-500">Rewards</p>
                   </div>
 
@@ -1024,7 +1025,7 @@ export default function DashboardPage() {
 
               <div className="text-right">
                 <p className="font-semibold text-gray-900">
-                  {formatValue(activity.amount, activity.currency)}
+                  {formatValue(activity.amount, currencySymbol)}
                 </p>
                 {activity.txHash && (
                   <p className="text-xs text-gray-500 font-mono">{activity.txHash}</p>

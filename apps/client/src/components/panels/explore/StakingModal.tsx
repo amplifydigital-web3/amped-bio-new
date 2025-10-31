@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { X, Coins, TrendingUp, Shield, AlertCircle, Check, Sparkles } from "lucide-react";
 import { useAccount, useBalance } from "wagmi";
+import { getChainConfig } from "@ampedbio/web3";
 
 interface StakingModalProps {
   isOpen: boolean;
@@ -9,7 +10,7 @@ interface StakingModalProps {
     id: number;
     title: string;
     description: string;
-    stakeCurrency: string;
+    chainId: string;
     imageUrl?: string | null;
     minStake?: number;
     currentStake?: number;
@@ -20,6 +21,10 @@ interface StakingModalProps {
 }
 
 export default function StakingModal({ isOpen, onClose, pool, mode, onStake, onUnstake }: StakingModalProps) {
+  // Get the chain configuration once to avoid multiple calls
+  const chainConfig = pool ? getChainConfig(parseInt(pool.chainId)) : null;
+  const currencySymbol = chainConfig?.nativeCurrency.symbol || "REVO";
+
   const [step, setStep] = useState<"amount" | "confirm" | "staking" | "success">("amount");
   const [amount, setAmount] = useState("");
   const [animatingTokens, setAnimatingTokens] = useState<Array<{ id: number; delay: number }>>([]);
@@ -143,7 +148,7 @@ export default function StakingModal({ isOpen, onClose, pool, mode, onStake, onU
               <span className="text-sm font-medium text-blue-800">Current Stake</span>
             </div>
             <p className="text-lg font-bold text-blue-900">
-              {pool.currentStake.toLocaleString()} {pool.stakeCurrency}
+              {pool.currentStake.toLocaleString()} {currencySymbol}
             </p>
           </div>
         )}
@@ -158,7 +163,7 @@ export default function StakingModal({ isOpen, onClose, pool, mode, onStake, onU
             <span className="text-lg font-bold text-green-900">
               {isBalanceLoading 
                 ? "Loading..." 
-                : `${Number(balanceData?.formatted || 0).toLocaleString(undefined, { maximumFractionDigits: 4 })} ${balanceData?.symbol || pool.stakeCurrency}`
+                : `${Number(balanceData?.formatted || 0).toLocaleString(undefined, { maximumFractionDigits: 4 })} ${balanceData?.symbol || currencySymbol}`
               }
             </span>
           </div>
@@ -184,7 +189,7 @@ export default function StakingModal({ isOpen, onClose, pool, mode, onStake, onU
               }`}
             />
             <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">
-              {pool.stakeCurrency}
+              {currencySymbol}
             </div>
           </div>
 
@@ -214,7 +219,7 @@ export default function StakingModal({ isOpen, onClose, pool, mode, onStake, onU
                 <AlertCircle className="w-4 h-4" />
                 <span>
                   {numericAmount > userBalance
-                    ? `Insufficient balance: ${userBalance.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${balanceData?.symbol || pool.stakeCurrency} available`
+                    ? `Insufficient balance: ${userBalance.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${balanceData?.symbol || currencySymbol} available`
                     : "Please enter a valid amount"}
                 </span>
               </div>
@@ -224,7 +229,7 @@ export default function StakingModal({ isOpen, onClose, pool, mode, onStake, onU
               <div className="flex items-center space-x-2 text-orange-600 text-sm">
                 <AlertCircle className="w-4 h-4" />
                 <span>
-                  Minimum stake: {pool.minStake.toLocaleString()} {pool.stakeCurrency}
+                  Minimum stake: {pool.minStake.toLocaleString()} {currencySymbol}
                 </span>
               </div>
             )}
@@ -298,7 +303,7 @@ export default function StakingModal({ isOpen, onClose, pool, mode, onStake, onU
               <Coins className="w-6 h-6 text-blue-600" />}
           </div>
           <h3 className="text-2xl font-bold text-gray-900 mb-1">
-            {parseFloat(amount).toLocaleString()} {pool.stakeCurrency}
+            {parseFloat(amount).toLocaleString()} {currencySymbol}
           </h3>
           <p className="text-gray-600">
             {mode === "stake" ? "Initial stake amount" : 
@@ -316,7 +321,7 @@ export default function StakingModal({ isOpen, onClose, pool, mode, onStake, onU
               {mode === "reduce-stake" ? "Unstake Amount:" : "Stake Amount:"}
             </span>
             <span className="font-medium text-blue-900">
-              {parseFloat(amount).toLocaleString()} {pool.stakeCurrency}
+              {parseFloat(amount).toLocaleString()} {currencySymbol}
             </span>
           </div>
 
@@ -324,7 +329,7 @@ export default function StakingModal({ isOpen, onClose, pool, mode, onStake, onU
             <div className="flex justify-between text-sm">
               <span className="text-blue-700">Current Stake:</span>
               <span className="font-medium text-blue-900">
-                {pool.currentStake.toLocaleString()} {pool.stakeCurrency}
+                {pool.currentStake.toLocaleString()} {currencySymbol}
               </span>
             </div>
           )}
@@ -334,7 +339,7 @@ export default function StakingModal({ isOpen, onClose, pool, mode, onStake, onU
               <span className="text-blue-700">New Total Stake:</span>
               <span className="font-bold text-blue-900">
                 {((pool.currentStake || 0) + parseFloat(amount)).toLocaleString()}{" "}
-                {pool.stakeCurrency}
+                {currencySymbol}
               </span>
             </div>
           )}
@@ -344,7 +349,7 @@ export default function StakingModal({ isOpen, onClose, pool, mode, onStake, onU
               <span className="text-blue-700">New Total Stake:</span>
               <span className="font-bold text-blue-900">
                 {Math.max(0, (pool.currentStake || 0) - parseFloat(amount)).toLocaleString()}{" "}
-                {pool.stakeCurrency}
+                {currencySymbol}
               </span>
             </div>
           )}
@@ -426,8 +431,8 @@ export default function StakingModal({ isOpen, onClose, pool, mode, onStake, onU
           </h3>
           <p className="text-gray-600 text-center">
             {mode === "reduce-stake" 
-              ? `Returning ${parseFloat(amount).toLocaleString()} ${pool.stakeCurrency} to your wallet...` 
-              : `Transferring ${parseFloat(amount).toLocaleString()} ${pool.stakeCurrency} to the pool...`}
+              ? `Returning ${parseFloat(amount).toLocaleString()} ${currencySymbol} to your wallet...` 
+              : `Transferring ${parseFloat(amount).toLocaleString()} ${currencySymbol} to the pool...`}
           </p>
         </div>
 
@@ -472,7 +477,7 @@ export default function StakingModal({ isOpen, onClose, pool, mode, onStake, onU
             You've successfully{" "}
             {mode === "reduce-stake" ? "unstaked " : "staked "}
             <strong>
-              {parseFloat(amount).toLocaleString()} {pool.stakeCurrency}
+              {parseFloat(amount).toLocaleString()} {currencySymbol}
             </strong>
             {mode === "reduce-stake" ? " from " : " to "}{pool.title}
           </p>
@@ -486,7 +491,7 @@ export default function StakingModal({ isOpen, onClose, pool, mode, onStake, onU
               {mode === "reduce-stake" 
                 ? Math.max(0, (pool.currentStake || 0) - parseFloat(amount)).toLocaleString() 
                 : ((pool.currentStake || 0) + parseFloat(amount)).toLocaleString()}{" "}
-              {pool.stakeCurrency}
+              {currencySymbol}
             </span>
           </div>
           <div className="flex items-center space-x-2 text-sm text-green-600">

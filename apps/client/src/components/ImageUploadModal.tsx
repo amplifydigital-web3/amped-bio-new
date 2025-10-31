@@ -29,7 +29,7 @@ export const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const requestPresignedUrlMutation = useMutation({
-    mutationFn: trpcClient.pools.requestPoolImagePresignedUrl.mutate,
+    mutationFn: trpcClient.pools.creator.requestPoolImagePresignedUrl.mutate,
     onSuccess: data => {
       // Handle S3 upload here
       uploadFileToS3(data.presignedUrl, file!)
@@ -51,7 +51,7 @@ export const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
   });
 
   const confirmUploadMutation = useMutation({
-    mutationFn: trpcClient.pools.confirmPoolImageUpload.mutate,
+    mutationFn: trpcClient.pools.creator.confirmPoolImageUpload.mutate,
     onSuccess: data => {
       toast.success("Image uploaded successfully!");
       onUploadSuccess(data.fileId, data.poolImageUrl);

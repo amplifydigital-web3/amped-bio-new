@@ -3,21 +3,20 @@ import { Trophy, ChevronLeft, ChevronRight, Link, TrendingUp, Clock } from "luci
 import PoolDetailsModal from "./PoolDetailsModal";
 import ClaimRewardsModal from "./ClaimRewardsModal";
 
+import { getChainConfig } from "@ampedbio/web3";
+
 interface StakedPool {
   id: string;
-  title: string;
-  description: string;
+  title: string | null;
+  description: string | null;
   stakedAmount: number;
-  stakeCurrency: string;
+  chainId: string;
   totalReward: number;
-  rewardCurrency: string;
-  endDate: string;
-  status: "active" | "ending-soon" | "completed";
   category: "staking" | "social" | "trading" | "community";
   earnedRewards: number;
   estimatedRewards: number;
   participants: number;
-  image?: string;
+  imageUrl?: string | null;
 }
 
 interface StakedPoolsSectionProps {
@@ -43,16 +42,13 @@ export default function StakedPoolsSection({
       title: "REVO Staking Champions",
       description: "Stake 1000+ REVO tokens for 30 days and earn bonus rewards.",
       stakedAmount: 2500,
-      stakeCurrency: "REVO",
+      chainId: "1",
       totalReward: 50000,
-      rewardCurrency: "REVO",
-      endDate: "2025-02-15",
-      status: "active",
       category: "staking",
       earnedRewards: 125.5,
       estimatedRewards: 375.75,
       participants: 247,
-      image:
+      imageUrl:
         "https://images.pexels.com/photos/844124/pexels-photo-844124.jpeg?auto=compress&cs=tinysrgb&w=400",
     },
     {
@@ -60,16 +56,13 @@ export default function StakedPoolsSection({
       title: "Social Media Engagement",
       description: "Share your profile and engage with the community.",
       stakedAmount: 500,
-      stakeCurrency: "REVO",
+      chainId: "1",
       totalReward: 1250,
-      rewardCurrency: "REVO",
-      endDate: "2025-01-31",
-      status: "ending-soon",
       category: "social",
       earnedRewards: 25,
       estimatedRewards: 75,
       participants: 892,
-      image:
+      imageUrl:
         "https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=400",
     },
     {
@@ -77,16 +70,13 @@ export default function StakedPoolsSection({
       title: "Trading Volume Challenge",
       description: "Achieve $10,000+ in trading volume this month.",
       stakedAmount: 1000,
-      stakeCurrency: "REVO",
+      chainId: "1",
       totalReward: 2500,
-      rewardCurrency: "REVO",
-      endDate: "2025-01-31",
-      status: "active",
       category: "trading",
       earnedRewards: 50,
       estimatedRewards: 150,
       participants: 156,
-      image:
+      imageUrl:
         "https://images.pexels.com/photos/730547/pexels-photo-730547.jpeg?auto=compress&cs=tinysrgb&w=400",
     },
     {
@@ -94,16 +84,13 @@ export default function StakedPoolsSection({
       title: "Creator Spotlight",
       description: "Submit your best content and get featured.",
       stakedAmount: 750,
-      stakeCurrency: "REVO",
+      chainId: "1",
       totalReward: 5000,
-      rewardCurrency: "USDC",
-      endDate: "2025-02-28",
-      status: "active",
       category: "community",
       earnedRewards: 50,
       estimatedRewards: 200,
       participants: 67,
-      image:
+      imageUrl:
         "https://images.pexels.com/photos/1181263/pexels-photo-1181263.jpeg?auto=compress&cs=tinysrgb&w=400",
     },
     {
@@ -111,16 +98,13 @@ export default function StakedPoolsSection({
       title: "DeFi Liquidity Mining",
       description: "Provide liquidity to earn additional rewards.",
       stakedAmount: 3000,
-      stakeCurrency: "REVO",
+      chainId: "1",
       totalReward: 15000,
-      rewardCurrency: "REVO",
-      endDate: "2025-03-15",
-      status: "active",
       category: "staking",
       earnedRewards: 200,
       estimatedRewards: 600,
       participants: 324,
-      image:
+      imageUrl:
         "https://images.pexels.com/photos/844124/pexels-photo-844124.jpeg?auto=compress&cs=tinysrgb&w=400",
     },
     {
@@ -128,16 +112,13 @@ export default function StakedPoolsSection({
       title: "NFT Collection Rewards",
       description: "Hold specific NFTs to earn exclusive rewards.",
       stakedAmount: 1500,
-      stakeCurrency: "REVO",
+      chainId: "1",
       totalReward: 3000,
-      rewardCurrency: "REVO",
-      endDate: "2025-01-10", // Past date to show "Ended" state
-      status: "completed",
       category: "community",
       earnedRewards: 150,
       estimatedRewards: 200,
       participants: 89,
-      image:
+      imageUrl:
         "https://images.pexels.com/photos/1181244/pexels-photo-1181244.jpeg?auto=compress&cs=tinysrgb&w=400",
     },
   ];
@@ -187,13 +168,6 @@ export default function StakedPoolsSection({
     if (onNavigateToExplore) {
       onNavigateToExplore();
     }
-  };
-
-  const getRemainingDays = (endDate: string) => {
-    const days = Math.ceil(
-      (new Date(endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
-    );
-    return Math.max(0, days);
   };
 
   // Skeleton Loading Component
@@ -336,7 +310,6 @@ export default function StakedPoolsSection({
       {/* Pool Rows */}
       <div className="space-y-0">
         {currentPools.map((pool, index) => {
-          const remainingDays = getRemainingDays(pool.endDate);
           const isLast = index === currentPools.length - 1;
 
           return (
@@ -355,9 +328,9 @@ export default function StakedPoolsSection({
                 >
                   {/* 40x40 Thumbnail */}
                   <div className="w-10 h-10 rounded-lg overflow-hidden border border-gray-200 bg-gray-100 flex-shrink-0">
-                    {pool.image ? (
+                    {pool.imageUrl ? (
                       <img
-                        src={pool.image}
+                        src={pool.imageUrl}
                         alt={`${pool.title} pool`}
                         className="w-full h-full object-cover"
                         loading="lazy"
@@ -385,7 +358,7 @@ export default function StakedPoolsSection({
                   {/* Staked Amount */}
                   <div
                     className="flex items-center space-x-1 px-2 py-1 bg-blue-50 rounded-full group/tooltip relative"
-                    title={`You have staked ${pool.stakedAmount.toLocaleString()} ${pool.stakeCurrency} in this pool`}
+                    title={`You have staked ${pool.stakedAmount.toLocaleString()} ${getChainConfig(parseInt(pool.chainId))?.nativeCurrency.symbol || "REVO"} in this pool`}
                   >
                     <Link className="w-3 h-3 text-blue-600" />
                     <span className="text-xs font-medium text-blue-700">
@@ -398,34 +371,13 @@ export default function StakedPoolsSection({
                   {/* Earned Rewards */}
                   <div
                     className="flex items-center space-x-1 px-2 py-1 bg-green-50 rounded-full group/tooltip relative"
-                    title={`You have earned ${pool.earnedRewards} ${pool.rewardCurrency} from this pool`}
+                    title={`You have earned ${pool.earnedRewards} ${getChainConfig(parseInt(pool.chainId))?.nativeCurrency.symbol || "REVO"} from this pool`}
                   >
                     <TrendingUp className="w-3 h-3 text-green-600" />
                     <span className="text-xs font-medium text-green-700">
                       {pool.earnedRewards >= 1000
                         ? `${(pool.earnedRewards / 1000).toFixed(1)}k`
                         : pool.earnedRewards}
-                    </span>
-                  </div>
-
-                  {/* Remaining Days */}
-                  <div
-                    className={`flex items-center space-x-1 px-2 py-1 rounded-full group/tooltip relative ${
-                      remainingDays === 0 ? "bg-red-50" : "bg-gray-50"
-                    }`}
-                    title={
-                      remainingDays === 0
-                        ? "This pool has ended"
-                        : `${remainingDays} days remaining until pool ends`
-                    }
-                  >
-                    <Clock
-                      className={`w-3 h-3 ${remainingDays === 0 ? "text-red-600" : "text-gray-600"}`}
-                    />
-                    <span
-                      className={`text-xs font-medium ${remainingDays === 0 ? "text-red-700" : "text-gray-700"}`}
-                    >
-                      {remainingDays === 0 ? "Ended" : `${remainingDays}d`}
                     </span>
                   </div>
                 </div>
@@ -447,20 +399,6 @@ export default function StakedPoolsSection({
                         {pool.earnedRewards >= 1000
                           ? `${(pool.earnedRewards / 1000).toFixed(1)}k`
                           : pool.earnedRewards}
-                      </span>
-                    </div>
-                    <div
-                      className={`flex items-center space-x-1 px-2 py-1 rounded-full ${
-                        remainingDays === 0 ? "bg-red-50" : "bg-gray-50"
-                      }`}
-                    >
-                      <Clock
-                        className={`w-3 h-3 ${remainingDays === 0 ? "text-red-600" : "text-gray-600"}`}
-                      />
-                      <span
-                        className={`text-xs font-medium ${remainingDays === 0 ? "text-red-700" : "text-gray-700"}`}
-                      >
-                        {remainingDays === 0 ? "Ended" : `${remainingDays}d`}
                       </span>
                     </div>
                   </div>
@@ -556,14 +494,24 @@ export default function StakedPoolsSection({
       <PoolDetailsModal
         isOpen={isPoolModalOpen}
         onClose={() => setIsPoolModalOpen(false)}
-        pool={selectedPool}
+        pool={selectedPool ? { 
+          ...selectedPool, 
+          title: selectedPool.title || "Untitled Pool",
+          description: selectedPool.description || "No description available"
+        } : null}
       />
 
       {/* Claim Rewards Modal */}
       <ClaimRewardsModal
         isOpen={isClaimModalOpen}
         onClose={() => setIsClaimModalOpen(false)}
-        pool={claimingPool}
+        pool={claimingPool ? { 
+          id: claimingPool.id, 
+          title: claimingPool.title || "Untitled Pool", 
+          earnedRewards: claimingPool.earnedRewards, 
+          chainId: claimingPool.chainId,
+          image: claimingPool.imageUrl || undefined
+        } : null}
       />
 
       {/* Click outside to close dropdown */}

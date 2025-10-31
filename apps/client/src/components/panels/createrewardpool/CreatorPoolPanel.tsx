@@ -148,7 +148,7 @@ export function CreatorPoolPanel() {
       if (poolAddress && !isPoolLoading && !hasConfirmedPool) {
         try {
           // Call the confirmPoolCreation method to update the database
-          await trpcClient.pools.confirmPoolCreation.mutate({
+          await trpcClient.pools.creator.confirmPoolCreation.mutate({
             chainId: chainId.toString(),
           });
 
@@ -159,7 +159,7 @@ export function CreatorPoolPanel() {
 
           // If confirmation fails, delete the pool from the database
           try {
-            await trpcClient.pools.deletePoolOnError.mutate({
+            await trpcClient.pools.creator.deletePoolOnError.mutate({
               chainId: chainId.toString(),
             });
             console.log("Pool deleted due to confirmation error");
@@ -231,7 +231,7 @@ export function CreatorPoolPanel() {
     const file = event.target.files?.[0];
     if (file) {
       try {
-        const presignedUrlData = await trpcClient.pools.requestPoolImagePresignedUrl.mutate({
+        const presignedUrlData = await trpcClient.pools.creator.requestPoolImagePresignedUrl.mutate({
           contentType: file.type,
           fileExtension: file.name.split(".").pop() || "",
           fileSize: file.size,
@@ -247,7 +247,7 @@ export function CreatorPoolPanel() {
           },
         });
 
-        await trpcClient.pools.confirmPoolImageUpload.mutate({
+        await trpcClient.pools.creator.confirmPoolImageUpload.mutate({
           fileId,
           fileName: file.name,
         });
@@ -301,7 +301,7 @@ export function CreatorPoolPanel() {
 
     try {
       // First create the pool in the database
-      const createdPool = await trpcClient.pools.create.mutate({
+      const createdPool = await trpcClient.pools.creator.create.mutate({
         description: formData.poolDescription,
         chainId: chainId.toString(), // Pass chainId as string
       });
@@ -364,13 +364,13 @@ export function CreatorPoolPanel() {
       }
 
       // After the contract pool is created, confirm it in the database
-      await trpcClient.pools.confirmPoolCreation.mutate({
+      await trpcClient.pools.creator.confirmPoolCreation.mutate({
         chainId: chainId.toString(), // Pass chainId as string
       });
 
       // Set the image for the pool if one was uploaded
       if (uploadedFileId) {
-        await trpcClient.pools.setImageForPool.mutate({
+        await trpcClient.pools.creator.setImageForPool.mutate({
           id: createdPool.id,
           image_file_id: uploadedFileId,
         });
@@ -386,7 +386,7 @@ export function CreatorPoolPanel() {
       // If we created a pool in the database but failed later, delete it
       if (createdPoolId) {
         try {
-          await trpcClient.pools.deletePoolOnError.mutate({
+          await trpcClient.pools.creator.deletePoolOnError.mutate({
             chainId: chainId.toString(),
           });
           console.log("Pool deleted due to error");

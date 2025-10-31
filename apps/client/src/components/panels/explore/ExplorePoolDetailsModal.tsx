@@ -45,6 +45,10 @@ export default function ExplorePoolDetailsModal({
     "stake"
   );
 
+  // Get the chain configuration once to avoid multiple calls
+  const chainConfig = pool ? getChainConfig(parseInt(pool.chainId)) : null;
+  const currencySymbol = chainConfig?.nativeCurrency.symbol || "REVO";
+
   const { 
     writeContract: writeL2TokenContract, 
     data: l2TokenHash,
@@ -52,8 +56,8 @@ export default function ExplorePoolDetailsModal({
     error: l2TokenWriteError 
   } = useWriteContract();
   
-  const confirmStakeMutation = useMutation(trpc.pools.confirmStake.mutationOptions());
-  const confirmUnstakeMutation = useMutation(trpc.pools.confirmUnstake.mutationOptions());
+  const confirmStakeMutation = useMutation(trpc.pools.fan.confirmStake.mutationOptions());
+  const confirmUnstakeMutation = useMutation(trpc.pools.fan.confirmUnstake.mutationOptions());
 
   // Get chain configuration based on pool's chainId
   const chain = useMemo(() => {
@@ -349,9 +353,7 @@ export default function ExplorePoolDetailsModal({
                     <div className="text-xl font-bold text-blue-900">
                       {parseFloat(fanStake).toLocaleString()}
                     </div>
-                    <div className="text-xs text-blue-600">
-                      {pool.stakeCurrency}
-                    </div>
+                    <div className="text-xs text-blue-600">{currencySymbol}</div>
                   </div>
 
                   <div className="bg-green-50 rounded-xl p-4 border border-green-100 flex flex-col justify-center">
@@ -365,7 +367,7 @@ export default function ExplorePoolDetailsModal({
                       {pool.earnedRewards}
                     </div>
                     <div className="text-xs text-green-600">
-                      {pool.rewardCurrency}
+                      {currencySymbol}
                     </div>
                   </div>
 
@@ -380,7 +382,7 @@ export default function ExplorePoolDetailsModal({
                       {pool.totalReward.toLocaleString()}
                     </div>
                     <div className="text-xs text-purple-600">
-                      {pool.stakeCurrency}
+                      {currencySymbol}
                     </div>
                   </div>
 
@@ -488,7 +490,7 @@ export default function ExplorePoolDetailsModal({
                 id: pool.id,
                 title: pool.title,
                 description: pool.description ?? "",
-                stakeCurrency: pool.stakeCurrency,
+                chainId: pool.chainId,
                 imageUrl: pool.imageUrl,
                 minStake: 0,
                 currentStake: parseFloat(fanStake),

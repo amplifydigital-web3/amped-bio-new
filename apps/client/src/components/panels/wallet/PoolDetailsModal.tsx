@@ -1,12 +1,14 @@
 import React from "react";
 import { Trophy, Users, Coins, TrendingUp, ExternalLink, Plus, Minus } from "lucide-react";
+import { getChainConfig } from "@ampedbio/web3";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
+  DialogHeader,
   DialogTitle,
   DialogDescription,
   DialogClose,
+  DialogFooter,
 } from "@/components/ui/dialog";
 
 interface PoolDetailsModalProps {
@@ -17,18 +19,21 @@ interface PoolDetailsModalProps {
     title: string;
     description: string;
     stakedAmount: number;
-    stakeCurrency: string;
+    chainId: string;
     totalReward: number;
-    rewardCurrency: string;
     category: "staking" | "social" | "trading" | "community";
     earnedRewards: number;
     estimatedRewards: number;
     participants: number;
-    image?: string | null;
+    imageUrl?: string | null;
   } | null;
 }
 
 export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsModalProps) {
+  // Get the chain configuration once to avoid multiple calls
+  const chainConfig = pool ? getChainConfig(parseInt(pool.chainId)) : null;
+  const currencySymbol = chainConfig?.nativeCurrency.symbol || "REVO";
+
   // Mock staking tiers data with utility focus
   const stakingTiers = [
     {
@@ -158,9 +163,9 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
               {/* Pool Image */}
               <div className="relative h-64">
                 <div className="h-full rounded-2xl overflow-hidden border border-gray-100 shadow-sm bg-gradient-to-br from-blue-50 to-purple-50">
-                  {pool.image ? (
+                  {pool.imageUrl ? (
                     <img
-                      src={pool.image}
+                      src={pool.imageUrl}
                       alt={`${pool.title} pool`}
                       className="w-full h-full object-cover"
                     />
@@ -195,7 +200,7 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
                     <div className="text-xl font-bold text-blue-900">
                       {pool.stakedAmount.toLocaleString()}
                     </div>
-                    <div className="text-xs text-blue-600">{pool.stakeCurrency}</div>
+                    <div className="text-xs text-blue-600">{currencySymbol}</div>
                   </div>
 
                   <div className="bg-green-50 rounded-xl p-4 border border-green-100 flex flex-col justify-center">
@@ -204,7 +209,7 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
                       <span className="text-sm font-medium text-green-700">Earned</span>
                     </div>
                     <div className="text-xl font-bold text-green-900">{pool.earnedRewards}</div>
-                    <div className="text-xs text-green-600">{pool.rewardCurrency}</div>
+                    <div className="text-xs text-green-600">{currencySymbol}</div>
                   </div>
 
                   <div className="bg-purple-50 rounded-xl p-4 border border-purple-100 flex flex-col justify-center">
@@ -215,7 +220,7 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
                     <div className="text-xl font-bold text-purple-900">
                       {pool.totalReward.toLocaleString()}
                     </div>
-                    <div className="text-xs text-purple-600">{pool.stakeCurrency}</div>
+                    <div className="text-xs text-purple-600">{currencySymbol}</div>
                   </div>
 
                   <div className="bg-orange-50 rounded-xl p-4 border border-orange-100 flex flex-col justify-center">
@@ -296,7 +301,7 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
                               {tier.name}
                             </h5>
                             <p className="text-xs text-gray-600">
-                              {tier.minStake.toLocaleString()}+ {pool.stakeCurrency}
+                              {tier.minStake.toLocaleString()}+ {currencySymbol}
                             </p>
                           </div>
                         </div>
@@ -349,7 +354,7 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
               <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
                 <p className="text-sm text-blue-800">
                   💡 <strong>Your current stake:</strong> {pool.stakedAmount.toLocaleString()}{" "}
-                  {pool.stakeCurrency}
+                  {currencySymbol}
                   {pool.stakedAmount < 25000 && (
                     <span className="block mt-1">
                       Stake{" "}
