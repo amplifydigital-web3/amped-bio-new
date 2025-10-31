@@ -20,8 +20,6 @@ interface PoolDetailsModalProps {
     stakeCurrency: string;
     totalReward: number;
     rewardCurrency: string;
-    endDate: string;
-    status: "active" | "ending-soon" | "completed";
     category: "staking" | "social" | "trading" | "community";
     earnedRewards: number;
     estimatedRewards: number;
@@ -106,31 +104,7 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "active":
-        return "bg-green-500 text-white";
-      case "ending-soon":
-        return "bg-yellow-500 text-white";
-      case "completed":
-        return "bg-gray-500 text-white";
-      default:
-        return "bg-gray-500 text-white";
-    }
-  };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "active":
-        return "Active";
-      case "ending-soon":
-        return "Ending Soon";
-      case "completed":
-        return "Completed";
-      default:
-        return "Unknown";
-    }
-  };
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
@@ -207,13 +181,7 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
                   </span>
                 </div>
 
-                <div className="absolute top-4 right-4">
-                  <span
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm ${getStatusColor(pool.status)}`}
-                  >
-                    {getStatusText(pool.status)}
-                  </span>
-                </div>
+
               </div>
 
               {/* Stats Grid - 2x2 with matching height */}

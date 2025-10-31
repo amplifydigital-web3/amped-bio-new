@@ -41,8 +41,6 @@ interface RewardPool {
   currency: string;
   participants: number;
   maxParticipants: number;
-  endDate: string;
-  status: "active" | "ending-soon" | "completed";
   category: "staking" | "social" | "trading" | "community";
   createdBy: string;
   stakedAmount: number;
@@ -127,8 +125,6 @@ export default function ExplorePage({ initialTab = "creators", onTabChange }: Ex
         stakeCurrency: "REVO",
         totalReward: creator.poolStake,
         rewardCurrency: "REVO",
-        endDate: "2025-06-15",
-        status: "active" as const,
         category: "staking" as const,
         earnedRewards: 0,
         estimatedRewards: 0,
@@ -182,8 +178,6 @@ export default function ExplorePage({ initialTab = "creators", onTabChange }: Ex
         currency: pool.currency || "REVO", // Placeholder
         participants: pool.participants || 0, // Placeholder
         maxParticipants: pool.maxParticipants || 0, // Placeholder
-        endDate: pool.endDate || "", // Placeholder
-        status: (pool.status || "active") as "active" | "ending-soon" | "completed", // Placeholder
         category: (pool.category || "staking") as "staking" | "social" | "trading" | "community", // Placeholder
         createdBy: pool.createdBy || "Unknown", // Placeholder
         stakedAmount: 0,
@@ -358,23 +352,10 @@ export default function ExplorePage({ initialTab = "creators", onTabChange }: Ex
                   </button>
                   <button
                     onClick={() => handleJoinPool(pool.id)}
-                    disabled={(pool.status ?? "active") === "completed"}
-                    className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-1 ${
-                      (pool.status ?? "active") === "completed"
-                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                        : (pool.status ?? "active") === "active"
-                          ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                          : "bg-blue-600 text-white hover:bg-blue-700"
-                    }`}
+                    className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-1 bg-blue-600 text-white hover:bg-blue-700`}
                   >
                     <Coins className="w-4 h-4" />
-                    <span>
-                      {(pool.status ?? "active") === "completed"
-                        ? "Ended"
-                        : (pool.status ?? "active") === "active"
-                          ? "Soon"
-                          : "Stake"}
-                    </span>
+                    <span>Stake</span>
                   </button>
                 </div>
               </div>

@@ -545,8 +545,6 @@ export const poolsRouter = router({
           currency: "REVO",
           participants: 0,
           maxParticipants: 100,
-          endDate: new Date().toISOString(),
-          status: "active",
           category: "staking",
           createdBy: "Unknown",
           stakedAmount: 0,
@@ -1326,6 +1324,39 @@ export const poolsRouter = router({
           },
         });
 
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const startOfWeek = new Date(now.setDate(now.getDate() - 7));
+
+        const stakeAtStartOfMonth = stakeEvents
+          .filter(event => new Date(event.createdAt) < startOfMonth)
+          .reduce((acc, event) => {
+            if (event.eventType === "stake") {
+              return acc + event.amount;
+            } else {
+              return acc - event.amount;
+            }
+          }, 0n);
+
+        const totalStakeChange = totalStake - stakeAtStartOfMonth;
+        const totalStakePercentageChange = stakeAtStartOfMonth === 0n
+            ? totalStakeChange > 0n ? 100 : 0
+            : Number((totalStakeChange * 10000n) / stakeAtStartOfMonth) / 100;
+
+        const newFansThisWeek = await prisma.stakeEvent.groupBy({
+            by: ['userWalletId'],
+            where: {
+                poolId,
+                createdAt: {
+                    gte: startOfWeek,
+                },
+                eventType: "stake",
+            },
+            _count: {
+                userWalletId: true,
+            },
+        });
+
         return {
           totalStake: totalStake.toString(),
           totalFans: totalFans.length,
@@ -1335,6 +1366,8 @@ export const poolsRouter = router({
             amount: event.amount.toString(),
             onelink: event.userWallet.user?.onelink || event.userWallet.address,
           })),
+          totalStakePercentageChange,
+          newFansThisWeek: newFansThisWeek.length,
         };
       } catch (error) {
         console.error("Error fetching pool dashboard:", error);

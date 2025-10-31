@@ -452,8 +452,6 @@ export default function DashboardPage() {
       stakedAmount: 0, // User's own stake in their pool (0 since it's their pool)
       stakeCurrency: "REVO",
       rewardCurrency: "REVO",
-      endDate: new Date().toISOString().split("T")[0], // Using current date since updatedAt is not in the type
-      status: "active" as const,
       category: "staking" as const,
       earnedRewards: 0,
       estimatedRewards: 0,
@@ -765,13 +763,13 @@ export default function DashboardPage() {
             <p className="text-2xl font-bold text-gray-900">{formatValue(userPool.totalStake)}</p>
             <p className="text-sm text-green-600 flex items-center">
               <TrendingUp className="w-4 h-4 mr-1" />
-              +12.5% this month
+              {dashboardData?.totalStakePercentageChange.toFixed(2)}% this month
             </p>
           </div>
         </div>
 
         {/* Total Rewards */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 opacity-50 cursor-not-allowed">
           <div className="flex items-center justify-between mb-4">
             <div className="p-2 bg-blue-100 rounded-lg">
               <Trophy className="w-6 h-6 text-blue-600" />
@@ -779,10 +777,9 @@ export default function DashboardPage() {
             <span className="text-sm text-gray-500">Total Rewards</span>
           </div>
           <div className="space-y-1">
-            <p className="text-2xl font-bold text-gray-900">{formatValue(userPool.totalRewards)}</p>
-            <p className="text-sm text-blue-600 flex items-center">
-              <TrendingUp className="w-4 h-4 mr-1" />
-              +8.3% this month
+            <p className="text-2xl font-bold text-gray-400">0</p>
+            <p className="text-sm text-gray-400 flex items-center">
+              Soon
             </p>
           </div>
         </div>
@@ -801,27 +798,12 @@ export default function DashboardPage() {
             </p>
             <p className="text-sm text-purple-600 flex items-center">
               <TrendingUp className="w-4 h-4 mr-1" />
-              +15 new this week
+              +{dashboardData?.newFansThisWeek} new this week
             </p>
           </div>
         </div>
 
-        {/* Pool Status */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <Activity className="w-6 h-6 text-green-600" />
-            </div>
-            <span className="text-sm text-gray-500">Status</span>
-          </div>
-          <div className="space-y-1">
-            <p className="text-2xl font-bold text-green-600 capitalize">{userPool.status}</p>
-            <p className="text-sm text-gray-600 flex items-center">
-              <Clock className="w-4 h-4 mr-1" />
-              Ends {new Date(userPool.endDate).toLocaleDateString()}
-            </p>
-          </div>
-        </div>
+
       </div>
 
       {/* Chart Section */}

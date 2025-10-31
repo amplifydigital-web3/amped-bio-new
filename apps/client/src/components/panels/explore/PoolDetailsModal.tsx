@@ -30,8 +30,6 @@ interface PoolDetailsModalProps {
     stakeCurrency: string;
     totalReward: number;
     rewardCurrency: string;
-    endDate: string;
-    status: "active" | "ending-soon" | "completed";
     category: "staking" | "social" | "trading" | "community";
     earnedRewards: number;
     estimatedRewards: number;
@@ -208,45 +206,9 @@ export default function PoolDetailsModal({
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "active":
-        return "bg-green-500 text-white";
-      case "ending-soon":
-        return "bg-yellow-500 text-white";
-      case "completed":
-        return "bg-gray-500 text-white";
-      default:
-        return "bg-gray-500 text-white";
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "active":
-        return "Active";
-      case "ending-soon":
-        return "Ending Soon";
-      case "completed":
-        return "Completed";
-      default:
-        return "Unknown";
-    }
-  };
-
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case "staking":
-        return <Coins className="w-3 h-3" />;
-      case "social":
-        return <Users className="w-3 h-3" />;
-      case "trading":
-        return <TrendingUp className="w-3 h-3" />;
-      case "community":
-        return <Trophy className="w-3 h-3" />;
-      default:
-        return <Trophy className="w-3 h-3" />;
-    }
+  const handleViewOnExplorer = () => {
+    console.log("View pool on blockchain explorer:", pool.id);
+    // Implementation to open blockchain explorer
   };
 
   const handleAddStake = () => {
@@ -337,16 +299,6 @@ export default function PoolDetailsModal({
       setIsStaking(false);
     }
   };
-
-  const handleViewOnExplorer = () => {
-    console.log("View pool on blockchain explorer:", pool.id);
-    // Implementation to open blockchain explorer
-  };
-
-  const daysRemaining = Math.ceil(
-    (new Date(pool.endDate).getTime() - new Date().getTime()) /
-      (1000 * 60 * 60 * 24)
-  );
 
   return (
     <div
