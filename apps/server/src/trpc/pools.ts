@@ -1357,6 +1357,39 @@ export const poolsRouter = router({
             },
         });
 
+        const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
+
+        const dailyStakeEvents = await prisma.stakeEvent.findMany({
+            where: {
+                poolId,
+                createdAt: {
+                    gte: thirtyDaysAgo,
+                },
+            },
+        });
+
+        const dailyStakeData = Array.from({ length: 30 }, (_, i) => {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            const dayStart = new Date(date.setHours(0, 0, 0, 0));
+            const dayEnd = new Date(date.setHours(23, 59, 59, 999));
+
+            const netStake = dailyStakeEvents
+                .filter(event => new Date(event.createdAt) >= dayStart && new Date(event.createdAt) <= dayEnd)
+                .reduce((acc, event) => {
+                    if (event.eventType === "stake") {
+                        return acc + event.amount;
+                    } else {
+                        return acc - event.amount;
+                    }
+                }, 0n);
+
+            return {
+                date: dayStart.toISOString().split("T")[0],
+                stake: netStake.toString(),
+            };
+        }).reverse();
+
         return {
           totalStake: totalStake.toString(),
           totalFans: totalFans.length,
@@ -1368,6 +1401,7 @@ export const poolsRouter = router({
           })),
           totalStakePercentageChange,
           newFansThisWeek: newFansThisWeek.length,
+          dailyStakeData,
         };
       } catch (error) {
         console.error("Error fetching pool dashboard:", error);

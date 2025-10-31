@@ -358,75 +358,21 @@ export default function DashboardPage() {
     return activityTime.toLocaleDateString();
   }, []);
 
-  // Mock time series data for total rewards over time
-  const generateRewardsData = React.useCallback(() => {
-    const data: { date: string; dailyRewards: number; totalRewards: number }[] = [];
-    let cumulativeRewards = 0;
-
-    for (let i = 29; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-
-      // Generate daily rewards (50-300 per day)
-      const dailyReward = Math.random() * 250 + 50;
-      cumulativeRewards += dailyReward;
-
-      // Ensure we end up close to our current total
-      if (i === 0) {
-        cumulativeRewards = poolData?.revoStaked || 0;
-      }
-
-      data.push({
-        date: date.toISOString().split("T")[0],
-        dailyRewards: dailyReward,
-        totalRewards: cumulativeRewards,
-      });
-    }
-
-    return data;
-  }, [poolData?.revoStaked]);
-
-  // Mock time series data for total stake over time
-  const generateStakeData = React.useCallback(() => {
-    const data: { date: string; stake: number }[] = [];
-    const baseValue = 80000;
-    let currentValue = baseValue;
-
-    for (let i = 29; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-
-      // Simulate growth with some volatility
-      const growth = Math.random() * 1500 + 500; // 500-2000 growth per day
-      currentValue += growth;
-
-      // Ensure we end up at our current total
-      if (i === 0) {
-        currentValue = totalStaked ? Number(totalStaked) / 1e18 : baseValue;
-      }
-
-      data.push({
-        date: date.toISOString().split("T")[0],
-        stake: Math.max(currentValue, baseValue),
-      });
-    }
-
-    return data;
-  }, [totalStaked]);
-
-  const rewardsData = React.useMemo(() => generateRewardsData(), [generateRewardsData]);
-  const stakeData = React.useMemo(() => generateStakeData(), [generateStakeData]);
+  const stakeData = React.useMemo(() => {
+    return dashboardData?.dailyStakeData.map(d => ({
+      date: d.date,
+      stake: Number(d.stake) / 1e18,
+    })) || [];
+  }, [dashboardData?.dailyStakeData]);
 
   // Combine the data for the chart
   const chartData = React.useMemo(
     () =>
-      rewardsData.map((reward, index) => ({
-        date: reward.date,
-        dailyRewards: reward.dailyRewards,
-        totalRewards: reward.totalRewards,
-        stake: stakeData[index].stake,
+      stakeData.map(stake => ({
+        date: stake.date,
+        stake: stake.stake,
       })),
-    [rewardsData, stakeData]
+    [stakeData]
   );
 
   // Get pool details combining backend and blockchain data
@@ -461,48 +407,22 @@ export default function DashboardPage() {
   }, [poolData, poolName, creatorCut, dashboardData]);
 
   // Create line chart path
-  const createDualAxisChartElements = React.useCallback(() => {
+  const createChartElements = React.useCallback(() => {
     const chartWidth = 900;
     const chartHeight = 400;
-    const padding = { top: 40, right: 110, bottom: 80, left: 120 };
+    const padding = { top: 40, right: 60, bottom: 80, left: 80 };
     const plotWidth = chartWidth - padding.left - padding.right;
     const plotHeight = chartHeight - padding.top - padding.bottom;
 
-    // Get max and min values with 10% padding for better visualization
-    const maxDailyRewards = Math.max(...chartData.map(d => d.dailyRewards));
-    const minDailyRewards = 0;
-    const dailyRewardsMax = maxDailyRewards * 1.15; // Add 15% padding
-
     const maxStake = Math.max(...chartData.map(d => d.stake));
-    const minStake = Math.min(...chartData.map(d => d.stake));
+    const minStake = 0;
     const stakeRange = maxStake - minStake;
-    const stakeMin = minStake - stakeRange * 0.08; // 8% padding below
-    const stakeMax = maxStake + stakeRange * 0.12; // 12% padding above
-
-    const dailyRewardsRange = dailyRewardsMax - minDailyRewards;
-    const adjustedStakeRange = stakeMax - stakeMin;
-
-    // Create bars for daily rewards
-    const barWidth = Math.max((plotWidth / chartData.length) * 0.4, 5); // 40% width, min 5px
-    const dailyRewardsBars = chartData.map((point, index) => {
-      const x = padding.left + 20 + (index / (chartData.length - 1)) * (plotWidth - 40);
-      const barHeight = ((point.dailyRewards - minDailyRewards) / dailyRewardsRange) * plotHeight;
-      const y = padding.top + plotHeight - barHeight;
-      return {
-        x: x - barWidth / 2,
-        y,
-        width: barWidth,
-        height: barHeight,
-        value: point.dailyRewards,
-        date: point.date,
-      };
-    });
 
     // Create points for the stake line
     const stakePoints = chartData.map((point, index) => {
       const x = padding.left + 20 + (index / (chartData.length - 1)) * (plotWidth - 40);
       const y =
-        padding.top + plotHeight - ((point.stake - stakeMin) / adjustedStakeRange) * plotHeight;
+        padding.top + plotHeight - ((point.stake - minStake) / stakeRange) * plotHeight;
       return { x, y, value: point.stake, date: point.date };
     });
 
@@ -515,20 +435,12 @@ export default function DashboardPage() {
     const leftYLabels: { value: number; y: number }[] = [];
     const labelCount = 5;
     for (let i = 0; i < labelCount; i++) {
-      const value = stakeMin + (adjustedStakeRange * i) / (labelCount - 1);
+      const value = minStake + (stakeRange * i) / (labelCount - 1);
       const y = padding.top + plotHeight - (i / (labelCount - 1)) * plotHeight;
       leftYLabels.push({ value, y });
     }
 
-    // Create right Y-axis labels (Daily Rewards) - 5 evenly spaced labels
-    const rightYLabels: { value: number; y: number }[] = [];
-    for (let i = 0; i < labelCount; i++) {
-      const value = minDailyRewards + (dailyRewardsRange * i) / (labelCount - 1);
-      const y = padding.top + plotHeight - (i / (labelCount - 1)) * plotHeight;
-      rightYLabels.push({ value, y });
-    }
-
-    // Create X-axis labels (show every 7th day for cleaner look)
+    // Create X-axis labels (show every 5th day for cleaner look)
     const xLabels: { x: number; label: string; date: string }[] = chartData
       .filter((_, index) => index % 5 === 0 || index === chartData.length - 1)
       .map((point, _) => {
@@ -545,11 +457,9 @@ export default function DashboardPage() {
       });
 
     return {
-      dailyRewardsBars,
       stakePoints,
       stakePathData,
       leftYLabels,
-      rightYLabels,
       xLabels,
       chartWidth,
       chartHeight,
@@ -558,8 +468,8 @@ export default function DashboardPage() {
   }, [chartData]);
 
   const chartElements = React.useMemo(
-    () => createDualAxisChartElements(),
-    [createDualAxisChartElements]
+    () => createChartElements(),
+    [createChartElements]
   );
 
   const handleViewPool = React.useCallback(() => {
@@ -816,11 +726,7 @@ export default function DashboardPage() {
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2 text-sm">
               <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              <span className="text-gray-600">Total Stake (Left Axis)</span>
-            </div>
-            <div className="flex items-center space-x-2 text-sm">
-              <div className="w-3 h-3 bg-blue-500 rounded"></div>
-              <span className="text-gray-600">Daily Rewards (Right Axis)</span>
+              <span className="text-gray-600">Total Stake</span>
             </div>
           </div>
         </div>
@@ -891,20 +797,6 @@ export default function DashboardPage() {
                 </g>
               ))}
 
-              {/* Right Y-axis labels (Daily Rewards) */}
-              {chartElements.rightYLabels?.map((label, index) => (
-                <g key={`right-label-${index}`}>
-                  <text
-                    x={chartElements.chartWidth - chartElements.padding.right + 25}
-                    y={label.y + 4}
-                    textAnchor="start"
-                    className="text-xs fill-blue-700 font-medium"
-                  >
-                    {Math.round(label.value).toLocaleString()}
-                  </text>
-                </g>
-              ))}
-
               {/* X-axis labels */}
               {chartElements.xLabels?.map((label, index) => (
                 <g key={`x-label-${index}`}>
@@ -917,23 +809,6 @@ export default function DashboardPage() {
                     {label.label}
                   </text>
                 </g>
-              ))}
-
-              {/* Daily Rewards bars */}
-              {chartElements.dailyRewardsBars?.map((bar, index) => (
-                <rect
-                  key={`daily-reward-bar-${index}`}
-                  x={bar.x}
-                  y={bar.y}
-                  width={bar.width}
-                  height={bar.height}
-                  fill="#3b82f6"
-                  fillOpacity="0.8"
-                  className="hover:fill-opacity-100 cursor-pointer transition-all duration-200"
-                  rx="2"
-                >
-                  <title>{`${new Date(bar.date).toLocaleDateString()}: ${Math.round(bar.value).toLocaleString()} REVO Daily Rewards`}</title>
-                </rect>
               ))}
 
               {/* Total Stake line */}
