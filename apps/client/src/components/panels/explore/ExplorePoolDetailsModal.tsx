@@ -49,11 +49,12 @@ export default function ExplorePoolDetailsModal({
   const chainConfig = pool ? getChainConfig(parseInt(pool.chainId)) : null;
   const currencySymbol = chainConfig?.nativeCurrency.symbol || "REVO";
 
-  const { 
-    writeContract: writeL2TokenContract, 
+  const {
+    writeContract: writeL2TokenContract,
+    writeContractAsync: writeL2TokenContractAsync,
     data: l2TokenHash,
     isPending: isL2TokenWritePending,
-    error: l2TokenWriteError 
+    error: l2TokenWriteError,
   } = useWriteContract();
   
   const confirmStakeMutation = useMutation(trpc.pools.fan.confirmStake.mutationOptions());
@@ -71,71 +72,7 @@ export default function ExplorePoolDetailsModal({
     return chain.contracts.L2_BASE_TOKEN?.address;
   };
 
-  // Handle transaction confirmation for stake/unstake
-  useEffect(() => {
-    if (l2TokenHash && publicClient && pendingStakeOperation) {
-      const handleTransactionConfirmation = async () => {
-        try {
-          // Wait for the transaction to be confirmed
-          await publicClient.waitForTransactionReceipt({
-            hash: l2TokenHash,
-          });
-          console.log("Transaction confirmed:", l2TokenHash);
 
-          // Update the local stake display after successful transaction
-          if (pendingStakeOperation.type === 'stake') {
-            const newStake = (parseFloat(fanStake) + parseFloat(pendingStakeOperation.amount)).toString();
-            setFanStake(newStake);
-            
-            // Update the backend database to record the stake
-            if (pool?.chainId) {
-              try {
-                await confirmStakeMutation.mutateAsync({
-                  chainId: pool.chainId,
-                  hash: l2TokenHash,
-                });
-                
-                console.log("Stake confirmed and recorded in database successfully");
-              } catch (dbError) {
-                console.error("Error confirming stake in database:", dbError);
-                // We don't want to fail the UI if the DB update fails, just log the error
-                setStakeActionError("Stake successful on chain, but failed to update records");
-              }
-            }
-          } else if (pendingStakeOperation.type === 'unstake') {
-            const newStake = (Math.max(0, parseFloat(fanStake) - parseFloat(pendingStakeOperation.amount))).toString();
-            setFanStake(newStake);
-            
-            // Update the backend database to record the unstake
-            if (pool?.chainId) {
-              try {
-                await confirmUnstakeMutation.mutateAsync({
-                  chainId: pool.chainId,
-                  hash: l2TokenHash,
-                });
-                
-                console.log("Unstake confirmed and recorded in database successfully");
-              } catch (dbError) {
-                console.error("Error confirming unstake in database:", dbError);
-                // We don't want to fail the UI if the DB update fails, just log the error
-                setStakeActionError("Unstake successful on chain, but failed to update records");
-              }
-            }
-          }
-          
-          // Reset the pending operation
-          setPendingStakeOperation(null);
-        } catch (error) {
-          console.error("Error waiting for transaction:", error);
-          setStakeActionError(`Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        } finally {
-          setIsStaking(false);
-        }
-      };
-
-      handleTransactionConfirmation();
-    }
-  }, [l2TokenHash, publicClient, pendingStakeOperation, fanStake, pool?.chainId, confirmStakeMutation, confirmUnstakeMutation, parseEther]);
 
   useEffect(() => {
     if (isOpen && pool?.poolAddress && userAddress && publicClient) {
@@ -211,81 +148,83 @@ export default function ExplorePoolDetailsModal({
   };
 
   const handleStakeToPool = async (amount: string) => {
-    if (!pool.poolAddress || !userAddress) {
-      console.error("Pool address or user address is missing");
-      return;
+    if (!publicClient) {
+      throw new Error("Public client is not available");
     }
-    
+
+    if (!pool.poolAddress || !userAddress) {
+      throw new Error("Pool address or user address is missing");
+    }
+
     const tokenAddress = getL2BaseTokenAddress();
     if (!tokenAddress) {
-      console.error("L2BaseToken contract address is not configured for this chain");
-      setStakeActionError("L2BaseToken contract address is not configured for this chain");
-      return;
+      throw new Error(
+        "L2BaseToken contract address is not configured for this chain"
+      );
     }
-    
-    try {
-      setIsStaking(true);
-      setStakeActionError(null);
-      
-      // Convert amount to proper format (assuming it's in Ether)
-      const parsedAmount = parseEther(amount);
-      
-      // Set pending operation for stake
-      setPendingStakeOperation({ type: 'stake', amount });
-      
-      // Call the stake function on the L2BaseToken contract, passing the pool address as the destination
-      writeL2TokenContract({
-        address: tokenAddress, // The L2BaseToken contract address
-        abi: L2_BASE_TOKEN_ABI,
-        functionName: 'stake',
-        args: [pool.poolAddress as `0x${string}`], // Stake to the pool address
-        value: parsedAmount, // Amount to stake
+
+    const parsedAmount = parseEther(amount);
+
+    const hash = await writeL2TokenContractAsync({
+      address: tokenAddress,
+      abi: L2_BASE_TOKEN_ABI,
+      functionName: "stake",
+      args: [pool.poolAddress as `0x${string}`],
+      value: parsedAmount,
+    });
+
+    await publicClient.waitForTransactionReceipt({ hash });
+
+    // After the transaction is confirmed, we can update the state.
+    const newStake = (parseFloat(fanStake) + parseFloat(amount)).toString();
+    setFanStake(newStake);
+
+    if (pool?.chainId) {
+      await confirmStakeMutation.mutateAsync({
+        chainId: pool.chainId,
+        hash: hash,
       });
-      
-    } catch (error) {
-      console.error("Error staking to pool:", error);
-      setStakeActionError(`Failed to stake: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setIsStaking(false);
     }
   };
   
   const handleUnstakeFromPool = async (amount: string) => {
-    if (!pool.poolAddress || !userAddress) {
-      console.error("Pool address or user address is missing");
-      return;
+    if (!publicClient) {
+      throw new Error("Public client is not available");
     }
-    
+
+    if (!pool.poolAddress || !userAddress) {
+      throw new Error("Pool address or user address is missing");
+    }
+
     const tokenAddress = getL2BaseTokenAddress();
     if (!tokenAddress) {
-      console.error("L2BaseToken contract address is not configured for this chain");
-      setStakeActionError("L2BaseToken contract address is not configured for this chain");
-      return;
+      throw new Error(
+        "L2BaseToken contract address is not configured for this chain"
+      );
     }
-    
-    try {
-      setIsStaking(true);
-      setStakeActionError(null);
-      
-      // Convert amount to proper format (assuming it's in Ether)
-      const parsedAmount = parseEther(amount);
-      
-      // Set pending operation for unstake
-      setPendingStakeOperation({ type: 'unstake', amount });
-      
-      // Call the unstake function on the L2BaseToken contract
-      writeL2TokenContract({
-        address: tokenAddress, // The L2BaseToken contract address
-        abi: L2_BASE_TOKEN_ABI,
-        functionName: 'unstake',
-        args: [pool.poolAddress as `0x${string}`, parsedAmount], // Unstake from the pool address with specified amount
+
+    const parsedAmount = parseEther(amount);
+
+    const hash = await writeL2TokenContractAsync({
+      address: tokenAddress,
+      abi: L2_BASE_TOKEN_ABI,
+      functionName: "unstake",
+      args: [pool.poolAddress as `0x${string}`, parsedAmount],
+    });
+
+    await publicClient.waitForTransactionReceipt({ hash });
+
+    const newStake = Math.max(
+      0,
+      parseFloat(fanStake) - parseFloat(amount)
+    ).toString();
+    setFanStake(newStake);
+
+    if (pool?.chainId) {
+      await confirmUnstakeMutation.mutateAsync({
+        chainId: pool.chainId,
+        hash: hash,
       });
-      
-    } catch (error) {
-      console.error("Error unstaking from pool:", error);
-      setStakeActionError(`Failed to unstake: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setIsStaking(false);
     }
   };
 
