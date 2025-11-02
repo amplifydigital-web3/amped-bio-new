@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import {
   X,
   Trophy,
@@ -12,12 +12,8 @@ import {
 } from "lucide-react";
 import StakingModal from "./StakingModal";
 import { usePoolReader } from "../../../hooks/usePoolReader";
-import { useAccount, usePublicClient, useWriteContract } from "wagmi";
-import { formatEther, parseEther } from "viem";
-import { L2_BASE_TOKEN_ABI, getChainConfig } from "@ampedbio/web3";
-import { useMemo } from "react";
-import { trpc, trpcClient } from "../../../utils/trpc";
-import { useMutation } from "@tanstack/react-query";
+import { getChainConfig } from "@ampedbio/web3";
+import { useStaking } from "../../../hooks/useStaking";
 
 import { RewardPool } from "../explore/ExplorePanel";
 
@@ -32,59 +28,15 @@ export default function ExplorePoolDetailsModal({
   onClose,
   pool,
 }: ExplorePoolDetailsModalProps) {
-  const { getFanStake, creatorCut: contractCreatorCut, isReadingCreatorCut } = usePoolReader(pool?.poolAddress as `0x${string}` | undefined);
-  const { address: userAddress } = useAccount();
-  const publicClient = usePublicClient();
-  const [fanStake, setFanStake] = useState("0");
-  const [isStaking, setIsStaking] = useState(false);
-  const [stakeActionError, setStakeActionError] = useState<string | null>(null);
-  const [pendingStakeOperation, setPendingStakeOperation] = useState<{type: 'stake' | 'unstake', amount: string} | null>(null);
+  const { creatorCut: contractCreatorCut, isReadingCreatorCut } = usePoolReader(
+    pool?.poolAddress as `0x${string}` | undefined
+  );
+  const { fanStake, isStaking, stakeActionError, stake, unstake, currencySymbol } = useStaking(pool);
 
   const [isStakingModalOpen, setIsStakingModalOpen] = useState(false);
   const [stakingMode, setStakingMode] = useState<"stake" | "add-stake" | "reduce-stake">(
     "stake"
   );
-
-  // Get the chain configuration once to avoid multiple calls
-  const chainConfig = pool ? getChainConfig(parseInt(pool.chainId)) : null;
-  const currencySymbol = chainConfig?.nativeCurrency.symbol || "REVO";
-
-  const {
-    writeContract: writeL2TokenContract,
-    writeContractAsync: writeL2TokenContractAsync,
-    data: l2TokenHash,
-    isPending: isL2TokenWritePending,
-    error: l2TokenWriteError,
-  } = useWriteContract();
-  
-  const confirmStakeMutation = useMutation(trpc.pools.fan.confirmStake.mutationOptions());
-  const confirmUnstakeMutation = useMutation(trpc.pools.fan.confirmUnstake.mutationOptions());
-
-  // Get chain configuration based on pool's chainId
-  const chain = useMemo(() => {
-    const chainId = parseInt(pool?.chainId || '0');
-    return getChainConfig(chainId);
-  }, [pool?.chainId]);
-
-  // Get the L2BaseToken contract address based on the chain
-  const getL2BaseTokenAddress = (): `0x${string}` | undefined => {
-    if (!chain) return undefined;
-    return chain.contracts.L2_BASE_TOKEN?.address;
-  };
-
-
-
-  useEffect(() => {
-    if (isOpen && pool?.poolAddress && userAddress && publicClient) {
-      const fetchStake = async () => {
-        const stake = await getFanStake(publicClient, userAddress);
-        if (stake !== null) {
-          setFanStake(formatEther(stake));
-        }
-      };
-      fetchStake();
-    }
-  }, [isOpen, pool?.poolAddress, userAddress, getFanStake, publicClient]);
 
   if (!isOpen || !pool || !pool.poolAddress) return null;
 
@@ -145,87 +97,6 @@ export default function ExplorePoolDetailsModal({
   const handleReduceStake = () => {
     setStakingMode("reduce-stake");
     setIsStakingModalOpen(true);
-  };
-
-  const handleStakeToPool = async (amount: string) => {
-    if (!publicClient) {
-      throw new Error("Public client is not available");
-    }
-
-    if (!pool.poolAddress || !userAddress) {
-      throw new Error("Pool address or user address is missing");
-    }
-
-    const tokenAddress = getL2BaseTokenAddress();
-    if (!tokenAddress) {
-      throw new Error(
-        "L2BaseToken contract address is not configured for this chain"
-      );
-    }
-
-    const parsedAmount = parseEther(amount);
-
-    const hash = await writeL2TokenContractAsync({
-      address: tokenAddress,
-      abi: L2_BASE_TOKEN_ABI,
-      functionName: "stake",
-      args: [pool.poolAddress as `0x${string}`],
-      value: parsedAmount,
-    });
-
-    await publicClient.waitForTransactionReceipt({ hash });
-
-    // After the transaction is confirmed, we can update the state.
-    const newStake = (parseFloat(fanStake) + parseFloat(amount)).toString();
-    setFanStake(newStake);
-
-    if (pool?.chainId) {
-      await confirmStakeMutation.mutateAsync({
-        chainId: pool.chainId,
-        hash: hash,
-      });
-    }
-  };
-  
-  const handleUnstakeFromPool = async (amount: string) => {
-    if (!publicClient) {
-      throw new Error("Public client is not available");
-    }
-
-    if (!pool.poolAddress || !userAddress) {
-      throw new Error("Pool address or user address is missing");
-    }
-
-    const tokenAddress = getL2BaseTokenAddress();
-    if (!tokenAddress) {
-      throw new Error(
-        "L2BaseToken contract address is not configured for this chain"
-      );
-    }
-
-    const parsedAmount = parseEther(amount);
-
-    const hash = await writeL2TokenContractAsync({
-      address: tokenAddress,
-      abi: L2_BASE_TOKEN_ABI,
-      functionName: "unstake",
-      args: [pool.poolAddress as `0x${string}`, parsedAmount],
-    });
-
-    await publicClient.waitForTransactionReceipt({ hash });
-
-    const newStake = Math.max(
-      0,
-      parseFloat(fanStake) - parseFloat(amount)
-    ).toString();
-    setFanStake(newStake);
-
-    if (pool?.chainId) {
-      await confirmUnstakeMutation.mutateAsync({
-        chainId: pool.chainId,
-        hash: hash,
-      });
-    }
   };
 
   return (
@@ -437,8 +308,8 @@ export default function ExplorePoolDetailsModal({
             : null
         }
         mode={stakingMode}
-        onStake={handleStakeToPool}
-        onUnstake={handleUnstakeFromPool}
+        onStake={stake}
+        onUnstake={unstake}
       />
     </div>
   );
