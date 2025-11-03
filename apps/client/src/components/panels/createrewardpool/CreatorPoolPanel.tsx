@@ -259,8 +259,8 @@ export function CreatorPoolPanel() {
         // Update the form value to show the image preview
         const reader = new FileReader();
         reader.onload = () => {
-          if (e.target?.result && typeof e.target.result === "string") {
-            setPoolImage(e.target.result);
+          if (reader.result && typeof reader.result === "string") {
+            setPoolImage(reader.result);
           }
         };
         reader.readAsDataURL(file);

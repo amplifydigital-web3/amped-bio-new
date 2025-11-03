@@ -2,8 +2,8 @@ services:
   maildev:
     image: maildev/maildev
     ports:
-      - "1025:1025"
-      - "1080:1080"
+      - "20250:1025"
+      - "20800:1080"
   
   mariadb:
     image: mariadb:10.5.28
@@ -14,7 +14,7 @@ services:
       MYSQL_USER: amped_user
       MYSQL_PASSWORD: amped_password
     ports:
-      - "3306:3306"
+      - "23306:3306"
     volumes:
       - mariadb_data:/var/lib/mysql
       - ./init-scripts:/docker-entrypoint-initdb.d
@@ -23,7 +23,7 @@ services:
     image: adminer
     restart: always
     ports:
-      - 8080:8080
+      - 28080:8080
     environment:
       ADMINER_DEFAULT_SERVER: mariadb
       ADMINER_DEFAULT_USERNAME: amped_user
@@ -38,8 +38,8 @@ services:
   s3mock:
     image: adobe/s3mock
     ports:
-      - "9090:9090"  # S3 API endpoint
-      - "9191:9191"  # Web UI
+      - "29090:9090"  # S3 API endpoint
+      - "29191:9191"  # Web UI
     environment:
       - initialBuckets=amped-bio
       - root=/data

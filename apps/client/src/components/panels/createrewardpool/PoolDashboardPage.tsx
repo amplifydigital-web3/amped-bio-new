@@ -16,6 +16,7 @@ import {
   ArrowDown,
   Gift,
   Edit3,
+  User,
 } from "lucide-react";
 import PoolDetailsModal from "../wallet/PoolDetailsModal";
 import { trpc } from "@/utils/trpc";
@@ -31,7 +32,7 @@ interface PoolActivity {
   id: string;
   type: "stake" | "unstake" | "claim";
   user: string;
-  avatar: string;
+  avatar: string | null;
   amount: number;
   timestamp: string;
   txHash?: string;
@@ -66,12 +67,12 @@ export default function DashboardPage() {
 
   const {
     data: dashboardData,
-
+    isLoading: isDashboardLoading,
     refetch: refetchDashboardData,
   } = useQuery(
     trpc.pools.creator.getPoolDashboard.queryOptions(
-      { poolId: poolData?.id },
-      { enabled: !!poolData?.id }
+      { poolId: poolData!.id },
+      { enabled: !!poolData }
     )
   );
 
@@ -163,7 +164,7 @@ export default function DashboardPage() {
         id: activity.id.toString(),
         type: activity.eventType as "stake" | "unstake" | "claim",
         user: activity.onelink || "",
-        avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${activity.onelink}&backgroundColor=b6e3f4,c0aede,d1d4f9,fbcfe8,f9a8d4,f1f0ff`,
+        avatar: activity.avatar,
         amount: Number(activity.amount),
 
         timestamp: activity.createdAt,
@@ -172,14 +173,16 @@ export default function DashboardPage() {
     );
   }, [dashboardData?.recentActivity]);
 
+  const fans = React.useMemo(() => dashboardData?.topFans || [], [dashboardData]);
+
   // Calculate pagination
-  const totalPages = React.useMemo(() => Math.ceil(fans.length / fansPerPage), [fansPerPage]);
+  const totalPages = React.useMemo(() => Math.ceil(fans.length / fansPerPage), [fans, fansPerPage]);
   const startIndex = React.useMemo(
     () => (currentPage - 1) * fansPerPage,
     [currentPage, fansPerPage]
   );
   const endIndex = React.useMemo(() => startIndex + fansPerPage, [startIndex, fansPerPage]);
-  const currentFans = React.useMemo(() => fans.slice(startIndex, endIndex), [startIndex, endIndex]);
+  const currentFans = React.useMemo(() => fans.slice(startIndex, endIndex), [fans, startIndex, endIndex]);
 
   // Calculate history pagination
   const totalHistoryPages = React.useMemo(
@@ -842,11 +845,11 @@ export default function DashboardPage() {
         <div className="space-y-4">
           {currentFans.map((fan, index) => {
             const globalIndex = startIndex + index;
-            const tierInfo = getTierInfo(fan.tier);
+            const tierInfo = getTierInfo(1);
 
             return (
               <div
-                key={fan.id}
+                key={fan.onelink}
                 className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200"
               >
                 <div className="flex items-center space-x-4">
@@ -857,16 +860,22 @@ export default function DashboardPage() {
                     {getRankIcon(globalIndex)}
                   </div>
 
-                  <img
-                    src={fan.avatar}
-                    alt={fan.username}
-                    className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
-                  />
+                  {fan.avatar ? (
+                    <img
+                      src={fan.avatar}
+                      alt={fan.onelink}
+                      className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center border-2 border-white shadow-sm">
+                      <User className="w-5 h-5 text-gray-500" />
+                    </div>
+                  )}
 
                   <div>
-                    <p className="font-medium text-gray-900">{fan.username}</p>
+                    <p className="font-medium text-gray-900">{fan.onelink}</p>
                     <p className="text-sm text-gray-500">
-                      Joined {new Date(fan.joinDate).toLocaleDateString()}
+                      Joined recently
                     </p>
                   </div>
                 </div>
@@ -874,14 +883,14 @@ export default function DashboardPage() {
                 <div className="flex items-center space-x-6">
                   <div className="text-right">
                     <p className="font-semibold text-gray-900">
-                      {formatValue(fan.stakedAmount, currencySymbol)}
+                      {formatValue(fan.amount, currencySymbol)}
                     </p>
                     <p className="text-sm text-gray-500">Staked</p>
                   </div>
 
                   <div className="text-right">
                     <p className="font-semibold text-green-600">
-                      {formatValue(fan.totalRewards, currencySymbol)}
+                      {formatValue(0, currencySymbol)}
                     </p>
                     <p className="text-sm text-gray-500">Rewards</p>
                   </div>
@@ -901,7 +910,7 @@ export default function DashboardPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
             <div className="text-sm text-gray-600">
-              Showing {startIndex + 1}-{Math.min(endIndex, fans.length)} of {fans.length} fans
+              Showing {startIndex + 1}-{Math.min(endIndex, dashboardData?.topFans?.length || 0)} of {dashboardData?.topFans?.length || 0} fans
             </div>
 
             <div className="flex items-center space-x-2">
@@ -977,11 +986,17 @@ export default function DashboardPage() {
                   </span>
                 </div>
 
-                <img
-                  src={activity.avatar}
-                  alt={activity.user}
-                  className="w-8 h-8 rounded-full object-cover border border-white shadow-sm"
-                />
+                {activity.avatar ? (
+                  <img
+                    src={activity.avatar}
+                    alt={activity.user}
+                    className="w-8 h-8 rounded-full object-cover border border-white shadow-sm"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center border border-white shadow-sm">
+                    <User className="w-4 h-4 text-gray-500" />
+                  </div>
+                )}
 
                 <div>
                   <p className="font-medium text-gray-900">{activity.user}</p>

@@ -623,8 +623,8 @@ export const poolsCreatorRouter = router({
               where: { id: Number(userWalletId) },
               include: {
                 user: {
-                  select: {
-                    onelink: true,
+                  include: {
+                    profileImage: true,
                   },
                 },
               },
@@ -632,6 +632,9 @@ export const poolsCreatorRouter = router({
             return {
               onelink: wallet?.user?.onelink || wallet?.address,
               amount: amount.toString(),
+              avatar: wallet?.user?.profileImage
+                ? s3Service.getFileUrl(wallet.user.profileImage.s3_key)
+                : null,
             };
           })
         );
@@ -647,8 +650,8 @@ export const poolsCreatorRouter = router({
             userWallet: {
               include: {
                 user: {
-                  select: {
-                    onelink: true,
+                  include: {
+                    profileImage: true,
                   },
                 },
               },
@@ -730,6 +733,9 @@ export const poolsCreatorRouter = router({
             ...event,
             amount: event.amount.toString(),
             onelink: event.userWallet.user?.onelink || event.userWallet.address,
+            avatar: event.userWallet.user?.profileImage
+              ? s3Service.getFileUrl(event.userWallet.user.profileImage.s3_key)
+              : null,
           })),
           totalStakePercentageChange,
           newFansThisWeek: newFansThisWeek.length,

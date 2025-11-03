@@ -95,7 +95,7 @@ export function MyWalletPanel() {
           </Suspense>
 
           <Suspense>
-            <StakedPoolsSection loading={!address} />
+            <StakedPoolsSection />
           </Suspense>
 
           <Suspense>

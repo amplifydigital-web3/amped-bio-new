@@ -332,18 +332,31 @@ export const poolsFanRouter = router({
           userWalletId: userWallet.id,
         },
         include: {
-          pool: true,
+          pool: {
+            include: {
+              poolImage: {
+                select: {
+                  s3_key: true,
+                },
+              },
+            },
+          },
         },
       });
 
-      return userStakes.map(stake => ({
-        userWalletId: stake.userWalletId,
-        poolId: stake.poolId,
-        poolChainId: stake.pool.chainId,
-        stakeAmount: stake.stakeAmount.toString(),
-        createdAt: stake.createdAt,
-        updatedAt: stake.updatedAt,
-      }));
+      return userStakes.map(stake => {
+        const { pool } = stake;
+        return {
+          ...stake,
+          stakeAmount: stake.stakeAmount.toString(),
+          pool: {
+            ...pool,
+            imageUrl: pool.poolImage
+              ? s3Service.getFileUrl(pool.poolImage.s3_key)
+              : null,
+          },
+        };
+      });
     } catch (error) {
       console.error("Error getting user stakes:", error);
       if (error instanceof TRPCError) throw error;
