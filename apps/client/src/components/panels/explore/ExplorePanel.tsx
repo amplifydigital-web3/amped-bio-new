@@ -46,6 +46,7 @@ export interface RewardPool {
   createdBy: string;
   earnedRewards: number;
   estimatedRewards: number;
+  creatorAddress?: string | null;
 }
 
 export default function ExplorePage({ initialTab = "creators", onTabChange }: ExplorePageProps) {
@@ -180,6 +181,7 @@ export default function ExplorePage({ initialTab = "creators", onTabChange }: Ex
                 createdBy: pool.createdBy || "Unknown", // Placeholder
                 earnedRewards: 0,
                 estimatedRewards: 0,
+                creatorAddress: pool.creatorAddress, // Add creatorAddress
               };
         
               setSelectedRewardPoolForView(poolForView);

@@ -36,6 +36,11 @@ export const poolsFanRouter = router({
                 bucket: true,
               },
             },
+            wallet: {
+              select: {
+                address: true,
+              },
+            },
           },
         });
 
@@ -51,6 +56,7 @@ export const poolsFanRouter = router({
           stakedAmount: 0,
           earnedRewards: 0,
           estimatedRewards: 0,
+          creatorAddress: pool.wallet?.address || null,
         }));
       } catch (error) {
         console.error("Error fetching pools:", error);

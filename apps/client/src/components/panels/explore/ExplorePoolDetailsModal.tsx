@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import {
   X,
   Trophy,
@@ -9,11 +9,17 @@ import {
   Plus,
   Minus,
   Share2,
+  Gift,
+  Edit3,
 } from "lucide-react";
 import StakingModal from "./StakingModal";
+import { ImageUploadModal } from "@/components/ImageUploadModal";
+import { useAccount, useChainId } from "wagmi";
+import { trpcClient } from "@/utils/trpc";
 import { usePoolReader } from "../../../hooks/usePoolReader";
 import { getChainConfig } from "@ampedbio/web3";
 import { useStaking } from "../../../hooks/useStaking";
+import { formatEther } from "viem";
 
 import { RewardPool } from "../explore/ExplorePanel";
 
@@ -31,11 +37,40 @@ export default function ExplorePoolDetailsModal({
   const { creatorCut: contractCreatorCut, isReadingCreatorCut } = usePoolReader(
     pool?.poolAddress as `0x${string}` | undefined
   );
-  const { fanStake, isStaking, stakeActionError, stake, unstake, currencySymbol } = useStaking(pool);
+  const { fanStake, isStaking, stakeActionError, stake, unstake, currencySymbol, pendingReward, isReadingPendingReward, claimReward } = useStaking(pool);
 
   const [isStakingModalOpen, setIsStakingModalOpen] = useState(false);
+  const [isImageUploadModalOpen, setIsImageUploadModalOpen] = useState(false);
   const [stakingMode, setStakingMode] = useState<"stake" | "add-stake" | "reduce-stake">(
     "stake"
+  );
+
+  const { address: userAddress } = useAccount();
+  const chainId = useChainId();
+
+  const handleImageUploadClick = useCallback(() => {
+    setIsImageUploadModalOpen(true);
+  }, []);
+
+  const handleImageUploadSuccess = useCallback(
+    (fileId: number) => {
+      if (pool?.id) {
+        trpcClient.pools.creator.setImageForPool
+          .mutate({
+            id: pool.id,
+            image_file_id: fileId,
+          })
+          .then(() => {
+            // Optionally, refetch pool data to show the new image
+            // This would require adding a refetch function to the pool data fetching logic
+            console.log("Pool image updated successfully!");
+          })
+          .catch(error => {
+            console.error("Error setting pool image:", error);
+          });
+      }
+    },
+    [pool?.id]
   );
 
   if (!isOpen || !pool || !pool.poolAddress) return null;
@@ -66,6 +101,17 @@ export default function ExplorePoolDetailsModal({
           // You could show a toast notification here
         })
         .catch(console.error);
+    }
+  };
+
+  const handleClaimReward = async () => {
+    try {
+      await claimReward();
+      // Optionally, show a success message or refetch data
+      console.log("Rewards claimed successfully!");
+    } catch (error) {
+      console.error("Failed to claim rewards:", error);
+      // Optionally, show an error message
     }
   };
 
@@ -134,7 +180,7 @@ export default function ExplorePoolDetailsModal({
             {/* Hero Section - Image and Stats Side by Side */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
               {/* Pool Image */}
-              <div className="relative h-64">
+              <div className="relative h-64 group">
                 <div className="h-full rounded-2xl overflow-hidden border border-gray-100 shadow-sm bg-gradient-to-br from-blue-50 to-purple-50">
                   {pool.imageUrl ? (
                     <img
@@ -148,6 +194,15 @@ export default function ExplorePoolDetailsModal({
                     </div>
                   )}
                 </div>
+                {userAddress === pool.creatorAddress && (
+                  <button
+                    onClick={handleImageUploadClick}
+                    className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl"
+                    title="Change Pool Image"
+                  >
+                    <Edit3 className="w-8 h-8 text-white" />
+                  </button>
+                )}
               </div>
 
               {/* Stats Grid - 2x2 with matching height */}
@@ -166,19 +221,28 @@ export default function ExplorePoolDetailsModal({
                     <div className="text-xs text-blue-600">{currencySymbol}</div>
                   </div>
 
-                  <div className="bg-green-50 rounded-xl p-4 border border-green-100 flex flex-col justify-center">
+                  <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-100 flex flex-col justify-center">
                     <div className="flex items-center space-x-2 mb-2">
-                      <TrendingUp className="w-4 h-4 text-green-600" />
-                      <span className="text-sm font-medium text-green-700">
-                        Earned
+                      <Gift className="w-4 h-4 text-yellow-600" />
+                      <span className="text-sm font-medium text-yellow-700">
+                        Pending Rewards
                       </span>
                     </div>
-                    <div className="text-xl font-bold text-green-900">
-                      {pool.earnedRewards}
+                    <div className="text-xl font-bold text-yellow-900">
+                      {isReadingPendingReward
+                        ? "Loading..."
+                        : pendingReward !== undefined && pendingReward !== null
+                          ? parseFloat(formatEther(pendingReward)).toLocaleString()
+                          : "0"}
                     </div>
-                    <div className="text-xs text-green-600">
-                      {currencySymbol}
-                    </div>
+                    <div className="text-xs text-yellow-600">{currencySymbol}</div>
+                    <button
+                      onClick={handleClaimReward}
+                      className="mt-2 px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-xs font-medium transition-colors duration-200 disabled:opacity-50"
+                      disabled={isReadingPendingReward || !pendingReward || pendingReward === BigInt(0)}
+                    >
+                      Claim
+                    </button>
                   </div>
 
                   <div className="bg-purple-50 rounded-xl p-4 border border-purple-100 flex flex-col justify-center">
@@ -310,6 +374,14 @@ export default function ExplorePoolDetailsModal({
         mode={stakingMode}
         onStake={stake}
         onUnstake={unstake}
+      />
+
+      {/* Image Upload Modal */}
+      <ImageUploadModal
+        isOpen={isImageUploadModalOpen}
+        onClose={() => setIsImageUploadModalOpen(false)}
+        onUploadSuccess={handleImageUploadSuccess}
+        currentImageUrl={pool.imageUrl ?? undefined}
       />
     </div>
   );
