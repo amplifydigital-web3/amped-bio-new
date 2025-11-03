@@ -1,5 +1,5 @@
 import React from "react";
-import { Trophy, ChevronLeft, ChevronRight, Link, TrendingUp, Clock } from "lucide-react";
+import { Trophy, ChevronLeft, ChevronRight, Link, TrendingUp } from "lucide-react";
 import PoolDetailsModal from "./PoolDetailsModal";
 import ClaimRewardsModal from "./ClaimRewardsModal";
 
@@ -494,24 +494,32 @@ export default function StakedPoolsSection({
       <PoolDetailsModal
         isOpen={isPoolModalOpen}
         onClose={() => setIsPoolModalOpen(false)}
-        pool={selectedPool ? { 
-          ...selectedPool, 
-          title: selectedPool.title || "Untitled Pool",
-          description: selectedPool.description || "No description available"
-        } : null}
+        pool={
+          selectedPool
+            ? {
+                ...selectedPool,
+                title: selectedPool.title || "Untitled Pool",
+                description: selectedPool.description || "No description available",
+              }
+            : null
+        }
       />
 
       {/* Claim Rewards Modal */}
       <ClaimRewardsModal
         isOpen={isClaimModalOpen}
         onClose={() => setIsClaimModalOpen(false)}
-        pool={claimingPool ? { 
-          id: claimingPool.id, 
-          title: claimingPool.title || "Untitled Pool", 
-          earnedRewards: claimingPool.earnedRewards, 
-          chainId: claimingPool.chainId,
-          image: claimingPool.imageUrl || undefined
-        } : null}
+        pool={
+          claimingPool
+            ? {
+                id: claimingPool.id,
+                title: claimingPool.title || "Untitled Pool",
+                earnedRewards: claimingPool.earnedRewards,
+                chainId: claimingPool.chainId,
+                image: claimingPool.imageUrl || undefined,
+              }
+            : null
+        }
       />
 
       {/* Click outside to close dropdown */}

@@ -3,7 +3,6 @@ import {
   Sparkles,
   X,
   Trophy,
-  Coins,
   Percent,
   Target,
   Info,
@@ -107,7 +106,6 @@ export function PoolSummaryModal({
               </p>
               <p className="text-xs text-gray-500">Reward Pool</p>
               <div className="flex items-center space-x-4 mt-2 text-sm">
-
                 <div className="flex items-center space-x-1">
                   <Percent className="w-4 h-4 text-orange-600" />
                   <span className="text-gray-700">Fee: {formData.creatorFee / 100}%</span>
@@ -118,8 +116,6 @@ export function PoolSummaryModal({
 
           {/* Pool Details Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-
             {/* Creator Fee */}
             <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
               <div className="flex items-center space-x-2 mb-2">

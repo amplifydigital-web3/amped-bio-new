@@ -4,7 +4,6 @@ import { getChainConfig } from "@ampedbio/web3";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
   DialogDescription,
   DialogClose,
@@ -109,8 +108,6 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
     }
   };
 
-
-
   const getCategoryIcon = (category: string) => {
     switch (category) {
       case "staking":
@@ -185,8 +182,6 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
                     <span className="capitalize">{pool.category} Pool</span>
                   </span>
                 </div>
-
-
               </div>
 
               {/* Stats Grid - 2x2 with matching height */}

@@ -15,7 +15,6 @@ import {
   ArrowUp,
   ArrowDown,
   Gift,
-  Clock,
   Edit3,
 } from "lucide-react";
 import PoolDetailsModal from "../wallet/PoolDetailsModal";
@@ -27,16 +26,6 @@ import { Address } from "viem";
 import { useQuery } from "@tanstack/react-query";
 import { trpcClient } from "@/utils/trpc";
 import { ImageUploadModal } from "@/components/ImageUploadModal";
-
-interface Fan {
-  id: string;
-  username: string;
-  avatar: string;
-  stakedAmount: number;
-  joinDate: string;
-  tier: number;
-  totalRewards: number;
-}
 
 interface PoolActivity {
   id: string;
@@ -77,11 +66,13 @@ export default function DashboardPage() {
 
   const {
     data: dashboardData,
-    isLoading: isDashboardLoading,
-    error: dashboardError,
+
     refetch: refetchDashboardData,
   } = useQuery(
-    trpc.pools.creator.getPoolDashboard.queryOptions({ poolId: poolData?.id! }, { enabled: !!poolData?.id })
+    trpc.pools.creator.getPoolDashboard.queryOptions(
+      { poolId: poolData?.id },
+      { enabled: !!poolData?.id }
+    )
   );
 
   // Mutation for updating pool description
@@ -148,7 +139,7 @@ export default function DashboardPage() {
     },
   });
 
-  const { data: totalStaked } = useReadContract({
+  useReadContract({
     address: poolAddress,
     abi: CREATOR_POOL_ABI,
     functionName: "totalStaked",
@@ -157,7 +148,7 @@ export default function DashboardPage() {
     },
   });
 
-  const { data: creatorCut } = useReadContract({
+  useReadContract({
     address: poolAddress,
     abi: CREATOR_POOL_ABI,
     functionName: "creatorCut",
@@ -165,20 +156,6 @@ export default function DashboardPage() {
       enabled: !!poolAddress,
     },
   });
-
-  const fans = React.useMemo(() => {
-    return (
-      dashboardData?.topFans.map(fan => ({
-        id: fan.onelink || "",
-        username: fan.onelink || "",
-        avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${fan.onelink}&backgroundColor=b6e3f4,c0aede,d1d4f9,fbcfe8,f9a8d4,f1f0ff`,
-        stakedAmount: Number(fan.amount),
-        joinDate: new Date().toISOString().split("T")[0], // Placeholder, as joinDate is not in topFans
-        tier: 1, // Placeholder, as tier is not in topFans
-        totalRewards: 0, // Placeholder, as totalRewards is not in topFans
-      })) || []
-    );
-  }, [dashboardData?.topFans]);
 
   const poolActivities: PoolActivity[] = React.useMemo(() => {
     return (
@@ -196,16 +173,13 @@ export default function DashboardPage() {
   }, [dashboardData?.recentActivity]);
 
   // Calculate pagination
-  const totalPages = React.useMemo(() => Math.ceil(fans.length / fansPerPage), [fans, fansPerPage]);
+  const totalPages = React.useMemo(() => Math.ceil(fans.length / fansPerPage), [fansPerPage]);
   const startIndex = React.useMemo(
     () => (currentPage - 1) * fansPerPage,
     [currentPage, fansPerPage]
   );
   const endIndex = React.useMemo(() => startIndex + fansPerPage, [startIndex, fansPerPage]);
-  const currentFans = React.useMemo(
-    () => fans.slice(startIndex, endIndex),
-    [fans, startIndex, endIndex]
-  );
+  const currentFans = React.useMemo(() => fans.slice(startIndex, endIndex), [startIndex, endIndex]);
 
   // Calculate history pagination
   const totalHistoryPages = React.useMemo(
@@ -249,16 +223,10 @@ export default function DashboardPage() {
     setCurrentHistoryPage(page);
   }, []);
 
-  // Helper function to format amounts from Wei to readable format
-  const formatFromWei = React.useCallback((weiValue: bigint | number) => {
-    const numValue = typeof weiValue === "bigint" ? Number(weiValue) : weiValue;
-    return numValue / 1e18; // Convert from wei to token amount
-  }, []);
-
   const currencySymbol = chainConfig?.nativeCurrency.symbol || "REVO";
 
   const formatValue = React.useCallback((value: number | string, currencySymbol: string) => {
-    const numValue = typeof value === 'string' ? parseFloat(value) || 0 : value;
+    const numValue = typeof value === "string" ? parseFloat(value) || 0 : value;
     return `${numValue.toLocaleString()} ${currencySymbol}`;
   }, []);
 
@@ -361,10 +329,12 @@ export default function DashboardPage() {
   }, []);
 
   const stakeData = React.useMemo(() => {
-    return dashboardData?.dailyStakeData.map(d => ({
-      date: d.date,
-      stake: Number(d.stake) / 1e18,
-    })) || [];
+    return (
+      dashboardData?.dailyStakeData.map(d => ({
+        date: d.date,
+        stake: Number(d.stake) / 1e18,
+      })) || []
+    );
   }, [dashboardData?.dailyStakeData]);
 
   // Combine the data for the chart
@@ -385,7 +355,6 @@ export default function DashboardPage() {
 
     // Convert blockchain values from BigInt to numbers
     const totalStake = Number(dashboardData.totalStake) / 1e18; // Convert from wei to token amount
-    const creatorFee = creatorCut ? Number(creatorCut) : 0;
 
     return {
       id: poolData.id.toString(),
@@ -405,7 +374,7 @@ export default function DashboardPage() {
       participants: dashboardData.totalFans, // Using totalFans from dashboardData
       totalReward: poolData.revoStaked || 0, // Using revoStaked from the database model
     };
-  }, [poolData, poolName, creatorCut, dashboardData]);
+  }, [poolData, poolName, dashboardData]);
 
   // Create line chart path
   const createChartElements = React.useCallback(() => {
@@ -422,8 +391,7 @@ export default function DashboardPage() {
     // Create points for the stake line
     const stakePoints = chartData.map((point, index) => {
       const x = padding.left + 20 + (index / (chartData.length - 1)) * (plotWidth - 40);
-      const y =
-        padding.top + plotHeight - ((point.stake - minStake) / stakeRange) * plotHeight;
+      const y = padding.top + plotHeight - ((point.stake - minStake) / stakeRange) * plotHeight;
       return { x, y, value: point.stake, date: point.date };
     });
 
@@ -468,10 +436,7 @@ export default function DashboardPage() {
     };
   }, [chartData]);
 
-  const chartElements = React.useMemo(
-    () => createChartElements(),
-    [createChartElements]
-  );
+  const chartElements = React.useMemo(() => createChartElements(), [createChartElements]);
 
   const handleViewPool = React.useCallback(() => {
     setIsPoolModalOpen(true);
@@ -671,7 +636,9 @@ export default function DashboardPage() {
             <span className="text-sm text-gray-500">Total Stake</span>
           </div>
           <div className="space-y-1">
-            <p className="text-2xl font-bold text-gray-900">{formatValue(userPool.totalStake, currencySymbol)}</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {formatValue(userPool.totalStake, currencySymbol)}
+            </p>
             <p className="text-sm text-green-600 flex items-center">
               <TrendingUp className="w-4 h-4 mr-1" />
               {dashboardData?.totalStakePercentageChange.toFixed(2)}% this month
@@ -689,9 +656,7 @@ export default function DashboardPage() {
           </div>
           <div className="space-y-1">
             <p className="text-2xl font-bold text-gray-400">0</p>
-            <p className="text-sm text-gray-400 flex items-center">
-              Soon
-            </p>
+            <p className="text-sm text-gray-400 flex items-center">Soon</p>
           </div>
         </div>
 
@@ -708,13 +673,10 @@ export default function DashboardPage() {
               {userPool.totalFans.toLocaleString()}
             </p>
             <p className="text-sm text-purple-600 flex items-center">
-              <TrendingUp className="w-4 h-4 mr-1" />
-              +{dashboardData?.newFansThisWeek} new this week
+              <TrendingUp className="w-4 h-4 mr-1" />+{dashboardData?.newFansThisWeek} new this week
             </p>
           </div>
         </div>
-
-
       </div>
 
       {/* Chart Section */}
@@ -911,12 +873,16 @@ export default function DashboardPage() {
 
                 <div className="flex items-center space-x-6">
                   <div className="text-right">
-                    <p className="font-semibold text-gray-900">{formatValue(fan.stakedAmount, currencySymbol)}</p>
+                    <p className="font-semibold text-gray-900">
+                      {formatValue(fan.stakedAmount, currencySymbol)}
+                    </p>
                     <p className="text-sm text-gray-500">Staked</p>
                   </div>
 
                   <div className="text-right">
-                    <p className="font-semibold text-green-600">{formatValue(fan.totalRewards, currencySymbol)}</p>
+                    <p className="font-semibold text-green-600">
+                      {formatValue(fan.totalRewards, currencySymbol)}
+                    </p>
                     <p className="text-sm text-gray-500">Rewards</p>
                   </div>
 

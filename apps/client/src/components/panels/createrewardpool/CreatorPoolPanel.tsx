@@ -6,7 +6,6 @@ import { TRPCClientError } from "@trpc/client";
 import {
   Users,
   Gift,
-  Coins,
   Trophy,
   Plus,
   Upload,
@@ -104,7 +103,7 @@ const parseTRPCError = (error: unknown): string => {
         if (errorObj.message) {
           return `Transaction failed: ${errorObj.message}`;
         }
-      } catch (e) {
+      } catch {
         // If it's not JSON, return as is
         return error.message;
       }
@@ -121,7 +120,7 @@ const parseTRPCError = (error: unknown): string => {
   return "An unknown error occurred. Please try again.";
 };
 
-import type { CreatorPoolFormValues, StakingTier, TierIconEntry } from "./types";
+import type { CreatorPoolFormValues, TierIconEntry } from "./types";
 
 export function CreatorPoolPanel() {
   const isFirstRender = useRef(true);
@@ -205,7 +204,6 @@ export function CreatorPoolPanel() {
     control,
     handleSubmit,
     watch,
-    setValue,
     formState: { errors, isValid },
   } = methods;
 
@@ -225,17 +223,20 @@ export function CreatorPoolPanel() {
     revoBalance && INITIAL_STAKE_ETH > 0
       ? INITIAL_STAKE_ETH <= Number(revoBalance.formatted)
       : true;
-  const showInsufficientBalanceWarning = INITIAL_STAKE_ETH > 0 && revoBalance && !hasSufficientBalance;
+  const showInsufficientBalanceWarning =
+    INITIAL_STAKE_ETH > 0 && revoBalance && !hasSufficientBalance;
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       try {
-        const presignedUrlData = await trpcClient.pools.creator.requestPoolImagePresignedUrl.mutate({
-          contentType: file.type,
-          fileExtension: file.name.split(".").pop() || "",
-          fileSize: file.size,
-        });
+        const presignedUrlData = await trpcClient.pools.creator.requestPoolImagePresignedUrl.mutate(
+          {
+            contentType: file.type,
+            fileExtension: file.name.split(".").pop() || "",
+            fileSize: file.size,
+          }
+        );
 
         const { presignedUrl, fileId } = presignedUrlData;
 
@@ -257,7 +258,7 @@ export function CreatorPoolPanel() {
 
         // Update the form value to show the image preview
         const reader = new FileReader();
-        reader.onload = e => {
+        reader.onload = () => {
           if (e.target?.result && typeof e.target.result === "string") {
             setPoolImage(e.target.result);
           }
@@ -336,7 +337,9 @@ export function CreatorPoolPanel() {
               console.log("Decoded Log from receipt:", decodedLog);
               // Assuming the event name can be used as an error message
               errorMessage = decodedLog.eventName ?? "Unknown error";
-            } catch {}
+            } catch {
+              // ignore
+            }
           }
           toast.error(`Transaction failed: ${errorMessage}`);
           setTransactionError(errorMessage);
@@ -512,8 +515,6 @@ export function CreatorPoolPanel() {
                 </div>
               </div>
             </div>
-
-
 
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
               <div className="flex items-center space-x-3 mb-4">
@@ -729,7 +730,6 @@ export function CreatorPoolPanel() {
         transactionStep={transactionStep}
         transactionHash={transactionHash}
         poolName={formData?.poolName}
-
         creatorFee={formData?.creatorFee}
         errorMessage={transactionError || undefined}
       />

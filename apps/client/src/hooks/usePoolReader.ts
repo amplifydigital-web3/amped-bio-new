@@ -1,11 +1,6 @@
-import {
-  useReadContract,
-  useWriteContract,
-} from "wagmi";
+import { useReadContract, useWriteContract } from "wagmi";
 import { type Address } from "viem";
-import {
-  CREATOR_POOL_ABI,
-} from "@ampedbio/web3";
+import { CREATOR_POOL_ABI } from "@ampedbio/web3";
 
 export function usePoolReader(poolAddress?: Address, fanAddress?: Address) {
   const { data: creatorCutData, isLoading: isReadingCreatorCut } = useReadContract({

@@ -1,10 +1,9 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import {
   X,
   Trophy,
   Users,
   Coins,
-  TrendingUp,
   ExternalLink,
   Plus,
   Minus,
@@ -14,10 +13,9 @@ import {
 } from "lucide-react";
 import StakingModal from "./StakingModal";
 import { ImageUploadModal } from "@/components/ImageUploadModal";
-import { useAccount, useChainId } from "wagmi";
+import { useAccount } from "wagmi";
 import { trpcClient } from "@/utils/trpc";
 import { usePoolReader } from "../../../hooks/usePoolReader";
-import { getChainConfig } from "@ampedbio/web3";
 import { useStaking } from "../../../hooks/useStaking";
 import { formatEther } from "viem";
 
@@ -37,16 +35,23 @@ export default function ExplorePoolDetailsModal({
   const { creatorCut: contractCreatorCut, isReadingCreatorCut } = usePoolReader(
     pool?.poolAddress as `0x${string}` | undefined
   );
-  const { fanStake, isStaking, stakeActionError, stake, unstake, currencySymbol, pendingReward, isReadingPendingReward, claimReward } = useStaking(pool);
+  const {
+    fanStake,
+    isStaking,
+    stakeActionError,
+    stake,
+    unstake,
+    currencySymbol,
+    pendingReward,
+    isReadingPendingReward,
+    claimReward,
+  } = useStaking(pool);
 
   const [isStakingModalOpen, setIsStakingModalOpen] = useState(false);
   const [isImageUploadModalOpen, setIsImageUploadModalOpen] = useState(false);
-  const [stakingMode, setStakingMode] = useState<"stake" | "add-stake" | "reduce-stake">(
-    "stake"
-  );
+  const [stakingMode, setStakingMode] = useState<"stake" | "add-stake" | "reduce-stake">("stake");
 
   const { address: userAddress } = useAccount();
-  const chainId = useChainId();
 
   const handleImageUploadClick = useCallback(() => {
     setIsImageUploadModalOpen(true);
@@ -112,21 +117,6 @@ export default function ExplorePoolDetailsModal({
     } catch (error) {
       console.error("Failed to claim rewards:", error);
       // Optionally, show an error message
-    }
-  };
-
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case "staking":
-        return "bg-blue-500 text-white";
-      case "social":
-        return "bg-green-500 text-white";
-      case "trading":
-        return "bg-purple-500 text-white";
-      case "community":
-        return "bg-orange-500 text-white";
-      default:
-        return "bg-gray-500 text-white";
     }
   };
 
@@ -211,9 +201,7 @@ export default function ExplorePoolDetailsModal({
                   <div className="bg-blue-50 rounded-xl p-4 border border-blue-100 flex flex-col justify-center">
                     <div className="flex items-center space-x-2 mb-2">
                       <Coins className="w-4 h-4 text-blue-600" />
-                      <span className="text-sm font-medium text-blue-700">
-                        Your Stake
-                      </span>
+                      <span className="text-sm font-medium text-blue-700">Your Stake</span>
                     </div>
                     <div className="text-xl font-bold text-blue-900">
                       {parseFloat(fanStake).toLocaleString()}
@@ -224,9 +212,7 @@ export default function ExplorePoolDetailsModal({
                   <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-100 flex flex-col justify-center">
                     <div className="flex items-center space-x-2 mb-2">
                       <Gift className="w-4 h-4 text-yellow-600" />
-                      <span className="text-sm font-medium text-yellow-700">
-                        Pending Rewards
-                      </span>
+                      <span className="text-sm font-medium text-yellow-700">Pending Rewards</span>
                     </div>
                     <div className="text-xl font-bold text-yellow-900">
                       {isReadingPendingReward
@@ -239,7 +225,9 @@ export default function ExplorePoolDetailsModal({
                     <button
                       onClick={handleClaimReward}
                       className="mt-2 px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-xs font-medium transition-colors duration-200 disabled:opacity-50"
-                      disabled={isReadingPendingReward || !pendingReward || pendingReward === BigInt(0)}
+                      disabled={
+                        isReadingPendingReward || !pendingReward || pendingReward === BigInt(0)
+                      }
                     >
                       Claim
                     </button>
@@ -248,24 +236,18 @@ export default function ExplorePoolDetailsModal({
                   <div className="bg-purple-50 rounded-xl p-4 border border-purple-100 flex flex-col justify-center">
                     <div className="flex items-center space-x-2 mb-2">
                       <Users className="w-4 h-4 text-purple-600" />
-                      <span className="text-sm font-medium text-purple-700">
-                        Total Pool Stake
-                      </span>
+                      <span className="text-sm font-medium text-purple-700">Total Pool Stake</span>
                     </div>
                     <div className="text-xl font-bold text-purple-900">
                       {pool.totalReward.toLocaleString()}
                     </div>
-                    <div className="text-xs text-purple-600">
-                      {currencySymbol}
-                    </div>
+                    <div className="text-xs text-purple-600">{currencySymbol}</div>
                   </div>
 
                   <div className="bg-orange-50 rounded-xl p-4 border border-orange-100 flex flex-col justify-center">
                     <div className="flex items-center space-x-2 mb-2">
                       <Users className="w-4 h-4 text-orange-600" />
-                      <span className="text-sm font-medium text-orange-700">
-                        Total Fans
-                      </span>
+                      <span className="text-sm font-medium text-orange-700">Total Fans</span>
                     </div>
                     <div className="text-xl font-bold text-orange-900">
                       {pool.participants.toLocaleString()}
@@ -279,25 +261,19 @@ export default function ExplorePoolDetailsModal({
             {/* Full-Width Description */}
             <div className="mb-8">
               <div className="bg-gray-50 rounded-xl p-6 border border-gray-100">
-                <h4 className="text-lg font-semibold text-gray-900 mb-4">
-                  About This Pool
-                </h4>
+                <h4 className="text-lg font-semibold text-gray-900 mb-4">About This Pool</h4>
                 <div className="max-w-3xl">
-                  <p className="text-base text-gray-700 leading-relaxed">
-                    {pool.description}
-                  </p>
+                  <p className="text-base text-gray-700 leading-relaxed">{pool.description}</p>
 
                   {/* Take Rate */}
                   <div className="mt-4 pt-4 border-t border-gray-200">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-700">
-                        Take Rate:
-                      </span>
+                      <span className="text-sm font-medium text-gray-700">Take Rate:</span>
                       <span className="text-sm font-semibold text-gray-900">
-                        {isReadingCreatorCut 
-                          ? "Loading..." 
-                          : contractCreatorCut !== undefined && contractCreatorCut !== null 
-                            ? `${Number(contractCreatorCut) / 100}%` 
+                        {isReadingCreatorCut
+                          ? "Loading..."
+                          : contractCreatorCut !== undefined && contractCreatorCut !== null
+                            ? `${Number(contractCreatorCut) / 100}%`
                             : "N/A"}
                       </span>
                     </div>
@@ -338,7 +314,7 @@ export default function ExplorePoolDetailsModal({
                 disabled={isStaking}
               >
                 <Minus className="w-4 h-4" />
-                <span>{isStaking ? 'Processing...' : 'Reduce Stake'}</span>
+                <span>{isStaking ? "Processing..." : "Reduce Stake"}</span>
               </button>
 
               <button
@@ -347,7 +323,7 @@ export default function ExplorePoolDetailsModal({
                 disabled={isStaking}
               >
                 <Plus className="w-4 h-4" />
-                <span>{isStaking ? 'Processing...' : 'Add Stake'}</span>
+                <span>{isStaking ? "Processing..." : "Add Stake"}</span>
               </button>
             </div>
           </div>
