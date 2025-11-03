@@ -58,7 +58,7 @@ export const libertasTestnet = {
   contracts: {
     L2_BASE_TOKEN: { address: "0x000000000000000000000000000000000000800A" as Address },
     NODE: { address: "0x019bbe745b5c9b70060408Bf720B1E5172EEa5A3" as Address },
-    CREATOR_POOL_FACTORY: { address: "0xf858cEb29c7665E8046c43908CB98F49367d8406" as Address },
+    CREATOR_POOL_FACTORY: { address: "0x38df3c6acEe3511c088c84d0191f550b24726f0f" as Address },
   },
   gas: 5_000_000,
 } as const;
