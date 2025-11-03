@@ -11,7 +11,7 @@ import { RewardPool } from "../components/panels/explore/ExplorePanel";
 export function useStaking(pool: RewardPool | null) {
   const { address: userAddress } = useAccount();
   const publicClient = usePublicClient();
-  const { getFanStake } = usePoolReader(pool?.poolAddress as `0x${string}` | undefined);
+  const { getFanStake, pendingReward, isReadingPendingReward, claimReward } = usePoolReader(pool?.poolAddress as `0x${string}` | undefined, userAddress as `0x${string}` | undefined);
 
   const [fanStake, setFanStake] = useState("0");
   const [isStaking, setIsStaking] = useState(false);
@@ -144,5 +144,8 @@ export function useStaking(pool: RewardPool | null) {
     stake,
     unstake,
     currencySymbol: chain?.nativeCurrency.symbol || "REVO",
+    pendingReward,
+    isReadingPendingReward,
+    claimReward,
   };
 }

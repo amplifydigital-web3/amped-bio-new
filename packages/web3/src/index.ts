@@ -566,6 +566,23 @@ export const CREATOR_POOL_ABI = [
     type: "function",
   },
   {
+    type: "function",
+    name: "pendingReward",
+    inputs: [
+      {
+        name: "fan",
+        type: "address",
+      },
+    ],
+    outputs: [
+      {
+        name: "reward",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
     inputs: [
       {
         internalType: "address",
