@@ -5,6 +5,7 @@ import ClaimRewardsModal from "./ClaimRewardsModal";
 import { trpc } from "../../../utils/trpc";
 import StakedPoolRow from "./StakedPoolRow";
 import { useQuery } from "@tanstack/react-query";
+import { useEditor } from "../../../contexts/EditorContext";
 
 interface StakedPoolsSectionProps {
   onNavigateToExplore?: () => void;
@@ -19,6 +20,7 @@ export default function StakedPoolsSection({
     error,
   } = useQuery(trpc.pools.fan.getUserStakes.queryOptions());
 
+  const { setActivePanel } = useEditor();
   const [currentPage, setCurrentPage] = React.useState(1);
   const [selectedPoolId, setSelectedPoolId] = React.useState<number | null>(null);
   const [isPoolModalOpen, setIsPoolModalOpen] = React.useState(false);
@@ -66,6 +68,7 @@ export default function StakedPoolsSection({
   };
 
   const handleViewAllPools = () => {
+    setActivePanel("explore");
     if (onNavigateToExplore) {
       onNavigateToExplore();
     }
@@ -175,8 +178,10 @@ export default function StakedPoolsSection({
   }
 
   if (!allStakedPools || allStakedPools.length === 0) {
+    const showCreatorPool = import.meta.env.VITE_SHOW_CREATOR_POOL === "true";
+    
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 opacity-50 relative pointer-events-none">
+      <div className={`bg-white rounded-lg shadow-sm border border-gray-200 p-6 ${showCreatorPool ? '' : 'opacity-50'} relative ${showCreatorPool ? '' : 'pointer-events-none'}`}>
         <div className="absolute top-2 right-2 bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full z-10 pointer-events-auto">
           Soon
         </div>
