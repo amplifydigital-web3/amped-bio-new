@@ -44,7 +44,7 @@ export const libertasTestnet = {
   },
   rpcUrls: {
     default: {
-      http: ["http://revolution1.mcnierney.com:3050"],
+      http: ["https://libertas.revolutionchain.io"],
     },
   },
   blockExplorers: {
