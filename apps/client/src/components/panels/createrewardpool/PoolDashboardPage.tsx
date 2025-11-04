@@ -335,7 +335,7 @@ export default function DashboardPage() {
     return (
       dashboardData?.dailyStakeData.map(d => ({
         date: d.date,
-        stake: Number(d.stake) / 1e18,
+        stake: Number(d.stake),
       })) || []
     );
   }, [dashboardData?.dailyStakeData]);
@@ -356,8 +356,8 @@ export default function DashboardPage() {
       return null;
     }
 
-    // Convert blockchain values from BigInt to numbers
-    const totalStake = Number(dashboardData.totalStake) / 1e18; // Convert from wei to token amount
+    // Keep values in wei
+    const totalStake = Number(dashboardData.totalStake);
 
     return {
       id: poolData.id.toString(),
@@ -366,7 +366,7 @@ export default function DashboardPage() {
       description: poolData.description || "Pool description not available",
       image: poolData.imageUrl,
       totalStake: totalStake,
-      totalRewards: poolData.revoStaked || 0, // Using revoStaked from the database model
+      totalRewards: Number(poolData.revoStaked) || 0, // Using revoStaked from the database model (in wei)
       totalFans: dashboardData.totalFans, // Using totalFans from dashboardData
       createdDate: new Date().toISOString().split("T")[0], // Using current date since createdAt is not in the type
       stakedAmount: 0, // User's own stake in their pool (0 since it's their pool)
@@ -375,7 +375,7 @@ export default function DashboardPage() {
       earnedRewards: 0,
       estimatedRewards: 0,
       participants: dashboardData.totalFans, // Using totalFans from dashboardData
-      totalReward: poolData.revoStaked || 0, // Using revoStaked from the database model
+      totalReward: Number(poolData.revoStaked) || 0, // Using revoStaked from the database model (in wei)
     };
   }, [poolData, poolName, dashboardData]);
 

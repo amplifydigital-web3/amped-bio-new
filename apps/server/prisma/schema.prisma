@@ -181,7 +181,7 @@ model CreatorPool {
   image_file_id Int?
   description   String?       @db.LongText
   fans          Int           @default(0)
-  revoStaked    Int           @default(0)
+  revoStaked    BigInt        @default(0)
   poolAddress   String?       @unique
   wallet        UserWallet    @relation(fields: [walletId], references: [id], onDelete: Cascade)
   poolImage     UploadedFile? @relation("CreatorPoolImage", fields: [image_file_id], references: [id], onDelete: SetNull)

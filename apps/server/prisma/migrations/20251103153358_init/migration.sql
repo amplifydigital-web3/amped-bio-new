@@ -6,7 +6,7 @@ CREATE TABLE `creator_pools` (
     `image_file_id` INTEGER NULL,
     `description` LONGTEXT NULL,
     `fans` INTEGER NOT NULL DEFAULT 0,
-    `revoStaked` INTEGER NOT NULL DEFAULT 0,
+    `revoStaked` BIGINT NOT NULL DEFAULT 0,
     `poolAddress` VARCHAR(191) NULL,
 
     UNIQUE INDEX `creator_pools_poolAddress_key`(`poolAddress`),
