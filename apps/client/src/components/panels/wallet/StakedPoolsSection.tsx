@@ -7,20 +7,16 @@ import StakedPoolRow from "./StakedPoolRow";
 import { useQuery } from "@tanstack/react-query";
 import { useEditor } from "../../../contexts/EditorContext";
 
-interface StakedPoolsSectionProps {
-  onNavigateToExplore?: () => void;
-}
+interface StakedPoolsSectionProps {}
 
-export default function StakedPoolsSection({
-  onNavigateToExplore,
-}: StakedPoolsSectionProps) {
+export default function StakedPoolsSection({}: StakedPoolsSectionProps) {
   const {
     data: allStakedPools,
     isLoading: loading,
     error,
   } = useQuery(trpc.pools.fan.getUserStakes.queryOptions());
 
-  const { setActivePanel } = useEditor();
+  const { setActivePanelAndNavigate } = useEditor();
   const [currentPage, setCurrentPage] = React.useState(1);
   const [selectedPoolId, setSelectedPoolId] = React.useState<number | null>(null);
   const [isPoolModalOpen, setIsPoolModalOpen] = React.useState(false);
@@ -68,10 +64,7 @@ export default function StakedPoolsSection({
   };
 
   const handleViewAllPools = () => {
-    setActivePanel("explore");
-    if (onNavigateToExplore) {
-      onNavigateToExplore();
-    }
+    setActivePanelAndNavigate("explore", "pools");
   };
 
   // Skeleton Loading Component

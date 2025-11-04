@@ -16,6 +16,7 @@ import { formatOnelink, normalizeOnelink } from "@/utils/onelink";
 import { trpcClient } from "@/utils/trpc";
 import { exportThemeConfigAsJson, importThemeConfigFromJson } from "@/utils/theme";
 import { mergeTheme } from "@/utils/mergeTheme";
+import { useNavigate, useLocation } from "react-router-dom";
 
 interface EditorContextType extends EditorState {
   changes: boolean;
@@ -28,6 +29,7 @@ interface EditorContextType extends EditorState {
   reorderBlocks: (blocks: BlockType[]) => void;
   updateThemeConfig: (theme: Partial<ThemeConfig>) => void;
   setActivePanel: (panel: EditorPanelType) => void;
+  setActivePanelAndNavigate: (panel: EditorPanelType, tabs?: string) => void;
   setBackground: (background: Background) => void;
   setBackgroundForUpload: (background: Background) => void;
   saveChanges: () => Promise<void>;
@@ -49,6 +51,8 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
   const [state, setState] = useState<EditorState>(initialState);
   const [changes, setChanges] = useState(false);
   const [themeChanges, setThemeChanges] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const { authUser } = useAuth();
 
@@ -242,15 +246,31 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const setActivePanel = useCallback((activePanel: EditorPanelType) => {
-    // console.group("📋 Setting Active Panel");
-    // console.info(`Panel: ${activePanel}`);
     setState(prevState => ({
       ...prevState,
       activePanel,
     }));
-    // console.info("✅ Active panel set");
-    // console.groupEnd();
   }, []);
+
+  const setActivePanelAndNavigate = useCallback(
+    (activePanel: EditorPanelType, tabs?: string) => {
+      setActivePanel(activePanel);
+
+      // Update the URL with the panel and tabs parameters
+      const searchParams = new URLSearchParams(location.search);
+      searchParams.set("p", activePanel);
+
+      if (tabs) {
+        searchParams.set("t", tabs);
+      } else {
+        // Remove the t parameter if tabs is not provided
+        searchParams.delete("t");
+      }
+
+      navigate(`${location.pathname}?${searchParams.toString()}`, { replace: true });
+    },
+    [navigate, location]
+  );
 
   const setBackground = useCallback((background: Background) => {
     console.group("🖼️ Setting Background");
@@ -529,6 +549,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     reorderBlocks,
     updateThemeConfig,
     setActivePanel,
+    setActivePanelAndNavigate,
     setBackground,
     setBackgroundForUpload,
     saveChanges,

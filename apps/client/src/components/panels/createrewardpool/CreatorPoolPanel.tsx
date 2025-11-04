@@ -662,7 +662,7 @@ export function CreatorPoolPanel() {
               </div>
             </div>
 
-            <div className="flex justify-center pt-6">
+            <div className="flex flex-col items-center pt-6">
               <button
                 type="submit"
                 disabled={!isValid || showInsufficientBalanceWarning}
@@ -675,6 +675,13 @@ export function CreatorPoolPanel() {
                 <Save className="w-5 h-5" />
                 <span>Create Reward Pool</span>
               </button>
+              
+              {showInsufficientBalanceWarning && (
+                <p className="text-red-500 text-sm mt-3 flex items-center">
+                  <Info className="w-4 h-4 mr-1" />
+                  Insufficient balance to create pool. You need at least {INITIAL_STAKE_ETH} REVO.
+                </p>
+              )}
             </div>
           </div>
 

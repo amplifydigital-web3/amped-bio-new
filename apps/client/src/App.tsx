@@ -64,12 +64,12 @@ function App() {
   }, []);
 
   return (
-    <EditorProvider>
-      <BrowserRouter>
+    <BrowserRouter>
+      <EditorProvider>
         <AppRouter />
         <Toaster />
-      </BrowserRouter>
-    </EditorProvider>
+      </EditorProvider>
+    </BrowserRouter>
   );
 }
 

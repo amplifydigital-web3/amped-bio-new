@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useChainId } from "wagmi";
 import { Search, Users, Trophy, Filter, SortDesc, Coins, ChevronDown, X, User } from "lucide-react";
@@ -10,8 +10,8 @@ import { useQuery } from "@tanstack/react-query";
 import { trpc } from "../../../utils/trpc";
 
 interface ExplorePageProps {
-  initialTab?: "creators" | "pools";
-  onTabChange?: (tab: "creators" | "pools") => void;
+  initialTab?: "users" | "pools" | "nfts";
+  onTabChange?: (tab: "users" | "pools" | "nfts") => void;
 }
 
 interface Creator {
@@ -49,9 +49,31 @@ export interface RewardPool {
   creatorAddress?: string | null;
 }
 
-export default function ExplorePage({ initialTab = "creators", onTabChange }: ExplorePageProps) {
+export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProps) {
   const chainId = useChainId();
-  const [activeTab, setActiveTab] = useState<"creators" | "pools">(initialTab);
+  
+  // Get the tab from query parameter, defaulting to "users" if not provided or invalid
+  const getInitialTabFromQuery = (): "users" | "pools" | "nfts" => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('t');
+      
+      // Map query parameter values to component tab values
+      switch (tabParam) {
+        case 'users':
+          return "users";
+        case 'pools':
+          return "pools";
+        case 'nfts':
+          return "nfts";
+        default:
+          return initialTab || "users";
+      }
+    }
+    return initialTab || "users";
+  };
+
+  const [activeTab, setActiveTab] = useState<"users" | "pools" | "nfts">(getInitialTabFromQuery());
   const [rawSearchQuery, setRawSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(rawSearchQuery, 500);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -68,7 +90,7 @@ export default function ExplorePage({ initialTab = "creators", onTabChange }: Ex
   );
   const [isRewardPoolViewModalOpen, setIsRewardPoolViewModalOpen] = useState(false);
 
-  const { data: creators } = useQuery(
+  const { data: users } = useQuery(
     trpc.user.getUsers.queryOptions({ search: debouncedSearchQuery })
   );
 
@@ -88,7 +110,7 @@ export default function ExplorePage({ initialTab = "creators", onTabChange }: Ex
 
   // Sort options
   const sortOptions = {
-    creators: [
+    users: [
       { value: "popular", label: "Most Popular" },
       { value: "followers", label: "Most Followers" },
       { value: "pool-stake", label: "Pool Stake" },
@@ -102,6 +124,13 @@ export default function ExplorePage({ initialTab = "creators", onTabChange }: Ex
       { value: "ending-soon", label: "Ending Soon" },
       { value: "newest", label: "Newest" },
     ],
+    nfts: [
+      { value: "popular", label: "Most Popular" },
+      { value: "newest", label: "Newest" },
+      { value: "price-low", label: "Price: Low to High" },
+      { value: "price-high", label: "Price: High to Low" },
+      { value: "rarity", label: "Rarity" },
+    ],
   };
 
   const { data: pools, isLoading: isLoadingPools } = useQuery(
@@ -114,30 +143,30 @@ export default function ExplorePage({ initialTab = "creators", onTabChange }: Ex
     window.open(`${window.location.origin}/${username}`, "_blank", "noopener,noreferrer");
   };
 
-  const handleStakeToCreator = (creatorId: string) => {
-    const creator = creators?.find(c => c.id === creatorId);
-    if (creator) {
+  const handleStakeToUser = (userId: string) => {
+    const user = users?.find(u => u.id === userId);
+    if (user) {
       const chainConfig = getChainConfig(chainId);
       const currencySymbol = chainConfig?.nativeCurrency.symbol || "REVO";
       
-      const creatorPool: RewardPool = {
-        id: parseInt(creator.id), // Convert creator.id to number
-        title: `${creator.displayName}'s Creator Pool`,
-        description: `${creator.bio} Join ${creator.displayName}'s exclusive creator pool to support their work and earn rewards based on their success. Stake ${currencySymbol} tokens to unlock different tiers of benefits including exclusive content, early access, and community perks.`,
-        totalReward: creator.poolStake,
+      const userPool: RewardPool = {
+        id: parseInt(user.id), // Convert user.id to number
+        title: `${user.displayName}'s User Pool`,
+        description: `${user.bio} Join ${user.displayName}'s exclusive user pool to support their activities and earn rewards based on their success. Stake ${currencySymbol} tokens to unlock different tiers of benefits including exclusive content, early access, and community perks.`,
+        totalReward: user.poolStake,
         category: "staking" as const,
         earnedRewards: 0,
         estimatedRewards: 0,
-        participants: creator.poolStake > 0 ? Math.floor(creator.poolStake / 1000) : 1,
-        imageUrl: creator.banner, // Use imageUrl instead of image
+        participants: user.poolStake > 0 ? Math.floor(user.poolStake / 1000) : 1,
+        imageUrl: user.banner, // Use imageUrl instead of image
         maxParticipants: 10000,
-                createdBy: creator.displayName,
+                createdBy: user.displayName,
                 chainId: chainId.toString(), // Use chainId from wagmi (convert to string)
                 userId: 0, // Default value
                 poolAddress: null, // Default value
                 image_file_id: null, // Default value
               };
-              setSelectedRewardPoolForView(creatorPool);
+              setSelectedRewardPoolForView(userPool);
               setIsRewardPoolViewModalOpen(true);
             }
           };
@@ -189,19 +218,19 @@ export default function ExplorePage({ initialTab = "creators", onTabChange }: Ex
             }
           };
         
-          const renderCreators = () => (
+          const renderUsers = () => (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {creators?.map(creator => (
+                {users?.map(user => (
                   <div
-                    key={creator.id}
+                    key={user.id}
                     className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden"
                   >
-                    {creator.banner ? (
+                    {user.banner ? (
                       <div className="h-24 bg-gradient-to-r from-blue-500 to-purple-600 relative">
                         <img
-                          src={creator.banner}
-                          alt={`${creator.displayName} banner`}
+                          src={user.banner}
+                          alt={`${user.displayName} banner`}
                           className="w-full h-full object-cover"
                         />
                         <div className="absolute inset-0 bg-black bg-opacity-20"></div>
@@ -212,10 +241,10 @@ export default function ExplorePage({ initialTab = "creators", onTabChange }: Ex
         
                     <div className="p-6 relative">
                       <div className="absolute -top-12 left-6">
-                        {creator.avatar ? (
+                        {user.avatar ? (
                           <img
-                            src={creator.avatar}
-                            alt={creator.displayName}
+                            src={user.avatar}
+                            alt={user.displayName}
                             className="w-16 h-16 rounded-full border-4 border-white shadow-lg object-cover"
                           />
                         ) : (
@@ -228,8 +257,8 @@ export default function ExplorePage({ initialTab = "creators", onTabChange }: Ex
                       <div className="mt-6">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center space-x-2">
-                            <h3 className="font-semibold text-gray-900">{creator.displayName}</h3>
-                            {creator.verified && (
+                            <h3 className="font-semibold text-gray-900">{user.displayName}</h3>
+                            {user.verified && (
                               <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
                                 <svg
                                   className="w-2.5 h-2.5 text-white"
@@ -247,7 +276,7 @@ export default function ExplorePage({ initialTab = "creators", onTabChange }: Ex
                           </div>
                           <div className="relative group">
                             <span className="px-2 py-1 rounded-full text-xs font-medium cursor-help bg-gray-100 text-gray-700">
-                              {creator.poolStake.toLocaleString()} Pool Stake
+                              {user.poolStake.toLocaleString()} Pool Stake
                             </span>
                             <div className="absolute bottom-full right-0 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
                               <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap shadow-lg">
@@ -258,21 +287,21 @@ export default function ExplorePage({ initialTab = "creators", onTabChange }: Ex
                           </div>
                         </div>
         
-                        <p className="text-sm text-gray-500 mb-2">@{creator.username}</p>
+                        <p className="text-sm text-gray-500 mb-2">@{user.username}</p>
                         <div
                           className="text-sm text-gray-600 mb-4 line-clamp-2"
-                          dangerouslySetInnerHTML={{ __html: creator.bio }}
+                          dangerouslySetInnerHTML={{ __html: user.bio }}
                         />
         
                         <div className="flex space-x-2">
                           <button
-                            onClick={() => handleViewProfile(creator.username)}
+                            onClick={() => handleViewProfile(user.username)}
                             className="flex-1 py-2 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors duration-200 text-sm"
                           >
                             View Profile
                           </button>
                           <button
-                            onClick={() => handleStakeToCreator(creator.id)}
+                            onClick={() => handleStakeToUser(user.id)}
                             disabled
                             className="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-1 text-sm"
                           >
@@ -507,11 +536,11 @@ export default function ExplorePage({ initialTab = "creators", onTabChange }: Ex
                   <nav className="-mb-px flex space-x-8">
                     <button
                       onClick={() => {
-                        setActiveTab("creators");
-                        onTabChange?.("creators");
+                        setActiveTab("users");
+                        onTabChange?.("users");
                       }}
                       className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                        activeTab === "creators"
+                        activeTab === "users"
                           ? "border-blue-500 text-blue-600"
                           : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                       }`}
@@ -537,29 +566,42 @@ export default function ExplorePage({ initialTab = "creators", onTabChange }: Ex
                         <span>Reward Pools</span>
                       </div>
                     </button>
-                    <div className="relative group">
-                      <button
-                        disabled
-                        className="py-2 px-1 border-b-2 font-medium text-sm border-transparent text-gray-400 cursor-not-allowed"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <span>NFTs</span>
-                        </div>
-                      </button>
-                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
-                        <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap">
-                          Coming Soon
-                        </div>
+                    <button
+                      onClick={() => {
+                        setActiveTab("nfts");
+                        onTabChange?.("nfts");
+                      }}
+                      className={`py-2 px-1 border-b-2 font-medium text-sm relative group ${
+                        activeTab === "nfts"
+                          ? "border-blue-500 text-blue-600"
+                          : "border-transparent text-gray-400"
+                      } ${activeTab !== "nfts" ? "hover:text-gray-700 hover:border-gray-300" : ""}`}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <span>NFTs</span>
                       </div>
-                    </div>
+                      {activeTab !== "nfts" && (
+                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
+                          <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap">
+                            Coming Soon
+                          </div>
+                        </div>
+                      )}
+                    </button>
                   </nav>
                 </div>
               </div>
         
               {/* Content */}
               <div className="min-h-screen">
-                {activeTab === "creators" && renderCreators()}
+                {activeTab === "users" && renderUsers()}
                 {activeTab === "pools" && renderPools()}
+                {activeTab === "nfts" && (
+                  <div className="text-center py-12">
+                    <div className="text-gray-500 mb-4">NFTs exploration feature coming soon.</div>
+                    <div className="text-sm text-gray-400">This section will display available NFTs once implemented.</div>
+                  </div>
+                )}
               </div>
         
               {/* Creator Pool Modal */}
