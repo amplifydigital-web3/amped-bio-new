@@ -8,6 +8,7 @@ import PoolDetailsModal from "./ExplorePoolDetailsModal";
 import StakingModal from "./StakingModal";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "../../../utils/trpc";
+import { useStaking } from "../../../hooks/useStaking";
 
 interface ExplorePageProps {
   initialTab?: "users" | "pools" | "nfts";
@@ -85,6 +86,14 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
   const [selectedStakingPool, setSelectedStakingPool] = useState<any>(null);
   const [isStakingModalOpen, setIsStakingModalOpen] = useState(false);
   const [stakingMode, setStakingMode] = useState<"stake" | "add-stake">("stake");
+  
+  // Hook de staking para o pool selecionado
+  const { 
+    stake: stakeFunction, 
+    unstake: unstakeFunction, 
+    isStaking: stakingState,
+    stakeActionError: stakingError
+  } = useStaking(selectedStakingPool);
   const [selectedRewardPoolForView, setSelectedRewardPoolForView] = useState<RewardPool | null>(
     null
   );
@@ -174,13 +183,16 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
           const handleJoinPool = (poolId: number) => {
             const pool = pools?.find(p => p.id === poolId);
             if (pool) {
+              // Criar um objeto que tenha a estrutura esperada pelo useStaking
               const poolForStaking = {
                 id: pool.id,
                 title: pool.title,
-                        description: pool.description ?? "",
-                        image: pool.imageUrl,
-                        minStake: 500,
-                        currentStake: 0,              };
+                description: pool.description ?? "",
+                chainId: pool.chainId,
+                poolAddress: pool.poolAddress,
+                imageUrl: pool.imageUrl,
+                currentStake: 0,
+              };
         
               setSelectedStakingPool(poolForStaking);
               setStakingMode("stake");
@@ -299,14 +311,6 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
                             className="flex-1 py-2 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors duration-200 text-sm"
                           >
                             View Profile
-                          </button>
-                          <button
-                            onClick={() => handleStakeToUser(user.id)}
-                            disabled
-                            className="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-1 text-sm"
-                          >
-                            <Coins className="w-4 h-4" />
-                            <span>Stake</span>
                           </button>
                         </div>
                       </div>
@@ -637,6 +641,10 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
                 }}
                 pool={selectedStakingPool}
                 mode={stakingMode}
+                onStake={stakeFunction}
+                onUnstake={unstakeFunction}
+                isStaking={stakingState}
+                stakeActionError={stakingError}
               />
             </div>
           );
