@@ -401,8 +401,7 @@ export default function DashboardPage() {
     }
 
     const maxStake = Math.max(...chartData.map(d => d.stake));
-    const minStake = 0;
-    const stakeRange = maxStake - minStake;
+    const stakeRange = maxStake; // If minStake is 0, range is just maxStake
 
     // Handle case where all values are the same (stakeRange is 0)
     const effectiveStakeRange = stakeRange === 0 ? 1 : stakeRange;
@@ -414,7 +413,7 @@ export default function DashboardPage() {
       const x = padding.left + 20 + xFactor * (plotWidth - 40);
       
       // Use effectiveStakeRange to prevent division by zero
-      const y = padding.top + plotHeight - ((point.stake - minStake) / effectiveStakeRange) * plotHeight;
+      const y = padding.top + plotHeight - (point.stake / effectiveStakeRange) * plotHeight;
       
       return { 
         x: isNaN(x) ? padding.left + 20 : x, 
@@ -435,7 +434,7 @@ export default function DashboardPage() {
     for (let i = 0; i < labelCount; i++) {
       // Handle division by zero when there's only one label
       const denominator = labelCount - 1 > 0 ? labelCount - 1 : 1;
-      const value = minStake + (stakeRange * i) / denominator;
+      const value = (stakeRange * i) / denominator;
       const yFactor = labelCount - 1 > 0 ? i / (labelCount - 1) : 0.5;
       const y = padding.top + plotHeight - yFactor * plotHeight;
       
