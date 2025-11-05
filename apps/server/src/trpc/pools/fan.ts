@@ -2,12 +2,8 @@ import { privateProcedure, publicProcedure, router } from "../trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { prisma } from "../../services/DB";
-import { Address, createPublicClient, http, decodeEventLog } from "viem";
-import {
-  getChainConfig,
-  L2_BASE_TOKEN_ABI,
-  CREATOR_POOL_ABI,
-} from "@ampedbio/web3";
+import { Address, createPublicClient, http, decodeEventLog, formatEther } from "viem";
+import { getChainConfig, L2_BASE_TOKEN_ABI, CREATOR_POOL_ABI } from "@ampedbio/web3";
 import { s3Service } from "../../services/S3Service";
 
 export const poolsFanRouter = router({
@@ -41,23 +37,40 @@ export const poolsFanRouter = router({
                 address: true,
               },
             },
+            _count: {
+              select: {
+                stakedPools: true,
+              },
+            },
+            stakedPools: {
+              select: {
+                stakeAmount: true,
+              },
+            },
           },
         });
 
-        return pools.map(pool => ({
-          ...pool,
-          imageUrl: pool.poolImage ? s3Service.getFileUrl(pool.poolImage.s3_key) : null,
-          title: pool.description || `Pool ${pool.id}`,
-          totalReward: 0,
-          participants: 0,
-          maxParticipants: 100,
-          category: "staking",
-          createdBy: "Unknown",
-          stakedAmount: 0,
-          earnedRewards: 0,
-          estimatedRewards: 0,
-          creatorAddress: pool.wallet?.address || null,
-        }));
+        return pools.map(pool => {
+          const totalStake = pool.stakedPools.reduce(
+            (sum: bigint, staked) => sum + staked.stakeAmount,
+            0n
+          );
+          const totalStakeInEther = parseFloat(formatEther(totalStake));
+          return {
+            ...pool,
+            imageUrl: pool.poolImage ? s3Service.getFileUrl(pool.poolImage.s3_key) : null,
+            title: pool.description || `Pool ${pool.id}`,
+            totalReward: totalStakeInEther,
+            participants: pool._count.stakedPools,
+            maxParticipants: 100,
+            category: "staking",
+            createdBy: "Unknown",
+            stakedAmount: totalStakeInEther,
+            earnedRewards: 0,
+            estimatedRewards: 0,
+            creatorAddress: pool.wallet?.address || null,
+          };
+        });
       } catch (error) {
         console.error("Error fetching pools:", error);
         if (error instanceof TRPCError) throw error;
@@ -351,9 +364,7 @@ export const poolsFanRouter = router({
           stakeAmount: stake.stakeAmount.toString(),
           pool: {
             ...pool,
-            imageUrl: pool.poolImage
-              ? s3Service.getFileUrl(pool.poolImage.s3_key)
-              : null,
+            imageUrl: pool.poolImage ? s3Service.getFileUrl(pool.poolImage.s3_key) : null,
           },
         };
       });
@@ -470,7 +481,7 @@ export const poolsFanRouter = router({
                 "Stake event is for a pool that does not belong to the current user or chain",
             });
           }
-          
+
           await prisma.stakedPool.upsert({
             where: {
               userWalletId_poolId: {
