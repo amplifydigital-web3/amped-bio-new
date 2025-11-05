@@ -23,7 +23,7 @@ import { trpc } from "@/utils/trpc";
 import { useMutation } from "@tanstack/react-query";
 import { useAccount, useChainId, useReadContract } from "wagmi";
 import { CREATOR_POOL_ABI, getChainConfig } from "@ampedbio/web3";
-import { Address } from "viem";
+import { Address, formatEther } from "viem";
 import { useQuery } from "@tanstack/react-query";
 import { trpcClient } from "@/utils/trpc";
 import { ImageUploadModal } from "@/components/ImageUploadModal";
@@ -33,7 +33,7 @@ interface PoolActivity {
   type: "stake" | "unstake" | "claim";
   user: string;
   avatar: string | null;
-  amount: number;
+  amount: number | string;
   timestamp: string;
   txHash?: string;
 }
@@ -65,17 +65,12 @@ export default function DashboardPage() {
     enabled: !!userAddress && !!chainId,
   });
 
-  const {
-    data: dashboardData,
-    isLoading: isDashboardLoading,
-    refetch: refetchDashboardData,
-  } = useQuery(
+  const { data: dashboardData, refetch: refetchDashboardData } = useQuery(
     trpc.pools.creator.getPoolDashboard.queryOptions(
-      { poolId: poolData?.id! },
-      { enabled: !!poolData?.id }
+      { poolId: poolData!.id },
+      { enabled: !!poolData }
     )
   );
-
   // Mutation for updating pool description
   const updateDescriptionMutation = useMutation({
     ...trpc.pools.creator.updateDescription.mutationOptions(),
@@ -165,7 +160,7 @@ export default function DashboardPage() {
         type: activity.eventType as "stake" | "unstake" | "claim",
         user: activity.onelink || "",
         avatar: activity.avatar,
-        amount: Number(activity.amount),
+        amount: activity.amount,
 
         timestamp: activity.createdAt,
         txHash: activity.transactionHash || undefined,
@@ -182,7 +177,10 @@ export default function DashboardPage() {
     [currentPage, fansPerPage]
   );
   const endIndex = React.useMemo(() => startIndex + fansPerPage, [startIndex, fansPerPage]);
-  const currentFans = React.useMemo(() => fans.slice(startIndex, endIndex), [fans, startIndex, endIndex]);
+  const currentFans = React.useMemo(
+    () => fans.slice(startIndex, endIndex),
+    [fans, startIndex, endIndex]
+  );
 
   // Calculate history pagination
   const totalHistoryPages = React.useMemo(
@@ -229,8 +227,18 @@ export default function DashboardPage() {
   const currencySymbol = chainConfig?.nativeCurrency.symbol || "REVO";
 
   const formatValue = React.useCallback((value: number | string, currencySymbol: string) => {
-    const numValue = typeof value === "string" ? parseFloat(value) || 0 : value;
-    return `${numValue.toLocaleString()} ${currencySymbol}`;
+    let displayValue: number;
+    if (typeof value === "string") {
+      try {
+        displayValue = parseFloat(formatEther(BigInt(value)));
+      } catch (e) {
+        console.error("Error formatting value with formatEther:", e);
+        displayValue = parseFloat(value) || 0;
+      }
+    } else {
+      displayValue = value;
+    }
+    return `${displayValue.toLocaleString()} ${currencySymbol}`;
   }, []);
 
   const getTierInfo = React.useCallback((tierLevel: number) => {
@@ -335,7 +343,7 @@ export default function DashboardPage() {
     return (
       dashboardData?.dailyStakeData.map(d => ({
         date: d.date,
-        stake: Number(d.stake),
+        stake: d.stake,
       })) || []
     );
   }, [dashboardData?.dailyStakeData]);
@@ -357,7 +365,7 @@ export default function DashboardPage() {
     }
 
     // Keep values in wei
-    const totalStake = Number(dashboardData.totalStake);
+    const totalStake = dashboardData.totalStake;
 
     return {
       id: poolData?.id?.toString(),
@@ -400,7 +408,7 @@ export default function DashboardPage() {
       };
     }
 
-    const maxStake = Math.max(...chartData.map(d => d.stake));
+    const maxStake = Math.max(...chartData.map(d => parseFloat(formatEther(BigInt(d.stake)))));
     const stakeRange = maxStake; // If minStake is 0, range is just maxStake
 
     // Handle case where all values are the same (stakeRange is 0)
@@ -411,15 +419,16 @@ export default function DashboardPage() {
       // Handle division by zero when there's only one data point
       const xFactor = chartData.length > 1 ? index / (chartData.length - 1) : 0.5;
       const x = padding.left + 20 + xFactor * (plotWidth - 40);
-      
+
+      const stakeValue = parseFloat(formatEther(BigInt(point.stake)));
       // Use effectiveStakeRange to prevent division by zero
-      const y = padding.top + plotHeight - (point.stake / effectiveStakeRange) * plotHeight;
-      
-      return { 
-        x: isNaN(x) ? padding.left + 20 : x, 
-        y: isNaN(y) ? padding.top + plotHeight : y, 
-        value: point.stake, 
-        date: point.date 
+      const y = padding.top + plotHeight - (stakeValue / effectiveStakeRange) * plotHeight;
+
+      return {
+        x: isNaN(x) ? padding.left + 20 : x,
+        y: isNaN(y) ? padding.top + plotHeight : y,
+        value: stakeValue,
+        date: point.date,
       };
     });
 
@@ -437,10 +446,10 @@ export default function DashboardPage() {
       const value = (stakeRange * i) / denominator;
       const yFactor = labelCount - 1 > 0 ? i / (labelCount - 1) : 0.5;
       const y = padding.top + plotHeight - yFactor * plotHeight;
-      
-      leftYLabels.push({ 
-        value, 
-        y: isNaN(y) ? padding.top + plotHeight / 2 : y 
+
+      leftYLabels.push({
+        value,
+        y: isNaN(y) ? padding.top + plotHeight / 2 : y,
       });
     }
 
@@ -452,7 +461,7 @@ export default function DashboardPage() {
         // Handle division by zero when there's only one data point
         const xFactor = chartData.length > 1 ? originalIndex / (chartData.length - 1) : 0.5;
         const x = padding.left + 20 + xFactor * (plotWidth - 40);
-        
+
         return {
           x: isNaN(x) ? padding.left + 20 : x,
           label: new Date(point.date).toLocaleDateString("en-US", {
@@ -909,9 +918,7 @@ export default function DashboardPage() {
 
                   <div>
                     <p className="font-medium text-gray-900">{fan.onelink}</p>
-                    <p className="text-sm text-gray-500">
-                      Joined recently
-                    </p>
+                    <p className="text-sm text-gray-500">Joined recently</p>
                   </div>
                 </div>
 
@@ -924,9 +931,7 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="text-right">
-                    <p className="font-semibold text-green-600">
-                      {formatValue(0, currencySymbol)}
-                    </p>
+                    <p className="font-semibold text-green-600">{formatValue(0, currencySymbol)}</p>
                     <p className="text-sm text-gray-500">Rewards</p>
                   </div>
 
@@ -945,7 +950,8 @@ export default function DashboardPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
             <div className="text-sm text-gray-600">
-              Showing {startIndex + 1}-{Math.min(endIndex, dashboardData?.topFans?.length || 0)} of {dashboardData?.topFans?.length || 0} fans
+              Showing {startIndex + 1}-{Math.min(endIndex, dashboardData?.topFans?.length || 0)} of{" "}
+              {dashboardData?.topFans?.length || 0} fans
             </div>
 
             <div className="flex items-center space-x-2">
