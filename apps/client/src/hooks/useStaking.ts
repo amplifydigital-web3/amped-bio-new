@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo } from "react";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import { formatEther, parseEther } from "viem";
@@ -11,7 +10,10 @@ import { RewardPool } from "../components/panels/explore/ExplorePanel";
 export function useStaking(pool: RewardPool | null) {
   const { address: userAddress } = useAccount();
   const publicClient = usePublicClient();
-  const { getFanStake, pendingReward, isReadingPendingReward, claimReward } = usePoolReader(pool?.poolAddress as `0x${string}` | undefined, userAddress as `0x${string}` | undefined);
+  const { getFanStake, pendingReward, isReadingPendingReward, claimReward } = usePoolReader(
+    pool?.poolAddress as `0x${string}` | undefined,
+    userAddress as `0x${string}` | undefined
+  );
 
   const [fanStake, setFanStake] = useState("0");
   const [isStaking, setIsStaking] = useState(false);
@@ -23,7 +25,7 @@ export function useStaking(pool: RewardPool | null) {
 
   const chain = useMemo(() => {
     if (!pool) return null;
-    const chainId = parseInt(pool.chainId || '0');
+    const chainId = parseInt(pool.chainId || "0");
     return getChainConfig(chainId);
   }, [pool]);
 
@@ -63,6 +65,9 @@ export function useStaking(pool: RewardPool | null) {
 
     try {
       const parsedAmount = parseEther(amount);
+
+      // Call the stake function on the L2_BASE_TOKEN contract with the pool address as parameter
+      // The stake function in L2_BASE_TOKEN_ABI is payable and takes the pool address as input
       const hash = await writeL2TokenContractAsync({
         address: tokenAddress,
         abi: L2_BASE_TOKEN_ABI,
