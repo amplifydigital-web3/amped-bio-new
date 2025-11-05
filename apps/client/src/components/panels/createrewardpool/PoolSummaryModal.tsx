@@ -108,7 +108,7 @@ export function PoolSummaryModal({
               <div className="flex items-center space-x-4 mt-2 text-sm">
                 <div className="flex items-center space-x-1">
                   <Percent className="w-4 h-4 text-orange-600" />
-                  <span className="text-gray-700">Fee: {formData.creatorFee / 100}%</span>
+                  <span className="text-gray-700">Fee: {formData.creatorFee}%</span>
                 </div>
               </div>
             </div>
@@ -122,7 +122,7 @@ export function PoolSummaryModal({
                 <Percent className="w-4 h-4 text-orange-600" />
                 <span className="text-sm font-medium text-orange-700">Creator Fee</span>
               </div>
-              <div className="text-2xl font-bold text-orange-900">{formData.creatorFee / 100}%</div>
+              <div className="text-2xl font-bold text-orange-900">{formData.creatorFee}%</div>
               <div className="text-xs text-orange-600 mt-1">Your earnings from stakes</div>
             </div>
           </div>

@@ -141,7 +141,7 @@ export default function StakingModal({ isOpen, onClose, pool, mode, onStake, onU
         </div>
 
         {/* Current Stake Info (for add-stake mode) */}
-        {mode === "add-stake" && pool.currentStake && (
+        {/* {mode === "add-stake" && pool.currentStake && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex items-center space-x-2 mb-2">
               <Shield className="w-4 h-4 text-blue-600" />
@@ -151,7 +151,7 @@ export default function StakingModal({ isOpen, onClose, pool, mode, onStake, onU
               {pool.currentStake.toLocaleString()} {currencySymbol}
             </p>
           </div>
-        )}
+        )} */}
 
         {/* Balance Display */}
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -225,14 +225,14 @@ export default function StakingModal({ isOpen, onClose, pool, mode, onStake, onU
               </div>
             )}
 
-            {pool.minStake && numericAmount > 0 && numericAmount < pool.minStake && (
+            {/* {pool.minStake && numericAmount > 0 && numericAmount < pool.minStake && (
               <div className="flex items-center space-x-2 text-orange-600 text-sm">
                 <AlertCircle className="w-4 h-4" />
                 <span>
                   Minimum stake: {pool.minStake.toLocaleString()} {currencySymbol}
                 </span>
               </div>
-            )}
+            )} */}
 
             {canProceed && (
               <div className="flex items-center space-x-2 text-green-600 text-sm">

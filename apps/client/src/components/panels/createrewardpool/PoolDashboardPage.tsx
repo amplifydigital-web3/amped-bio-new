@@ -71,8 +71,8 @@ export default function DashboardPage() {
     refetch: refetchDashboardData,
   } = useQuery(
     trpc.pools.creator.getPoolDashboard.queryOptions(
-      { poolId: poolData!.id },
-      { enabled: !!poolData }
+      { poolId: poolData?.id! },
+      { enabled: !!poolData?.id }
     )
   );
 
@@ -115,7 +115,7 @@ export default function DashboardPage() {
       if (poolData?.id) {
         trpcClient.pools.creator.setImageForPool
           .mutate({
-            id: poolData.id,
+            id: poolData?.id,
             image_file_id: fileId,
           })
           .then(() => {
@@ -360,7 +360,7 @@ export default function DashboardPage() {
     const totalStake = Number(dashboardData.totalStake);
 
     return {
-      id: poolData.id.toString(),
+      id: poolData?.id?.toString(),
       title: poolName || poolData.description || "Pool Title",
       name: poolName || poolData.description || "Pool Name",
       description: poolData.description || "Pool description not available",
@@ -387,15 +387,41 @@ export default function DashboardPage() {
     const plotWidth = chartWidth - padding.left - padding.right;
     const plotHeight = chartHeight - padding.top - padding.bottom;
 
+    // Check if chartData is empty to prevent errors
+    if (chartData.length === 0) {
+      return {
+        stakePoints: [],
+        stakePathData: "",
+        leftYLabels: [],
+        xLabels: [],
+        chartWidth,
+        chartHeight,
+        padding,
+      };
+    }
+
     const maxStake = Math.max(...chartData.map(d => d.stake));
     const minStake = 0;
     const stakeRange = maxStake - minStake;
 
+    // Handle case where all values are the same (stakeRange is 0)
+    const effectiveStakeRange = stakeRange === 0 ? 1 : stakeRange;
+
     // Create points for the stake line
     const stakePoints = chartData.map((point, index) => {
-      const x = padding.left + 20 + (index / (chartData.length - 1)) * (plotWidth - 40);
-      const y = padding.top + plotHeight - ((point.stake - minStake) / stakeRange) * plotHeight;
-      return { x, y, value: point.stake, date: point.date };
+      // Handle division by zero when there's only one data point
+      const xFactor = chartData.length > 1 ? index / (chartData.length - 1) : 0.5;
+      const x = padding.left + 20 + xFactor * (plotWidth - 40);
+      
+      // Use effectiveStakeRange to prevent division by zero
+      const y = padding.top + plotHeight - ((point.stake - minStake) / effectiveStakeRange) * plotHeight;
+      
+      return { 
+        x: isNaN(x) ? padding.left + 20 : x, 
+        y: isNaN(y) ? padding.top + plotHeight : y, 
+        value: point.stake, 
+        date: point.date 
+      };
     });
 
     // Create SVG path for stake line
@@ -407,9 +433,16 @@ export default function DashboardPage() {
     const leftYLabels: { value: number; y: number }[] = [];
     const labelCount = 5;
     for (let i = 0; i < labelCount; i++) {
-      const value = minStake + (stakeRange * i) / (labelCount - 1);
-      const y = padding.top + plotHeight - (i / (labelCount - 1)) * plotHeight;
-      leftYLabels.push({ value, y });
+      // Handle division by zero when there's only one label
+      const denominator = labelCount - 1 > 0 ? labelCount - 1 : 1;
+      const value = minStake + (stakeRange * i) / denominator;
+      const yFactor = labelCount - 1 > 0 ? i / (labelCount - 1) : 0.5;
+      const y = padding.top + plotHeight - yFactor * plotHeight;
+      
+      leftYLabels.push({ 
+        value, 
+        y: isNaN(y) ? padding.top + plotHeight / 2 : y 
+      });
     }
 
     // Create X-axis labels (show every 5th day for cleaner look)
@@ -417,9 +450,12 @@ export default function DashboardPage() {
       .filter((_, index) => index % 5 === 0 || index === chartData.length - 1)
       .map((point, _) => {
         const originalIndex = chartData.indexOf(point);
-        const x = padding.left + 20 + (originalIndex / (chartData.length - 1)) * (plotWidth - 40);
+        // Handle division by zero when there's only one data point
+        const xFactor = chartData.length > 1 ? originalIndex / (chartData.length - 1) : 0.5;
+        const x = padding.left + 20 + xFactor * (plotWidth - 40);
+        
         return {
-          x,
+          x: isNaN(x) ? padding.left + 20 : x,
           label: new Date(point.date).toLocaleDateString("en-US", {
             month: "short",
             day: "numeric",
@@ -738,9 +774,9 @@ export default function DashboardPage() {
                 <line
                   key={`grid-h-${index}`}
                   x1={chartElements.padding.left + 10}
-                  y1={label.y}
+                  y1={isNaN(label.y) ? 0 : label.y}
                   x2={chartElements.chartWidth - chartElements.padding.right - 10}
-                  y2={label.y}
+                  y2={isNaN(label.y) ? 0 : label.y}
                   stroke="#e2e8f0"
                   strokeWidth="1"
                   strokeDasharray="2,2"
@@ -752,7 +788,7 @@ export default function DashboardPage() {
                 <g key={`left-label-${index}`}>
                   <text
                     x={chartElements.padding.left - 25}
-                    y={label.y + 4}
+                    y={isNaN(label.y) ? 0 : label.y + 4}
                     textAnchor="end"
                     className="text-xs fill-green-700 font-medium"
                   >
@@ -767,7 +803,7 @@ export default function DashboardPage() {
               {chartElements.xLabels?.map((label, index) => (
                 <g key={`x-label-${index}`}>
                   <text
-                    x={label.x}
+                    x={isNaN(label.x) ? 0 : label.x}
                     y={chartElements.chartHeight - chartElements.padding.bottom + 30}
                     textAnchor="middle"
                     className="text-xs fill-gray-700 font-medium"
@@ -791,8 +827,8 @@ export default function DashboardPage() {
               {chartElements.stakePoints?.map((point, index) => (
                 <circle
                   key={`stake-point-${index}`}
-                  cx={point.x}
-                  cy={point.y}
+                  cx={isNaN(point.x) ? 0 : point.x}
+                  cy={isNaN(point.y) ? 0 : point.y}
                   r="3.5"
                   fill="#10b981"
                   stroke="white"
