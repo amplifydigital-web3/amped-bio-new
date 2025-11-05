@@ -66,14 +66,11 @@ export function useStaking(pool: RewardPool | null) {
     try {
       const parsedAmount = parseEther(amount);
 
-      // Call the stake function on the L2_BASE_TOKEN contract with the pool address as parameter
-      // The stake function in L2_BASE_TOKEN_ABI is payable and takes the pool address as input
       const hash = await writeL2TokenContractAsync({
         address: tokenAddress,
         abi: L2_BASE_TOKEN_ABI,
         functionName: "stake",
-        args: [pool.poolAddress as `0x${string}`],
-        value: parsedAmount,
+        args: [pool.poolAddress as `0x${string}`, parsedAmount],
       });
 
       await publicClient.waitForTransactionReceipt({ hash });
