@@ -38,7 +38,6 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
     {
       level: 1,
       name: "Bronze Tier",
-      minStake: 100,
       rewardMultiplier: 1,
       utilities: [
         { icon: "📰", label: "Weekly Newsletter" },
@@ -50,7 +49,6 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
     {
       level: 2,
       name: "Silver Tier",
-      minStake: 1000,
       rewardMultiplier: 1.25,
       utilities: [
         { icon: "🎟️", label: "Raffle Entries" },
@@ -64,7 +62,6 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
     {
       level: 3,
       name: "Gold Tier",
-      minStake: 5000,
       rewardMultiplier: 1.5,
       utilities: [
         { icon: "🎲", label: "Premium Raffles" },
@@ -78,7 +75,6 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
     {
       level: 4,
       name: "Diamond Tier",
-      minStake: 25000,
       rewardMultiplier: 2,
       utilities: [
         { icon: "💎", label: "Diamond Badge" },
@@ -252,12 +248,8 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
               <div className="space-y-4">
                 {stakingTiers.map(tier => {
                   const userStake = pool.stakedAmount;
-                  const isUnlocked = userStake >= tier.minStake;
-                  const isCurrent =
-                    userStake >= tier.minStake &&
-                    (stakingTiers[tier.level]
-                      ? userStake < stakingTiers[tier.level].minStake
-                      : true);
+                  const isUnlocked = userStake >= 0; // Always unlocked for now
+                  const isCurrent = false; // No current tier logic without minStake
 
                   return (
                     <div
@@ -296,7 +288,7 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
                               {tier.name}
                             </h5>
                             <p className="text-xs text-gray-600">
-                              {tier.minStake.toLocaleString()}+ {currencySymbol}
+                              {tier.name}
                             </p>
                           </div>
                         </div>
@@ -353,8 +345,6 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
                   {pool.stakedAmount < 25000 && (
                     <span className="block mt-1">
                       Stake{" "}
-                      {(stakingTiers.find(t => pool.stakedAmount < t.minStake)?.minStake || 25000) -
-                        pool.stakedAmount}{" "}
                       more to unlock the next tier!
                     </span>
                   )}
