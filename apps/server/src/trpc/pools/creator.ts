@@ -2,13 +2,8 @@ import { privateProcedure, publicProcedure, router } from "../trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { prisma } from "../../services/DB";
-import { Address, createPublicClient, http, zeroAddress, decodeEventLog } from "viem";
-import {
-  getChainConfig,
-  CREATOR_POOL_FACTORY_ABI,
-  L2_BASE_TOKEN_ABI,
-  CREATOR_POOL_ABI,
-} from "@ampedbio/web3";
+import { Address, createPublicClient, http, zeroAddress } from "viem";
+import { getChainConfig, CREATOR_POOL_FACTORY_ABI } from "@ampedbio/web3";
 import { ALLOWED_POOL_IMAGE_FILE_EXTENSIONS, ALLOWED_POOL_IMAGE } from "@ampedbio/constants";
 import { env } from "../../env";
 import { s3Service } from "../../services/S3Service";
@@ -593,7 +588,7 @@ export const poolsCreatorRouter = router({
 
         // Total Fans
         const totalFans = await prisma.stakeEvent.groupBy({
-          by: ['userWalletId'],
+          by: ["userWalletId"],
           where: { poolId },
           _count: {
             userWalletId: true,
@@ -674,55 +669,60 @@ export const poolsCreatorRouter = router({
           }, 0n);
 
         const totalStakeChange = totalStake - stakeAtStartOfMonth;
-        const totalStakePercentageChange = stakeAtStartOfMonth === 0n
-            ? totalStakeChange > 0n ? 100 : 0
+        const totalStakePercentageChange =
+          stakeAtStartOfMonth === 0n
+            ? totalStakeChange > 0n
+              ? 100
+              : 0
             : Number((totalStakeChange * 10000n) / stakeAtStartOfMonth) / 100;
 
         const newFansThisWeek = await prisma.stakeEvent.groupBy({
-            by: ['userWalletId'],
-            where: {
-                poolId,
-                createdAt: {
-                    gte: startOfWeek,
-                },
-                eventType: "stake",
+          by: ["userWalletId"],
+          where: {
+            poolId,
+            createdAt: {
+              gte: startOfWeek,
             },
-            _count: {
-                userWalletId: true,
-            },
+            eventType: "stake",
+          },
+          _count: {
+            userWalletId: true,
+          },
         });
 
         const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
 
         const dailyStakeEvents = await prisma.stakeEvent.findMany({
-            where: {
-                poolId,
-                createdAt: {
-                    gte: thirtyDaysAgo,
-                },
+          where: {
+            poolId,
+            createdAt: {
+              gte: thirtyDaysAgo,
             },
+          },
         });
 
         const dailyStakeData = Array.from({ length: 30 }, (_, i) => {
-            const date = new Date();
-            date.setDate(date.getDate() - i);
-            const dayStart = new Date(date.setHours(0, 0, 0, 0));
-            const dayEnd = new Date(date.setHours(23, 59, 59, 999));
+          const date = new Date();
+          date.setDate(date.getDate() - i);
+          const dayStart = new Date(date.setHours(0, 0, 0, 0));
+          const dayEnd = new Date(date.setHours(23, 59, 59, 999));
 
-            const netStake = dailyStakeEvents
-                .filter(event => new Date(event.createdAt) >= dayStart && new Date(event.createdAt) <= dayEnd)
-                .reduce((acc, event) => {
-                    if (event.eventType === "stake") {
-                        return acc + event.amount;
-                    } else {
-                        return acc - event.amount;
-                    }
-                }, 0n);
+          const netStake = dailyStakeEvents
+            .filter(
+              event => new Date(event.createdAt) >= dayStart && new Date(event.createdAt) <= dayEnd
+            )
+            .reduce((acc, event) => {
+              if (event.eventType === "stake") {
+                return acc + event.amount;
+              } else {
+                return acc - event.amount;
+              }
+            }, 0n);
 
-            return {
-                date: dayStart.toISOString().split("T")[0],
-                stake: netStake.toString(),
-            };
+          return {
+            date: dayStart.toISOString().split("T")[0],
+            stake: netStake.toString(),
+          };
         }).reverse();
 
         return {
