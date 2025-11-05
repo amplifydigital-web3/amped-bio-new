@@ -33,7 +33,6 @@ export function CreatorPoolBlock({ theme }: CreatorPoolBlockProps) {
     // Additional details for expanded view
     contractAddress: "0x1234...5678",
     rewardDistribution: "Weekly",
-    minStakeAmount: 100,
     maxStakeAmount: 50000,
     stakingFee: 0.5,
     withdrawalFee: 1.0,
