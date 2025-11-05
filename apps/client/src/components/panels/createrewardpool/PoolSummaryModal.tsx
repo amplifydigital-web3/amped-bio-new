@@ -17,7 +17,6 @@ import {
 interface StakingTier {
   id: string;
   name: string;
-  minStake: number;
   perks?: string[];
   color: string;
 }
@@ -154,9 +153,7 @@ export function PoolSummaryModal({
                         </div>
                         <div>
                           <h5 className="font-semibold text-gray-900">{tier.name}</h5>
-                          <p className="text-sm text-gray-600">
-                            {tier.minStake.toLocaleString()}+ REVO
-                          </p>
+                          <p className="text-sm text-gray-600"></p>
                         </div>
                       </div>
                     </div>
