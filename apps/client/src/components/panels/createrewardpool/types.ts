@@ -4,7 +4,6 @@ import { type LucideIcon } from "lucide-react";
 export const stakingTierSchema = z.object({
   id: z.string(),
   name: z.string().min(1, "Tier name is required"),
-  minStake: z.number().min(0, "Minimum stake must be non-negative"),
   perks: z.array(z.string().min(1, "Perk description is required")).optional(), // Make perks optional
   color: z.string(),
 });
