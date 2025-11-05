@@ -12,15 +12,16 @@ interface StakingModalProps {
     description: string;
     chainId: string;
     imageUrl?: string | null;
-    minStake?: number;
     currentStake?: number;
   } | null;
   mode: "stake" | "add-stake" | "reduce-stake";
   onStake?: (amount: string) => Promise<void>;
   onUnstake?: (amount: string) => Promise<void>;
+  isStaking?: boolean;
+  stakeActionError?: string | null;
 }
 
-export default function StakingModal({ isOpen, onClose, pool, mode, onStake, onUnstake }: StakingModalProps) {
+export default function StakingModal({ isOpen, onClose, pool, mode, onStake, onUnstake, isStaking, stakeActionError }: StakingModalProps) {
   // Get the chain configuration once to avoid multiple calls
   const chainConfig = pool ? getChainConfig(parseInt(pool.chainId)) : null;
   const currencySymbol = chainConfig?.nativeCurrency.symbol || "REVO";
@@ -59,17 +60,19 @@ export default function StakingModal({ isOpen, onClose, pool, mode, onStake, onU
     setStep("staking");
 
     try {
-      // Call different functions based on the mode
+      // Check if functions are provided before calling them
       if (mode === "reduce-stake") {
         if (onUnstake) {
           await onUnstake(amount);
         } else {
+          console.error("Unstake function not provided");
           throw new Error("Unstake function not provided");
         }
       } else {
         if (onStake) {
           await onStake(amount);
         } else {
+          console.error("Stake function not provided");
           throw new Error("Stake function not provided");
         }
       }
@@ -99,8 +102,7 @@ export default function StakingModal({ isOpen, onClose, pool, mode, onStake, onU
   const numericAmount = parseFloat(amount) || 0;
   const userBalance = Number(balanceData?.formatted || 0);
   const isValidAmount = numericAmount > 0 && numericAmount <= userBalance;
-  const meetsMinimum = !pool.minStake || numericAmount >= pool.minStake;
-  const canProceed = isValidAmount && meetsMinimum;
+  const canProceed = isValidAmount;
 
   const renderAmountStep = () => (
     <>
@@ -225,14 +227,7 @@ export default function StakingModal({ isOpen, onClose, pool, mode, onStake, onU
               </div>
             )}
 
-            {/* {pool.minStake && numericAmount > 0 && numericAmount < pool.minStake && (
-              <div className="flex items-center space-x-2 text-orange-600 text-sm">
-                <AlertCircle className="w-4 h-4" />
-                <span>
-                  Minimum stake: {pool.minStake.toLocaleString()} {currencySymbol}
-                </span>
-              </div>
-            )} */}
+
 
             {canProceed && (
               <div className="flex items-center space-x-2 text-green-600 text-sm">
@@ -243,18 +238,54 @@ export default function StakingModal({ isOpen, onClose, pool, mode, onStake, onU
           </div>
         )}
 
-        {/* Stake Button */}
-        <button
-          onClick={() => setStep("confirm")}
-          disabled={!canProceed || isBalanceLoading}
-          className={`w-full py-4 font-semibold rounded-xl transition-all duration-200 ${
-            canProceed && !isBalanceLoading
-              ? "bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl"
-              : "bg-gray-300 text-gray-500 cursor-not-allowed"
-          }`}
-        >
-          {isBalanceLoading ? "Loading balance..." : "Continue"}
-        </button>
+        {/* Stake Button with Error Display */}
+        <div className="space-y-3">
+          {stakeActionError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-center space-x-2 text-red-700">
+                <AlertCircle className="w-4 h-4" />
+                <span className="text-sm font-medium">{stakeActionError}</span>
+              </div>
+            </div>
+          )}
+          
+          <button
+            onClick={() => setStep("confirm")}
+            disabled={(!canProceed || isBalanceLoading || !onStake) || !!isStaking}
+            className={`w-full py-4 font-semibold rounded-xl transition-all duration-200 ${
+              canProceed && !isBalanceLoading && !isStaking && onStake
+                ? "bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl"
+                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+            }`}
+          >
+            {!onStake ? "Staking not available" : isStaking ? "Processing..." : isBalanceLoading ? "Loading balance..." : "Continue"}
+          </button>
+          
+          {/* Show reasons why the button is disabled */}
+          {!canProceed && (
+            <div className="text-sm text-gray-500">
+              {numericAmount <= 0 ? (
+                <div className="flex items-center space-x-1">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>Please enter an amount</span>
+                </div>
+              ) : numericAmount > userBalance ? (
+                <div className="flex items-center space-x-1">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>Insufficient balance</span>
+                </div>
+              ) : null}
+            </div>
+          )}
+          
+          {/* Show error if functions are not provided */}
+          {!onStake && (
+            <div className="text-sm text-red-500 flex items-center space-x-1">
+              <AlertCircle className="w-4 h-4" />
+              <span>Staking functionality not available for this pool</span>
+            </div>
+          )}
+        </div>
       </div>
     </>
   );
