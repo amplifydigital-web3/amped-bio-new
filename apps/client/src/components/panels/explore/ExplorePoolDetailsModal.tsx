@@ -342,7 +342,6 @@ export default function ExplorePoolDetailsModal({
                 description: pool.description ?? "",
                 chainId: pool.chainId,
                 imageUrl: pool.imageUrl,
-                minStake: 0,
                 currentStake: parseFloat(fanStake),
               }
             : null
@@ -350,6 +349,8 @@ export default function ExplorePoolDetailsModal({
         mode={stakingMode}
         onStake={stake}
         onUnstake={unstake}
+        isStaking={isStaking}
+        stakeActionError={stakeActionError}
       />
 
       {/* Image Upload Modal */}
