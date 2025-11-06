@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { useForm, useFieldArray, Controller, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAccount, useBalance, useChainId, usePublicClient } from "wagmi";
@@ -127,7 +127,7 @@ export function CreatorPoolPanel() {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const { createPool, poolAddress, isLoading: isPoolLoading } = useCreatorPool();
-  const [hasConfirmedPool, setHasConfirmedPool] = React.useState(false);
+  const hasConfirmedPool = useRef(false);
   const [showSummaryModal, setShowSummaryModal] = React.useState(false);
   const [formData, setFormData] = React.useState<CreatorPoolFormValues | null>(null);
   const [isLaunching, setIsLaunching] = React.useState(false);
@@ -138,19 +138,26 @@ export function CreatorPoolPanel() {
   const [transactionHash, setTransactionHash] = React.useState<string | null>(null);
   const [transactionError, setTransactionError] = React.useState<string | null>(null);
   const [poolImage, setPoolImage] = React.useState<string | null>(null);
+  const confirmingPoolRef = useRef(false);
 
   // Effect to confirm pool existence when panel opens and user has a pool address but hasn't confirmed it
   useEffect(() => {
     const confirmExistingPool = async () => {
+      // Prevent multiple simultaneous calls
+      if (confirmingPoolRef.current) {
+        return;
+      }
+
       // Only run if we have a pool address, it's not already confirmed, and we haven't tried to confirm it yet
-      if (poolAddress && !isPoolLoading && !hasConfirmedPool) {
+      if (poolAddress && !isPoolLoading && !hasConfirmedPool.current) {
+        confirmingPoolRef.current = true;
         try {
           // Call the confirmPoolCreation method to update the database
           await trpcClient.pools.creator.confirmPoolCreation.mutate({
             chainId: chainId.toString(),
           });
 
-          setHasConfirmedPool(true);
+          hasConfirmedPool.current = true;
           console.log("Pool confirmed successfully");
         } catch (error) {
           console.error("Error confirming pool:", error);
@@ -167,12 +174,14 @@ export function CreatorPoolPanel() {
 
           const errorMessage = parseTRPCError(error);
           toast.error(`Failed to confirm pool: ${errorMessage}`);
+        } finally {
+          confirmingPoolRef.current = false;
         }
       }
     };
 
     confirmExistingPool();
-  }, [poolAddress, isPoolLoading, chainId, hasConfirmedPool]);
+  }, [poolAddress, isPoolLoading, chainId]);
 
   const { data: revoBalance } = useBalance({
     address,
