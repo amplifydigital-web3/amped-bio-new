@@ -67,8 +67,8 @@ export default function DashboardPage() {
 
   const { data: dashboardData, refetch: refetchDashboardData } = useQuery(
     trpc.pools.creator.getPoolDashboard.queryOptions(
-      { poolId: poolData!.id },
-      { enabled: !!poolData }
+      { poolId: poolData?.id as number },
+      { enabled: !!poolData?.id }
     )
   );
   // Mutation for updating pool description
