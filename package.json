@@ -13,13 +13,13 @@
     "dev": "pnpm dev:client",
     "dev:client": "pnpm build:packages && pnpm --filter @ampedbio/client dev:client-only",
     "dev:full": "turbo dev",
-    "predev:full": "pnpm build:packages",
     "client-only": "pnpm build:packages && pnpm --filter @ampedbio/client dev:client-only",
     "client-only:install": "pnpm install --filter @ampedbio/constants --filter @ampedbio/client",
     "lint": "turbo lint",
     "lint:fix": "turbo lint:fix",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,md}\"",
+    "typecheck": "turbo typecheck",
     "e2e:test": "pnpm --filter client e2e:test"
   },
   "devDependencies": {

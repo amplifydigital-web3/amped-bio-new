@@ -1,12 +1,13 @@
 import React from "react";
 import { Trophy, Users, Coins, TrendingUp, ExternalLink, Plus, Minus } from "lucide-react";
+import { getChainConfig } from "@ampedbio/web3";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogTitle,
   DialogDescription,
   DialogClose,
+  DialogFooter,
 } from "@/components/ui/dialog";
 
 interface PoolDetailsModalProps {
@@ -17,26 +18,26 @@ interface PoolDetailsModalProps {
     title: string;
     description: string;
     stakedAmount: number;
-    stakeCurrency: string;
+    chainId: string;
     totalReward: number;
-    rewardCurrency: string;
-    endDate: string;
-    status: "active" | "ending-soon" | "completed";
     category: "staking" | "social" | "trading" | "community";
     earnedRewards: number;
     estimatedRewards: number;
     participants: number;
-    image?: string;
+    imageUrl?: string | null;
   } | null;
 }
 
 export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsModalProps) {
+  // Get the chain configuration once to avoid multiple calls
+  const chainConfig = pool ? getChainConfig(parseInt(pool.chainId)) : null;
+  const currencySymbol = chainConfig?.nativeCurrency.symbol || "REVO";
+
   // Mock staking tiers data with utility focus
   const stakingTiers = [
     {
       level: 1,
       name: "Bronze Tier",
-      minStake: 100,
       rewardMultiplier: 1,
       utilities: [
         { icon: "📰", label: "Weekly Newsletter" },
@@ -48,7 +49,6 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
     {
       level: 2,
       name: "Silver Tier",
-      minStake: 1000,
       rewardMultiplier: 1.25,
       utilities: [
         { icon: "🎟️", label: "Raffle Entries" },
@@ -62,7 +62,6 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
     {
       level: 3,
       name: "Gold Tier",
-      minStake: 5000,
       rewardMultiplier: 1.5,
       utilities: [
         { icon: "🎲", label: "Premium Raffles" },
@@ -76,7 +75,6 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
     {
       level: 4,
       name: "Diamond Tier",
-      minStake: 25000,
       rewardMultiplier: 2,
       utilities: [
         { icon: "💎", label: "Diamond Badge" },
@@ -103,32 +101,6 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
         return "bg-orange-500 text-white";
       default:
         return "bg-gray-500 text-white";
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "active":
-        return "bg-green-500 text-white";
-      case "ending-soon":
-        return "bg-yellow-500 text-white";
-      case "completed":
-        return "bg-gray-500 text-white";
-      default:
-        return "bg-gray-500 text-white";
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "active":
-        return "Active";
-      case "ending-soon":
-        return "Ending Soon";
-      case "completed":
-        return "Completed";
-      default:
-        return "Unknown";
     }
   };
 
@@ -184,9 +156,9 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
               {/* Pool Image */}
               <div className="relative h-64">
                 <div className="h-full rounded-2xl overflow-hidden border border-gray-100 shadow-sm bg-gradient-to-br from-blue-50 to-purple-50">
-                  {pool.image ? (
+                  {pool.imageUrl ? (
                     <img
-                      src={pool.image}
+                      src={pool.imageUrl}
                       alt={`${pool.title} pool`}
                       className="w-full h-full object-cover"
                     />
@@ -206,14 +178,6 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
                     <span className="capitalize">{pool.category} Pool</span>
                   </span>
                 </div>
-
-                <div className="absolute top-4 right-4">
-                  <span
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm ${getStatusColor(pool.status)}`}
-                  >
-                    {getStatusText(pool.status)}
-                  </span>
-                </div>
               </div>
 
               {/* Stats Grid - 2x2 with matching height */}
@@ -227,7 +191,7 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
                     <div className="text-xl font-bold text-blue-900">
                       {pool.stakedAmount.toLocaleString()}
                     </div>
-                    <div className="text-xs text-blue-600">{pool.stakeCurrency}</div>
+                    <div className="text-xs text-blue-600">{currencySymbol}</div>
                   </div>
 
                   <div className="bg-green-50 rounded-xl p-4 border border-green-100 flex flex-col justify-center">
@@ -236,7 +200,7 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
                       <span className="text-sm font-medium text-green-700">Earned</span>
                     </div>
                     <div className="text-xl font-bold text-green-900">{pool.earnedRewards}</div>
-                    <div className="text-xs text-green-600">{pool.rewardCurrency}</div>
+                    <div className="text-xs text-green-600">{currencySymbol}</div>
                   </div>
 
                   <div className="bg-purple-50 rounded-xl p-4 border border-purple-100 flex flex-col justify-center">
@@ -247,7 +211,7 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
                     <div className="text-xl font-bold text-purple-900">
                       {pool.totalReward.toLocaleString()}
                     </div>
-                    <div className="text-xs text-purple-600">{pool.stakeCurrency}</div>
+                    <div className="text-xs text-purple-600">{currencySymbol}</div>
                   </div>
 
                   <div className="bg-orange-50 rounded-xl p-4 border border-orange-100 flex flex-col justify-center">
@@ -284,12 +248,8 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
               <div className="space-y-4">
                 {stakingTiers.map(tier => {
                   const userStake = pool.stakedAmount;
-                  const isUnlocked = userStake >= tier.minStake;
-                  const isCurrent =
-                    userStake >= tier.minStake &&
-                    (stakingTiers[tier.level]
-                      ? userStake < stakingTiers[tier.level].minStake
-                      : true);
+                  const isUnlocked = userStake >= 0; // Always unlocked for now
+                  const isCurrent = false; // No current tier logic without minStake
 
                   return (
                     <div
@@ -328,7 +288,7 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
                               {tier.name}
                             </h5>
                             <p className="text-xs text-gray-600">
-                              {tier.minStake.toLocaleString()}+ {pool.stakeCurrency}
+                              {tier.name}
                             </p>
                           </div>
                         </div>
@@ -381,12 +341,10 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
               <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
                 <p className="text-sm text-blue-800">
                   💡 <strong>Your current stake:</strong> {pool.stakedAmount.toLocaleString()}{" "}
-                  {pool.stakeCurrency}
+                  {currencySymbol}
                   {pool.stakedAmount < 25000 && (
                     <span className="block mt-1">
                       Stake{" "}
-                      {(stakingTiers.find(t => pool.stakedAmount < t.minStake)?.minStake || 25000) -
-                        pool.stakedAmount}{" "}
                       more to unlock the next tier!
                     </span>
                   )}

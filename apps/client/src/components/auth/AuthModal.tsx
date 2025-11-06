@@ -239,7 +239,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     try {
       // Get reCAPTCHA token using the new hook
       const recaptchaToken = isRecaptchaEnabled ? await openCaptcha() : null;
-      
+
       if (recaptchaToken === null && isRecaptchaEnabled) {
         // User cancelled the captcha
         setLoading(false);
@@ -311,19 +311,14 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     try {
       // Get reCAPTCHA token using the new hook
       const recaptchaToken = isRecaptchaEnabled ? await openCaptcha() : null;
-      
+
       if (recaptchaToken === null && isRecaptchaEnabled) {
         // User cancelled the captcha
         setLoading(false);
         return;
       }
 
-      const user = await signUp(
-        data.onelink,
-        data.email,
-        data.password,
-        recaptchaToken
-      );
+      const user = await signUp(data.onelink, data.email, data.password, recaptchaToken);
       onClose(user);
 
       // Redirect to edit page with home panel selected
@@ -346,7 +341,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
     try {
       // Get reCAPTCHA token using the new hook
       const recaptchaToken = isRecaptchaEnabled ? await openCaptcha() : null;
-      
+
       if (recaptchaToken === null && isRecaptchaEnabled) {
         // User cancelled the captcha
         setLoading(false);
@@ -581,18 +576,8 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
             <Button
               type="submit"
               className="w-full relative"
-              disabled={
-                loading ||
-                urlStatus === "Unavailable" ||
-                !isValid ||
-                !onelinkInput
-              }
-              aria-disabled={
-                loading ||
-                urlStatus === "Unavailable" ||
-                !isValid ||
-                !onelinkInput
-              }
+              disabled={loading || urlStatus === "Unavailable" || !isValid || !onelinkInput}
+              aria-disabled={loading || urlStatus === "Unavailable" || !isValid || !onelinkInput}
               aria-label="Create Account"
               data-testid="register-submit"
               onClick={() => trackGAEvent("Click", "AuthModal", "CreateAccountButton")}
@@ -776,11 +761,7 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
             . Your amped.bio profile doubles as your wallet and hub for staking into Reward Pools.
           </p>
         )}
-        <CaptchaDialog 
-          isOpen={isOpen} 
-          onClose={closeCaptcha}
-          onSubmit={handleSubmit}
-        />
+        <CaptchaDialog isOpen={isOpen} onClose={closeCaptcha} onSubmit={handleSubmit} />
       </div>
     </div>
   );

@@ -121,23 +121,23 @@ enum FileStatus {
 }
 
 model UploadedFile {
-  id                  Int       @id @default(autoincrement())
-  s3_key              String    @db.VarChar(255)
-  bucket              String    @db.VarChar(100)
-  file_name           String    @db.VarChar(255)
-  file_type           String?   @db.VarChar(100)
+  id                  Int           @id @default(autoincrement())
+  s3_key              String        @db.VarChar(255)
+  bucket              String        @db.VarChar(100)
+  file_name           String        @db.VarChar(255)
+  file_type           String?       @db.VarChar(100)
   size                BigInt?
   user_id             Int? // Nullable for admin/server files
-  uploaded_at         DateTime  @default(now())
-  status              FileStatus @default(PENDING)
-  created_at          DateTime  @default(now())
-  updated_at          DateTime? @updatedAt
-  
-  user                User?     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  userProfileImage    User[]    @relation("UserProfileImage")
+  uploaded_at         DateTime      @default(now())
+  status              FileStatus    @default(PENDING)
+  created_at          DateTime      @default(now())
+  updated_at          DateTime?     @updatedAt
+  user                User?         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  userProfileImage    User[]        @relation("UserProfileImage")
   themeCategoryImage  ThemeCategory[] @relation("ThemeCategoryImage")
-  themeThumbnailImage Theme[]   @relation("ThemeThumbnailImage")
-  
+  themeThumbnailImage Theme[]       @relation("ThemeThumbnailImage")
+  creatorPoolImage    CreatorPool[] @relation("CreatorPoolImage")
+
   @@index([s3_key])
   @@index([user_id])
   @@index([status])
@@ -145,13 +145,12 @@ model UploadedFile {
 }
 
 model RefreshToken {
-  id          Int      @id @default(autoincrement())
-  token       String   @db.Char(64) // SHA256 hash
-  userId      Int
-  createdAt   DateTime @default(now())
-  expiresAt   DateTime
-
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        Int      @id @default(autoincrement())
+  token     String   @db.Char(64) // SHA256 hash
+  userId    Int
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([token])
   @@index([userId])
@@ -160,16 +159,37 @@ model RefreshToken {
 
 // User wallet address mapping table (one-to-one with User)
 model UserWallet {
-  id                  Int       @id @default(autoincrement())
-  address             String    @unique
-  userId              Int       @unique // Ensure one-to-one relationship
+  id                   Int       @id @default(autoincrement())
+  address              String    @unique
+  userId               Int       @unique // Ensure one-to-one relationship
   last_airdrop_request DateTime?
-  created_at          DateTime  @default(now())
-  updated_at          DateTime? @updatedAt
-
-  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  created_at           DateTime  @default(now())
+  updated_at           DateTime? @updatedAt
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creatorPools         CreatorPool[]
+  stakedPools          StakedPool[]
+  stakeEvents          StakeEvent[]
 
   @@map("user_wallets")
+}
+
+model CreatorPool {
+  id            Int           @id @default(autoincrement())
+  walletId      Int
+  chainId       String
+  
+  image_file_id Int?
+  description   String?       @db.LongText
+  fans          Int           @default(0)
+  revoStaked    BigInt        @default(0)
+  poolAddress   String?       @unique
+  wallet        UserWallet    @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  poolImage     UploadedFile? @relation("CreatorPoolImage", fields: [image_file_id], references: [id], onDelete: SetNull)
+  stakedPools   StakedPool[]
+  stakeEvents   StakeEvent[]
+
+  @@unique([walletId, chainId])
+  @@map("creator_pools")
 }
 
 enum SettingValueType {
@@ -185,4 +205,35 @@ model SiteSettings {
   value_type    SettingValueType
 
   @@map("site_settings")
+}
+
+model StakedPool {
+  id          Int           @id @default(autoincrement())
+  userWalletId Int
+  poolId      Int
+  stakeAmount BigInt          @default(0) // Using BigInt to handle potentially large stake amounts
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime?     @updatedAt
+
+  userWallet  UserWallet    @relation(fields: [userWalletId], references: [id], onDelete: Cascade)
+  pool        CreatorPool   @relation(fields: [poolId], references: [id], onDelete: Cascade)
+
+  @@unique([userWalletId, poolId]) // Each wallet can only have one staking entry per pool
+  @@map("staked_pools")
+}
+
+model StakeEvent {
+  id                Int        @id @default(autoincrement())
+  userWalletId      Int
+  poolId            Int
+  amount            BigInt // The amount of tokens staked or unstaked (positive for stake, negative for unstake)
+  eventType         String // "stake" or "unstake"
+  transactionHash   String // Transaction hash for verification
+  createdAt         DateTime   @default(now())
+
+  userWallet UserWallet @relation(fields: [userWalletId], references: [id], onDelete: Cascade)
+  pool       CreatorPool @relation(fields: [poolId], references: [id], onDelete: Cascade)
+
+  @@unique([transactionHash, userWalletId, poolId])
+  @@map("stake_events")
 }

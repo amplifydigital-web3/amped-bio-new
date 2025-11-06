@@ -7,7 +7,9 @@ import { Download, Upload, AlertTriangle } from "lucide-react";
 
 export function ProfilePanel() {
   const { theme, exportTheme, importTheme } = useEditor();
-  const [activeTab, setActiveTab] = useState<"general" | "appearance" | "effects" | "theme">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "appearance" | "effects" | "theme">(
+    "general"
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Check if theme is from server (user_id = null)
@@ -88,17 +90,11 @@ export function ProfilePanel() {
       </div>
 
       <div className="p-6 space-y-8">
-        {activeTab === "general" && (
-          <GeneralTabContent />
-        )}
+        {activeTab === "general" && <GeneralTabContent />}
 
-        {activeTab === "appearance" && (
-          <AppearanceTabContent />
-        )}
+        {activeTab === "appearance" && <AppearanceTabContent />}
 
-        {activeTab === "effects" && (
-          <EffectsTabContent />
-        )}
+        {activeTab === "effects" && <EffectsTabContent />}
 
         {activeTab === "theme" && (
           <>

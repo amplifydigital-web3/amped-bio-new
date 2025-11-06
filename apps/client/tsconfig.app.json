@@ -19,9 +19,9 @@
     "noUnusedLocals": false,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "baseUrl": "./",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"],
+      "@amped/web3": ["../../packages/web3/src/index.ts"]
     }
   },
   "include": ["src"]

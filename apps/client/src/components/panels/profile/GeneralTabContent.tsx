@@ -56,10 +56,7 @@ export function GeneralTabContent() {
       <URLPicker />
 
       {/* Email Change Dialog */}
-      <EmailChangeDialog
-        isOpen={isEmailDialogOpen}
-        onClose={() => setIsEmailDialogOpen(false)}
-      />
+      <EmailChangeDialog isOpen={isEmailDialogOpen} onClose={() => setIsEmailDialogOpen(false)} />
     </>
   );
 }

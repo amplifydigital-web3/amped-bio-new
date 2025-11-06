@@ -35,6 +35,7 @@ export type Theme = {
 
 export type EditorPanelType =
   | "home"
+  | "explore"
   | "profile"
   | "reward"
   | "gallery"
@@ -58,4 +59,5 @@ export type EditorState = {
   marketplaceSort: "popular" | "newest";
   connectedWallet?: string;
   selectedPoolId: string | null;
+  hasCreatorPool: boolean;
 };

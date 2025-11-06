@@ -441,7 +441,11 @@ const PayRow: React.FC<{
               <span>
                 {data?.onelink && (
                   <>
-                    <a href={`${currentUrl}/@${data.onelink}`} target="_blank" rel="noopener noreferrer">
+                    <a
+                      href={`${currentUrl}/@${data.onelink}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
                       @{data.onelink}
                     </a>{" "}
                   </>

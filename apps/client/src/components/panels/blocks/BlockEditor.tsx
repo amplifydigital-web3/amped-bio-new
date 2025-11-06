@@ -4,7 +4,12 @@ import { Input } from "../../ui/Input";
 import { Textarea } from "../../ui/Textarea";
 import { Button } from "../../ui/Button";
 import { BlockType, LinkBlock } from "@ampedbio/constants";
-import { extractUsernameFromUrl, getPlatformName, getPlatformUrl, type PlatformId } from "@/utils/platforms";
+import {
+  extractUsernameFromUrl,
+  getPlatformName,
+  getPlatformUrl,
+  type PlatformId,
+} from "@/utils/platforms";
 import { z } from "zod";
 import { SubmitHandler, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -134,11 +139,17 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
         if (typedConfig.platform && typedConfig.platform !== "custom") {
           // Check if the url field already contains a complete URL for this platform
           // to prevent double processing that can cause duplication
-          const platformUrlPattern = getPlatformUrl(typedConfig.platform, "").replace("{{username}}", "");
+          const platformUrlPattern = getPlatformUrl(typedConfig.platform, "").replace(
+            "{{username}}",
+            ""
+          );
           if (typedConfig.url.startsWith(platformUrlPattern)) {
             // The URL field already contains a full URL for this platform, so don't process again
             // We should extract the username properly and reconstruct it to validate format
-            const extractedUsername = extractUsernameFromUrl(typedConfig.platform as PlatformId, typedConfig.url);
+            const extractedUsername = extractUsernameFromUrl(
+              typedConfig.platform as PlatformId,
+              typedConfig.url
+            );
             if (extractedUsername) {
               // Reconstruct with properly extracted username to ensure correct format
               typedConfig.url = getPlatformUrl(typedConfig.platform, extractedUsername);

@@ -3,7 +3,7 @@ import { trpcClient } from "@/utils/trpc";
 import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { useAccount } from "wagmi";
-import { useIdentityToken } from "@web3auth/modal/react";
+import { isForceMetamask } from "@/utils/auth";
 
 export function useFundWalletDialog(params: {
   open: boolean;
@@ -12,7 +12,6 @@ export function useFundWalletDialog(params: {
   const wallet = useWalletContext();
   const { open, onOpenChange } = params;
   const { address: walletAddress, isConnected, chainId } = useAccount();
-  const { getIdentityToken } = useIdentityToken();
 
   // Dialog state
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
@@ -93,18 +92,32 @@ export function useFundWalletDialog(params: {
 
     setClaimingFaucet(true);
     try {
-      const idToken = await getIdentityToken();
+      const faucetRequestData: any = {
+        publicKey: wallet.publicKey!,
+        chainId: chainId!,
+      };
 
-      if (!idToken) {
-        toast.error("Could not get user session. Please try again.");
-        return { success: false };
+      // If force MetaMask mode is enabled, pass the address directly instead of using Web3Auth
+      if (isForceMetamask) {
+        faucetRequestData.address = wallet.address;
+      } else {
+        // In Web3Auth mode, we need to get the identity token
+        // We'll assume the wallet context provides a way to access the identity token when available
+        // For Web3Auth mode, wallet.getIdentityToken should be available (it's provided by Web3AuthWalletProvider)
+        if (wallet.getIdentityToken) {
+          const idToken = await wallet.getIdentityToken();
+          if (!idToken) {
+            toast.error("Could not get user session. Please try again.");
+            return { success: false };
+          }
+          faucetRequestData.idToken = idToken;
+        } else {
+          toast.error("Authentication context not available. Please try again.");
+          return { success: false };
+        }
       }
 
-      const result = await trpcClient.wallet.requestAirdrop.mutate({
-        publicKey: wallet.publicKey!,
-        idToken,
-        chainId: chainId!,
-      });
+      const result = await trpcClient.wallet.requestAirdrop.mutate(faucetRequestData);
 
       if (result.success && result.transaction?.hash) {
         setTxInfo({ txid: result.transaction.hash });

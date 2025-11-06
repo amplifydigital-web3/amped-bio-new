@@ -65,7 +65,12 @@ function setRefreshTokenCookie(ctx: any, token: string, expiresAt?: Date) {
 }
 
 // Helper function to handle token generation and cookie setting
-async function handleTokenGeneration(ctx: any, user: User, imageUrl: string | null) {
+async function handleTokenGeneration(
+  ctx: any,
+  user: User,
+  imageUrl: string | null,
+  hasPool: boolean
+) {
   // Generate refresh token
   const refreshToken = crypto.randomBytes(32).toString("hex");
   const hashedRefreshToken = hashRefreshToken(refreshToken);
@@ -90,6 +95,7 @@ async function handleTokenGeneration(ctx: any, user: User, imageUrl: string | nu
       onelink: user.onelink || "",
       role: user.role,
       image: imageUrl,
+      hasPool,
     },
     accessToken: generateAccessToken({ id: user.id, email: user.email, role: user.role }),
   };
@@ -166,24 +172,7 @@ export const authRouter = router({
       // We continue even if email fails
     }
 
-    const refreshToken = crypto.randomBytes(32).toString("hex");
-    const hashedRefreshToken = hashRefreshToken(refreshToken);
-
-    const token = await prisma.refreshToken.create({
-      data: {
-        userId: result.id,
-        token: hashedRefreshToken,
-        expiresAt: addDays(new Date(), 30), // 30 days
-      },
-    });
-
-    // Set refresh token cookie
-    setRefreshTokenCookie(ctx, refreshToken, token.expiresAt);
-
-    return {
-      user: { id: result.id, email, onelink, role: result.role, image: null },
-      accessToken: generateAccessToken({ id: result.id, email, role: result.role }),
-    };
+    return handleTokenGeneration(ctx, result, null, false);
   }),
 
   // Login user
@@ -223,37 +212,18 @@ export const authRouter = router({
 
     // const emailVerified = user.email_verified_at !== null;
 
-    const refreshToken = crypto.randomBytes(32).toString("hex");
-    const hashedRefreshToken = hashRefreshToken(refreshToken);
-
-    const token = await prisma.refreshToken.create({
-      data: {
-        userId: user.id,
-        token: hashedRefreshToken,
-        expiresAt: addDays(new Date(), 30), // 30 days
-      },
-    });
-
-    // Set refresh token cookie
-    setRefreshTokenCookie(ctx, refreshToken, token.expiresAt);
-
     // Resolve user image URL (same as "me")
     const imageUrl = await getFileUrl({
       legacyImageField: user.image,
       imageFileId: user.image_file_id,
     });
 
-    return {
-      user: {
-        id: user.id,
-        email: user.email,
-        onelink: user.onelink as string,
-        // emailVerified,
-        role: user.role,
-        image: imageUrl,
-      },
-      accessToken: generateAccessToken({ id: user.id, email: user.email, role: user.role }),
-    };
+    return handleTokenGeneration(
+      ctx,
+      user,
+      imageUrl,
+      false // Placeholder - we'll need to determine this differently since pools are now related to wallet
+    );
   }),
 
   logout: privateProcedure.mutation(async ({ ctx }) => {
@@ -369,6 +339,7 @@ export const authRouter = router({
         // emailVerified: user.email_verified_at !== null,
         role: user.role,
         image: imageUrl,
+        hasPool: false, // Placeholder - we'll need to determine this differently since pools are now related to wallet
       },
     };
   }),
@@ -402,7 +373,7 @@ export const authRouter = router({
       },
     });
 
-    if (!existingToken) {
+    if (!existingToken || !existingToken.user) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
         message: "Invalid refresh token",
@@ -438,7 +409,6 @@ export const authRouter = router({
 
       // Hash new password
       const hashedPassword = await hashPassword(newPassword);
-
       const isSamePassword = await comparePasswords(newPassword, user.password);
 
       if (isSamePassword) {
@@ -585,7 +555,7 @@ export const authRouter = router({
       }
 
       // Check if user with this email exists
-      let user = await prisma.user.findUnique({
+      let user: User | null = await prisma.user.findUnique({
         where: { email: googleUser.email },
       });
 
@@ -609,7 +579,7 @@ export const authRouter = router({
 
         // Generate a random password
         const randomPassword = crypto.randomBytes(16).toString("hex");
-        const hashedPassword = await hashPassword(randomPassword);
+        const hashedPassword: string = await hashPassword(randomPassword);
 
         // Create user
         let userRole = "user";
@@ -619,7 +589,7 @@ export const authRouter = router({
           userRole = isFirstUser ? "user,admin" : "user";
         }
 
-        user = await prisma.user.create({
+        const newUser = await prisma.user.create({
           data: {
             onelink,
             name: googleUser.name || onelink,
@@ -631,6 +601,7 @@ export const authRouter = router({
             theme: null,
           },
         });
+        user = { ...newUser };
       }
 
       // Resolve user image URL
@@ -640,7 +611,12 @@ export const authRouter = router({
       });
 
       // Return user data and access token using our utility function
-      return handleTokenGeneration(ctx, user, imageUrl);
+      return handleTokenGeneration(
+        ctx,
+        user,
+        imageUrl,
+        false // Placeholder - we'll need to determine this differently since pools are now related to wallet
+      );
     } catch (error) {
       console.error("Google authentication error:", error);
       throw new TRPCError({
