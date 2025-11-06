@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import { useForm, useFieldArray, Controller, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAccount, useBalance, useChainId, usePublicClient } from "wagmi";
@@ -123,7 +123,6 @@ const parseTRPCError = (error: unknown): string => {
 import type { CreatorPoolFormValues, TierIconEntry } from "./types";
 
 export function CreatorPoolPanel() {
-  const isFirstRender = useRef(true);
   const client = usePublicClient();
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
@@ -172,11 +171,7 @@ export function CreatorPoolPanel() {
       }
     };
 
-    // Only run on first render and when there's no existing data
-    if (isFirstRender.current) {
-      confirmExistingPool();
-      isFirstRender.current = false;
-    }
+    confirmExistingPool();
   }, [poolAddress, isPoolLoading, chainId, hasConfirmedPool]);
 
   const { data: revoBalance } = useBalance({
