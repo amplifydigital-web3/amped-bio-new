@@ -1,5 +1,5 @@
 import { Tooltip } from "@/components/ui/Tooltip";
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Search,
   Send,

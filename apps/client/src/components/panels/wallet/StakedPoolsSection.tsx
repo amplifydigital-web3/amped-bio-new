@@ -7,9 +7,7 @@ import StakedPoolRow from "./StakedPoolRow";
 import { useQuery } from "@tanstack/react-query";
 import { useEditor } from "../../../contexts/EditorContext";
 
-interface StakedPoolsSectionProps {}
-
-export default function StakedPoolsSection({}: StakedPoolsSectionProps) {
+export default function StakedPoolsSection() {
   const {
     data: allStakedPools,
     isLoading: loading,
@@ -21,25 +19,17 @@ export default function StakedPoolsSection({}: StakedPoolsSectionProps) {
   const [selectedPoolId, setSelectedPoolId] = React.useState<number | null>(null);
   const [isPoolModalOpen, setIsPoolModalOpen] = React.useState(false);
   const [isClaimModalOpen, setIsClaimModalOpen] = React.useState(false);
-  const [claimingPoolId, setClaimingPoolId] = React.useState<number | null>(
-    null
-  );
+  const [claimingPoolId, setClaimingPoolId] = React.useState<number | null>(null);
   const poolsPerPage = 6;
 
-  const selectedPool =
-    allStakedPools?.find(p => p.poolId === selectedPoolId)?.pool || null;
-  const claimingPool =
-    allStakedPools?.find(p => p.poolId === claimingPoolId) || null;
+  const selectedPool = allStakedPools?.find(p => p.poolId === selectedPoolId)?.pool || null;
+  const claimingPool = allStakedPools?.find(p => p.poolId === claimingPoolId) || null;
 
   // Calculate pagination
-  const totalPages = allStakedPools
-    ? Math.ceil(allStakedPools.length / poolsPerPage)
-    : 0;
+  const totalPages = allStakedPools ? Math.ceil(allStakedPools.length / poolsPerPage) : 0;
   const startIndex = (currentPage - 1) * poolsPerPage;
   const endIndex = startIndex + poolsPerPage;
-  const currentPools = allStakedPools
-    ? allStakedPools.slice(startIndex, endIndex)
-    : [];
+  const currentPools = allStakedPools ? allStakedPools.slice(startIndex, endIndex) : [];
 
   const handlePreviousPage = () => {
     setCurrentPage(prev => Math.max(prev - 1, 1));
@@ -172,9 +162,11 @@ export default function StakedPoolsSection({}: StakedPoolsSectionProps) {
 
   if (!allStakedPools || allStakedPools.length === 0) {
     const showCreatorPool = import.meta.env.VITE_SHOW_CREATOR_POOL === "true";
-    
+
     return (
-      <div className={`bg-white rounded-lg shadow-sm border border-gray-200 p-6 ${showCreatorPool ? '' : 'opacity-50'} relative ${showCreatorPool ? '' : 'pointer-events-none'}`}>
+      <div
+        className={`bg-white rounded-lg shadow-sm border border-gray-200 p-6 ${showCreatorPool ? "" : "opacity-50"} relative ${showCreatorPool ? "" : "pointer-events-none"}`}
+      >
         <div className="absolute top-2 right-2 bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full z-10 pointer-events-auto">
           Soon
         </div>
@@ -288,32 +280,40 @@ export default function StakedPoolsSection({}: StakedPoolsSectionProps) {
       <PoolDetailsModal
         isOpen={isPoolModalOpen}
         onClose={() => setIsPoolModalOpen(false)}
-        pool={selectedPool ? {
-          id: selectedPool.id.toString(),
-          title: selectedPool.description || "Untitled Pool",
-          description: selectedPool.description || "No description available",
-          stakedAmount: 0, // This should be fetched on-chain
-          chainId: selectedPool.chainId,
-          totalReward: 0, // This should be fetched on-chain
-          category: "staking",
-          earnedRewards: 0, // This should be fetched on-chain
-          estimatedRewards: 0, // This should be fetched on-chain
-          participants: 0, // This should be fetched on-chain
-          imageUrl: selectedPool.imageUrl,
-        } : null}
+        pool={
+          selectedPool
+            ? {
+                id: selectedPool.id.toString(),
+                title: selectedPool.description || "Untitled Pool",
+                description: selectedPool.description || "No description available",
+                stakedAmount: 0, // This should be fetched on-chain
+                chainId: selectedPool.chainId,
+                totalReward: 0, // This should be fetched on-chain
+                category: "staking",
+                earnedRewards: 0, // This should be fetched on-chain
+                estimatedRewards: 0, // This should be fetched on-chain
+                participants: 0, // This should be fetched on-chain
+                imageUrl: selectedPool.imageUrl,
+              }
+            : null
+        }
       />
 
       {/* Claim Rewards Modal */}
       <ClaimRewardsModal
         isOpen={isClaimModalOpen}
         onClose={() => setIsClaimModalOpen(false)}
-        pool={claimingPool ? {
-          id: claimingPool.poolId.toString(),
-          title: claimingPool.pool.description || "Untitled Pool",
-          earnedRewards: 0, // This will be fetched by the modal
-          chainId: claimingPool.pool.chainId,
-          image: claimingPool.pool.imageUrl || undefined,
-        } : null}
+        pool={
+          claimingPool
+            ? {
+                id: claimingPool.poolId.toString(),
+                title: claimingPool.pool.description || "Untitled Pool",
+                earnedRewards: 0, // This will be fetched by the modal
+                chainId: claimingPool.pool.chainId,
+                image: claimingPool.pool.imageUrl || undefined,
+              }
+            : null
+        }
       />
     </div>
   );

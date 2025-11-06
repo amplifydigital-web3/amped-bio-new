@@ -627,8 +627,6 @@ export function CreatorPoolPanel() {
                         </p>
                       )}
 
-
-
                       <div>
                         <PerksSection tierIndex={index} />
                       </div>
@@ -651,7 +649,7 @@ export function CreatorPoolPanel() {
                 <Save className="w-5 h-5" />
                 <span>Create Reward Pool</span>
               </button>
-              
+
               {showInsufficientBalanceWarning && (
                 <p className="text-red-500 text-sm mt-3 flex items-center">
                   <Info className="w-4 h-4 mr-1" />

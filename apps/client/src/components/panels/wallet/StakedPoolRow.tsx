@@ -30,13 +30,14 @@ interface StakedPoolRowProps {
   onViewPool: (poolId: number) => void;
 }
 
-export default function StakedPoolRow({ poolData, onClaimRewards, onViewPool }: StakedPoolRowProps) {
+export default function StakedPoolRow({
+  poolData,
+  onClaimRewards,
+  onViewPool,
+}: StakedPoolRowProps) {
   const { address } = useAccount();
 
-  const { pendingReward } = usePoolReader(
-    poolData.pool.poolAddress as `0x${string}`,
-    address
-  );
+  const { pendingReward } = usePoolReader(poolData.pool.poolAddress as `0x${string}`, address);
 
   const stakedAmount = BigInt(poolData.stakeAmount);
   const earnedRewards = pendingReward || 0n;
@@ -53,10 +54,7 @@ export default function StakedPoolRow({ poolData, onClaimRewards, onViewPool }: 
         `}
       >
         {/* Left Zone (56%) - Thumbnail, Name, Badges */}
-        <div
-          className="flex items-center space-x-3 flex-1 min-w-0"
-          style={{ flexBasis: "56%" }}
-        >
+        <div className="flex items-center space-x-3 flex-1 min-w-0" style={{ flexBasis: "56%" }}>
           {/* 40x40 Thumbnail */}
           <div className="w-10 h-10 rounded-lg overflow-hidden border border-gray-200 bg-gray-100 flex-shrink-0">
             {poolData.pool.imageUrl ? (
@@ -141,7 +139,10 @@ export default function StakedPoolRow({ poolData, onClaimRewards, onViewPool }: 
           style={{ flexBasis: "12%" }}
         >
           <button
-            onClick={(e) => { e.stopPropagation(); onClaimRewards(poolData.poolId); }}
+            onClick={e => {
+              e.stopPropagation();
+              onClaimRewards(poolData.poolId);
+            }}
             className="px-2 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors duration-200"
             title="Claim your earned rewards"
           >
@@ -150,7 +151,10 @@ export default function StakedPoolRow({ poolData, onClaimRewards, onViewPool }: 
           </button>
 
           <button
-            onClick={(e) => { e.stopPropagation(); onViewPool(poolData.poolId); }}
+            onClick={e => {
+              e.stopPropagation();
+              onViewPool(poolData.poolId);
+            }}
             className="px-2 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors duration-200"
             title="View pool details"
           >

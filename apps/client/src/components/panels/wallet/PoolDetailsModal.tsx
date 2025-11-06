@@ -287,9 +287,7 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
                             >
                               {tier.name}
                             </h5>
-                            <p className="text-xs text-gray-600">
-                              {tier.name}
-                            </p>
+                            <p className="text-xs text-gray-600">{tier.name}</p>
                           </div>
                         </div>
 
@@ -343,10 +341,7 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
                   💡 <strong>Your current stake:</strong> {pool.stakedAmount.toLocaleString()}{" "}
                   {currencySymbol}
                   {pool.stakedAmount < 25000 && (
-                    <span className="block mt-1">
-                      Stake{" "}
-                      more to unlock the next tier!
-                    </span>
+                    <span className="block mt-1">Stake more to unlock the next tier!</span>
                   )}
                 </p>
               </div>

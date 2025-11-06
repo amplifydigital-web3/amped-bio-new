@@ -1,6 +1,5 @@
 import { useParams, useLocation } from "react-router-dom";
 import { Layout } from "../components/Layout";
-import { Banner } from "../components/Banner";
 import { useAuth } from "../contexts/AuthContext";
 import { useEffect, useState } from "react";
 import { useEditor } from "../contexts/EditorContext";

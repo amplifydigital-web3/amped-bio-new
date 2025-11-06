@@ -204,8 +204,7 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
           <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mb-6"></div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Processing Claim</h3>
           <p className="text-gray-600 text-center">
-            Transferring {pool.earnedRewards.toLocaleString()} {currencySymbol} to your
-            wallet...
+            Transferring {pool.earnedRewards.toLocaleString()} {currencySymbol} to your wallet...
           </p>
         </div>
 
