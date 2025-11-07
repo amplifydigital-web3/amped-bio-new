@@ -476,11 +476,10 @@ export const poolsFanRouter = router({
             });
           }
 
-          if (pool.walletId !== userWallet.id || pool.chainId !== input.chainId) {
+          if (pool.chainId !== input.chainId) {
             throw new TRPCError({
               code: "FORBIDDEN",
-              message:
-                "Stake event is for a pool that does not belong to the current user or chain",
+              message: "Stake event is for a pool on a different chain than specified",
             });
           }
 
@@ -646,11 +645,10 @@ export const poolsFanRouter = router({
             });
           }
 
-          if (pool.walletId !== userWallet.id || pool.chainId !== input.chainId) {
+          if (pool.chainId !== input.chainId) {
             throw new TRPCError({
               code: "FORBIDDEN",
-              message:
-                "Unstake event is for a pool that does not belong to the current user or chain",
+              message: "Unstake event is for a pool on a different chain than specified",
             });
           }
 
