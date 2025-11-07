@@ -435,10 +435,12 @@ export const poolsFanRouter = router({
               topics: log.topics,
             });
             const args = decodedLog.args as any;
+            // Ensure the amount is properly handled as a BigInt for Prisma
+            const stakeAmount = typeof args.amount === "bigint" ? args.amount : BigInt(args.amount);
             parsedStakes.push({
               delegator: transactionReceipt.from,
               delegatee: log.address,
-              amount: args.amount as bigint,
+              amount: stakeAmount,
             });
           } catch (error) {
             // Not a FanStaked event, ignore
@@ -482,6 +484,9 @@ export const poolsFanRouter = router({
             });
           }
 
+          // Ensure amounts are properly handled for Prisma
+          const amountToStore = stake.amount;
+
           await prisma.stakedPool.upsert({
             where: {
               userWalletId_poolId: {
@@ -491,14 +496,14 @@ export const poolsFanRouter = router({
             },
             update: {
               stakeAmount: {
-                increment: stake.amount,
+                increment: amountToStore,
               },
               updatedAt: new Date(),
             },
             create: {
               userWalletId: userWallet.id,
               poolId: pool.id,
-              stakeAmount: stake.amount,
+              stakeAmount: amountToStore,
             },
           });
 
@@ -506,7 +511,7 @@ export const poolsFanRouter = router({
             data: {
               userWalletId: userWallet.id,
               poolId: pool.id,
-              amount: stake.amount,
+              amount: amountToStore,
               eventType: "stake",
               transactionHash: input.hash,
             },
@@ -599,10 +604,13 @@ export const poolsFanRouter = router({
               topics: log.topics,
             });
             const args = decodedLog.args as any;
+            // Ensure the amount is properly handled as a BigInt for Prisma
+            const unstakeAmount =
+              typeof args.amount === "bigint" ? args.amount : BigInt(args.amount);
             parsedUnstakes.push({
               delegator: transactionReceipt.from,
               delegatee: args._from || (args.delegatee as Address),
-              amount: args.amount as bigint,
+              amount: unstakeAmount,
             });
           } catch (error) {
             // Not a FanUnstaked event, ignore
@@ -646,6 +654,9 @@ export const poolsFanRouter = router({
             });
           }
 
+          // Ensure amounts are properly handled for Prisma
+          const amountToStore = unstake.amount;
+
           await prisma.stakedPool.upsert({
             where: {
               userWalletId_poolId: {
@@ -655,14 +666,14 @@ export const poolsFanRouter = router({
             },
             update: {
               stakeAmount: {
-                decrement: unstake.amount,
+                decrement: amountToStore,
               },
               updatedAt: new Date(),
             },
             create: {
               userWalletId: userWallet.id,
               poolId: pool.id,
-              stakeAmount: -unstake.amount,
+              stakeAmount: -amountToStore,
             },
           });
 
@@ -670,7 +681,7 @@ export const poolsFanRouter = router({
             data: {
               userWalletId: userWallet.id,
               poolId: pool.id,
-              amount: unstake.amount,
+              amount: amountToStore,
               eventType: "unstake",
               transactionHash: input.hash,
             },
