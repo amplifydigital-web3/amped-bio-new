@@ -178,9 +178,26 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [authUser, account.status, web3AuthDisconnect]);
 
+  const isLinkCallInProgress = useRef(false); // To prevent parallel calls
+  const lastAddressRef = useRef<string | null>(null); // To track the last wallet address
+
   useEffect(() => {
     const linkAddress = async () => {
-      if (account.status === "connected" && account.address) {
+      // Only proceed if account is connected, address exists, and user.wallet is null
+      if (account.status === "connected" && account.address && !authUser?.wallet) {
+        // Check if address has changed since last call
+        if (lastAddressRef.current === account.address) {
+          return; // Skip if same address as last call
+        }
+        
+        // Prevent parallel calls
+        if (isLinkCallInProgress.current) {
+          return; // Skip if a call is already in progress
+        }
+        
+        isLinkCallInProgress.current = true; // Mark that a call is in progress
+        lastAddressRef.current = account.address; // Update last address
+        
         const idToken = await getIdentityToken();
 
         const pubKey = await dataWeb3Auth?.provider?.request({ method: "public_key" });
@@ -204,12 +221,14 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
             // Handle other errors
             console.error("An unexpected error occurred:", error);
           }
+        } finally {
+          isLinkCallInProgress.current = false; // Mark that the call is complete
         }
       }
     };
 
     linkAddress();
-  }, [account.status, account.address]);
+  }, [account.status, account.address, authUser?.wallet]);
 
   const updateBalanceDelayed = () => {
     setTimeout(() => {
