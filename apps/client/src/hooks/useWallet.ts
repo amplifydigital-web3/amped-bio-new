@@ -5,7 +5,7 @@ import {
   useWeb3AuthDisconnect,
   useIdentityToken,
 } from "@web3auth/modal/react";
-import { useCallback } from "react";
+import { useCallback, useRef, useEffect } from "react";
 import { trpcClient } from "../utils/trpc";
 import { WALLET_CONNECTORS, AUTH_CONNECTION } from "@web3auth/modal";
 
@@ -54,7 +54,27 @@ export const useWeb3AuthWallet = () => {
   const account = useAccount();
   const { getIdentityToken } = useIdentityToken();
 
+  const isConnectingRef = useRef(false);
+  const lastConnectedAddressRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (account.address) {
+      lastConnectedAddressRef.current = account.address;
+    }
+  }, [account.address]);
+
   const getTokenAndConnect = useCallback(async () => {
+    if (isConnectingRef.current) {
+      console.log("Connection already in progress, ignoring call.");
+      return;
+    }
+
+    if (account.address && account.address === lastConnectedAddressRef.current) {
+      console.log("Wallet already connected with the same address, ignoring call.");
+      return;
+    }
+
+    isConnectingRef.current = true;
     try {
       const token = await trpcClient.auth.getWalletToken.query();
       await connectTo(WALLET_CONNECTORS.AUTH, {
@@ -65,8 +85,10 @@ export const useWeb3AuthWallet = () => {
       });
     } catch (err) {
       console.error("Error fetching wallet token:", err);
+    } finally {
+      isConnectingRef.current = false;
     }
-  }, [connectTo]);
+  }, [connectTo, account.address]);
 
   return {
     ...dataWeb3Auth,
