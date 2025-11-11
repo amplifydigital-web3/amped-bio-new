@@ -339,11 +339,9 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
                   </div>
                 </div>
 
-                <div className="text-center mb-4">
-                  <span className="inline-block border border-blue-500 text-blue-500 text-xs font-semibold px-3 py-1 rounded-full">
-                    New
-                  </span>
-                </div>
+                <span className="absolute top-2 right-2 inline-flex items-center rounded-full border border-blue-400 bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                  New
+                </span>
 
                 <div className="flex space-x-2">
                   <button
