@@ -339,6 +339,12 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
                   </div>
                 </div>
 
+                <div className="text-center mb-4">
+                  <span className="inline-block border border-blue-500 text-blue-500 text-xs font-semibold px-3 py-1 rounded-full">
+                    New
+                  </span>
+                </div>
+
                 <div className="flex space-x-2">
                   <button
                     onClick={() => handleViewPool(pool.id)}
