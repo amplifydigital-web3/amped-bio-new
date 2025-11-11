@@ -65,6 +65,7 @@ const validateTokenWithServer = async (): Promise<{ isValid: boolean; user?: Aut
       onelink: response.user.onelink ?? "",
       role: response.user.role,
       image: response.user.image,
+      wallet: response.user.wallet,
     };
 
     return { isValid: true, user };

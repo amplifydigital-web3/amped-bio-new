@@ -9,6 +9,7 @@ export type JWTUser = {
   sub: number;
   email: string;
   role: string;
+  wallet: string | null;
 };
 
 // Define the context that will be available in all procedures
@@ -41,6 +42,7 @@ export const createContext = ({ req, res }: CreateExpressContextOptions): Contex
       sub: parseInt(jwtUser.sub as string, 10), // Convert sub to number
       email: jwtUser.email as string,
       role: jwtUser.role as string,
+      wallet: (jwtUser.wallet ?? null) as string | null,
     };
 
     return { req, res, user: user };

@@ -295,11 +295,18 @@ export const userRouter = router({
           });
         }
 
+        // Fetch user's wallet address
+        const userWallet = await prisma.userWallet.findUnique({
+          where: { userId: userId },
+          select: { address: true },
+        });
+
         // Generate new JWT token with updated email
         const token = generateAccessToken({
           id: userId,
           email: newEmail,
           role: updatedUser.role,
+          wallet: userWallet?.address ?? null,
         });
 
         return {
