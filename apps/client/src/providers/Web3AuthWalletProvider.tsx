@@ -9,7 +9,7 @@ import { trpcClient } from "../utils/trpc";
 const THROTTLE_DURATION = 3_000; // 3 seconds in milliseconds
 
 export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) => {
-  const { authUser } = useAuth();
+  const { authUser, updateAuthUser } = useAuth();
   const wallet = useWeb3AuthWallet();
 
   const [publicKey, setPublicKey] = useState<string | null>(null);
@@ -21,6 +21,7 @@ export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) =>
   });
 
   const lastConnectAttemptRef = useRef(0);
+  const linkAddressRunningRef = useRef(false);
 
   useEffect(() => {
     if (wallet.error) {
@@ -47,30 +48,43 @@ export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) =>
 
   useEffect(() => {
     const linkAddress = async () => {
-      if (wallet.status === "connected" && wallet.address) {
-        try {
-          // @ts-ignore
-          const idToken = await wallet.getIdentityToken();
-          // @ts-ignore
-          const pubKey = await wallet.provider?.request({ method: "public_key" });
-          setPublicKey(pubKey as string);
+      // Prevent parallel execution of linkAddress
+      if (linkAddressRunningRef.current) {
+        return;
+      }
+      linkAddressRunningRef.current = true;
 
-          await trpcClient.wallet.linkWalletAddress.mutate({
-            publicKey: pubKey as string,
-            idToken: idToken,
-          });
-          console.info("Wallet address linked successfully");
-        } catch (err) {
-          if (err instanceof TRPCClientError && err.data?.code === "CONFLICT") {
-            console.info("Wallet already linked.");
-          } else {
-            console.error("Error linking wallet address:", err);
+      try {
+        // Link wallet if user is authenticated, wallet is connected, and user doesn't have a wallet linked yet
+        if (authUser && wallet.status === "connected" && wallet.address && !authUser.wallet) {
+          try {
+            // @ts-ignore
+            const idToken = await wallet.getIdentityToken();
+            // @ts-ignore
+            const pubKey = await wallet.provider?.request({ method: "public_key" });
+            setPublicKey(pubKey as string);
+
+            await trpcClient.wallet.linkWalletAddress.mutate({
+              publicKey: pubKey as string,
+              idToken: idToken,
+            });
+            console.info("Wallet address linked successfully");
+            updateAuthUser({ wallet: wallet.address });
+          } catch (err) {
+            if (err instanceof TRPCClientError && err.data?.code === "CONFLICT") {
+              console.info("Wallet already linked.");
+            } else {
+              console.error("Error linking wallet address:", err);
+            }
           }
         }
+      } finally {
+        // Reset the flag when the function completes (whether successfully or with error)
+        linkAddressRunningRef.current = false;
       }
     };
     linkAddress();
-  }, [wallet.status, wallet.address, wallet]);
+  }, [authUser, wallet.status, wallet.address, wallet]);
 
   const updateBalanceDelayed = () => {
     setTimeout(() => balance?.refetch(), 2000);
