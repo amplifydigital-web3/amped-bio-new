@@ -14,21 +14,6 @@ interface ExplorePageProps {
   onTabChange?: (tab: "users" | "pools" | "nfts") => void;
 }
 
-interface Creator {
-  id: string;
-  username: string;
-  displayName: string;
-  avatar: string | null;
-  banner: string | null;
-  followers: number;
-  following: number;
-  verified: boolean;
-  bio: string;
-  totalEarnings: number;
-  poolStake: number;
-  category: string;
-}
-
 export interface RewardPool {
   id: number;
   description: string | null;
@@ -304,7 +289,7 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
               key={pool.id}
               className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden"
             >
-              {pool.imageUrl && (
+              {pool.imageUrl ? (
                 <div className="h-32 bg-gradient-to-r from-blue-500 to-purple-600 relative overflow-hidden">
                   <img
                     src={pool.imageUrl}
@@ -313,6 +298,8 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
                   />
                   <div className="absolute inset-0 bg-black bg-opacity-20"></div>
                 </div>
+              ) : (
+                <div className="h-32 bg-gray-200" />
               )}
 
               <div className="p-6">
