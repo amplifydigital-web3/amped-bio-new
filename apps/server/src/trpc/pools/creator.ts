@@ -586,36 +586,23 @@ export const poolsCreatorRouter = router({
           }
         }, 0n);
 
-        // Total Fans
-        const totalFans = await prisma.stakeEvent.groupBy({
-          by: ["userWalletId"],
-          where: { poolId },
-          _count: {
-            userWalletId: true,
+        // Count only users with an active stake in the pool using StakedPool
+        const totalActiveFans = await prisma.stakedPool.count({
+          where: {
+            poolId: poolId,
+            stakeAmount: {
+              gt: 0n, // Only count pools with stakeAmount greater than 0
+            },
           },
         });
 
-        // Top Fans
-        const fanStakes: { [key: number]: bigint } = {};
-        stakeEvents.forEach(event => {
-          if (!fanStakes[event.userWalletId]) {
-            fanStakes[event.userWalletId] = 0n;
-          }
-          if (event.eventType === "stake") {
-            fanStakes[event.userWalletId] += event.amount;
-          } else {
-            fanStakes[event.userWalletId] -= event.amount;
-          }
-        });
-
-        const sortedFans = Object.entries(fanStakes)
-          .sort(([, a], [, b]) => (a > b ? -1 : 1))
-          .slice(0, 10);
-
-        const topFans = await Promise.all(
-          sortedFans.map(async ([userWalletId, amount]) => {
-            const wallet = await prisma.userWallet.findUnique({
-              where: { id: Number(userWalletId) },
+        // Top Fans - get from StakedPool to ensure consistency with active stakes
+        const stakedPools = await prisma.stakedPool.findMany({
+          where: {
+            poolId: poolId,
+          },
+          include: {
+            userWallet: {
               include: {
                 user: {
                   include: {
@@ -623,16 +610,28 @@ export const poolsCreatorRouter = router({
                   },
                 },
               },
-            });
-            return {
-              onelink: wallet?.user?.onelink || wallet?.address,
-              amount: amount.toString(),
-              avatar: wallet?.user?.profileImage
-                ? s3Service.getFileUrl(wallet.user.profileImage.s3_key)
-                : null,
-            };
-          })
-        );
+            },
+          },
+        });
+
+        // Sort staked pools by stake amount descending
+        stakedPools.sort((a, b) => (a.stakeAmount > b.stakeAmount ? -1 : 1));
+
+        // Get top 10 for later use
+        const topStakedPools = stakedPools
+          .filter(stakedPool => stakedPool.stakeAmount > 0n) // Only include users with positive stake
+          .slice(0, 10); // Get top 10
+
+        // Map sorted staked pools to top fans format
+        const topFans = topStakedPools.map(stakedPool => {
+          return {
+            onelink: stakedPool.userWallet.user?.onelink || stakedPool.userWallet.address,
+            amount: stakedPool.stakeAmount.toString(),
+            avatar: stakedPool.userWallet.user?.profileImage
+              ? s3Service.getFileUrl(stakedPool.userWallet.user.profileImage.s3_key)
+              : null,
+          };
+        });
 
         // Recent Activity
         const recentActivity = await prisma.stakeEvent.findMany({
@@ -727,7 +726,7 @@ export const poolsCreatorRouter = router({
 
         return {
           totalStake: totalStake.toString(),
-          totalFans: totalFans.length,
+          totalFans: totalActiveFans,
           topFans,
           recentActivity: recentActivity.map(event => ({
             ...event,

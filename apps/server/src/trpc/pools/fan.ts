@@ -59,13 +59,16 @@ export const poolsFanRouter = router({
             const totalStakeInEther = parseFloat(formatEther(totalStake));
             const poolName = await getPoolName(pool.poolAddress as Address, parseInt(pool.chainId));
 
+            // Count only users with positive stake amounts
+            const activeStakers = pool.stakedPools.filter(staked => staked.stakeAmount > 0n).length;
+
             return {
               ...pool,
               imageUrl: pool.poolImage ? s3Service.getFileUrl(pool.poolImage.s3_key) : null,
               title: pool.description || `Pool ${pool.id}`,
               name: poolName,
               totalReward: totalStakeInEther,
-              participants: pool._count.stakedPools,
+              participants: activeStakers,
               maxParticipants: 100,
               category: "staking",
               createdBy: "Unknown",
