@@ -3,7 +3,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { prisma } from "../../services/DB";
 import { Address, createPublicClient, http, decodeEventLog, formatEther } from "viem";
-import { getChainConfig, L2_BASE_TOKEN_ABI, CREATOR_POOL_ABI } from "@ampedbio/web3";
+import { getChainConfig, L2_BASE_TOKEN_ABI, CREATOR_POOL_ABI, getPoolName } from "@ampedbio/web3";
 import { s3Service } from "../../services/S3Service";
 
 export const poolsFanRouter = router({
@@ -50,27 +50,32 @@ export const poolsFanRouter = router({
           },
         });
 
-        return pools.map(pool => {
-          const totalStake = pool.stakedPools.reduce(
-            (sum: bigint, staked) => sum + staked.stakeAmount,
-            0n
-          );
-          const totalStakeInEther = parseFloat(formatEther(totalStake));
-          return {
-            ...pool,
-            imageUrl: pool.poolImage ? s3Service.getFileUrl(pool.poolImage.s3_key) : null,
-            title: pool.description || `Pool ${pool.id}`,
-            totalReward: totalStakeInEther,
-            participants: pool._count.stakedPools,
-            maxParticipants: 100,
-            category: "staking",
-            createdBy: "Unknown",
-            stakedAmount: totalStakeInEther,
-            earnedRewards: 0,
-            estimatedRewards: 0,
-            creatorAddress: pool.wallet?.address || null,
-          };
-        });
+        return Promise.all(
+          pools.map(async pool => {
+            const totalStake = pool.stakedPools.reduce(
+              (sum: bigint, staked) => sum + staked.stakeAmount,
+              0n
+            );
+            const totalStakeInEther = parseFloat(formatEther(totalStake));
+            const poolName = await getPoolName(pool.poolAddress as Address, parseInt(pool.chainId));
+
+            return {
+              ...pool,
+              imageUrl: pool.poolImage ? s3Service.getFileUrl(pool.poolImage.s3_key) : null,
+              title: pool.description || `Pool ${pool.id}`,
+              name: poolName,
+              totalReward: totalStakeInEther,
+              participants: pool._count.stakedPools,
+              maxParticipants: 100,
+              category: "staking",
+              createdBy: "Unknown",
+              stakedAmount: totalStakeInEther,
+              earnedRewards: 0,
+              estimatedRewards: 0,
+              creatorAddress: pool.wallet?.address || null,
+            };
+          })
+        );
       } catch (error) {
         console.error("Error fetching pools:", error);
         if (error instanceof TRPCError) throw error;

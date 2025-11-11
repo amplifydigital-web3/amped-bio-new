@@ -1,6 +1,8 @@
 import { type Address } from "viem";
 import { chainConfig } from "viem/zksync";
 
+export * from "./pools";
+
 export const revolutionDevnet = {
   ...chainConfig,
   id: 73861,
