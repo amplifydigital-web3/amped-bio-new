@@ -89,6 +89,12 @@ async function handleTokenGeneration(
   imageUrl: string | null,
   hasPool: boolean
 ) {
+  // Fetch user's wallet address
+  const userWallet = await prisma.userWallet.findUnique({
+    where: { userId: user.id },
+    select: { address: true },
+  });
+
   // Generate refresh token
   const refreshToken = crypto.randomBytes(32).toString("hex");
   const hashedRefreshToken = hashRefreshToken(refreshToken);
@@ -113,9 +119,15 @@ async function handleTokenGeneration(
       onelink: user.onelink || "",
       role: user.role,
       image: imageUrl,
+      wallet: userWallet?.address || null,
       hasPool,
     },
-    accessToken: generateAccessToken({ id: user.id, email: user.email, role: user.role }),
+    accessToken: generateAccessToken({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      wallet: userWallet?.address || null,
+    }),
   };
 }
 
@@ -376,6 +388,12 @@ export const authRouter = router({
         });
       }
 
+      // Fetch user's wallet address
+      const userWallet = await prisma.userWallet.findUnique({
+        where: { userId: user.id },
+        select: { address: true },
+      });
+
       // Resolve user image URL
       const imageUrl = await getFileUrl({
         legacyImageField: user.image,
@@ -390,6 +408,7 @@ export const authRouter = router({
           // emailVerified: user.email_verified_at !== null,
           role: user.role,
           image: imageUrl,
+          wallet: userWallet?.address || null,
           hasPool: false, // Placeholder - we'll need to determine this differently since pools are now related to wallet
         },
       };
@@ -428,7 +447,11 @@ export const authRouter = router({
       const existingToken = await prisma.refreshToken.findFirst({
         where: { token: hashedRefreshToken },
         select: {
-          user: true,
+          user: {
+            include: {
+              wallet: true,
+            },
+          },
         },
       });
 
@@ -439,11 +462,14 @@ export const authRouter = router({
         });
       }
 
+      const walletAddress = existingToken.user.wallet ? existingToken.user.wallet.address : null;
+
       return {
         accessToken: generateAccessToken({
           id: existingToken.user.id,
           email: existingToken.user.email,
           role: existingToken.user.role,
+          wallet: walletAddress,
         }),
       };
     } catch (error) {
@@ -621,11 +647,18 @@ export const authRouter = router({
 
   getWalletToken: privateProcedure.query(async ({ ctx }) => {
     try {
+      // Fetch user's wallet address
+      const userWallet = await prisma.userWallet.findUnique({
+        where: { userId: ctx.user.sub },
+        select: { address: true },
+      });
+
       return {
         walletToken: generateAccessToken({
           id: ctx.user.sub,
           email: ctx.user.email,
           role: ctx.user.role,
+          wallet: userWallet?.address ?? null,
         }),
       };
     } catch (error) {

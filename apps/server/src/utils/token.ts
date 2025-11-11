@@ -20,12 +20,18 @@ export const JWT_KEYS = {
     .substring(0, 16), // Key ID for the JWT
 };
 
-export const generateAccessToken = (user: { id: number; email: string; role: string }): string => {
+export const generateAccessToken = (user: {
+  id: number;
+  email: string;
+  role: string;
+  wallet: string | null;
+}): string => {
   return jwt.sign(
     {
       sub: user.id.toString(),
       email: user.email,
       role: user.role,
+      wallet: user.wallet || null,
       aud: env.JWT_AUDIENCE, // Audience of the token
       iss: env.JWT_ISSUER, // Issuer of the token
     },

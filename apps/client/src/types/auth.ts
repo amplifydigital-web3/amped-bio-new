@@ -5,4 +5,5 @@ export type AuthUser = {
   role: string; // User role (admin, user, etc.)
   // emailVerified: boolean;
   image: string | null; // User profile image URL
+  wallet: string | null; // User wallet address
 };
