@@ -22,6 +22,24 @@ import { prisma } from "../services/DB";
 import type { User } from "@prisma/client";
 import { hashRefreshToken } from "../utils/tokenHash";
 
+// Helper function to handle Prisma errors
+function handlePrismaError(error: unknown, operation: string) {
+  console.error(`Prisma error in ${operation}:`, error);
+
+  // Log the full error details for debugging
+  if (error instanceof Error) {
+    console.error(`Error name: ${error.name}`);
+    console.error(`Error message: ${error.message}`);
+    console.error(`Error stack: ${error.stack}`);
+  }
+
+  // Return generic internal server error to frontend
+  throw new TRPCError({
+    code: "INTERNAL_SERVER_ERROR",
+    message: "Internal server error occurred",
+  });
+}
+
 // Helper function to set refresh token cookie
 function setRefreshTokenCookie(ctx: any, token: string, expiresAt?: Date) {
   // Determine the correct domain based on environment
@@ -104,156 +122,89 @@ async function handleTokenGeneration(
 export const authRouter = router({
   // Register a new user
   register: publicProcedure.input(registerSchema).mutation(async ({ input, ctx }) => {
-    const { onelink, email, password, recaptchaToken } = input;
-
-    // Verify reCAPTCHA token
-    const isRecaptchaValid = await verifyRecaptcha(recaptchaToken);
-    if (!isRecaptchaValid) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "reCAPTCHA verification failed",
-      });
-    }
-
-    // Check if onelink already exists
-    const existingOnelinkCount = await prisma.user.count({
-      where: { onelink },
-    });
-
-    if (existingOnelinkCount > 0) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "URL already taken",
-      });
-    }
-
-    // Check if email already exists
-    const existingUserCount = await prisma.user.count({
-      where: { email },
-    });
-
-    if (existingUserCount > 0) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "Email already registered",
-      });
-    }
-
-    // Hash password and create remember token
-    const hashedPassword = await hashPassword(password);
-    const remember_token = crypto.randomBytes(32).toString("hex");
-
-    let userRole = "user";
-
-    if (env.isDevelopment) {
-      const totalUsersCount = await prisma.user.count();
-      const isFirstUser = totalUsersCount === 0;
-      userRole = isFirstUser ? "user,admin" : "user";
-    }
-
-    // Create user
-    const result = await prisma.user.create({
-      data: {
-        onelink,
-        name: onelink,
-        email,
-        password: hashedPassword,
-        remember_token,
-        role: userRole,
-        theme: null,
-      },
-    });
-
-    // Send verification email
     try {
-      await sendEmailVerification(email, remember_token);
-    } catch (error) {
-      console.error("Error sending verification email:", error);
-      // We continue even if email fails
-    }
+      const { onelink, email, password, recaptchaToken } = input;
 
-    return handleTokenGeneration(ctx, result, null, false);
+      // Verify reCAPTCHA token
+      const isRecaptchaValid = await verifyRecaptcha(recaptchaToken);
+      if (!isRecaptchaValid) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "reCAPTCHA verification failed",
+        });
+      }
+
+      // Check if onelink already exists
+      const existingOnelinkCount = await prisma.user.count({
+        where: { onelink },
+      });
+
+      if (existingOnelinkCount > 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "URL already taken",
+        });
+      }
+
+      // Check if email already exists
+      const existingUserCount = await prisma.user.count({
+        where: { email },
+      });
+
+      if (existingUserCount > 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Email already registered",
+        });
+      }
+
+      // Hash password and create remember token
+      const hashedPassword = await hashPassword(password);
+      const remember_token = crypto.randomBytes(32).toString("hex");
+
+      let userRole = "user";
+
+      if (env.isDevelopment) {
+        const totalUsersCount = await prisma.user.count();
+        const isFirstUser = totalUsersCount === 0;
+        userRole = isFirstUser ? "user,admin" : "user";
+      }
+
+      // Create user
+      const result = await prisma.user.create({
+        data: {
+          onelink,
+          name: onelink,
+          email,
+          password: hashedPassword,
+          remember_token,
+          role: userRole,
+          theme: null,
+        },
+      });
+
+      // Send verification email
+      try {
+        await sendEmailVerification(email, remember_token);
+      } catch (error) {
+        console.error("Error sending verification email:", error);
+        // We continue even if email fails
+      }
+
+      return handleTokenGeneration(ctx, result, null, false);
+    } catch (error) {
+      if (error instanceof TRPCError) {
+        // Re-throw TRPC errors as-is
+        throw error;
+      }
+      return handlePrismaError(error, "register");
+    }
   }),
 
   // Login user
   login: publicProcedure.input(loginSchema).mutation(async ({ input, ctx }) => {
-    const { email, password, recaptchaToken } = input;
-
-    // Verify reCAPTCHA token
-    const isRecaptchaValid = await verifyRecaptcha(recaptchaToken);
-    if (!isRecaptchaValid) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "reCAPTCHA verification failed",
-      });
-    }
-
-    // Find user
-    const user = await prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (!user) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "Invalid credentials",
-      });
-    }
-
-    // Verify password
-    const isValidPassword = await comparePasswords(password, user.password);
-
-    if (!isValidPassword) {
-      throw new TRPCError({
-        code: "UNAUTHORIZED",
-        message: "Invalid credentials",
-      });
-    }
-
-    // const emailVerified = user.email_verified_at !== null;
-
-    // Resolve user image URL (same as "me")
-    const imageUrl = await getFileUrl({
-      legacyImageField: user.image,
-      imageFileId: user.image_file_id,
-    });
-
-    return handleTokenGeneration(
-      ctx,
-      user,
-      imageUrl,
-      false // Placeholder - we'll need to determine this differently since pools are now related to wallet
-    );
-  }),
-
-  logout: privateProcedure.mutation(async ({ ctx }) => {
-    const refreshToken = ctx.req.cookies["refresh-token"];
-
-    if (!refreshToken) {
-      throw new TRPCError({
-        code: "UNAUTHORIZED",
-        message: "No refresh token provided",
-      });
-    }
-
-    const hashedRefreshToken = hashRefreshToken(refreshToken);
-
-    // Delete the refresh token
-    await prisma.refreshToken.deleteMany({
-      where: { token: hashedRefreshToken },
-    });
-
-    // Clear the cookie
-    setRefreshTokenCookie(ctx, "");
-
-    return { success: true, message: "Logged out successfully" };
-  }),
-
-  // Password reset request
-  passwordResetRequest: publicProcedure
-    .input(passwordResetRequestSchema)
-    .mutation(async ({ input }) => {
-      const { email, recaptchaToken } = input;
+    try {
+      const { email, password, recaptchaToken } = input;
 
       // Verify reCAPTCHA token
       const isRecaptchaValid = await verifyRecaptcha(recaptchaToken);
@@ -272,164 +223,287 @@ export const authRouter = router({
       if (!user) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "User not found",
+          message: "Invalid credentials",
         });
       }
 
-      // Generate reset token
-      const remember_token = crypto.randomBytes(32).toString("hex");
+      // Verify password
+      const isValidPassword = await comparePasswords(password, user.password);
 
-      // Update user with token
-      const updatedUser = await prisma.user.update({
-        where: { id: user.id },
-        data: { remember_token },
+      if (!isValidPassword) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Invalid credentials",
+        });
+      }
+
+      // const emailVerified = user.email_verified_at !== null;
+
+      // Resolve user image URL (same as "me")
+      const imageUrl = await getFileUrl({
+        legacyImageField: user.image,
+        imageFileId: user.image_file_id,
       });
 
-      if (!updatedUser.remember_token) {
+      return handleTokenGeneration(
+        ctx,
+        user,
+        imageUrl,
+        false // Placeholder - we'll need to determine this differently since pools are now related to wallet
+      );
+    } catch (error) {
+      if (error instanceof TRPCError) {
+        // Re-throw TRPC errors as-is
+        throw error;
+      }
+      return handlePrismaError(error, "login");
+    }
+  }),
+
+  logout: privateProcedure.mutation(async ({ ctx }) => {
+    try {
+      const refreshToken = ctx.req.cookies["refresh-token"];
+
+      if (!refreshToken) {
         throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to generate token",
+          code: "UNAUTHORIZED",
+          message: "No refresh token provided",
         });
       }
 
-      // Send reset email
+      const hashedRefreshToken = hashRefreshToken(refreshToken);
+
+      // Delete the refresh token
+      await prisma.refreshToken.deleteMany({
+        where: { token: hashedRefreshToken },
+      });
+
+      // Clear the cookie
+      setRefreshTokenCookie(ctx, "");
+
+      return { success: true, message: "Logged out successfully" };
+    } catch (error) {
+      if (error instanceof TRPCError) {
+        // Re-throw TRPC errors as-is
+        throw error;
+      }
+      return handlePrismaError(error, "logout");
+    }
+  }),
+
+  // Password reset request
+  passwordResetRequest: publicProcedure
+    .input(passwordResetRequestSchema)
+    .mutation(async ({ input }) => {
       try {
-        await sendPasswordResetEmail(updatedUser.email, updatedUser.remember_token);
+        const { email, recaptchaToken } = input;
+
+        // Verify reCAPTCHA token
+        const isRecaptchaValid = await verifyRecaptcha(recaptchaToken);
+        if (!isRecaptchaValid) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "reCAPTCHA verification failed",
+          });
+        }
+
+        // Find user
+        const user = await prisma.user.findUnique({
+          where: { email },
+        });
+
+        if (!user) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "User not found",
+          });
+        }
+
+        // Generate reset token
+        const remember_token = crypto.randomBytes(32).toString("hex");
+
+        // Update user with token
+        const updatedUser = await prisma.user.update({
+          where: { id: user.id },
+          data: { remember_token },
+        });
+
+        if (!updatedUser.remember_token) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to generate token",
+          });
+        }
+
+        // Send reset email
+        try {
+          await sendPasswordResetEmail(updatedUser.email, updatedUser.remember_token);
+        } catch (error) {
+          console.error("Error sending password reset email:", error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Error sending password reset email",
+          });
+        }
+
+        return {
+          success: true,
+          message: "Password reset email sent",
+          email,
+        };
       } catch (error) {
-        console.error("Error sending password reset email:", error);
+        if (error instanceof TRPCError) {
+          // Re-throw TRPC errors as-is
+          throw error;
+        }
+        return handlePrismaError(error, "passwordResetRequest");
+      }
+    }),
+
+  me: privateProcedure.query(async ({ ctx }) => {
+    try {
+      const userId = ctx.user.sub;
+
+      // Find user
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
         throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Error sending password reset email",
+          code: "BAD_REQUEST",
+          message: "Invalid credentials",
+        });
+      }
+
+      // Resolve user image URL
+      const imageUrl = await getFileUrl({
+        legacyImageField: user.image,
+        imageFileId: user.image_file_id,
+      });
+
+      return {
+        user: {
+          id: user.id,
+          email: user.email,
+          onelink: user.onelink,
+          // emailVerified: user.email_verified_at !== null,
+          role: user.role,
+          image: imageUrl,
+          hasPool: false, // Placeholder - we'll need to determine this differently since pools are now related to wallet
+        },
+      };
+    } catch (error) {
+      if (error instanceof TRPCError) {
+        // Re-throw TRPC errors as-is
+        throw error;
+      }
+      return handlePrismaError(error, "me");
+    }
+  }),
+
+  refreshToken: publicProcedure.mutation(async ({ ctx }) => {
+    try {
+      // delete all expired tokens
+      await prisma.refreshToken.deleteMany({
+        where: {
+          expiresAt: {
+            lt: new Date(),
+          },
+        },
+      });
+
+      const refreshToken = ctx.req.cookies["refresh-token"];
+
+      if (!refreshToken) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "No refresh token provided",
+        });
+      }
+
+      const hashedRefreshToken = hashRefreshToken(refreshToken);
+
+      // Find existing refresh token
+      const existingToken = await prisma.refreshToken.findFirst({
+        where: { token: hashedRefreshToken },
+        select: {
+          user: true,
+        },
+      });
+
+      if (!existingToken || !existingToken.user) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Invalid refresh token",
         });
       }
 
       return {
-        success: true,
-        message: "Password reset email sent",
-        email,
+        accessToken: generateAccessToken({
+          id: existingToken.user.id,
+          email: existingToken.user.email,
+          role: existingToken.user.role,
+        }),
       };
-    }),
-
-  me: privateProcedure.query(async ({ ctx }) => {
-    const userId = ctx.user.sub;
-
-    // Find user
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "Invalid credentials",
-      });
+    } catch (error) {
+      if (error instanceof TRPCError) {
+        // Re-throw TRPC errors as-is
+        throw error;
+      }
+      return handlePrismaError(error, "refreshToken");
     }
-
-    // Resolve user image URL
-    const imageUrl = await getFileUrl({
-      legacyImageField: user.image,
-      imageFileId: user.image_file_id,
-    });
-
-    return {
-      user: {
-        id: user.id,
-        email: user.email,
-        onelink: user.onelink,
-        // emailVerified: user.email_verified_at !== null,
-        role: user.role,
-        image: imageUrl,
-        hasPool: false, // Placeholder - we'll need to determine this differently since pools are now related to wallet
-      },
-    };
-  }),
-
-  refreshToken: publicProcedure.mutation(async ({ ctx }) => {
-    // delete all expired tokens
-    await prisma.refreshToken.deleteMany({
-      where: {
-        expiresAt: {
-          lt: new Date(),
-        },
-      },
-    });
-
-    const refreshToken = ctx.req.cookies["refresh-token"];
-
-    if (!refreshToken) {
-      throw new TRPCError({
-        code: "UNAUTHORIZED",
-        message: "No refresh token provided",
-      });
-    }
-
-    const hashedRefreshToken = hashRefreshToken(refreshToken);
-
-    // Find existing refresh token
-    const existingToken = await prisma.refreshToken.findFirst({
-      where: { token: hashedRefreshToken },
-      select: {
-        user: true,
-      },
-    });
-
-    if (!existingToken || !existingToken.user) {
-      throw new TRPCError({
-        code: "UNAUTHORIZED",
-        message: "Invalid refresh token",
-      });
-    }
-
-    return {
-      accessToken: generateAccessToken({
-        id: existingToken.user.id,
-        email: existingToken.user.email,
-        role: existingToken.user.role,
-      }),
-    };
   }),
 
   // Process password reset
   processPasswordReset: publicProcedure
     .input(processPasswordResetSchema)
     .mutation(async ({ input }) => {
-      const { token: requestToken, newPassword } = input;
+      try {
+        const { token: requestToken, newPassword } = input;
 
-      // Find user with token
-      const user = await prisma.user.findFirst({
-        where: { remember_token: requestToken },
-      });
-
-      if (!user) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Invalid reset token",
+        // Find user with token
+        const user = await prisma.user.findFirst({
+          where: { remember_token: requestToken },
         });
-      }
 
-      // Hash new password
-      const hashedPassword = await hashPassword(newPassword);
-      const isSamePassword = await comparePasswords(newPassword, user.password);
+        if (!user) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid reset token",
+          });
+        }
 
-      if (isSamePassword) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "New password must be different than old password",
+        // Hash new password
+        const hashedPassword = await hashPassword(newPassword);
+        const isSamePassword = await comparePasswords(newPassword, user.password);
+
+        if (isSamePassword) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "New password must be different than old password",
+          });
+        }
+
+        // Update user with new password
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            password: hashedPassword,
+            remember_token: null,
+          },
         });
+
+        return {
+          message: "Password has been reset successfully",
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          // Re-throw TRPC errors as-is
+          throw error;
+        }
+        return handlePrismaError(error, "processPasswordReset");
       }
-
-      // Update user with new password
-      await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          password: hashedPassword,
-          remember_token: null,
-        },
-      });
-
-      return {
-        message: "Password has been reset successfully",
-      };
     }),
 
   // Verify email
@@ -441,37 +515,45 @@ export const authRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const { token, email } = input;
+      try {
+        const { token, email } = input;
 
-      // Find user with token and email
-      const user = await prisma.user.findFirst({
-        where: {
-          remember_token: token,
-          email,
-        },
-      });
-
-      if (!user) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "(Token, Email) not found",
+        // Find user with token and email
+        const user = await prisma.user.findFirst({
+          where: {
+            remember_token: token,
+            email,
+          },
         });
+
+        if (!user) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "(Token, Email) not found",
+          });
+        }
+
+        // Update user as verified
+        const result = await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            email_verified_at: new Date(),
+            remember_token: null,
+          },
+        });
+
+        return {
+          message: "Email verified successfully",
+          onelink: result.onelink,
+          email,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          // Re-throw TRPC errors as-is
+          throw error;
+        }
+        return handlePrismaError(error, "verifyEmail");
       }
-
-      // Update user as verified
-      const result = await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          email_verified_at: new Date(),
-          remember_token: null,
-        },
-      });
-
-      return {
-        message: "Email verified successfully",
-        onelink: result.onelink,
-        email,
-      };
     }),
 
   // Send email verification
@@ -482,68 +564,84 @@ export const authRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const { email } = input;
-
-      // Find user
-      const user = await prisma.user.findUnique({
-        where: { email },
-      });
-
-      if (!user) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "User not found",
-        });
-      }
-
-      // Generate new verification token
-      const remember_token = crypto.randomBytes(32).toString("hex");
-
-      // Update user with new token
-      const updatedUser = await prisma.user.update({
-        where: { id: user.id },
-        data: { remember_token },
-      });
-
-      if (!updatedUser.remember_token) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to generate verification token",
-        });
-      }
-
-      // Send verification email
       try {
-        await sendEmailVerification(updatedUser.email, updatedUser.remember_token);
-      } catch (error) {
-        console.error("Error sending verification email:", error);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to send verification email",
-        });
-      }
+        const { email } = input;
 
-      return {
-        success: true,
-        message: "Verification email sent successfully",
-      };
+        // Find user
+        const user = await prisma.user.findUnique({
+          where: { email },
+        });
+
+        if (!user) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "User not found",
+          });
+        }
+
+        // Generate new verification token
+        const remember_token = crypto.randomBytes(32).toString("hex");
+
+        // Update user with new token
+        const updatedUser = await prisma.user.update({
+          where: { id: user.id },
+          data: { remember_token },
+        });
+
+        if (!updatedUser.remember_token) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to generate verification token",
+          });
+        }
+
+        // Send verification email
+        try {
+          await sendEmailVerification(updatedUser.email, updatedUser.remember_token);
+        } catch (error) {
+          console.error("Error sending verification email:", error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to send verification email",
+          });
+        }
+
+        return {
+          success: true,
+          message: "Verification email sent successfully",
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          // Re-throw TRPC errors as-is
+          throw error;
+        }
+        return handlePrismaError(error, "sendVerifyEmail");
+      }
     }),
 
   getWalletToken: privateProcedure.query(async ({ ctx }) => {
-    return {
-      walletToken: generateAccessToken({
-        id: ctx.user.sub,
-        email: ctx.user.email,
-        role: ctx.user.role,
-      }),
-    };
+    try {
+      return {
+        walletToken: generateAccessToken({
+          id: ctx.user.sub,
+          email: ctx.user.email,
+          role: ctx.user.role,
+        }),
+      };
+    } catch (error) {
+      if (error instanceof TRPCError) {
+        // Re-throw TRPC errors as-is
+        throw error;
+      }
+      return handlePrismaError(error, "getWalletToken");
+    }
   }),
 
   // Google OAuth authentication
   googleAuth: publicProcedure.input(googleAuthSchema).mutation(async ({ input, ctx }) => {
-    const { token } = input;
-
     try {
+      const { token } = input;
+
       // Verify Google token and get user info
       const googleUser = await verifyGoogleToken(token);
 
@@ -618,11 +716,11 @@ export const authRouter = router({
         false // Placeholder - we'll need to determine this differently since pools are now related to wallet
       );
     } catch (error) {
-      console.error("Google authentication error:", error);
-      throw new TRPCError({
-        code: "UNAUTHORIZED",
-        message: error instanceof Error ? error.message : "Google authentication failed",
-      });
+      if (error instanceof TRPCError) {
+        // Re-throw TRPC errors as-is
+        throw error;
+      }
+      return handlePrismaError(error, "googleAuth");
     }
   }),
 });
