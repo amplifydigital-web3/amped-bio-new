@@ -26,6 +26,7 @@ export interface RewardPool {
   // Placeholder fields for client-side derivation or future server implementation
   title: string;
   totalReward: number;
+  stakedAmount: number;
   participants: number;
   maxParticipants: number;
   category: "staking" | "social" | "trading" | "community";
@@ -167,6 +168,7 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
         name: pool.name, // Add this line
         title: pool.title || "Untitled Pool", // Placeholder
         totalReward: pool.totalReward || 0, // Placeholder
+        stakedAmount: pool.stakedAmount || 0, // Add stakedAmount
         participants: pool.participants || 0, // Placeholder
         maxParticipants: pool.maxParticipants || 0, // Placeholder
         category: (pool.category || "staking") as "staking" | "social" | "trading" | "community", // Placeholder
@@ -314,7 +316,7 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-500">Total Stake</span>
                     <span className="font-semibold text-gray-900">
-                      {(pool.totalReward ?? 0).toLocaleString()}{" "}
+                      {(pool.stakedAmount ?? 0).toLocaleString()}{" "}
                       {getChainConfig(parseInt(pool.chainId))?.nativeCurrency.symbol || "REVO"}
                     </span>
                   </div>
