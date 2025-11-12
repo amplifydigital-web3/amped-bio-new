@@ -78,12 +78,10 @@ export function useStaking(pool: RewardPool | null) {
       const newStake = (parseFloat(fanStake) + parseFloat(amount)).toString();
       setFanStake(newStake);
 
-      if (pool?.chainId) {
-        await confirmStakeMutation.mutateAsync({
-          chainId: pool.chainId,
-          hash: hash,
-        });
-      }
+      await confirmStakeMutation.mutateAsync({
+        chainId: pool.chainId,
+        hash: hash,
+      });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
       setStakeActionError(errorMessage);
@@ -124,12 +122,10 @@ export function useStaking(pool: RewardPool | null) {
       const newStake = Math.max(0, parseFloat(fanStake) - parseFloat(amount)).toString();
       setFanStake(newStake);
 
-      if (pool?.chainId) {
-        await confirmUnstakeMutation.mutateAsync({
-          chainId: pool.chainId,
-          hash: hash,
-        });
-      }
+      await confirmUnstakeMutation.mutateAsync({
+        chainId: pool.chainId,
+        hash: hash,
+      });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
       setStakeActionError(errorMessage);
