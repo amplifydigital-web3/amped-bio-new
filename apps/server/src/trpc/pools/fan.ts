@@ -6,6 +6,11 @@ import { Address, createPublicClient, http, decodeEventLog, formatEther } from "
 import { getChainConfig, L2_BASE_TOKEN_ABI, CREATOR_POOL_ABI, getPoolName } from "@ampedbio/web3";
 import { s3Service } from "../../services/S3Service";
 
+type BigIntSerialized = {
+  $type: "BigInt";
+  value: string;
+};
+
 export const poolsFanRouter = router({
   getPools: publicProcedure
     .input(
@@ -310,7 +315,15 @@ export const poolsFanRouter = router({
           }
 
           // Ensure amounts are properly handled for Prisma
-          const amountToStore = stake.amount;
+          let amountToStore: bigint | BigIntSerialized = stake.amount;
+          if (
+            typeof amountToStore === "object" &&
+            amountToStore !== null &&
+            "$type" in amountToStore &&
+            (amountToStore as BigIntSerialized).$type === "BigInt"
+          ) {
+            amountToStore = BigInt((amountToStore as BigIntSerialized).value);
+          }
 
           await prisma.stakedPool.upsert({
             where: {
@@ -479,7 +492,15 @@ export const poolsFanRouter = router({
           }
 
           // Ensure amounts are properly handled for Prisma
-          const amountToStore = unstake.amount;
+          let amountToStore: bigint | BigIntSerialized = unstake.amount;
+          if (
+            typeof amountToStore === "object" &&
+            amountToStore !== null &&
+            "$type" in amountToStore &&
+            (amountToStore as BigIntSerialized).$type === "BigInt"
+          ) {
+            amountToStore = BigInt((amountToStore as BigIntSerialized).value);
+          }
 
           await prisma.stakedPool.upsert({
             where: {

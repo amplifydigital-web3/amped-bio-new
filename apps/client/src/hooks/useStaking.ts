@@ -10,12 +10,22 @@ import { RewardPool } from "../components/panels/explore/ExplorePanel";
 export function useStaking(pool: RewardPool | null) {
   const { address: userAddress } = useAccount();
   const publicClient = usePublicClient();
-  const { getFanStake, pendingReward, isReadingPendingReward, claimReward } = usePoolReader(
+  const {
+    fanStake: rawFanStake,
+    isReadingFanStake,
+    refetchFanStake,
+    pendingReward,
+    isReadingPendingReward,
+    refetchPendingReward,
+    claimReward
+  } = usePoolReader(
     pool?.poolAddress as `0x${string}` | undefined,
     userAddress as `0x${string}` | undefined
   );
 
-  const [fanStake, setFanStake] = useState("0");
+  // Format the raw fan stake (bigint) to a string for display
+  const fanStake = rawFanStake ? formatEther(rawFanStake) : "0";
+
   const [isStaking, setIsStaking] = useState(false);
   const [stakeActionError, setStakeActionError] = useState<string | null>(null);
 
@@ -33,18 +43,6 @@ export function useStaking(pool: RewardPool | null) {
     if (!chain) return undefined;
     return chain.contracts.L2_BASE_TOKEN?.address;
   };
-
-  useEffect(() => {
-    if (pool?.poolAddress && userAddress && publicClient) {
-      const fetchStake = async () => {
-        const stake = await getFanStake(publicClient, userAddress);
-        if (stake !== null) {
-          setFanStake(formatEther(stake));
-        }
-      };
-      fetchStake();
-    }
-  }, [pool?.poolAddress, userAddress, getFanStake, publicClient]);
 
   const stake = async (amount: string) => {
     if (!publicClient) {
@@ -74,9 +72,6 @@ export function useStaking(pool: RewardPool | null) {
       });
 
       await publicClient.waitForTransactionReceipt({ hash });
-
-      const newStake = (parseFloat(fanStake) + parseFloat(amount)).toString();
-      setFanStake(newStake);
 
       await confirmStakeMutation.mutateAsync({
         chainId: pool.chainId,
@@ -119,9 +114,6 @@ export function useStaking(pool: RewardPool | null) {
 
       await publicClient.waitForTransactionReceipt({ hash });
 
-      const newStake = Math.max(0, parseFloat(fanStake) - parseFloat(amount)).toString();
-      setFanStake(newStake);
-
       await confirmUnstakeMutation.mutateAsync({
         chainId: pool.chainId,
         hash: hash,
@@ -145,5 +137,8 @@ export function useStaking(pool: RewardPool | null) {
     pendingReward,
     isReadingPendingReward,
     claimReward,
+    isReadingFanStake,
+    refetchFanStake,
+    refetchPendingReward,
   };
 }

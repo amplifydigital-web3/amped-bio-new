@@ -45,6 +45,8 @@ export default function ExplorePoolDetailsModal({
     pendingReward,
     isReadingPendingReward,
     claimReward,
+    refetchFanStake,
+    refetchPendingReward,
   } = useStaking(pool);
 
   const [isStakingModalOpen, setIsStakingModalOpen] = useState(false);
@@ -116,7 +118,9 @@ export default function ExplorePoolDetailsModal({
     setIsClaiming(true);
     try {
       await claimReward();
-      // Optionally, show a success message or refetch data
+      // Manually refetch the fan stake and pending reward after successful claim
+      await refetchFanStake();
+      await refetchPendingReward();
       console.log("Rewards claimed successfully!");
     } catch (error) {
       console.error("Failed to claim rewards:", error);
