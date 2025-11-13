@@ -13,7 +13,6 @@ interface Pool {
   totalStaked: number;
   tokenPrice: number;
   participants: number;
-  maxParticipants: number;
   apr: number;
   topStaker: {
     name: string;
@@ -34,7 +33,6 @@ const mockPools: Pool[] = [
     totalStaked: 2500000,
     tokenPrice: 2.34,
     participants: 850,
-    maxParticipants: 1000,
     apr: 12.5,
     topStaker: {
       name: "crypto_whale.eth",
@@ -53,7 +51,6 @@ const mockPools: Pool[] = [
     totalStaked: 1800000,
     tokenPrice: 1.85,
     participants: 620,
-    maxParticipants: 800,
     apr: 8.5,
     topStaker: {
       name: "nft_collector.eth",
@@ -72,7 +69,6 @@ const mockPools: Pool[] = [
     totalStaked: 3200000,
     tokenPrice: 3.12,
     participants: 920,
-    maxParticipants: 1000,
     apr: 15.2,
     topStaker: {
       name: "defi_master.eth",
@@ -189,10 +185,10 @@ export function LeaderboardPanel() {
                   <div>
                     <p className="text-sm text-gray-500">Participants</p>
                     <p className="font-medium">
-                      {pool.participants} / {pool.maxParticipants}
+                      {pool.participants}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {((pool.participants / pool.maxParticipants) * 100).toFixed(1)}% filled
+                      Active supporters
                     </p>
                   </div>
                 </div>

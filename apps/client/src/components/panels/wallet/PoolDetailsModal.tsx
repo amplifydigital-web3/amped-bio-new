@@ -20,9 +20,7 @@ interface PoolDetailsModalProps {
     stakedAmount: number;
     chainId: string;
     totalReward: number;
-    category: "staking" | "social" | "trading" | "community";
     earnedRewards: number;
-    estimatedRewards: number;
     participants: number;
     imageUrl?: string | null;
   } | null;
@@ -89,36 +87,6 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
 
   if (!pool) return null;
 
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case "staking":
-        return "bg-blue-500 text-white";
-      case "social":
-        return "bg-green-500 text-white";
-      case "trading":
-        return "bg-purple-500 text-white";
-      case "community":
-        return "bg-orange-500 text-white";
-      default:
-        return "bg-gray-500 text-white";
-    }
-  };
-
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case "staking":
-        return <Coins className="w-3 h-3" />;
-      case "social":
-        return <Users className="w-3 h-3" />;
-      case "trading":
-        return <TrendingUp className="w-3 h-3" />;
-      case "community":
-        return <Trophy className="w-3 h-3" />;
-      default:
-        return <Trophy className="w-3 h-3" />;
-    }
-  };
-
   const handleAddStake = () => {
     console.log("Add stake to pool:", pool.id);
     // Implementation for adding more stake
@@ -171,11 +139,9 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
 
                 {/* Corner Badges */}
                 <div className="absolute top-4 left-4 flex flex-col space-y-2">
-                  <span
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center space-x-1.5 shadow-sm ${getCategoryColor(pool.category)}`}
-                  >
-                    {getCategoryIcon(pool.category)}
-                    <span className="capitalize">{pool.category} Pool</span>
+                  <span className="px-3 py-1.5 rounded-full text-xs font-semibold flex items-center space-x-1.5 shadow-sm bg-blue-500 text-white">
+                    <Coins className="w-3 h-3" />
+                    <span className="capitalize">Staking Pool</span>
                   </span>
                 </div>
               </div>

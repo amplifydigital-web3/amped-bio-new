@@ -381,7 +381,6 @@ export default function DashboardPage() {
       chainId: poolData.chainId,
       category: "staking" as const,
       earnedRewards: 0,
-      estimatedRewards: 0,
       participants: dashboardData.totalFans, // Using totalFans from dashboardData
       totalReward: Number(poolData.revoStaked) || 0, // Using revoStaked from the database model (in wei)
     };

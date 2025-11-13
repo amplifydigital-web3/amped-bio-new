@@ -28,11 +28,8 @@ export interface RewardPool {
   totalReward: number;
   stakedAmount: number;
   participants: number;
-  maxParticipants: number;
-  category: "staking" | "social" | "trading" | "community";
   createdBy: string;
   earnedRewards: number;
-  estimatedRewards: number;
   creatorAddress?: string | null;
 }
 
@@ -170,11 +167,8 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
         totalReward: pool.totalReward || 0, // Placeholder
         stakedAmount: pool.stakedAmount || 0, // Add stakedAmount
         participants: pool.participants || 0, // Placeholder
-        maxParticipants: pool.maxParticipants || 0, // Placeholder
-        category: (pool.category || "staking") as "staking" | "social" | "trading" | "community", // Placeholder
         createdBy: pool.createdBy || "Unknown", // Placeholder
         earnedRewards: 0,
-        estimatedRewards: 0,
         creatorAddress: pool.creatorAddress, // Add creatorAddress
       };
 

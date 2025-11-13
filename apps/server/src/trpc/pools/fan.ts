@@ -74,12 +74,9 @@ export const poolsFanRouter = router({
               name: poolName,
               totalReward: totalStakeInEther,
               participants: activeStakers,
-              maxParticipants: 100,
-              category: "staking",
               createdBy: "Unknown",
               stakedAmount: totalStakeInEther,
               earnedRewards: 0,
-              estimatedRewards: 0,
               creatorAddress: pool.wallet?.address || null,
             };
           })
