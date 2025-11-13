@@ -4,7 +4,7 @@ import { CoinsIcon, Users, TrendingUp, Crown } from "lucide-react";
 
 interface Pool {
   id: string;
-  name: string;
+  title: string;
   creator: {
     name: string;
     avatar: string;
@@ -24,7 +24,7 @@ interface Pool {
 const mockPools: Pool[] = [
   {
     id: "1",
-    name: "Web3 Development Pool",
+    title: "Web3 Development Pool",
     creator: {
       name: "Alex Thompson",
       avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop",
@@ -42,7 +42,7 @@ const mockPools: Pool[] = [
   },
   {
     id: "2",
-    name: "NFT Creators Pool",
+    title: "NFT Creators Pool",
     creator: {
       name: "Emma Digital",
       avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=64&h=64&fit=crop",
@@ -60,7 +60,7 @@ const mockPools: Pool[] = [
   },
   {
     id: "3",
-    name: "DeFi Innovators",
+    title: "DeFi Innovators",
     creator: {
       name: "Sam Blockchain",
       avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=64&h=64&fit=crop",
@@ -120,7 +120,7 @@ export function LeaderboardPanel() {
                     className="w-12 h-12 rounded-full"
                   />
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{pool.name}</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">{pool.title}</h3>
                     <div className="flex items-center space-x-2">
                       <span className="text-sm text-gray-500">by {pool.creator.name}</span>
                       {pool.creator.verified && (

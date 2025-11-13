@@ -564,7 +564,7 @@ export default function DashboardPage() {
               <div className="h-full rounded-xl overflow-hidden border border-gray-100 shadow-sm">
                 <img
                   src={userPool.image}
-                  alt={`${userPool.name} pool`}
+                  alt={`${userPool.title} pool`}
                   className="w-full h-full object-cover"
                 />
               </div>

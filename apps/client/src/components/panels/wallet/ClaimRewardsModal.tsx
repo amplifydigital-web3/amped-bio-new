@@ -10,35 +10,34 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { getChainConfig } from "@ampedbio/web3";
+import { useStaking } from "../../../hooks/useStaking";
+import { RewardPool } from "../explore/ExplorePanel";
+import { formatEther } from "viem";
 
 interface ClaimRewardsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  pool: {
-    id: string;
-    title: string;
-    earnedRewards: number;
-    chainId: string;
-    image?: string;
-  } | null;
+  pool: RewardPool | null;
 }
 
 export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimRewardsModalProps) {
-  // Get the chain configuration once to avoid multiple calls
-  const chainConfig = pool ? getChainConfig(parseInt(pool.chainId)) : null;
-  const currencySymbol = chainConfig?.nativeCurrency.symbol || "REVO";
-
+  const { claimReward, currencySymbol, pendingReward, isReadingPendingReward } = useStaking(pool);
+  
   const [step, setStep] = useState<"confirm" | "claiming" | "success">("confirm");
   const [animatingTokens, setAnimatingTokens] = useState<Array<{ id: number; delay: number }>>([]);
 
   const claimRewards = async () => {
-    // TODO: Replace this with actual API call to claim rewards for the pool
-    // Simulate API call delay and success
-    return new Promise<{ success: boolean }>(resolve => {
-      setTimeout(() => {
-        resolve({ success: true });
-      }, 1000);
-    });
+    if (!pool) {
+      return { success: false };
+    }
+    
+    try {
+      await claimReward();
+      return { success: true };
+    } catch (error) {
+      console.error("Error claiming rewards:", error);
+      return { success: false };
+    }
   };
 
   useEffect(() => {
@@ -66,7 +65,7 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
 
       // Show success toast
       toast.success(
-        `Successfully claimed ${pool.earnedRewards.toLocaleString()} ${currencySymbol}! Your wallet has been updated.`
+        `Successfully claimed ${pendingReward ? parseFloat(formatEther(pendingReward)).toLocaleString() : '0'} ${currencySymbol}! Your wallet has been updated.`
       );
 
       // Simulate API call delay
@@ -108,9 +107,9 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
         {/* Pool Info */}
         <div className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
           <div className="w-12 h-12 rounded-lg overflow-hidden border border-gray-200 bg-gray-100 flex-shrink-0">
-            {pool.image ? (
+            {pool.imageUrl ? (
               <img
-                src={pool.image}
+                src={pool.imageUrl}
                 alt={`${pool.title} pool`}
                 className="w-full h-full object-cover"
               />
@@ -132,7 +131,7 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
             <Coins className="w-8 h-8 text-green-600" />
           </div>
           <h3 className="text-2xl font-bold text-gray-900 mb-2">
-            {pool.earnedRewards.toLocaleString()} {currencySymbol}
+            {pendingReward ? parseFloat(formatEther(pendingReward)).toLocaleString() : '0'} {currencySymbol}
           </h3>
           <p className="text-gray-600">Available to claim</p>
         </div>
@@ -140,7 +139,7 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
         {/* Confirmation Message */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <p className="text-sm text-blue-800">
-            <strong>Confirm:</strong> You are about to claim {pool.earnedRewards.toLocaleString()}{" "}
+            <strong>Confirm:</strong> You are about to claim {pendingReward ? parseFloat(formatEther(pendingReward)).toLocaleString() : '0'}{" "}
             {currencySymbol}
             from the {pool.title} pool. This action cannot be undone.
           </p>
@@ -212,7 +211,7 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
           <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mb-6"></div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Processing Claim</h3>
           <p className="text-gray-600 text-center">
-            Transferring {pool.earnedRewards.toLocaleString()} {currencySymbol} to your wallet...
+            Transferring {pendingReward ? parseFloat(formatEther(pendingReward)).toLocaleString() : '0'} {currencySymbol} to your wallet...
           </p>
         </div>
 
@@ -274,7 +273,7 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
           <p className="text-gray-600 mb-4">
             You've successfully claimed{" "}
             <strong>
-              {pool.earnedRewards.toLocaleString()} {currencySymbol}
+              {pendingReward ? parseFloat(formatEther(pendingReward)).toLocaleString() : '0'} {currencySymbol}
             </strong>{" "}
             from {pool.title}
           </p>

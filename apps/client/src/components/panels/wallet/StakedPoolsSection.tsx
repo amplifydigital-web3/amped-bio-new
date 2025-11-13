@@ -8,6 +8,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useEditor } from "../../../contexts/EditorContext";
 import { RewardPool } from "../explore/ExplorePanel";
 import { formatUnits } from "viem";
+import { usePoolReader } from "../../../hooks/usePoolReader";
+import { useAccount } from "wagmi";
 
 export default function StakedPoolsSection() {
   const {
@@ -28,6 +30,16 @@ export default function StakedPoolsSection() {
   const selectedPool = allStakedPools?.find(p => p.poolId === selectedPoolId)?.pool || null;
   const selectedExplorePool = allStakedPools?.find(p => p.poolId === selectedPoolId) || null;
   const claimingPool = allStakedPools?.find(p => p.poolId === claimingPoolId) || null;
+
+  const { address: userAddress } = useAccount();
+  const { pendingReward: selectedPoolPendingReward } = usePoolReader(
+    selectedExplorePool?.pool.poolAddress as `0x${string}` | undefined,
+    userAddress
+  );
+  const { pendingReward: claimingPoolPendingReward } = usePoolReader(
+    claimingPool?.pool.poolAddress as `0x${string}` | undefined,
+    userAddress
+  );
 
   // Calculate pagination
   const totalPages = allStakedPools ? Math.ceil(allStakedPools.length / poolsPerPage) : 0;
@@ -294,15 +306,14 @@ export default function StakedPoolsSection() {
             poolAddress: selectedExplorePool.pool.poolAddress,
             image_file_id: selectedExplorePool.pool.image_file_id,
             imageUrl: selectedExplorePool.pool.imageUrl,
-            name: selectedExplorePool.pool.description || `Pool #${selectedExplorePool.pool.id}`,
             title: selectedExplorePool.pool.description || "Untitled Pool",
             totalReward: typeof selectedExplorePool.pool.revoStaked === 'number' 
               ? selectedExplorePool.pool.revoStaked 
-              : parseFloat(selectedExplorePool.pool.revoStaked) || 0,
+              : parseFloat(selectedExplorePool.pool.revoStaked as string) || 0,
             stakedAmount: parseFloat(formatUnits(BigInt(selectedExplorePool.stakeAmount), 18)),
             participants: selectedExplorePool.pool.fans || 0,
             createdBy: "", // Placeholder
-            earnedRewards: 0, // Placeholder - this would need to be calculated from the staking data
+            earnedRewards: selectedPoolPendingReward ? parseFloat(formatUnits(selectedPoolPendingReward, 18)) : 0, // Use actual pending rewards
             creatorAddress: null, // Placeholder
           }}
         />
@@ -315,11 +326,22 @@ export default function StakedPoolsSection() {
         pool={
           claimingPool
             ? {
-                id: claimingPool.poolId.toString(),
-                title: claimingPool.pool.description || "Untitled Pool",
-                earnedRewards: 0, // This will be fetched by the modal
+                id: claimingPool.pool.id,
+                description: claimingPool.pool.description,
                 chainId: claimingPool.pool.chainId,
-                image: claimingPool.pool.imageUrl || undefined,
+                userId: claimingPool.pool.walletId,
+                poolAddress: claimingPool.pool.poolAddress,
+                image_file_id: claimingPool.pool.image_file_id,
+                imageUrl: claimingPool.pool.imageUrl,
+                title: claimingPool.pool.description || "Untitled Pool",
+                totalReward: typeof claimingPool.pool.revoStaked === 'number'
+                  ? claimingPool.pool.revoStaked
+                  : parseFloat(claimingPool.pool.revoStaked as string) || 0,
+                stakedAmount: parseFloat(formatUnits(BigInt(claimingPool.stakeAmount), 18)),
+                participants: claimingPool.pool.fans || 0,
+                createdBy: "", // Placeholder
+                earnedRewards: claimingPoolPendingReward ? parseFloat(formatUnits(claimingPoolPendingReward, 18)) : 0, // Use actual pending rewards for display
+                creatorAddress: null, // Placeholder - not available in pool data
               }
             : null
         }

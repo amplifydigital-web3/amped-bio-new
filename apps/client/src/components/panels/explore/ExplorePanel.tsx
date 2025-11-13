@@ -22,7 +22,7 @@ export interface RewardPool {
   poolAddress: string | null;
   image_file_id: number | null;
   imageUrl?: string | null;
-  name: string; // Add this line
+
   // Placeholder fields for client-side derivation or future server implementation
   title: string;
   totalReward: number;
@@ -162,7 +162,6 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
         poolAddress: pool.poolAddress,
         image_file_id: pool.image_file_id,
         imageUrl: pool.imageUrl,
-        name: pool.name, // Add this line
         title: pool.title || "Untitled Pool", // Placeholder
         totalReward: pool.totalReward || 0, // Placeholder
         stakedAmount: pool.stakedAmount || 0, // Add stakedAmount
@@ -406,7 +405,7 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
 
               <div className="p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  {pool.name ?? "Untitled Pool"}
+                  {pool.title}
                 </h3>
                 <p className="text-gray-600 text-sm mb-4 line-clamp-2">
                   {pool.description ?? "No description available."}
