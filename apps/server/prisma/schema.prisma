@@ -181,7 +181,7 @@ model CreatorPool {
   image_file_id Int?
   description   String?       @db.LongText
   fans          Int           @default(0)
-  revoStaked    BigInt        @default(0)
+  revoStaked    String @db.Text @default("0")
   poolAddress   String?       @unique
   wallet        UserWallet    @relation(fields: [walletId], references: [id], onDelete: Cascade)
   poolImage     UploadedFile? @relation("CreatorPoolImage", fields: [image_file_id], references: [id], onDelete: SetNull)
@@ -211,7 +211,7 @@ model StakedPool {
   id          Int           @id @default(autoincrement())
   userWalletId Int
   poolId      Int
-  stakeAmount BigInt          @default(0) // Using BigInt to handle potentially large stake amounts
+  stakeAmount String @db.Text @default("0") // Using Text to handle potentially very large stake amounts
   createdAt   DateTime      @default(now())
   updatedAt   DateTime?     @updatedAt
 
@@ -226,7 +226,7 @@ model StakeEvent {
   id                Int        @id @default(autoincrement())
   userWalletId      Int
   poolId            Int
-  amount            BigInt // The amount of tokens staked or unstaked (positive for stake, negative for unstake)
+  amount            String @db.Text // The amount of tokens staked or unstaked (positive for stake, negative for unstake)
   eventType         String // "stake" or "unstake"
   transactionHash   String // Transaction hash for verification
   createdAt         DateTime   @default(now())

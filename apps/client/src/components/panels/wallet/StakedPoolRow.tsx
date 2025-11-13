@@ -21,7 +21,7 @@ interface StakedPoolRowProps {
       image_file_id: number | null;
       description: string | null;
       fans: number;
-      revoStaked: number;
+      revoStaked: string;
       poolAddress: string | null;
       imageUrl: string | null;
     };
