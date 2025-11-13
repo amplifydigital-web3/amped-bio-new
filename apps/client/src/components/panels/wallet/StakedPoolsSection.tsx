@@ -306,7 +306,7 @@ export default function StakedPoolsSection() {
             poolAddress: selectedExplorePool.pool.poolAddress,
             image_file_id: selectedExplorePool.pool.image_file_id,
             imageUrl: selectedExplorePool.pool.imageUrl,
-            title: selectedExplorePool.pool.description || "Untitled Pool",
+            title: selectedExplorePool.pool.title || "Untitled Pool",
             totalReward: typeof selectedExplorePool.pool.revoStaked === 'number' 
               ? selectedExplorePool.pool.revoStaked 
               : parseFloat(selectedExplorePool.pool.revoStaked as string) || 0,
@@ -333,7 +333,7 @@ export default function StakedPoolsSection() {
                 poolAddress: claimingPool.pool.poolAddress,
                 image_file_id: claimingPool.pool.image_file_id,
                 imageUrl: claimingPool.pool.imageUrl,
-                title: claimingPool.pool.description || "Untitled Pool",
+                title: claimingPool.pool.title || "Untitled Pool",
                 totalReward: typeof claimingPool.pool.revoStaked === 'number'
                   ? claimingPool.pool.revoStaked
                   : parseFloat(claimingPool.pool.revoStaked as string) || 0,

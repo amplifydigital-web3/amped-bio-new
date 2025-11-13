@@ -70,7 +70,7 @@ export const poolsFanRouter = router({
             return {
               ...pool,
               imageUrl: pool.poolImage ? s3Service.getFileUrl(pool.poolImage.s3_key) : null,
-              title: pool.description || `Pool ${pool.id}`,
+              title: poolName || `Pool ${pool.id}`,
               name: poolName,
               totalReward: totalStakeInEther,
               participants: activeStakers,
@@ -185,17 +185,21 @@ export const poolsFanRouter = router({
         },
       });
 
-      return userStakes.map(stake => {
-        const { pool } = stake;
-        return {
-          ...stake,
-          stakeAmount: stake.stakeAmount.toString(),
-          pool: {
-            ...pool,
-            imageUrl: pool.poolImage ? s3Service.getFileUrl(pool.poolImage.s3_key) : null,
-          },
-        };
-      });
+      return Promise.all(
+        userStakes.map(async stake => {
+          const { pool } = stake;
+          const poolName = await getPoolName(pool.poolAddress as Address, parseInt(pool.chainId));
+          return {
+            ...stake,
+            stakeAmount: stake.stakeAmount.toString(),
+            pool: {
+              ...pool,
+              title: poolName,
+              imageUrl: pool.poolImage ? s3Service.getFileUrl(pool.poolImage.s3_key) : null,
+            },
+          };
+        })
+      );
     } catch (error) {
       console.error("Error getting user stakes:", error);
       if (error instanceof TRPCError) throw error;
