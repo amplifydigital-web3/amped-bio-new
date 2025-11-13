@@ -445,61 +445,16 @@ export default function StakingModal({
         </h2>
       </div>
 
-      <div className="p-6 relative overflow-hidden" style={{ minHeight: "400px" }}>
-        {/* Wallet Icon - Source */}
-        <div className="absolute top-8 left-1/4 transform -translate-x-1/2">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-100 to-emerald-100 flex items-center justify-center border-4 border-white shadow-lg">
-            <Coins className="w-8 h-8 text-green-600" />
-          </div>
-        </div>
-
-        {/* Pool Icon - Destination */}
-        <div className="absolute bottom-8 right-1/4 transform translate-x-1/2">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center border-4 border-white shadow-lg">
-            <Shield className="w-8 h-8 text-blue-600" />
-          </div>
-        </div>
-
-        {/* Animated Tokens */}
-        {animatingTokens.map(token => (
-          <div
-            key={token.id}
-            className="absolute w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-lg animate-token-stake"
-            style={{
-              animationDelay: `${token.delay}ms`,
-            }}
-          >
-            🚀
-          </div>
-        ))}
-
-        {/* Center Content */}
-        <div className="flex flex-col items-center justify-center h-full pt-16 pb-16">
-          <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mb-6"></div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            {mode === "reduce-stake" ? "Unstaking Tokens" : "Staking Tokens"}
-          </h3>
-          <p className="text-gray-600 text-center">
-            {mode === "reduce-stake"
-              ? `Returning ${parseFloat(amount).toLocaleString()} ${currencySymbol} to your wallet...`
-              : `Transferring ${parseFloat(amount).toLocaleString()} ${currencySymbol} to the pool...`}
-          </p>
-        </div>
-
-        {/* Sparkle Effects */}
-        <div className="absolute inset-0 pointer-events-none">
-          {[...Array(8)].map((_, i) => (
-            <Sparkles
-              key={i}
-              className="absolute w-4 h-4 text-blue-400 animate-pulse"
-              style={{
-                top: `${15 + i * 12}%`,
-                left: `${10 + i * 12}%`,
-                animationDelay: `${i * 300}ms`,
-              }}
-            />
-          ))}
-        </div>
+      <div className="p-6 flex flex-col items-center justify-center" style={{ minHeight: "400px" }}>
+        <div className="animate-spin w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full mb-6"></div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          {mode === "reduce-stake" ? "Unstaking Tokens" : "Staking Tokens"}
+        </h3>
+        <p className="text-gray-600 text-center">
+          {mode === "reduce-stake"
+            ? `Returning ${parseFloat(amount).toLocaleString()} ${currencySymbol} to your wallet...`
+            : `Transferring ${parseFloat(amount).toLocaleString()} ${currencySymbol} to the pool...`}
+        </p>
       </div>
     </>
   );
