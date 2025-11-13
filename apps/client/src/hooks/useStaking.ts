@@ -17,7 +17,7 @@ export function useStaking(pool: RewardPool | null) {
     pendingReward,
     isReadingPendingReward,
     refetchPendingReward,
-    claimReward
+    claimReward,
   } = usePoolReader(
     pool?.poolAddress as `0x${string}` | undefined,
     userAddress as `0x${string}` | undefined

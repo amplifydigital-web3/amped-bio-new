@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Trophy, Coins, CheckCircle, Sparkles } from "lucide-react";
+import { toast } from "react-hot-toast";
 import {
   Dialog,
   DialogContent,
@@ -63,6 +64,11 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
       }));
       setAnimatingTokens(tokens);
 
+      // Show success toast
+      toast.success(
+        `Successfully claimed ${pool.earnedRewards.toLocaleString()} ${currencySymbol}! Your wallet has been updated.`
+      );
+
       // Simulate API call delay
       setTimeout(() => {
         setStep("success");
@@ -75,6 +81,8 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
     } else {
       // Handle error if claim fails
       setStep("confirm"); // Go back to confirm step
+      // Show error toast
+      toast.error("Failed to claim rewards. Please try again.");
       // Optionally show an error message to the user
     }
   };
