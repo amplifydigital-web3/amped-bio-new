@@ -178,6 +178,24 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [authUser, account.status, web3AuthDisconnect]);
 
+  useEffect(() => {
+    const getAndSetPublicKey = async () => {
+      if (dataWeb3Auth?.provider) {
+        try {
+          const pubKey = await dataWeb3Auth.provider.request({ method: "public_key" });
+          setPublicKey(pubKey as string);
+        } catch (error) {
+          console.error("Error getting public key:", error);
+          setPublicKey(null);
+        }
+      } else {
+        setPublicKey(null);
+      }
+    };
+
+    getAndSetPublicKey();
+  }, [dataWeb3Auth?.provider, setPublicKey]);
+
   const isLinkCallInProgress = useRef(false); // To prevent parallel calls
   const lastAddressRef = useRef<string | null>(null); // To track the last wallet address
 
@@ -200,12 +218,9 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         
         const idToken = await getIdentityToken();
 
-        const pubKey = await dataWeb3Auth?.provider?.request({ method: "public_key" });
-        setPublicKey(pubKey as string); // Store the public key in state
-
         try {
           const data = await trpcClient.wallet.linkWalletAddress.mutate({
-            publicKey: pubKey as string,
+            publicKey: publicKey as string,
             idToken: idToken,
           });
           console.info("Wallet address linked successfully:", data.message);
@@ -217,9 +232,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
             } else {
               console.info("Wallet already linked:", error.message);
             }
-          } else {
-            // Handle other errors
-            console.error("An unexpected error occurred:", error);
           }
         } finally {
           isLinkCallInProgress.current = false; // Mark that the call is complete
@@ -228,7 +240,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     };
 
     linkAddress();
-  }, [account.status, account.address, authUser?.wallet]);
+  }, [account.status, account.address, authUser?.wallet, publicKey]);
 
   const updateBalanceDelayed = () => {
     setTimeout(() => {
