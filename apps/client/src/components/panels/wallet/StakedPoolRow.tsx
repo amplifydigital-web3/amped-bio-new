@@ -19,7 +19,6 @@ interface StakedPoolRowProps {
       walletId: number;
       chainId: string;
       image_file_id: number | null;
-      title: string | null;
       name: string | null; // Blockchain pool name (primary)
       description: string | null;
       fans: number;

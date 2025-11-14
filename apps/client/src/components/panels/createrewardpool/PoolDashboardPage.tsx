@@ -369,7 +369,6 @@ export default function DashboardPage() {
 
     return {
       id: poolData?.id?.toString(),
-      title: poolName || poolData.description || "Pool Title",
       name: poolName || poolData.description || "Pool Name",
       description: poolData.description || "Pool description not available",
       image: poolData.imageUrl,

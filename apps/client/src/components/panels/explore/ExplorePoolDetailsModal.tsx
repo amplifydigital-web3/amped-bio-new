@@ -384,7 +384,7 @@ export default function ExplorePoolDetailsModal({
           pool
             ? {
                 id: pool.id,
-                title: pool.name,
+                name: pool.name,
                 description: pool.description ?? "",
                 chainId: pool.chainId,
                 imageUrl: pool.imageUrl,

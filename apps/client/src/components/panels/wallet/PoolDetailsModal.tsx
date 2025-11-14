@@ -15,7 +15,6 @@ interface PoolDetailsModalProps {
   onClose: () => void;
   pool: {
     id: string;
-    title: string;
     name: string; // Blockchain pool name (primary)
     description: string;
     stakedAmount: number;

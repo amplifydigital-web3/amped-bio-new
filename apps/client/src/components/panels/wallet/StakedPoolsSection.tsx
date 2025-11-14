@@ -306,7 +306,6 @@ export default function StakedPoolsSection() {
             poolAddress: selectedExplorePool.pool.poolAddress,
             image_file_id: selectedExplorePool.pool.image_file_id,
             imageUrl: selectedExplorePool.pool.imageUrl,
-            title: selectedExplorePool.pool.name || `Pool ${selectedExplorePool.pool.id}`,
             name: selectedExplorePool.pool.name || `Pool ${selectedExplorePool.pool.id}`,
             totalReward: typeof selectedExplorePool.pool.revoStaked === 'number' 
               ? selectedExplorePool.pool.revoStaked 
@@ -334,7 +333,6 @@ export default function StakedPoolsSection() {
                 poolAddress: claimingPool.pool.poolAddress,
                 image_file_id: claimingPool.pool.image_file_id,
                 imageUrl: claimingPool.pool.imageUrl,
-                title: claimingPool.pool.name || `Pool ${claimingPool.pool.id}`,
                 name: claimingPool.pool.name || `Pool ${claimingPool.pool.id}`,
                 totalReward: typeof claimingPool.pool.revoStaked === 'number'
                   ? claimingPool.pool.revoStaked

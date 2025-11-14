@@ -22,10 +22,7 @@ export const poolsFanRouter = router({
       try {
         const whereClause: any = {};
         if (input.search) {
-          whereClause.OR = [
-            { description: { contains: input.search, mode: "insensitive" } },
-            { title: { contains: input.search, mode: "insensitive" } },
-          ];
+          whereClause.OR = [{ description: { contains: input.search, mode: "insensitive" } }];
         }
 
         const pools = await prisma.creatorPool.findMany({
@@ -40,6 +37,7 @@ export const poolsFanRouter = router({
             wallet: {
               select: {
                 address: true,
+                userId: true,
               },
             },
             _count: {
@@ -70,11 +68,10 @@ export const poolsFanRouter = router({
             return {
               ...pool,
               imageUrl: pool.poolImage ? s3Service.getFileUrl(pool.poolImage.s3_key) : null,
-              title: poolName || `Pool ${pool.id}`, // Using blockchain name, fallback to id-based name
               name: poolName || `Pool ${pool.id}`, // Using blockchain name, fallback to id-based name
               totalReward: totalStakeInEther,
               participants: activeStakers,
-              createdBy: "Unknown",
+              createdBy: pool.wallet?.userId?.toString() || "Unknown",
               stakedAmount: totalStakeInEther,
               earnedRewards: 0,
               creatorAddress: pool.wallet?.address || null,

@@ -24,7 +24,6 @@ export interface RewardPool {
   imageUrl?: string | null;
 
   // Placeholder fields for client-side derivation or future server implementation
-  title: string; // Keep for backward compatibility
   name: string; // Blockchain pool name (primary)
   totalReward: number;
   stakedAmount: number;
@@ -138,7 +137,6 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
       // Criar um objeto que tenha a estrutura esperada pelo useStaking
       const poolForStaking = {
         id: pool.id,
-        title: pool.name, // Use name from blockchain
         name: pool.name, // Include name field as well
         description: pool.description ?? "",
         chainId: pool.chainId,
@@ -164,7 +162,6 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
         poolAddress: pool.poolAddress,
         image_file_id: pool.image_file_id,
         imageUrl: pool.imageUrl,
-        title: pool.name, // Use name as title as well
         name: pool.name, // Use name from blockchain
         totalReward: pool.totalReward || 0, // Placeholder
         stakedAmount: pool.stakedAmount || 0, // Add stakedAmount

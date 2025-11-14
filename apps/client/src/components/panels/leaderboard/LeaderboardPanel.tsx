@@ -4,7 +4,6 @@ import { CoinsIcon, Users, TrendingUp, Crown } from "lucide-react";
 
 interface Pool {
   id: string;
-  title: string;
   name: string; // Blockchain pool name (primary)
   creator: {
     name: string;
@@ -25,7 +24,6 @@ interface Pool {
 const mockPools: Pool[] = [
   {
     id: "1",
-    title: "Web3 Development Pool",
     name: "Web3 Development Pool",
     creator: {
       name: "Alex Thompson",
@@ -44,7 +42,6 @@ const mockPools: Pool[] = [
   },
   {
     id: "2",
-    title: "NFT Creators Pool",
     name: "NFT Creators Pool",
     creator: {
       name: "Emma Digital",
@@ -63,7 +60,6 @@ const mockPools: Pool[] = [
   },
   {
     id: "3",
-    title: "DeFi Innovators",
     name: "DeFi Innovators",
     creator: {
       name: "Sam Blockchain",
