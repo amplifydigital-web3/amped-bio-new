@@ -24,16 +24,26 @@ interface Pool {
   image_file_id?: number | null;
 }
 
+// Define filter and sort types
+type PoolFilter = 'all' | 'no-fans' | 'more-than-10-fans' | 'more-than-10k-stake';
+type PoolSort = 'newest' | 'name-asc' | 'name-desc';
+
 interface PoolsTabProps {
   searchQuery: string;
+  poolFilter: PoolFilter;
+  poolSort: PoolSort;
 }
 
 const PoolsTab: React.FC<PoolsTabProps> = ({
-  searchQuery
+  searchQuery,
+  poolFilter,
+  poolSort
 }) => {
   const { data: pools, isLoading } = useQuery(
     trpc.pools.fan.getPools.queryOptions({
       search: searchQuery,
+      filter: poolFilter,
+      sort: poolSort
     })
   );
 
@@ -101,6 +111,8 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
     }
   };
 
+  // Apply filtering and sorting
+  
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

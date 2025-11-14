@@ -4,14 +4,24 @@ import UserSkeleton from "./UserSkeleton";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "../../../../utils/trpc";
 
+// Define filter and sort types
+type UserFilter = 'all' | 'active-7-days' | 'has-creator-pool' | 'has-stake-in-pool';
+type UserSort = 'newest' | 'name-asc' | 'name-desc';
+
 interface UsersTabProps {
   searchQuery: string;
+  userFilter: UserFilter;
+  userSort: UserSort;
   handleViewProfile: (username: string) => void;
 }
 
-const UsersTab: React.FC<UsersTabProps> = ({ searchQuery, handleViewProfile }) => {
+const UsersTab: React.FC<UsersTabProps> = ({ searchQuery, userFilter, userSort, handleViewProfile }) => {
   const { data: users, isLoading } = useQuery(
-    trpc.user.getUsers.queryOptions({ search: searchQuery })
+    trpc.user.getUsers.queryOptions({ 
+      search: searchQuery,
+      filter: userFilter,
+      sort: userSort
+    })
   );
 
   return (
@@ -59,21 +69,6 @@ const UsersTab: React.FC<UsersTabProps> = ({ searchQuery, handleViewProfile }) =
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
                       <h3 className="font-semibold text-gray-900">{user.displayName}</h3>
-                      {user.verified && (
-                        <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-                          <svg
-                            className="w-2.5 h-2.5 text-white"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        </div>
-                      )}
                     </div>
                     <div className="relative group">
                       <span className="px-2 py-1 rounded-full text-xs font-medium cursor-help bg-gray-100 text-gray-700">

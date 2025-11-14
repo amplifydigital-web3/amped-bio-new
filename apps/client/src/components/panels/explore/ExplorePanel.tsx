@@ -8,6 +8,12 @@ import { trpc } from "../../../utils/trpc";
 import UsersTab from "./components/UsersTab";
 import PoolsTab from "./components/PoolsTab";
 
+// Define filter types
+type UserFilter = 'all' | 'active-7-days' | 'has-creator-pool' | 'has-stake-in-pool';
+type PoolFilter = 'all' | 'no-fans' | 'more-than-10-fans' | 'more-than-10k-stake';
+type UserSort = 'newest' | 'name-asc' | 'name-desc';
+type PoolSort = 'newest' | 'name-asc' | 'name-desc';
+
 interface ExplorePageProps {
   initialTab?: "users" | "pools" | "nfts";
   onTabChange?: (tab: "users" | "pools" | "nfts") => void;
@@ -38,7 +44,13 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
   const [rawSearchQuery, setRawSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(rawSearchQuery, 500);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<string>("popular");
+  
+  // Filter and sort states
+  const [userFilter, setUserFilter] = useState<UserFilter>('all');
+  const [poolFilter, setPoolFilter] = useState<PoolFilter>('all');
+  const [userSort, setUserSort] = useState<UserSort>('newest');
+  const [poolSort, setPoolSort] = useState<PoolSort>('newest');
+  
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [selectedCreatorPool, setSelectedCreatorPool] = useState<any>(null);
@@ -48,35 +60,17 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
     trpc.user.getUsers.queryOptions({ search: debouncedSearchQuery })
   );
 
-  // Filter categories
-  const categories = [
-    "All",
-    "Gaming",
-    "Music",
-    "Art & Design",
-    "Storytelling",
-    "Collectibles",
-    "Memberships",
-    "Education",
-    "Lifestyle",
-    "Podcasts",
-  ];
-
   // Sort options
   const sortOptions = {
     users: [
-      { value: "popular", label: "Most Popular" },
-      { value: "followers", label: "Most Followers" },
-      { value: "pool-stake", label: "Pool Stake" },
-      { value: "earnings", label: "Highest Earnings" },
-      { value: "newest", label: "Newest" },
+      { value: "newest", label: "Newest First" },
+      { value: "name-asc", label: "Name A-Z" },
+      { value: "name-desc", label: "Name Z-A" },
     ],
     pools: [
-      { value: "popular", label: "Most Popular" },
-      { value: "participants", label: "Most Participants" },
-      { value: "reward", label: "Highest Reward" },
-      { value: "ending-soon", label: "Ending Soon" },
-      { value: "newest", label: "Newest" },
+      { value: "newest", label: "Newest First" },
+      { value: "name-asc", label: "Name A-Z" },
+      { value: "name-desc", label: "Name Z-A" },
     ],
     nfts: [
       { value: "popular", label: "Most Popular" },
@@ -120,8 +114,7 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
                   setIsFilterOpen(!isFilterOpen);
                   setIsSortOpen(false);
                 }}
-                disabled
-                className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed"
+                className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200"
               >
                 <Filter className="w-4 h-4" />
                 <span>Filter</span>
@@ -129,49 +122,116 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
                   className={`w-4 h-4 transition-transform duration-200 ${isFilterOpen ? "rotate-180" : ""}`}
                 />
               </button>
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
-                <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap">
-                  Coming Soon
-                </div>
-              </div>
               {isFilterOpen && (
                 <div className="relative">
                   <div className="fixed inset-0 z-10" onClick={() => setIsFilterOpen(false)}></div>
                   <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
                     <div className="px-4 py-2 text-sm font-medium text-gray-700 border-b border-gray-200">
-                      Filter by Category
+                      {activeTab === 'users' ? 'User Filters' : 'Pool Filters'}
                     </div>
-                    {categories.map(category => (
-                      <button
-                        key={category}
-                        onClick={() => {
-                          setSelectedCategory(category.toLowerCase());
-                          setIsFilterOpen(false);
-                        }}
-                        className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${
-                          selectedCategory === category.toLowerCase()
-                            ? "bg-blue-50 text-blue-700"
-                            : "text-gray-700"
-                        }`}
-                      >
-                        {category}
-                        {selectedCategory === category.toLowerCase() && (
-                          <span className="float-right">✓</span>
-                        )}
-                      </button>
-                    ))}
-                    {selectedCategory !== "all" && (
+                    {/* User filters */}
+                    {activeTab === 'users' && (
                       <>
-                        <div className="border-t border-gray-200 my-1"></div>
                         <button
                           onClick={() => {
-                            setSelectedCategory("all");
+                            setUserFilter('active-7-days');
                             setIsFilterOpen(false);
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors duration-200"
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${
+                            userFilter === 'active-7-days' ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                          }`}
                         >
-                          <X className="w-3 h-3 inline mr-2" />
-                          Clear Filter
+                          Active in last 7 days
+                          {userFilter === 'active-7-days' && <span className="float-right">✓</span>}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setUserFilter('has-creator-pool');
+                            setIsFilterOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${
+                            userFilter === 'has-creator-pool' ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                          }`}
+                        >
+                          Has creator pool
+                          {userFilter === 'has-creator-pool' && <span className="float-right">✓</span>}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setUserFilter('has-stake-in-pool');
+                            setIsFilterOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${
+                            userFilter === 'has-stake-in-pool' ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                          }`}
+                        >
+                          Has stake in pool
+                          {userFilter === 'has-stake-in-pool' && <span className="float-right">✓</span>}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setUserFilter('all');
+                            setIsFilterOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${
+                            userFilter === 'all' ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                          }`}
+                        >
+                          All users
+                          {userFilter === 'all' && <span className="float-right">✓</span>}
+                        </button>
+                      </>
+                    )}
+                    {/* Pool filters */}
+                    {activeTab === 'pools' && (
+                      <>
+                        <button
+                          onClick={() => {
+                            setPoolFilter('no-fans');
+                            setIsFilterOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${
+                            poolFilter === 'no-fans' ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                          }`}
+                        >
+                          Pools with no fans
+                          {poolFilter === 'no-fans' && <span className="float-right">✓</span>}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPoolFilter('more-than-10-fans');
+                            setIsFilterOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${
+                            poolFilter === 'more-than-10-fans' ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                          }`}
+                        >
+                          Pools with more than 10 fans
+                          {poolFilter === 'more-than-10-fans' && <span className="float-right">✓</span>}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPoolFilter('more-than-10k-stake');
+                            setIsFilterOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${
+                            poolFilter === 'more-than-10k-stake' ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                          }`}
+                        >
+                          Pools with more than 10k REVO in stake
+                          {poolFilter === 'more-than-10k-stake' && <span className="float-right">✓</span>}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPoolFilter('all');
+                            setIsFilterOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${
+                            poolFilter === 'all' ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                          }`}
+                        >
+                          All pools
+                          {poolFilter === 'all' && <span className="float-right">✓</span>}
                         </button>
                       </>
                     )}
@@ -187,8 +247,7 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
                   setIsSortOpen(!isSortOpen);
                   setIsFilterOpen(false);
                 }}
-                disabled
-                className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed"
+                className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200"
               >
                 <SortDesc className="w-4 h-4" />
                 <span>Sort</span>
@@ -196,11 +255,6 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
                   className={`w-4 h-4 transition-transform duration-200 ${isSortOpen ? "rotate-180" : ""}`}
                 />
               </button>
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
-                <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap">
-                  Coming Soon
-                </div>
-              </div>
               {isSortOpen && (
                 <div className="relative">
                   <div className="fixed inset-0 z-10" onClick={() => setIsSortOpen(false)}></div>
@@ -212,13 +266,17 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
                       <button
                         key={option.value}
                         onClick={() => {
-                          setSortBy(option.value);
+                          if(activeTab === 'users') {
+                            setUserSort(option.value as UserSort);
+                          } else if(activeTab === 'pools') {
+                            setPoolSort(option.value as PoolSort);
+                          }
                           setIsSortOpen(false);
                         }}
-                        className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${sortBy === option.value ? "bg-blue-50 text-blue-700" : "text-gray-700"}`}
+                        className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${(activeTab === 'users' && option.value === userSort) || (activeTab === 'pools' && option.value === poolSort) ? "bg-blue-50 text-blue-700" : "text-gray-700"}`}
                       >
                         {option.label}
-                        {sortBy === option.value && <span className="float-right">✓</span>}
+                        {(activeTab === 'users' && option.value === userSort) || (activeTab === 'pools' && option.value === poolSort) ? <span className="float-right">✓</span> : null}
                       </button>
                     ))}
                   </div>
@@ -290,12 +348,16 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
         {activeTab === "users" && (
           <UsersTab
             searchQuery={debouncedSearchQuery}
+            userFilter={userFilter}
+            userSort={userSort}
             handleViewProfile={handleViewProfile}
           />
         )}
         {activeTab === "pools" && (
           <PoolsTab
             searchQuery={debouncedSearchQuery}
+            poolFilter={poolFilter}
+            poolSort={poolSort}
           />
         )}
         {activeTab === "nfts" && (

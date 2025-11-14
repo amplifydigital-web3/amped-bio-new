@@ -16,16 +16,19 @@ export const poolsFanRouter = router({
     .input(
       z.object({
         search: z.string().optional(),
+        filter: z.enum(['all', 'no-fans', 'more-than-10-fans', 'more-than-10k-stake']).optional().default('all'),
+        sort: z.enum(['newest', 'name-asc', 'name-desc']).optional().default('newest'),
       })
     )
     .query(async ({ input }) => {
       try {
-        const whereClause: any = {};
+        let whereClause: any = {};
         if (input.search) {
           whereClause.OR = [{ description: { contains: input.search, mode: "insensitive" } }];
         }
 
-        const pools = await prisma.creatorPool.findMany({
+        // Build the pools query with the where clause
+        let pools = await prisma.creatorPool.findMany({
           where: whereClause,
           include: {
             poolImage: {
@@ -53,8 +56,8 @@ export const poolsFanRouter = router({
           },
         });
 
-        // Query the totalStaked from each pool contract and update the database
-        const updatedPools = await Promise.all(
+        // Apply filtering logic after getting pool data from blockchain
+        const processedPools = await Promise.all(
           pools.map(async pool => {
             // Get the chain configuration for the pool
             const chain = getChainConfig(parseInt(pool.chainId));
@@ -113,7 +116,33 @@ export const poolsFanRouter = router({
           })
         );
 
-        return updatedPools;
+        // Apply filters to the processed pools
+        let filteredPools = processedPools;
+        if (input.filter === 'no-fans') {
+          filteredPools = processedPools.filter(pool => pool.participants === 0);
+        } else if (input.filter === 'more-than-10-fans') {
+          filteredPools = processedPools.filter(pool => pool.participants > 10);
+        } else if (input.filter === 'more-than-10k-stake') {
+          filteredPools = processedPools.filter(pool => pool.stakedAmount > 10000);
+        }
+
+        // Apply sorting
+        switch (input.sort) {
+          case 'name-asc':
+            filteredPools.sort((a, b) => a.name.localeCompare(b.name));
+            break;
+          case 'name-desc':
+            filteredPools.sort((a, b) => b.name.localeCompare(a.name));
+            break;
+          case 'newest':
+            // Since pools don't have a created_at field in the current model, we'll sort by ID
+            filteredPools.sort((a, b) => b.id - a.id);
+            break;
+          default:
+            break;
+        }
+
+        return filteredPools;
       } catch (error) {
         console.error("Error fetching pools:", error);
         if (error instanceof TRPCError) throw error;
