@@ -20,7 +20,7 @@ import { usePoolReader } from "../../../hooks/usePoolReader";
 import { useStaking } from "../../../hooks/useStaking";
 import { formatEther } from "viem";
 
-import { RewardPool } from "../explore/ExplorePanel";
+import { RewardPool } from "@ampedbio/constants";
 
 interface ExplorePoolDetailsModalProps {
   isOpen: boolean;

@@ -6,7 +6,7 @@ import { trpc } from "../../../utils/trpc";
 import StakedPoolRow from "./StakedPoolRow";
 import { useQuery } from "@tanstack/react-query";
 import { useEditor } from "../../../contexts/EditorContext";
-import { RewardPool } from "../explore/ExplorePanel";
+import { RewardPool } from "@ampedbio/constants";
 import { formatUnits } from "viem";
 import { usePoolReader } from "../../../hooks/usePoolReader";
 import { useAccount } from "wagmi";

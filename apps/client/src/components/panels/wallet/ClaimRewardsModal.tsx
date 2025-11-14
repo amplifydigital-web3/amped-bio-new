@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { getChainConfig } from "@ampedbio/web3";
 import { useStaking } from "../../../hooks/useStaking";
-import { RewardPool } from "../explore/ExplorePanel";
+import { RewardPool } from "@ampedbio/constants";
 import { formatEther } from "viem";
 
 interface ClaimRewardsModalProps {
