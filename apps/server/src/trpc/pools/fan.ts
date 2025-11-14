@@ -70,8 +70,8 @@ export const poolsFanRouter = router({
             return {
               ...pool,
               imageUrl: pool.poolImage ? s3Service.getFileUrl(pool.poolImage.s3_key) : null,
-              title: poolName || `Pool ${pool.id}`,
-              name: poolName,
+              title: poolName || `Pool ${pool.id}`, // Using blockchain name, fallback to id-based name
+              name: poolName || `Pool ${pool.id}`, // Using blockchain name, fallback to id-based name
               totalReward: totalStakeInEther,
               participants: activeStakers,
               createdBy: "Unknown",
@@ -194,7 +194,7 @@ export const poolsFanRouter = router({
             stakeAmount: stake.stakeAmount.toString(),
             pool: {
               ...pool,
-              title: poolName,
+              name: poolName || `Pool ${pool.id}`, // Using blockchain name, fallback to id-based name
               imageUrl: pool.poolImage ? s3Service.getFileUrl(pool.poolImage.s3_key) : null,
             },
           };

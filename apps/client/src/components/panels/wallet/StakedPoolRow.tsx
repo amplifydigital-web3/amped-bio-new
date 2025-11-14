@@ -20,6 +20,7 @@ interface StakedPoolRowProps {
       chainId: string;
       image_file_id: number | null;
       title: string | null;
+      name: string | null; // Blockchain pool name (primary)
       description: string | null;
       fans: number;
       revoStaked: number;
@@ -65,7 +66,7 @@ export default function StakedPoolRow({
             {poolData.pool.imageUrl ? (
               <img
                 src={poolData.pool.imageUrl}
-                alt={`${poolName ?? poolData.pool.title} pool`}
+                alt={`${poolName ?? poolData.pool.name} pool`}
                 className="w-full h-full object-cover"
                 loading="lazy"
               />
@@ -82,7 +83,7 @@ export default function StakedPoolRow({
               {isReadingPoolName ? (
                 <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse"></div>
               ) : (
-                poolName ?? (poolData.pool.title || `Pool #${poolData.poolId}`)
+                poolName ?? (poolData.pool.name || `Pool #${poolData.poolId}`)
               )}
             </h4>
           </div>

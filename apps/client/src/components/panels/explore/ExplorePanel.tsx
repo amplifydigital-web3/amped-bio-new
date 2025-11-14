@@ -24,7 +24,8 @@ export interface RewardPool {
   imageUrl?: string | null;
 
   // Placeholder fields for client-side derivation or future server implementation
-  title: string;
+  title: string; // Keep for backward compatibility
+  name: string; // Blockchain pool name (primary)
   totalReward: number;
   stakedAmount: number;
   participants: number;
@@ -137,7 +138,8 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
       // Criar um objeto que tenha a estrutura esperada pelo useStaking
       const poolForStaking = {
         id: pool.id,
-        title: pool.title,
+        title: pool.name, // Use name from blockchain
+        name: pool.name, // Include name field as well
         description: pool.description ?? "",
         chainId: pool.chainId,
         poolAddress: pool.poolAddress,
@@ -162,7 +164,8 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
         poolAddress: pool.poolAddress,
         image_file_id: pool.image_file_id,
         imageUrl: pool.imageUrl,
-        title: pool.title || "Untitled Pool", // Placeholder
+        title: pool.name, // Use name as title as well
+        name: pool.name, // Use name from blockchain
         totalReward: pool.totalReward || 0, // Placeholder
         stakedAmount: pool.stakedAmount || 0, // Add stakedAmount
         participants: pool.participants || 0, // Placeholder
@@ -394,7 +397,7 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
                 <div className="h-32 bg-gradient-to-r from-blue-500 to-purple-600 relative overflow-hidden">
                   <img
                     src={pool.imageUrl}
-                    alt={pool.title}
+                    alt={pool.name}
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute inset-0 bg-black bg-opacity-20"></div>
@@ -405,7 +408,7 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
 
               <div className="p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  {pool.title}
+                  {pool.name}
                 </h3>
                 <p className="text-gray-600 text-sm mb-4 line-clamp-2">
                   {pool.description ?? "No description available."}

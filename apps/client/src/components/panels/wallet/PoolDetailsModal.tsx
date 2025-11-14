@@ -16,6 +16,7 @@ interface PoolDetailsModalProps {
   pool: {
     id: string;
     title: string;
+    name: string; // Blockchain pool name (primary)
     description: string;
     stakedAmount: number;
     chainId: string;
@@ -108,7 +109,7 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
         {/* Modal Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <div>
-            <DialogTitle className="text-2xl font-bold text-gray-900">{pool.title}</DialogTitle>
+            <DialogTitle className="text-2xl font-bold text-gray-900">{pool.name}</DialogTitle>
             <DialogDescription className="text-gray-600 text-sm mt-1">
               {pool.description}
             </DialogDescription>
@@ -127,7 +128,7 @@ export default function PoolDetailsModal({ isOpen, onClose, pool }: PoolDetailsM
                   {pool.imageUrl ? (
                     <img
                       src={pool.imageUrl}
-                      alt={`${pool.title} pool`}
+                      alt={`${pool.name} pool`}
                       className="w-full h-full object-cover"
                     />
                   ) : (

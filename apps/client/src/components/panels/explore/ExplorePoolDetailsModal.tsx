@@ -96,8 +96,8 @@ export default function ExplorePoolDetailsModal({
     if (navigator.share) {
       navigator
         .share({
-          title: pool.title,
-          text: `Check out this reward pool: ${pool.title}`,
+          title: pool.name,
+          text: `Check out this reward pool: ${pool.name}`,
           url: poolUrl,
         })
         .catch(console.error);
@@ -162,7 +162,7 @@ export default function ExplorePoolDetailsModal({
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Pool Details</h2>
-            <p className="text-lg text-gray-600 mt-1">{pool.title}</p>
+            <p className="text-lg text-gray-600 mt-1">{pool.name}</p>
           </div>
           <div className="flex items-center space-x-2">
             <button
@@ -192,7 +192,7 @@ export default function ExplorePoolDetailsModal({
                   {pool.imageUrl ? (
                     <img
                       src={pool.imageUrl}
-                      alt={`${pool.title} pool`}
+                      alt={`${pool.name} pool`}
                       className="w-full h-full object-cover"
                     />
                   ) : (
@@ -384,7 +384,7 @@ export default function ExplorePoolDetailsModal({
           pool
             ? {
                 id: pool.id,
-                title: pool.title,
+                title: pool.name,
                 description: pool.description ?? "",
                 chainId: pool.chainId,
                 imageUrl: pool.imageUrl,

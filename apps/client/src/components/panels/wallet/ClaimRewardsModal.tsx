@@ -110,7 +110,7 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
             {pool.imageUrl ? (
               <img
                 src={pool.imageUrl}
-                alt={`${pool.title} pool`}
+                alt={`${pool.name} pool`}
                 className="w-full h-full object-cover"
               />
             ) : (
@@ -120,7 +120,7 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
             )}
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900">{pool.title}</h3>
+            <h3 className="font-semibold text-gray-900">{pool.name}</h3>
             <p className="text-sm text-gray-600">Reward Pool</p>
           </div>
         </div>
@@ -141,7 +141,7 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
           <p className="text-sm text-blue-800">
             <strong>Confirm:</strong> You are about to claim {pendingReward ? parseFloat(formatEther(pendingReward)).toLocaleString() : '0'}{" "}
             {currencySymbol}
-            from the {pool.title} pool. This action cannot be undone.
+            from the {pool.name} pool. This action cannot be undone.
           </p>
         </div>
 
@@ -275,7 +275,7 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
             <strong>
               {pendingReward ? parseFloat(formatEther(pendingReward)).toLocaleString() : '0'} {currencySymbol}
             </strong>{" "}
-            from {pool.title}
+            from {pool.name}
           </p>
         </div>
 

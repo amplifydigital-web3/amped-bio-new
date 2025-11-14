@@ -564,7 +564,7 @@ export default function DashboardPage() {
               <div className="h-full rounded-xl overflow-hidden border border-gray-100 shadow-sm">
                 <img
                   src={userPool.image}
-                  alt={`${userPool.title} pool`}
+                  alt={`${userPool.name} pool`}
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -591,7 +591,7 @@ export default function DashboardPage() {
           {/* Pool Info */}
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">{userPool.title}</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">{userPool.name}</h2>
               {isEditingDescription ? (
                 <div className="space-y-3">
                   <textarea

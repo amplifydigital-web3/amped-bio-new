@@ -9,6 +9,7 @@ interface StakingModalProps {
   pool: {
     id: number;
     title: string;
+    name: string; // Blockchain pool name (primary)
     description: string;
     chainId: string;
     imageUrl?: string | null;
@@ -148,7 +149,7 @@ export default function StakingModal({
             )}
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900">{pool.title}</h3>
+            <h3 className="font-semibold text-gray-900">{pool.name}</h3>
             <p className="text-sm text-gray-600">Staking Pool</p>
           </div>
         </div>
@@ -333,7 +334,7 @@ export default function StakingModal({
             )}
           </div>
           <div>
-            <h3 className="font-medium text-gray-900 text-sm">{pool.title}</h3>
+            <h3 className="font-medium text-gray-900 text-sm">{pool.name}</h3>
             <p className="text-xs text-gray-600">Staking Pool</p>
           </div>
         </div>
@@ -484,7 +485,7 @@ export default function StakingModal({
               {parseFloat(amount).toLocaleString()} {currencySymbol}
             </strong>
             {mode === "reduce-stake" ? " from " : " to "}
-            {pool.title}
+            {pool.name}
           </p>
         </div>
 
