@@ -53,12 +53,45 @@ export const poolsFanRouter = router({
           },
         });
 
-        return Promise.all(
+        // Query the totalStaked from each pool contract and update the database
+        const updatedPools = await Promise.all(
           pools.map(async pool => {
-            const totalStake = pool.stakedPools.reduce(
-              (sum: bigint, staked) => sum + staked.stakeAmount,
-              0n
-            );
+            // Get the chain configuration for the pool
+            const chain = getChainConfig(parseInt(pool.chainId));
+
+            // Initialize totalStake to the current db value
+            let totalStake: bigint = pool.revoStaked;
+
+            // Query the totalStaked from the pool contract if we have the necessary data
+            if (pool.poolAddress && chain) {
+              try {
+                const publicClient = createPublicClient({
+                  chain: chain,
+                  transport: http(),
+                });
+
+                const contractTotalStaked = await publicClient.readContract({
+                  address: pool.poolAddress as Address,
+                  abi: CREATOR_POOL_ABI,
+                  functionName: "totalStaked",
+                });
+
+                // Update the database with the value from the contract
+                await prisma.creatorPool.update({
+                  where: { id: pool.id },
+                  data: { revoStaked: contractTotalStaked },
+                });
+
+                totalStake = contractTotalStaked as bigint;
+              } catch (error) {
+                console.error(
+                  `Error fetching totalStaked from contract for pool ${pool.id}:`,
+                  error
+                );
+                // If contract query fails, we'll keep the db value
+              }
+            }
+
             const totalStakeInEther = parseFloat(formatEther(totalStake));
             const poolName = await getPoolName(pool.poolAddress as Address, parseInt(pool.chainId));
 
@@ -67,6 +100,7 @@ export const poolsFanRouter = router({
 
             return {
               ...pool,
+              revoStaked: totalStake, // Include the updated revoStaked in the response
               imageUrl: pool.poolImage ? s3Service.getFileUrl(pool.poolImage.s3_key) : null,
               name: poolName || `Pool ${pool.id}`, // Using blockchain name, fallback to id-based name
               totalReward: totalStakeInEther,
@@ -78,6 +112,8 @@ export const poolsFanRouter = router({
             };
           })
         );
+
+        return updatedPools;
       } catch (error) {
         console.error("Error fetching pools:", error);
         if (error instanceof TRPCError) throw error;
