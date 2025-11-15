@@ -556,7 +556,20 @@ export const CREATOR_POOL_ABI = [
   },
   {
     inputs: [],
-    name: "totalStaked",
+    name: "creatorStaked",
+    outputs: [
+      {
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "totalFanStaked",
     outputs: [
       {
         internalType: "uint256",

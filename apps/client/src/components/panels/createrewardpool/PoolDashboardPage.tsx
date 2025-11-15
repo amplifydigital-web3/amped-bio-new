@@ -138,7 +138,16 @@ export default function DashboardPage() {
   useReadContract({
     address: poolAddress,
     abi: CREATOR_POOL_ABI,
-    functionName: "totalStaked",
+    functionName: "creatorStaked",
+    query: {
+      enabled: !!poolAddress,
+    },
+  });
+
+  useReadContract({
+    address: poolAddress,
+    abi: CREATOR_POOL_ABI,
+    functionName: "totalFanStaked",
     query: {
       enabled: !!poolAddress,
     },

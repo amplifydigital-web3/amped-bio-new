@@ -77,24 +77,37 @@ export const poolsFanRouter = router({
                 });
 
                 console.log(
-                  `Attempting to fetch totalStaked from contract for pool ${pool.id} at address ${pool.poolAddress}`
+                  `Attempting to fetch creatorStaked and totalFanStaked from contract for pool ${pool.id} at address ${pool.poolAddress}`
                 );
 
-                const contractTotalStaked = await publicClient.readContract({
+                // Fetch both creatorStaked and totalFanStaked values from the contract as instructed by colleague
+                const creatorStakedValue = await publicClient.readContract({
                   address: pool.poolAddress as Address,
                   abi: CREATOR_POOL_ABI,
-                  functionName: "totalStaked",
+                  functionName: "creatorStaked",
+                });
+
+                const totalFanStakedValue = await publicClient.readContract({
+                  address: pool.poolAddress as Address,
+                  abi: CREATOR_POOL_ABI,
+                  functionName: "totalFanStaked",
                 });
 
                 console.log(
-                  `Successfully fetched totalStaked from contract for pool ${pool.id}: ${contractTotalStaked.toString()}`
+                  `Successfully fetched creatorStaked from contract for pool ${pool.id}: ${creatorStakedValue.toString()}`
                 );
+                console.log(
+                  `Successfully fetched totalFanStaked from contract for pool ${pool.id}: ${totalFanStakedValue.toString()}`
+                );
+
+                // Calculate the total stake as sum of creatorStaked and totalFanStaked as instructed by colleague
+                const totalStakeValue = (creatorStakedValue + totalFanStakedValue) as bigint;
 
                 // Update the database with the value from the contract
                 try {
                   await prisma.creatorPool.update({
                     where: { id: pool.id },
-                    data: { revoStaked: contractTotalStaked },
+                    data: { revoStaked: totalStakeValue },
                   });
                   console.log(`Successfully updated revoStaked in database for pool ${pool.id}`);
                 } catch (updateError) {
@@ -105,7 +118,7 @@ export const poolsFanRouter = router({
                   // Continue anyway, we'll still return the blockchain value
                 }
 
-                totalStake = contractTotalStaked as bigint;
+                totalStake = totalStakeValue;
               } catch (error) {
                 console.error(
                   `Error fetching totalStaked from contract for pool ${pool.id}:`,
