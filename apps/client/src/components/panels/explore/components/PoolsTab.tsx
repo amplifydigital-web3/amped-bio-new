@@ -9,6 +9,10 @@ import StakingModal from "../StakingModal";
 import { useStaking } from "../../../../hooks/useStaking";
 import { RewardPool } from "@ampedbio/constants";
 
+// Define filter and sort types
+type PoolFilter = 'all' | 'no-fans' | 'more-than-10-fans' | 'more-than-10k-stake';
+type PoolSort = 'newest' | 'name-asc' | 'name-desc';
+
 interface Pool {
   id: number;
   name: string;
@@ -18,15 +22,12 @@ interface Pool {
   imageUrl: string | null;
   chainId: string;
   walletId: number;
+  poolAddress?: string | null;
   totalReward?: number;
   createdBy?: string;
   creatorAddress?: string | null;
   image_file_id?: number | null;
 }
-
-// Define filter and sort types
-type PoolFilter = 'all' | 'no-fans' | 'more-than-10-fans' | 'more-than-10k-stake';
-type PoolSort = 'newest' | 'name-asc' | 'name-desc';
 
 interface PoolsTabProps {
   searchQuery: string;

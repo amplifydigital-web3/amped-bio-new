@@ -16,19 +16,22 @@ export const poolsFanRouter = router({
     .input(
       z.object({
         search: z.string().optional(),
-        filter: z.enum(['all', 'no-fans', 'more-than-10-fans', 'more-than-10k-stake']).optional().default('all'),
-        sort: z.enum(['newest', 'name-asc', 'name-desc']).optional().default('newest'),
+        filter: z
+          .enum(["all", "no-fans", "more-than-10-fans", "more-than-10k-stake"])
+          .optional()
+          .default("all"),
+        sort: z.enum(["newest", "name-asc", "name-desc"]).optional().default("newest"),
       })
     )
     .query(async ({ input }) => {
       try {
-        let whereClause: any = {};
+        const whereClause: any = {};
         if (input.search) {
           whereClause.OR = [{ description: { contains: input.search, mode: "insensitive" } }];
         }
 
         // Build the pools query with the where clause
-        let pools = await prisma.creatorPool.findMany({
+        const pools = await prisma.creatorPool.findMany({
           where: whereClause,
           include: {
             poolImage: {
@@ -57,7 +60,7 @@ export const poolsFanRouter = router({
         });
 
         // Apply filtering logic after getting pool data from blockchain
-        const processedPools = await Promise.all(
+        const results = await Promise.allSettled(
           pools.map(async pool => {
             // Get the chain configuration for the pool
             const chain = getChainConfig(parseInt(pool.chainId));
@@ -73,17 +76,34 @@ export const poolsFanRouter = router({
                   transport: http(),
                 });
 
+                console.log(
+                  `Attempting to fetch totalStaked from contract for pool ${pool.id} at address ${pool.poolAddress}`
+                );
+
                 const contractTotalStaked = await publicClient.readContract({
                   address: pool.poolAddress as Address,
                   abi: CREATOR_POOL_ABI,
                   functionName: "totalStaked",
                 });
 
+                console.log(
+                  `Successfully fetched totalStaked from contract for pool ${pool.id}: ${contractTotalStaked.toString()}`
+                );
+
                 // Update the database with the value from the contract
-                await prisma.creatorPool.update({
-                  where: { id: pool.id },
-                  data: { revoStaked: contractTotalStaked },
-                });
+                try {
+                  await prisma.creatorPool.update({
+                    where: { id: pool.id },
+                    data: { revoStaked: contractTotalStaked },
+                  });
+                  console.log(`Successfully updated revoStaked in database for pool ${pool.id}`);
+                } catch (updateError) {
+                  console.error(
+                    `Error updating revoStaked in database for pool ${pool.id}:`,
+                    updateError
+                  );
+                  // Continue anyway, we'll still return the blockchain value
+                }
 
                 totalStake = contractTotalStaked as bigint;
               } catch (error) {
@@ -93,6 +113,10 @@ export const poolsFanRouter = router({
                 );
                 // If contract query fails, we'll keep the db value
               }
+            } else {
+              console.log(
+                `Skipping contract query for pool ${pool.id} - missing poolAddress (${pool.poolAddress}) or chain (${chain})`
+              );
             }
 
             const totalStakeInEther = parseFloat(formatEther(totalStake));
@@ -116,25 +140,36 @@ export const poolsFanRouter = router({
           })
         );
 
+        // Filter out rejected promises and return only successful results
+        const processedPools = results
+          .filter((result): result is PromiseFulfilledResult<any> => {
+            if (result.status === "rejected") {
+              console.error("Error processing pool:", result.reason);
+              return false;
+            }
+            return true;
+          })
+          .map(result => result.value);
+
         // Apply filters to the processed pools
         let filteredPools = processedPools;
-        if (input.filter === 'no-fans') {
+        if (input.filter === "no-fans") {
           filteredPools = processedPools.filter(pool => pool.participants === 0);
-        } else if (input.filter === 'more-than-10-fans') {
+        } else if (input.filter === "more-than-10-fans") {
           filteredPools = processedPools.filter(pool => pool.participants > 10);
-        } else if (input.filter === 'more-than-10k-stake') {
+        } else if (input.filter === "more-than-10k-stake") {
           filteredPools = processedPools.filter(pool => pool.stakedAmount > 10000);
         }
 
         // Apply sorting
         switch (input.sort) {
-          case 'name-asc':
+          case "name-asc":
             filteredPools.sort((a, b) => a.name.localeCompare(b.name));
             break;
-          case 'name-desc':
+          case "name-desc":
             filteredPools.sort((a, b) => b.name.localeCompare(a.name));
             break;
-          case 'newest':
+          case "newest":
             // Since pools don't have a created_at field in the current model, we'll sort by ID
             filteredPools.sort((a, b) => b.id - a.id);
             break;
