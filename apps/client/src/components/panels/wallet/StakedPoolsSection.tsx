@@ -16,6 +16,7 @@ export default function StakedPoolsSection() {
     data: allStakedPools,
     isLoading: loading,
     error,
+    refetch: refetchAllStakedPools,
   } = useQuery(trpc.pools.fan.getUserStakes.queryOptions());
 
   const { setActivePanelAndNavigate } = useEditor();
@@ -323,6 +324,10 @@ export default function StakedPoolsSection() {
       <ClaimRewardsModal
         isOpen={isClaimModalOpen}
         onClose={() => setIsClaimModalOpen(false)}
+        onClaimSuccess={() => {
+          // Refetch the staked pools data after successful claim to update the display
+          refetchAllStakedPools();
+        }}
         pool={
           claimingPool
             ? {

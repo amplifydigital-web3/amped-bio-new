@@ -18,10 +18,11 @@ interface ClaimRewardsModalProps {
   isOpen: boolean;
   onClose: () => void;
   pool: RewardPool | null;
+  onClaimSuccess?: () => void; // Optional callback to run after successful claim
 }
 
-export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimRewardsModalProps) {
-  const { claimReward, currencySymbol, pendingReward, isReadingPendingReward } = useStaking(pool);
+export default function ClaimRewardsModal({ isOpen, onClose, pool, onClaimSuccess }: ClaimRewardsModalProps) {
+  const { claimReward, currencySymbol, pendingReward, isReadingPendingReward, refetchPendingReward } = useStaking(pool);
   
   const [step, setStep] = useState<"confirm" | "claiming" | "success">("confirm");
   const [animatingTokens, setAnimatingTokens] = useState<Array<{ id: number; delay: number }>>([]);
@@ -67,6 +68,12 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool }: ClaimReward
       toast.success(
         `Successfully claimed ${pendingReward ? parseFloat(formatEther(pendingReward)).toLocaleString() : '0'} ${currencySymbol}! Your wallet has been updated.`
       );
+
+      // Refetch the pending reward after a successful claim to update the UI
+      await refetchPendingReward();
+
+      // Call the success callback if provided
+      onClaimSuccess?.();
 
       // Simulate API call delay
       setTimeout(() => {
