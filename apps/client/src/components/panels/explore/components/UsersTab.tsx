@@ -1,5 +1,5 @@
-import React from "react";
-import { User } from "lucide-react";
+import React, { useState } from "react";
+import { User, ChevronLeft, ChevronRight } from "lucide-react";
 import UserSkeleton from "./UserSkeleton";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "../../../../utils/trpc";
@@ -7,6 +7,22 @@ import { trpc } from "../../../../utils/trpc";
 // Define filter and sort types
 type UserFilter = 'all' | 'active-7-days' | 'has-creator-pool' | 'has-stake-in-pool';
 type UserSort = 'newest' | 'name-asc' | 'name-desc';
+
+interface User {
+  id: string;
+  username: string;
+  displayName: string;
+  avatar: string | null;
+  banner: string | null;
+  bio: string;
+  poolStake: number;
+  category: string;
+}
+
+interface PaginatedUsersResponse {
+  users: User[];
+  total: number;
+}
 
 interface UsersTabProps {
   searchQuery: string;
@@ -16,13 +32,60 @@ interface UsersTabProps {
 }
 
 const UsersTab: React.FC<UsersTabProps> = ({ searchQuery, userFilter, userSort, handleViewProfile }) => {
-  const { data: users, isLoading } = useQuery(
-    trpc.user.getUsers.queryOptions({ 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [limit] = useState(20); // 20 users per page maximum
+  
+  const { data, isLoading } = useQuery(
+    trpc.user.getUsers.queryOptions({
       search: searchQuery,
       filter: userFilter,
-      sort: userSort
+      sort: userSort,
+      page: currentPage,
+      limit: limit
     })
   );
+
+  const users = data?.users || [];
+  const total = data?.total || 0;
+  const totalPages = Math.ceil(total / limit);
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(prev => prev - 1);
+    }
+  };
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(prev => prev + 1);
+    }
+  };
+
+  const goToPage = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  // Generate page numbers to show in pagination controls
+  const getPageNumbers = () => {
+    const pages: number[] = [];
+    const maxVisiblePages = 5;
+    
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    // Adjust start page if we're near the end
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    
+    return pages;
+  };
 
   return (
     <div className="space-y-6">
@@ -107,6 +170,59 @@ const UsersTab: React.FC<UsersTabProps> = ({ searchQuery, userFilter, userSort, 
           </div>
         )}
       </div>
+
+      {/* Pagination Controls */}
+      {(total > limit) && (
+        <div className="flex items-center justify-between border-t border-gray-200 pt-4">
+          <div className="text-sm text-gray-700">
+            Showing <span className="font-medium">{Math.min((currentPage - 1) * limit + 1, total)}</span> to{' '}
+            <span className="font-medium">{Math.min(currentPage * limit, total)}</span> of{' '}
+            <span className="font-medium">{total}</span> results
+          </div>
+          <div className="flex space-x-2">
+            <button
+              onClick={goToPreviousPage}
+              disabled={currentPage === 1}
+              className={`inline-flex items-center px-3 py-2 rounded-md text-sm font-medium ${
+                currentPage === 1
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <ChevronLeft className="w-4 h-4 mr-1" />
+              Previous
+            </button>
+
+            {/* Page Numbers */}
+            {getPageNumbers().map(page => (
+              <button
+                key={page}
+                onClick={() => goToPage(page)}
+                className={`inline-flex items-center px-3 py-2 rounded-md text-sm font-medium ${
+                  page === currentPage
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+
+            <button
+              onClick={goToNextPage}
+              disabled={currentPage === totalPages}
+              className={`inline-flex items-center px-3 py-2 rounded-md text-sm font-medium ${
+                currentPage === totalPages
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+            >
+              Next
+              <ChevronRight className="w-4 h-4 ml-1" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

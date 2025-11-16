@@ -446,24 +446,34 @@ export const userRouter = router({
     .input(
       z.object({
         search: z.string().optional(),
-        filter: z.enum(['all', 'active-7-days', 'has-creator-pool', 'has-stake-in-pool']).optional().default('all'),
-        sort: z.enum(['newest', 'name-asc', 'name-desc']).optional().default('newest'),
+        filter: z
+          .enum(["all", "active-7-days", "has-creator-pool", "has-stake-in-pool"])
+          .optional()
+          .default("all"),
+        sort: z.enum(["newest", "name-asc", "name-desc"]).optional().default("newest"),
+        page: z.number().optional().default(1),
+        limit: z.number().optional().default(20), // Default to 20 users per page, max 20
       })
     )
-    .query(async ({ input }): Promise<Creator[]> => {
-      // Build the where clause based on filter
-      let whereClause: any = {};
+    .query(async ({ input }): Promise<{ users: Creator[]; total: number }> => {
+      // Ensure limit doesn't exceed 20
+      const safeLimit = Math.min(input.limit || 20, 20);
+      const safePage = Math.max(input.page || 1, 1);
+
+      // Build the base where clause based on search
+      const whereClause: any = {};
       if (input.search) {
         whereClause.name = {
           contains: input.search,
         };
       }
 
-      // Note: active-7-days filter requires last activity date which is not available in current schema
-      // For has-creator-pool and has-stake-in-pool we need to join with related tables
-      if (input.filter === 'has-creator-pool' || input.filter === 'has-stake-in-pool') {
-        // We'll get all users and filter after fetching stake data
-        const users = await prisma.user.findMany({
+      // Apply database-level filtering based on the filter type
+      let usersWithStakes;
+
+      if (input.filter === "has-creator-pool" || input.filter === "has-stake-in-pool") {
+        // For filters requiring stake information, join with related tables
+        usersWithStakes = await prisma.user.findMany({
           where: whereClause,
           select: {
             id: true,
@@ -472,79 +482,103 @@ export const userRouter = router({
             image: true,
             description: true,
             created_at: true,
-          },
-        });
-
-        // Query to get wallet IDs for these users
-        const userWallets = await prisma.userWallet.findMany({
-          where: {
-            userId: {
-              in: users.map(user => user.id),
+            wallet: {
+              select: {
+                id: true,
+                stakedPools: {
+                  select: {
+                    stakeAmount: true,
+                  },
+                },
+              },
             },
           },
-          select: {
-            id: true,
-            userId: true,
-          },
         });
 
-        // Query to get stake information for these users
-        const stakedPools = await prisma.stakedPool.findMany({
-          where: {
-            userWalletId: {
-              in: userWallets.map(wallet => wallet.id),
-            },
-          },
-          select: {
-            userWalletId: true,
-            stakeAmount: true,
-          },
-        });
+        // Calculate total stake per user and filter in memory (this is unavoidable for this filter)
+        const usersWithCalculatedStakes = usersWithStakes
+          .map(user => {
+            // Calculate total stake by flattening the staked pools
+            const totalStake = (user.wallet?.stakedPools || []).reduce(
+              (walletAcc: number, stakedPool: any) => {
+                return walletAcc + Number(stakedPool.stakeAmount);
+              },
+              0
+            );
 
-        // Calculate total stake per user
-        const stakeAmountMap: Record<number, number> = {};
-        stakedPools.forEach(stake => {
-          const userId = userWallets.find(wallet => wallet.id === stake.userWalletId)?.userId;
-          if (userId) {
-            const amount = Number(stake.stakeAmount);
-            stakeAmountMap[userId] = (stakeAmountMap[userId] || 0) + amount;
-          }
-        });
+            return {
+              user: {
+                id: user.id,
+                name: user.name,
+                onelink: user.onelink,
+                image: user.image,
+                description: user.description,
+                created_at: user.created_at,
+              },
+              totalStake,
+            };
+          })
+          .filter(item => item.totalStake > 0); // Apply the "has stake" filter
 
-        // Filter users based on stake amount if needed
-        let filteredUsers = users;
-        if (input.filter === 'has-creator-pool' || input.filter === 'has-stake-in-pool') {
-          filteredUsers = users.filter(user => stakeAmountMap[user.id] > 0);
-        }
-
-        // Apply sorting
+        // Apply sorting to the filtered results
         switch (input.sort) {
-          case 'name-asc':
-            filteredUsers.sort((a, b) => a.name.localeCompare(b.name));
+          case "name-asc":
+            usersWithCalculatedStakes.sort((a, b) => a.user.name.localeCompare(b.user.name));
             break;
-          case 'name-desc':
-            filteredUsers.sort((a, b) => b.name.localeCompare(a.name));
+          case "name-desc":
+            usersWithCalculatedStakes.sort((a, b) => b.user.name.localeCompare(a.user.name));
             break;
-          case 'newest':
-            filteredUsers.sort((a, b) => b.created_at.getTime() - a.created_at.getTime());
+          case "newest":
+            usersWithCalculatedStakes.sort(
+              (a, b) => b.user.created_at.getTime() - a.user.created_at.getTime()
+            );
             break;
           default:
             break;
         }
 
-        return filteredUsers.map(user => ({
-          id: user.id.toString(),
-          displayName: user.name,
-          username: user.onelink || "",
-          avatar: user.image,
-          bio: user.description || "",
-          banner: null, // Placeholder
-          poolStake: stakeAmountMap[user.id] || 0, // Use the calculated total stake
-          category: "uncategorized",
-        }));
+        // Apply pagination
+        const total = usersWithCalculatedStakes.length;
+        const startIndex = (safePage - 1) * safeLimit;
+        const endIndex = startIndex + safeLimit;
+        const paginatedUsers = usersWithCalculatedStakes.slice(startIndex, endIndex);
+
+        return {
+          users: paginatedUsers.map(item => ({
+            id: item.user.id.toString(),
+            displayName: item.user.name,
+            username: item.user.onelink || "",
+            avatar: item.user.image,
+            bio: item.user.description || "",
+            banner: null, // Placeholder
+            poolStake: item.totalStake, // Use the calculated total stake
+            category: "uncategorized",
+          })),
+          total,
+        };
       } else {
-        // For 'all' and 'active-7-days' filters (active-7-days not implemented yet)
-        const users = await prisma.user.findMany({
+        // For filters that don't require stake information, use efficient database queries
+        // Apply sorting at the database level
+        let orderBy: any = {};
+        switch (input.sort) {
+          case "name-asc":
+            orderBy = { name: "asc" };
+            break;
+          case "name-desc":
+            orderBy = { name: "desc" };
+            break;
+          case "newest":
+            orderBy = { created_at: "desc" };
+            break;
+          default:
+            break;
+        }
+
+        // Get count for pagination
+        const total = await prisma.user.count({ where: whereClause });
+
+        // Get paginated users with sorting applied at DB level
+        const paginatedUsers = await prisma.user.findMany({
           where: whereClause,
           select: {
             id: true,
@@ -554,13 +588,17 @@ export const userRouter = router({
             description: true,
             created_at: true,
           },
+          orderBy,
+          skip: (safePage - 1) * safeLimit,
+          take: safeLimit,
         });
 
-        // Query to get wallet IDs for these users
+        // Calculate stakes for only the paginated users (more efficient)
+        const userIds = paginatedUsers.map(user => user.id);
         const userWallets = await prisma.userWallet.findMany({
           where: {
             userId: {
-              in: users.map(user => user.id),
+              in: userIds,
             },
           },
           select: {
@@ -569,7 +607,6 @@ export const userRouter = router({
           },
         });
 
-        // Query to get stake information for these users
         const stakedPools = await prisma.stakedPool.findMany({
           where: {
             userWalletId: {
@@ -592,31 +629,19 @@ export const userRouter = router({
           }
         });
 
-        // Apply sorting
-        switch (input.sort) {
-          case 'name-asc':
-            users.sort((a, b) => a.name.localeCompare(b.name));
-            break;
-          case 'name-desc':
-            users.sort((a, b) => b.name.localeCompare(a.name));
-            break;
-          case 'newest':
-            users.sort((a, b) => b.created_at.getTime() - a.created_at.getTime());
-            break;
-          default:
-            break;
-        }
-
-        return users.map(user => ({
-          id: user.id.toString(),
-          displayName: user.name,
-          username: user.onelink || "",
-          avatar: user.image,
-          bio: user.description || "",
-          banner: null, // Placeholder
-          poolStake: stakeAmountMap[user.id] || 0, // Use the calculated total stake
-          category: "uncategorized",
-        }));
+        return {
+          users: paginatedUsers.map(user => ({
+            id: user.id.toString(),
+            displayName: user.name,
+            username: user.onelink || "",
+            avatar: user.image,
+            bio: user.description || "",
+            banner: null, // Placeholder
+            poolStake: stakeAmountMap[user.id] || 0, // Use the calculated total stake
+            category: "uncategorized",
+          })),
+          total,
+        };
       }
     }),
 });
