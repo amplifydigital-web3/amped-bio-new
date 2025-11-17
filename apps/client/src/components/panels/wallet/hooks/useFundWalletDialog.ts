@@ -78,6 +78,12 @@ export function useFundWalletDialog(params: {
       return { success: false };
     }
 
+    // Check if wallet.publicKey is null
+    if (!wallet.publicKey) {
+      toast.error("Could not obtain wallet verification. Please try sign out and sign in again.");
+      return { success: false };
+    }
+
     // Prevent claim if faucet is globally disabled
     if (!faucetInfo.faucetEnabled) {
       toast.error("The faucet is temporarily disabled.");

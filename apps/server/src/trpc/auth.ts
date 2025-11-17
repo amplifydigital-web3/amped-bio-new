@@ -195,13 +195,13 @@ export const authRouter = router({
         },
       });
 
-      // Send verification email
-      try {
-        await sendEmailVerification(email, remember_token);
-      } catch (error) {
-        console.error("Error sending verification email:", error);
-        // We continue even if email fails
-      }
+      // // Send verification email
+      // try {
+      //   await sendEmailVerification(email, remember_token);
+      // } catch (error) {
+      //   console.error("Error sending verification email:", error);
+      //   // We continue even if email fails
+      // }
 
       return handleTokenGeneration(ctx, result, null, false);
     } catch (error) {
