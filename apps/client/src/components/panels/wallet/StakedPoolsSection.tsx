@@ -6,18 +6,18 @@ import { trpc } from "../../../utils/trpc";
 import StakedPoolRow from "./StakedPoolRow";
 import { useQuery } from "@tanstack/react-query";
 import { useEditor } from "../../../contexts/EditorContext";
-import { RewardPool } from "@ampedbio/constants";
 import { formatUnits } from "viem";
 import { usePoolReader } from "../../../hooks/usePoolReader";
-import { useAccount } from "wagmi";
+import { useAccount, useChainId } from "wagmi";
 
 export default function StakedPoolsSection() {
+  const chainId = useChainId();
   const {
     data: allStakedPools,
     isLoading: loading,
     error,
     refetch: refetchAllStakedPools,
-  } = useQuery(trpc.pools.fan.getUserStakes.queryOptions());
+  } = useQuery(trpc.pools.fan.getUserStakes.queryOptions({ chainId: chainId.toString() }));
 
   const { setActivePanelAndNavigate } = useEditor();
   const [currentPage, setCurrentPage] = React.useState(1);

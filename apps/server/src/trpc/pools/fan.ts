@@ -260,70 +260,160 @@ export const poolsFanRouter = router({
       }
     }),
 
-  getUserStakes: privateProcedure.query(async ({ ctx }) => {
-    const userId = ctx.user.sub;
+  getUserStakes: privateProcedure
+    .input(
+      z.object({
+        chainId: z.string(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.user.sub;
 
-    try {
-      const userWallet = await prisma.userWallet.findUnique({
-        where: { userId },
-      });
-
-      if (!userWallet) {
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: "User does not have a wallet",
+      try {
+        const userWallet = await prisma.userWallet.findUnique({
+          where: { userId },
         });
-      }
 
-      const userStakes = await prisma.stakedPool.findMany({
-        where: {
-          userWalletId: userWallet.id,
-        },
-        include: {
-          pool: {
-            include: {
-              poolImage: {
-                select: {
-                  s3_key: true,
+        if (!userWallet) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "User does not have a wallet",
+          });
+        }
+
+        // Get the chain configuration for the specified chainId
+        const chain = getChainConfig(parseInt(input.chainId));
+
+        if (!chain) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Unsupported chain ID",
+          });
+        }
+
+        const publicClient = createPublicClient({
+          chain: chain,
+          transport: http(),
+        });
+
+        const userStakes = await prisma.stakedPool.findMany({
+          where: {
+            userWalletId: userWallet.id,
+            pool: {
+              chainId: input.chainId, // Only fetch stakes for the specified chain
+            },
+          },
+          include: {
+            pool: {
+              include: {
+                poolImage: {
+                  select: {
+                    s3_key: true,
+                  },
                 },
-              },
-              wallet: {
-                select: {
-                  userId: true,
-                  address: true,
+                wallet: {
+                  select: {
+                    userId: true,
+                    address: true,
+                  },
                 },
               },
             },
           },
-        },
-      });
+        });
 
-      return Promise.all(
-        userStakes.map(async stake => {
-          const { pool } = stake;
-          const poolName = await getPoolName(pool.poolAddress as Address, parseInt(pool.chainId));
-          return {
-            ...stake,
-            stakeAmount: stake.stakeAmount.toString(),
-            pool: {
-              ...pool,
-              name: poolName || `Pool ${pool.id}`, // Using blockchain name, fallback to id-based name
-              imageUrl: pool.poolImage ? s3Service.getFileUrl(pool.poolImage.s3_key) : null,
-              userId: pool.wallet.userId, // Include the actual user ID
-              creatorAddress: pool.wallet.address, // Include the creator's wallet address
-            },
-          };
-        })
-      );
-    } catch (error) {
-      console.error("Error getting user stakes:", error);
-      if (error instanceof TRPCError) throw error;
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Failed to get user stakes",
-      });
-    }
-  }),
+        // Prepare arrays for batch processing
+        const poolsToFetch = userStakes.filter(
+          stake => stake.pool.poolAddress && userWallet.address
+        );
+
+        // Fetch updated staking values from blockchain for all applicable stakes
+        const blockchainStakeResults = await Promise.allSettled(
+          poolsToFetch.map(async stake => {
+            console.log(
+              `Attempting to fetch updated stake amount from contract for pool ${stake.pool.id} at address ${stake.pool.poolAddress} for user ${userWallet.address}`
+            );
+
+            // Fetch the current user's stake amount from the contract
+            const fanStakeAmount = await publicClient.readContract({
+              address: stake.pool.poolAddress as Address,
+              abi: CREATOR_POOL_ABI,
+              functionName: "fanStakes",
+              args: [userWallet.address as Address],
+            });
+
+            console.log(
+              `Successfully fetched stake amount from contract for pool ${stake.pool.id} and user ${userWallet.address}: ${fanStakeAmount.toString()}`
+            );
+
+            return {
+              poolId: stake.pool.id,
+              stakeAmount: fanStakeAmount.toString(),
+            };
+          })
+        );
+
+        // Process results and handle both fulfilled and rejected promises
+        const blockchainStakeData = blockchainStakeResults
+          .map((result, index) => {
+            if (result.status === "fulfilled") {
+              return result.value;
+            } else {
+              // Log the error for debugging
+              console.error(
+                `Error fetching stake amount from contract for pool ${poolsToFetch[index].pool.id} and user ${userWallet.address}:`,
+                result.reason
+              );
+              // Return null for failed requests to be handled appropriately
+              return null;
+            }
+          })
+          .filter(data => data !== null); // Filter out null values
+
+        // Prepare final result with blockchain stake amounts
+        const resultStakes = await Promise.all(
+          userStakes.map(async stake => {
+            // Check if we have a blockchain update for this stake
+            const blockchainData = blockchainStakeData.find(
+              data => data && data.poolId === stake.pool.id
+            );
+
+            // Use blockchain value if available, otherwise use original database value
+            const currentStakeAmount = blockchainData
+              ? blockchainData.stakeAmount
+              : stake.stakeAmount.toString();
+
+            const poolName = await getPoolName(
+              stake.pool.poolAddress as Address,
+              parseInt(stake.pool.chainId)
+            );
+
+            return {
+              ...stake,
+              stakeAmount: currentStakeAmount, // Return blockchain value without updating DB
+              pool: {
+                ...stake.pool,
+                name: poolName || `Pool ${stake.pool.id}`, // Using blockchain name, fallback to id-based name
+                imageUrl: stake.pool.poolImage
+                  ? s3Service.getFileUrl(stake.pool.poolImage.s3_key)
+                  : null,
+                userId: stake.pool.wallet.userId, // Include the actual user ID
+                creatorAddress: stake.pool.wallet.address, // Include the creator's wallet address
+              },
+            };
+          })
+        );
+
+        return resultStakes;
+      } catch (error) {
+        console.error("Error getting user stakes:", error);
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to get user stakes",
+        });
+      }
+    }),
 
   confirmStake: privateProcedure
     .input(
