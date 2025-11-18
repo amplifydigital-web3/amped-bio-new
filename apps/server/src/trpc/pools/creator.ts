@@ -65,6 +65,12 @@ export const poolsCreatorRouter = router({
                 bucket: true,
               },
             },
+            wallet: {
+              select: {
+                userId: true,
+                address: true,
+              },
+            },
           },
         });
 
@@ -79,6 +85,8 @@ export const poolsCreatorRouter = router({
         return {
           ...pool,
           imageUrl: imageUrl,
+          userId: pool.wallet.userId, // Include the actual user ID
+          creatorAddress: pool.wallet.address, // Include the creator's wallet address
         };
       } catch (error) {
         console.error("Error fetching pool:", error);

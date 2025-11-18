@@ -18,7 +18,7 @@ import {
   Edit3,
   User,
 } from "lucide-react";
-import PoolDetailsModal from "../wallet/PoolDetailsModal";
+import ExplorePoolDetailsModal from "../explore/ExplorePoolDetailsModal";
 import { trpc } from "@/utils/trpc";
 import { useMutation } from "@tanstack/react-query";
 import { useAccount, useChainId, useReadContract } from "wagmi";
@@ -27,6 +27,7 @@ import { Address, formatEther } from "viem";
 import { useQuery } from "@tanstack/react-query";
 import { trpcClient } from "@/utils/trpc";
 import { ImageUploadModal } from "@/components/ImageUploadModal";
+import { RewardPool } from "@ampedbio/constants";
 
 interface PoolActivity {
   id: string;
@@ -368,7 +369,7 @@ export default function DashboardPage() {
   );
 
   // Get pool details combining backend and blockchain data
-  const userPool = React.useMemo(() => {
+  const userPool = React.useMemo<RewardPool | null>(() => {
     if (!poolData || !dashboardData) {
       return null;
     }
@@ -377,10 +378,10 @@ export default function DashboardPage() {
     const totalStake = dashboardData.totalStake;
 
     return {
-      id: poolData?.id?.toString(),
+      id: poolData.id,
       name: poolName || poolData.description || "Pool Name",
       description: poolData.description || "Pool description not available",
-      image: poolData.imageUrl,
+      imageUrl: poolData.imageUrl, // Use imageUrl for the modal
       totalStake: totalStake,
       totalRewards: Number(poolData.revoStaked) || 0, // Using revoStaked from the database model (in wei)
       totalFans: dashboardData.totalFans, // Using totalFans from dashboardData
@@ -391,6 +392,11 @@ export default function DashboardPage() {
       earnedRewards: 0,
       participants: dashboardData.totalFans, // Using totalFans from dashboardData
       totalReward: Number(poolData.revoStaked) || 0, // Using revoStaked from the database model (in wei)
+      userId: poolData.userId, // Using actual userId from the updated server response
+      image_file_id: poolData.image_file_id || null, // Add image file ID
+      creatorAddress: poolData.creatorAddress, // Using creatorAddress from the updated server response
+      createdBy: "Creator", // createdBy is not available in poolData
+      poolAddress: poolData.poolAddress || null, // Add pool address for the new modal
     };
   }, [poolData, poolName, dashboardData]);
 
@@ -568,10 +574,10 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Pool Image */}
           <div className="relative h-64 group">
-            {userPool.image ? (
+            {userPool.imageUrl ? (
               <div className="h-full rounded-xl overflow-hidden border border-gray-100 shadow-sm">
                 <img
-                  src={userPool.image}
+                  src={userPool.imageUrl}
                   alt={`${userPool.name} pool`}
                   className="w-full h-full object-cover"
                 />
@@ -691,7 +697,7 @@ export default function DashboardPage() {
           </div>
           <div className="space-y-1">
             <p className="text-2xl font-bold text-gray-900">
-              {formatValue(userPool.totalStake, currencySymbol)}
+              {formatValue(userPool.totalReward, currencySymbol)}
             </p>
             <p className="text-sm text-green-600 flex items-center">
               <TrendingUp className="w-4 h-4 mr-1" />
@@ -724,7 +730,7 @@ export default function DashboardPage() {
           </div>
           <div className="space-y-1">
             <p className="text-2xl font-bold text-gray-900">
-              {userPool.totalFans.toLocaleString()}
+              {userPool.participants.toLocaleString()}
             </p>
             <p className="text-sm text-purple-600 flex items-center">
               <TrendingUp className="w-4 h-4 mr-1" />+{dashboardData?.newFansThisWeek} new this week
@@ -1124,7 +1130,7 @@ export default function DashboardPage() {
 
       {/* Pool Details Modal */}
       {isPoolModalOpen && (
-        <PoolDetailsModal
+        <ExplorePoolDetailsModal
           pool={userPool}
           isOpen={isPoolModalOpen}
           onClose={() => setIsPoolModalOpen(false)}
@@ -1136,7 +1142,7 @@ export default function DashboardPage() {
         isOpen={isImageUploadModalOpen}
         onClose={() => setIsImageUploadModalOpen(false)}
         onUploadSuccess={handleImageUploadSuccess}
-        currentImageUrl={userPool.image ?? undefined}
+        currentImageUrl={userPool.imageUrl ?? undefined}
       />
     </div>
   );

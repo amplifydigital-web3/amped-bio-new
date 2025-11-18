@@ -93,7 +93,7 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
           id: pool.id,
           description: pool.description,
           chainId: pool.chainId,
-          userId: pool.walletId, // Use walletId instead of userId since pools now relate to wallets
+          userId: pool.userId, // Using actual userId from updated server response
           poolAddress: pool.poolAddress,
           image_file_id: pool.image_file_id,
           imageUrl: pool.imageUrl,

@@ -290,6 +290,12 @@ export const poolsFanRouter = router({
                   s3_key: true,
                 },
               },
+              wallet: {
+                select: {
+                  userId: true,
+                  address: true,
+                }
+              }
             },
           },
         },
@@ -306,6 +312,8 @@ export const poolsFanRouter = router({
               ...pool,
               name: poolName || `Pool ${pool.id}`, // Using blockchain name, fallback to id-based name
               imageUrl: pool.poolImage ? s3Service.getFileUrl(pool.poolImage.s3_key) : null,
+              userId: pool.wallet.userId, // Include the actual user ID
+              creatorAddress: pool.wallet.address, // Include the creator's wallet address
             },
           };
         })
