@@ -19,6 +19,7 @@ import { trpcClient } from "@/utils/trpc";
 import { usePoolReader } from "../../../hooks/usePoolReader";
 import { useStaking } from "../../../hooks/useStaking";
 import { formatEther } from "viem";
+import { getChainConfig } from "@ampedbio/web3";
 
 import { RewardPool } from "@ampedbio/constants";
 
@@ -138,8 +139,13 @@ export default function ExplorePoolDetailsModal({
   };
 
   const handleViewOnExplorer = () => {
-    console.log("View pool on blockchain explorer:", pool.id);
-    // Implementation to open blockchain explorer
+    const chain = getChainConfig(Number(pool.chainId));
+    if (chain && chain.blockExplorers?.default?.url && pool.poolAddress) {
+      const explorerUrl = `${chain.blockExplorers.default.url}/address/${pool.poolAddress}`;
+      window.open(explorerUrl, "_blank");
+    } else {
+      toast.error("Could not find explorer URL for this chain.");
+    }
   };
 
   const handleAddStake = () => {
