@@ -11,18 +11,21 @@ export const poolsFanRouter = router({
     .input(
       z.object({
         search: z.string().optional(),
+        filter: z
+          .enum(["all", "no-fans", "more-than-10-fans", "more-than-10k-stake"])
+          .optional()
+          .default("all"),
+        sort: z.enum(["newest", "name-asc", "name-desc"]).optional().default("newest"),
       })
     )
     .query(async ({ input }) => {
       try {
         const whereClause: any = {};
         if (input.search) {
-          whereClause.OR = [
-            { description: { contains: input.search, mode: "insensitive" } },
-            { title: { contains: input.search, mode: "insensitive" } },
-          ];
+          whereClause.OR = [{ description: { contains: input.search, mode: "insensitive" } }];
         }
 
+        // Build the pools query with the where clause
         const pools = await prisma.creatorPool.findMany({
           where: whereClause,
           include: {
@@ -35,6 +38,7 @@ export const poolsFanRouter = router({
             wallet: {
               select: {
                 address: true,
+                userId: true,
               },
             },
             _count: {
@@ -50,12 +54,79 @@ export const poolsFanRouter = router({
           },
         });
 
-        return Promise.all(
+        // Apply filtering logic after getting pool data from blockchain
+        const results = await Promise.allSettled(
           pools.map(async pool => {
-            const totalStake = pool.stakedPools.reduce(
-              (sum: bigint, staked) => sum + BigInt(staked.stakeAmount),
-              0n
-            );
+            // Get the chain configuration for the pool
+            const chain = getChainConfig(parseInt(pool.chainId));
+
+            // Initialize totalStake to the current db value
+            let totalStake: bigint = BigInt(pool.revoStaked);
+
+            // Query the totalStaked from the pool contract if we have the necessary data
+            if (pool.poolAddress && chain) {
+              try {
+                const publicClient = createPublicClient({
+                  chain: chain,
+                  transport: http(),
+                });
+
+                console.log(
+                  `Attempting to fetch creatorStaked and totalFanStaked from contract for pool ${pool.id} at address ${pool.poolAddress}`
+                );
+
+                // Fetch both creatorStaked and totalFanStaked values from the contract as instructed by colleague
+                const creatorStakedValue = await publicClient.readContract({
+                  address: pool.poolAddress as Address,
+                  abi: CREATOR_POOL_ABI,
+                  functionName: "creatorStaked",
+                });
+
+                const totalFanStakedValue = await publicClient.readContract({
+                  address: pool.poolAddress as Address,
+                  abi: CREATOR_POOL_ABI,
+                  functionName: "totalFanStaked",
+                });
+
+                console.log(
+                  `Successfully fetched creatorStaked from contract for pool ${pool.id}: ${creatorStakedValue.toString()}`
+                );
+                console.log(
+                  `Successfully fetched totalFanStaked from contract for pool ${pool.id}: ${totalFanStakedValue.toString()}`
+                );
+
+                // Calculate the total stake as sum of creatorStaked and totalFanStaked as instructed by colleague
+                const totalStakeValue = (creatorStakedValue + totalFanStakedValue) as bigint;
+
+                // Update the database with the value from the contract
+                try {
+                  await prisma.creatorPool.update({
+                    where: { id: pool.id },
+                    data: { revoStaked: totalStakeValue.toString() },
+                  });
+                  console.log(`Successfully updated revoStaked in database for pool ${pool.id}`);
+                } catch (updateError) {
+                  console.error(
+                    `Error updating revoStaked in database for pool ${pool.id}:`,
+                    updateError
+                  );
+                  // Continue anyway, we'll still return the blockchain value
+                }
+
+                totalStake = totalStakeValue;
+              } catch (error) {
+                console.error(
+                  `Error fetching totalStaked from contract for pool ${pool.id}:`,
+                  error
+                );
+                // If contract query fails, we'll keep the db value
+              }
+            } else {
+              console.log(
+                `Skipping contract query for pool ${pool.id} - missing poolAddress (${pool.poolAddress}) or chain (${chain})`
+              );
+            }
+
             const totalStakeInEther = parseFloat(formatEther(totalStake));
             const poolName = await getPoolName(pool.poolAddress as Address, parseInt(pool.chainId));
 
@@ -66,20 +137,57 @@ export const poolsFanRouter = router({
 
             return {
               ...pool,
+              revoStaked: totalStake, // Include the updated revoStaked in the response
               imageUrl: pool.poolImage ? s3Service.getFileUrl(pool.poolImage.s3_key) : null,
-              title: pool.description || `Pool ${pool.id}`,
-              name: poolName,
+              name: poolName || `Pool ${pool.id}`, // Using blockchain name, fallback to id-based name
               totalReward: totalStakeInEther,
               participants: activeStakers,
-              category: "staking",
-              createdBy: "Unknown",
+              createdBy: pool.wallet?.userId?.toString() || "Unknown",
               stakedAmount: totalStakeInEther,
               earnedRewards: 0,
-              estimatedRewards: 0,
               creatorAddress: pool.wallet?.address || null,
             };
           })
         );
+
+        // Filter out rejected promises and return only successful results
+        const processedPools = results
+          .filter((result): result is PromiseFulfilledResult<any> => {
+            if (result.status === "rejected") {
+              console.error("Error processing pool:", result.reason);
+              return false;
+            }
+            return true;
+          })
+          .map(result => result.value);
+
+        // Apply filters to the processed pools
+        let filteredPools = processedPools;
+        if (input.filter === "no-fans") {
+          filteredPools = processedPools.filter(pool => pool.participants === 0);
+        } else if (input.filter === "more-than-10-fans") {
+          filteredPools = processedPools.filter(pool => pool.participants > 10);
+        } else if (input.filter === "more-than-10k-stake") {
+          filteredPools = processedPools.filter(pool => pool.stakedAmount > 10000);
+        }
+
+        // Apply sorting
+        switch (input.sort) {
+          case "name-asc":
+            filteredPools.sort((a, b) => a.name.localeCompare(b.name));
+            break;
+          case "name-desc":
+            filteredPools.sort((a, b) => b.name.localeCompare(a.name));
+            break;
+          case "newest":
+            // Since pools don't have a created_at field in the current model, we'll sort by ID
+            filteredPools.sort((a, b) => b.id - a.id);
+            break;
+          default:
+            break;
+        }
+
+        return filteredPools;
       } catch (error) {
         console.error("Error fetching pools:", error);
         if (error instanceof TRPCError) throw error;
@@ -179,22 +287,34 @@ export const poolsFanRouter = router({
                   s3_key: true,
                 },
               },
+              wallet: {
+                select: {
+                  userId: true,
+                  address: true,
+                },
+              },
             },
           },
         },
       });
 
-      return userStakes.map(stake => {
-        const { pool } = stake;
-        return {
-          ...stake,
-          stakeAmount: stake.stakeAmount,
-          pool: {
-            ...pool,
-            imageUrl: pool.poolImage ? s3Service.getFileUrl(pool.poolImage.s3_key) : null,
-          },
-        };
-      });
+      return Promise.all(
+        userStakes.map(async stake => {
+          const { pool } = stake;
+          const poolName = await getPoolName(pool.poolAddress as Address, parseInt(pool.chainId));
+          return {
+            ...stake,
+            stakeAmount: stake.stakeAmount.toString(),
+            pool: {
+              ...pool,
+              name: poolName || `Pool ${pool.id}`, // Using blockchain name, fallback to id-based name
+              imageUrl: pool.poolImage ? s3Service.getFileUrl(pool.poolImage.s3_key) : null,
+              userId: pool.wallet.userId, // Include the actual user ID
+              creatorAddress: pool.wallet.address, // Include the creator's wallet address
+            },
+          };
+        })
+      );
     } catch (error) {
       console.error("Error getting user stakes:", error);
       if (error instanceof TRPCError) throw error;

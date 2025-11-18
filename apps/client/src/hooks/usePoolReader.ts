@@ -13,6 +13,19 @@ export function usePoolReader(poolAddress?: Address, fanAddress?: Address) {
   });
 
   const {
+    data: poolNameData,
+    isLoading: isReadingPoolName,
+    refetch: refetchPoolName,
+  } = useReadContract({
+    address: poolAddress,
+    abi: CREATOR_POOL_ABI,
+    functionName: "poolName",
+    query: {
+      enabled: !!poolAddress,
+    },
+  });
+
+  const {
     data: pendingRewardData,
     isLoading: isReadingPendingReward,
     refetch: refetchPendingReward,
@@ -68,6 +81,9 @@ export function usePoolReader(poolAddress?: Address, fanAddress?: Address) {
     pendingReward: pendingRewardData,
     isReadingPendingReward,
     refetchPendingReward,
+    poolName: poolNameData,
+    isReadingPoolName,
+    refetchPoolName,
     claimReward,
   };
 }

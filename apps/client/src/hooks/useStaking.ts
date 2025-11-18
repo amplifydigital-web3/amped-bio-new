@@ -5,7 +5,7 @@ import { L2_BASE_TOKEN_ABI, getChainConfig } from "@ampedbio/web3";
 import { trpc } from "../utils/trpc";
 import { useMutation } from "@tanstack/react-query";
 import { usePoolReader } from "./usePoolReader";
-import { RewardPool } from "../components/panels/explore/ExplorePanel";
+import { RewardPool } from "@ampedbio/constants";
 
 export function useStaking(pool: RewardPool | null) {
   const { address: userAddress } = useAccount();
@@ -17,7 +17,7 @@ export function useStaking(pool: RewardPool | null) {
     pendingReward,
     isReadingPendingReward,
     refetchPendingReward,
-    claimReward
+    claimReward,
   } = usePoolReader(
     pool?.poolAddress as `0x${string}` | undefined,
     userAddress as `0x${string}` | undefined

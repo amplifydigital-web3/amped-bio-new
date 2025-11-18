@@ -47,6 +47,25 @@ export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) =>
   }, [authUser, wallet.status, wallet.disconnect]);
 
   useEffect(() => {
+    const getAndSetPublicKey = async () => {
+      if (wallet.provider) {
+        try {
+          // @ts-ignore
+          const pubKey = await wallet.provider.request({ method: "public_key" });
+          setPublicKey(pubKey as string);
+        } catch (error) {
+          console.error("Error getting public key:", error);
+          setPublicKey(null);
+        }
+      } else {
+        setPublicKey(null);
+      }
+    };
+
+    getAndSetPublicKey();
+  }, [wallet.provider, setPublicKey]);
+
+  useEffect(() => {
     const linkAddress = async () => {
       // Prevent parallel execution of linkAddress
       if (linkAddressRunningRef.current) {
@@ -56,16 +75,13 @@ export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) =>
 
       try {
         // Link wallet if user is authenticated, wallet is connected, and user doesn't have a wallet linked yet
-        if (authUser && wallet.status === "connected" && wallet.address && !authUser.wallet) {
+        if (authUser && wallet.status === "connected" && wallet.address && !authUser.wallet && publicKey) {
           try {
             // @ts-ignore
             const idToken = await wallet.getIdentityToken();
-            // @ts-ignore
-            const pubKey = await wallet.provider?.request({ method: "public_key" });
-            setPublicKey(pubKey as string);
 
             await trpcClient.wallet.linkWalletAddress.mutate({
-              publicKey: pubKey as string,
+              publicKey: publicKey as string,
               idToken: idToken,
             });
             console.info("Wallet address linked successfully");
@@ -84,7 +100,7 @@ export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) =>
       }
     };
     linkAddress();
-  }, [authUser, wallet.status, wallet.address, wallet]);
+  }, [authUser, wallet.status, wallet.address, wallet, publicKey]);
 
   const updateBalanceDelayed = () => {
     setTimeout(() => balance?.refetch(), 2000);

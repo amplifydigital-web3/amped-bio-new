@@ -1,29 +1,46 @@
 import React from "react";
 import { Trophy, ChevronLeft, ChevronRight } from "lucide-react";
-import PoolDetailsModal from "./PoolDetailsModal";
+import ExplorePoolDetailsModal from "../explore/ExplorePoolDetailsModal";
 import ClaimRewardsModal from "./ClaimRewardsModal";
 import { trpc } from "../../../utils/trpc";
 import StakedPoolRow from "./StakedPoolRow";
 import { useQuery } from "@tanstack/react-query";
 import { useEditor } from "../../../contexts/EditorContext";
+import { RewardPool } from "@ampedbio/constants";
+import { formatUnits } from "viem";
+import { usePoolReader } from "../../../hooks/usePoolReader";
+import { useAccount } from "wagmi";
 
 export default function StakedPoolsSection() {
   const {
     data: allStakedPools,
     isLoading: loading,
     error,
+    refetch: refetchAllStakedPools,
   } = useQuery(trpc.pools.fan.getUserStakes.queryOptions());
 
   const { setActivePanelAndNavigate } = useEditor();
   const [currentPage, setCurrentPage] = React.useState(1);
   const [selectedPoolId, setSelectedPoolId] = React.useState<number | null>(null);
   const [isPoolModalOpen, setIsPoolModalOpen] = React.useState(false);
+  const [isExplorePoolModalOpen, setIsExplorePoolModalOpen] = React.useState(false);
   const [isClaimModalOpen, setIsClaimModalOpen] = React.useState(false);
   const [claimingPoolId, setClaimingPoolId] = React.useState<number | null>(null);
   const poolsPerPage = 6;
 
   const selectedPool = allStakedPools?.find(p => p.poolId === selectedPoolId)?.pool || null;
+  const selectedExplorePool = allStakedPools?.find(p => p.poolId === selectedPoolId) || null;
   const claimingPool = allStakedPools?.find(p => p.poolId === claimingPoolId) || null;
+
+  const { address: userAddress } = useAccount();
+  const { pendingReward: selectedPoolPendingReward } = usePoolReader(
+    selectedExplorePool?.pool.poolAddress as `0x${string}` | undefined,
+    userAddress
+  );
+  const { pendingReward: claimingPoolPendingReward } = usePoolReader(
+    claimingPool?.pool.poolAddress as `0x${string}` | undefined,
+    userAddress
+  );
 
   // Calculate pagination
   const totalPages = allStakedPools ? Math.ceil(allStakedPools.length / poolsPerPage) : 0;
@@ -45,7 +62,8 @@ export default function StakedPoolsSection() {
 
   const handlePoolClick = (poolId: number) => {
     setSelectedPoolId(poolId);
-    setIsPoolModalOpen(true);
+    // Use the ExplorePoolDetailsModal instead of the current PoolDetailsModal
+    setIsExplorePoolModalOpen(true);
   };
 
   const handleClaimRewards = (poolId: number) => {
@@ -276,41 +294,59 @@ export default function StakedPoolsSection() {
         </button>
       </div>
 
-      {/* Pool Details Modal */}
-      <PoolDetailsModal
-        isOpen={isPoolModalOpen}
-        onClose={() => setIsPoolModalOpen(false)}
-        pool={
-          selectedPool
-            ? {
-                id: selectedPool.id.toString(),
-                title: selectedPool.description || "Untitled Pool",
-                description: selectedPool.description || "No description available",
-                stakedAmount: 0, // This should be fetched on-chain
-                chainId: selectedPool.chainId,
-                totalReward: 0, // This should be fetched on-chain
-                category: "staking",
-                earnedRewards: 0, // This should be fetched on-chain
-                estimatedRewards: 0, // This should be fetched on-chain
-                participants: 0, // This should be fetched on-chain
-                imageUrl: selectedPool.imageUrl,
-              }
-            : null
-        }
-      />
+      {/* Explore Pool Details Modal - For viewing staked pools */}
+      {selectedExplorePool && (
+        <ExplorePoolDetailsModal
+          isOpen={isExplorePoolModalOpen}
+          onClose={() => setIsExplorePoolModalOpen(false)}
+          pool={{
+            id: selectedExplorePool.pool.id,
+            description: selectedExplorePool.pool.description,
+            chainId: selectedExplorePool.pool.chainId,
+            userId: selectedExplorePool.pool.userId,
+            poolAddress: selectedExplorePool.pool.poolAddress,
+            image_file_id: selectedExplorePool.pool.image_file_id,
+            imageUrl: selectedExplorePool.pool.imageUrl,
+            name: selectedExplorePool.pool.name || `Pool ${selectedExplorePool.pool.id}`,
+            totalReward: typeof selectedExplorePool.pool.revoStaked === 'number' 
+              ? selectedExplorePool.pool.revoStaked 
+              : parseFloat(selectedExplorePool.pool.revoStaked as string) || 0,
+            stakedAmount: parseFloat(formatUnits(BigInt(selectedExplorePool.stakeAmount), 18)),
+            participants: selectedExplorePool.pool.fans || 0,
+            createdBy: "", // Placeholder
+            earnedRewards: selectedPoolPendingReward ? parseFloat(formatUnits(selectedPoolPendingReward, 18)) : 0, // Use actual pending rewards
+            creatorAddress: null, // Placeholder
+          }}
+        />
+      )}
 
       {/* Claim Rewards Modal */}
       <ClaimRewardsModal
         isOpen={isClaimModalOpen}
         onClose={() => setIsClaimModalOpen(false)}
+        onClaimSuccess={() => {
+          // Refetch the staked pools data after successful claim to update the display
+          refetchAllStakedPools();
+        }}
         pool={
           claimingPool
             ? {
-                id: claimingPool.poolId.toString(),
-                title: claimingPool.pool.description || "Untitled Pool",
-                earnedRewards: 0, // This will be fetched by the modal
+                id: claimingPool.pool.id,
+                description: claimingPool.pool.description,
                 chainId: claimingPool.pool.chainId,
-                image: claimingPool.pool.imageUrl || undefined,
+                userId: claimingPool.pool.userId,
+                poolAddress: claimingPool.pool.poolAddress,
+                image_file_id: claimingPool.pool.image_file_id,
+                imageUrl: claimingPool.pool.imageUrl,
+                name: claimingPool.pool.name || `Pool ${claimingPool.pool.id}`,
+                totalReward: typeof claimingPool.pool.revoStaked === 'number'
+                  ? claimingPool.pool.revoStaked
+                  : parseFloat(claimingPool.pool.revoStaked as string) || 0,
+                stakedAmount: parseFloat(formatUnits(BigInt(claimingPool.stakeAmount), 18)),
+                participants: claimingPool.pool.fans || 0,
+                createdBy: "", // Placeholder
+                earnedRewards: claimingPoolPendingReward ? parseFloat(formatUnits(claimingPoolPendingReward, 18)) : 0, // Use actual pending rewards for display
+                creatorAddress: null, // Placeholder - not available in pool data
               }
             : null
         }

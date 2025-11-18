@@ -19,6 +19,7 @@ interface StakedPoolRowProps {
       walletId: number;
       chainId: string;
       image_file_id: number | null;
+      name: string | null; // Blockchain pool name (primary)
       description: string | null;
       fans: number;
       revoStaked: string;
@@ -37,7 +38,11 @@ export default function StakedPoolRow({
 }: StakedPoolRowProps) {
   const { address } = useAccount();
 
-  const { pendingReward } = usePoolReader(poolData.pool.poolAddress as `0x${string}`, address);
+  const {
+    pendingReward,
+    poolName,
+    isReadingPoolName,
+  } = usePoolReader(poolData.pool.poolAddress as `0x${string}`, address);
 
   const stakedAmount = BigInt(poolData.stakeAmount);
   const earnedRewards = pendingReward || 0n;
@@ -60,7 +65,7 @@ export default function StakedPoolRow({
             {poolData.pool.imageUrl ? (
               <img
                 src={poolData.pool.imageUrl}
-                alt={`${poolData.pool.description} pool`}
+                alt={`${poolName ?? poolData.pool.name} pool`}
                 className="w-full h-full object-cover"
                 loading="lazy"
               />
@@ -74,7 +79,11 @@ export default function StakedPoolRow({
           {/* Pool Name and Badges */}
           <div className="flex-1 min-w-0">
             <h4 className="text-sm font-medium text-gray-900 truncate group-hover:text-blue-600 transition-colors duration-200">
-              {poolData.pool.description || `Pool #${poolData.poolId}`}
+              {isReadingPoolName ? (
+                <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse"></div>
+              ) : (
+                poolName ?? (poolData.pool.name || `Pool #${poolData.poolId}`)
+              )}
             </h4>
           </div>
         </div>

@@ -4,7 +4,7 @@ import { CoinsIcon, Users, TrendingUp, Crown } from "lucide-react";
 
 interface Pool {
   id: string;
-  name: string;
+  name: string; // Blockchain pool name (primary)
   creator: {
     name: string;
     avatar: string;
@@ -186,6 +186,9 @@ export function LeaderboardPanel() {
                     <p className="text-sm text-gray-500">Participants</p>
                     <p className="font-medium">
                       {pool.participants}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Active supporters
                     </p>
                   </div>
                 </div>

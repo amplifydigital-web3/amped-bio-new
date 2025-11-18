@@ -11,6 +11,7 @@ import {
   Gift,
   Edit3,
 } from "lucide-react";
+import { toast } from "react-hot-toast";
 import StakingModal from "./StakingModal";
 import { ImageUploadModal } from "@/components/ImageUploadModal";
 import { useAccount } from "wagmi";
@@ -19,7 +20,7 @@ import { usePoolReader } from "../../../hooks/usePoolReader";
 import { useStaking } from "../../../hooks/useStaking";
 import { formatEther } from "viem";
 
-import { RewardPool } from "../explore/ExplorePanel";
+import { RewardPool } from "@ampedbio/constants";
 
 interface ExplorePoolDetailsModalProps {
   isOpen: boolean;
@@ -95,8 +96,8 @@ export default function ExplorePoolDetailsModal({
     if (navigator.share) {
       navigator
         .share({
-          title: pool.title,
-          text: `Check out this reward pool: ${pool.title}`,
+          title: pool.name,
+          text: `Check out this reward pool: ${pool.name}`,
           url: poolUrl,
         })
         .catch(console.error);
@@ -114,17 +115,23 @@ export default function ExplorePoolDetailsModal({
 
   const handleClaimReward = async () => {
     if (isClaiming) return; // Prevent multiple clicks
-    
+
     setIsClaiming(true);
     try {
       await claimReward();
       // Manually refetch the fan stake and pending reward after successful claim
       await refetchFanStake();
       await refetchPendingReward();
+
+      // Show success toast
+      toast.success(
+        `Rewards claimed successfully! Your wallet has been updated with ${formatEther(pendingReward || BigInt(0))} ${currencySymbol}`
+      );
       console.log("Rewards claimed successfully!");
     } catch (error) {
       console.error("Failed to claim rewards:", error);
-      // Optionally, show an error message
+      // Show error toast
+      toast.error("Failed to claim rewards. Please try again.");
     } finally {
       setIsClaiming(false);
     }
@@ -155,7 +162,7 @@ export default function ExplorePoolDetailsModal({
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Pool Details</h2>
-            <p className="text-lg text-gray-600 mt-1">{pool.title}</p>
+            <p className="text-lg text-gray-600 mt-1">{pool.name}</p>
           </div>
           <div className="flex items-center space-x-2">
             <button
@@ -185,7 +192,7 @@ export default function ExplorePoolDetailsModal({
                   {pool.imageUrl ? (
                     <img
                       src={pool.imageUrl}
-                      alt={`${pool.title} pool`}
+                      alt={`${pool.name} pool`}
                       className="w-full h-full object-cover"
                     />
                   ) : (
@@ -236,14 +243,33 @@ export default function ExplorePoolDetailsModal({
                       onClick={handleClaimReward}
                       className="mt-2 px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-xs font-medium transition-colors duration-200 disabled:opacity-50 flex items-center justify-center"
                       disabled={
-                        isReadingPendingReward || !pendingReward || pendingReward === BigInt(0) || isClaiming
+                        isReadingPendingReward ||
+                        !pendingReward ||
+                        pendingReward === BigInt(0) ||
+                        isClaiming
                       }
                     >
                       {isClaiming ? (
                         <>
-                          <svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          <svg
+                            className="animate-spin -ml-1 mr-2 h-3 w-3 text-white"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
                           </svg>
                           Claiming...
                         </>
@@ -358,7 +384,7 @@ export default function ExplorePoolDetailsModal({
           pool
             ? {
                 id: pool.id,
-                title: pool.title,
+                name: pool.name,
                 description: pool.description ?? "",
                 chainId: pool.chainId,
                 imageUrl: pool.imageUrl,
