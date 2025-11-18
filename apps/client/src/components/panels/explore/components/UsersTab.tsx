@@ -7,7 +7,7 @@ import { formatEther } from "viem";
 
 // Define filter and sort types
 type UserFilter = 'all' | 'active-7-days' | 'has-creator-pool' | 'has-stake-in-pool';
-type UserSort = 'newest' | 'name-asc' | 'name-desc';
+type UserSort = 'newest' | 'name-asc' | 'name-desc' | 'stake-desc';
 
 interface User {
   id: string;

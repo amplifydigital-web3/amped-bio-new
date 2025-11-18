@@ -450,7 +450,10 @@ export const userRouter = router({
           .enum(["all", "active-7-days", "has-creator-pool", "has-stake-in-pool"])
           .optional()
           .default("all"),
-        sort: z.enum(["newest", "name-asc", "name-desc"]).optional().default("newest"),
+        sort: z
+          .enum(["newest", "name-asc", "name-desc", "stake-desc"])
+          .optional()
+          .default("newest"),
         page: z.number().optional().default(1),
         limit: z.number().optional().default(20), // Default to 20 users per page, max 20
       })
@@ -471,7 +474,11 @@ export const userRouter = router({
       // Apply database-level filtering based on the filter type
       let usersWithStakes;
 
-      if (input.filter === "has-creator-pool" || input.filter === "has-stake-in-pool") {
+      if (
+        input.filter === "has-creator-pool" ||
+        input.filter === "has-stake-in-pool" ||
+        input.sort === "stake-desc"
+      ) {
         // For filters requiring stake information, join with related tables
         usersWithStakes = await prisma.user.findMany({
           where: whereClause,
@@ -532,6 +539,9 @@ export const userRouter = router({
             usersWithCalculatedStakes.sort(
               (a, b) => b.user.created_at.getTime() - a.user.created_at.getTime()
             );
+            break;
+          case "stake-desc":
+            usersWithCalculatedStakes.sort((a, b) => b.totalStake - a.totalStake);
             break;
           default:
             break;

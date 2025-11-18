@@ -11,7 +11,7 @@ import PoolsTab from "./components/PoolsTab";
 // Define filter types
 type UserFilter = 'all' | 'active-7-days' | 'has-creator-pool' | 'has-stake-in-pool';
 type PoolFilter = 'all' | 'no-fans' | 'more-than-10-fans' | 'more-than-10k-stake';
-type UserSort = 'newest' | 'name-asc' | 'name-desc';
+type UserSort = 'newest' | 'name-asc' | 'name-desc' | 'stake-desc';
 type PoolSort = 'newest' | 'name-asc' | 'name-desc';
 
 interface ExplorePageProps {
@@ -66,6 +66,7 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
       { value: "newest", label: "Newest First" },
       { value: "name-asc", label: "Name A-Z" },
       { value: "name-desc", label: "Name Z-A" },
+      { value: "stake-desc", label: "Stake Amount" },
     ],
     pools: [
       { value: "newest", label: "Newest First" },

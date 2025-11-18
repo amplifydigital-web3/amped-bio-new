@@ -205,6 +205,7 @@ export const poolsCreatorRouter = router({
             data: {
               description: input.description,
               chainId: input.chainId,
+              revoStaked: "0",
               wallet: {
                 connect: {
                   id: wallet.id,
@@ -308,6 +309,7 @@ export const poolsCreatorRouter = router({
           data: {
             chainId: input.chainId,
             poolAddress,
+            revoStaked: "0",
             wallet: {
               connect: {
                 id: wallet.id,
