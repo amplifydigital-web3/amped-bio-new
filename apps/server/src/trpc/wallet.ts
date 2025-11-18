@@ -642,6 +642,106 @@ export const walletRouter = router({
         image: userWallet.user.image,
       };
     }),
+
+  // Get wallet statistics for the current user
+  getWalletStats: privateProcedure.query(async ({ ctx }) => {
+    const userId = ctx.user.sub;
+
+    try {
+      // Get user's wallet
+      const userWallet = await prisma.userWallet.findUnique({
+        where: { userId },
+      });
+
+      if (!userWallet) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "User does not have a wallet",
+        });
+      }
+
+      // Calculate "My Stake" - Total amount the user has staked across all pools
+      const userStakes = await prisma.stakedPool.findMany({
+        where: {
+          userWalletId: userWallet.id,
+        },
+      });
+
+      const myStake = userStakes.reduce((total, stake) => {
+        const stakeAmount = BigInt(stake.stakeAmount);
+        return total + stakeAmount;
+      }, 0n);
+
+      // Calculate "Staked to Me" - Total amount staked in pools created by the user
+      const userCreatorPools = await prisma.creatorPool.findMany({
+        where: {
+          walletId: userWallet.id,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      const poolIds = userCreatorPools.map(pool => pool.id);
+      let stakedToMe = 0n;
+      if (poolIds.length > 0) {
+        const stakesToMyPools = await prisma.stakedPool.findMany({
+          where: {
+            poolId: {
+              in: poolIds,
+            },
+          },
+        });
+
+        stakedToMe = stakesToMyPools.reduce((total, stake) => {
+          const stakeAmount = BigInt(stake.stakeAmount);
+          return total + stakeAmount;
+        }, 0n);
+      }
+
+      // Calculate "Stakers Supporting You" - Number of unique users who have staked in the user's pools
+      let stakersSupportingMe = 0;
+      if (poolIds.length > 0) {
+        // Get all stakes to user's pools where the stake amount is greater than 0
+        const stakesToMyPools = await prisma.stakedPool.findMany({
+          where: {
+            poolId: {
+              in: poolIds,
+            },
+            stakeAmount: {
+              gt: "0", // Only count active stakes
+            },
+          },
+          select: {
+            userWalletId: true,
+          },
+        });
+
+        // Count unique user wallet IDs to get the number of stakers
+        const uniqueUserWalletIds = new Set(
+          stakesToMyPools.map((stake: { userWalletId: number }) => stake.userWalletId)
+        );
+        stakersSupportingMe = uniqueUserWalletIds.size;
+      }
+
+      // Calculate "Creator Pools Joined" - Number of creator pools the user has created
+      const creatorPoolsJoined = userCreatorPools.length;
+
+      return {
+        myStake: myStake.toString(),
+        stakedToMe: stakedToMe.toString(),
+        stakersSupportingMe,
+        creatorPoolsJoined,
+      };
+    } catch (error) {
+      console.error("Error calculating wallet stats:", error);
+      if (error instanceof TRPCError) throw error;
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to calculate wallet stats",
+      });
+    }
+  }),
 });
 
 // viem's publicKeyToAddress assumes the public key is uncompressed, but Web3Auth provides a compressed key.

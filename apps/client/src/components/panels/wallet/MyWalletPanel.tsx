@@ -4,6 +4,7 @@ import { ProfileSection } from "./ProfileSection";
 import { useAccount } from "wagmi";
 import { useWalletContext } from "@/contexts/WalletContext";
 import { type StatBoxProps } from "./types";
+import { useWalletStats } from "./hooks/useWalletStats";
 
 const WalletBalance = lazy(() => import("./WalletBalance"));
 const StakedPoolsSection = lazy(() => import("./StakedPoolsSection"));
@@ -16,6 +17,9 @@ export function MyWalletPanel() {
 
   const { address } = useAccount();
   const [showProfileOptions, setShowProfileOptions] = useState(false);
+
+  // Get wallet stats from backend
+  const { stats, isLoading: statsLoading } = useWalletStats();
 
   // Create stats for the wallet stats section
   const walletStats = useMemo<StatBoxProps[]>(
@@ -33,23 +37,23 @@ export function MyWalletPanel() {
       {
         icon: Coins,
         label: "My Stake",
-        value: "0 REVO",
+        value: stats.myStake ? `${parseFloat(stats.myStake).toFixed(8)} REVO` : "0 REVO",
         tooltip: "Total amount of REVO tokens you have staked across all pools",
         color: "bg-green-100 text-green-600",
-        soon: true,
+        soon: false,
       },
       {
         icon: Users,
         label: "Staked to Me",
-        value: "0 REVO",
+        value: stats.stakedToMe ? `${parseFloat(stats.stakedToMe).toFixed(8)} REVO` : "0 REVO",
         tooltip: "Total amount of REVO staked in pools you have created",
         color: "bg-purple-100 text-purple-600",
-        soon: true,
+        soon: false,
       },
       {
         icon: Gift,
         label: "Earnings to Date",
-        value: "0 REVO",
+        value: "- REVO",
         tooltip: "Total rewards earned from all your staking activities",
         color: "bg-orange-100 text-orange-600",
         soon: true,
@@ -57,21 +61,21 @@ export function MyWalletPanel() {
       {
         icon: Trophy,
         label: "Stakers Supporting You",
-        value: "0",
+        value: stats.stakersSupportingMe ? stats.stakersSupportingMe.toString() : "0",
         tooltip: "Number of users who have staked in pools you created",
         color: "bg-indigo-100 text-indigo-600",
-        soon: true,
+        soon: false,
       },
       {
         icon: Target,
         label: "Creator Pools Joined",
-        value: "0",
-        tooltip: "Number of different reward pools you are currently participating in",
+        value: stats.creatorPoolsJoined?.toString() || "0",
+        tooltip: "Number of creator pools you have created",
         color: "bg-pink-100 text-pink-600",
-        soon: true,
+        soon: false,
       },
     ],
-    [wallet.balance?.data?.formatted, wallet.balance?.data?.symbol]
+    [wallet.balance?.data?.formatted, wallet.balance?.data?.symbol, stats, statsLoading]
   );
 
   // Connected view (existing wallet interface)
