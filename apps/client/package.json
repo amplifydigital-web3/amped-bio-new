@@ -19,7 +19,8 @@
     "typecheck": "tsc --noEmit",
     "generate-thumbnails": "tsx scripts/generate-video-thumbnails.ts",
     "download-convert-videos": "tsx scripts/download-convert-videos.ts",
-    "e2e:test": "cypress run"
+    "e2e:test": "cypress run",
+    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf build && rm -rf coverage"
   },
   "dependencies": {
     "@ampedbio/constants": "workspace:*",

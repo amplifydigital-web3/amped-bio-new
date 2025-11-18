@@ -17,7 +17,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
-    "prisma:migrate:dev": "if [ \"$NODE_ENV\" = \"production\" ]; then echo \"You are in production. Use prisma:migrate instead.\"; exit 1; fi && prisma migrate dev"
+    "prisma:migrate:dev": "if [ \"$NODE_ENV\" = \"production\" ]; then echo \"You are in production. Use prisma:migrate instead.\"; exit 1; fi && prisma migrate dev",
+    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf coverage"
   },
   "dependencies": {
     "@ampedbio/constants": "workspace:*",
