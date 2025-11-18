@@ -697,7 +697,7 @@ export default function DashboardPage() {
           </div>
           <div className="space-y-1">
             <p className="text-2xl font-bold text-gray-900">
-              {formatValue(userPool.totalReward, currencySymbol)}
+              {formatEther(BigInt(userPool.totalReward))}
             </p>
             <p className="text-sm text-green-600 flex items-center">
               <TrendingUp className="w-4 h-4 mr-1" />

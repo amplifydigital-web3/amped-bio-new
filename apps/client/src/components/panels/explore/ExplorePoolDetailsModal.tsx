@@ -285,7 +285,7 @@ export default function ExplorePoolDetailsModal({
                       <span className="text-sm font-medium text-purple-700">Total Pool Stake</span>
                     </div>
                     <div className="text-xl font-bold text-purple-900">
-                      {pool.totalReward.toLocaleString()}
+                      {formatEther(BigInt(pool.totalReward))}
                     </div>
                     <div className="text-xs text-purple-600">{currencySymbol}</div>
                   </div>
