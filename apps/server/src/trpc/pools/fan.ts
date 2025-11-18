@@ -6,11 +6,6 @@ import { Address, createPublicClient, http, decodeEventLog, formatEther } from "
 import { getChainConfig, L2_BASE_TOKEN_ABI, CREATOR_POOL_ABI, getPoolName } from "@ampedbio/web3";
 import { s3Service } from "../../services/S3Service";
 
-type BigIntSerialized = {
-  $type: "BigInt";
-  value: string;
-};
-
 export const poolsFanRouter = router({
   getPools: publicProcedure
     .input(
@@ -66,7 +61,7 @@ export const poolsFanRouter = router({
             const chain = getChainConfig(parseInt(pool.chainId));
 
             // Initialize totalStake to the current db value
-            let totalStake: bigint = pool.revoStaked;
+            let totalStake: bigint = BigInt(pool.revoStaked);
 
             // Query the totalStaked from the pool contract if we have the necessary data
             if (pool.poolAddress && chain) {
@@ -107,7 +102,7 @@ export const poolsFanRouter = router({
                 try {
                   await prisma.creatorPool.update({
                     where: { id: pool.id },
-                    data: { revoStaked: totalStakeValue },
+                    data: { revoStaked: totalStakeValue.toString() },
                   });
                   console.log(`Successfully updated revoStaked in database for pool ${pool.id}`);
                 } catch (updateError) {
@@ -136,7 +131,9 @@ export const poolsFanRouter = router({
             const poolName = await getPoolName(pool.poolAddress as Address, parseInt(pool.chainId));
 
             // Count only users with positive stake amounts
-            const activeStakers = pool.stakedPools.filter(staked => staked.stakeAmount > 0n).length;
+            const activeStakers = pool.stakedPools.filter(
+              staked => BigInt(staked.stakeAmount) > 0n
+            ).length;
 
             return {
               ...pool,
@@ -433,16 +430,25 @@ export const poolsFanRouter = router({
             });
           }
 
-          // Ensure amounts are properly handled for Prisma
-          let amountToStore: bigint | BigIntSerialized = stake.amount;
-          if (
-            typeof amountToStore === "object" &&
-            amountToStore !== null &&
-            "$type" in amountToStore &&
-            (amountToStore as BigIntSerialized).$type === "BigInt"
-          ) {
-            amountToStore = BigInt((amountToStore as BigIntSerialized).value);
-          }
+          // Convert the BigInt amount to a string for storage
+          const amountToStore = stake.amount.toString();
+
+          // For string-based amounts, get the existing stake as a string and add to it
+          const existingStake = await prisma.stakedPool.findUnique({
+            where: {
+              userWalletId_poolId: {
+                userWalletId: userWallet.id,
+                poolId: pool.id,
+              },
+            },
+            select: {
+              stakeAmount: true,
+            },
+          });
+
+          // Convert strings to BigInt for calculation, then back to string for storage
+          const existingAmount = BigInt(existingStake?.stakeAmount || "0");
+          const newStakeAmount = (existingAmount + BigInt(amountToStore)).toString();
 
           await prisma.stakedPool.upsert({
             where: {
@@ -452,9 +458,7 @@ export const poolsFanRouter = router({
               },
             },
             update: {
-              stakeAmount: {
-                increment: amountToStore,
-              },
+              stakeAmount: newStakeAmount,
               updatedAt: new Date(),
             },
             create: {
@@ -610,16 +614,33 @@ export const poolsFanRouter = router({
             });
           }
 
-          // Ensure amounts are properly handled for Prisma
-          let amountToStore: bigint | BigIntSerialized = unstake.amount;
-          if (
-            typeof amountToStore === "object" &&
-            amountToStore !== null &&
-            "$type" in amountToStore &&
-            (amountToStore as BigIntSerialized).$type === "BigInt"
-          ) {
-            amountToStore = BigInt((amountToStore as BigIntSerialized).value);
+          // Convert the BigInt amount to a string for storage
+          const amountToStore = unstake.amount.toString();
+
+          // For string-based amounts, get the existing stake as a string and subtract from it
+          const existingStake = await prisma.stakedPool.findUnique({
+            where: {
+              userWalletId_poolId: {
+                userWalletId: userWallet.id,
+                poolId: pool.id,
+              },
+            },
+            select: {
+              stakeAmount: true,
+            },
+          });
+
+          // Convert strings to BigInt for calculation, then back to string for storage
+          const existingAmount = BigInt(existingStake?.stakeAmount || "0");
+
+          if (existingAmount < BigInt(amountToStore)) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `Unstake amount exceeds current stake. Current stake: ${existingAmount}, Requested unstake: ${amountToStore}`,
+            });
           }
+
+          const newStakeAmount = (existingAmount - BigInt(amountToStore)).toString();
 
           await prisma.stakedPool.upsert({
             where: {
@@ -629,15 +650,13 @@ export const poolsFanRouter = router({
               },
             },
             update: {
-              stakeAmount: {
-                decrement: amountToStore,
-              },
+              stakeAmount: newStakeAmount,
               updatedAt: new Date(),
             },
             create: {
               userWalletId: userWallet.id,
               poolId: pool.id,
-              stakeAmount: -amountToStore,
+              stakeAmount: (-BigInt(amountToStore)).toString(), // Negative amount for new unstake
             },
           });
 

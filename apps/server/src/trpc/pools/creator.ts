@@ -587,10 +587,11 @@ export const poolsCreatorRouter = router({
         });
 
         const totalStake = stakeEvents.reduce((acc, event) => {
+          const eventAmount = BigInt(event.amount);
           if (event.eventType === "stake") {
-            return acc + event.amount;
+            return acc + eventAmount;
           } else {
-            return acc - event.amount;
+            return acc - eventAmount;
           }
         }, 0n);
 
@@ -599,7 +600,7 @@ export const poolsCreatorRouter = router({
           where: {
             poolId: poolId,
             stakeAmount: {
-              gt: 0n, // Only count pools with stakeAmount greater than 0
+              gt: "0", // Only count pools with stakeAmount greater than 0
             },
           },
         });
@@ -622,12 +623,12 @@ export const poolsCreatorRouter = router({
           },
         });
 
-        // Sort staked pools by stake amount descending
-        stakedPools.sort((a, b) => (a.stakeAmount > b.stakeAmount ? -1 : 1));
+        // Sort staked pools by stake amount descending (converting to BigInt for comparison)
+        stakedPools.sort((a, b) => (BigInt(a.stakeAmount) > BigInt(b.stakeAmount) ? -1 : 1));
 
         // Get top 10 for later use
         const topStakedPools = stakedPools
-          .filter(stakedPool => stakedPool.stakeAmount > 0n) // Only include users with positive stake
+          .filter(stakedPool => BigInt(stakedPool.stakeAmount) > 0n) // Only include users with positive stake
           .slice(0, 10); // Get top 10
 
         // Map sorted staked pools to top fans format
@@ -668,10 +669,11 @@ export const poolsCreatorRouter = router({
         const stakeAtStartOfMonth = stakeEvents
           .filter(event => new Date(event.createdAt) < startOfMonth)
           .reduce((acc, event) => {
+            const eventAmount = BigInt(event.amount);
             if (event.eventType === "stake") {
-              return acc + event.amount;
+              return acc + eventAmount;
             } else {
-              return acc - event.amount;
+              return acc - eventAmount;
             }
           }, 0n);
 
@@ -719,10 +721,11 @@ export const poolsCreatorRouter = router({
               event => new Date(event.createdAt) >= dayStart && new Date(event.createdAt) <= dayEnd
             )
             .reduce((acc, event) => {
+              const eventAmount = BigInt(event.amount);
               if (event.eventType === "stake") {
-                return acc + event.amount;
+                return acc + eventAmount;
               } else {
-                return acc - event.amount;
+                return acc - eventAmount;
               }
             }, 0n);
 

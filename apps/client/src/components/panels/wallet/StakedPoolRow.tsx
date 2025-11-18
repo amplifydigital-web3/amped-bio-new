@@ -22,7 +22,7 @@ interface StakedPoolRowProps {
       name: string | null; // Blockchain pool name (primary)
       description: string | null;
       fans: number;
-      revoStaked: number;
+      revoStaked: string;
       poolAddress: string | null;
       imageUrl: string | null;
     };
