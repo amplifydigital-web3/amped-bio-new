@@ -294,8 +294,8 @@ export const poolsFanRouter = router({
                 select: {
                   userId: true,
                   address: true,
-                }
-              }
+                },
+              },
             },
           },
         },
