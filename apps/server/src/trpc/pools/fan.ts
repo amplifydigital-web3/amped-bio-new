@@ -24,7 +24,7 @@ export const poolsFanRouter = router({
         if (input.search) {
           whereClause.OR = [
             { description: { contains: input.search } },
-            { poolAddress: { contains: input.search } } // Adding pool address search as well
+            { poolAddress: { contains: input.search } }, // Adding pool address search as well
           ];
         }
 
