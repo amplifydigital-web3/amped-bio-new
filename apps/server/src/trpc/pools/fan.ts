@@ -789,4 +789,294 @@ export const poolsFanRouter = router({
         });
       }
     }),
+
+  getUserPoolStakeHistory: privateProcedure
+    .input(
+      z.object({
+        poolAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/, "Invalid pool address format"),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.user.sub;
+
+      try {
+        const userWallet = await prisma.userWallet.findUnique({
+          where: { userId },
+        });
+
+        if (!userWallet) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "User does not have a wallet",
+          });
+        }
+
+        const pool = await prisma.creatorPool.findUnique({
+          where: {
+            poolAddress: input.poolAddress as Address,
+          },
+        });
+
+        if (!pool) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Pool not found",
+          });
+        }
+
+        // Get the chain configuration for the pool
+        const chain = getChainConfig(parseInt(pool.chainId));
+
+        if (!chain) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Unsupported chain ID",
+          });
+        }
+
+        const publicClient = createPublicClient({
+          chain: chain,
+          transport: http(),
+        });
+
+        // For this implementation, we'll use the fact that the pool exists in our database
+        // as an indication that it was created at some point. In a more advanced implementation,
+        // we would need to find the actual transaction that created the pool contract.
+        // For now, we'll use block 0 as the starting point, or alternatively try to get
+        // the first stake event for this pool as an approximation.
+        let poolCreationBlockNum = 0; // Default to block 0
+
+        // Try to find the earliest stake event for this pool as a close approximation
+        // to when the pool was created
+        const firstStakeEvent = await prisma.stakeEvent.findFirst({
+          where: {
+            poolId: pool.id,
+          },
+          orderBy: {
+            createdAt: "asc",
+          },
+        });
+
+        if (firstStakeEvent) {
+          // This is the first stake event we have recorded for this pool
+          // which is likely close to when it became active
+          poolCreationBlockNum = 0; // We don't store block numbers in stakeEvent, so using 0 as placeholder
+        } else {
+          // No stake events found, so we'll start from block 0
+          poolCreationBlockNum = 0;
+        }
+
+        // Call the block explorer API to get when the user wallet received funding
+        // Format: https://block-explorer-api.mainnet.zksync.io/api?module=account&action=txlist&address=0xSeuEnderecoAqui&sort=asc&page=1&offset=1
+        const explorerUrl = `https://block-explorer-api.mainnet.zksync.io/api?module=account&action=txlist&address=${userWallet.address}&sort=asc&page=1&offset=1`;
+        const explorerResponse = await fetch(explorerUrl);
+        const explorerData = await explorerResponse.json();
+
+        let fundingBlockNum: number | null = null;
+        if (explorerData.status === "1" && explorerData.result && explorerData.result.length > 0) {
+          const firstTx = explorerData.result[0];
+          fundingBlockNum = parseInt(firstTx.blockNumber);
+        }
+
+        // Determine the range to search for stake/unstake events
+        // If we don't have funding block information, search from pool creation to latest
+        const fromBlock = BigInt(poolCreationBlockNum);
+        const toBlock = fundingBlockNum ? BigInt(fundingBlockNum) : "latest";
+
+        // First, check the current stake amount from the contract
+        const currentStakeAmount = await publicClient.readContract({
+          address: input.poolAddress as Address,
+          abi: CREATOR_POOL_ABI,
+          functionName: "fanStakes",
+          args: [userWallet.address as Address],
+        });
+
+        // If the user has no stake, set StakedPool to 0 and return early
+        if (currentStakeAmount === 0n) {
+          // Update or create the StakedPool record with 0 stake
+          await prisma.stakedPool.upsert({
+            where: {
+              userWalletId_poolId: {
+                userWalletId: userWallet.id,
+                poolId: pool.id,
+              },
+            },
+            update: {
+              stakeAmount: "0",
+              updatedAt: new Date(),
+            },
+            create: {
+              userWalletId: userWallet.id,
+              poolId: pool.id,
+              stakeAmount: "0",
+            },
+          });
+
+          return { success: true, message: "Pool stake updated to 0" };
+        }
+
+        // Fetch stake logs from blockchain in batches of 500 blocks
+        let stakeLogs: any[] = [];
+        const blockBatchSize = 500n; // Define the batch size for block ranges
+
+        if (typeof toBlock === "bigint") {
+          let currentFromBlock = fromBlock;
+
+          while (currentFromBlock <= toBlock) {
+            const batchToBlock: bigint | string =
+              currentFromBlock + blockBatchSize > toBlock
+                ? toBlock
+                : currentFromBlock + blockBatchSize;
+
+            const batchLogs = await publicClient.getContractEvents({
+              address: input.poolAddress as Address,
+              abi: CREATOR_POOL_ABI,
+              eventName: "FanStaked",
+              fromBlock: currentFromBlock,
+              toBlock: batchToBlock,
+            });
+
+            stakeLogs = stakeLogs.concat(batchLogs);
+
+            if (batchToBlock === toBlock) break;
+            currentFromBlock = batchToBlock + 1n;
+          }
+        } else {
+          // If toBlock is "latest", fetch all at once
+          stakeLogs = await publicClient.getContractEvents({
+            address: input.poolAddress as Address,
+            abi: CREATOR_POOL_ABI,
+            eventName: "FanStaked",
+            fromBlock,
+            toBlock,
+          });
+        }
+
+        // Fetch unstake logs from blockchain in batches of 500 blocks
+        let unstakeLogs: any[] = [];
+
+        if (typeof toBlock === "bigint") {
+          let currentFromBlock = fromBlock;
+
+          while (currentFromBlock <= toBlock) {
+            const batchToBlock: bigint | string =
+              currentFromBlock + blockBatchSize > toBlock
+                ? toBlock
+                : currentFromBlock + blockBatchSize;
+
+            const batchLogs = await publicClient.getContractEvents({
+              address: input.poolAddress as Address,
+              abi: L2_BASE_TOKEN_ABI,
+              eventName: "FanUnstaked",
+              fromBlock: currentFromBlock,
+              toBlock: batchToBlock,
+            });
+
+            unstakeLogs = unstakeLogs.concat(batchLogs);
+
+            if (batchToBlock === toBlock) break;
+            currentFromBlock = batchToBlock + 1n;
+          }
+        } else {
+          // If toBlock is "latest", fetch all at once
+          unstakeLogs = await publicClient.getContractEvents({
+            address: input.poolAddress as Address,
+            abi: L2_BASE_TOKEN_ABI,
+            eventName: "FanUnstaked",
+            fromBlock,
+            toBlock,
+          });
+        }
+
+        // Filter logs to only include events from the current user
+        const userStakeEvents = stakeLogs
+          .filter(log => log.args?.fan === userWallet.address)
+          .map(log => ({
+            type: "stake",
+            amount: (log.args?.amount as bigint).toString(),
+            blockNumber: Number(log.blockNumber),
+            transactionHash: log.transactionHash,
+          }));
+
+        const userUnstakeEvents = unstakeLogs
+          .filter(log => log.args?.fan === userWallet.address)
+          .map(log => ({
+            type: "unstake",
+            amount: (log.args?.amount as bigint).toString(),
+            blockNumber: Number(log.blockNumber),
+            transactionHash: log.transactionHash,
+          }));
+
+        // Combine and sort events by block number
+        const allEvents = [...userStakeEvents, ...userUnstakeEvents].sort(
+          (a, b) => a.blockNumber - b.blockNumber
+        );
+
+        // Calculate running balance and update the database
+        let runningBalance = BigInt(0);
+
+        // Process each event and update the database
+        for (const event of allEvents) {
+          // Create or update the stake event in the database
+          await prisma.stakeEvent.upsert({
+            where: {
+              transactionHash_userWalletId_poolId: {
+                transactionHash: event.transactionHash,
+                userWalletId: userWallet.id,
+                poolId: pool.id,
+              },
+            },
+            update: {
+              amount: event.amount,
+              eventType: event.type,
+            },
+            create: {
+              userWalletId: userWallet.id,
+              poolId: pool.id,
+              amount: event.amount,
+              eventType: event.type,
+              transactionHash: event.transactionHash,
+            },
+          });
+
+          // Update running balance
+          if (event.type === "stake") {
+            runningBalance += BigInt(event.amount);
+          } else {
+            runningBalance -= BigInt(event.amount);
+          }
+        }
+
+        // Update or create the StakedPool record with the final balance
+        await prisma.stakedPool.upsert({
+          where: {
+            userWalletId_poolId: {
+              userWalletId: userWallet.id,
+              poolId: pool.id,
+            },
+          },
+          update: {
+            stakeAmount: runningBalance.toString(),
+            updatedAt: new Date(),
+          },
+          create: {
+            userWalletId: userWallet.id,
+            poolId: pool.id,
+            stakeAmount: runningBalance.toString(),
+          },
+        });
+
+        return {
+          success: true,
+          message: `Updated ${allEvents.length} events and set final stake amount to ${runningBalance.toString()}`,
+        };
+      } catch (error) {
+        console.error("Error getting user pool stake history:", error);
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to get user pool stake history",
+        });
+      }
+    }),
 });
