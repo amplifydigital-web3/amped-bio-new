@@ -25,6 +25,7 @@ export const poolsFanRouter = router({
           whereClause.OR = [
             { description: { contains: input.search } },
             { poolAddress: { contains: input.search } }, // Adding pool address search as well
+            { wallet: { user: { name: { contains: input.search } } } }, // Search by creator's name
           ];
         }
 
@@ -42,6 +43,12 @@ export const poolsFanRouter = router({
               select: {
                 address: true,
                 userId: true,
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
               },
             },
             _count: {
@@ -145,7 +152,7 @@ export const poolsFanRouter = router({
               name: poolName || `Pool ${pool.id}`, // Using blockchain name, fallback to id-based name
               totalReward: totalStakeInEther,
               participants: activeStakers,
-              createdBy: pool.wallet?.userId?.toString() || "Unknown",
+              createdBy: pool.wallet!.userId!,
               stakedAmount: totalStakeInEther,
               earnedRewards: 0,
               creatorAddress: pool.wallet?.address || null,
