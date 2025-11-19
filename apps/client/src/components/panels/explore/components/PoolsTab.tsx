@@ -8,6 +8,7 @@ import PoolDetailsModal from "../ExplorePoolDetailsModal";
 import StakingModal from "../StakingModal";
 import { useStaking } from "../../../../hooks/useStaking";
 import { RewardPool } from "@ampedbio/constants";
+import { formatEther } from "viem";
 
 // Define filter and sort types
 type PoolFilter = 'all' | 'no-fans' | 'more-than-10-fans' | 'more-than-10k-stake';
@@ -68,6 +69,7 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
       const pool = pools.find(p => p.id === poolId);
       if (pool) {
         // Criar um objeto que tenha a estrutura esperada pelo useStaking
+        // Pass the stakedAmount in its original format to the staking component
         const poolForStaking = {
           id: pool.id,
           name: pool.name, // Include name field as well
@@ -75,7 +77,7 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
           chainId: pool.chainId,
           poolAddress: pool.poolAddress,
           imageUrl: pool.imageUrl,
-          currentStake: 0,
+          currentStake: pool.stakedAmount || 0n, // Use the staked amount from the pool as bigint
         };
 
         setSelectedStakingPool(poolForStaking);
@@ -98,11 +100,11 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
           image_file_id: pool.image_file_id,
           imageUrl: pool.imageUrl,
           name: pool.name, // Use name from blockchain
-          totalReward: pool.totalReward || 0, // Placeholder
-          stakedAmount: pool.stakedAmount || 0, // Add stakedAmount
+          totalReward: pool.totalReward || 0n, // Placeholder as bigint
+          stakedAmount: pool.stakedAmount || 0n, // Add stakedAmount as bigint
           participants: pool.participants || 0, // Placeholder
           createdBy: pool.createdBy || "Unknown", // Placeholder
-          earnedRewards: 0,
+          earnedRewards: 0n, // Placeholder as bigint
           creatorAddress: pool.creatorAddress, // Add creatorAddress
         };
 
@@ -152,7 +154,9 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-500">Total Stake</span>
                     <span className="font-semibold text-gray-900">
-                      {(pool.stakedAmount ?? 0).toLocaleString()}{" "}
+                      {pool.stakedAmount !== undefined && pool.stakedAmount !== null
+                        ? parseFloat(formatEther(pool.stakedAmount)).toLocaleString()
+                        : "0"}{" "}
                       {getChainConfig(parseInt(pool.chainId))?.nativeCurrency.symbol || "REVO"}
                     </span>
                   </div>

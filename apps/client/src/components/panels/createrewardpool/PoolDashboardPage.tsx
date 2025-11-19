@@ -383,15 +383,18 @@ export default function DashboardPage() {
       description: poolData.description || "Pool description not available",
       imageUrl: poolData.imageUrl, // Use imageUrl for the modal
       totalStake: totalStake,
-      totalRewards: Number(poolData.revoStaked) || 0, // Using revoStaked from the database model (in wei)
+      // TODO check if this value is required
+      totalRewards: BigInt(poolData.revoStaked) || 0n, // Using revoStaked from the database model (in wei)
       totalFans: dashboardData.totalFans, // Using totalFans from dashboardData
       createdDate: new Date().toISOString().split("T")[0], // Using current date since createdAt is not in the type
-      stakedAmount: 0, // User's own stake in their pool (0 since it's their pool)
+      stakedAmount: 0n, // User's own stake in their pool (0 since it's their pool) as bigint
       chainId: poolData.chainId,
       category: "staking" as const,
-      earnedRewards: 0,
+      // TODO check if this value is required
+      earnedRewards: 0n,
       participants: dashboardData.totalFans, // Using totalFans from dashboardData
-      totalReward: Number(poolData.revoStaked) || 0, // Using revoStaked from the database model (in wei)
+      // TODO check if this value is required
+      totalReward: BigInt(poolData.revoStaked) || 0n, // Using revoStaked from the database model (in wei)
       userId: poolData.userId, // Using actual userId from the updated server response
       image_file_id: poolData.image_file_id || null, // Add image file ID
       creatorAddress: poolData.creatorAddress, // Using creatorAddress from the updated server response

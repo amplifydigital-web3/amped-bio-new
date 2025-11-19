@@ -728,8 +728,8 @@ export const walletRouter = router({
       const creatorPoolsJoined = userCreatorPools.length;
 
       return {
-        myStake: myStake.toString(),
-        stakedToMe: stakedToMe.toString(),
+        myStake: myStake, // Return as bigint (wei)
+        stakedToMe: stakedToMe, // Return as bigint (wei)
         stakersSupportingMe,
         creatorPoolsJoined,
       };

@@ -49,8 +49,8 @@ export const walletAdminRouter = router({
             chainId: chain.id,
             chainName: chain.name,
             currency: chain.nativeCurrency.symbol,
-            balance: balance,
-            formattedBalance: balance.toString(),
+            balance: balance, // Return as wei (bigint)
+            formattedBalance: balance.toString(), // Keep as string for display
           });
         } catch (chainError) {
           console.warn(

@@ -9,10 +9,10 @@ export interface RewardPool {
 
   // Placeholder fields for client-side derivation or future server implementation
   name: string; // Blockchain pool name (primary)
-  totalReward: number;
-  stakedAmount: number;
+  totalReward: bigint;
+  stakedAmount: bigint;
   participants: number;
   createdBy: string;
-  earnedRewards: number;
+  earnedRewards: bigint;
   creatorAddress?: string | null;
 }

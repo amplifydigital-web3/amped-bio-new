@@ -308,13 +308,11 @@ export default function StakedPoolsSection() {
             image_file_id: selectedExplorePool.pool.image_file_id,
             imageUrl: selectedExplorePool.pool.imageUrl,
             name: selectedExplorePool.pool.name || `Pool ${selectedExplorePool.pool.id}`,
-            totalReward: typeof selectedExplorePool.pool.revoStaked === 'number' 
-              ? selectedExplorePool.pool.revoStaked 
-              : parseFloat(selectedExplorePool.pool.revoStaked as string) || 0,
-            stakedAmount: parseFloat(formatUnits(BigInt(selectedExplorePool.stakeAmount), 18)),
+            totalReward: BigInt(selectedExplorePool.pool.revoStaked) || 0n,
+            stakedAmount: BigInt(selectedExplorePool.stakeAmount) || 0n,
             participants: selectedExplorePool.pool.fans || 0,
             createdBy: "", // Placeholder
-            earnedRewards: selectedPoolPendingReward ? parseFloat(formatUnits(selectedPoolPendingReward, 18)) : 0, // Use actual pending rewards
+            earnedRewards: selectedPoolPendingReward ? selectedPoolPendingReward : 0n, // Use actual pending rewards as bigint
             creatorAddress: null, // Placeholder
           }}
         />
@@ -339,13 +337,11 @@ export default function StakedPoolsSection() {
                 image_file_id: claimingPool.pool.image_file_id,
                 imageUrl: claimingPool.pool.imageUrl,
                 name: claimingPool.pool.name || `Pool ${claimingPool.pool.id}`,
-                totalReward: typeof claimingPool.pool.revoStaked === 'number'
-                  ? claimingPool.pool.revoStaked
-                  : parseFloat(claimingPool.pool.revoStaked as string) || 0,
-                stakedAmount: parseFloat(formatUnits(BigInt(claimingPool.stakeAmount), 18)),
+                totalReward: BigInt(claimingPool.pool.revoStaked) || 0n,
+                stakedAmount: BigInt(claimingPool.stakeAmount) || 0n,
                 participants: claimingPool.pool.fans || 0,
                 createdBy: "", // Placeholder
-                earnedRewards: claimingPoolPendingReward ? parseFloat(formatUnits(claimingPoolPendingReward, 18)) : 0, // Use actual pending rewards for display
+                earnedRewards: claimingPoolPendingReward ? claimingPoolPendingReward : 0n, // Use actual pending rewards as bigint
                 creatorAddress: null, // Placeholder - not available in pool data
               }
             : null

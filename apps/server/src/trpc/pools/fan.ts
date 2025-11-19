@@ -137,7 +137,6 @@ export const poolsFanRouter = router({
               );
             }
 
-            const totalStakeInEther = parseFloat(formatEther(totalStake));
             const poolName = await getPoolName(pool.poolAddress as Address, parseInt(pool.chainId));
 
             // Count only users with positive stake amounts
@@ -150,11 +149,11 @@ export const poolsFanRouter = router({
               revoStaked: totalStake, // Include the updated revoStaked in the response
               imageUrl: pool.poolImage ? s3Service.getFileUrl(pool.poolImage.s3_key) : null,
               name: poolName || `Pool ${pool.id}`, // Using blockchain name, fallback to id-based name
-              totalReward: totalStakeInEther,
+              totalReward: totalStake, // Return as wei (bigint)
               participants: activeStakers,
               createdBy: pool.wallet!.userId!,
-              stakedAmount: totalStakeInEther,
-              earnedRewards: 0,
+              stakedAmount: totalStake, // Return as wei (bigint)
+              earnedRewards: 0n, // Return as wei (bigint)
               creatorAddress: pool.wallet?.address || null,
             };
           })
@@ -178,7 +177,9 @@ export const poolsFanRouter = router({
         } else if (input.filter === "more-than-10-fans") {
           filteredPools = processedPools.filter(pool => pool.participants > 10);
         } else if (input.filter === "more-than-10k-stake") {
-          filteredPools = processedPools.filter(pool => pool.stakedAmount > 10000);
+          // Convert 10k ether to wei for comparison: 10000 * 10^18
+          const tenKEtherInWei = BigInt(10000) * BigInt(10) ** BigInt(18);
+          filteredPools = processedPools.filter(pool => pool.stakedAmount > tenKEtherInWei);
         }
 
         // Apply sorting
@@ -257,7 +258,7 @@ export const poolsFanRouter = router({
         return {
           userWalletId: userWallet.id,
           poolId: pool.id,
-          stakeAmount: stakedPool?.stakeAmount?.toString() || "0",
+          stakeAmount: BigInt(stakedPool?.stakeAmount || "0"), // Return as wei (bigint)
           hasStake: !!stakedPool,
         };
       } catch (error) {
@@ -400,7 +401,7 @@ export const poolsFanRouter = router({
 
             return {
               ...stake,
-              stakeAmount: currentStakeAmount, // Return blockchain value without updating DB
+              stakeAmount: BigInt(currentStakeAmount), // Return as wei (bigint) without formatting
               pool: {
                 ...stake.pool,
                 name: poolName || `Pool ${stake.pool.id}`, // Using blockchain name, fallback to id-based name

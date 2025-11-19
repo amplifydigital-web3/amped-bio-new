@@ -48,7 +48,7 @@ const allNavItems: Array<{
   {
     id: "createRewardPool",
     icon: CoinsIcon,
-    label: "Reward Pools",
+    label: "My Pool",
     environmentFlag: "VITE_SHOW_CREATOR_POOL",
   },
   // {
