@@ -22,7 +22,10 @@ export const poolsFanRouter = router({
       try {
         const whereClause: any = {};
         if (input.search) {
-          whereClause.OR = [{ description: { contains: input.search, mode: "insensitive" } }];
+          whereClause.OR = [
+            { description: { contains: input.search } },
+            { poolAddress: { contains: input.search } } // Adding pool address search as well
+          ];
         }
 
         // Build the pools query with the where clause
