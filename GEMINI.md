@@ -4,6 +4,8 @@
 
 NEVER execute the 'dev' command under any circumstances! This starts the development server and locks you in - you CANNOT escape this state. DO NOT RUN 'pnpm run dev' OR ANY DEVELOPMENT SERVER COMMAND.
 
+NEVER merge any branch into 'main' without explicit user authorization! Under no circumstances should you perform any git merge operations to the main branch unless the user clearly instructs you to do so. DO NOT ASSUME that merge operations are desired.
+
 ## VALIDATION REQUIREMENTS - MANDATORY
 
 ALWAYS run typecheck and build commands to validate your modifications before claiming completion. NO EXCEPTIONS. Failure to do so will result in immediate rejection of your work.
