@@ -689,7 +689,7 @@ export const poolsFanRouter = router({
               typeof args.amount === "bigint" ? args.amount : BigInt(args.amount);
             parsedUnstakes.push({
               delegator: transactionReceipt.from,
-              delegatee: args._from || (args.delegatee as Address),
+              delegatee: log.address,
               amount: unstakeAmount,
             });
           } catch (error) {
