@@ -3,6 +3,13 @@ import ReactCrop, { type Crop, centerCrop, makeAspectCrop } from "react-image-cr
 import { Slider } from "../../ui/Slider";
 import { Button } from "../../ui/Button";
 import "react-image-crop/dist/ReactCrop.css";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface PhotoEditorProps {
   imageUrl: string;
@@ -68,17 +75,18 @@ export function PhotoEditor({ imageUrl, onComplete, onCancel }: PhotoEditorProps
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 md:max-w-2xl w-full mx-0 md:mx-4 h-full md:h-auto flex flex-col">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">Edit Photo</h3>
+    <Dialog open={true} onOpenChange={open => !open && onCancel()}>
+      <DialogContent className="p-0 md:max-w-2xl w-full mx-0 md:mx-4 h-full md:h-auto flex flex-col max-h-[90vh]">
+        <DialogHeader className="p-6 pb-4 border-b border-gray-200 flex justify-between items-center">
+          <DialogTitle className="text-lg font-semibold">Edit Photo</DialogTitle>
           <div className="flex space-x-3">
             <Button variant="outline" onClick={onCancel}>
               Cancel
             </Button>
             <Button onClick={handleSave}>Save</Button>
           </div>
-        </div>
+        </DialogHeader>
+        <div className="p-6 space-y-6 flex-grow flex flex-col">
 
         <div className="space-y-6 flex-grow flex flex-col">
           <div className="relative flex-grow flex items-center justify-center">
@@ -108,6 +116,7 @@ export function PhotoEditor({ imageUrl, onComplete, onCancel }: PhotoEditorProps
         {/* Hidden canvas for processing the image */}
         <canvas ref={canvasRef} className="hidden" />
       </div>
-    </div>
+    </DialogContent>
+  </Dialog>
   );
 }

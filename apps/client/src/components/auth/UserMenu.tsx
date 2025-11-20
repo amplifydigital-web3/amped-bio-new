@@ -105,7 +105,7 @@ export function UserMenu() {
           <span>Sign In</span>
         </Button>
         {showAuthModal && (
-          <AuthModal onClose={user => handleSignIn(user)} onCancel={() => handleCancelAuth()} />
+          <AuthModal isOpen={showAuthModal} onClose={user => handleSignIn(user)} onCancel={() => handleCancelAuth()} />
         )}
       </>
     );

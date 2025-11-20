@@ -231,6 +231,7 @@ export function View() {
       {/* Auth Modal */}
       {showAuthModal && (
         <AuthModal
+          isOpen={showAuthModal}
           onClose={handleSignIn}
           onCancel={handleCancelAuth}
           initialForm={initialAuthForm}

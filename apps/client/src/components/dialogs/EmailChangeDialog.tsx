@@ -19,6 +19,13 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+} from "@/components/ui/dialog";
 
 // Define validation schemas using Zod
 const initiateEmailSchema = z
@@ -337,25 +344,21 @@ export function EmailChangeDialog({ isOpen, onClose }: EmailChangeDialogProps) {
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="email-change-dialog-title"
-    >
-      <div className="bg-white rounded-xl p-6 sm:p-8 w-full max-w-md mx-auto shadow-xl animate-in fade-in zoom-in duration-200">
-        <div className="flex items-center justify-between mb-6">
-          <h2 id="email-change-dialog-title" className="text-xl font-semibold text-gray-900">
+    <Dialog open={isOpen} onOpenChange={open => !open && handleCloseDialog()}>
+      <DialogContent className="p-0 w-full max-w-md mx-auto animate-in fade-in zoom-in duration-200">
+        <DialogHeader className="p-6 pb-4 border-b border-gray-200">
+          <DialogTitle className="text-xl font-semibold text-gray-900">
             Change Email Address
-          </h2>
-          <button
+          </DialogTitle>
+          <DialogClose
+            className="absolute right-4 top-4 p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
             onClick={handleCloseDialog}
-            className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
             aria-label="Close email change dialog"
           >
             <X className="w-5 h-5" />
-          </button>
-        </div>
+          </DialogClose>
+        </DialogHeader>
+        <div className="p-6 sm:p-8">
 
         {/* Display error message if any */}
         {renderError()}
@@ -577,6 +580,7 @@ export function EmailChangeDialog({ isOpen, onClose }: EmailChangeDialogProps) {
           </div>
         )}
       </div>
-    </div>
+    </DialogContent>
+  </Dialog>
   );
 }

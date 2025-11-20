@@ -20,8 +20,16 @@ import {
   formatOnelink,
 } from "@/utils/onelink";
 import { trackGAEvent } from "@/utils/ga";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogClose
+} from "@/components/ui/dialog";
 
 interface AuthModalProps {
+  isOpen: boolean;
   onClose: (user: AuthUser) => void;
   onCancel: () => void;
   initialForm?: FormType;
@@ -89,9 +97,9 @@ const PasswordStrengthIndicator = ({ password }: { password: string }) => {
   );
 };
 
-export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModalProps) {
+export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: AuthModalProps) {
   const { signIn, signInWithGoogle, signUp, resetPassword } = useAuth();
-  const { isOpen, openCaptcha, closeCaptcha, handleSubmit } = useCaptcha();
+  const { isOpen: isCaptchaOpen, openCaptcha, closeCaptcha, handleSubmit } = useCaptcha();
   const [loading, setLoading] = useState(false);
   const [sharedEmail, setSharedEmail] = useState("");
   const isUserTyping = useRef(false);
@@ -362,37 +370,35 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
   };
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="auth-modal-title"
-      data-testid="auth-modal"
+    <Dialog
+      open={isOpen}
+      onOpenChange={open => {
+        if (!open) {
+          onCancel();
+          trackGAEvent("Click", "AuthModal", "CloseModalButton");
+        }
+      }}
     >
-      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-        <div className="flex items-center justify-between mb-6">
-          <h2
-            id="auth-modal-title"
-            className="text-xl font-semibold"
-            data-testid="auth-modal-title"
-            aria-label="auth-modal-title"
-          >
+      <DialogContent className="p-0 w-full max-w-md mx-4">
+        <DialogHeader className="p-6 pb-4 border-b border-gray-200">
+          <DialogTitle className="text-xl font-semibold">
             {form === "register" && "Sign Up for Free"}
             {form === "login" && "Sign In"}
             {form === "reset" && "Reset Password"}
-          </h2>
-          <button
+          </DialogTitle>
+          <DialogClose
+            className="absolute right-4 top-4 p-1 text-gray-500 hover:text-gray-700"
             onClick={() => {
               onCancel();
               trackGAEvent("Click", "AuthModal", "CloseModalButton");
             }}
-            className="p-1 text-gray-500 hover:text-gray-700"
             aria-label="Close authentication modal"
             data-testid="auth-modal-close"
           >
             <X className="w-5 h-5" />
-          </button>
-        </div>
+          </DialogClose>
+        </DialogHeader>
+        <div className="p-6">
 
         {form === "login" && (
           <form
@@ -761,8 +767,9 @@ export function AuthModal({ onClose, onCancel, initialForm = "login" }: AuthModa
             . Your amped.bio profile doubles as your wallet and hub for staking into Reward Pools.
           </p>
         )}
-        <CaptchaDialog isOpen={isOpen} onClose={closeCaptcha} onSubmit={handleSubmit} />
+        <CaptchaDialog isOpen={isCaptchaOpen} onClose={closeCaptcha} onSubmit={handleSubmit} />
       </div>
-    </div>
+    </DialogContent>
+  </Dialog>
   );
 }
