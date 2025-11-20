@@ -192,7 +192,7 @@ export default function ExplorePoolDetailsModal({
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
               {/* Pool Image */}
               <div className="relative h-64 group">
-                <div className="h-full rounded-2xl overflow-hidden border border-gray-100 shadow-sm bg-gradient-to-br from-blue-50 to-purple-50">
+                <div className="h-full rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
                   {pool.imageUrl ? (
                     <img
                       src={pool.imageUrl}
@@ -219,7 +219,7 @@ export default function ExplorePoolDetailsModal({
               {/* Stats Grid - 2x2 with matching height */}
               <div className="h-64">
                 <div className="grid grid-cols-2 gap-4 h-full">
-                  <div className="bg-blue-50 rounded-xl p-4 border border-blue-100 flex flex-col justify-center">
+                  <div className="rounded-xl p-4 border border-blue-100 flex flex-col justify-center">
                     <div className="flex items-center space-x-2 mb-2">
                       <Coins className="w-4 h-4 text-blue-600" />
                       <span className="text-sm font-medium text-blue-700">Your Stake</span>
@@ -230,7 +230,7 @@ export default function ExplorePoolDetailsModal({
                     <div className="text-xs text-blue-600">{currencySymbol}</div>
                   </div>
 
-                  <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-100 flex flex-col justify-center">
+                  <div className="rounded-xl p-4 border border-yellow-100 flex flex-col justify-center">
                     <div className="flex items-center space-x-2 mb-2">
                       <Gift className="w-4 h-4 text-yellow-600" />
                       <span className="text-sm font-medium text-yellow-700">Pending Rewards</span>
@@ -283,7 +283,7 @@ export default function ExplorePoolDetailsModal({
                     </button>
                   </div>
 
-                  <div className="bg-purple-50 rounded-xl p-4 border border-purple-100 flex flex-col justify-center">
+                  <div className="rounded-xl p-4 border border-purple-100 flex flex-col justify-center">
                     <div className="flex items-center space-x-2 mb-2">
                       <Users className="w-4 h-4 text-purple-600" />
                       <span className="text-sm font-medium text-purple-700">Total Pool Stake</span>
@@ -294,7 +294,7 @@ export default function ExplorePoolDetailsModal({
                     <div className="text-xs text-purple-600">{currencySymbol}</div>
                   </div>
 
-                  <div className="bg-orange-50 rounded-xl p-4 border border-orange-100 flex flex-col justify-center">
+                  <div className="rounded-xl p-4 border border-orange-100 flex flex-col justify-center">
                     <div className="flex items-center space-x-2 mb-2">
                       <Users className="w-4 h-4 text-orange-600" />
                       <span className="text-sm font-medium text-orange-700">Total Fans</span>
@@ -310,7 +310,7 @@ export default function ExplorePoolDetailsModal({
 
             {/* Full-Width Description */}
             <div className="mb-8">
-              <div className="bg-gray-50 rounded-xl p-6 border border-gray-100">
+              <div className="rounded-xl p-6 border border-gray-100">
                 <h4 className="text-lg font-semibold text-gray-900 mb-4">About This Pool</h4>
                 <div className="max-w-3xl">
                   <p className="text-base text-gray-700 leading-relaxed">{pool.description}</p>
@@ -337,12 +337,12 @@ export default function ExplorePoolDetailsModal({
 
             {/* Stake Action Error Message */}
             {stakeActionError && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <div className="mb-4 p-3 border border-red-200 rounded-lg">
                 <p className="text-red-700 text-sm">{stakeActionError}</p>
               </div>
             )}
           </div>
-          <DialogFooter className="border-t border-gray-100 bg-white p-6">
+          <DialogFooter className="border-t border-gray-100 p-6">
             <div className="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0 sm:space-x-4">
               {/* Explorer Link */}
               <button

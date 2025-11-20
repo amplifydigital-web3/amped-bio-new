@@ -2,6 +2,14 @@ import React, { useState, useEffect } from "react";
 import { X, Coins, TrendingUp, Shield, AlertCircle, Check, Sparkles } from "lucide-react";
 import { useAccount, useBalance } from "wagmi";
 import { getChainConfig } from "@ampedbio/web3";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
 
 interface StakingModalProps {
   isOpen: boolean;
@@ -115,25 +123,27 @@ export default function StakingModal({
 
   const renderAmountStep = () => (
     <>
-      <div className="flex items-center justify-between p-6 border-b border-gray-200">
-        <h2 className="text-xl font-bold text-gray-900">
-          {mode === "stake"
-            ? "Stake to Pool"
-            : mode === "add-stake"
-              ? "Add to Stake"
-              : "Reduce Stake"}
-        </h2>
-        <button
-          onClick={handleClose}
-          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
+      <DialogHeader className="p-6 pb-4 border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <DialogTitle className="text-xl font-bold text-gray-900">
+            {mode === "stake"
+              ? "Stake to Pool"
+              : mode === "add-stake"
+                ? "Add to Stake"
+                : "Reduce Stake"}
+          </DialogTitle>
+          <DialogClose
+            onClick={handleClose}
+            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+          >
+            <X className="w-5 h-5" />
+          </DialogClose>
+        </div>
+      </DialogHeader>
 
       <div className="p-6 space-y-6">
         {/* Pool Info */}
-        <div className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
+        <div className="flex items-center space-x-4 p-4 rounded-lg">
           <div className="w-12 h-12 rounded-lg overflow-hidden border border-gray-200 bg-gray-100 flex-shrink-0">
             {pool.imageUrl ? (
               <img
@@ -155,7 +165,7 @@ export default function StakingModal({
 
         {/* Current Stake Info (for add-stake mode) */}
         {/* {mode === "add-stake" && pool.currentStake && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="border border-blue-200 rounded-lg p-4">
             <div className="flex items-center space-x-2 mb-2">
               <Shield className="w-4 h-4 text-blue-600" />
               <span className="text-sm font-medium text-blue-800">Current Stake</span>
@@ -167,7 +177,7 @@ export default function StakingModal({
         )} */}
 
         {/* Balance Display */}
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+        <div className="border border-green-200 rounded-lg p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <Coins className="w-4 h-4 text-green-600" />
@@ -194,7 +204,7 @@ export default function StakingModal({
               placeholder="0.00"
               className={`w-full px-4 py-4 text-2xl font-bold text-center border rounded-xl focus:ring-2 focus:border-transparent transition-all duration-200 ${
                 amount && !isValidAmount
-                  ? "border-red-300 focus:ring-red-500 bg-red-50"
+                  ? "border-red-300 focus:ring-red-500"
                   : "border-gray-300 focus:ring-blue-500"
               }`}
             />
@@ -247,7 +257,7 @@ export default function StakingModal({
         {/* Stake Button with Error Display */}
         <div className="space-y-3">
           {stakeActionError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="p-3 border border-red-200 rounded-lg">
               <div className="flex items-center space-x-2 text-red-700">
                 <AlertCircle className="w-4 h-4" />
                 <span className="text-sm font-medium">{stakeActionError}</span>
@@ -304,21 +314,23 @@ export default function StakingModal({
 
   const renderConfirmStep = () => (
     <>
-      <div className="flex items-center justify-between p-6 border-b border-gray-200">
-        <h2 className="text-xl font-bold text-gray-900">
-          {mode === "reduce-stake" ? "Confirm Unstake" : "Confirm Stake"}
-        </h2>
-        <button
-          onClick={() => setStep("amount")}
-          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
+      <DialogHeader className="p-6 pb-4 border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <DialogTitle className="text-xl font-bold text-gray-900">
+            {mode === "reduce-stake" ? "Confirm Unstake" : "Confirm Stake"}
+          </DialogTitle>
+          <DialogClose
+            onClick={() => setStep("amount")}
+            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+          >
+            <X className="w-5 h-5" />
+          </DialogClose>
+        </div>
+      </DialogHeader>
 
       <div className="p-6 space-y-4">
         {/* Pool Info */}
-        <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+        <div className="flex items-center space-x-3 p-3 rounded-lg">
           <div className="w-10 h-10 rounded-lg overflow-hidden border border-gray-200 bg-gray-100 flex-shrink-0">
             {pool.imageUrl ? (
               <img
@@ -360,7 +372,7 @@ export default function StakingModal({
         </div>
 
         {/* Transaction Summary */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
+        <div className="border border-blue-200 rounded-lg p-3 space-y-2">
           <h4 className="font-medium text-blue-900 text-sm">Transaction Summary</h4>
 
           <div className="flex justify-between text-sm">
@@ -402,7 +414,7 @@ export default function StakingModal({
         </div>
 
         {/* Gas Fee Section */}
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+        <div className="border border-gray-200 rounded-lg p-3">
           <h4 className="font-medium text-gray-900 text-sm mb-2">Network Fee</h4>
           <div className="flex justify-between text-sm">
             <span className="text-gray-700">Gas Fee:</span>
@@ -414,7 +426,7 @@ export default function StakingModal({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex space-x-3">
+        <DialogFooter className="flex space-x-3">
           <button
             onClick={() => setStep("amount")}
             className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors duration-200"
@@ -432,18 +444,18 @@ export default function StakingModal({
             )}
             <span>{mode === "reduce-stake" ? "Confirm Unstake" : "Confirm Stake"}</span>
           </button>
-        </div>
+        </DialogFooter>
       </div>
     </>
   );
 
   const renderStakingStep = () => (
     <>
-      <div className="flex items-center justify-between p-6 border-b border-gray-200">
-        <h2 className="text-xl font-bold text-gray-900">
+      <DialogHeader className="p-6 pb-4 border-b border-gray-200">
+        <DialogTitle className="text-xl font-bold text-gray-900">
           {mode === "reduce-stake" ? "Processing Unstake" : "Processing Stake"}
-        </h2>
-      </div>
+        </DialogTitle>
+      </DialogHeader>
 
       <div className="p-6 flex flex-col items-center justify-center" style={{ minHeight: "400px" }}>
         <div className="animate-spin w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full mb-6"></div>
@@ -461,11 +473,11 @@ export default function StakingModal({
 
   const renderSuccessStep = () => (
     <>
-      <div className="flex items-center justify-between p-6 border-b border-gray-200">
-        <h2 className="text-xl font-bold text-green-900">
+      <DialogHeader className="p-6 pb-4 border-b border-gray-200">
+        <DialogTitle className="text-xl font-bold text-green-900">
           {mode === "reduce-stake" ? "Unstake Successful!" : "Stake Successful!"}
-        </h2>
-      </div>
+        </DialogTitle>
+      </DialogHeader>
 
       <div className="p-6 text-center space-y-6">
         {/* Success Icon */}
@@ -489,7 +501,7 @@ export default function StakingModal({
         </div>
 
         {/* New Stake Info */}
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+        <div className="border border-green-200 rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-green-700">Your Total Stake</span>
             <span className="text-lg font-bold text-green-900">
@@ -516,16 +528,20 @@ export default function StakingModal({
   );
 
   return (
-    <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-      onClick={handleOverlayClick}
+    <Dialog
+      open={isOpen}
+      onOpenChange={open => {
+        if (!open && step !== "staking") {
+          onClose();
+        }
+      }}
     >
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden">
+      <DialogContent className="max-w-md p-0 overflow-hidden">
         {step === "amount" && renderAmountStep()}
         {step === "confirm" && renderConfirmStep()}
         {step === "staking" && renderStakingStep()}
         {step === "success" && renderSuccessStep()}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

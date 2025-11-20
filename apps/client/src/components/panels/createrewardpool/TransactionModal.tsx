@@ -1,4 +1,12 @@
 import { X, AlertCircle } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
 
 interface TransactionModalProps {
   isOpen: boolean;
@@ -22,8 +30,15 @@ export function TransactionModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+    <Dialog
+      open={isOpen}
+      onOpenChange={open => {
+        if (!open) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent className="max-w-md p-0 overflow-hidden">
         {transactionStep === "confirming" ? (
           // Confirming Transaction Step
           <>
@@ -40,7 +55,7 @@ export function TransactionModal({
 
               {/* Transaction Hash */}
               {transactionHash && (
-                <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                <div className="rounded-lg p-4 mb-4">
                   <div className="text-sm text-gray-500 mb-1">Transaction Hash</div>
                   <div className="font-mono text-xs text-gray-700 break-all">{transactionHash}</div>
                 </div>
@@ -66,28 +81,29 @@ export function TransactionModal({
         ) : transactionStep === "error" ? (
           // Error State
           <>
-            {/* Close Button */}
-            <div className="flex justify-end p-4 pb-0">
-              <button
+            <DialogHeader className="p-6 pb-4 border-b border-gray-200">
+              <DialogTitle className="text-xl font-bold text-red-900">
+                Transaction Failed
+              </DialogTitle>
+              <DialogClose
                 onClick={onClose}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                className="absolute right-4 top-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200"
               >
                 <X className="w-5 h-5" />
-              </button>
-            </div>
+              </DialogClose>
+            </DialogHeader>
 
             <div className="p-6 text-center">
               <div className="mb-6">
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-4">
                   <AlertCircle className="w-8 h-8 text-red-600" />
                 </div>
-                <h3 className="text-xl font-bold text-red-900 mb-2">Transaction Failed</h3>
                 <p className="text-gray-600">There was an error creating your reward pool.</p>
               </div>
 
               {/* Transaction Hash */}
               {transactionHash && (
-                <div className="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-200">
+                <div className="rounded-lg p-4 mb-4 border border-gray-200">
                   <div className="text-sm text-gray-500 mb-1">Transaction Hash</div>
                   <div className="font-mono text-xs text-gray-700 break-all">{transactionHash}</div>
                 </div>
@@ -95,7 +111,7 @@ export function TransactionModal({
 
               {/* Error Message */}
               {errorMessage && (
-                <div className="bg-red-50 rounded-lg p-4 mb-4 border border-red-200 text-left">
+                <div className="rounded-lg p-4 mb-4 border border-red-200 text-left">
                   <div className="text-sm text-red-700 font-medium mb-1">Error Details</div>
                   <div className="text-xs text-red-600 font-mono break-words">{errorMessage}</div>
                 </div>
@@ -123,28 +139,30 @@ export function TransactionModal({
                 </div>
               )}
 
-              <div className="flex flex-col gap-3">
+              <DialogFooter className="flex flex-col gap-3">
                 <button
                   onClick={onClose}
                   className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors duration-200"
                 >
                   Close
                 </button>
-              </div>
+              </DialogFooter>
             </div>
           </>
         ) : (
           // Transaction Confirmed Step
           <>
-            {/* Close Button */}
-            <div className="flex justify-end p-4 pb-0">
-              <button
+            <DialogHeader className="p-6 pb-4 border-b border-gray-200">
+              <DialogTitle className="text-xl font-bold text-green-900">
+                Transaction Confirmed!
+              </DialogTitle>
+              <DialogClose
                 onClick={onClose}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                className="absolute right-4 top-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200"
               >
                 <X className="w-5 h-5" />
-              </button>
-            </div>
+              </DialogClose>
+            </DialogHeader>
 
             <div className="p-6 text-center">
               <div className="mb-6">
@@ -163,14 +181,13 @@ export function TransactionModal({
                     ></path>
                   </svg>
                 </div>
-                <h3 className="text-xl font-bold text-green-900 mb-2">Transaction Confirmed!</h3>
                 <p className="text-gray-600">
                   Your reward pool has been successfully created and deployed.
                 </p>
               </div>
 
               {/* Transaction Details */}
-              <div className="bg-green-50 rounded-lg p-4 mb-4 border border-green-200">
+              <div className="rounded-lg p-4 mb-4 border border-green-200">
                 <div className="text-sm text-green-700 mb-2 font-medium">
                   Pool Created Successfully
                 </div>
@@ -243,7 +260,7 @@ export function TransactionModal({
             </div>
           </>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

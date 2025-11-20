@@ -112,7 +112,7 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool, onClaimSucces
 
       <div className="p-6 space-y-6">
         {/* Pool Info */}
-        <div className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
+        <div className="flex items-center space-x-4 p-4 rounded-lg">
           <div className="w-12 h-12 rounded-lg overflow-hidden border border-gray-200 bg-gray-100 flex-shrink-0">
             {pool.imageUrl ? (
               <img
@@ -144,7 +144,7 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool, onClaimSucces
         </div>
 
         {/* Confirmation Message */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="border border-blue-200 rounded-lg p-4">
           <p className="text-sm text-blue-800">
             <strong>Confirm:</strong> You are about to claim {pendingReward ? parseFloat(formatEther(pendingReward)).toLocaleString() : '0'}{" "}
             {currencySymbol}
@@ -287,7 +287,7 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool, onClaimSucces
         </div>
 
         {/* Wallet Update Notice */}
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+        <div className="border border-green-200 rounded-lg p-4">
           <p className="text-sm text-green-800">
             💰 Your wallet balance has been updated with the claimed rewards.
           </p>

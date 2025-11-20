@@ -86,7 +86,7 @@ export function PoolSummaryModal({
         {/* Modal Content */}
         <div className="p-6 space-y-6">
           {/* Pool Overview */}
-          <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200">
+          <div className="flex items-center space-x-4 p-4 rounded-xl border border-blue-200">
             <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-white shadow-sm bg-gray-100 flex-shrink-0">
               {poolImage ? (
                 <img src={poolImage} alt="Pool preview" className="w-full h-full object-cover" />
@@ -116,7 +116,7 @@ export function PoolSummaryModal({
           {/* Pool Details Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Creator Fee */}
-            <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
+            <div className="rounded-lg p-4 border border-orange-200">
               <div className="flex items-center space-x-2 mb-2">
                 <Percent className="w-4 h-4 text-orange-600" />
                 <span className="text-sm font-medium text-orange-700">Creator Fee</span>
@@ -143,7 +143,7 @@ export function PoolSummaryModal({
                 const iconColor = tierIcons[index % tierIcons.length]?.color || "text-gray-600";
 
                 return (
-                  <div key={tier.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <div key={tier.id} className="rounded-lg p-4 border border-gray-200">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center space-x-3">
                         <div
@@ -178,7 +178,7 @@ export function PoolSummaryModal({
           </div>
 
           {/* Launch Confirmation */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="border border-blue-200 rounded-lg p-4">
             <div className="flex items-start space-x-3">
               <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <div>
