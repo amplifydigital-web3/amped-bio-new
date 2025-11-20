@@ -724,8 +724,12 @@ export const walletRouter = router({
         stakersSupportingMe = uniqueUserWalletIds.size;
       }
 
-      // Calculate "Creator Pools Joined" - Number of creator pools the user has created
-      const creatorPoolsJoined = userCreatorPools.length;
+      // Calculate "Creator Pools Joined" - Number of pools the user has staked in
+      const creatorPoolsJoined = await prisma.stakedPool.count({
+        where: {
+          userWalletId: userWallet.id,
+        },
+      });
 
       return {
         myStake: myStake, // Return as bigint (wei)

@@ -70,7 +70,7 @@ export function MyWalletPanel() {
         icon: Target,
         label: "Creator Pools Joined",
         value: stats.creatorPoolsJoined?.toString() || "0",
-        tooltip: "Number of creator pools you have created",
+        tooltip: "Number of creator pools you have joined",
         color: "bg-pink-100 text-pink-600",
         soon: false,
       },
