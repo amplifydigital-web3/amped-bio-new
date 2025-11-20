@@ -12,7 +12,7 @@ import { formatEther } from "viem";
 
 // Define filter and sort types
 type PoolFilter = 'all' | 'no-fans' | 'more-than-10-fans' | 'more-than-10k-stake';
-type PoolSort = 'newest' | 'name-asc' | 'name-desc';
+type PoolSort = 'newest' | 'name-asc' | 'name-desc' | 'most-fans' | 'most-staked';
 
 interface Pool {
   id: number;

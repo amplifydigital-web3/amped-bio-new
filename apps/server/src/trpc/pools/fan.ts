@@ -15,7 +15,7 @@ export const poolsFanRouter = router({
           .enum(["all", "no-fans", "more-than-10-fans", "more-than-10k-stake"])
           .optional()
           .default("all"),
-        sort: z.enum(["newest", "name-asc", "name-desc"]).optional().default("newest"),
+        sort: z.enum(["newest", "name-asc", "name-desc", "most-fans", "most-staked"]).optional().default("newest"),
       })
     )
     .query(async ({ input }) => {
@@ -189,6 +189,18 @@ export const poolsFanRouter = router({
             break;
           case "name-desc":
             filteredPools.sort((a, b) => b.name.localeCompare(a.name));
+            break;
+          case "most-fans":
+            filteredPools.sort((a, b) => b.participants - a.participants);
+            break;
+          case "most-staked":
+            filteredPools.sort((a, b) => {
+              const aStake = BigInt(a.stakedAmount);
+              const bStake = BigInt(b.stakedAmount);
+              if (aStake < bStake) return 1; // b should come before a for descending sort
+              if (aStake > bStake) return -1; // a should come before b for descending sort
+              return 0;
+            });
             break;
           case "newest":
             // Since pools don't have a created_at field in the current model, we'll sort by ID
