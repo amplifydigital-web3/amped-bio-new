@@ -13,6 +13,13 @@ import {
   Gift,
   type LucideIcon,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface StakingTier {
   id: string;
@@ -59,29 +66,22 @@ export function PoolSummaryModal({
   isLaunching,
   poolImage,
 }: PoolSummaryModalProps) {
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Modal Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Sparkles className="w-6 h-6 text-blue-600" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">Pool Summary</h2>
-              <p className="text-sm text-gray-600">Review your pool details before launching</p>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="p-6 pb-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Sparkles className="w-6 h-6 text-blue-600" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-bold text-gray-900">Pool Summary</DialogTitle>
+                <p className="text-sm text-gray-600">Review your pool details before launching</p>
+              </div>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+        </DialogHeader>
 
         {/* Modal Content */}
         <div className="p-6 space-y-6">
@@ -192,8 +192,7 @@ export function PoolSummaryModal({
           </div>
         </div>
 
-        {/* Modal Footer */}
-        <div className="p-6 border-t border-gray-200 bg-gray-50">
+        <DialogFooter className="border-t border-gray-200 bg-gray-50 p-6">
           <div className="flex flex-col sm:flex-row items-center justify-between space-y-3 sm:space-y-0 sm:space-x-4">
             <button
               onClick={onClose}
@@ -224,8 +223,8 @@ export function PoolSummaryModal({
               )}
             </button>
           </div>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

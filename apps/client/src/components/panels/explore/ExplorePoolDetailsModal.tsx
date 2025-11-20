@@ -374,7 +374,7 @@ export default function ExplorePoolDetailsModal({
                 </button>
               </div>
             </div>
-_          </DialogFooter>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
