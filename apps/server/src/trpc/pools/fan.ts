@@ -317,11 +317,6 @@ export const poolsFanRouter = router({
           include: {
             pool: {
               include: {
-                _count: {
-                  select: {
-                    stakedPools: true,
-                  },
-                },
                 poolImage: {
                   select: {
                     s3_key: true,
@@ -415,7 +410,6 @@ export const poolsFanRouter = router({
                   : null,
                 userId: stake.pool.wallet.userId, // Include the actual user ID
                 creatorAddress: stake.pool.wallet.address, // Include the creator's wallet address
-                fans: stake.pool._count.stakedPools,
               },
             };
           })

@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from "react";
 import {
+  X,
   Trophy,
   Users,
   Coins,
@@ -10,13 +11,6 @@ import {
   Gift,
   Edit3,
 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { toast } from "react-hot-toast";
 import StakingModal from "./StakingModal";
 import { ImageUploadModal } from "@/components/ImageUploadModal";
@@ -165,29 +159,37 @@ export default function ExplorePoolDetailsModal({
   };
 
   return (
-    <>
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl">
-          <DialogHeader className="p-6 pb-4 border-b border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <DialogTitle className="text-2xl font-bold text-gray-900">Pool Details</DialogTitle>
-                <p className="text-lg text-gray-600 mt-1">{pool.name}</p>
-              </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={handleShare}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors duration-200"
-                  title="Share pool"
-                >
-                  <Share2 className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-          </DialogHeader>
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      onClick={handleOverlayClick}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Modal Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Pool Details</h2>
+            <p className="text-lg text-gray-600 mt-1">{pool.name}</p>
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleShare}
+              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors duration-200"
+              title="Share pool"
+            >
+              <Share2 className="w-5 h-5" />
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors duration-200"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
 
-          {/* Dialog Content - Scrollable */}
-          <div className="p-6 flex-1 overflow-y-auto">
+        {/* Modal Content - Scrollable */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-6">
             {/* Hero Section - Image and Stats Side by Side */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
               {/* Pool Image */}
@@ -342,41 +344,43 @@ export default function ExplorePoolDetailsModal({
               </div>
             )}
           </div>
-          <DialogFooter className="border-t border-gray-100 bg-white p-6">
-            <div className="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0 sm:space-x-4">
-              {/* Explorer Link */}
+        </div>
+
+        {/* Sticky Footer */}
+        <div className="border-t border-gray-100 bg-white p-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0 sm:space-x-4">
+            {/* Explorer Link */}
+            <button
+              onClick={handleViewOnExplorer}
+              className="inline-flex items-center space-x-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors duration-200 text-sm"
+            >
+              <ExternalLink className="w-4 h-4" />
+              <span>View on Explorer</span>
+            </button>
+
+            {/* Action Buttons */}
+            <div className="flex items-center space-x-3">
               <button
-                onClick={handleViewOnExplorer}
-                className="inline-flex items-center space-x-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors duration-200 text-sm"
+                onClick={handleReduceStake}
+                className="flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm disabled:opacity-50"
+                disabled={isStaking}
               >
-                <ExternalLink className="w-4 h-4" />
-                <span>View on Explorer</span>
+                <Minus className="w-4 h-4" />
+                <span>{isStaking ? "Processing..." : "Reduce Stake"}</span>
               </button>
 
-              {/* Action Buttons */}
-              <div className="flex items-center space-x-3">
-                <button
-                  onClick={handleReduceStake}
-                  className="flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm disabled:opacity-50"
-                  disabled={isStaking}
-                >
-                  <Minus className="w-4 h-4" />
-                  <span>{isStaking ? "Processing..." : "Reduce Stake"}</span>
-                </button>
-
-                <button
-                  onClick={handleAddStake}
-                  className="flex items-center justify-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm disabled:opacity-50"
-                  disabled={isStaking}
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>{isStaking ? "Processing..." : "Add Stake"}</span>
-                </button>
-              </div>
+              <button
+                onClick={handleAddStake}
+                className="flex items-center justify-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm disabled:opacity-50"
+                disabled={isStaking}
+              >
+                <Plus className="w-4 h-4" />
+                <span>{isStaking ? "Processing..." : "Add Stake"}</span>
+              </button>
             </div>
-_          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+        </div>
+      </div>
 
       {/* Staking Modal */}
       <StakingModal
@@ -408,6 +412,6 @@ _          </DialogFooter>
         onUploadSuccess={handleImageUploadSuccess}
         currentImageUrl={pool.imageUrl ?? undefined}
       />
-    </>
+    </div>
   );
 }
