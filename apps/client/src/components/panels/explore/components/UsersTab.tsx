@@ -136,7 +136,7 @@ const UsersTab: React.FC<UsersTabProps> = ({ searchQuery, userFilter, userSort, 
                     </div>
                     <div className="relative group">
                       <span className="px-2 py-1 rounded-full text-xs font-medium cursor-help bg-gray-100 text-gray-700">
-                        {formatEther(BigInt(user.poolStake))} Pool Stake
+                        {parseFloat(formatEther(BigInt(user.poolStake))).toFixed(8)} Pool Stake
                       </span>
                       <div className="absolute bottom-full right-0 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
                         <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap shadow-lg">
