@@ -12,7 +12,7 @@ interface Pool {
   };
   totalStaked: number;
   tokenPrice: number;
-  participants: number;
+  fans: number;
   apr: number;
   topStaker: {
     name: string;
@@ -32,7 +32,7 @@ const mockPools: Pool[] = [
     },
     totalStaked: 2500000,
     tokenPrice: 2.34,
-    participants: 850,
+    fans: 850,
     apr: 12.5,
     topStaker: {
       name: "crypto_whale.eth",
@@ -50,7 +50,7 @@ const mockPools: Pool[] = [
     },
     totalStaked: 1800000,
     tokenPrice: 1.85,
-    participants: 620,
+    fans: 620,
     apr: 8.5,
     topStaker: {
       name: "nft_collector.eth",
@@ -68,7 +68,7 @@ const mockPools: Pool[] = [
     },
     totalStaked: 3200000,
     tokenPrice: 3.12,
-    participants: 920,
+    fans: 920,
     apr: 15.2,
     topStaker: {
       name: "defi_master.eth",
@@ -183,9 +183,9 @@ export function LeaderboardPanel() {
                     <Users className="w-5 h-5 text-green-600" />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Participants</p>
+                    <p className="text-sm text-gray-500">Fans</p>
                     <p className="font-medium">
-                      {pool.participants}
+                      {pool.fans}
                     </p>
                     <p className="text-xs text-gray-500">
                       Active supporters

@@ -114,9 +114,9 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool, onClaimSucces
         {/* Pool Info */}
         <div className="flex items-center space-x-4 p-4 rounded-lg">
           <div className="w-12 h-12 rounded-lg overflow-hidden border border-gray-200 bg-gray-100 flex-shrink-0">
-            {pool.imageUrl ? (
+            {pool.image ? (
               <img
-                src={pool.imageUrl}
+                src={pool.image.url}
                 alt={`${pool.name} pool`}
                 className="w-full h-full object-cover"
               />

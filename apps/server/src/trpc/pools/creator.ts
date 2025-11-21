@@ -3,8 +3,17 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { prisma } from "../../services/DB";
 import { Address, createPublicClient, http, zeroAddress } from "viem";
-import { getChainConfig, CREATOR_POOL_FACTORY_ABI } from "@ampedbio/web3";
-import { ALLOWED_POOL_IMAGE_FILE_EXTENSIONS, ALLOWED_POOL_IMAGE } from "@ampedbio/constants";
+import {
+  getChainConfig,
+  CREATOR_POOL_FACTORY_ABI,
+  getPoolName,
+  CREATOR_POOL_ABI,
+} from "@ampedbio/web3";
+import {
+  ALLOWED_POOL_IMAGE_FILE_EXTENSIONS,
+  ALLOWED_POOL_IMAGE,
+  RewardPool,
+} from "@ampedbio/constants";
 import { env } from "../../env";
 import { s3Service } from "../../services/S3Service";
 import { uploadedFileService } from "../../services/UploadedFileService";
@@ -78,16 +87,115 @@ export const poolsCreatorRouter = router({
           return null;
         }
 
+        // Get the pool name from blockchain
+        const poolName = await getPoolName(pool.poolAddress as Address, parseInt(pool.chainId));
+
         // Construct the image URL from the s3_key if available
         const imageUrl = pool.poolImage ? s3Service.getFileUrl(pool.poolImage.s3_key) : null;
 
-        // Return the pool data with additional image URL if available
-        return {
-          ...pool,
-          imageUrl: imageUrl,
-          userId: pool.wallet.userId, // Include the actual user ID
-          creatorAddress: pool.wallet.address, // Include the creator's wallet address
+        // Count participants (stakers) in the pool
+        const stakedPoolsCount = await prisma.stakedPool.count({
+          where: { poolId: pool.id },
+        });
+
+        // Get current user's stake in this pool (using the userId already defined at the start of this function)
+        const userWallet = await prisma.userWallet.findUnique({
+          where: { userId },
+        });
+
+        let userStakeAmount = 0n;
+        if (userWallet) {
+          const userStake = await prisma.stakedPool.findUnique({
+            where: {
+              userWalletId_poolId: {
+                userWalletId: userWallet.id,
+                poolId: pool.id,
+              },
+            },
+          });
+
+          if (userStake) {
+            // For consistency, also check blockchain for updated stake amount
+            if (pool.poolAddress) {
+              try {
+                const chain = getChainConfig(parseInt(pool.chainId));
+                if (chain) {
+                  const publicClient = createPublicClient({
+                    chain: chain,
+                    transport: http(),
+                  });
+
+                  const fanStakeAmount = await publicClient.readContract({
+                    address: pool.poolAddress as Address,
+                    abi: CREATOR_POOL_ABI,
+                    functionName: "fanStakes",
+                    args: [userWallet.address as Address],
+                  });
+
+                  userStakeAmount = fanStakeAmount as bigint;
+                }
+              } catch (error) {
+                // If blockchain query fails, use the database value
+                userStakeAmount = BigInt(userStake.stakeAmount);
+                console.error(
+                  `Error fetching user stake from blockchain for pool ${pool.id}:`,
+                  error
+                );
+              }
+            } else {
+              userStakeAmount = BigInt(userStake.stakeAmount);
+            }
+          }
+        }
+
+        // Get user's pending rewards from the pool contract
+        let userPendingRewards = 0n;
+        const chain = getChainConfig(parseInt(pool.chainId));
+        if (userWallet && pool.poolAddress && chain) {
+          try {
+            const publicClient = createPublicClient({
+              chain: chain,
+              transport: http(),
+            });
+
+            // Use the pendingReward function to get the user's pending rewards
+            userPendingRewards = (await publicClient.readContract({
+              address: pool.poolAddress as Address,
+              abi: CREATOR_POOL_ABI,
+              functionName: "pendingReward",
+              args: [userWallet.address as Address],
+            })) as bigint;
+          } catch (error) {
+            console.error(
+              `Error fetching user pending rewards from blockchain for pool ${pool.id}:`,
+              error
+            );
+            // If blockchain query fails, return 0n as there's no fallback in the database for pending rewards
+            userPendingRewards = 0n;
+          }
+        }
+
+        const rewardPool: RewardPool = {
+          id: pool.id,
+          description: pool.description,
+          chainId: pool.chainId,
+          address: pool.poolAddress,
+          image: pool.image_file_id && imageUrl ? {
+            id: pool.image_file_id,
+            url: imageUrl
+          } : null,
+          name: poolName || `Pool ${pool.id}`, // Using blockchain name, fallback to id-based name
+          totalReward: BigInt(pool.revoStaked || "0"), // Return as wei (bigint)
+          stakedAmount: BigInt(pool.revoStaked || "0"), // Return total stake as wei (bigint)
+          fans: stakedPoolsCount, // Number of fans
+          pendingRewards: userPendingRewards, // User's pending rewards that can be claimed
+          stakedByYou: userStakeAmount, // Amount of REVO that the requesting user has staked in this pool
+          creator: {
+            userId: pool.wallet.userId!,
+            address: pool.wallet.address!,
+          },
         };
+        return rewardPool;
       } catch (error) {
         console.error("Error fetching pool:", error);
         if (error instanceof TRPCError) throw error;

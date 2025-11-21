@@ -7,7 +7,7 @@ import { useMutation } from "@tanstack/react-query";
 import { usePoolReader } from "./usePoolReader";
 import { RewardPool } from "@ampedbio/constants";
 
-export function useStaking(pool: RewardPool | null) {
+export function useStaking(pool: RewardPool | null, onStakeSuccess?: () => void) {
   const { address: userAddress } = useAccount();
   const publicClient = usePublicClient();
   const {
@@ -19,7 +19,7 @@ export function useStaking(pool: RewardPool | null) {
     refetchPendingReward,
     claimReward,
   } = usePoolReader(
-    pool?.poolAddress as `0x${string}` | undefined,
+    pool?.address as `0x${string}` | undefined,
     userAddress as `0x${string}` | undefined
   );
 
@@ -49,7 +49,7 @@ export function useStaking(pool: RewardPool | null) {
       throw new Error("Public client is not available");
     }
 
-    if (!pool || !pool.poolAddress || !userAddress) {
+    if (!pool || !pool.address || !userAddress) {
       throw new Error("Pool address or user address is missing");
     }
 
@@ -68,7 +68,7 @@ export function useStaking(pool: RewardPool | null) {
         address: tokenAddress,
         abi: L2_BASE_TOKEN_ABI,
         functionName: "stake",
-        args: [pool.poolAddress as `0x${string}`, parsedAmount],
+        args: [pool.address as `0x${string}`, parsedAmount],
       });
 
       await publicClient.waitForTransactionReceipt({ hash });
@@ -84,6 +84,11 @@ export function useStaking(pool: RewardPool | null) {
     } finally {
       setIsStaking(false);
     }
+
+    // Call the success callback if provided (for refetching staked pools)
+    if (onStakeSuccess) {
+      onStakeSuccess();
+    }
   };
 
   const unstake = async (amount: string) => {
@@ -91,7 +96,7 @@ export function useStaking(pool: RewardPool | null) {
       throw new Error("Public client is not available");
     }
 
-    if (!pool || !pool.poolAddress || !userAddress) {
+    if (!pool || !pool.address || !userAddress) {
       throw new Error("Pool address or user address is missing");
     }
 
@@ -109,7 +114,7 @@ export function useStaking(pool: RewardPool | null) {
         address: tokenAddress,
         abi: L2_BASE_TOKEN_ABI,
         functionName: "unstake",
-        args: [pool.poolAddress as `0x${string}`, parsedAmount],
+        args: [pool.address as `0x${string}`, parsedAmount],
       });
 
       await publicClient.waitForTransactionReceipt({ hash });
@@ -124,6 +129,11 @@ export function useStaking(pool: RewardPool | null) {
       throw new Error(errorMessage);
     } finally {
       setIsStaking(false);
+    }
+
+    // Call the success callback if provided (for refetching staked pools)
+    if (onStakeSuccess) {
+      onStakeSuccess();
     }
   };
 

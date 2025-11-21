@@ -34,11 +34,11 @@ export default function StakedPoolsSection() {
 
   const { address: userAddress } = useAccount();
   const { pendingReward: selectedPoolPendingReward } = usePoolReader(
-    selectedExplorePool?.pool.poolAddress as `0x${string}` | undefined,
+    selectedExplorePool?.pool.address as `0x${string}` | undefined,
     userAddress
   );
   const { pendingReward: claimingPoolPendingReward } = usePoolReader(
-    claimingPool?.pool.poolAddress as `0x${string}` | undefined,
+    claimingPool?.pool.address as `0x${string}` | undefined,
     userAddress
   );
 
@@ -303,18 +303,20 @@ export default function StakedPoolsSection() {
             id: selectedExplorePool.pool.id,
             description: selectedExplorePool.pool.description,
             chainId: selectedExplorePool.pool.chainId,
-            userId: selectedExplorePool.pool.userId,
-            poolAddress: selectedExplorePool.pool.poolAddress,
-            image_file_id: selectedExplorePool.pool.image_file_id,
-            imageUrl: selectedExplorePool.pool.imageUrl,
+            address: selectedExplorePool.pool.address,
+            image: selectedExplorePool.pool.image,
             name: selectedExplorePool.pool.name || `Pool ${selectedExplorePool.pool.id}`,
-            totalReward: BigInt(selectedExplorePool.pool.revoStaked) || 0n,
-            stakedAmount: BigInt(selectedExplorePool.stakeAmount) || 0n,
-            participants: selectedExplorePool.pool.fans || 0,
-            createdBy: "", // Placeholder
-            earnedRewards: selectedPoolPendingReward ? selectedPoolPendingReward : 0n, // Use actual pending rewards as bigint
-            creatorAddress: null, // Placeholder
+            totalReward: BigInt(selectedExplorePool.pool.totalReward) || 0n,
+            stakedAmount: BigInt(selectedExplorePool.pool.stakedAmount) || 0n,
+            fans: selectedExplorePool.pool.fans || 0,
+            pendingRewards: selectedPoolPendingReward ? selectedPoolPendingReward : 0n, // Use actual pending rewards as bigint
+            stakedByYou: selectedExplorePool.pool.stakedByYou || 0n, // Use the actual stakedByYou from server
+            creator: selectedExplorePool.pool.creator || {
+              userId: 0, // Default userId when creator object is not available
+              address: "0x0000000000000000000000000000000000000000", // Default address when not available
+            }, // Add creator object
           }}
+          onStakeSuccess={refetchAllStakedPools}
         />
       )}
 
@@ -332,17 +334,18 @@ export default function StakedPoolsSection() {
                 id: claimingPool.pool.id,
                 description: claimingPool.pool.description,
                 chainId: claimingPool.pool.chainId,
-                userId: claimingPool.pool.userId,
-                poolAddress: claimingPool.pool.poolAddress,
-                image_file_id: claimingPool.pool.image_file_id,
-                imageUrl: claimingPool.pool.imageUrl,
+                address: claimingPool.pool.address,
+                image: claimingPool.pool.image,
                 name: claimingPool.pool.name || `Pool ${claimingPool.pool.id}`,
-                totalReward: BigInt(claimingPool.pool.revoStaked) || 0n,
-                stakedAmount: BigInt(claimingPool.stakeAmount) || 0n,
-                participants: claimingPool.pool.fans || 0,
-                createdBy: "", // Placeholder
-                earnedRewards: claimingPoolPendingReward ? claimingPoolPendingReward : 0n, // Use actual pending rewards as bigint
-                creatorAddress: null, // Placeholder - not available in pool data
+                totalReward: BigInt(claimingPool.pool.totalReward) || 0n,
+                stakedAmount: BigInt(claimingPool.pool.stakedAmount) || 0n,
+                fans: claimingPool.pool.fans || 0,
+                pendingRewards: claimingPoolPendingReward ? claimingPoolPendingReward : 0n, // Use actual pending rewards as bigint
+                stakedByYou: claimingPool.pool.stakedByYou || 0n, // Use the actual stakedByYou from server
+                creator: claimingPool.pool.creator || {
+                  userId: 0, // Default userId when creator object is not available
+                  address: "0x0000000000000000000000000000000000000000", // Default address when not available
+                }, // Add creator object
               }
             : null
         }

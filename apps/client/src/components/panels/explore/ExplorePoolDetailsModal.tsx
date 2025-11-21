@@ -33,15 +33,17 @@ interface ExplorePoolDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   pool: RewardPool;
+  onStakeSuccess?: () => void; // Callback for when stake/unstake succeeds to trigger refresh
 }
 
 export default function ExplorePoolDetailsModal({
   isOpen,
   onClose,
   pool,
+  onStakeSuccess,
 }: ExplorePoolDetailsModalProps) {
   const { creatorCut: contractCreatorCut, isReadingCreatorCut } = usePoolReader(
-    pool?.poolAddress as `0x${string}` | undefined
+    pool?.address as `0x${string}` | undefined
   );
   const {
     fanStake,
@@ -55,7 +57,7 @@ export default function ExplorePoolDetailsModal({
     claimReward,
     refetchFanStake,
     refetchPendingReward,
-  } = useStaking(pool);
+  } = useStaking(pool, onStakeSuccess);
 
   const [isStakingModalOpen, setIsStakingModalOpen] = useState(false);
   const [isImageUploadModalOpen, setIsImageUploadModalOpen] = useState(false);
@@ -89,7 +91,7 @@ export default function ExplorePoolDetailsModal({
     [pool?.id]
   );
 
-  if (!isOpen || !pool || !pool.poolAddress) return null;
+  if (!isOpen || !pool || !pool.address) return null;
 
   const handleOverlayClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
@@ -146,8 +148,8 @@ export default function ExplorePoolDetailsModal({
 
   const handleViewOnExplorer = () => {
     const chain = getChainConfig(Number(pool.chainId));
-    if (chain && chain.blockExplorers?.default?.url && pool.poolAddress) {
-      const explorerUrl = `${chain.blockExplorers.default.url}/address/${pool.poolAddress}`;
+    if (chain && chain.blockExplorers?.default?.url && pool.address) {
+      const explorerUrl = `${chain.blockExplorers.default.url}/address/${pool.address}`;
       window.open(explorerUrl, "_blank");
     } else {
       toast.error("Could not find explorer URL for this chain.");
@@ -193,9 +195,9 @@ export default function ExplorePoolDetailsModal({
               {/* Pool Image */}
               <div className="relative h-64 group">
                 <div className="h-full rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
-                  {pool.imageUrl ? (
+                  {pool.image ? (
                     <img
-                      src={pool.imageUrl}
+                      src={pool.image.url}
                       alt={`${pool.name} pool`}
                       className="w-full h-full object-cover"
                     />
@@ -205,7 +207,7 @@ export default function ExplorePoolDetailsModal({
                     </div>
                   )}
                 </div>
-                {userAddress === pool.creatorAddress && (
+                {userAddress === pool.creator.address && (
                   <button
                     onClick={handleImageUploadClick}
                     className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl"
@@ -300,7 +302,7 @@ export default function ExplorePoolDetailsModal({
                       <span className="text-sm font-medium text-orange-700">Total Fans</span>
                     </div>
                     <div className="text-xl font-bold text-orange-900">
-                      {pool.participants.toLocaleString()}
+                      {pool.fans.toLocaleString()}
                     </div>
                     <div className="text-xs text-orange-600">supporters</div>
                   </div>
@@ -390,7 +392,7 @@ export default function ExplorePoolDetailsModal({
                 name: pool.name,
                 description: pool.description ?? "",
                 chainId: pool.chainId,
-                imageUrl: pool.imageUrl,
+                image: pool.image,
                 currentStake: parseFloat(fanStake),
               }
             : null
@@ -407,7 +409,7 @@ export default function ExplorePoolDetailsModal({
         isOpen={isImageUploadModalOpen}
         onClose={() => setIsImageUploadModalOpen(false)}
         onUploadSuccess={handleImageUploadSuccess}
-        currentImageUrl={pool.imageUrl ?? undefined}
+        currentImageUrl={pool.image?.url ?? undefined}
       />
     </>
   );

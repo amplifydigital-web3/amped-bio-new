@@ -78,7 +78,7 @@ export default function DashboardPage() {
   });
 
   // Get pool address from the backend data
-  const poolAddress = poolData?.poolAddress as Address | undefined;
+  const poolAddress = poolData?.address as Address | undefined;
 
   // Set description input when pool data loads
   useEffect(() => {
@@ -381,25 +381,20 @@ export default function DashboardPage() {
       id: poolData.id,
       name: poolName || poolData.description || "Pool Name",
       description: poolData.description || "Pool description not available",
-      imageUrl: poolData.imageUrl, // Use imageUrl for the modal
-      totalStake: totalStake,
-      // TODO check if this value is required
-      totalRewards: BigInt(poolData.revoStaked) || 0n, // Using revoStaked from the database model (in wei)
-      totalFans: dashboardData.totalFans, // Using totalFans from dashboardData
-      createdDate: new Date().toISOString().split("T")[0], // Using current date since createdAt is not in the type
-      stakedAmount: 0n, // User's own stake in their pool (0 since it's their pool) as bigint
+      image: poolData.image, // Use image object for the modal
       chainId: poolData.chainId,
-      category: "staking" as const,
+      address: poolData.address || null, // Add pool address for the new modal
+      stakedAmount: 0n, // User's own stake in their pool (0 since it's their pool) as bigint
+      fans: dashboardData.totalFans, // Using totalFans from dashboardData
       // TODO check if this value is required
-      earnedRewards: 0n,
-      participants: dashboardData.totalFans, // Using totalFans from dashboardData
+      totalReward: BigInt(poolData.totalReward) || 0n, // Using totalReward from the updated server response
       // TODO check if this value is required
-      totalReward: BigInt(poolData.revoStaked) || 0n, // Using revoStaked from the database model (in wei)
-      userId: poolData.userId, // Using actual userId from the updated server response
-      image_file_id: poolData.image_file_id || null, // Add image file ID
-      creatorAddress: poolData.creatorAddress, // Using creatorAddress from the updated server response
-      createdBy: "Creator", // createdBy is not available in poolData
-      poolAddress: poolData.poolAddress || null, // Add pool address for the new modal
+      pendingRewards: 0n,
+      stakedByYou: poolData.stakedByYou || 0n, // Using stakedByYou from the updated server response
+      creator: {
+        userId: poolData.creator.userId,
+        address: "0x0000000000000000000000000000000000000000", // Default address when not available
+      }, // Add creator object
     };
   }, [poolData, poolName, dashboardData]);
 
@@ -577,10 +572,10 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Pool Image */}
           <div className="relative h-64 group">
-            {userPool.imageUrl ? (
+            {userPool.image ? (
               <div className="h-full rounded-xl overflow-hidden border border-gray-100 shadow-sm">
                 <img
-                  src={userPool.imageUrl}
+                  src={userPool.image.url}
                   alt={`${userPool.name} pool`}
                   className="w-full h-full object-cover"
                 />
@@ -733,7 +728,7 @@ export default function DashboardPage() {
           </div>
           <div className="space-y-1">
             <p className="text-2xl font-bold text-gray-900">
-              {userPool.participants.toLocaleString()}
+              {userPool.fans.toLocaleString()}
             </p>
             <p className="text-sm text-purple-600 flex items-center">
               <TrendingUp className="w-4 h-4 mr-1" />+{dashboardData?.newFansThisWeek} new this week
@@ -1145,7 +1140,7 @@ export default function DashboardPage() {
         isOpen={isImageUploadModalOpen}
         onClose={() => setIsImageUploadModalOpen(false)}
         onUploadSuccess={handleImageUploadSuccess}
-        currentImageUrl={userPool.imageUrl ?? undefined}
+        currentImageUrl={userPool.image?.url ?? undefined}
       />
     </div>
   );

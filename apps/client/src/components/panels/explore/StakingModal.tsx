@@ -20,7 +20,10 @@ interface StakingModalProps {
     name: string; // Blockchain pool name (primary)
     description: string;
     chainId: string;
-    imageUrl?: string | null;
+    image: {
+      id: number;
+      url: string;
+    } | null;
     currentStake?: number;
   } | null;
   mode: "stake" | "add-stake" | "reduce-stake";
@@ -163,9 +166,9 @@ export default function StakingModal({
         {/* Pool Info */}
         <div className="flex items-center space-x-4 p-4 rounded-lg">
           <div className="w-12 h-12 rounded-lg overflow-hidden border border-gray-200 bg-gray-100 flex-shrink-0">
-            {pool.imageUrl ? (
+            {pool.image ? (
               <img
-                src={pool.imageUrl || ""}
+                src={pool.image.url || ""}
                 alt={`${pool.name} pool`}
                 className="w-full h-full object-cover"
               />
@@ -391,9 +394,9 @@ export default function StakingModal({
         {/* Pool Info */}
         <div className="flex items-center space-x-3 p-3 rounded-lg">
           <div className="w-10 h-10 rounded-lg overflow-hidden border border-gray-200 bg-gray-100 flex-shrink-0">
-            {pool.imageUrl ? (
+            {pool.image ? (
               <img
-                src={pool.imageUrl!}
+                src={pool.image.url!}
                 alt={`${pool.name} pool`}
                 className="w-full h-full object-cover"
               />

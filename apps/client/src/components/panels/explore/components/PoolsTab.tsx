@@ -19,14 +19,12 @@ interface Pool {
   name: string;
   description: string | null;
   stakedAmount: number | null;
-  participants: number | null;
+  fans: number | null;
   imageUrl: string | null;
   chainId: string;
   walletId: number;
-  poolAddress?: string | null;
+  address?: string | null;
   totalReward?: number;
-  createdBy?: string;
-  creatorAddress?: string | null;
   image_file_id?: number | null;
 }
 
@@ -75,8 +73,8 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
           name: pool.name, // Include name field as well
           description: pool.description ?? "",
           chainId: pool.chainId,
-          poolAddress: pool.poolAddress,
-          imageUrl: pool.imageUrl,
+          address: pool.address,
+          image: pool.image,
           currentStake: pool.stakedAmount || 0n, // Use the staked amount from the pool as bigint
         };
 
@@ -95,17 +93,18 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
           id: pool.id,
           description: pool.description,
           chainId: pool.chainId,
-          userId: pool.userId, // Using actual userId from updated server response
-          poolAddress: pool.poolAddress,
-          image_file_id: pool.image_file_id,
-          imageUrl: pool.imageUrl,
+          address: pool.address,
+          image: pool.image,
           name: pool.name, // Use name from blockchain
           totalReward: pool.totalReward || 0n, // Placeholder as bigint
           stakedAmount: pool.stakedAmount || 0n, // Add stakedAmount as bigint
-          participants: pool.participants || 0, // Placeholder
-          createdBy: pool.createdBy || "Unknown", // Placeholder
-          earnedRewards: 0n, // Placeholder as bigint
-          creatorAddress: pool.creatorAddress, // Add creatorAddress
+          fans: pool.fans || 0, // Placeholder
+          pendingRewards: 0n, // Placeholder as bigint
+          stakedByYou: pool.stakedByYou || 0n, // Using stakedByYou from the updated server response
+          creator: pool.creator || {
+            userId: 0, // Default userId when creator object is not available
+            address: "0x0000000000000000000000000000000000000000", // Default address when not available
+          }, // Add creator object
         };
 
         setSelectedRewardPoolForView(poolForView);
@@ -129,10 +128,10 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
               key={pool.id}
               className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden"
             >
-              {pool.imageUrl ? (
+              {pool.image ? (
                 <div className="h-32 bg-gradient-to-r from-blue-500 to-purple-600 relative overflow-hidden">
                   <img
-                    src={pool.imageUrl}
+                    src={pool.image.url}
                     alt={pool.name}
                     className="w-full h-full object-cover"
                   />
@@ -161,9 +160,9 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500">Participants</span>
+                    <span className="text-gray-500">Fans</span>
                     <span className="font-semibold text-gray-900">
-                      {(pool.participants ?? 0).toLocaleString()}
+                      {(pool.fans ?? 0).toLocaleString()}
                     </span>
                   </div>
                 </div>

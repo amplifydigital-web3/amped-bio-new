@@ -5,27 +5,15 @@ import { useAccount } from "wagmi";
 import { formatUnits } from "viem";
 import { usePoolReader } from "../../../hooks/usePoolReader";
 
+import { RewardPool } from "@ampedbio/constants";
+
 // Manually defined type
 interface StakedPoolRowProps {
   poolData: {
-    id: number;
     userWalletId: number;
     poolId: number;
-    stakeAmount: string;
-    createdAt: string;
-    updatedAt: string | null;
-    pool: {
-      id: number;
-      walletId: number;
-      chainId: string;
-      image_file_id: number | null;
-      name: string | null; // Blockchain pool name (primary)
-      description: string | null;
-      fans: number;
-      revoStaked: string;
-      poolAddress: string | null;
-      imageUrl: string | null;
-    };
+    stakeAmount: bigint;
+    pool: RewardPool;
   };
   onClaimRewards: (poolId: number) => void;
   onViewPool: (poolId: number) => void;
@@ -42,10 +30,10 @@ export default function StakedPoolRow({
     pendingReward,
     poolName,
     isReadingPoolName,
-  } = usePoolReader(poolData.pool.poolAddress as `0x${string}`, address);
+  } = usePoolReader(poolData.pool.address as `0x${string}`, address);
 
-  const stakedAmount = BigInt(poolData.stakeAmount);
-  const earnedRewards = pendingReward || 0n;
+  const stakedAmount = poolData.stakeAmount;
+  const pendingRewards = pendingReward || 0n;
 
   const chainConfig = getChainConfig(parseInt(poolData.pool.chainId));
 
@@ -62,9 +50,9 @@ export default function StakedPoolRow({
         <div className="flex items-center space-x-3 flex-1 min-w-0" style={{ flexBasis: "56%" }}>
           {/* 40x40 Thumbnail */}
           <div className="w-10 h-10 rounded-lg overflow-hidden border border-gray-200 bg-gray-100 flex-shrink-0">
-            {poolData.pool.imageUrl ? (
+            {poolData.pool.image ? (
               <img
-                src={poolData.pool.imageUrl}
+                src={poolData.pool.image.url}
                 alt={`${poolName ?? poolData.pool.name} pool`}
                 className="w-full h-full object-cover"
                 loading="lazy"
@@ -106,16 +94,16 @@ export default function StakedPoolRow({
             </span>
           </div>
 
-          {/* Earned Rewards */}
+          {/* Pending Rewards */}
           <div
             className="flex items-center space-x-1 px-2 py-1 bg-green-50 rounded-full group/tooltip relative"
-            title={`You have earned ${formatUnits(earnedRewards, 18)} ${chainConfig?.nativeCurrency.symbol || "REVO"} from this pool`}
+            title={`You have pending rewards of ${formatUnits(pendingRewards, 18)} ${chainConfig?.nativeCurrency.symbol || "REVO"} from this pool`}
           >
             <TrendingUp className="w-3 h-3 text-green-600" />
             <span className="text-xs font-medium text-green-700">
-              {Number(formatUnits(earnedRewards, 18)) >= 1000
-                ? `${(Number(formatUnits(earnedRewards, 18)) / 1000).toFixed(1)}k`
-                : Number(formatUnits(earnedRewards, 18)).toLocaleString()}
+              {Number(formatUnits(pendingRewards, 18)) >= 1000
+                ? `${(Number(formatUnits(pendingRewards, 18)) / 1000).toFixed(1)}k`
+                : Number(formatUnits(pendingRewards, 18)).toLocaleString()}
             </span>
           </div>
 
@@ -145,9 +133,9 @@ export default function StakedPoolRow({
             <div className="flex items-center space-x-1 px-2 py-1 bg-green-50 rounded-full">
               <TrendingUp className="w-3 h-3 text-green-600" />
               <span className="text-xs font-medium text-green-700">
-                {Number(formatUnits(earnedRewards, 18)) >= 1000
-                  ? `${(Number(formatUnits(earnedRewards, 18)) / 1000).toFixed(1)}k`
-                  : Number(formatUnits(earnedRewards, 18)).toLocaleString()}
+                {Number(formatUnits(pendingRewards, 18)) >= 1000
+                  ? `${(Number(formatUnits(pendingRewards, 18)) / 1000).toFixed(1)}k`
+                  : Number(formatUnits(pendingRewards, 18)).toLocaleString()}
               </span>
             </div>
             <div className="flex items-center space-x-1 px-2 py-1 bg-purple-50 rounded-full">
