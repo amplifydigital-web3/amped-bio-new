@@ -692,7 +692,7 @@ export const poolsFanRouter = router({
               typeof args.amount === "bigint" ? args.amount : BigInt(args.amount);
             parsedUnstakes.push({
               delegator: args.from,
-              delegatee: args.pool, // Use the pool address from the event, not the log address
+              delegatee: args.to, // Use the 'to' address from the event as the pool address
               amount: unstakeAmount,
             });
           } catch (error) {
