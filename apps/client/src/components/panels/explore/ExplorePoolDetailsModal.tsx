@@ -358,10 +358,11 @@ export default function ExplorePoolDetailsModal({
                 <button
                   onClick={handleReduceStake}
                   className="flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm disabled:opacity-50"
-                  disabled={isStaking}
+                  disabled={isStaking || parseFloat(fanStake) <= 0}
+                  title={parseFloat(fanStake) <= 0 ? "You have no stake in this pool" : undefined}
                 >
                   <Minus className="w-4 h-4" />
-                  <span>{isStaking ? "Processing..." : "Reduce Stake"}</span>
+                  <span>{isStaking ? "Processing..." : parseFloat(fanStake) <= 0 ? "No Stake" : "Reduce Stake"}</span>
                 </button>
 
                 <button
