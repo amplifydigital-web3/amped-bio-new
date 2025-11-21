@@ -504,11 +504,16 @@ export const poolsFanRouter = router({
               topics: log.topics,
             });
             const args = decodedLog.args as any;
+            // Validate that required fields exist before processing
+            if (!args.staker || !args.pool || args.amount === undefined) {
+              console.warn("Stake event missing required fields:", args);
+              continue; // Skip this event if required fields are missing
+            }
             // Ensure the amount is properly handled as a BigInt for Prisma
             const stakeAmount = typeof args.amount === "bigint" ? args.amount : BigInt(args.amount);
             parsedStakes.push({
-              delegator: args.from,
-              delegatee: args.to, // Use the pool address from the event, not the log address
+              delegator: args.staker.toLowerCase(),
+              delegatee: args.pool.toLowerCase(), // Use the pool address from the event, not the log address, in lowercase
               amount: stakeAmount,
             });
           } catch (error) {
@@ -525,9 +530,12 @@ export const poolsFanRouter = router({
         }
 
         for (const stake of parsedStakes) {
+          // Convert the address to lowercase for comparison since Ethereum addresses are case-insensitive
+          const poolAddressToFind = stake.delegatee?.toLowerCase();
+
           const pool = await prisma.creatorPool.findUnique({
             where: {
-              poolAddress: stake.delegatee,
+              poolAddress: poolAddressToFind,
             },
           });
 
@@ -687,12 +695,17 @@ export const poolsFanRouter = router({
               topics: log.topics,
             });
             const args = decodedLog.args as any;
+            // Validate that required fields exist before processing
+            if (!args.unstaker || !args.pool || args.amount === undefined) {
+              console.warn("Unstake event missing required fields:", args);
+              continue; // Skip this event if required fields are missing
+            }
             // Ensure the amount is properly handled as a BigInt for Prisma
             const unstakeAmount =
               typeof args.amount === "bigint" ? args.amount : BigInt(args.amount);
             parsedUnstakes.push({
-              delegator: args.from,
-              delegatee: args.to, // Use the 'to' address from the event as the pool address
+              delegator: args.unstaker.toLowerCase(),
+              delegatee: args.pool.toLowerCase(), // Use the 'pool' address from the event as the pool address, in lowercase
               amount: unstakeAmount,
             });
           } catch (error) {
@@ -708,17 +721,36 @@ export const poolsFanRouter = router({
           });
         }
 
+        // Additional validation: check if any parsed unstakes have undefined delegatee
+        const invalidUnstakes = parsedUnstakes.filter(unstake => !unstake.delegatee);
+        if (invalidUnstakes.length > 0) {
+          console.warn("Found unstake events with undefined delegatee:", invalidUnstakes);
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Found ${invalidUnstakes.length} unstake events with undefined delegatee (pool address)`,
+          });
+        }
+
         for (const unstake of parsedUnstakes) {
+          console.log("Processing unstake event:", {
+            delegatee: unstake.delegatee,
+            delegator: unstake.delegator,
+            amount: unstake.amount.toString(),
+          });
+
+          // Convert the address to lowercase for comparison since Ethereum addresses are case-insensitive
+          const poolAddressToFind = unstake.delegatee?.toLowerCase();
+
           const pool = await prisma.creatorPool.findUnique({
             where: {
-              poolAddress: unstake.delegatee,
+              poolAddress: poolAddressToFind,
             },
           });
 
           if (!pool) {
             throw new TRPCError({
               code: "NOT_FOUND",
-              message: `Pool with address ${unstake.delegatee} not found in database`,
+              message: `Pool with address ${unstake.delegatee} not found in database.`,
             });
           }
 

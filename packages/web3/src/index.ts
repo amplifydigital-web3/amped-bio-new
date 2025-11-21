@@ -1263,13 +1263,13 @@ export const L2_BASE_TOKEN_ABI = [
       {
         indexed: true,
         internalType: "address",
-        name: "from",
+        name: "staker",
         type: "address",
       },
       {
         indexed: true,
         internalType: "address",
-        name: "to",
+        name: "pool",
         type: "address",
       },
       {
@@ -1313,13 +1313,13 @@ export const L2_BASE_TOKEN_ABI = [
       {
         indexed: true,
         internalType: "address",
-        name: "from",
+        name: "unstaker",
         type: "address",
       },
       {
         indexed: true,
         internalType: "address",
-        name: "to",
+        name: "pool",
         type: "address",
       },
       {
