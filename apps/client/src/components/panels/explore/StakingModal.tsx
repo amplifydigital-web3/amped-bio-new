@@ -490,6 +490,21 @@ export default function StakingModal({
           </div>
         </div>
 
+        {/* Reward Claiming Warning for Unstake */}
+        {mode === "reduce-stake" && (
+          <div className="border border-yellow-200 bg-yellow-50 rounded-lg p-3">
+            <div className="flex items-start space-x-2">
+              <AlertCircle className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <h4 className="font-medium text-yellow-800 text-sm">Important Notice</h4>
+                <p className="text-yellow-700 text-xs mt-1">
+                  Unstaking any amount will also automatically claim whatever rewards you are currently owed in this pool.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Action Buttons */}
         <DialogFooter className="flex space-x-3">
           <button
