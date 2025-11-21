@@ -225,7 +225,7 @@ export const poolsFanRouter = router({
               id: pool.id,
               description: pool.description,
               chainId: pool.chainId,
-              address: pool.poolAddress,
+              address: pool.poolAddress!,
               image:
                 pool.image_file_id && pool.poolImage
                   ? {
@@ -546,7 +546,7 @@ export const poolsFanRouter = router({
                 id: stake.pool.id,
                 description: stake.pool.description,
                 chainId: stake.pool.chainId,
-                address: stake.pool.poolAddress,
+                address: stake.pool.poolAddress!,
                 image:
                   stake.pool.image_file_id && stake.pool.poolImage
                     ? {

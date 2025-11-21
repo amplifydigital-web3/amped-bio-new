@@ -383,7 +383,7 @@ export default function DashboardPage() {
       description: poolData.description || "Pool description not available",
       image: poolData.image, // Use image object for the modal
       chainId: poolData.chainId,
-      address: poolData.address || null, // Add pool address for the new modal
+      address: poolData.address!, // Add pool address for the new modal (non-nullable)
       stakedAmount: 0n, // User's own stake in their pool (0 since it's their pool) as bigint
       fans: dashboardData.totalFans, // Using totalFans from dashboardData
       // TODO check if this value is required

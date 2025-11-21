@@ -2,7 +2,7 @@ export interface RewardPool {
   id: number;
   description: string | null;
   chainId: string;
-  address: string | null;
+  address: string;
   image: {
     id: number;
     url: string;

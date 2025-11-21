@@ -179,7 +179,7 @@ export const poolsCreatorRouter = router({
           id: pool.id,
           description: pool.description,
           chainId: pool.chainId,
-          address: pool.poolAddress,
+          address: pool.poolAddress!,
           image: pool.image_file_id && imageUrl ? {
             id: pool.image_file_id,
             url: imageUrl
