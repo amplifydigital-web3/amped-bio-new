@@ -687,14 +687,16 @@ export function CreatorPoolPanel() {
         </div>
       </form>
 
-      <PoolSummaryModal
-        isOpen={showSummaryModal}
-        onClose={() => setShowSummaryModal(false)}
-        formData={formData!}
-        onLaunch={handleLaunchPool}
-        isLaunching={isLaunching}
-        poolImage={poolImage}
-      />
+      {formData && (
+        <PoolSummaryModal
+          isOpen={showSummaryModal}
+          onClose={() => setShowSummaryModal(false)}
+          formData={formData}
+          onLaunch={handleLaunchPool}
+          isLaunching={isLaunching}
+          poolImage={poolImage}
+        />
+      )}
 
       <TransactionModal
         isOpen={showTransactionModal}
