@@ -443,11 +443,11 @@ export default function StakingModal({
             </span>
           </div>
 
-          {mode !== "reduce-stake" && pool.currentStake && (
+          {mode !== "reduce-stake" && pool.currentStake !== undefined && (
             <div className="flex justify-between text-sm">
               <span className="text-blue-700">Current Stake:</span>
               <span className="font-medium text-blue-900">
-                {formatEther(BigInt(pool.currentStake))} {currencySymbol}
+                {pool.currentStake.toLocaleString()} {currencySymbol}
               </span>
             </div>
           )}
@@ -456,21 +456,19 @@ export default function StakingModal({
             <div className="flex justify-between text-sm border-t border-blue-200 pt-1">
               <span className="text-blue-700">New Total Stake:</span>
               <span className="font-bold text-blue-900">
-                {(
-                  Number(formatEther(BigInt(pool.currentStake ?? 0))) + parseFloat(amount)
-                ).toLocaleString()}{" "}
+                {((pool.currentStake ?? 0) + parseFloat(amount)).toLocaleString()}{" "}
                 {currencySymbol}
               </span>
             </div>
           )}
 
-          {mode === "reduce-stake" && pool.currentStake && (
+          {mode === "reduce-stake" && pool.currentStake !== undefined && (
             <div className="flex justify-between text-sm border-t border-blue-200 pt-1">
               <span className="text-blue-700">New Total Stake:</span>
               <span className="font-bold text-blue-900">
                 {Math.max(
                   0,
-                  Number(formatEther(BigInt(pool.currentStake || 0))) - parseFloat(amount)
+                  (pool.currentStake || 0) - parseFloat(amount)
                 ).toLocaleString()}{" "}
                 {currencySymbol}
               </span>
