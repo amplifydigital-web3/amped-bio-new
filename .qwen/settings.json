@@ -17,5 +17,6 @@
         "@jpisnice/shadcn-ui-mcp-server"
       ]
     }
-  }
+  },
+  "$version": 2
 }

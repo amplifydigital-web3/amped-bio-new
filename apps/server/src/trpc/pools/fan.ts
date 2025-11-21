@@ -2,7 +2,7 @@ import { privateProcedure, publicProcedure, router } from "../trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { prisma } from "../../services/DB";
-import { Address, createPublicClient, http, decodeEventLog, formatEther } from "viem";
+import { Address, createPublicClient, http, decodeEventLog } from "viem";
 import { getChainConfig, L2_BASE_TOKEN_ABI, CREATOR_POOL_ABI, getPoolName } from "@ampedbio/web3";
 import { s3Service } from "../../services/S3Service";
 
@@ -15,7 +15,10 @@ export const poolsFanRouter = router({
           .enum(["all", "no-fans", "more-than-10-fans", "more-than-10k-stake"])
           .optional()
           .default("all"),
-        sort: z.enum(["newest", "name-asc", "name-desc", "most-fans", "most-staked"]).optional().default("newest"),
+        sort: z
+          .enum(["newest", "name-asc", "name-desc", "most-fans", "most-staked"])
+          .optional()
+          .default("newest"),
       })
     )
     .query(async ({ input }) => {
@@ -495,8 +498,8 @@ export const poolsFanRouter = router({
         for (const log of transactionReceipt.logs) {
           try {
             const decodedLog = decodeEventLog({
-              abi: CREATOR_POOL_ABI,
-              eventName: "FanStaked",
+              abi: L2_BASE_TOKEN_ABI,
+              eventName: "Stake",
               data: log.data,
               topics: log.topics,
             });
@@ -504,12 +507,12 @@ export const poolsFanRouter = router({
             // Ensure the amount is properly handled as a BigInt for Prisma
             const stakeAmount = typeof args.amount === "bigint" ? args.amount : BigInt(args.amount);
             parsedStakes.push({
-              delegator: transactionReceipt.from,
-              delegatee: log.address,
+              delegator: args.from,
+              delegatee: args.to, // Use the pool address from the event, not the log address
               amount: stakeAmount,
             });
           } catch (error) {
-            // Not a FanStaked event, ignore
+            // Not a Stake event, ignore
             continue;
           }
         }
@@ -517,7 +520,7 @@ export const poolsFanRouter = router({
         if (parsedStakes.length === 0) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "No FanStaked event found in transaction logs",
+            message: "No Stake event found in transaction logs",
           });
         }
 
@@ -679,7 +682,7 @@ export const poolsFanRouter = router({
           try {
             const decodedLog = decodeEventLog({
               abi: L2_BASE_TOKEN_ABI,
-              eventName: "FanUnstaked",
+              eventName: "Unstake",
               data: log.data,
               topics: log.topics,
             });
@@ -688,12 +691,12 @@ export const poolsFanRouter = router({
             const unstakeAmount =
               typeof args.amount === "bigint" ? args.amount : BigInt(args.amount);
             parsedUnstakes.push({
-              delegator: transactionReceipt.from,
-              delegatee: log.address,
+              delegator: args.from,
+              delegatee: args.pool, // Use the pool address from the event, not the log address
               amount: unstakeAmount,
             });
           } catch (error) {
-            // Not a FanUnstaked event, ignore
+            // Not an Unstake event, ignore
             continue;
           }
         }
@@ -701,7 +704,7 @@ export const poolsFanRouter = router({
         if (parsedUnstakes.length === 0) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "No FanUnstaked event found in transaction logs",
+            message: "No Unstake event found in transaction logs",
           });
         }
 
