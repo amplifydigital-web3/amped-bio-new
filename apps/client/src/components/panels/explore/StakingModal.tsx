@@ -10,6 +10,7 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import { formatEther } from "viem";
 
 interface StakingModalProps {
   isOpen: boolean;
@@ -128,7 +129,11 @@ export default function StakingModal({
 
   const numericAmount = parseFloat(amount) || 0;
   const userBalance = Number(balanceData?.formatted || 0);
-  const isValidAmount = numericAmount > 0 && (mode === "reduce-stake" ? numericAmount <= (pool?.currentStake || 0) : numericAmount <= userBalance);
+  const isValidAmount =
+    numericAmount > 0 &&
+    (mode === "reduce-stake"
+      ? numericAmount <= (pool?.currentStake || 0)
+      : numericAmount <= userBalance);
   const canProceed = isValidAmount;
 
   // Check if trying to unstake more than current stake
@@ -283,20 +288,40 @@ export default function StakingModal({
           )}
 
           {/* Unstake specific validation for reduce-stake mode */}
-          {mode === "reduce-stake" && pool?.currentStake !== undefined && pool?.currentStake <= 0 && (
-            <div className="p-3 border border-red-200 rounded-lg">
-              <div className="flex items-center space-x-2 text-red-700">
-                <AlertCircle className="w-4 h-4" />
-                <span className="text-sm font-medium">You have no stake in this pool to unstake</span>
+          {mode === "reduce-stake" &&
+            pool?.currentStake !== undefined &&
+            pool?.currentStake <= 0 && (
+              <div className="p-3 border border-red-200 rounded-lg">
+                <div className="flex items-center space-x-2 text-red-700">
+                  <AlertCircle className="w-4 h-4" />
+                  <span className="text-sm font-medium">
+                    You have no stake in this pool to unstake
+                  </span>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           <button
             onClick={() => setStep("confirm")}
-            disabled={!canProceed || isBalanceLoading || !onStake || !!isStaking || (mode === "reduce-stake" && pool?.currentStake !== undefined && pool?.currentStake <= 0)}
+            disabled={
+              !canProceed ||
+              isBalanceLoading ||
+              !onStake ||
+              !!isStaking ||
+              (mode === "reduce-stake" &&
+                pool?.currentStake !== undefined &&
+                pool?.currentStake <= 0)
+            }
             className={`w-full py-4 font-semibold rounded-xl transition-all duration-200 ${
-              canProceed && !isBalanceLoading && !isStaking && onStake && !(mode === "reduce-stake" && pool?.currentStake !== undefined && pool?.currentStake <= 0)
+              canProceed &&
+              !isBalanceLoading &&
+              !isStaking &&
+              onStake &&
+              !(
+                mode === "reduce-stake" &&
+                pool?.currentStake !== undefined &&
+                pool?.currentStake <= 0
+              )
                 ? "bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl"
                 : "bg-gray-300 text-gray-500 cursor-not-allowed"
             }`}
@@ -313,21 +338,26 @@ export default function StakingModal({
           </button>
 
           {/* Show reasons why the button is disabled */}
-          {!canProceed && !(mode === "reduce-stake" && pool?.currentStake !== undefined && pool?.currentStake <= 0) && (
-            <div className="text-sm text-gray-500">
-              {numericAmount <= 0 ? (
-                <div className="flex items-center space-x-1">
-                  <AlertCircle className="w-4 h-4" />
-                  <span>Please enter an amount</span>
-                </div>
-              ) : numericAmount > userBalance ? (
-                <div className="flex items-center space-x-1">
-                  <AlertCircle className="w-4 h-4" />
-                  <span>Insufficient balance</span>
-                </div>
-              ) : null}
-            </div>
-          )}
+          {!canProceed &&
+            !(
+              mode === "reduce-stake" &&
+              pool?.currentStake !== undefined &&
+              pool?.currentStake <= 0
+            ) && (
+              <div className="text-sm text-gray-500">
+                {numericAmount <= 0 ? (
+                  <div className="flex items-center space-x-1">
+                    <AlertCircle className="w-4 h-4" />
+                    <span>Please enter an amount</span>
+                  </div>
+                ) : numericAmount > userBalance ? (
+                  <div className="flex items-center space-x-1">
+                    <AlertCircle className="w-4 h-4" />
+                    <span>Insufficient balance</span>
+                  </div>
+                ) : null}
+              </div>
+            )}
 
           {/* Show error if functions are not provided */}
           {!onStake && (
@@ -417,7 +447,7 @@ export default function StakingModal({
             <div className="flex justify-between text-sm">
               <span className="text-blue-700">Current Stake:</span>
               <span className="font-medium text-blue-900">
-                {pool.currentStake.toLocaleString()} {currencySymbol}
+                {formatEther(BigInt(pool.currentStake))} {currencySymbol}
               </span>
             </div>
           )}
@@ -426,7 +456,10 @@ export default function StakingModal({
             <div className="flex justify-between text-sm border-t border-blue-200 pt-1">
               <span className="text-blue-700">New Total Stake:</span>
               <span className="font-bold text-blue-900">
-                {((pool.currentStake || 0) + parseFloat(amount)).toLocaleString()} {currencySymbol}
+                {(
+                  Number(formatEther(BigInt(pool.currentStake ?? 0))) + parseFloat(amount)
+                ).toLocaleString()}{" "}
+                {currencySymbol}
               </span>
             </div>
           )}
@@ -435,7 +468,10 @@ export default function StakingModal({
             <div className="flex justify-between text-sm border-t border-blue-200 pt-1">
               <span className="text-blue-700">New Total Stake:</span>
               <span className="font-bold text-blue-900">
-                {Math.max(0, (pool.currentStake || 0) - parseFloat(amount)).toLocaleString()}{" "}
+                {Math.max(
+                  0,
+                  Number(formatEther(BigInt(pool.currentStake || 0))) - parseFloat(amount)
+                ).toLocaleString()}{" "}
                 {currencySymbol}
               </span>
             </div>
@@ -476,7 +512,13 @@ export default function StakingModal({
             ) : (
               <Coins className="w-4 h-4" />
             )}
-            <span>{hasInsufficientStake ? "Invalid Unstake" : mode === "reduce-stake" ? "Confirm Unstake" : "Confirm Stake"}</span>
+            <span>
+              {hasInsufficientStake
+                ? "Invalid Unstake"
+                : mode === "reduce-stake"
+                  ? "Confirm Unstake"
+                  : "Confirm Stake"}
+            </span>
           </button>
         </DialogFooter>
       </div>
