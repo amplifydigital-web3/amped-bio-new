@@ -2,44 +2,27 @@ import React from "react";
 import { Trophy, ChevronLeft, ChevronRight } from "lucide-react";
 import ExplorePoolDetailsModal from "../explore/ExplorePoolDetailsModal";
 import ClaimRewardsModal from "./ClaimRewardsModal";
-import { trpc } from "../../../utils/trpc";
 import StakedPoolRow from "./StakedPoolRow";
-import { useQuery } from "@tanstack/react-query";
 import { useEditor } from "../../../contexts/EditorContext";
-import { usePoolReader } from "../../../hooks/usePoolReader";
-import { useAccount, useChainId } from "wagmi";
+import { useStakedPools } from "./hooks/useStakedPools";
 
 export default function StakedPoolsSection() {
-  const chainId = useChainId();
   const {
-    data: allStakedPools,
+    stakedPools: allStakedPools,
     isLoading: loading,
-    error,
     refetch: refetchAllStakedPools,
-  } = useQuery(trpc.pools.fan.getUserStakedPools.queryOptions({ chainId: chainId.toString() }));
+  } = useStakedPools();
 
   const { setActivePanelAndNavigate } = useEditor();
   const [currentPage, setCurrentPage] = React.useState(1);
   const [selectedPoolId, setSelectedPoolId] = React.useState<number | null>(null);
-  const [isPoolModalOpen, setIsPoolModalOpen] = React.useState(false);
   const [isExplorePoolModalOpen, setIsExplorePoolModalOpen] = React.useState(false);
   const [isClaimModalOpen, setIsClaimModalOpen] = React.useState(false);
   const [claimingPoolId, setClaimingPoolId] = React.useState<number | null>(null);
   const poolsPerPage = 6;
 
-  const selectedPool = allStakedPools?.find(p => p.poolId === selectedPoolId)?.pool || null;
   const selectedExplorePool = allStakedPools?.find(p => p.poolId === selectedPoolId) || null;
   const claimingPool = allStakedPools?.find(p => p.poolId === claimingPoolId) || null;
-
-  const { address: userAddress } = useAccount();
-  const { pendingReward: selectedPoolPendingReward } = usePoolReader(
-    selectedExplorePool?.pool.address as `0x${string}` | undefined,
-    userAddress
-  );
-  const { pendingReward: claimingPoolPendingReward } = usePoolReader(
-    claimingPool?.pool.address as `0x${string}` | undefined,
-    userAddress
-  );
 
   // Calculate pagination
   const totalPages = allStakedPools ? Math.ceil(allStakedPools.length / poolsPerPage) : 0;
@@ -171,15 +154,6 @@ export default function StakedPoolsSection() {
   // Show skeleton if loading
   if (loading) {
     return <SkeletonLoader />;
-  }
-
-  if (error) {
-    return (
-      <div className="bg-white rounded-lg shadow-sm border border-red-200 p-6">
-        <h3 className="text-lg font-semibold text-red-900">Error</h3>
-        <p className="text-red-700">{error.message}</p>
-      </div>
-    );
   }
 
   if (!allStakedPools || allStakedPools.length === 0) {
@@ -323,8 +297,8 @@ export default function StakedPoolsSection() {
             totalReward: BigInt(selectedExplorePool.pool.totalReward) || 0n,
             stakedAmount: BigInt(selectedExplorePool.pool.stakedAmount) || 0n,
             fans: selectedExplorePool.pool.fans || 0,
-            pendingRewards: selectedPoolPendingReward ? selectedPoolPendingReward : 0n, // Use actual pending rewards as bigint
-            stakedByYou: selectedExplorePool.pool.stakedByYou || 0n, // Use the actual stakedByYou from server
+            pendingRewards: selectedExplorePool.pendingRewards, // Use actual pending rewards as bigint
+            stakedByYou: selectedExplorePool.stakedByYou, // Use the actual stakedByYou from server
             creator: selectedExplorePool.pool.creator || {
               userId: 0, // Default userId when creator object is not available
               address: "0x0000000000000000000000000000000000000000", // Default address when not available
@@ -354,8 +328,8 @@ export default function StakedPoolsSection() {
                 totalReward: BigInt(claimingPool.pool.totalReward) || 0n,
                 stakedAmount: BigInt(claimingPool.pool.stakedAmount) || 0n,
                 fans: claimingPool.pool.fans || 0,
-                pendingRewards: claimingPoolPendingReward ? claimingPoolPendingReward : 0n, // Use actual pending rewards as bigint
-                stakedByYou: claimingPool.pool.stakedByYou || 0n, // Use the actual stakedByYou from server
+                pendingRewards: claimingPool.pendingRewards, // Use actual pending rewards as bigint
+                stakedByYou: claimingPool.stakedByYou, // Use the actual stakedByYou from server
                 creator: claimingPool.pool.creator || {
                   userId: 0, // Default userId when creator object is not available
                   address: "0x0000000000000000000000000000000000000000", // Default address when not available

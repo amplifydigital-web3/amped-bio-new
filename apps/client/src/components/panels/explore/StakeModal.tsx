@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { X, Coins, TrendingUp, AlertCircle, Check } from "lucide-react";
 import { useAccount, useBalance } from "wagmi";
 import { getChainConfig } from "@ampedbio/web3";
+import Decimal from "decimal.js";
 import {
   Dialog,
   DialogContent,
@@ -107,9 +108,11 @@ export default function StakeModal({
     }
   };
 
-  const numericAmount = parseFloat(amount) || 0;
-  const userBalance = Number(balanceData?.formatted || 0);
-  const isValidAmount = numericAmount > 0 && numericAmount <= userBalance;
+  const numericAmount = amount ? new Decimal(amount).toNumber() : 0;
+  const userBalance = new Decimal(balanceData?.formatted || 0);
+  const isValidAmount = amount
+    ? new Decimal(amount).gt(0) && new Decimal(amount).lte(userBalance)
+    : false;
   const canProceed = isValidAmount;
 
   const renderAmountStep = () => (
@@ -176,7 +179,29 @@ export default function StakeModal({
             <input
               type="number"
               value={amount}
-              onChange={e => setAmount(e.target.value)}
+              onChange={e => {
+                // Limit input to 4 decimal places using decimal.js for precision
+                const inputValue = e.target.value;
+                if (inputValue) {
+                  // Check if the input has more than 4 decimal places
+                  const parts = inputValue.split(".");
+                  if (parts.length === 2 && parts[1].length > 4) {
+                    // Use decimal.js to handle the precision
+                    try {
+                      const decimalValue = new Decimal(inputValue);
+                      const fixedValue = decimalValue.toFixed(4).replace(/\.?0+$/, "");
+                      setAmount(fixedValue);
+                    } catch (error) {
+                      // If decimal parsing fails, just set the original value
+                      setAmount(inputValue);
+                    }
+                  } else {
+                    setAmount(inputValue);
+                  }
+                } else {
+                  setAmount(inputValue);
+                }
+              }}
               placeholder="0.00"
               className={`w-full px-4 py-4 text-2xl font-bold text-center border rounded-xl focus:ring-2 focus:border-transparent transition-all duration-200 ${
                 amount && !isValidAmount
@@ -192,12 +217,15 @@ export default function StakeModal({
           {/* Quick Amount Buttons */}
           <div className="flex space-x-2 mt-3">
             {[25, 50, 75, 100].map(percentage => {
-              const balanceValue = Number(balanceData?.formatted || 0);
-              const quickAmount = (balanceValue * percentage) / 100;
+              const balanceValue = new Decimal(balanceData?.formatted || 0);
+              const percentageDecimal = new Decimal(percentage);
+              const quickAmount = balanceValue.times(percentageDecimal).div(100);
+              // Limit to 4 decimal places for all quick amounts to ensure precision consistency
+              const formattedAmount = quickAmount.toFixed(4).replace(/\.?0+$/, "");
               return (
                 <button
                   key={percentage}
-                  onClick={() => setAmount(quickAmount.toString())}
+                  onClick={() => setAmount(formattedAmount)}
                   className="flex-1 py-2 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors duration-200 text-sm"
                 >
                   {percentage}%
@@ -214,10 +242,8 @@ export default function StakeModal({
               <div className="flex items-center space-x-2 text-red-600 text-sm">
                 <AlertCircle className="w-4 h-4" />
                 <span>
-                  {numericAmount > userBalance
-                    ? `Insufficient balance: ${userBalance.toLocaleString(undefined, {
-                        maximumFractionDigits: 4,
-                      })} ${balanceData?.symbol || currencySymbol} available`
+                  {amount && new Decimal(amount).gt(userBalance)
+                    ? `Insufficient balance: ${userBalance.toFixed(4).replace(/\.?0+$/, "")} ${balanceData?.symbol || currencySymbol} available`
                     : "Please enter a valid amount"}
                 </span>
               </div>
@@ -264,12 +290,12 @@ export default function StakeModal({
           {/* Show reasons why the button is disabled */}
           {!canProceed && (
             <div className="text-sm text-gray-500">
-              {numericAmount <= 0 ? (
+              {amount && new Decimal(amount).lte(0) ? (
                 <div className="flex items-center space-x-1">
                   <AlertCircle className="w-4 h-4" />
                   <span>Please enter an amount</span>
                 </div>
-              ) : numericAmount > userBalance ? (
+              ) : amount && new Decimal(amount).gt(userBalance) ? (
                 <div className="flex items-center space-x-1">
                   <AlertCircle className="w-4 h-4" />
                   <span>Insufficient balance</span>
@@ -332,7 +358,7 @@ export default function StakeModal({
             <Coins className="w-6 h-6 text-blue-600" />
           </div>
           <h3 className="text-2xl font-bold text-gray-900 mb-1">
-            {parseFloat(amount).toLocaleString()} {currencySymbol}
+            {amount ? new Decimal(amount).toFixed(4).replace(/\.?0+$/, "") : "0"} {currencySymbol}
           </h3>
           <p className="text-gray-600">
             {mode === "stake" ? "Initial stake amount" : "Additional stake amount"}
@@ -346,7 +372,7 @@ export default function StakeModal({
           <div className="flex justify-between text-sm">
             <span className="text-blue-700">Stake Amount:</span>
             <span className="font-medium text-blue-900">
-              {parseFloat(amount).toLocaleString()} {currencySymbol}
+              {amount ? new Decimal(amount).toFixed(4).replace(/\.?0+$/, "") : "0"} {currencySymbol}
             </span>
           </div>
 
@@ -362,7 +388,11 @@ export default function StakeModal({
           <div className="flex justify-between text-sm border-t border-blue-200 pt-1">
             <span className="text-blue-700">New Total Stake:</span>
             <span className="font-bold text-blue-900">
-              {((pool.currentStake ?? 0) + parseFloat(amount)).toLocaleString()} {currencySymbol}
+              {new Decimal(pool.currentStake?.toString() ?? "0")
+                .plus(amount ? new Decimal(amount) : new Decimal(0))
+                .toFixed(4)
+                .replace(/\.?0+$/, "")}{" "}
+              {currencySymbol}
             </span>
           </div>
         </div>
@@ -409,7 +439,7 @@ export default function StakeModal({
         <div className="animate-spin w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full mb-6"></div>
         <h3 className="text-lg font-semibold text-gray-900 mb-2">Staking Tokens</h3>
         <p className="text-gray-600 text-center">
-          {`Transferring ${parseFloat(amount).toLocaleString()} ${currencySymbol} to the pool...`}
+          {`Transferring ${amount ? new Decimal(amount).toFixed(4).replace(/\.?0+$/, "") : "0"} ${currencySymbol} to the pool...`}
         </p>
       </div>
     </>
@@ -433,7 +463,7 @@ export default function StakeModal({
           <p className="text-gray-600 mb-4">
             You've successfully staked{" "}
             <strong>
-              {parseFloat(amount).toLocaleString()} {currencySymbol}
+              {amount ? new Decimal(amount).toFixed(4).replace(/\.?0+$/, "") : "0"} {currencySymbol}
             </strong>{" "}
             to {pool.name}
           </p>
@@ -444,7 +474,11 @@ export default function StakeModal({
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-green-700">Your Total Stake</span>
             <span className="text-lg font-bold text-green-900">
-              {((pool.currentStake || 0) + parseFloat(amount)).toLocaleString()} {currencySymbol}
+              {new Decimal(pool.currentStake?.toString() || "0")
+                .plus(amount ? new Decimal(amount) : new Decimal(0))
+                .toFixed(4)
+                .replace(/\.?0+$/, "")}{" "}
+              {currencySymbol}
             </span>
           </div>
           <div className="flex items-center space-x-2 text-sm text-green-600">

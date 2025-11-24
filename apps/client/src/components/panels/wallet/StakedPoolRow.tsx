@@ -1,9 +1,7 @@
 import React from "react";
 import { Trophy, Link, TrendingUp, Users } from "lucide-react";
 import { getChainConfig } from "@ampedbio/web3";
-import { useAccount } from "wagmi";
 import { formatUnits } from "viem";
-import { usePoolReader } from "../../../hooks/usePoolReader";
 
 import { RewardPool } from "@ampedbio/constants";
 
@@ -14,6 +12,8 @@ interface StakedPoolRowProps {
     poolId: number;
     stakeAmount: bigint;
     pool: RewardPool;
+    pendingRewards: bigint;
+    stakedByYou: bigint;
   };
   onClaimRewards: (poolId: number) => void;
   onViewPool: (poolId: number) => void;
@@ -24,17 +24,10 @@ export default function StakedPoolRow({
   onClaimRewards,
   onViewPool,
 }: StakedPoolRowProps) {
-  const { address } = useAccount();
+  const { pendingRewards, stakedByYou, pool } = poolData;
 
-  const { pendingReward, poolName, isReadingPoolName } = usePoolReader(
-    poolData.pool.address as `0x${string}`,
-    address
-  );
-
-  const stakedAmount = poolData.stakeAmount;
-  const pendingRewards = pendingReward || 0n;
-
-  const chainConfig = getChainConfig(parseInt(poolData.pool.chainId));
+  const stakedAmount = stakedByYou;
+  const chainConfig = getChainConfig(parseInt(pool.chainId));
 
   return (
     <div className="relative">
@@ -52,7 +45,7 @@ export default function StakedPoolRow({
             {poolData.pool.image ? (
               <img
                 src={poolData.pool.image.url}
-                alt={`${poolName ?? poolData.pool.name} pool`}
+                alt={`${poolData.pool.name} pool`}
                 className="w-full h-full object-cover"
                 loading="lazy"
               />
@@ -66,11 +59,7 @@ export default function StakedPoolRow({
           {/* Pool Name and Badges */}
           <div className="flex-1 min-w-0">
             <h4 className="text-sm font-medium text-gray-900 truncate group-hover:text-blue-600 transition-colors duration-200">
-              {isReadingPoolName ? (
-                <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse"></div>
-              ) : (
-                (poolName ?? (poolData.pool.name || `Pool #${poolData.poolId}`))
-              )}
+              {poolData.pool.name || `Pool #${poolData.poolId}`}
             </h4>
           </div>
         </div>
@@ -83,7 +72,10 @@ export default function StakedPoolRow({
           {/* Staked Amount */}
           <div
             className="flex items-center space-x-1 px-2 py-1 bg-blue-50 rounded-full group/tooltip relative"
-            title={`You have staked ${formatUnits(stakedAmount, 18)} ${chainConfig?.nativeCurrency.symbol || "REVO"} in this pool`}
+            title={`You have staked ${formatUnits(
+              stakedAmount,
+              18
+            )} ${chainConfig?.nativeCurrency.symbol || "REVO"} in this pool`}
           >
             <Link className="w-3 h-3 text-blue-600" />
             <span className="text-xs font-medium text-blue-700">
@@ -96,7 +88,10 @@ export default function StakedPoolRow({
           {/* Pending Rewards */}
           <div
             className="flex items-center space-x-1 px-2 py-1 bg-green-50 rounded-full group/tooltip relative"
-            title={`You have pending rewards of ${formatUnits(pendingRewards, 18)} ${chainConfig?.nativeCurrency.symbol || "REVO"} from this pool`}
+            title={`You have pending rewards of ${formatUnits(
+              pendingRewards,
+              18
+            )} ${chainConfig?.nativeCurrency.symbol || "REVO"} from this pool`}
           >
             <TrendingUp className="w-3 h-3 text-green-600" />
             <span className="text-xs font-medium text-green-700">
