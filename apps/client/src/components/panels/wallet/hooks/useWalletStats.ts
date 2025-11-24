@@ -6,7 +6,10 @@ import { RouterOutput } from "@/utils/trpc/types";
 type WalletStatsOutput = RouterOutput<"wallet", "getWalletStats">;
 
 export const useWalletStats = () => {
-  const { data, isLoading } = useQuery(trpc.wallet.getWalletStats.queryOptions());
+  const { data, isLoading, refetch } = useQuery({
+    ...trpc.wallet.getWalletStats.queryOptions(),
+    refetchInterval: 15000,
+  });
 
   const stats = data
     ? {
@@ -25,6 +28,6 @@ export const useWalletStats = () => {
   return {
     stats,
     isLoading,
-    refetch: () => {},
+    refetch,
   };
 };

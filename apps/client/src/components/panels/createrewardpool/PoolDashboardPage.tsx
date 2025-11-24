@@ -165,7 +165,7 @@ export default function DashboardPage() {
 
   const poolActivities: PoolActivity[] = React.useMemo(() => {
     return (
-      dashboardData?.recentActivity.map(activity => ({
+      dashboardData?.recentActivity?.map(activity => ({
         id: activity.id.toString(),
         type: activity.eventType as "stake" | "unstake" | "claim",
         user: activity.onelink || "",
@@ -351,7 +351,7 @@ export default function DashboardPage() {
 
   const stakeData = React.useMemo(() => {
     return (
-      dashboardData?.dailyStakeData.map(d => ({
+      dashboardData?.dailyStakeData?.map(d => ({
         date: d.date,
         stake: d.stake,
       })) || []
@@ -370,8 +370,31 @@ export default function DashboardPage() {
 
   // Get pool details combining backend and blockchain data
   const userPool = React.useMemo<RewardPool | null>(() => {
-    if (!poolData || !dashboardData) {
+    if (!poolData) {
       return null;
+    }
+
+    // If dashboardData is not available yet, create a partial userPool with basic data
+    if (!dashboardData) {
+      return {
+        id: poolData.id,
+        name: poolName || poolData.description || "Pool Name",
+        description: poolData.description || "Pool description not available",
+        image: poolData.image, // Use image object for the modal
+        chainId: poolData.chainId,
+        address: poolData.address!, // Add pool address for the new modal (non-nullable)
+        stakedAmount: 0n, // User's own stake in their pool (0 since it's their pool) as bigint
+        fans: 0, // Default to 0 until dashboardData is available
+        // TODO check if this value is required
+        totalReward: BigInt(poolData.totalReward) || 0n, // Using totalReward from the updated server response
+        // TODO check if this value is required
+        pendingRewards: 0n,
+        stakedByYou: poolData.stakedByYou || 0n, // Using stakedByYou from the updated server response
+        creator: {
+          userId: poolData.creator.userId,
+          address: "0x0000000000000000000000000000000000000000", // Default address when not available
+        }, // Add creator object
+      };
     }
 
     // Keep values in wei
@@ -537,21 +560,249 @@ export default function DashboardPage() {
   // Show loading state while fetching data
   if (isPoolLoading) {
     return (
-      <div className="max-w-6xl mx-auto px-4 md:px-8 py-8 flex justify-center items-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading pool data...</p>
+      <div className="max-w-6xl mx-auto px-4 md:px-8 py-8">
+        {/* Header Skeleton */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <div className="h-8 bg-gray-200 rounded w-64 mb-3 animate-pulse"></div>
+            <div className="h-4 bg-gray-200 rounded w-80 animate-pulse"></div>
+          </div>
+        </div>
+
+        {/* Pool Overview Skeleton */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="h-64 bg-gray-200 rounded-xl animate-pulse"></div>
+            <div className="space-y-6">
+              <div>
+                <div className="h-6 bg-gray-200 rounded w-1/2 mb-4 animate-pulse"></div>
+                <div className="h-4 bg-gray-200 rounded w-full mb-2 animate-pulse"></div>
+                <div className="h-4 bg-gray-200 rounded w-5/6 mb-2 animate-pulse"></div>
+                <div className="h-4 bg-gray-200 rounded w-4/6 animate-pulse"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats Grid Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-2 bg-gray-200 rounded-lg animate-pulse"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/3 animate-pulse"></div>
+            </div>
+            <div className="space-y-1">
+              <div className="h-6 bg-gray-200 rounded w-3/4 animate-pulse"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/2 animate-pulse"></div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-2 bg-gray-200 rounded-lg animate-pulse"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/3 animate-pulse"></div>
+            </div>
+            <div className="space-y-1">
+              <div className="h-6 bg-gray-200 rounded w-3/4 animate-pulse"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/2 animate-pulse"></div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-2 bg-gray-200 rounded-lg animate-pulse"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/3 animate-pulse"></div>
+            </div>
+            <div className="space-y-1">
+              <div className="h-6 bg-gray-200 rounded w-3/4 animate-pulse"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/2 animate-pulse"></div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-2 bg-gray-200 rounded-lg animate-pulse"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/3 animate-pulse"></div>
+            </div>
+            <div className="space-y-1">
+              <div className="h-6 bg-gray-200 rounded w-3/4 animate-pulse"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/2 animate-pulse"></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Chart Skeleton */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <div className="h-6 bg-gray-200 rounded w-64 animate-pulse"></div>
+          </div>
+          <div className="h-80 bg-gray-200 rounded-lg animate-pulse"></div>
+        </div>
+
+        {/* Top Fans Skeleton */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-8">
+          <div className="h-6 bg-gray-200 rounded w-48 mb-6 animate-pulse"></div>
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="flex items-center justify-between py-3 border-b border-gray-100">
+                <div className="flex items-center space-x-3">
+                  <div className="h-10 w-10 bg-gray-200 rounded-full animate-pulse"></div>
+                  <div>
+                    <div className="h-4 bg-gray-200 rounded w-24 mb-2 animate-pulse"></div>
+                    <div className="h-3 bg-gray-200 rounded w-16 animate-pulse"></div>
+                  </div>
+                </div>
+                <div className="h-4 bg-gray-200 rounded w-16 animate-pulse"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Pool Activity Skeleton */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+          <div className="h-6 bg-gray-200 rounded w-56 mb-6 animate-pulse"></div>
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="flex items-center justify-between py-3 border-b border-gray-100">
+                <div className="flex items-center space-x-3">
+                  <div className="h-8 w-8 bg-gray-200 rounded-full animate-pulse"></div>
+                  <div>
+                    <div className="h-4 bg-gray-200 rounded w-32 mb-2 animate-pulse"></div>
+                    <div className="h-3 bg-gray-200 rounded w-20 animate-pulse"></div>
+                  </div>
+                </div>
+                <div className="h-4 bg-gray-200 rounded w-20 animate-pulse"></div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
   // If no pool data is available after loading, show an error message
-  if (!userPool) {
+  if (!poolData) {
     return (
       <div className="max-w-6xl mx-auto px-4 md:px-8 py-8 flex justify-center items-center h-64">
         <div className="text-center">
           <p className="text-gray-600">No pool data available.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state while dashboard data is loading
+  if (!dashboardData) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 md:px-8 py-8">
+        {/* Header Skeleton */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <div className="h-8 bg-gray-200 rounded w-64 mb-3 animate-pulse"></div>
+            <div className="h-4 bg-gray-200 rounded w-80 animate-pulse"></div>
+          </div>
+        </div>
+
+        {/* Pool Overview Skeleton */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="h-64 bg-gray-200 rounded-xl animate-pulse"></div>
+            <div className="space-y-6">
+              <div>
+                <div className="h-6 bg-gray-200 rounded w-1/2 mb-4 animate-pulse"></div>
+                <div className="h-4 bg-gray-200 rounded w-full mb-2 animate-pulse"></div>
+                <div className="h-4 bg-gray-200 rounded w-5/6 mb-2 animate-pulse"></div>
+                <div className="h-4 bg-gray-200 rounded w-4/6 animate-pulse"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats Grid Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-2 bg-gray-200 rounded-lg animate-pulse"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/3 animate-pulse"></div>
+            </div>
+            <div className="space-y-1">
+              <div className="h-6 bg-gray-200 rounded w-3/4 animate-pulse"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/2 animate-pulse"></div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-2 bg-gray-200 rounded-lg animate-pulse"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/3 animate-pulse"></div>
+            </div>
+            <div className="space-y-1">
+              <div className="h-6 bg-gray-200 rounded w-3/4 animate-pulse"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/2 animate-pulse"></div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-2 bg-gray-200 rounded-lg animate-pulse"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/3 animate-pulse"></div>
+            </div>
+            <div className="space-y-1">
+              <div className="h-6 bg-gray-200 rounded w-3/4 animate-pulse"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/2 animate-pulse"></div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-2 bg-gray-200 rounded-lg animate-pulse"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/3 animate-pulse"></div>
+            </div>
+            <div className="space-y-1">
+              <div className="h-6 bg-gray-200 rounded w-3/4 animate-pulse"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/2 animate-pulse"></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Chart Skeleton */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <div className="h-6 bg-gray-200 rounded w-64 animate-pulse"></div>
+          </div>
+          <div className="h-80 bg-gray-200 rounded-lg animate-pulse"></div>
+        </div>
+
+        {/* Top Fans Skeleton */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-8">
+          <div className="h-6 bg-gray-200 rounded w-48 mb-6 animate-pulse"></div>
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="flex items-center justify-between py-3 border-b border-gray-100">
+                <div className="flex items-center space-x-3">
+                  <div className="h-10 w-10 bg-gray-200 rounded-full animate-pulse"></div>
+                  <div>
+                    <div className="h-4 bg-gray-200 rounded w-24 mb-2 animate-pulse"></div>
+                    <div className="h-3 bg-gray-200 rounded w-16 animate-pulse"></div>
+                  </div>
+                </div>
+                <div className="h-4 bg-gray-200 rounded w-16 animate-pulse"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Pool Activity Skeleton */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+          <div className="h-6 bg-gray-200 rounded w-56 mb-6 animate-pulse"></div>
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="flex items-center justify-between py-3 border-b border-gray-100">
+                <div className="flex items-center space-x-3">
+                  <div className="h-8 w-8 bg-gray-200 rounded-full animate-pulse"></div>
+                  <div>
+                    <div className="h-4 bg-gray-200 rounded w-32 mb-2 animate-pulse"></div>
+                    <div className="h-3 bg-gray-200 rounded w-20 animate-pulse"></div>
+                  </div>
+                </div>
+                <div className="h-4 bg-gray-200 rounded w-20 animate-pulse"></div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -572,7 +823,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Pool Image */}
           <div className="relative h-64 group">
-            {userPool.image ? (
+            {userPool?.image ? (
               <div className="h-full rounded-xl overflow-hidden border border-gray-100 shadow-sm">
                 <img
                   src={userPool.image.url}
@@ -603,7 +854,7 @@ export default function DashboardPage() {
           {/* Pool Info */}
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">{userPool.name}</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">{userPool?.name || "Pool Name"}</h2>
               {isEditingDescription ? (
                 <div className="space-y-3">
                   <textarea
@@ -657,7 +908,7 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 <div>
-                  <p className="text-gray-600 leading-relaxed">{userPool.description}</p>
+                  <p className="text-gray-600 leading-relaxed">{userPool?.description || "Pool description"}</p>
                   <button
                     onClick={handleEditDescription}
                     className="mt-3 inline-flex items-center space-x-1 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors duration-200"
@@ -695,11 +946,11 @@ export default function DashboardPage() {
           </div>
           <div className="space-y-1">
             <p className="text-2xl font-bold text-gray-900">
-              {formatEther(BigInt(userPool.totalReward))}
+              {userPool ? formatEther(BigInt(userPool.totalReward)) : '0'}
             </p>
             <p className="text-sm text-green-600 flex items-center">
               <TrendingUp className="w-4 h-4 mr-1" />
-              {dashboardData?.totalStakePercentageChange.toFixed(2)}% this month
+              {dashboardData?.totalStakePercentageChange?.toFixed(2) || '0.00'}% this month
             </p>
           </div>
         </div>
@@ -727,7 +978,7 @@ export default function DashboardPage() {
             <span className="text-sm text-gray-500">Total Fans</span>
           </div>
           <div className="space-y-1">
-            <p className="text-2xl font-bold text-gray-900">{userPool.fans.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-gray-900">{userPool ? userPool.fans.toLocaleString() : '0'}</p>
             <p className="text-sm text-purple-600 flex items-center">
               <TrendingUp className="w-4 h-4 mr-1" />+{dashboardData?.newFansThisWeek} new this week
             </p>
@@ -1125,7 +1376,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Pool Details Modal */}
-      {isPoolModalOpen && (
+      {isPoolModalOpen && userPool && (
         <ExplorePoolDetailsModal
           pool={userPool}
           isOpen={isPoolModalOpen}
@@ -1138,7 +1389,7 @@ export default function DashboardPage() {
         isOpen={isImageUploadModalOpen}
         onClose={() => setIsImageUploadModalOpen(false)}
         onUploadSuccess={handleImageUploadSuccess}
-        currentImageUrl={userPool.image?.url ?? undefined}
+        currentImageUrl={userPool?.image?.url ?? undefined}
       />
     </div>
   );

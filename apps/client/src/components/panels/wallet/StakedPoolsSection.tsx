@@ -70,8 +70,13 @@ export default function StakedPoolsSection() {
     setIsClaimModalOpen(true);
   };
 
+  // Check if creator pool feature is enabled
+  const showCreatorPool = import.meta.env.VITE_SHOW_CREATOR_POOL === "true";
+
   const handleViewAllPools = () => {
-    setActivePanelAndNavigate("explore", "pools");
+    if (showCreatorPool) {
+      setActivePanelAndNavigate("explore", "pools");
+    }
   };
 
   // Skeleton Loading Component
@@ -198,7 +203,12 @@ export default function StakedPoolsSection() {
           <p className="text-gray-500 mb-4">You haven't staked in any reward pools yet.</p>
           <button
             onClick={handleViewAllPools}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200"
+            disabled={!showCreatorPool}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
+              showCreatorPool
+                ? "bg-blue-600 hover:bg-blue-700 text-white"
+                : "bg-gray-300 text-white cursor-not-allowed opacity-50"
+            }`}
           >
             Browse Reward Pools
           </button>
@@ -287,7 +297,12 @@ export default function StakedPoolsSection() {
       <div className="mt-3 pt-3 border-t border-gray-200">
         <button
           onClick={handleViewAllPools}
-          className="w-full text-center text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors duration-200 py-2"
+          disabled={!showCreatorPool}
+          className={`w-full text-center text-sm font-medium transition-colors duration-200 py-2 ${
+            showCreatorPool
+              ? "text-blue-600 hover:text-blue-700 cursor-pointer"
+              : "text-gray-400 cursor-not-allowed opacity-50"
+          }`}
         >
           View All Reward Pools →
         </button>
