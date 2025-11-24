@@ -14,9 +14,9 @@ export const useStakedPools = () => {
     refetch: refetchStakedPools,
   } = useQuery({
     ...trpc.pools.fan.getUserStakedPools.queryOptions({
-      chainId: chainId!.toString(),
+      chainId: chainId?.toString() ?? "0",
     }),
-    enabled: !!userAddress,
+    enabled: !!userAddress && !!chainId,
   });
 
   const contracts = useMemo(() => {
