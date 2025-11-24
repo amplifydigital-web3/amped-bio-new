@@ -184,12 +184,8 @@ export function LeaderboardPanel() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Fans</p>
-                    <p className="font-medium">
-                      {pool.fans}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Active supporters
-                    </p>
+                    <p className="font-medium">{pool.fans}</p>
+                    <p className="text-xs text-gray-500">Active supporters</p>
                   </div>
                 </div>
 

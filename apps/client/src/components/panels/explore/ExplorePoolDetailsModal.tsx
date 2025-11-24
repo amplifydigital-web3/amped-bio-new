@@ -1,15 +1,5 @@
 import React, { useState, useCallback } from "react";
-import {
-  Trophy,
-  Users,
-  Coins,
-  ExternalLink,
-  Plus,
-  Minus,
-  Share2,
-  Gift,
-  Edit3,
-} from "lucide-react";
+import { Trophy, Users, Coins, ExternalLink, Plus, Minus, Share2, Gift, Edit3 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +8,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "react-hot-toast";
-import StakingModal from "./StakingModal";
+import StakeModal from "./StakeModal";
+import UnstakeModal from "./UnstakeModal";
 import { ImageUploadModal } from "@/components/ImageUploadModal";
 import { useAccount } from "wagmi";
 import { trpcClient } from "@/utils/trpc";
@@ -59,9 +50,10 @@ export default function ExplorePoolDetailsModal({
     refetchPendingReward,
   } = useStaking(pool, onStakeSuccess);
 
-  const [isStakingModalOpen, setIsStakingModalOpen] = useState(false);
+  const [isStakeModalOpen, setIsStakeModalOpen] = useState(false);
+  const [isUnstakeModalOpen, setIsUnstakeModalOpen] = useState(false);
   const [isImageUploadModalOpen, setIsImageUploadModalOpen] = useState(false);
-  const [stakingMode, setStakingMode] = useState<"stake" | "add-stake" | "reduce-stake">("stake");
+  const [stakingMode, setStakingMode] = useState<"stake" | "add-stake">("stake");
   const [isClaiming, setIsClaiming] = useState(false);
 
   const { address: userAddress } = useAccount();
@@ -158,12 +150,11 @@ export default function ExplorePoolDetailsModal({
 
   const handleAddStake = () => {
     setStakingMode("add-stake");
-    setIsStakingModalOpen(true);
+    setIsStakeModalOpen(true);
   };
 
   const handleReduceStake = () => {
-    setStakingMode("reduce-stake");
-    setIsStakingModalOpen(true);
+    setIsUnstakeModalOpen(true);
   };
 
   return (
@@ -364,7 +355,13 @@ export default function ExplorePoolDetailsModal({
                   title={parseFloat(fanStake) <= 0 ? "You have no stake in this pool" : undefined}
                 >
                   <Minus className="w-4 h-4" />
-                  <span>{isStaking ? "Processing..." : parseFloat(fanStake) <= 0 ? "No Stake" : "Reduce Stake"}</span>
+                  <span>
+                    {isStaking
+                      ? "Processing..."
+                      : parseFloat(fanStake) <= 0
+                        ? "No Stake"
+                        : "Reduce Stake"}
+                  </span>
                 </button>
 
                 <button
@@ -381,10 +378,10 @@ export default function ExplorePoolDetailsModal({
         </DialogContent>
       </Dialog>
 
-      {/* Staking Modal */}
-      <StakingModal
-        isOpen={isStakingModalOpen}
-        onClose={() => setIsStakingModalOpen(false)}
+      {/* Staking Modals */}
+      <StakeModal
+        isOpen={isStakeModalOpen}
+        onClose={() => setIsStakeModalOpen(false)}
         pool={
           pool
             ? {
@@ -399,6 +396,25 @@ export default function ExplorePoolDetailsModal({
         }
         mode={stakingMode}
         onStake={stake}
+        isStaking={isStaking}
+        stakeActionError={stakeActionError}
+      />
+
+      <UnstakeModal
+        isOpen={isUnstakeModalOpen}
+        onClose={() => setIsUnstakeModalOpen(false)}
+        pool={
+          pool
+            ? {
+                id: pool.id,
+                name: pool.name,
+                description: pool.description ?? "",
+                chainId: pool.chainId,
+                image: pool.image,
+                currentStake: parseFloat(fanStake),
+              }
+            : null
+        }
         onUnstake={unstake}
         isStaking={isStaking}
         stakeActionError={stakeActionError}

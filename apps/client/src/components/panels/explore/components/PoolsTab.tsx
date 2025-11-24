@@ -5,14 +5,14 @@ import { useQuery } from "@tanstack/react-query";
 import { trpc } from "../../../../utils/trpc";
 import { getChainConfig } from "@ampedbio/web3";
 import PoolDetailsModal from "../ExplorePoolDetailsModal";
-import StakingModal from "../StakingModal";
+import StakeModal from "../StakeModal";
 import { useStaking } from "../../../../hooks/useStaking";
 import { RewardPool } from "@ampedbio/constants";
 import { formatEther } from "viem";
 
 // Define filter and sort types
-type PoolFilter = 'all' | 'no-fans' | 'more-than-10-fans' | 'more-than-10k-stake';
-type PoolSort = 'newest' | 'name-asc' | 'name-desc' | 'most-fans' | 'most-staked';
+type PoolFilter = "all" | "no-fans" | "more-than-10-fans" | "more-than-10k-stake";
+type PoolSort = "newest" | "name-asc" | "name-desc" | "most-fans" | "most-staked";
 
 interface Pool {
   id: number;
@@ -34,30 +34,27 @@ interface PoolsTabProps {
   poolSort: PoolSort;
 }
 
-const PoolsTab: React.FC<PoolsTabProps> = ({
-  searchQuery,
-  poolFilter,
-  poolSort
-}) => {
+const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }) => {
   const { data: pools, isLoading } = useQuery(
     trpc.pools.fan.getPools.queryOptions({
       search: searchQuery,
       filter: poolFilter,
-      sort: poolSort
+      sort: poolSort,
     })
   );
 
   // State for modals and selected pool
   const [selectedStakingPool, setSelectedStakingPool] = useState<any>(null);
-  const [isStakingModalOpen, setIsStakingModalOpen] = useState(false);
+  const [isStakeModalOpen, setIsStakeModalOpen] = useState(false);
   const [stakingMode, setStakingMode] = useState<"stake" | "add-stake">("stake");
-  const [selectedRewardPoolForView, setSelectedRewardPoolForView] = useState<RewardPool | null>(null);
+  const [selectedRewardPoolForView, setSelectedRewardPoolForView] = useState<RewardPool | null>(
+    null
+  );
   const [isRewardPoolViewModalOpen, setIsRewardPoolViewModalOpen] = useState(false);
 
   // Hook de staking para o pool selecionado
   const {
     stake: stakeFunction,
-    unstake: unstakeFunction,
     isStaking: stakingState,
     stakeActionError: stakingError,
   } = useStaking(selectedStakingPool);
@@ -80,7 +77,7 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
 
         setSelectedStakingPool(poolForStaking);
         setStakingMode("stake");
-        setIsStakingModalOpen(true);
+        setIsStakeModalOpen(true);
       }
     }
   };
@@ -114,14 +111,12 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
   };
 
   // Apply filtering and sorting
-  
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {isLoading ? (
-          Array.from({ length: 6 }).map((_, index) => (
-            <PoolSkeleton key={index} />
-          ))
+          Array.from({ length: 6 }).map((_, index) => <PoolSkeleton key={index} />)
         ) : pools && pools.length > 0 ? (
           pools.map(pool => (
             <div
@@ -142,9 +137,7 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
               )}
 
               <div className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  {pool.name}
-                </h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">{pool.name}</h3>
                 <p className="text-gray-600 text-sm mb-4 line-clamp-2">
                   {pool.description ?? "No description available."}
                 </p>
@@ -191,21 +184,18 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
             </div>
           ))
         ) : (
-          <div className="text-center py-8 text-gray-500 col-span-full">
-            No reward pools found.
-          </div>
+          <div className="text-center py-8 text-gray-500 col-span-full">No reward pools found.</div>
         )}
       </div>
 
       {/* Modals */}
-      {isStakingModalOpen && selectedStakingPool && (
-        <StakingModal
+      {isStakeModalOpen && selectedStakingPool && (
+        <StakeModal
           pool={selectedStakingPool}
           mode={stakingMode}
-          isOpen={isStakingModalOpen}
-          onClose={() => setIsStakingModalOpen(false)}
+          isOpen={isStakeModalOpen}
+          onClose={() => setIsStakeModalOpen(false)}
           onStake={stakeFunction}
-          onUnstake={unstakeFunction}
           isStaking={stakingState}
           stakeActionError={stakingError}
         />

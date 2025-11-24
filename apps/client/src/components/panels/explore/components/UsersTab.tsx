@@ -6,8 +6,8 @@ import { trpc } from "../../../../utils/trpc";
 import { formatEther } from "viem";
 
 // Define filter and sort types
-type UserFilter = 'all' | 'active-7-days' | 'has-creator-pool' | 'has-stake-in-pool';
-type UserSort = 'newest' | 'name-asc' | 'name-desc' | 'stake-desc';
+type UserFilter = "all" | "active-7-days" | "has-creator-pool" | "has-stake-in-pool";
+type UserSort = "newest" | "name-asc" | "name-desc" | "stake-desc";
 
 interface User {
   id: string;
@@ -32,17 +32,22 @@ interface UsersTabProps {
   handleViewProfile: (username: string) => void;
 }
 
-const UsersTab: React.FC<UsersTabProps> = ({ searchQuery, userFilter, userSort, handleViewProfile }) => {
+const UsersTab: React.FC<UsersTabProps> = ({
+  searchQuery,
+  userFilter,
+  userSort,
+  handleViewProfile,
+}) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [limit] = useState(20); // 20 users per page maximum
-  
+
   const { data, isLoading } = useQuery(
     trpc.user.getUsers.queryOptions({
       search: searchQuery,
       filter: userFilter,
       sort: userSort,
       page: currentPage,
-      limit: limit
+      limit: limit,
     })
   );
 
@@ -72,19 +77,19 @@ const UsersTab: React.FC<UsersTabProps> = ({ searchQuery, userFilter, userSort, 
   const getPageNumbers = () => {
     const pages: number[] = [];
     const maxVisiblePages = 5;
-    
+
     let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-    
+    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
     // Adjust start page if we're near the end
     if (endPage - startPage + 1 < maxVisiblePages) {
       startPage = Math.max(1, endPage - maxVisiblePages + 1);
     }
-    
+
     for (let i = startPage; i <= endPage; i++) {
       pages.push(i);
     }
-    
+
     return pages;
   };
 
@@ -92,9 +97,7 @@ const UsersTab: React.FC<UsersTabProps> = ({ searchQuery, userFilter, userSort, 
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {isLoading ? (
-          Array.from({ length: 6 }).map((_, index) => (
-            <UserSkeleton key={index} />
-          ))
+          Array.from({ length: 6 }).map((_, index) => <UserSkeleton key={index} />)
         ) : users && users.length > 0 ? (
           users.map(user => (
             <div
@@ -166,18 +169,17 @@ const UsersTab: React.FC<UsersTabProps> = ({ searchQuery, userFilter, userSort, 
             </div>
           ))
         ) : (
-          <div className="text-center py-8 text-gray-500 col-span-full">
-            No users found.
-          </div>
+          <div className="text-center py-8 text-gray-500 col-span-full">No users found.</div>
         )}
       </div>
 
       {/* Pagination Controls */}
-      {(total > limit) && (
+      {total > limit && (
         <div className="flex items-center justify-between border-t border-gray-200 pt-4">
           <div className="text-sm text-gray-700">
-            Showing <span className="font-medium">{Math.min((currentPage - 1) * limit + 1, total)}</span> to{' '}
-            <span className="font-medium">{Math.min(currentPage * limit, total)}</span> of{' '}
+            Showing{" "}
+            <span className="font-medium">{Math.min((currentPage - 1) * limit + 1, total)}</span> to{" "}
+            <span className="font-medium">{Math.min(currentPage * limit, total)}</span> of{" "}
             <span className="font-medium">{total}</span> results
           </div>
           <div className="flex space-x-2">
@@ -186,8 +188,8 @@ const UsersTab: React.FC<UsersTabProps> = ({ searchQuery, userFilter, userSort, 
               disabled={currentPage === 1}
               className={`inline-flex items-center px-3 py-2 rounded-md text-sm font-medium ${
                 currentPage === 1
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
               }`}
             >
               <ChevronLeft className="w-4 h-4 mr-1" />
@@ -201,8 +203,8 @@ const UsersTab: React.FC<UsersTabProps> = ({ searchQuery, userFilter, userSort, 
                 onClick={() => goToPage(page)}
                 className={`inline-flex items-center px-3 py-2 rounded-md text-sm font-medium ${
                   page === currentPage
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                    ? "bg-blue-600 text-white"
+                    : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
                 }`}
               >
                 {page}
@@ -214,9 +216,9 @@ const UsersTab: React.FC<UsersTabProps> = ({ searchQuery, userFilter, userSort, 
               disabled={currentPage === totalPages}
               className={`inline-flex items-center px-3 py-2 rounded-md text-sm font-medium ${
                 currentPage === totalPages
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-                }`}
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+              }`}
             >
               Next
               <ChevronRight className="w-4 h-4 ml-1" />

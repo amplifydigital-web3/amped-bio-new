@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useDebounce } from "@/hooks/useDebounce";
-import { Search, Trophy, Filter, SortDesc, ChevronDown, X, Users, Coins } from "lucide-react";
+import { Search, Trophy, Filter, SortDesc, ChevronDown, Users, Coins } from "lucide-react";
 import PoolDetailsModal from "./ExplorePoolDetailsModal";
 // import NFTOverviewModal from './NFTOverviewModal';
 import { useQuery } from "@tanstack/react-query";
@@ -9,10 +9,10 @@ import UsersTab from "./components/UsersTab";
 import PoolsTab from "./components/PoolsTab";
 
 // Define filter types
-type UserFilter = 'all' | 'active-7-days' | 'has-creator-pool' | 'has-stake-in-pool';
-type PoolFilter = 'all' | 'no-fans' | 'more-than-10-fans' | 'more-than-10k-stake';
-type UserSort = 'newest' | 'name-asc' | 'name-desc' | 'stake-desc';
-type PoolSort = 'newest' | 'name-asc' | 'name-desc';
+type UserFilter = "all" | "active-7-days" | "has-creator-pool" | "has-stake-in-pool";
+type PoolFilter = "all" | "no-fans" | "more-than-10-fans" | "more-than-10k-stake";
+type UserSort = "newest" | "name-asc" | "name-desc" | "stake-desc";
+type PoolSort = "newest" | "name-asc" | "name-desc";
 
 interface ExplorePageProps {
   initialTab?: "users" | "pools" | "nfts";
@@ -44,13 +44,13 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
   const [rawSearchQuery, setRawSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(rawSearchQuery, 500);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  
+
   // Filter and sort states
-  const [userFilter, setUserFilter] = useState<UserFilter>('all');
-  const [poolFilter, setPoolFilter] = useState<PoolFilter>('all');
-  const [userSort, setUserSort] = useState<UserSort>('newest');
-  const [poolSort, setPoolSort] = useState<PoolSort>('newest');
-  
+  const [userFilter, setUserFilter] = useState<UserFilter>("all");
+  const [poolFilter, setPoolFilter] = useState<PoolFilter>("all");
+  const [userSort, setUserSort] = useState<UserSort>("newest");
+  const [poolSort, setPoolSort] = useState<PoolSort>("newest");
+
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [selectedCreatorPool, setSelectedCreatorPool] = useState<any>(null);
@@ -128,111 +128,129 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
                   <div className="fixed inset-0 z-10" onClick={() => setIsFilterOpen(false)}></div>
                   <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
                     <div className="px-4 py-2 text-sm font-medium text-gray-700 border-b border-gray-200">
-                      {activeTab === 'users' ? 'User Filters' : 'Pool Filters'}
+                      {activeTab === "users" ? "User Filters" : "Pool Filters"}
                     </div>
                     {/* User filters */}
-                    {activeTab === 'users' && (
+                    {activeTab === "users" && (
                       <>
                         <button
                           onClick={() => {
-                            setUserFilter('active-7-days');
+                            setUserFilter("active-7-days");
                             setIsFilterOpen(false);
                           }}
                           className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${
-                            userFilter === 'active-7-days' ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                            userFilter === "active-7-days"
+                              ? "bg-blue-50 text-blue-700"
+                              : "text-gray-700"
                           }`}
                         >
                           Active in last 7 days
-                          {userFilter === 'active-7-days' && <span className="float-right">✓</span>}
+                          {userFilter === "active-7-days" && <span className="float-right">✓</span>}
                         </button>
                         <button
                           onClick={() => {
-                            setUserFilter('has-creator-pool');
+                            setUserFilter("has-creator-pool");
                             setIsFilterOpen(false);
                           }}
                           className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${
-                            userFilter === 'has-creator-pool' ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                            userFilter === "has-creator-pool"
+                              ? "bg-blue-50 text-blue-700"
+                              : "text-gray-700"
                           }`}
                         >
                           Has creator pool
-                          {userFilter === 'has-creator-pool' && <span className="float-right">✓</span>}
+                          {userFilter === "has-creator-pool" && (
+                            <span className="float-right">✓</span>
+                          )}
                         </button>
                         <button
                           onClick={() => {
-                            setUserFilter('has-stake-in-pool');
+                            setUserFilter("has-stake-in-pool");
                             setIsFilterOpen(false);
                           }}
                           className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${
-                            userFilter === 'has-stake-in-pool' ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                            userFilter === "has-stake-in-pool"
+                              ? "bg-blue-50 text-blue-700"
+                              : "text-gray-700"
                           }`}
                         >
                           Has stake in pool
-                          {userFilter === 'has-stake-in-pool' && <span className="float-right">✓</span>}
+                          {userFilter === "has-stake-in-pool" && (
+                            <span className="float-right">✓</span>
+                          )}
                         </button>
                         <button
                           onClick={() => {
-                            setUserFilter('all');
+                            setUserFilter("all");
                             setIsFilterOpen(false);
                           }}
                           className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${
-                            userFilter === 'all' ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                            userFilter === "all" ? "bg-blue-50 text-blue-700" : "text-gray-700"
                           }`}
                         >
                           All users
-                          {userFilter === 'all' && <span className="float-right">✓</span>}
+                          {userFilter === "all" && <span className="float-right">✓</span>}
                         </button>
                       </>
                     )}
                     {/* Pool filters */}
-                    {activeTab === 'pools' && (
+                    {activeTab === "pools" && (
                       <>
                         <button
                           onClick={() => {
-                            setPoolFilter('no-fans');
+                            setPoolFilter("no-fans");
                             setIsFilterOpen(false);
                           }}
                           className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${
-                            poolFilter === 'no-fans' ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                            poolFilter === "no-fans" ? "bg-blue-50 text-blue-700" : "text-gray-700"
                           }`}
                         >
                           Pools with no fans
-                          {poolFilter === 'no-fans' && <span className="float-right">✓</span>}
+                          {poolFilter === "no-fans" && <span className="float-right">✓</span>}
                         </button>
                         <button
                           onClick={() => {
-                            setPoolFilter('more-than-10-fans');
+                            setPoolFilter("more-than-10-fans");
                             setIsFilterOpen(false);
                           }}
                           className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${
-                            poolFilter === 'more-than-10-fans' ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                            poolFilter === "more-than-10-fans"
+                              ? "bg-blue-50 text-blue-700"
+                              : "text-gray-700"
                           }`}
                         >
                           Pools with more than 10 fans
-                          {poolFilter === 'more-than-10-fans' && <span className="float-right">✓</span>}
+                          {poolFilter === "more-than-10-fans" && (
+                            <span className="float-right">✓</span>
+                          )}
                         </button>
                         <button
                           onClick={() => {
-                            setPoolFilter('more-than-10k-stake');
+                            setPoolFilter("more-than-10k-stake");
                             setIsFilterOpen(false);
                           }}
                           className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${
-                            poolFilter === 'more-than-10k-stake' ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                            poolFilter === "more-than-10k-stake"
+                              ? "bg-blue-50 text-blue-700"
+                              : "text-gray-700"
                           }`}
                         >
                           Pools with more than 10k REVO in stake
-                          {poolFilter === 'more-than-10k-stake' && <span className="float-right">✓</span>}
+                          {poolFilter === "more-than-10k-stake" && (
+                            <span className="float-right">✓</span>
+                          )}
                         </button>
                         <button
                           onClick={() => {
-                            setPoolFilter('all');
+                            setPoolFilter("all");
                             setIsFilterOpen(false);
                           }}
                           className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${
-                            poolFilter === 'all' ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                            poolFilter === "all" ? "bg-blue-50 text-blue-700" : "text-gray-700"
                           }`}
                         >
                           All pools
-                          {poolFilter === 'all' && <span className="float-right">✓</span>}
+                          {poolFilter === "all" && <span className="float-right">✓</span>}
                         </button>
                       </>
                     )}
@@ -267,17 +285,20 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
                       <button
                         key={option.value}
                         onClick={() => {
-                          if(activeTab === 'users') {
+                          if (activeTab === "users") {
                             setUserSort(option.value as UserSort);
-                          } else if(activeTab === 'pools') {
+                          } else if (activeTab === "pools") {
                             setPoolSort(option.value as PoolSort);
                           }
                           setIsSortOpen(false);
                         }}
-                        className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${(activeTab === 'users' && option.value === userSort) || (activeTab === 'pools' && option.value === poolSort) ? "bg-blue-50 text-blue-700" : "text-gray-700"}`}
+                        className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${(activeTab === "users" && option.value === userSort) || (activeTab === "pools" && option.value === poolSort) ? "bg-blue-50 text-blue-700" : "text-gray-700"}`}
                       >
                         {option.label}
-                        {(activeTab === 'users' && option.value === userSort) || (activeTab === 'pools' && option.value === poolSort) ? <span className="float-right">✓</span> : null}
+                        {(activeTab === "users" && option.value === userSort) ||
+                        (activeTab === "pools" && option.value === poolSort) ? (
+                          <span className="float-right">✓</span>
+                        ) : null}
                       </button>
                     ))}
                   </div>

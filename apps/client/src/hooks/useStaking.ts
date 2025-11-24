@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import { formatEther, parseEther } from "viem";
 import { L2_BASE_TOKEN_ABI, getChainConfig } from "@ampedbio/web3";

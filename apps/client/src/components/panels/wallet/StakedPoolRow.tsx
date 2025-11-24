@@ -26,11 +26,10 @@ export default function StakedPoolRow({
 }: StakedPoolRowProps) {
   const { address } = useAccount();
 
-  const {
-    pendingReward,
-    poolName,
-    isReadingPoolName,
-  } = usePoolReader(poolData.pool.address as `0x${string}`, address);
+  const { pendingReward, poolName, isReadingPoolName } = usePoolReader(
+    poolData.pool.address as `0x${string}`,
+    address
+  );
 
   const stakedAmount = poolData.stakeAmount;
   const pendingRewards = pendingReward || 0n;
@@ -70,7 +69,7 @@ export default function StakedPoolRow({
               {isReadingPoolName ? (
                 <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse"></div>
               ) : (
-                poolName ?? (poolData.pool.name || `Pool #${poolData.poolId}`)
+                (poolName ?? (poolData.pool.name || `Pool #${poolData.poolId}`))
               )}
             </h4>
           </div>

@@ -75,7 +75,13 @@ export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) =>
 
       try {
         // Link wallet if user is authenticated, wallet is connected, and user doesn't have a wallet linked yet
-        if (authUser && wallet.status === "connected" && wallet.address && !authUser.wallet && publicKey) {
+        if (
+          authUser &&
+          wallet.status === "connected" &&
+          wallet.address &&
+          !authUser.wallet &&
+          publicKey
+        ) {
           try {
             // @ts-ignore
             const idToken = await wallet.getIdentityToken();

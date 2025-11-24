@@ -727,9 +727,7 @@ export default function DashboardPage() {
             <span className="text-sm text-gray-500">Total Fans</span>
           </div>
           <div className="space-y-1">
-            <p className="text-2xl font-bold text-gray-900">
-              {userPool.fans.toLocaleString()}
-            </p>
+            <p className="text-2xl font-bold text-gray-900">{userPool.fans.toLocaleString()}</p>
             <p className="text-sm text-purple-600 flex items-center">
               <TrendingUp className="w-4 h-4 mr-1" />+{dashboardData?.newFansThisWeek} new this week
             </p>

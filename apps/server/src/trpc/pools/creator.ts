@@ -180,10 +180,13 @@ export const poolsCreatorRouter = router({
           description: pool.description,
           chainId: pool.chainId,
           address: pool.poolAddress!,
-          image: pool.image_file_id && imageUrl ? {
-            id: pool.image_file_id,
-            url: imageUrl
-          } : null,
+          image:
+            pool.image_file_id && imageUrl
+              ? {
+                  id: pool.image_file_id,
+                  url: imageUrl,
+                }
+              : null,
           name: poolName || `Pool ${pool.id}`, // Using blockchain name, fallback to id-based name
           totalReward: BigInt(pool.revoStaked || "0"), // Return as wei (bigint)
           stakedAmount: BigInt(pool.revoStaked || "0"), // Return total stake as wei (bigint)

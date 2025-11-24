@@ -1,7 +1,6 @@
 import React from "react";
 import {
   Sparkles,
-  X,
   Trophy,
   Percent,
   Target,

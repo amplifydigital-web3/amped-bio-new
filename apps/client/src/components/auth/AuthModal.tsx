@@ -25,7 +25,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogClose
+  DialogClose,
 } from "@/components/ui/dialog";
 
 interface AuthModalProps {
@@ -399,377 +399,381 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
           </DialogClose>
         </DialogHeader>
         <div className="p-6">
-
-        {form === "login" && (
-          <form
-            onSubmit={handleSubmitLogin(onSubmitLogin)}
-            className="space-y-4"
-            data-testid="login-form"
-          >
-            {loginError && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
-                <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
-                <p className="text-sm text-red-600">{loginError}</p>
-              </div>
-            )}
-            <Input
-              label="Email"
-              type="email"
-              error={loginErrors.email?.message}
-              required
-              aria-label="Email"
-              data-testid="login-email"
-              autoComplete="email"
-              {...registerLogin("email")}
-              onBlur={e => {
-                registerLogin("email").onBlur(e);
-                trackGAEvent("Input", "AuthModal", "LoginEmailInput");
-              }}
-            />
-            <div className="relative">
-              <Input
-                label="Password"
-                type={showLoginPassword ? "text" : "password"}
-                error={loginErrors.password?.message}
-                required
-                aria-label="Password"
-                data-testid="login-password"
-                autoComplete="current-password"
-                {...registerLogin("password")}
-                onBlur={e => {
-                  registerLogin("password").onBlur(e);
-                  trackGAEvent("Input", "AuthModal", "LoginPasswordInput");
-                }}
-              />
-              <button
-                type="button"
-                className="absolute right-3 top-9 text-gray-500 hover:text-gray-700"
-                onClick={() => {
-                  setShowLoginPassword(!showLoginPassword);
-                  trackGAEvent("Click", "AuthModal", "LoginTogglePasswordButton");
-                }}
-                aria-label={showLoginPassword ? "Hide password" : "Show password"}
-                data-testid="login-toggle-password"
-              >
-                {showLoginPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              </button>
-            </div>
-            <Button
-              type="submit"
-              className="w-full relative"
-              disabled={loading}
-              aria-disabled={loading}
-              aria-label="Sign In"
-              data-testid="login-submit"
-              onClick={() => {
-                trackGAEvent("Click", "AuthModal", "SignInButton");
-                window.history.replaceState(null, "", "/login");
-              }}
+          {form === "login" && (
+            <form
+              onSubmit={handleSubmitLogin(onSubmitLogin)}
+              className="space-y-4"
+              data-testid="login-form"
             >
-              {loading ? (
-                <span className="flex items-center justify-center">
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin text-white/80" />
-                  Signing In...
-                </span>
-              ) : (
-                "Sign In"
+              {loginError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
+                  <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-red-600">{loginError}</p>
+                </div>
               )}
-            </Button>
-
-            {renderSignInWithGoogle()}
-          </form>
-        )}
-
-        {form === "register" && (
-          <form
-            onSubmit={handleSubmitSignUp(onSubmitRegister)}
-            className="space-y-4"
-            data-testid="register-form"
-          >
-            {registerError && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
-                <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
-                <p className="text-sm text-red-600">{registerError}</p>
-              </div>
-            )}
-            <div className="relative">
               <Input
-                label="Claim your name"
-                leftText="@"
-                error={registerErrors.onelink?.message}
+                label="Email"
+                type="email"
+                error={loginErrors.email?.message}
                 required
-                aria-label="Claim your name"
-                data-testid="register-onelink"
-                autoComplete="username"
-                placeholder="your-name"
-                {...registerSignUp("onelink")}
-                onChange={e => {
-                  registerSignUp("onelink").onChange(e);
-                  handleOnelinkChange(e);
-                }}
+                aria-label="Email"
+                data-testid="login-email"
+                autoComplete="email"
+                {...registerLogin("email")}
                 onBlur={e => {
-                  registerSignUp("onelink").onBlur(e);
-                  trackGAEvent("Input", "AuthModal", "RegisterOnelinkInput");
+                  registerLogin("email").onBlur(e);
+                  trackGAEvent("Input", "AuthModal", "LoginEmailInput");
                 }}
               />
-              <div className="absolute right-3 top-9">
-                <URLStatusIndicator status={urlStatus} isCurrentUrl={false} compact={true} />
-              </div>
-            </div>
-            {onelinkInput && (
-              <p className="text-sm text-gray-600" data-testid="public-url-preview">
-                Public URL:{" "}
-                <a
-                  href={getOnelinkPublicUrl(onelinkInput)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-700"
-                  onClick={() => trackGAEvent("Click", "AuthModal", "PublicURLPreviewLink")}
-                >
-                  {getOnelinkPublicUrl(onelinkInput)}
-                </a>
-              </p>
-            )}
-            <Input
-              label="Email"
-              type="email"
-              error={registerErrors.email?.message}
-              required
-              aria-label="Email"
-              data-testid="register-email"
-              autoComplete="email"
-              {...registerSignUp("email")}
-              onBlur={e => {
-                registerSignUp("email").onBlur(e);
-                trackGAEvent("Input", "AuthModal", "RegisterEmailInput");
-              }}
-            />
-            <div className="space-y-2">
               <div className="relative">
                 <Input
                   label="Password"
-                  type={showRegisterPassword ? "text" : "password"}
-                  error={registerErrors.password?.message}
+                  type={showLoginPassword ? "text" : "password"}
+                  error={loginErrors.password?.message}
                   required
                   aria-label="Password"
-                  data-testid="register-password"
-                  autoComplete="new-password"
-                  {...registerSignUp("password")}
+                  data-testid="login-password"
+                  autoComplete="current-password"
+                  {...registerLogin("password")}
                   onBlur={e => {
-                    registerSignUp("password").onBlur(e);
-                    trackGAEvent("Input", "AuthModal", "RegisterPasswordInput");
+                    registerLogin("password").onBlur(e);
+                    trackGAEvent("Input", "AuthModal", "LoginPasswordInput");
                   }}
                 />
                 <button
                   type="button"
                   className="absolute right-3 top-9 text-gray-500 hover:text-gray-700"
                   onClick={() => {
-                    setShowRegisterPassword(!showRegisterPassword);
-                    trackGAEvent("Click", "AuthModal", "RegisterTogglePasswordButton");
+                    setShowLoginPassword(!showLoginPassword);
+                    trackGAEvent("Click", "AuthModal", "LoginTogglePasswordButton");
                   }}
-                  aria-label={showRegisterPassword ? "Hide password" : "Show password"}
-                  data-testid="register-toggle-password"
+                  aria-label={showLoginPassword ? "Hide password" : "Show password"}
+                  data-testid="login-toggle-password"
                 >
-                  {showRegisterPassword ? (
-                    <EyeOff className="h-5 w-5" />
-                  ) : (
-                    <Eye className="h-5 w-5" />
-                  )}
+                  {showLoginPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
-              <PasswordStrengthIndicator password={registerPassword || ""} />
-            </div>
-            <Button
-              type="submit"
-              className="w-full relative"
-              disabled={loading || urlStatus === "Unavailable" || !isValid || !onelinkInput}
-              aria-disabled={loading || urlStatus === "Unavailable" || !isValid || !onelinkInput}
-              aria-label="Create Account"
-              data-testid="register-submit"
-              onClick={() => trackGAEvent("Click", "AuthModal", "CreateAccountButton")}
+              <Button
+                type="submit"
+                className="w-full relative"
+                disabled={loading}
+                aria-disabled={loading}
+                aria-label="Sign In"
+                data-testid="login-submit"
+                onClick={() => {
+                  trackGAEvent("Click", "AuthModal", "SignInButton");
+                  window.history.replaceState(null, "", "/login");
+                }}
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center">
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin text-white/80" />
+                    Signing In...
+                  </span>
+                ) : (
+                  "Sign In"
+                )}
+              </Button>
+
+              {renderSignInWithGoogle()}
+            </form>
+          )}
+
+          {form === "register" && (
+            <form
+              onSubmit={handleSubmitSignUp(onSubmitRegister)}
+              className="space-y-4"
+              data-testid="register-form"
             >
-              {loading ? (
-                <span className="flex items-center justify-center">
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin text-white/80" />
-                  Creating Account...
-                </span>
-              ) : (
-                "Create Account"
+              {registerError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
+                  <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-red-600">{registerError}</p>
+                </div>
               )}
-            </Button>
-
-            {renderSignInWithGoogle()}
-
-            {urlStatus === "Unavailable" && onelinkInput && (
-              <p className="text-xs text-center text-red-600" data-testid="url-unavailable-message">
-                This URL is already taken. Please choose another one.
-              </p>
-            )}
-          </form>
-        )}
-
-        {form === "reset" && (
-          <form
-            onSubmit={handleSubmitReset(onSubmitReset)}
-            className="space-y-4"
-            data-testid="reset-form"
-          >
-            {!resetSuccess && (
-              <div className="mb-2">
-                <p className="text-sm text-gray-600 mb-4">
-                  Enter your email address below and we'll send you instructions to reset your
-                  password.
-                </p>
-              </div>
-            )}
-            {resetError && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
-                <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
-                <p className="text-sm text-red-600">{resetError}</p>
-              </div>
-            )}
-            {resetSuccess ? (
-              <div className="p-3 bg-green-50 border border-green-200 rounded-md flex items-start gap-2">
-                <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
-                <p className="text-sm text-green-600">
-                  Instructions to reset your password have been sent to your email.
-                </p>
-              </div>
-            ) : (
-              <>
+              <div className="relative">
                 <Input
-                  label="Email"
-                  type="email"
-                  error={resetErrors.email?.message}
+                  label="Claim your name"
+                  leftText="@"
+                  error={registerErrors.onelink?.message}
                   required
-                  aria-label="Email"
-                  data-testid="reset-email"
-                  autoComplete="email"
-                  {...registerReset("email")}
+                  aria-label="Claim your name"
+                  data-testid="register-onelink"
+                  autoComplete="username"
+                  placeholder="your-name"
+                  {...registerSignUp("onelink")}
+                  onChange={e => {
+                    registerSignUp("onelink").onChange(e);
+                    handleOnelinkChange(e);
+                  }}
                   onBlur={e => {
-                    registerReset("email").onBlur(e);
-                    trackGAEvent("Input", "AuthModal", "ResetEmailInput");
+                    registerSignUp("onelink").onBlur(e);
+                    trackGAEvent("Input", "AuthModal", "RegisterOnelinkInput");
                   }}
                 />
-                <Button
-                  type="submit"
-                  className="w-full relative"
-                  disabled={loading}
-                  aria-disabled={loading}
-                  aria-label="Send Reset Instructions"
-                  data-testid="reset-submit"
-                  onClick={() => trackGAEvent("Click", "AuthModal", "SendResetInstructionsButton")}
+                <div className="absolute right-3 top-9">
+                  <URLStatusIndicator status={urlStatus} isCurrentUrl={false} compact={true} />
+                </div>
+              </div>
+              {onelinkInput && (
+                <p className="text-sm text-gray-600" data-testid="public-url-preview">
+                  Public URL:{" "}
+                  <a
+                    href={getOnelinkPublicUrl(onelinkInput)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-700"
+                    onClick={() => trackGAEvent("Click", "AuthModal", "PublicURLPreviewLink")}
+                  >
+                    {getOnelinkPublicUrl(onelinkInput)}
+                  </a>
+                </p>
+              )}
+              <Input
+                label="Email"
+                type="email"
+                error={registerErrors.email?.message}
+                required
+                aria-label="Email"
+                data-testid="register-email"
+                autoComplete="email"
+                {...registerSignUp("email")}
+                onBlur={e => {
+                  registerSignUp("email").onBlur(e);
+                  trackGAEvent("Input", "AuthModal", "RegisterEmailInput");
+                }}
+              />
+              <div className="space-y-2">
+                <div className="relative">
+                  <Input
+                    label="Password"
+                    type={showRegisterPassword ? "text" : "password"}
+                    error={registerErrors.password?.message}
+                    required
+                    aria-label="Password"
+                    data-testid="register-password"
+                    autoComplete="new-password"
+                    {...registerSignUp("password")}
+                    onBlur={e => {
+                      registerSignUp("password").onBlur(e);
+                      trackGAEvent("Input", "AuthModal", "RegisterPasswordInput");
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-3 top-9 text-gray-500 hover:text-gray-700"
+                    onClick={() => {
+                      setShowRegisterPassword(!showRegisterPassword);
+                      trackGAEvent("Click", "AuthModal", "RegisterTogglePasswordButton");
+                    }}
+                    aria-label={showRegisterPassword ? "Hide password" : "Show password"}
+                    data-testid="register-toggle-password"
+                  >
+                    {showRegisterPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
+                <PasswordStrengthIndicator password={registerPassword || ""} />
+              </div>
+              <Button
+                type="submit"
+                className="w-full relative"
+                disabled={loading || urlStatus === "Unavailable" || !isValid || !onelinkInput}
+                aria-disabled={loading || urlStatus === "Unavailable" || !isValid || !onelinkInput}
+                aria-label="Create Account"
+                data-testid="register-submit"
+                onClick={() => trackGAEvent("Click", "AuthModal", "CreateAccountButton")}
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center">
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin text-white/80" />
+                    Creating Account...
+                  </span>
+                ) : (
+                  "Create Account"
+                )}
+              </Button>
+
+              {renderSignInWithGoogle()}
+
+              {urlStatus === "Unavailable" && onelinkInput && (
+                <p
+                  className="text-xs text-center text-red-600"
+                  data-testid="url-unavailable-message"
                 >
-                  {loading ? (
-                    <span className="flex items-center justify-center">
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin text-white/80" />
-                      Sending Email...
-                    </span>
-                  ) : (
-                    "Send Reset Instructions"
-                  )}
-                </Button>
+                  This URL is already taken. Please choose another one.
+                </p>
+              )}
+            </form>
+          )}
+
+          {form === "reset" && (
+            <form
+              onSubmit={handleSubmitReset(onSubmitReset)}
+              className="space-y-4"
+              data-testid="reset-form"
+            >
+              {!resetSuccess && (
+                <div className="mb-2">
+                  <p className="text-sm text-gray-600 mb-4">
+                    Enter your email address below and we'll send you instructions to reset your
+                    password.
+                  </p>
+                </div>
+              )}
+              {resetError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
+                  <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-red-600">{resetError}</p>
+                </div>
+              )}
+              {resetSuccess ? (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-md flex items-start gap-2">
+                  <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-green-600">
+                    Instructions to reset your password have been sent to your email.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <Input
+                    label="Email"
+                    type="email"
+                    error={resetErrors.email?.message}
+                    required
+                    aria-label="Email"
+                    data-testid="reset-email"
+                    autoComplete="email"
+                    {...registerReset("email")}
+                    onBlur={e => {
+                      registerReset("email").onBlur(e);
+                      trackGAEvent("Input", "AuthModal", "ResetEmailInput");
+                    }}
+                  />
+                  <Button
+                    type="submit"
+                    className="w-full relative"
+                    disabled={loading}
+                    aria-disabled={loading}
+                    aria-label="Send Reset Instructions"
+                    data-testid="reset-submit"
+                    onClick={() =>
+                      trackGAEvent("Click", "AuthModal", "SendResetInstructionsButton")
+                    }
+                  >
+                    {loading ? (
+                      <span className="flex items-center justify-center">
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin text-white/80" />
+                        Sending Email...
+                      </span>
+                    ) : (
+                      "Send Reset Instructions"
+                    )}
+                  </Button>
+                </>
+              )}
+              {!resetSuccess && (
+                <div className="text-center text-sm text-gray-600 mt-4 p-3 border border-gray-200 rounded-md bg-gray-50">
+                  <p>Already have a password reset token?</p>
+                  <Link
+                    to="/auth/reset-password/"
+                    className="inline-block mt-2 text-blue-600 hover:text-blue-700 hover:underline font-medium"
+                    aria-label="Use reset token"
+                    data-testid="use-reset-token"
+                    onClick={() => trackGAEvent("Click", "AuthModal", "UseResetTokenLink")}
+                  >
+                    Use your reset token here →
+                  </Link>
+                </div>
+              )}
+            </form>
+          )}
+
+          <p className="text-center text-sm text-gray-600 mt-2">
+            {form !== "login" && (
+              <>
+                {"Already have an account?"}
+                <button
+                  type="button"
+                  onClick={() => {
+                    switchForm("login");
+                    trackGAEvent("Click", "AuthModal", "SwitchToSignInButton");
+                  }}
+                  className="text-blue-600 hover:text-blue-700 ml-2"
+                  aria-label="Switch to sign in"
+                  data-testid="switch-to-login"
+                >
+                  {"Sign In"}
+                </button>
               </>
             )}
-            {!resetSuccess && (
-              <div className="text-center text-sm text-gray-600 mt-4 p-3 border border-gray-200 rounded-md bg-gray-50">
-                <p>Already have a password reset token?</p>
-                <Link
-                  to="/auth/reset-password/"
-                  className="inline-block mt-2 text-blue-600 hover:text-blue-700 hover:underline font-medium"
-                  aria-label="Use reset token"
-                  data-testid="use-reset-token"
-                  onClick={() => trackGAEvent("Click", "AuthModal", "UseResetTokenLink")}
+            {form === "login" && (
+              <>
+                Don't have an account?
+                <button
+                  type="button"
+                  onClick={() => {
+                    switchForm("register");
+                    trackGAEvent("Click", "AuthModal", "SwitchToSignUpButton");
+                  }}
+                  className="text-blue-600 hover:text-blue-700 ml-2"
+                  aria-label="Switch to sign up"
+                  data-testid="switch-to-register"
                 >
-                  Use your reset token here →
-                </Link>
-              </div>
+                  {"Sign Up"}
+                </button>
+              </>
             )}
-          </form>
-        )}
-
-        <p className="text-center text-sm text-gray-600 mt-2">
-          {form !== "login" && (
-            <>
-              {"Already have an account?"}
+          </p>
+          <p className="text-center text-sm text-gray-600 mt-1">
+            {form !== "reset" && (
               <button
                 type="button"
                 onClick={() => {
-                  switchForm("login");
-                  trackGAEvent("Click", "AuthModal", "SwitchToSignInButton");
+                  switchForm("reset");
+                  trackGAEvent("Click", "AuthModal", "ForgotPasswordButton");
                 }}
                 className="text-blue-600 hover:text-blue-700 ml-2"
-                aria-label="Switch to sign in"
-                data-testid="switch-to-login"
+                aria-label="Forgot Password"
+                data-testid="forgot-password"
               >
-                {"Sign In"}
+                {"Forgot Password"}
               </button>
-            </>
-          )}
-          {form === "login" && (
-            <>
-              Don't have an account?
-              <button
-                type="button"
-                onClick={() => {
-                  switchForm("register");
-                  trackGAEvent("Click", "AuthModal", "SwitchToSignUpButton");
-                }}
-                className="text-blue-600 hover:text-blue-700 ml-2"
-                aria-label="Switch to sign up"
-                data-testid="switch-to-register"
-              >
-                {"Sign Up"}
-              </button>
-            </>
-          )}
-        </p>
-        <p className="text-center text-sm text-gray-600 mt-1">
-          {form !== "reset" && (
-            <button
-              type="button"
-              onClick={() => {
-                switchForm("reset");
-                trackGAEvent("Click", "AuthModal", "ForgotPasswordButton");
-              }}
-              className="text-blue-600 hover:text-blue-700 ml-2"
-              aria-label="Forgot Password"
-              data-testid="forgot-password"
-            >
-              {"Forgot Password"}
-            </button>
-          )}
-        </p>
-        <p className="text-center text-xs text-gray-500 mt-3">
-          By continuing, you agree to our{" "}
-          <a
-            href="https://ampedbio.com/privacy-policy/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 hover:text-blue-700 hover:underline"
-            data-testid="privacy-policy-link"
-            onClick={() => trackGAEvent("Click", "AuthModal", "PrivacyPolicyLink")}
-          >
-            Privacy Policy
-          </a>
-        </p>
-        {(form === "login" || form === "register") && (
-          <p className="text-center text-sm text-gray-600 mt-3">
-            Amped.Bio is more than a link-in-bio - it's your passport into the{" "}
+            )}
+          </p>
+          <p className="text-center text-xs text-gray-500 mt-3">
+            By continuing, you agree to our{" "}
             <a
-              href="https://www.revolutionnetwork.io"
+              href="https://ampedbio.com/privacy-policy/"
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-600 hover:text-blue-700 hover:underline"
+              data-testid="privacy-policy-link"
+              onClick={() => trackGAEvent("Click", "AuthModal", "PrivacyPolicyLink")}
             >
-              Revolution Network
+              Privacy Policy
             </a>
-            . Your amped.bio profile doubles as your wallet and hub for staking into Reward Pools.
           </p>
-        )}
-        <CaptchaDialog isOpen={isCaptchaOpen} onClose={closeCaptcha} onSubmit={handleSubmit} />
-      </div>
-    </DialogContent>
-  </Dialog>
+          {(form === "login" || form === "register") && (
+            <p className="text-center text-sm text-gray-600 mt-3">
+              Amped.Bio is more than a link-in-bio - it's your passport into the{" "}
+              <a
+                href="https://www.revolutionnetwork.io"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-700 hover:underline"
+              >
+                Revolution Network
+              </a>
+              . Your amped.bio profile doubles as your wallet and hub for staking into Reward Pools.
+            </p>
+          )}
+          <CaptchaDialog isOpen={isCaptchaOpen} onClose={closeCaptcha} onSubmit={handleSubmit} />
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

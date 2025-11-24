@@ -573,7 +573,10 @@ export const poolsFanRouter = router({
             })
           );
 
-          return resultStakes;
+          // Filter out stakes where the user has 0 stake amount
+          const filteredResultStakes = resultStakes.filter(stake => stake.stakeAmount > 0n);
+
+          return filteredResultStakes;
         } catch (error) {
           console.error("Error getting user stakes:", error);
           if (error instanceof TRPCError) throw error;

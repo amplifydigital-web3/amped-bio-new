@@ -3,13 +3,7 @@ import ReactCrop, { type Crop, centerCrop, makeAspectCrop } from "react-image-cr
 import { Slider } from "../../ui/Slider";
 import { Button } from "../../ui/Button";
 import "react-image-crop/dist/ReactCrop.css";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface PhotoEditorProps {
   imageUrl: string;
@@ -87,36 +81,35 @@ export function PhotoEditor({ imageUrl, onComplete, onCancel }: PhotoEditorProps
           </div>
         </DialogHeader>
         <div className="p-6 space-y-6 flex-grow flex flex-col">
+          <div className="space-y-6 flex-grow flex flex-col">
+            <div className="relative flex-grow flex items-center justify-center">
+              <ReactCrop
+                crop={crop}
+                onChange={(_, percentCrop) => setCrop(percentCrop)}
+                aspect={1}
+                circularCrop
+              >
+                <img
+                  ref={imageRef}
+                  src={imageUrl}
+                  alt="Crop me"
+                  className="max-h-[60vh] w-auto mx-auto"
+                  onLoad={onImageLoad}
+                  style={{ transform: `scale(${zoom})` }}
+                />
+              </ReactCrop>
+            </div>
 
-        <div className="space-y-6 flex-grow flex flex-col">
-          <div className="relative flex-grow flex items-center justify-center">
-            <ReactCrop
-              crop={crop}
-              onChange={(_, percentCrop) => setCrop(percentCrop)}
-              aspect={1}
-              circularCrop
-            >
-              <img
-                ref={imageRef}
-                src={imageUrl}
-                alt="Crop me"
-                className="max-h-[60vh] w-auto mx-auto"
-                onLoad={onImageLoad}
-                style={{ transform: `scale(${zoom})` }}
-              />
-            </ReactCrop>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">Zoom</label>
+              <Slider min={0.5} max={3} step={0.1} value={zoom} onChange={setZoom} />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Zoom</label>
-            <Slider min={0.5} max={3} step={0.1} value={zoom} onChange={setZoom} />
-          </div>
+          {/* Hidden canvas for processing the image */}
+          <canvas ref={canvasRef} className="hidden" />
         </div>
-
-        {/* Hidden canvas for processing the image */}
-        <canvas ref={canvasRef} className="hidden" />
-      </div>
-    </DialogContent>
-  </Dialog>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -9,7 +9,6 @@ import {
   DialogClose,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { getChainConfig } from "@ampedbio/web3";
 import { useStaking } from "../../../hooks/useStaking";
 import { RewardPool } from "@ampedbio/constants";
 import { formatEther } from "viem";
@@ -21,9 +20,20 @@ interface ClaimRewardsModalProps {
   onClaimSuccess?: () => void; // Optional callback to run after successful claim
 }
 
-export default function ClaimRewardsModal({ isOpen, onClose, pool, onClaimSuccess }: ClaimRewardsModalProps) {
-  const { claimReward, currencySymbol, pendingReward, isReadingPendingReward, refetchPendingReward } = useStaking(pool);
-  
+export default function ClaimRewardsModal({
+  isOpen,
+  onClose,
+  pool,
+  onClaimSuccess,
+}: ClaimRewardsModalProps) {
+  const {
+    claimReward,
+    currencySymbol,
+    pendingReward,
+    isReadingPendingReward,
+    refetchPendingReward,
+  } = useStaking(pool);
+
   const [step, setStep] = useState<"confirm" | "claiming" | "success">("confirm");
   const [animatingTokens, setAnimatingTokens] = useState<Array<{ id: number; delay: number }>>([]);
 
@@ -31,7 +41,7 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool, onClaimSucces
     if (!pool) {
       return { success: false };
     }
-    
+
     try {
       await claimReward();
       return { success: true };
@@ -66,7 +76,7 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool, onClaimSucces
 
       // Show success toast
       toast.success(
-        `Successfully claimed ${pendingReward ? parseFloat(formatEther(pendingReward)).toLocaleString() : '0'} ${currencySymbol}! Your wallet has been updated.`
+        `Successfully claimed ${pendingReward ? parseFloat(formatEther(pendingReward)).toLocaleString() : "0"} ${currencySymbol}! Your wallet has been updated.`
       );
 
       // Refetch the pending reward after a successful claim to update the UI
@@ -138,7 +148,8 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool, onClaimSucces
             <Coins className="w-8 h-8 text-green-600" />
           </div>
           <h3 className="text-2xl font-bold text-gray-900 mb-2">
-            {pendingReward ? parseFloat(formatEther(pendingReward)).toLocaleString() : '0'} {currencySymbol}
+            {pendingReward ? parseFloat(formatEther(pendingReward)).toLocaleString() : "0"}{" "}
+            {currencySymbol}
           </h3>
           <p className="text-gray-600">Available to claim</p>
         </div>
@@ -146,7 +157,8 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool, onClaimSucces
         {/* Confirmation Message */}
         <div className="border border-blue-200 rounded-lg p-4">
           <p className="text-sm text-blue-800">
-            <strong>Confirm:</strong> You are about to claim {pendingReward ? parseFloat(formatEther(pendingReward)).toLocaleString() : '0'}{" "}
+            <strong>Confirm:</strong> You are about to claim{" "}
+            {pendingReward ? parseFloat(formatEther(pendingReward)).toLocaleString() : "0"}{" "}
             {currencySymbol}
             from the {pool.name} pool. This action cannot be undone.
           </p>
@@ -218,7 +230,9 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool, onClaimSucces
           <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mb-6"></div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Processing Claim</h3>
           <p className="text-gray-600 text-center">
-            Transferring {pendingReward ? parseFloat(formatEther(pendingReward)).toLocaleString() : '0'} {currencySymbol} to your wallet...
+            Transferring{" "}
+            {pendingReward ? parseFloat(formatEther(pendingReward)).toLocaleString() : "0"}{" "}
+            {currencySymbol} to your wallet...
           </p>
         </div>
 
@@ -280,7 +294,8 @@ export default function ClaimRewardsModal({ isOpen, onClose, pool, onClaimSucces
           <p className="text-gray-600 mb-4">
             You've successfully claimed{" "}
             <strong>
-              {pendingReward ? parseFloat(formatEther(pendingReward)).toLocaleString() : '0'} {currencySymbol}
+              {pendingReward ? parseFloat(formatEther(pendingReward)).toLocaleString() : "0"}{" "}
+              {currencySymbol}
             </strong>{" "}
             from {pool.name}
           </p>
