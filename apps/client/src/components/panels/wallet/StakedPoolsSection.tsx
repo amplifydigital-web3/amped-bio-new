@@ -1,7 +1,6 @@
 import React from "react";
 import { Trophy, ChevronLeft, ChevronRight } from "lucide-react";
 import ExplorePoolDetailsModal from "../explore/ExplorePoolDetailsModal";
-import ClaimRewardsModal from "./ClaimRewardsModal";
 import StakedPoolRow from "./StakedPoolRow";
 import { useEditor } from "../../../contexts/EditorContext";
 import { useStakedPools } from "./hooks/useStakedPools";
@@ -17,12 +16,9 @@ export default function StakedPoolsSection() {
   const [currentPage, setCurrentPage] = React.useState(1);
   const [selectedPoolId, setSelectedPoolId] = React.useState<number | null>(null);
   const [isExplorePoolModalOpen, setIsExplorePoolModalOpen] = React.useState(false);
-  const [isClaimModalOpen, setIsClaimModalOpen] = React.useState(false);
-  const [claimingPoolId, setClaimingPoolId] = React.useState<number | null>(null);
   const poolsPerPage = 6;
 
   const selectedExplorePool = allStakedPools?.find(p => p.poolId === selectedPoolId) || null;
-  const claimingPool = allStakedPools?.find(p => p.poolId === claimingPoolId) || null;
 
   // Calculate pagination
   const totalPages = allStakedPools ? Math.ceil(allStakedPools.length / poolsPerPage) : 0;
@@ -46,11 +42,6 @@ export default function StakedPoolsSection() {
     setSelectedPoolId(poolId);
     // Use the ExplorePoolDetailsModal instead of the current PoolDetailsModal
     setIsExplorePoolModalOpen(true);
-  };
-
-  const handleClaimRewards = (poolId: number) => {
-    setClaimingPoolId(poolId);
-    setIsClaimModalOpen(true);
   };
 
   // Check if creator pool feature is enabled
@@ -214,7 +205,7 @@ export default function StakedPoolsSection() {
           <StakedPoolRow
             key={poolData.poolId}
             poolData={poolData}
-            onClaimRewards={handleClaimRewards}
+            refetchAllStakedPools={refetchAllStakedPools}
             onViewPool={handlePoolClick}
           />
         ))}
@@ -308,36 +299,6 @@ export default function StakedPoolsSection() {
         />
       )}
 
-      {/* Claim Rewards Modal */}
-      <ClaimRewardsModal
-        isOpen={isClaimModalOpen}
-        onClose={() => setIsClaimModalOpen(false)}
-        onClaimSuccess={() => {
-          // Refetch the staked pools data after successful claim to update the display
-          refetchAllStakedPools();
-        }}
-        pool={
-          claimingPool
-            ? {
-                id: claimingPool.pool.id,
-                description: claimingPool.pool.description,
-                chainId: claimingPool.pool.chainId,
-                address: claimingPool.pool.address,
-                image: claimingPool.pool.image,
-                name: claimingPool.pool.name || `Pool ${claimingPool.pool.id}`,
-                totalReward: BigInt(claimingPool.pool.totalReward) || 0n,
-                stakedAmount: BigInt(claimingPool.pool.stakedAmount) || 0n,
-                fans: claimingPool.pool.fans || 0,
-                pendingRewards: claimingPool.pendingRewards, // Use actual pending rewards as bigint
-                stakedByYou: claimingPool.stakedByYou, // Use the actual stakedByYou from server
-                creator: claimingPool.pool.creator || {
-                  userId: 0, // Default userId when creator object is not available
-                  address: "0x0000000000000000000000000000000000000000", // Default address when not available
-                }, // Add creator object
-              }
-            : null
-        }
-      />
     </div>
   );
 }

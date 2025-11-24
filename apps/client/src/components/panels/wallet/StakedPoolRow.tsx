@@ -1,8 +1,9 @@
 import React from "react";
 import { Trophy, Link, TrendingUp, Users } from "lucide-react";
 import { getChainConfig } from "@ampedbio/web3";
-import { formatUnits } from "viem";
-
+import { formatUnits, formatEther } from "viem";
+import { toast } from "react-hot-toast";
+import { useStaking } from "../../../hooks/useStaking";
 import { RewardPool } from "@ampedbio/constants";
 
 // Manually defined type
@@ -15,19 +16,60 @@ interface StakedPoolRowProps {
     pendingRewards: bigint;
     stakedByYou: bigint;
   };
-  onClaimRewards: (poolId: number) => void;
+  refetchAllStakedPools: () => void;
   onViewPool: (poolId: number) => void;
 }
 
 export default function StakedPoolRow({
   poolData,
-  onClaimRewards,
+  refetchAllStakedPools,
   onViewPool,
 }: StakedPoolRowProps) {
   const { pendingRewards, stakedByYou, pool } = poolData;
 
+  // Use the useStaking hook with the current pool
+  const {
+    claimReward,
+    currencySymbol,
+    pendingReward: hookPendingReward,
+    refetchPendingReward,
+  } = useStaking(pool);
+
   const stakedAmount = stakedByYou;
   const chainConfig = getChainConfig(parseInt(pool.chainId));
+
+  // Function to handle the direct claim process
+  const handleClaim = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    try {
+      // Show a loading toast
+      toast.loading("Processing claim...", { id: "claim-process" });
+
+      await claimReward();
+
+      // Show success toast
+      toast.success(
+        `Successfully claimed ${hookPendingReward ? parseFloat(formatEther(hookPendingReward)).toLocaleString() : "0"} ${currencySymbol}! Your wallet has been updated.`,
+        { id: "claim-process" }
+      );
+
+      // Refetch the pending reward after a successful claim to update the UI
+      await refetchPendingReward();
+
+      // Refetch all staked pools to update the display
+      refetchAllStakedPools();
+    } catch (error) {
+      // Show error toast
+      toast.error("Failed to claim rewards. Please try again.", { id: "claim-process" });
+    }
+  };
+
+  // Function to handle view pool click
+  const handleViewPool = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onViewPool(poolData.poolId);
+  };
 
   return (
     <div className="relative">
@@ -147,10 +189,7 @@ export default function StakedPoolRow({
           style={{ flexBasis: "12%" }}
         >
           <button
-            onClick={e => {
-              e.stopPropagation();
-              onClaimRewards(poolData.poolId);
-            }}
+            onClick={handleClaim}
             className="px-2 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors duration-200"
             title="Claim your earned rewards"
           >
@@ -159,10 +198,7 @@ export default function StakedPoolRow({
           </button>
 
           <button
-            onClick={e => {
-              e.stopPropagation();
-              onViewPool(poolData.poolId);
-            }}
+            onClick={handleViewPool}
             className="px-2 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors duration-200"
             title="View pool details"
           >
