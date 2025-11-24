@@ -9,6 +9,7 @@ import StakeModal from "../StakeModal";
 import { useStaking } from "../../../../hooks/useStaking";
 import { RewardPool } from "@ampedbio/constants";
 import { formatEther } from "viem";
+import { useChainId } from "wagmi";
 
 // Define filter and sort types
 type PoolFilter = "all" | "no-fans" | "more-than-10-fans" | "more-than-10k-stake";
@@ -35,8 +36,11 @@ interface PoolsTabProps {
 }
 
 const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }) => {
+  const chainId = useChainId();
+
   const { data: pools, isLoading } = useQuery(
     trpc.pools.fan.getPools.queryOptions({
+      chainId: chainId.toString(),
       search: searchQuery,
       filter: poolFilter,
       sort: poolSort,
