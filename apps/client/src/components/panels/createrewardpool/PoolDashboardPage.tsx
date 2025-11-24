@@ -558,9 +558,20 @@ export default function DashboardPage() {
     setIsEditingDescription(false);
   };
 
-  // Show loading state while fetching data
-  if (isPoolLoading) {
-    return <PoolDashboardSkeleton />;
+  // Show loading state while fetching pool data or dashboard data
+  if (isPoolLoading || (!!userAddress && !!chainId && (!poolData || !dashboardData))) {
+    // Only show skeleton if we have user address and chainId, otherwise show error state
+    if (userAddress && chainId) {
+      return <PoolDashboardSkeleton />;
+    } else {
+      return (
+        <div className="max-w-6xl mx-auto px-4 md:px-8 py-8 flex justify-center items-center h-64">
+          <div className="text-center">
+            <p className="text-gray-600">Connect your wallet to view pool data.</p>
+          </div>
+        </div>
+      );
+    }
   }
 
   // If no pool data is available after loading, show an error message
@@ -572,11 +583,6 @@ export default function DashboardPage() {
         </div>
       </div>
     );
-  }
-
-  // Show loading state while dashboard data is loading
-  if (!dashboardData) {
-    return <PoolDashboardSkeleton />;
   }
 
   return (
