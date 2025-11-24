@@ -1161,7 +1161,7 @@ export default function DashboardPage() {
       {/* Pool Details Modal */}
       {isPoolModalOpen && userPool && (
         <ExplorePoolDetailsModal
-          pool={userPool}
+          poolId={userPool.id}
           isOpen={isPoolModalOpen}
           onClose={() => setIsPoolModalOpen(false)}
         />

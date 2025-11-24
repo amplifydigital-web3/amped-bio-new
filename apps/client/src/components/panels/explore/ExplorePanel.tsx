@@ -398,7 +398,7 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
       {/* Modals */}
       {isCreatorPoolModalOpen && selectedCreatorPool && (
         <PoolDetailsModal
-          pool={selectedCreatorPool}
+          poolId={selectedCreatorPool.id}
           isOpen={isCreatorPoolModalOpen}
           onClose={() => {
             setIsCreatorPoolModalOpen(false);

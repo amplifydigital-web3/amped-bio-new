@@ -1,12 +1,31 @@
 import React from "react";
-import { Trophy, Link, TrendingUp, Users } from "lucide-react";
+import { Trophy, Link, TrendingUp } from "lucide-react";
 import { getChainConfig } from "@ampedbio/web3";
 import { formatUnits, formatEther } from "viem";
 import { toast } from "react-hot-toast";
 import { useStaking } from "../../../hooks/useStaking";
-import { RewardPool } from "@ampedbio/constants";
 
 // Manually defined type
+interface RewardPool {
+  id: number;
+  description: string | null;
+  chainId: string;
+  address: string;
+  image: {
+    id: number;
+    url: string;
+  } | null;
+  name: string;
+  totalReward: bigint;
+  stakedAmount: bigint;
+  pendingRewards: bigint;
+  stakedByYou: bigint;
+  creator: {
+    userId: number;
+    address: string;
+  };
+}
+
 interface StakedPoolRowProps {
   poolData: {
     userWalletId: number;
@@ -34,7 +53,7 @@ export default function StakedPoolRow({
     currencySymbol,
     pendingReward: hookPendingReward,
     refetchPendingReward,
-  } = useStaking(pool);
+  } = useStaking({ id: pool.id, chainId: pool.chainId, address: pool.address });
 
   const stakedAmount = stakedByYou;
   const chainConfig = getChainConfig(parseInt(pool.chainId));
@@ -146,17 +165,6 @@ export default function StakedPoolRow({
                 : Number(formatUnits(pendingRewards, 18)).toLocaleString()}
             </span>
           </div>
-
-          {/* Participants */}
-          <div
-            className="flex items-center space-x-1 px-2 py-1 bg-purple-50 rounded-full group/tooltip relative"
-            title={`${poolData.pool.fans} fans in this pool`}
-          >
-            <Users className="w-3 h-3 text-purple-600" />
-            <span className="text-xs font-medium text-purple-700">
-              {poolData.pool.fans.toLocaleString()}
-            </span>
-          </div>
         </div>
 
         {/* Mobile Stats - Show below on mobile */}
@@ -176,12 +184,6 @@ export default function StakedPoolRow({
                 {Number(formatUnits(pendingRewards, 18)) >= 1000
                   ? `${(Number(formatUnits(pendingRewards, 18)) / 1000).toFixed(1)}k`
                   : Number(formatUnits(pendingRewards, 18)).toLocaleString()}
-              </span>
-            </div>
-            <div className="flex items-center space-x-1 px-2 py-1 bg-purple-50 rounded-full">
-              <Users className="w-3 h-3 text-purple-600" />
-              <span className="text-xs font-medium text-purple-700">
-                {poolData.pool.fans.toLocaleString()}
               </span>
             </div>
           </div>

@@ -278,23 +278,7 @@ export default function StakedPoolsSection() {
         <ExplorePoolDetailsModal
           isOpen={isExplorePoolModalOpen}
           onClose={() => setIsExplorePoolModalOpen(false)}
-          pool={{
-            id: selectedExplorePool.pool.id,
-            description: selectedExplorePool.pool.description,
-            chainId: selectedExplorePool.pool.chainId,
-            address: selectedExplorePool.pool.address,
-            image: selectedExplorePool.pool.image,
-            name: selectedExplorePool.pool.name || `Pool ${selectedExplorePool.pool.id}`,
-            totalReward: BigInt(selectedExplorePool.pool.totalReward) || 0n,
-            stakedAmount: BigInt(selectedExplorePool.pool.stakedAmount) || 0n,
-            fans: selectedExplorePool.pool.fans || 0,
-            pendingRewards: selectedExplorePool.pendingRewards, // Use actual pending rewards as bigint
-            stakedByYou: selectedExplorePool.stakedByYou, // Use the actual stakedByYou from server
-            creator: selectedExplorePool.pool.creator || {
-              userId: 0, // Default userId when creator object is not available
-              address: "0x0000000000000000000000000000000000000000", // Default address when not available
-            }, // Add creator object
-          }}
+          poolId={selectedExplorePool.pool.id}
           onStakeSuccess={refetchAllStakedPools}
         />
       )}

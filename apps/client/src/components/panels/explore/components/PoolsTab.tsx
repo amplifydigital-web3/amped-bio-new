@@ -7,7 +7,6 @@ import { getChainConfig } from "@ampedbio/web3";
 import PoolDetailsModal from "../ExplorePoolDetailsModal";
 import StakeModal from "../StakeModal";
 import { useStaking } from "../../../../hooks/useStaking";
-import { RewardPool } from "@ampedbio/constants";
 import { formatEther } from "viem";
 import { useChainId } from "wagmi";
 
@@ -19,14 +18,41 @@ interface Pool {
   id: number;
   name: string;
   description: string | null;
-  stakedAmount: number | null;
+  stakedAmount: bigint | null;
   fans: number | null;
-  imageUrl: string | null;
+  image: {
+    id: number;
+    url: string;
+  } | null;
   chainId: string;
   walletId: number;
   address?: string | null;
-  totalReward?: number;
-  image_file_id?: number | null;
+  totalReward?: bigint;
+  creator: {
+    userId: number;
+    address: string;
+  } | null;
+}
+
+interface RewardPool {
+  id: number;
+  description: string | null;
+  chainId: string;
+  address: string;
+  image: {
+    id: number;
+    url: string;
+  } | null;
+  name: string;
+  totalReward: bigint;
+  stakedAmount: bigint;
+  fans: number;
+  pendingRewards: bigint;
+  stakedByYou: bigint;
+  creator: {
+    userId: number;
+    address: string;
+  };
 }
 
 interface PoolsTabProps {
@@ -61,7 +87,11 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
     stake: stakeFunction,
     isStaking: stakingState,
     stakeActionError: stakingError,
-  } = useStaking(selectedStakingPool);
+  } = useStaking(
+    selectedStakingPool
+      ? { id: selectedStakingPool.id, chainId: selectedStakingPool.chainId, address: selectedStakingPool.address }
+      : null
+  );
 
   const handleJoinPool = (poolId: number) => {
     if (pools) {
@@ -206,7 +236,7 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
       )}
       {isRewardPoolViewModalOpen && selectedRewardPoolForView && (
         <PoolDetailsModal
-          pool={selectedRewardPoolForView}
+          poolId={selectedRewardPoolForView.id}
           isOpen={isRewardPoolViewModalOpen}
           onClose={() => {
             setIsRewardPoolViewModalOpen(false);

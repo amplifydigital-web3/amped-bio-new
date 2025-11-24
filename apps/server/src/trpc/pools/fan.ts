@@ -1211,4 +1211,139 @@ export const poolsFanRouter = router({
         });
       }
     }),
+
+  getPoolDetailsForModal: privateProcedure
+    .input(
+      z.object({
+        poolId: z.number(),
+      })
+    )
+    .query(async ({ input }) => {
+      try {
+        const pool = await prisma.creatorPool.findUnique({
+          where: { id: input.poolId },
+          include: {
+            poolImage: {
+              select: {
+                s3_key: true,
+                bucket: true,
+              },
+            },
+            wallet: {
+              select: {
+                address: true,
+                userId: true,
+              },
+            },
+            _count: {
+              select: {
+                stakedPools: true,
+              },
+            },
+          },
+        });
+
+        if (!pool) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Pool not found",
+          });
+        }
+
+        // Get the chain configuration for the pool
+        const chain = getChainConfig(parseInt(pool.chainId));
+
+        // Initialize totalStake to the current db value
+        let totalStake: bigint = BigInt(pool.revoStaked);
+
+        // Query the totalStaked from the pool contract if we have the necessary data
+        if (pool.poolAddress && chain) {
+          try {
+            const publicClient = createPublicClient({
+              chain: chain,
+              transport: http(),
+            });
+
+            // Get the totalFanStaked from the pool contract
+            const totalFanStaked = (await publicClient.readContract({
+              address: pool.poolAddress as Address,
+              abi: CREATOR_POOL_ABI,
+              functionName: "totalFanStaked",
+            })) as bigint;
+
+            // Get the creatorStaked from the pool contract
+            const creatorStaked = (await publicClient.readContract({
+              address: pool.poolAddress as Address,
+              abi: CREATOR_POOL_ABI,
+              functionName: "creatorStaked",
+            })) as bigint;
+
+            // Calculate the total stake as sum of creatorStaked and totalFanStaked
+            totalStake = (creatorStaked + totalFanStaked) as bigint;
+
+            // Update the database with the value from the contract
+            try {
+              await prisma.creatorPool.update({
+                where: { id: pool.id },
+                data: { revoStaked: totalStake.toString() },
+              });
+            } catch (updateError) {
+              console.error(
+                `Error updating revoStaked in database for pool ${pool.id}:`,
+                updateError
+              );
+              // Continue anyway, we'll still return the blockchain value
+            }
+          } catch (error) {
+            console.error(`Error fetching totalStaked from contract for pool ${pool.id}:`, error);
+            // If contract query fails, we'll keep the db value
+          }
+        }
+
+        // Get pool name, fallback to ID if chain is not supported
+        const poolName = chain
+          ? await getPoolName(pool.poolAddress as Address, parseInt(pool.chainId))
+          : `Pool ${pool.id}`;
+
+        // Count only users with positive stake amounts
+        const activeStakers = await prisma.stakedPool.count({
+          where: {
+            poolId: pool.id,
+            stakeAmount: { not: "0" }, // Count only stakes with amount > 0
+          },
+        });
+
+        // Return only the data that is actually displayed in the modal
+        return {
+          id: pool.id,
+          name: poolName || `Pool ${pool.id}`,
+          description: pool.description,
+          chainId: pool.chainId,
+          address: pool.poolAddress!,
+          image:
+            pool.image_file_id && pool.poolImage
+              ? {
+                  id: pool.image_file_id,
+                  url: s3Service.getFileUrl(pool.poolImage.s3_key),
+                }
+              : null,
+          totalReward: totalStake,
+          stakedAmount: totalStake, // Include for compatibility
+          fans: activeStakers,
+          pendingRewards: 0n, // Default value - will be fetched by client-side hook
+          stakedByYou: 0n, // Default value - will be fetched by client-side hook
+          creator: {
+            userId: pool.wallet!.userId!,
+            address: pool.wallet!.address!,
+          },
+        };
+      } catch (error) {
+        console.error("Error fetching pool details for modal:", error);
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch pool details for modal",
+        });
+      }
+    }),
 });

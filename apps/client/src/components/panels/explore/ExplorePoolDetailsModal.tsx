@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { Trophy, Users, Coins, ExternalLink, Plus, Minus, Share2, Gift, Edit3 } from "lucide-react";
 import {
   Dialog,
@@ -13,26 +13,42 @@ import UnstakeModal from "./UnstakeModal";
 import { ImageUploadModal } from "@/components/ImageUploadModal";
 import { useAccount } from "wagmi";
 import { trpcClient } from "@/utils/trpc";
+import { trpc } from "@/utils/trpc/trpc";
+import { useQuery } from "@tanstack/react-query";
 import { usePoolReader } from "../../../hooks/usePoolReader";
 import { useStaking } from "../../../hooks/useStaking";
 import { formatEther } from "viem";
 import { getChainConfig } from "@ampedbio/web3";
 
-import { RewardPool } from "@ampedbio/constants";
+import PoolDetailsModalSkeleton from "./PoolDetailsModalSkeleton";
 
 interface ExplorePoolDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  pool: RewardPool;
+  poolId: number; // Now required prop to fetch data from the new TRPC method
   onStakeSuccess?: () => void; // Callback for when stake/unstake succeeds to trigger refresh
 }
 
 export default function ExplorePoolDetailsModal({
   isOpen,
   onClose,
-  pool,
+  poolId,
   onStakeSuccess,
 }: ExplorePoolDetailsModalProps) {
+  const {
+    data: pool,
+    isLoading,
+    isError
+  } = useQuery(
+    trpc.pools.fan.getPoolDetailsForModal.queryOptions(
+      { poolId },
+      {
+        enabled: isOpen && !!poolId,
+        staleTime: 1000 * 60, // Cache for 1 minute
+      }
+    )
+  );
+
   const { creatorCut: contractCreatorCut, isReadingCreatorCut } = usePoolReader(
     pool?.address as `0x${string}` | undefined
   );
@@ -48,7 +64,7 @@ export default function ExplorePoolDetailsModal({
     claimReward,
     refetchFanStake,
     refetchPendingReward,
-  } = useStaking(pool, onStakeSuccess);
+  } = useStaking(pool ? { id: pool.id, chainId: pool.chainId, address: pool.address } : null, onStakeSuccess);
 
   const [isStakeModalOpen, setIsStakeModalOpen] = useState(false);
   const [isUnstakeModalOpen, setIsUnstakeModalOpen] = useState(false);
@@ -83,7 +99,34 @@ export default function ExplorePoolDetailsModal({
     [pool?.id]
   );
 
-  if (!isOpen || !pool || !pool.address) return null;
+  // Show loading state when fetching by poolId
+  if (isLoading || isError) {
+    if (isLoading) {
+      return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl">
+            <PoolDetailsModalSkeleton />
+          </DialogContent>
+        </Dialog>
+      );
+    }
+
+    if (isError) {
+      return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+          <DialogContent className="max-w-4xl">
+            <div className="flex justify-center items-center h-64">
+              <p className="text-red-500">Error loading pool details</p>
+            </div>
+          </DialogContent>
+        </Dialog>
+      );
+    }
+
+    return null;
+  }
+
+  if (!isOpen || !pool?.address) return null;
 
   const handleOverlayClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
