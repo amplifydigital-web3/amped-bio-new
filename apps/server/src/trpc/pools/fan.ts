@@ -372,7 +372,7 @@ export const poolsFanRouter = router({
       }
     }),
 
-  getUserStakes: privateProcedure
+  getUserStakedPools: privateProcedure
     .input(
       z.object({
         chainId: z.string(),
@@ -496,7 +496,35 @@ export const poolsFanRouter = router({
                 return null;
               }
             })
-            .filter(data => data !== null); // Filter out null values
+            .filter((data): data is { poolId: number; stakeAmount: string } => data !== null); // Filter out null values
+
+          // Update the database with the latest stake amounts from the blockchain
+          await Promise.all(
+            blockchainStakeData.map(async stakeData => {
+              try {
+                await prisma.stakedPool.update({
+                  where: {
+                    userWalletId_poolId: {
+                      userWalletId: userWallet.id,
+                      poolId: stakeData.poolId,
+                    },
+                  },
+                  data: {
+                    stakeAmount: stakeData.stakeAmount,
+                  },
+                });
+                console.log(
+                  `Successfully updated stakedPool for poolId: ${stakeData.poolId}, userWalletId: ${userWallet.id}`
+                );
+              } catch (error) {
+                console.error(
+                  `Failed to update stakedPool for poolId: ${stakeData.poolId}, userWalletId: ${userWallet.id}`,
+                  error
+                );
+                // Continue even if one update fails
+              }
+            })
+          );
 
           // Prepare final result with blockchain stake amounts
           const resultStakes = await Promise.all(

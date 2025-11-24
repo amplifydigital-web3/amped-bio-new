@@ -16,7 +16,7 @@ export default function StakedPoolsSection() {
     isLoading: loading,
     error,
     refetch: refetchAllStakedPools,
-  } = useQuery(trpc.pools.fan.getUserStakes.queryOptions({ chainId: chainId.toString() }));
+  } = useQuery(trpc.pools.fan.getUserStakedPools.queryOptions({ chainId: chainId.toString() }));
 
   const { setActivePanelAndNavigate } = useEditor();
   const [currentPage, setCurrentPage] = React.useState(1);
