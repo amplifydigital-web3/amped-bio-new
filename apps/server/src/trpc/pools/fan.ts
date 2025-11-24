@@ -498,33 +498,33 @@ export const poolsFanRouter = router({
             })
             .filter((data): data is { poolId: number; stakeAmount: string } => data !== null); // Filter out null values
 
-          // Update the database with the latest stake amounts from the blockchain
-          await Promise.all(
-            blockchainStakeData.map(async stakeData => {
-              try {
-                await prisma.stakedPool.update({
-                  where: {
-                    userWalletId_poolId: {
-                      userWalletId: userWallet.id,
-                      poolId: stakeData.poolId,
-                    },
-                  },
-                  data: {
-                    stakeAmount: stakeData.stakeAmount,
-                  },
-                });
-                console.log(
-                  `Successfully updated stakedPool for poolId: ${stakeData.poolId}, userWalletId: ${userWallet.id}`
-                );
-              } catch (error) {
-                console.error(
-                  `Failed to update stakedPool for poolId: ${stakeData.poolId}, userWalletId: ${userWallet.id}`,
-                  error
-                );
-                // Continue even if one update fails
-              }
-            })
-          );
+          // Update the database with the latest stake amounts from the blockchain using a single query
+          if (blockchainStakeData.length > 0) {
+            // Build the raw query with proper parameterization for MySQL using CASE WHEN statement
+            const caseWhens = blockchainStakeData
+              .map(
+                stakeData =>
+                  `WHEN userWalletId = ${userWallet.id} AND poolId = ${stakeData.poolId} THEN '${stakeData.stakeAmount}'`
+              )
+              .join(" ");
+
+            const poolIds = blockchainStakeData.map(stakeData => stakeData.poolId).join(",");
+
+            // Use raw SQL to update multiple stakedPool records in a single query using CASE WHEN
+            await prisma.$executeRawUnsafe(`
+              UPDATE staked_pools
+              SET stakeAmount = CASE
+                ${caseWhens}
+                ELSE stakeAmount
+              END
+              WHERE userWalletId = ${userWallet.id}
+              AND poolId IN (${poolIds})
+            `);
+
+            console.log(
+              `Successfully updated ${blockchainStakeData.length} stakedPool records for userWalletId: ${userWallet.id}`
+            );
+          }
 
           // Prepare final result with blockchain stake amounts
           const resultStakes = await Promise.all(
