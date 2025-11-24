@@ -664,6 +664,9 @@ export const walletRouter = router({
       const userStakes = await prisma.stakedPool.findMany({
         where: {
           userWalletId: userWallet.id,
+          stakeAmount: {
+            gt: "0", // Only count active stakes greater than 0
+          },
         },
       });
 
@@ -724,10 +727,13 @@ export const walletRouter = router({
         stakersSupportingMe = uniqueUserWalletIds.size;
       }
 
-      // Calculate "Creator Pools Joined" - Number of pools the user has staked in
+      // Calculate "Creator Pools Joined" - Number of pools the user has staked in with a stake greater than 0
       const creatorPoolsJoined = await prisma.stakedPool.count({
         where: {
           userWalletId: userWallet.id,
+          stakeAmount: {
+            gt: "0", // Only count active stakes greater than 0
+          },
         },
       });
 
