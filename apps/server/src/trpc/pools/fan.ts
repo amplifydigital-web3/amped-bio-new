@@ -408,10 +408,7 @@ export const poolsFanRouter = router({
           const chain = getChainConfig(parseInt(input.chainId));
 
           if (!chain) {
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message: "Unsupported chain ID",
-            });
+            return [];
           }
 
           const publicClient = createPublicClient({
@@ -455,48 +452,90 @@ export const poolsFanRouter = router({
             stake => stake.pool.poolAddress && userWallet.address
           );
 
-          // Fetch updated staking values from blockchain for all applicable stakes
-          const blockchainStakeResults = await Promise.allSettled(
-            poolsToFetch.map(async stake => {
-              console.log(
-                `Attempting to fetch updated stake amount from contract for pool ${stake.pool.id} at address ${stake.pool.poolAddress} for user ${userWallet.address}`
-              );
+          // Create multicall requests for all the fanStakes we need to fetch
+          const multicallRequests = poolsToFetch.map(stake => ({
+            address: stake.pool.poolAddress as Address,
+            abi: CREATOR_POOL_ABI,
+            functionName: "fanStakes" as const,
+            args: [userWallet.address as Address],
+          }));
 
-              // Fetch the current user's stake amount from the contract
-              const fanStakeAmount = await publicClient.readContract({
-                address: stake.pool.poolAddress as Address,
-                abi: CREATOR_POOL_ABI,
-                functionName: "fanStakes",
-                args: [userWallet.address as Address],
+          // Execute all contract calls in a single batch
+          let blockchainStakeData: { poolId: number; stakeAmount: string }[] = [];
+          if (multicallRequests.length > 0) {
+            try {
+              const results = await publicClient.multicall({
+                contracts: multicallRequests,
               });
 
-              console.log(
-                `Successfully fetched stake amount from contract for pool ${stake.pool.id} and user ${userWallet.address}: ${fanStakeAmount.toString()}`
+              // Process the results, handling both fulfilled and rejected promises
+              results.forEach((result, index) => {
+                const poolId = poolsToFetch[index].pool.id;
+
+                if (result.status === "success") {
+                  blockchainStakeData.push({
+                    poolId,
+                    stakeAmount: result.result.toString(),
+                  });
+                  console.log(
+                    `[multicall] Successfully fetched stake amount from contract for pool ${poolId} and user ${userWallet.address}: ${result.result.toString()}`
+                  );
+                } else {
+                  console.error(
+                    `[multicall] Error fetching stake amount from contract for pool ${poolId} and user ${userWallet.address}:`,
+                    result.error
+                  );
+                  // Continue processing other results
+                }
+              });
+            } catch (error) {
+              console.error("Multicall failed, falling back to individual calls:", error);
+              // Fallback to individual calls if multicall fails
+              const blockchainStakeResults = await Promise.allSettled(
+                poolsToFetch.map(async stake => {
+                  console.log(
+                    `Attempting to fetch updated stake amount from contract for pool ${stake.pool.id} at address ${stake.pool.poolAddress} for user ${userWallet.address}`
+                  );
+
+                  // Fetch the current user's stake amount from the contract
+                  const fanStakeAmount = await publicClient.readContract({
+                    address: stake.pool.poolAddress as Address,
+                    abi: CREATOR_POOL_ABI,
+                    functionName: "fanStakes",
+                    args: [userWallet.address as Address],
+                  });
+
+                  console.log(
+                    `Successfully fetched stake amount from contract for pool ${stake.pool.id} and user ${userWallet.address}: ${fanStakeAmount.toString()}`
+                  );
+
+                  return {
+                    poolId: stake.pool.id,
+                    stakeAmount: fanStakeAmount.toString(),
+                  };
+                })
               );
 
-              return {
-                poolId: stake.pool.id,
-                stakeAmount: fanStakeAmount.toString(),
-              };
-            })
-          );
+              // Process results and handle both fulfilled and rejected promises
+              const fallbackBlockchainStakeData = blockchainStakeResults
+                .map((result, index) => {
+                  if (result.status === "fulfilled") {
+                    return result.value;
+                  } else {
+                    // Log the error for debugging
+                    console.error(
+                      `Error fetching stake amount from contract for pool ${poolsToFetch[index].pool.id} and user ${userWallet.address}:`,
+                      result.reason
+                    );
+                    // Return null for failed requests to be handled appropriately
+                    return null;
+                  }
+                })
+                .filter((data): data is { poolId: number; stakeAmount: string } => data !== null); // Filter out null values
 
-          // Process results and handle both fulfilled and rejected promises
-          const blockchainStakeData = blockchainStakeResults
-            .map((result, index) => {
-              if (result.status === "fulfilled") {
-                return result.value;
-              } else {
-                // Log the error for debugging
-                console.error(
-                  `Error fetching stake amount from contract for pool ${poolsToFetch[index].pool.id} and user ${userWallet.address}:`,
-                  result.reason
-                );
-                // Return null for failed requests to be handled appropriately
-                return null;
-              }
-            })
-            .filter((data): data is { poolId: number; stakeAmount: string } => data !== null); // Filter out null values
+              blockchainStakeData = fallbackBlockchainStakeData;
+            }
+          }
 
           // Update the database with the latest stake amounts from the blockchain using a single query
           if (blockchainStakeData.length > 0) {
