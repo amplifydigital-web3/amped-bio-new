@@ -38,6 +38,7 @@ export default function ExplorePoolDetailsModal({
     data: pool,
     isLoading,
     isError,
+    refetch: refetchPoolData,
   } = useQuery(
     trpc.pools.fan.getPoolDetailsForModal.queryOptions(
       { poolId },
@@ -58,16 +59,10 @@ export default function ExplorePoolDetailsModal({
 
   const {
     creatorCut: contractCreatorCut,
-    isReadingCreatorCut,
     fanStake: rawFanStake,
-    isReadingFanStake,
-    refetchFanStake,
     pendingReward,
     isReadingPendingReward,
-    refetchPendingReward,
-    poolName: poolNameFromContract,
-    isReadingPoolName,
-    refetchPoolName,
+    fetchAllData,
     claimReward,
   } = usePoolReader(
     pool?.address as `0x${string}` | undefined,
@@ -134,12 +129,6 @@ export default function ExplorePoolDetailsModal({
 
   if (!isOpen || !pool?.address) return null;
 
-  const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
-
   const handleShare = () => {
     const poolUrl = `${window.location.origin}/pool/${pool.id}`;
 
@@ -169,9 +158,8 @@ export default function ExplorePoolDetailsModal({
     setIsClaiming(true);
     try {
       await claimReward();
-      // Manually refetch the fan stake and pending reward after successful claim
-      await refetchFanStake();
-      await refetchPendingReward();
+      // Refetch all pool data after successful claim
+      await fetchAllData();
 
       // Show success toast
       toast.success(
@@ -362,11 +350,9 @@ export default function ExplorePoolDetailsModal({
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-gray-700">Take Rate:</span>
                       <span className="text-sm font-semibold text-gray-900">
-                        {isReadingCreatorCut
-                          ? "Loading..."
-                          : contractCreatorCut !== undefined && contractCreatorCut !== null
-                            ? `${Number(contractCreatorCut) / 100}%`
-                            : "N/A"}
+                        {contractCreatorCut !== undefined && contractCreatorCut !== null
+                          ? `${Number(contractCreatorCut) / 100}%`
+                          : "N/A"}
                       </span>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
@@ -432,10 +418,11 @@ export default function ExplorePoolDetailsModal({
         }
         mode={stakingMode}
         onStakeSuccess={async () => {
-          // When stake operations complete, refetch blockchain data only
-          await refetchFanStake();
-          await refetchPendingReward();
-          await refetchPoolName(); // Also refetch pool name if needed
+          // When stake operations complete, refetch blockchain data using multicall
+          await fetchAllData();
+
+          // Refetch pool data to update fans count and other pool details
+          await refetchPoolData();
 
           // Call the original callback if provided
           onStakeSuccess?.();
@@ -459,10 +446,11 @@ export default function ExplorePoolDetailsModal({
             : null
         }
         onStakeSuccess={async () => {
-          // When stake operations complete, refetch blockchain data only
-          await refetchFanStake();
-          await refetchPendingReward();
-          await refetchPoolName(); // Also refetch pool name if needed
+          // When stake operations complete, refetch blockchain data using multicall
+          await fetchAllData();
+
+          // Refetch pool data to update fans count and other pool details
+          await refetchPoolData();
 
           // Call the original callback if provided
           onStakeSuccess?.();

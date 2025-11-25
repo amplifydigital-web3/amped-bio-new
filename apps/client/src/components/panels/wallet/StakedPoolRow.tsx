@@ -29,7 +29,7 @@ export default function StakedPoolRow({
   const {
     claimReward,
     pendingReward: hookPendingReward,
-    refetchPendingReward,
+    fetchAllData,
   } = usePoolReader(
     pool.address as `0x${string}` | undefined,
     userAddress as `0x${string}` | undefined
@@ -56,12 +56,12 @@ export default function StakedPoolRow({
         { id: "claim-process" }
       );
 
-      // Refetch the pending reward after a successful claim to update the UI
-      await refetchPendingReward();
+      // Refetch all pool data after a successful claim to update the UI
+      await fetchAllData();
 
       // Refetch all staked pools to update the display
       refetchAllStakedPools();
-    } catch (error) {
+    } catch {
       // Show error toast
       toast.error("Failed to claim rewards. Please try again.", { id: "claim-process" });
     } finally {

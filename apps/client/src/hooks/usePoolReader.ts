@@ -56,18 +56,18 @@ export function usePoolReader(poolAddress?: Address, fanAddress?: Address) {
     }
   };
 
+  const fetchAllData = async () => {
+    return await refetch();
+  };
+
   return {
     creatorCut: creatorCutResult?.result as bigint | undefined,
     isReadingCreatorCut: isLoading,
     fanStake: fanStakeResult?.result as bigint | undefined,
-    isReadingFanStake: isLoading,
-    refetchFanStake: refetch,
     pendingReward: pendingRewardResult?.result as bigint | undefined,
     isReadingPendingReward: isLoading,
-    refetchPendingReward: refetch,
     poolName: poolNameResult?.result as string | undefined,
-    isReadingPoolName: isLoading,
-    refetchPoolName: refetch,
+    fetchAllData,
     claimReward,
   };
 }
