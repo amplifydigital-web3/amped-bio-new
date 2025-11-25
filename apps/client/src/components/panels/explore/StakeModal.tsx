@@ -389,7 +389,11 @@ export default function StakeModal({
             <div className="flex justify-between text-sm">
               <span className="text-blue-700">Current Stake:</span>
               <span className="font-medium text-blue-900">
-                {pool.currentStake.toLocaleString()} {currencySymbol}
+                {new Decimal(pool.currentStake.toString())
+                  .div(new Decimal(10).pow(18))
+                  .toFixed(4)
+                  .replace(/\.?0+$/, "")}{" "}
+                {currencySymbol}
               </span>
             </div>
           )}
@@ -398,6 +402,7 @@ export default function StakeModal({
             <span className="text-blue-700">New Total Stake:</span>
             <span className="font-bold text-blue-900">
               {new Decimal(pool.currentStake?.toString() ?? "0")
+                .div(new Decimal(10).pow(18))
                 .plus(amount ? new Decimal(amount) : new Decimal(0))
                 .toFixed(4)
                 .replace(/\.?0+$/, "")}{" "}
@@ -483,7 +488,8 @@ export default function StakeModal({
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-green-700">Your Total Stake</span>
             <span className="text-lg font-bold text-green-900">
-              {new Decimal(pool.currentStake?.toString() || "0")
+              {new Decimal(pool.currentStake?.toString() ?? "0")
+                .div(new Decimal(10).pow(18))
                 .plus(amount ? new Decimal(amount) : new Decimal(0))
                 .toFixed(4)
                 .replace(/\.?0+$/, "")}{" "}

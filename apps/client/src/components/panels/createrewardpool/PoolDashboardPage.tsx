@@ -559,7 +559,7 @@ export default function DashboardPage() {
   };
 
   // Show loading state while fetching pool data or dashboard data
-  if (!userAddress || !chainId || isPoolLoading || (!poolData || !dashboardData)) {
+  if (!userAddress || !chainId || isPoolLoading || !poolData || !dashboardData) {
     return <PoolDashboardSkeleton />;
   }
 

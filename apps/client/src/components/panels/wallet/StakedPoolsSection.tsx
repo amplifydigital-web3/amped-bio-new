@@ -285,7 +285,6 @@ export default function StakedPoolsSection() {
           onStakeSuccess={refetchAllStakedPools}
         />
       )}
-
     </div>
   );
 }

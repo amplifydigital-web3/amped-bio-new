@@ -63,7 +63,11 @@ interface PoolsTabProps {
 const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }) => {
   const chainId = useChainId();
 
-  const { data: pools, isLoading, refetch } = useQuery(
+  const {
+    data: pools,
+    isLoading,
+    refetch,
+  } = useQuery(
     trpc.pools.fan.getPools.queryOptions({
       chainId: chainId.toString(),
       search: searchQuery,
@@ -80,7 +84,6 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
     null
   );
   const [isRewardPoolViewModalOpen, setIsRewardPoolViewModalOpen] = useState(false);
-
 
   const handleJoinPool = (poolId: number) => {
     if (pools) {

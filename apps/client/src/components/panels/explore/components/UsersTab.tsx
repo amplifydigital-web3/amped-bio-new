@@ -140,7 +140,10 @@ const UsersTab: React.FC<UsersTabProps> = ({
                     </div>
                     <div className="relative group">
                       <span className="px-2 py-1 rounded-full text-xs font-medium cursor-help bg-gray-100 text-gray-700">
-                        {new Decimal(formatEther(BigInt(user.poolStake))).toFixed(4)} Pool Stake
+                        {new Decimal(formatEther(BigInt(user.poolStake)))
+                          .toDecimalPlaces(4, Decimal.ROUND_DOWN)
+                          .toString()}{" "}
+                        Pool Stake
                       </span>
                       <div className="absolute bottom-full right-0 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
                         <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap shadow-lg">
