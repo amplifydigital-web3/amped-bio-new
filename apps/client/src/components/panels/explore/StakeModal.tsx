@@ -1,10 +1,7 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { X, Coins, TrendingUp, AlertCircle, Check } from "lucide-react";
-import { useAccount, useBalance, usePublicClient, useWriteContract } from "wagmi";
-import { parseEther } from "viem";
-import { L2_BASE_TOKEN_ABI, getChainConfig } from "@ampedbio/web3";
-import { trpc } from "@/utils/trpc";
-import { useMutation } from "@tanstack/react-query";
+import { useAccount, useBalance } from "wagmi";
+import { getChainConfig } from "@ampedbio/web3";
 import { useStakingManager } from "@/hooks/useStakingManager";
 import Decimal from "decimal.js";
 import {

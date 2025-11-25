@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback } from "react";
 import { Trophy, Users, Coins, ExternalLink, Plus, Minus, Share2, Gift, Edit3 } from "lucide-react";
 import {
   Dialog,
@@ -73,7 +73,6 @@ export default function ExplorePoolDetailsModal({
     pool?.address as `0x${string}` | undefined,
     userAddress as `0x${string}` | undefined
   );
-
 
   const chainConfig = getChainConfig(parseInt(pool?.chainId || "0"));
   const currencySymbol = chainConfig?.nativeCurrency.symbol || "REVO";
@@ -377,7 +376,6 @@ export default function ExplorePoolDetailsModal({
                 </div>
               </div>
             </div>
-
           </div>
           <DialogFooter className="border-t border-gray-100 p-6">
             <div className="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0 sm:space-x-4">
@@ -399,11 +397,7 @@ export default function ExplorePoolDetailsModal({
                   title={parseFloat(fanStake) <= 0 ? "You have no stake in this pool" : undefined}
                 >
                   <Minus className="w-4 h-4" />
-                  <span>
-                    {parseFloat(fanStake) <= 0
-                      ? "No Stake"
-                      : "Reduce Stake"}
-                  </span>
+                  <span>{parseFloat(fanStake) <= 0 ? "No Stake" : "Reduce Stake"}</span>
                 </button>
 
                 <button
