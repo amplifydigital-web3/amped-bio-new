@@ -4,45 +4,20 @@ import { getChainConfig } from "@ampedbio/web3";
 import { formatUnits, formatEther } from "viem";
 import { toast } from "react-hot-toast";
 import { useStaking } from "../../../hooks/useStaking";
-
-// Manually defined type
-interface RewardPool {
-  id: number;
-  description: string | null;
-  chainId: string;
-  address: string;
-  image: {
-    id: number;
-    url: string;
-  } | null;
-  name: string;
-  totalReward: bigint;
-  stakedAmount: bigint;
-  pendingRewards: bigint;
-  stakedByYou: bigint;
-  creator: {
-    userId: number;
-    address: string;
-  };
-}
+import { UserStakedPool } from "@ampedbio/constants";
 
 interface StakedPoolRowProps {
-  poolData: {
-    userWalletId: number;
-    poolId: number;
-    stakeAmount: bigint;
-    pool: RewardPool;
-    pendingRewards: bigint;
-    stakedByYou: bigint;
-  };
+  poolData: UserStakedPool & { pendingRewards: bigint; stakedByYou: bigint };
   refetchAllStakedPools: () => void;
   onViewPool: (poolId: number) => void;
+  currentChainId: string;
 }
 
 export default function StakedPoolRow({
   poolData,
   refetchAllStakedPools,
   onViewPool,
+  currentChainId,
 }: StakedPoolRowProps) {
   const { pendingRewards, stakedByYou, pool } = poolData;
   const [isClaiming, setIsClaiming] = React.useState(false);
@@ -53,10 +28,10 @@ export default function StakedPoolRow({
     currencySymbol,
     pendingReward: hookPendingReward,
     refetchPendingReward,
-  } = useStaking({ id: pool.id, chainId: pool.chainId, address: pool.address });
+  } = useStaking({ id: pool.id, chainId: currentChainId, address: pool.address });
 
   const stakedAmount = stakedByYou;
-  const chainConfig = getChainConfig(parseInt(pool.chainId));
+  const chainConfig = getChainConfig(parseInt(currentChainId));
 
   // Function to handle the direct claim process
   const handleClaim = async (e: React.MouseEvent) => {

@@ -1,6 +1,7 @@
 import React from "react";
 import { Trophy, ChevronLeft, ChevronRight } from "lucide-react";
 import ExplorePoolDetailsModal from "../explore/ExplorePoolDetailsModal";
+import { useAccount } from "wagmi";
 import StakedPoolRow from "./StakedPoolRow";
 import { useEditor } from "../../../contexts/EditorContext";
 import { useStakedPools } from "./hooks/useStakedPools";
@@ -11,6 +12,7 @@ export default function StakedPoolsSection() {
     isLoading: loading,
     refetch: refetchAllStakedPools,
   } = useStakedPools();
+  const { chainId: currentChainId } = useAccount();
 
   const { setActivePanelAndNavigate } = useEditor();
   const [currentPage, setCurrentPage] = React.useState(1);
@@ -207,6 +209,7 @@ export default function StakedPoolsSection() {
             poolData={poolData}
             refetchAllStakedPools={refetchAllStakedPools}
             onViewPool={handlePoolClick}
+            currentChainId={currentChainId?.toString() ?? "0"}
           />
         ))}
       </div>

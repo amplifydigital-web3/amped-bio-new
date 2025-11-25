@@ -5,7 +5,7 @@ import { prisma } from "../../services/DB";
 import { Address, createPublicClient, http, decodeEventLog } from "viem";
 import { getChainConfig, L2_BASE_TOKEN_ABI, CREATOR_POOL_ABI, getPoolName } from "@ampedbio/web3";
 import { s3Service } from "../../services/S3Service";
-import { RewardPool } from "@ampedbio/constants";
+import { RewardPool, SlimRewardPool, UserStakedPool } from "@ampedbio/constants";
 
 export const poolsFanRouter = router({
   getPools: privateProcedure
@@ -576,131 +576,109 @@ export const poolsFanRouter = router({
         chainId: z.string(),
       })
     )
-    .query(
-      async ({
-        ctx,
-        input,
-      }): Promise<
-        Array<{
-          userWalletId: number;
-          poolId: number;
-          stakeAmount: bigint;
-          pool: RewardPool;
-        }>
-      > => {
-        const userId = ctx.user.sub;
+    .query(async ({ ctx, input }): Promise<Array<UserStakedPool>> => {
+      const userId = ctx.user.sub;
 
-        try {
-          const userWallet = await prisma.userWallet.findUnique({
-            where: { userId },
-          });
+      try {
+        const userWallet = await prisma.userWallet.findUnique({
+          where: { userId },
+        });
 
-          if (!userWallet) {
-            throw new TRPCError({
-              code: "PRECONDITION_FAILED",
-              message: "User does not have a wallet",
-            });
-          }
+        if (!userWallet) {
+          return [];
+        }
 
-          // Get the chain configuration for the specified chainId
-          const chain = getChainConfig(parseInt(input.chainId));
+        // Get the chain configuration for the specified chainId
+        const chain = getChainConfig(parseInt(input.chainId));
 
-          if (!chain) {
-            return [];
-          }
+        if (!chain) {
+          return [];
+        }
 
-          const publicClient = createPublicClient({
-            chain: chain,
-            transport: http(),
-          });
+        const publicClient = createPublicClient({
+          chain: chain,
+          transport: http(),
+        });
 
-          const userStakes = await prisma.stakedPool.findMany({
-            where: {
-              userWalletId: userWallet.id,
-              pool: {
-                chainId: input.chainId, // Only fetch stakes for the specified chain
-              },
+        const userStakes = await prisma.stakedPool.findMany({
+          where: {
+            userWalletId: userWallet.id,
+            pool: {
+              chainId: input.chainId, // Only fetch stakes for the specified chain
             },
-            include: {
-              pool: {
-                include: {
-                  _count: {
-                    select: {
-                      stakedPools: true,
-                    },
-                  },
-                  poolImage: {
-                    select: {
-                      s3_key: true,
-                    },
-                  },
-                  wallet: {
-                    select: {
-                      userId: true,
-                      address: true,
-                    },
+          },
+          include: {
+            pool: {
+              select: {
+                id: true,
+                poolAddress: true,
+                image_file_id: true,
+                poolImage: {
+                  select: {
+                    s3_key: true,
                   },
                 },
               },
             },
+          },
+        });
+
+        // Prepare arrays for batch processing
+        const poolsToFetch = userStakes.filter(
+          stake => stake.pool.poolAddress && userWallet.address
+        );
+
+        // Create multicall requests for all the fanStakes we need to fetch
+        const multicallRequests = poolsToFetch.map(stake => ({
+          address: stake.pool.poolAddress as Address,
+          abi: CREATOR_POOL_ABI,
+          functionName: "fanStakes" as const,
+          args: [userWallet.address as Address],
+        }));
+
+        // Execute all contract calls in a single batch
+        const blockchainStakeData: { poolId: number; stakeAmount: string }[] = [];
+        if (multicallRequests.length > 0) {
+          const results = await publicClient.multicall({
+            contracts: multicallRequests,
           });
 
-          // Prepare arrays for batch processing
-          const poolsToFetch = userStakes.filter(
-            stake => stake.pool.poolAddress && userWallet.address
-          );
+          // Process the results, handling both fulfilled and rejected promises
+          results.forEach((result, index) => {
+            const poolId = poolsToFetch[index].pool.id;
 
-          // Create multicall requests for all the fanStakes we need to fetch
-          const multicallRequests = poolsToFetch.map(stake => ({
-            address: stake.pool.poolAddress as Address,
-            abi: CREATOR_POOL_ABI,
-            functionName: "fanStakes" as const,
-            args: [userWallet.address as Address],
-          }));
+            if (result.status === "success") {
+              blockchainStakeData.push({
+                poolId,
+                stakeAmount: result.result.toString(),
+              });
+              console.log(
+                `[multicall] Successfully fetched stake amount from contract for pool ${poolId} and user ${userWallet.address}: ${result.result.toString()}`
+              );
+            } else {
+              console.error(
+                `[multicall] Error fetching stake amount from contract for pool ${poolId} and user ${userWallet.address}:`,
+                result.error
+              );
+              // Continue processing other results
+            }
+          });
+        }
 
-          // Execute all contract calls in a single batch
-          const blockchainStakeData: { poolId: number; stakeAmount: string }[] = [];
-          if (multicallRequests.length > 0) {
-            const results = await publicClient.multicall({
-              contracts: multicallRequests,
-            });
+        // Update the database with the latest stake amounts from the blockchain using a single query
+        if (blockchainStakeData.length > 0) {
+          // Build the raw query with proper parameterization for MySQL using CASE WHEN statement
+          const caseWhens = blockchainStakeData
+            .map(
+              stakeData =>
+                `WHEN userWalletId = ${userWallet.id} AND poolId = ${stakeData.poolId} THEN '${stakeData.stakeAmount}'`
+            )
+            .join(" ");
 
-            // Process the results, handling both fulfilled and rejected promises
-            results.forEach((result, index) => {
-              const poolId = poolsToFetch[index].pool.id;
+          const poolIds = blockchainStakeData.map(stakeData => stakeData.poolId).join(",");
 
-              if (result.status === "success") {
-                blockchainStakeData.push({
-                  poolId,
-                  stakeAmount: result.result.toString(),
-                });
-                console.log(
-                  `[multicall] Successfully fetched stake amount from contract for pool ${poolId} and user ${userWallet.address}: ${result.result.toString()}`
-                );
-              } else {
-                console.error(
-                  `[multicall] Error fetching stake amount from contract for pool ${poolId} and user ${userWallet.address}:`,
-                  result.error
-                );
-                // Continue processing other results
-              }
-            });
-          }
-
-          // Update the database with the latest stake amounts from the blockchain using a single query
-          if (blockchainStakeData.length > 0) {
-            // Build the raw query with proper parameterization for MySQL using CASE WHEN statement
-            const caseWhens = blockchainStakeData
-              .map(
-                stakeData =>
-                  `WHEN userWalletId = ${userWallet.id} AND poolId = ${stakeData.poolId} THEN '${stakeData.stakeAmount}'`
-              )
-              .join(" ");
-
-            const poolIds = blockchainStakeData.map(stakeData => stakeData.poolId).join(",");
-
-            // Use raw SQL to update multiple stakedPool records in a single query using CASE WHEN
-            await prisma.$executeRawUnsafe(`
+          // Use raw SQL to update multiple stakedPool records in a single query using CASE WHEN
+          await prisma.$executeRawUnsafe(`
               UPDATE staked_pools
               SET stakeAmount = CASE
                 ${caseWhens}
@@ -710,100 +688,133 @@ export const poolsFanRouter = router({
               AND poolId IN (${poolIds})
             `);
 
-            console.log(
-              `Successfully updated ${blockchainStakeData.length} stakedPool records for userWalletId: ${userWallet.id}`
-            );
-          }
-
-          // Prepare final result with blockchain stake amounts
-          const resultStakes = await Promise.all(
-            userStakes.map(async stake => {
-              // Check if we have a blockchain update for this stake
-              const blockchainData = blockchainStakeData.find(
-                data => data && data.poolId === stake.pool.id
-              );
-
-              // Use blockchain value if available, otherwise use original database value
-              const currentStakeAmount = blockchainData
-                ? blockchainData.stakeAmount
-                : stake.stakeAmount.toString();
-
-              const poolName = await getPoolName(
-                stake.pool.poolAddress as Address,
-                parseInt(stake.pool.chainId)
-              );
-
-              // Get user's pending rewards from the pool contract
-              let userPendingRewards = 0n;
-              if (userWallet && stake.pool.poolAddress && chain) {
-                try {
-                  const publicClient = createPublicClient({
-                    chain: chain,
-                    transport: http(),
-                  });
-
-                  // Use the pendingReward function to get the user's pending rewards
-                  userPendingRewards = (await publicClient.readContract({
-                    address: stake.pool.poolAddress as Address,
-                    abi: CREATOR_POOL_ABI,
-                    functionName: "pendingReward",
-                    args: [userWallet.address as Address],
-                  })) as bigint;
-                } catch (error) {
-                  console.error(
-                    `Error fetching user pending rewards from blockchain for pool ${stake.pool.id}:`,
-                    error
-                  );
-                  // If blockchain query fails, return 0n as there's no fallback in the database for pending rewards
-                  userPendingRewards = 0n;
-                }
-              }
-
-              const rewardPool: RewardPool = {
-                id: stake.pool.id,
-                description: stake.pool.description,
-                chainId: stake.pool.chainId,
-                address: stake.pool.poolAddress!,
-                image:
-                  stake.pool.image_file_id && stake.pool.poolImage
-                    ? {
-                        id: stake.pool.image_file_id,
-                        url: s3Service.getFileUrl(stake.pool.poolImage.s3_key),
-                      }
-                    : null,
-                name: poolName || `Pool ${stake.pool.id}`, // Using blockchain name, fallback to id-based name
-                totalReward: BigInt(stake.pool.revoStaked), // Return as wei (bigint)
-                stakedAmount: BigInt(stake.pool.revoStaked), // Return as wei (bigint)
-                fans: stake.pool._count.stakedPools,
-                pendingRewards: userPendingRewards, // User's pending rewards that can be claimed
-                stakedByYou: BigInt(currentStakeAmount), // Amount of REVO that the requesting user has staked in this pool
-                creator: {
-                  userId: stake.pool.wallet.userId!,
-                  address: stake.pool.wallet.address!,
-                },
-              };
-              return {
-                ...stake,
-                stakeAmount: BigInt(currentStakeAmount), // Return as wei (bigint) without formatting
-                pool: rewardPool,
-              };
-            })
+          console.log(
+            `Successfully updated ${blockchainStakeData.length} stakedPool records for userWalletId: ${userWallet.id}`
           );
+        }
 
-          // Filter out stakes where the user has 0 stake amount
-          const filteredResultStakes = resultStakes.filter(stake => stake.stakeAmount > 0n);
+        // Prepare arrays for additional multicall requests
+        const poolsForMulticall = userStakes.filter(
+          stake => stake.pool.poolAddress && userWallet.address
+        );
 
-          return filteredResultStakes;
-        } catch (error) {
-          console.error("Error getting user stakes:", error);
-          if (error instanceof TRPCError) throw error;
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Failed to get user stakes",
+        // Create multicall requests for pool names and user pending rewards
+        const nameRequests = poolsForMulticall.map(stake => ({
+          address: stake.pool.poolAddress as Address,
+          abi: CREATOR_POOL_ABI,
+          functionName: "poolName" as const,
+        }));
+
+        const pendingRewardRequests = poolsForMulticall.map(stake => ({
+          address: stake.pool.poolAddress as Address,
+          abi: CREATOR_POOL_ABI,
+          functionName: "pendingReward" as const,
+          args: [userWallet.address as Address],
+        }));
+
+        // Execute name and pending reward calls in batch
+        const poolNames: (string | null)[] = [];
+        const poolPendingRewards: bigint[] = [];
+
+        if (nameRequests.length > 0) {
+          const nameResults = await publicClient.multicall({
+            contracts: nameRequests,
+          });
+
+          // Process the name results
+          nameResults.forEach((result, index) => {
+            if (result.status === "success") {
+              poolNames[index] = result.result as string;
+              console.log(
+                `[multicall] Successfully fetched pool name from contract for pool ${poolsForMulticall[index].pool.id}: ${result.result}`
+              );
+            } else {
+              console.error(
+                `[multicall] Error fetching pool name from contract for pool ${poolsForMulticall[index].pool.id}:`,
+                result.error
+              );
+              poolNames[index] = null;
+            }
           });
         }
+
+        if (pendingRewardRequests.length > 0) {
+          const pendingRewardResults = await publicClient.multicall({
+            contracts: pendingRewardRequests,
+          });
+
+          // Process the pending reward results
+          pendingRewardResults.forEach((result, index) => {
+            if (result.status === "success") {
+              poolPendingRewards[index] = result.result as bigint;
+              console.log(
+                `[multicall] Successfully fetched pending reward from contract for pool ${poolsForMulticall[index].pool.id} and user ${userWallet.address}: ${result.result.toString()}`
+              );
+            } else {
+              console.error(
+                `[multicall] Error fetching pending reward from contract for pool ${poolsForMulticall[index].pool.id} and user ${userWallet.address}:`,
+                result.error
+              );
+              // If blockchain query fails, return 0n as there's no fallback in the database for pending rewards
+              poolPendingRewards[index] = 0n;
+            }
+          });
+        }
+
+        // Prepare final result with blockchain stake amounts, names and pending rewards
+        const resultStakes = userStakes.map((stake, index) => {
+          // Check if we have a blockchain update for this stake
+          const blockchainData = blockchainStakeData.find(
+            data => data && data.poolId === stake.pool.id
+          );
+
+          // Use blockchain value if available, otherwise use original database value
+          const currentStakeAmount = blockchainData
+            ? blockchainData.stakeAmount
+            : stake.stakeAmount.toString();
+
+          // Get the pool name from multicall results
+          const poolName = poolNames[index] || `Pool ${stake.pool.id}`;
+
+          // Get the pending rewards from multicall results
+          const userPendingRewards = poolPendingRewards[index] || 0n;
+
+          const slimRewardPool: SlimRewardPool = {
+            id: stake.pool.id,
+            address: stake.pool.poolAddress!,
+            image:
+              stake.pool.image_file_id && stake.pool.poolImage
+                ? {
+                    id: stake.pool.image_file_id,
+                    url: s3Service.getFileUrl(stake.pool.poolImage.s3_key),
+                  }
+                : null,
+            name: poolName, // Using blockchain name, fallback to id-based name
+            pendingRewards: userPendingRewards,
+            stakedByYou: BigInt(currentStakeAmount), // Amount of REVO that the requesting user has staked in this pool
+          };
+
+          const userStakedPool: UserStakedPool = {
+            ...stake,
+            stakeAmount: BigInt(currentStakeAmount), // Return as wei (bigint) without formatting
+            pool: slimRewardPool,
+          };
+          return userStakedPool;
+        });
+
+        // Filter out stakes where the user has 0 stake amount
+        const filteredResultStakes = resultStakes.filter(stake => stake.stakeAmount > 0n);
+
+        return filteredResultStakes;
+      } catch (error) {
+        console.error("Error getting user stakes:", error);
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to get user stakes",
+        });
       }
-    ),
+    }),
 
   confirmStake: privateProcedure
     .input(

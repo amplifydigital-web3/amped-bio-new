@@ -20,3 +20,22 @@ export interface RewardPool {
     address: string;
   };
 }
+
+export interface SlimRewardPool {
+  id: number;
+  address: string;
+  image: {
+    id: number;
+    url: string;
+  } | null;
+  name: string;
+  pendingRewards: bigint;
+  stakedByYou: bigint;
+}
+
+export interface UserStakedPool {
+  userWalletId: number;
+  poolId: number;
+  stakeAmount: bigint;
+  pool: SlimRewardPool;
+}
