@@ -18,6 +18,7 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
+        "@amped/web3": path.resolve(__dirname, "../../packages/web3/src/index.ts"),
       },
     },
     define: {

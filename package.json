@@ -13,14 +13,16 @@
     "dev": "pnpm dev:client",
     "dev:client": "pnpm build:packages && pnpm --filter @ampedbio/client dev:client-only",
     "dev:full": "turbo dev",
-    "predev:full": "pnpm build:packages",
     "client-only": "pnpm build:packages && pnpm --filter @ampedbio/client dev:client-only",
     "client-only:install": "pnpm install --filter @ampedbio/constants --filter @ampedbio/client",
     "lint": "turbo lint",
     "lint:fix": "turbo lint:fix",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,md}\"",
-    "e2e:test": "pnpm --filter client e2e:test"
+    "typecheck": "turbo typecheck",
+    "e2e:test": "pnpm --filter client e2e:test",
+    "clear": "rm -rf .turbo && find . -name 'node_modules' -type d -prune -exec rm -rf '{}' + && find . -name 'dist' -type d -prune -exec rm -rf '{}' + && find . -name '.turbo' -type d -prune -exec rm -rf '{}' + && find . -name 'coverage' -type d -prune -exec rm -rf '{}' +",
+    "clean": "turbo run clean"
   },
   "devDependencies": {
     "eslint-plugin-unused-imports": "^4.1.4",

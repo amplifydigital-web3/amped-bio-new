@@ -10,7 +10,7 @@ export const useCaptcha = () => {
     import.meta.env.MODE !== "testing" && !!import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 
   const openCaptcha = (): Promise<string | null> => {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       resolveRef.current = resolve;
       setIsOpen(true);
     });
@@ -116,9 +116,7 @@ export function CaptchaDialog({ isOpen, onClose, onSubmit }: CaptchaDialogProps)
           </div>
         ) : (
           <div className="text-center">
-            <p className="text-gray-600 mb-4">
-              ReCAPTCHA is disabled in this environment.
-            </p>
+            <p className="text-gray-600 mb-4">ReCAPTCHA is disabled in this environment.</p>
             <button
               onClick={handleSubmit}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors"

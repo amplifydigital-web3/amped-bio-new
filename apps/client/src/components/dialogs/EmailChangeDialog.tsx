@@ -19,6 +19,13 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+} from "@/components/ui/dialog";
 
 // Define validation schemas using Zod
 const initiateEmailSchema = z
@@ -337,243 +344,249 @@ export function EmailChangeDialog({ isOpen, onClose }: EmailChangeDialogProps) {
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="email-change-dialog-title"
-    >
-      <div className="bg-white rounded-xl p-6 sm:p-8 w-full max-w-md mx-auto shadow-xl animate-in fade-in zoom-in duration-200">
-        <div className="flex items-center justify-between mb-6">
-          <h2 id="email-change-dialog-title" className="text-xl font-semibold text-gray-900">
+    <Dialog open={isOpen} onOpenChange={open => !open && handleCloseDialog()}>
+      <DialogContent className="p-0 w-full max-w-md mx-auto animate-in fade-in zoom-in duration-200">
+        <DialogHeader className="p-6 pb-4 border-b border-gray-200">
+          <DialogTitle className="text-xl font-semibold text-gray-900">
             Change Email Address
-          </h2>
-          <button
+          </DialogTitle>
+          <DialogClose
+            className="absolute right-4 top-4 p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
             onClick={handleCloseDialog}
-            className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
             aria-label="Close email change dialog"
           >
             <X className="w-5 h-5" />
-          </button>
-        </div>
+          </DialogClose>
+        </DialogHeader>
+        <div className="p-6 sm:p-8">
+          {/* Display error message if any */}
+          {renderError()}
 
-        {/* Display error message if any */}
-        {renderError()}
-
-        {/* Success message */}
-        {success ? (
-          <div className="text-center py-4">
-            <div className="flex flex-col items-center mb-5">
-              <div className="bg-green-100 rounded-full p-3 mb-4">
-                <Check className="h-8 w-8 text-green-600" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-800">Email Address Updated</h3>
-            </div>
-
-            <p className="text-sm text-gray-600 mb-6">
-              Your email address has been successfully updated to{" "}
-              <span className="font-medium">{newEmail}</span>.
-            </p>
-
-            <button
-              onClick={handleCloseDialog}
-              className="px-5 py-2.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
-            >
-              Done
-            </button>
-          </div>
-        ) : step === "enter_email" ? (
-          // Step 1: Enter new email form
-          <form onSubmit={handleSubmitInitiate(onSubmitInitiateEmail)} className="space-y-5">
-            <div>
-              <p className="text-sm text-gray-600 mb-5">
-                Enter your current and new email addresses below. We'll send a verification code to your current email to confirm the
-                change.
-              </p>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-gray-700">Current Email Address</label>
-              <input
-                type="email"
-                className={`w-full px-3.5 py-2.5 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                  initiateErrors.currentEmail ? "border-red-500" : "border-gray-300"
-                }`}
-                placeholder="Enter your current email address"
-                {...registerInitiate("currentEmail")}
-              />
-              {initiateErrors.currentEmail && (
-                <p className="mt-1.5 text-sm text-red-600">{initiateErrors.currentEmail.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-gray-700">New Email Address</label>
-              <input
-                type="email"
-                className={`w-full px-3.5 py-2.5 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                  initiateErrors.newEmail ? "border-red-500" : "border-gray-300"
-                }`}
-                placeholder="Enter your new email address"
-                {...registerInitiate("newEmail")}
-              />
-              {initiateErrors.newEmail && (
-                <p className="mt-1.5 text-sm text-red-600">{initiateErrors.newEmail.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-gray-700">
-                Confirm New Email Address
-              </label>
-              <input
-                type="email"
-                className={`w-full px-3.5 py-2.5 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                  initiateErrors.confirmEmail ? "border-red-500" : "border-gray-300"
-                }`}
-                placeholder="Confirm your new email address"
-                {...registerInitiate("confirmEmail")}
-              />
-              {initiateErrors.confirmEmail && (
-                <p className="mt-1.5 text-sm text-red-600">{initiateErrors.confirmEmail.message}</p>
-              )}
-            </div>
-
-            <div className="flex justify-end space-x-3 pt-3">
-              <button
-                type="button"
-                onClick={handleCloseDialog}
-                className="px-4 py-2.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={loading || resendCooldown > 0}
-                className="px-4 py-2.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[140px] font-medium"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Sending...
-                  </>
-                ) : resendCooldown > 0 ? (
-                  <>Wait {resendCooldown}s</>
-                ) : (
-                  "Send Verification Code"
-                )}
-              </button>
-            </div>
-          </form>
-        ) : (
-          // Step 2: Verify code form - Updated with Form components
-          <div className="space-y-5">
-            <p className="text-sm text-gray-600 mb-5">
-              We've sent a verification code to your <span className="font-medium">current email ({authUser?.email})</span>.
-              Enter the 6-digit code below to verify your new email address.
-            </p>
-
-            {expiresAt && remainingTime && (
-              <div className="text-sm text-gray-500 text-center mb-3">
-                Code expires in: <span className="font-medium">{remainingTime}</span>
-              </div>
-            )}
-
-            <Form {...confirmForm}>
-              <form onSubmit={confirmForm.handleSubmit(onSubmitConfirmEmail)} className="space-y-5">
-                <FormField
-                  control={confirmForm.control}
-                  name="code"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="block text-sm font-medium text-gray-700 text-center mb-2">
-                        Verification Code
-                      </FormLabel>
-                      <div className="flex justify-center">
-                        <FormControl>
-                          <InputOTP maxLength={6} {...field}>
-                            <InputOTPGroup>
-                              <InputOTPSlot index={0} className="w-10 h-12" />
-                              <InputOTPSlot index={1} className="w-10 h-12" />
-                              <InputOTPSlot index={2} className="w-10 h-12" />
-                            </InputOTPGroup>
-                            <InputOTPSeparator />
-                            <InputOTPGroup>
-                              <InputOTPSlot index={3} className="w-10 h-12" />
-                              <InputOTPSlot index={4} className="w-10 h-12" />
-                              <InputOTPSlot index={5} className="w-10 h-12" />
-                            </InputOTPGroup>
-                          </InputOTP>
-                        </FormControl>
-                      </div>
-                      <FormMessage className="mt-2 text-sm text-red-600 text-center" />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="flex justify-end space-x-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={handleCloseDialog}
-                    className="px-4 py-2.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="px-4 py-2.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[120px] font-medium"
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Verifying...
-                      </>
-                    ) : (
-                      "Verify Email"
-                    )}
-                  </button>
+          {/* Success message */}
+          {success ? (
+            <div className="text-center py-4">
+              <div className="flex flex-col items-center mb-5">
+                <div className="bg-green-100 rounded-full p-3 mb-4">
+                  <Check className="h-8 w-8 text-green-600" />
                 </div>
+                <h3 className="text-lg font-medium text-gray-800">Email Address Updated</h3>
+              </div>
 
-                {/* Options row */}
-                <div className="flex justify-center items-center pt-4 border-t border-gray-100 mt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStep("enter_email");
-                      confirmForm.reset();
-                    }}
-                    className="text-sm text-blue-600 hover:text-blue-800 hover:underline mr-6"
-                  >
-                    Change email address
-                  </button>
+              <p className="text-sm text-gray-600 mb-6">
+                Your email address has been successfully updated to{" "}
+                <span className="font-medium">{newEmail}</span>.
+              </p>
 
-                  {/* Resend code section */}
-                  {resendCooldown > 0 ? (
-                    <p className="text-sm text-gray-500">Resend in {resendCooldown}s</p>
+              <button
+                onClick={handleCloseDialog}
+                className="px-5 py-2.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          ) : step === "enter_email" ? (
+            // Step 1: Enter new email form
+            <form onSubmit={handleSubmitInitiate(onSubmitInitiateEmail)} className="space-y-5">
+              <div>
+                <p className="text-sm text-gray-600 mb-5">
+                  Enter your current and new email addresses below. We'll send a verification code
+                  to your current email to confirm the change.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-gray-700">
+                  Current Email Address
+                </label>
+                <input
+                  type="email"
+                  className={`w-full px-3.5 py-2.5 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    initiateErrors.currentEmail ? "border-red-500" : "border-gray-300"
+                  }`}
+                  placeholder="Enter your current email address"
+                  {...registerInitiate("currentEmail")}
+                />
+                {initiateErrors.currentEmail && (
+                  <p className="mt-1.5 text-sm text-red-600">
+                    {initiateErrors.currentEmail.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-gray-700">New Email Address</label>
+                <input
+                  type="email"
+                  className={`w-full px-3.5 py-2.5 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    initiateErrors.newEmail ? "border-red-500" : "border-gray-300"
+                  }`}
+                  placeholder="Enter your new email address"
+                  {...registerInitiate("newEmail")}
+                />
+                {initiateErrors.newEmail && (
+                  <p className="mt-1.5 text-sm text-red-600">{initiateErrors.newEmail.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-gray-700">
+                  Confirm New Email Address
+                </label>
+                <input
+                  type="email"
+                  className={`w-full px-3.5 py-2.5 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    initiateErrors.confirmEmail ? "border-red-500" : "border-gray-300"
+                  }`}
+                  placeholder="Confirm your new email address"
+                  {...registerInitiate("confirmEmail")}
+                />
+                {initiateErrors.confirmEmail && (
+                  <p className="mt-1.5 text-sm text-red-600">
+                    {initiateErrors.confirmEmail.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-3">
+                <button
+                  type="button"
+                  onClick={handleCloseDialog}
+                  className="px-4 py-2.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading || resendCooldown > 0}
+                  className="px-4 py-2.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[140px] font-medium"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Sending...
+                    </>
+                  ) : resendCooldown > 0 ? (
+                    <>Wait {resendCooldown}s</>
                   ) : (
+                    "Send Verification Code"
+                  )}
+                </button>
+              </div>
+            </form>
+          ) : (
+            // Step 2: Verify code form - Updated with Form components
+            <div className="space-y-5">
+              <p className="text-sm text-gray-600 mb-5">
+                We've sent a verification code to your{" "}
+                <span className="font-medium">current email ({authUser?.email})</span>. Enter the
+                6-digit code below to verify your new email address.
+              </p>
+
+              {expiresAt && remainingTime && (
+                <div className="text-sm text-gray-500 text-center mb-3">
+                  Code expires in: <span className="font-medium">{remainingTime}</span>
+                </div>
+              )}
+
+              <Form {...confirmForm}>
+                <form
+                  onSubmit={confirmForm.handleSubmit(onSubmitConfirmEmail)}
+                  className="space-y-5"
+                >
+                  <FormField
+                    control={confirmForm.control}
+                    name="code"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="block text-sm font-medium text-gray-700 text-center mb-2">
+                          Verification Code
+                        </FormLabel>
+                        <div className="flex justify-center">
+                          <FormControl>
+                            <InputOTP maxLength={6} {...field}>
+                              <InputOTPGroup>
+                                <InputOTPSlot index={0} className="w-10 h-12" />
+                                <InputOTPSlot index={1} className="w-10 h-12" />
+                                <InputOTPSlot index={2} className="w-10 h-12" />
+                              </InputOTPGroup>
+                              <InputOTPSeparator />
+                              <InputOTPGroup>
+                                <InputOTPSlot index={3} className="w-10 h-12" />
+                                <InputOTPSlot index={4} className="w-10 h-12" />
+                                <InputOTPSlot index={5} className="w-10 h-12" />
+                              </InputOTPGroup>
+                            </InputOTP>
+                          </FormControl>
+                        </div>
+                        <FormMessage className="mt-2 text-sm text-red-600 text-center" />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="flex justify-end space-x-3 pt-4">
                     <button
                       type="button"
-                      onClick={handleResendCode}
-                      className="text-sm text-blue-600 hover:text-blue-800 hover:underline flex items-center"
-                      disabled={resendLoading}
+                      onClick={handleCloseDialog}
+                      className="px-4 py-2.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
                     >
-                      {resendLoading ? (
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="px-4 py-2.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[120px] font-medium"
+                    >
+                      {loading ? (
                         <>
-                          <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
-                          Resending...
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Verifying...
                         </>
                       ) : (
-                        "Resend code"
+                        "Verify Email"
                       )}
                     </button>
-                  )}
-                </div>
-              </form>
-            </Form>
-          </div>
-        )}
-      </div>
-    </div>
+                  </div>
+
+                  {/* Options row */}
+                  <div className="flex justify-center items-center pt-4 border-t border-gray-100 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStep("enter_email");
+                        confirmForm.reset();
+                      }}
+                      className="text-sm text-blue-600 hover:text-blue-800 hover:underline mr-6"
+                    >
+                      Change email address
+                    </button>
+
+                    {/* Resend code section */}
+                    {resendCooldown > 0 ? (
+                      <p className="text-sm text-gray-500">Resend in {resendCooldown}s</p>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleResendCode}
+                        className="text-sm text-blue-600 hover:text-blue-800 hover:underline flex items-center"
+                        disabled={resendLoading}
+                      >
+                        {resendLoading ? (
+                          <>
+                            <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+                            Resending...
+                          </>
+                        ) : (
+                          "Resend code"
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </form>
+              </Form>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

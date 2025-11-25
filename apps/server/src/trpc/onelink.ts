@@ -156,6 +156,8 @@ const appRouter = router({
         });
       }
 
+      const hasCreatorPool = false; // Placeholder - we need to determine this differently since pools are now related to wallet
+
       const { theme: theme_id, id: user_id, name, email, description, image, image_file_id } = user;
       console.info(`👤 User data extracted - Name: ${name}, ID: ${user_id}, Theme ID: ${theme_id}`);
 
@@ -195,7 +197,12 @@ const appRouter = router({
         imageFileId: image_file_id,
       });
 
-      const result = { user: { name, email, description, image: resolvedImageUrl }, theme, blocks };
+      const result = {
+        user: { name, email, description, image: resolvedImageUrl },
+        theme,
+        blocks,
+        hasCreatorPool,
+      };
       console.info("🔄 Preparing response with user data, theme, and blocks");
 
       console.info("✅ Successfully processed onelink request");

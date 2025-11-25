@@ -16,12 +16,14 @@ import { getAddress } from "viem/utils";
 import { prisma } from "../services/DB";
 import { getChainConfig } from "@ampedbio/web3";
 import * as jose from "jose";
+import Decimal from "decimal.js";
 
 // Schema for requesting faucet tokens
 const faucetRequestSchema = z.object({
   publicKey: z.string(),
   chainId: z.number(),
-  idToken: z.string(),
+  idToken: z.string().optional(), // Optional for development
+  address: z.string().optional(), // Optional address for development
 });
 
 // Schema for faucet response
@@ -94,18 +96,35 @@ export const walletRouter = router({
   linkWalletAddress: privateProcedure
     .input(
       z.object({
-        publicKey: z.string(),
-        idToken: z.string(),
+        publicKey: z.string().optional(), // Optional for development direct address linking
+        idToken: z.string().optional(), // Optional for development
+        address: z.string().optional(), // Optional address for development
       })
     )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.sub;
 
-      // Verify the Web3Auth ID token and get the wallet address
-      await verifyWeb3AuthIdToken(input.idToken, input.publicKey);
+      let address: Address;
 
-      // Convert the public key to an Ethereum address
-      const address = web3AuthPublicKeyToAddress(input.publicKey);
+      // In development, allow direct address linking without Web3Auth verification
+      if (env.NODE_ENV === "development" && input.address) {
+        address = getAddress(input.address as Address);
+      } else {
+        // In production or when no address is provided, verify the Web3Auth ID token
+        if (!input.idToken || !input.publicKey) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Web3Auth ID token and public key are required in production mode or when direct address linking is not used. In production, wallet linking must be authenticated through Web3Auth.",
+          });
+        }
+
+        // Verify the Web3Auth ID token and get the wallet address
+        await verifyWeb3AuthIdToken(input.idToken, input.publicKey);
+
+        // Convert the public key to an Ethereum address
+        address = web3AuthPublicKeyToAddress(input.publicKey);
+      }
 
       try {
         // Check if the user already has a linked wallet (1:1 relationship)
@@ -233,7 +252,10 @@ export const walletRouter = router({
 
           const account = privateKeyToAccount(env.FAUCET_PRIVATE_KEY as `0x${string}`);
           const balance = await publicClient.getBalance({ address: account.address });
-          const balanceInEther = parseFloat(formatEther(balance));
+          // Use Decimal for precise conversion from wei to ether
+          const balanceInEther = new Decimal(balance.toString())
+            .div(new Decimal("10").pow(18))
+            .toNumber();
 
           // Check if the faucet has enough balance for the airdrop
           if (balanceInEther < faucetAmount) {
@@ -318,10 +340,26 @@ export const walletRouter = router({
       try {
         const userId = ctx.user.sub;
 
-        // Verify the Web3Auth ID token and get the wallet address
-        await verifyWeb3AuthIdToken(input.idToken, input.publicKey);
+        let address: Address;
 
-        const address = web3AuthPublicKeyToAddress(input.publicKey);
+        // In development, allow direct address usage without Web3Auth verification
+        if (env.NODE_ENV === "development" && input.address) {
+          address = getAddress(input.address as Address);
+        } else {
+          // In production or when no address is provided, verify the Web3Auth ID token
+          if (!input.idToken) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "Web3Auth ID token is required in production mode or when direct address linking is not used. In production, faucet requests must be authenticated through Web3Auth.",
+            });
+          }
+
+          // Verify the Web3Auth ID token and get the wallet address
+          await verifyWeb3AuthIdToken(input.idToken, input.publicKey);
+
+          address = web3AuthPublicKeyToAddress(input.publicKey);
+        }
 
         if (!env.FAUCET_PRIVATE_KEY) {
           throw new TRPCError({
@@ -356,7 +394,10 @@ export const walletRouter = router({
           });
 
           const balance = await publicClient.getBalance({ address: account.address });
-          const balanceInEther = parseFloat(formatEther(balance));
+          // Use Decimal for precise conversion from wei to ether
+          const balanceInEther = new Decimal(balance.toString())
+            .div(new Decimal("10").pow(18))
+            .toNumber();
           const faucetAmount = Number(env.FAUCET_AMOUNT);
 
           // Check if the faucet has enough balance for the airdrop
@@ -608,6 +649,116 @@ export const walletRouter = router({
         image: userWallet.user.image,
       };
     }),
+
+  // Get wallet statistics for the current user
+  getWalletStats: privateProcedure.query(async ({ ctx }) => {
+    const userId = ctx.user.sub;
+
+    try {
+      // Get user's wallet
+      const userWallet = await prisma.userWallet.findUnique({
+        where: { userId },
+      });
+
+      if (!userWallet) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "User does not have a wallet",
+        });
+      }
+
+      // Calculate "My Stake" - Total amount the user has staked across all pools
+      const userStakes = await prisma.stakedPool.findMany({
+        where: {
+          userWalletId: userWallet.id,
+          stakeAmount: {
+            gt: "0", // Only count active stakes greater than 0
+          },
+        },
+      });
+
+      const myStake = userStakes.reduce((total, stake) => {
+        const stakeAmount = BigInt(stake.stakeAmount);
+        return total + stakeAmount;
+      }, 0n);
+
+      // Calculate "Staked to Me" - Total amount staked in pools created by the user
+      const userCreatorPools = await prisma.creatorPool.findMany({
+        where: {
+          walletId: userWallet.id,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      const poolIds = userCreatorPools.map(pool => pool.id);
+      let stakedToMe = 0n;
+      if (poolIds.length > 0) {
+        const stakesToMyPools = await prisma.stakedPool.findMany({
+          where: {
+            poolId: {
+              in: poolIds,
+            },
+          },
+        });
+
+        stakedToMe = stakesToMyPools.reduce((total, stake) => {
+          const stakeAmount = BigInt(stake.stakeAmount);
+          return total + stakeAmount;
+        }, 0n);
+      }
+
+      // Calculate "Stakers Supporting You" - Number of unique users who have staked in the user's pools
+      let stakersSupportingMe = 0;
+      if (poolIds.length > 0) {
+        // Get all stakes to user's pools where the stake amount is greater than 0
+        const stakesToMyPools = await prisma.stakedPool.findMany({
+          where: {
+            poolId: {
+              in: poolIds,
+            },
+            stakeAmount: {
+              gt: "0", // Only count active stakes
+            },
+          },
+          select: {
+            userWalletId: true,
+          },
+        });
+
+        // Count unique user wallet IDs to get the number of stakers
+        const uniqueUserWalletIds = new Set(
+          stakesToMyPools.map((stake: { userWalletId: number }) => stake.userWalletId)
+        );
+        stakersSupportingMe = uniqueUserWalletIds.size;
+      }
+
+      // Calculate "Creator Pools Joined" - Number of pools the user has staked in with a stake greater than 0
+      const creatorPoolsJoined = await prisma.stakedPool.count({
+        where: {
+          userWalletId: userWallet.id,
+          stakeAmount: {
+            gt: "0", // Only count active stakes greater than 0
+          },
+        },
+      });
+
+      return {
+        myStake: myStake, // Return as bigint (wei)
+        stakedToMe: stakedToMe, // Return as bigint (wei)
+        stakersSupportingMe,
+        creatorPoolsJoined,
+      };
+    } catch (error) {
+      console.error("Error calculating wallet stats:", error);
+      if (error instanceof TRPCError) throw error;
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to calculate wallet stats",
+      });
+    }
+  }),
 });
 
 // viem's publicKeyToAddress assumes the public key is uncompressed, but Web3Auth provides a compressed key.

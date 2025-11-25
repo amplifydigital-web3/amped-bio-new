@@ -29,7 +29,7 @@ export default tseslint.config(
       ],
       'quotes': ['warn', 'double', { 'avoidEscape': true, 'allowTemplateLiterals': true }],
       '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': 'warn',
       'unused-imports/no-unused-imports': 'warn',
       'unused-imports/no-unused-vars': [
         'warn',

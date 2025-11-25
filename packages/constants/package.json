@@ -14,7 +14,7 @@
     "dev": "tsup src/index.ts --format esm,cjs --watch --dts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix --exit-on-fatal-error",
-    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist",
+    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf coverage",
     "prepare": "pnpm run build"
   },
   "devDependencies": {

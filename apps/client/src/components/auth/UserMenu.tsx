@@ -25,7 +25,7 @@ export function UserMenu() {
   const { authUser, signOut } = useAuth();
   const walletContext = useWalletContext();
   const { profile, setUser, setDefault } = useEditor();
-  const nav = useNavigate();
+  const navigate = useNavigate();
   const { address: walletAddress } = useAccount();
 
   // Reset image error state when user changes
@@ -50,13 +50,13 @@ export function UserMenu() {
       // Check if there's a panel parameter in the current URL
       const searchParams = new URLSearchParams(window.location.search);
       const panelParam = searchParams.get("p");
-      
+
       if (panelParam) {
-        return nav(`/${formattedOnelink}/edit?p=${panelParam}`);
+        return navigate(`/${formattedOnelink}/edit?p=${panelParam}`);
       }
-      return nav(`/${formattedOnelink}/edit`);
+      return navigate(`/${formattedOnelink}/edit`);
     }
-    return nav("/");
+    return navigate("/");
   };
 
   const handleCancelAuth = () => {
@@ -67,7 +67,7 @@ export function UserMenu() {
     try {
       await signOut();
       setDefault();
-      nav("/");
+      navigate("/");
       toast.success("Signed out successfully");
     } catch {
       toast.error("Failed to sign out");
@@ -75,20 +75,18 @@ export function UserMenu() {
   };
 
   const handleNavtoHome = () => {
-    return nav(`/@${authUser?.onelink}`);
+    return navigate(`/@${authUser?.onelink}`);
   };
-
-  
 
   const handleNavigateToWallet = () => {
     if (authUser?.onelink) {
-      return nav(`/${formatOnelink(authUser.onelink)}/edit?p=wallet`);
+      return navigate(`/${formatOnelink(authUser.onelink)}/edit?p=wallet`);
     }
   };
 
   const handleNavigateToProfile = () => {
     if (authUser?.onelink) {
-      return nav(`/${formatOnelink(authUser.onelink)}/edit?p=profile`);
+      return navigate(`/${formatOnelink(authUser.onelink)}/edit?p=profile`);
     }
   };
 
@@ -107,7 +105,11 @@ export function UserMenu() {
           <span>Sign In</span>
         </Button>
         {showAuthModal && (
-          <AuthModal onClose={user => handleSignIn(user)} onCancel={() => handleCancelAuth()} />
+          <AuthModal
+            isOpen={showAuthModal}
+            onClose={user => handleSignIn(user)}
+            onCancel={() => handleCancelAuth()}
+          />
         )}
       </>
     );
@@ -171,7 +173,7 @@ export function UserMenu() {
             <span>My Wallet</span>
           </DropdownMenuItem>
         )}
-        
+
         <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
           <LogOut className="w-4 h-4 mr-2" />
           <span>Sign Out</span>

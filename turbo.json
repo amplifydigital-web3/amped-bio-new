@@ -1,6 +1,7 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalDependencies": ["**/.env.*local"],
+  "ui": "tui",
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -10,8 +11,11 @@
     "lint:fix": {
       "cache": false
     },
+    "typecheck": {
+      "cache": false
+    },
     "dev": {
-      "dependsOn": ["^build", "prisma:generate"],
+      "dependsOn": ["prisma:generate"],
       "cache": false,
       "persistent": true
     },
@@ -22,6 +26,9 @@
       "cache": false
     },
     "format:check": {
+      "cache": false
+    },
+    "clean": {
       "cache": false
     }
   }

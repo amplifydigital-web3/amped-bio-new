@@ -10,3 +10,4 @@ export * from "./collections";
 export * from "./errors";
 export * from "./blocks";
 export * from "./banner";
+export * from "./reward-pool";

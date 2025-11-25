@@ -68,11 +68,7 @@ export function AdminFaucetWalletStats() {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500">Faucet Enabled</span>
-            <Switch
-              checked={faucetStatus || false}
-              onChange={handleFaucetToggle}
-              disabled={true}
-            />
+            <Switch checked={faucetStatus || false} onChange={handleFaucetToggle} disabled={true} />
           </div>
         </CardHeader>
         <CardContent>

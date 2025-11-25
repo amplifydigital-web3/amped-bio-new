@@ -113,9 +113,9 @@ export function AdminDashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Users Stats */}
-        <AdminUserStats 
-          totalUsers={userStats.totalUsers} 
-          newThisWeek={userStats.newThisWeek} 
+        <AdminUserStats
+          totalUsers={userStats.totalUsers}
+          newThisWeek={userStats.newThisWeek}
           usersLastWeek={userStats.usersLastWeek}
           activeUsers={userStats.activeUsers}
         />

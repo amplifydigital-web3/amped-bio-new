@@ -6,19 +6,22 @@ interface AdminBlockStatsProps {
   blocksCreatedLastWeek?: number;
 }
 
-export const AdminBlockStats = ({ 
-  totalBlocks, 
+export const AdminBlockStats = ({
+  totalBlocks,
   blocksCreatedToday,
-  blocksCreatedLastWeek
+  blocksCreatedLastWeek,
 }: AdminBlockStatsProps) => {
   // Calculate percentage change for blocks created
-  const blockGrowthPercentage = blocksCreatedLastWeek && blocksCreatedLastWeek > 0 
-    ? Math.round(((blocksCreatedToday - blocksCreatedLastWeek) / blocksCreatedLastWeek) * 100) 
-    : blocksCreatedToday > 0 ? 100 : 0;
+  const blockGrowthPercentage =
+    blocksCreatedLastWeek && blocksCreatedLastWeek > 0
+      ? Math.round(((blocksCreatedToday - blocksCreatedLastWeek) / blocksCreatedLastWeek) * 100)
+      : blocksCreatedToday > 0
+        ? 100
+        : 0;
 
   // Determine if growth is positive
   const isPositiveGrowth = blockGrowthPercentage >= 0;
-  
+
   return (
     <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
       <div className="flex items-center justify-between">
@@ -33,9 +36,11 @@ export const AdminBlockStats = ({
             <div className="flex items-center">
               <span className="text-sm font-medium">{blocksCreatedToday.toLocaleString()}</span>
               {blocksCreatedLastWeek !== undefined && (
-                <span className={`ml-2 text-xs font-medium flex items-center ${
-                  isPositiveGrowth ? "text-green-600" : "text-red-600"
-                }`}>
+                <span
+                  className={`ml-2 text-xs font-medium flex items-center ${
+                    isPositiveGrowth ? "text-green-600" : "text-red-600"
+                  }`}
+                >
                   {isPositiveGrowth ? (
                     <TrendingUp className="h-3 w-3 mr-1" />
                   ) : (

@@ -6,11 +6,12 @@ import {
   TextBlock,
 } from "@ampedbio/constants";
 import { getPlatformIcon } from "@/utils/platforms";
-import { FileText, LucideIcon } from "lucide-react";
+import { FileText, LucideIcon, Coins, Lock } from "lucide-react";
 import { IconType } from "react-icons/lib";
 import { useState } from "react";
 import { BlockEditor } from "./BlockEditor";
 import { TextBlockEditor } from "./TextBlockEditor";
+import { useEditor } from "@/contexts/EditorContext";
 
 interface BlockPickerProps {
   onAdd: (block: BlockType) => void;
@@ -24,12 +25,14 @@ const blockTypes: {
         name: string;
         icon: LucideIcon | IconType;
         type: "media";
+        disabled?: boolean;
       }
     | {
-        id: "text";
+        id: "text" | "creator-pool";
         name: string;
         icon: LucideIcon | IconType;
-        type: "link" | "text";
+        type: "link" | "text" | "media";
+        disabled?: boolean;
       }
   )[];
 }[] = [
@@ -50,29 +53,19 @@ const blockTypes: {
       { id: "vimeo", name: "Vimeo", icon: getPlatformIcon("vimeo"), type: "media" },
     ],
   },
-  // {
-  //   category: 'Web3',
-  //   blocks: [
-  //     { id: 'token-price', name: 'Token Price', icon: DollarSign, type: 'media' },
-  //     { id: 'nft-collection', name: 'NFT Collection', icon: Store, type: 'media' },
-  //     { id: 'uniswap', name: 'Uniswap Swap', icon: ArrowUpRight, type: 'media' },
-  //     { id: 'creator-pool', name: 'Creator Pool', icon: Users, type: 'media' },
-  //   ],
-  // },
   {
     category: "Utility",
-    blocks: [
-      // { id: "email-collect", name: "Email Collection", icon: Mail, type: "text" },
-      // { id: "telegram", name: "Telegram Channel", icon: MessageCircle, type: "text" },
-      { id: "text", name: "Text Block", icon: FileText, type: "text" },
-      // { id: "substack", name: "Substack Feed", icon: Newspaper, type: "media" },
-      // { id: "team", name: "Team Members", icon: Users, type: "text" },
-    ],
+    blocks: [{ id: "text", name: "Text Block", icon: FileText, type: "text" }],
+  },
+  {
+    category: "Web3",
+    blocks: [{ id: "creator-pool", name: "Stake in my Pool", icon: Coins, type: "media" }],
   },
 ];
 
 export function BlockPicker({ onAdd }: BlockPickerProps) {
   const [editingBlock, setEditingBlock] = useState<BlockType | null>(null);
+  const { hasCreatorPool } = useEditor();
 
   const createBlock = (blockType: string, platform: MediaBlockPlatform): BlockType => {
     if (blockType === "media") {
@@ -149,16 +142,28 @@ export function BlockPicker({ onAdd }: BlockPickerProps) {
         <div key={category.category} className="space-y-4">
           <h3 className="text-sm font-medium text-gray-900">{category.category}</h3>
           <div className="grid grid-cols-2 gap-3">
-            {category.blocks.map(block => (
-              <button
-                key={block.id}
-                onClick={() => handleBlockSelection(block.type, block.id as MediaBlockPlatform)}
-                className="flex items-center space-x-3 p-3 bg-white rounded-lg border border-gray-200 hover:border-blue-500 hover:ring-1 hover:ring-blue-500 transition-all"
-              >
-                <block.icon className="w-5 h-5 text-gray-500" />
-                <span className="text-sm font-medium text-gray-700">{block.name}</span>
-              </button>
-            ))}
+            {category.blocks.map(block => {
+              const isDisabled = block.id === "creator-pool" && !hasCreatorPool;
+              return (
+                <button
+                  key={block.id}
+                  onClick={() => handleBlockSelection(block.type, block.id as MediaBlockPlatform)}
+                  disabled={isDisabled}
+                  className={`flex items-center space-x-3 p-3 bg-white rounded-lg border border-gray-200 transition-all ${
+                    isDisabled
+                      ? "opacity-50 cursor-not-allowed"
+                      : "hover:border-blue-500 hover:ring-1 hover:ring-blue-500"
+                  }`}
+                >
+                  {isDisabled ? (
+                    <Lock className="w-5 h-5 text-gray-400" />
+                  ) : (
+                    <block.icon className="w-5 h-5 text-gray-500" />
+                  )}
+                  <span className="text-sm font-medium text-gray-700">{block.name}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       ))}

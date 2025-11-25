@@ -23,6 +23,7 @@ export function View() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [blocks, setBlocks] = useState<BlockType[]>([]);
   const [theme, setTheme] = useState<Theme | null>(null);
+  const [hasCreatorPool, setHasCreatorPool] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -97,7 +98,7 @@ export function View() {
           });
 
           if (onlinkData) {
-            const { user, theme, blocks: blocks_raw } = onlinkData;
+            const { user, theme, blocks: blocks_raw, hasCreatorPool } = onlinkData;
             const { name, email, description, image } = user;
             const formattedOnelink = formatOnelink(normalizedOnelink);
 
@@ -114,6 +115,7 @@ export function View() {
             setTheme(theme as unknown as Theme);
             const sortedBlocks = blocks_raw.sort((a, b) => a.order - b.order);
             setBlocks(sortedBlocks as unknown as BlockType[]);
+            setHasCreatorPool(hasCreatorPool);
           } else {
             // Only redirect if the current onelink is not already the default
             if (normalizedOnelink !== DEFAULT_ONELINK) {
@@ -203,20 +205,33 @@ export function View() {
         theme={theme ?? initialState.theme}
       />
 
-      {/* Edit Button */}
-      {authUser && (isInitialPage || authUser.email === profile.email) && (
-        <Link
-          to={`/${formatOnelink(authUser.onelink)}/edit`}
-          className="fixed bottom-4 right-4 p-3 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-colors flex items-center space-x-2 z-50"
-        >
-          <Settings className="w-5 h-5" />
-          <span className="text-sm font-medium">Edit Page</span>
-        </Link>
-      )}
+      <div className="fixed bottom-4 right-4 z-50 flex space-x-4">
+        {/* View Creator Pool Button */}
+        {hasCreatorPool && (
+          <Link
+            to={`/pools/${normalizedOnelink}`}
+            className="p-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+          >
+            <span>View Creator Pool</span>
+          </Link>
+        )}
+
+        {/* Edit Button */}
+        {authUser && (isInitialPage || authUser.email === profile.email) && (
+          <Link
+            to={`/${formatOnelink(authUser.onelink)}/edit`}
+            className="p-3 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-colors flex items-center space-x-2"
+          >
+            <Settings className="w-5 h-5" />
+            <span className="text-sm font-medium">Edit Page</span>
+          </Link>
+        )}
+      </div>
 
       {/* Auth Modal */}
       {showAuthModal && (
         <AuthModal
+          isOpen={showAuthModal}
           onClose={handleSignIn}
           onCancel={handleCancelAuth}
           initialForm={initialAuthForm}

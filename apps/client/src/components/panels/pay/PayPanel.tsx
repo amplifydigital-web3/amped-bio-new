@@ -1,5 +1,5 @@
 import { Tooltip } from "@/components/ui/Tooltip";
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Search,
   Send,
@@ -441,7 +441,11 @@ const PayRow: React.FC<{
               <span>
                 {data?.onelink && (
                   <>
-                    <a href={`${currentUrl}/@${data.onelink}`} target="_blank" rel="noopener noreferrer">
+                    <a
+                      href={`${currentUrl}/@${data.onelink}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
                       @{data.onelink}
                     </a>{" "}
                   </>
