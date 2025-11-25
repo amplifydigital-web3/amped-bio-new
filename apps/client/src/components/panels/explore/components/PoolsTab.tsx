@@ -8,6 +8,7 @@ import PoolDetailsModal from "../ExplorePoolDetailsModal";
 import StakeModal from "../StakeModal";
 import { formatEther } from "viem";
 import { useChainId } from "wagmi";
+import Decimal from "decimal.js";
 
 // Define filter and sort types
 type PoolFilter = "all" | "no-fans" | "more-than-10-fans" | "more-than-10k-stake";
@@ -173,7 +174,9 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
                     <span className="text-gray-500">Total Stake</span>
                     <span className="font-semibold text-gray-900">
                       {pool.stakedAmount !== undefined && pool.stakedAmount !== null
-                        ? parseFloat(formatEther(pool.stakedAmount)).toLocaleString()
+                        ? Decimal.max(new Decimal("0"), new Decimal(formatEther(pool.stakedAmount)).minus(new Decimal("0.0015")))
+                            .toDecimalPlaces(3, Decimal.ROUND_DOWN)
+                            .toString()
                         : "0"}{" "}
                       {getChainConfig(parseInt(pool.chainId))?.nativeCurrency.symbol || "REVO"}
                     </span>
