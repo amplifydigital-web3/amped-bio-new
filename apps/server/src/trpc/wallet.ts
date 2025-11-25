@@ -16,6 +16,7 @@ import { getAddress } from "viem/utils";
 import { prisma } from "../services/DB";
 import { getChainConfig } from "@ampedbio/web3";
 import * as jose from "jose";
+import Decimal from "decimal.js";
 
 // Schema for requesting faucet tokens
 const faucetRequestSchema = z.object({
@@ -251,7 +252,10 @@ export const walletRouter = router({
 
           const account = privateKeyToAccount(env.FAUCET_PRIVATE_KEY as `0x${string}`);
           const balance = await publicClient.getBalance({ address: account.address });
-          const balanceInEther = parseFloat(formatEther(balance));
+          // Use Decimal for precise conversion from wei to ether
+          const balanceInEther = new Decimal(balance.toString())
+            .div(new Decimal("10").pow(18))
+            .toNumber();
 
           // Check if the faucet has enough balance for the airdrop
           if (balanceInEther < faucetAmount) {
@@ -390,7 +394,10 @@ export const walletRouter = router({
           });
 
           const balance = await publicClient.getBalance({ address: account.address });
-          const balanceInEther = parseFloat(formatEther(balance));
+          // Use Decimal for precise conversion from wei to ether
+          const balanceInEther = new Decimal(balance.toString())
+            .div(new Decimal("10").pow(18))
+            .toNumber();
           const faucetAmount = Number(env.FAUCET_AMOUNT);
 
           // Check if the faucet has enough balance for the airdrop

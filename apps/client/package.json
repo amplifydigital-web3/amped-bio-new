@@ -95,6 +95,7 @@
   "devDependencies": {
     "@eslint/js": "^9.9.1",
     "@trpc/server": "^11.1.2",
+    "@types/decimal.js": "^7.4.3",
     "@types/jest": "^29.5.14",
     "@types/node": "^20.11.16",
     "@types/react": "^18.3.5",

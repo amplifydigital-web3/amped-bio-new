@@ -7,6 +7,7 @@ import { hashRefreshToken } from "../utils/tokenHash";
 import crypto from "crypto";
 import { prisma } from "../services/DB";
 import { editUserSchema } from "../schemas/user.schema";
+import Decimal from "decimal.js";
 
 // Schema for initiating email change
 const initiateEmailChangeSchema = z.object({
@@ -505,10 +506,10 @@ export const userRouter = router({
         // Calculate total stake per user and filter in memory (this is unavoidable for this filter)
         const usersWithCalculatedStakes = usersWithStakes
           .map(user => {
-            // Calculate total stake by flattening the staked pools
+            // Calculate total stake by flattening the staked pools using Decimal for precision
             const totalStake = (user.wallet?.stakedPools || []).reduce(
               (walletAcc: number, stakedPool: any) => {
-                return walletAcc + Number(stakedPool.stakeAmount);
+                return new Decimal(walletAcc).add(new Decimal(stakedPool.stakeAmount)).toNumber();
               },
               0
             );
@@ -629,13 +630,15 @@ export const userRouter = router({
           },
         });
 
-        // Calculate total stake per user
+        // Calculate total stake per user using Decimal for precision
         const stakeAmountMap: Record<number, number> = {};
         stakedPools.forEach(stake => {
           const userId = userWallets.find(wallet => wallet.id === stake.userWalletId)?.userId;
           if (userId) {
-            const amount = Number(stake.stakeAmount);
-            stakeAmountMap[userId] = (stakeAmountMap[userId] || 0) + amount;
+            const amount = new Decimal(stake.stakeAmount).toNumber();
+            stakeAmountMap[userId] = new Decimal(stakeAmountMap[userId] || 0)
+              .add(amount)
+              .toNumber();
           }
         });
 

@@ -17,6 +17,7 @@ import {
 import { env } from "../../env";
 import { s3Service } from "../../services/S3Service";
 import { uploadedFileService } from "../../services/UploadedFileService";
+import Decimal from "decimal.js";
 
 const requestPoolImagePresignedUrlSchema = z.object({
   contentType: z.string().refine(value => ALLOWED_POOL_IMAGE.includes(value), {
@@ -796,7 +797,11 @@ export const poolsCreatorRouter = router({
             ? totalStakeChange > 0n
               ? 100
               : 0
-            : Number((totalStakeChange * 10000n) / stakeAtStartOfMonth) / 100;
+            : new Decimal(totalStakeChange.toString())
+                .mul(new Decimal(10000))
+                .div(new Decimal(stakeAtStartOfMonth.toString()))
+                .div(new Decimal(100))
+                .toNumber();
 
         const newFansThisWeek = await prisma.stakeEvent.groupBy({
           by: ["userWalletId"],

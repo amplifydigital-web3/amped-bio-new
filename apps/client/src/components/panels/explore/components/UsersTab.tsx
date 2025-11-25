@@ -4,6 +4,7 @@ import UserSkeleton from "./UserSkeleton";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "../../../../utils/trpc";
 import { formatEther } from "viem";
+import Decimal from "decimal.js";
 
 // Define filter and sort types
 type UserFilter = "all" | "active-7-days" | "has-creator-pool" | "has-stake-in-pool";
@@ -139,7 +140,7 @@ const UsersTab: React.FC<UsersTabProps> = ({
                     </div>
                     <div className="relative group">
                       <span className="px-2 py-1 rounded-full text-xs font-medium cursor-help bg-gray-100 text-gray-700">
-                        {parseFloat(formatEther(BigInt(user.poolStake))).toFixed(8)} Pool Stake
+                        {new Decimal(formatEther(BigInt(user.poolStake))).toFixed(4)} Pool Stake
                       </span>
                       <div className="absolute bottom-full right-0 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
                         <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap shadow-lg">
