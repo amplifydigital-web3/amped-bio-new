@@ -4,7 +4,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogClose,
 } from "@/components/ui/dialog";
 
 interface NFTModalProps {
@@ -55,9 +54,6 @@ export default function NFTModal({ isOpen, onClose, nft }: NFTModalProps) {
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-gray-900">NFT Details</DialogTitle>
-          <DialogClose className="absolute right-4 top-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200">
-            <X className="w-5 h-5" />
-          </DialogClose>
         </DialogHeader>
 
         <div className="space-y-6">

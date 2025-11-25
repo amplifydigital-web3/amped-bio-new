@@ -11,7 +11,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogClose,
 } from "@/components/ui/dialog";
 
 interface PayModalProps {
@@ -59,9 +58,6 @@ export default function PayModal({ hook }: PayModalProps) {
     <>
       <DialogHeader>
         <DialogTitle className="text-xl font-bold text-gray-900">Send to Address</DialogTitle>
-        <DialogClose className="absolute right-4 top-4 p-2 hover:bg-gray-100 rounded-full">
-          <X className="w-5 h-5 text-gray-500" />
-        </DialogClose>
       </DialogHeader>
       <div className="p-6 space-y-6">
         {/* <div className="flex items-center space-x-4 p-4 bg-gray-50 rounded-xl">

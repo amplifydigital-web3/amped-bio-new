@@ -20,6 +20,13 @@ import { FileData, FileStatus, FileType } from "../shared/fileTypes";
 import { trpc } from "../../../utils/trpc";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "../../../components/ui/dialog";
 
 export function FileManagement() {
   const queryClient = useQueryClient();
@@ -269,84 +276,74 @@ export function FileManagement() {
   return (
     <div className="p-6">
       {/* Delete Confirmation Modal */}
-      {deleteConfirmation.isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center space-x-3">
-                <div className="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                  <AlertCircle className="h-5 w-5 text-red-600" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900">Delete File</h3>
-                  <p className="text-sm text-gray-500">This action cannot be undone</p>
-                </div>
-              </div>
-              <button onClick={cancelDeleteFile} className="text-gray-400 hover:text-gray-600">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="mb-4">
-              <p className="text-sm text-gray-600 mb-2">
-                You are about to delete:{" "}
-                <span className="font-medium text-gray-900">
-                  {deleteConfirmation.file?.file_name}
-                </span>
+      <Dialog open={deleteConfirmation.isOpen} onOpenChange={cancelDeleteFile}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-red-600" />
+              Delete File
+            </DialogTitle>
+            <DialogDescription>This action cannot be undone</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              You are about to delete:{" "}
+              <span className="font-medium text-gray-900">
+                {deleteConfirmation.file?.file_name}
+              </span>
+            </p>
+            <div className="bg-gray-50 rounded-md p-3">
+              <p className="text-xs text-gray-500 mb-1">File Key:</p>
+              <p className="text-sm font-mono text-gray-700 break-all">
+                {deleteConfirmation.file?.s3_key}
               </p>
-              <div className="bg-gray-50 rounded-md p-3 mb-4">
-                <p className="text-xs text-gray-500 mb-1">File Key:</p>
-                <p className="text-sm font-mono text-gray-700 break-all">
-                  {deleteConfirmation.file?.s3_key}
-                </p>
-              </div>
-              <p className="text-sm text-gray-600 mb-4">
-                To confirm, please type{" "}
-                <span className="font-mono bg-gray-100 px-1 rounded">delete</span> below:
-              </p>
-              <input
-                type="text"
-                value={deleteConfirmation.confirmText}
-                onChange={e =>
-                  setDeleteConfirmation(prev => ({
-                    ...prev,
-                    confirmText: e.target.value,
-                  }))
-                }
-                placeholder="Type 'delete' to confirm"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                autoFocus
-              />
             </div>
-
-            <div className="flex space-x-3">
-              <button
-                onClick={cancelDeleteFile}
-                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDeleteFile}
-                disabled={
-                  deleteConfirmation.confirmText.toLowerCase() !== "delete" ||
-                  deleteFileMutation.isPending
-                }
-                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {deleteFileMutation.isPending ? (
-                  <div className="flex items-center justify-center">
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Deleting...
-                  </div>
-                ) : (
-                  "Delete File"
-                )}
-              </button>
-            </div>
+            <p className="text-sm text-gray-600">
+              To confirm, please type{" "}
+              <span className="font-mono bg-gray-100 px-1 rounded">delete</span> below:
+            </p>
+            <input
+              type="text"
+              value={deleteConfirmation.confirmText}
+              onChange={e =>
+                setDeleteConfirmation(prev => ({
+                  ...prev,
+                  confirmText: e.target.value,
+                }))
+              }
+              placeholder="Type 'delete' to confirm"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              autoFocus
+            />
           </div>
-        </div>
-      )}
+
+          <div className="flex space-x-3 pt-4">
+            <button
+              onClick={cancelDeleteFile}
+              className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={confirmDeleteFile}
+              disabled={
+                deleteConfirmation.confirmText.toLowerCase() !== "delete" ||
+                deleteFileMutation.isPending
+              }
+              className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {deleteFileMutation.isPending ? (
+                <div className="flex items-center justify-center">
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Deleting...
+                </div>
+              ) : (
+                "Delete File"
+              )}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">

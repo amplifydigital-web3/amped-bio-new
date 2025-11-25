@@ -25,7 +25,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogClose,
 } from "@/components/ui/dialog";
 
 interface AuthModalProps {
@@ -386,17 +385,6 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
             {form === "login" && "Sign In"}
             {form === "reset" && "Reset Password"}
           </DialogTitle>
-          <DialogClose
-            className="absolute right-4 top-4 p-1 text-gray-500 hover:text-gray-700"
-            onClick={() => {
-              onCancel();
-              trackGAEvent("Click", "AuthModal", "CloseModalButton");
-            }}
-            aria-label="Close authentication modal"
-            data-testid="auth-modal-close"
-          >
-            <X className="w-5 h-5" />
-          </DialogClose>
         </DialogHeader>
         <div className="p-6">
           {form === "login" && (

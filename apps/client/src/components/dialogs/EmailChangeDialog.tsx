@@ -24,7 +24,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogClose,
 } from "@/components/ui/dialog";
 
 // Define validation schemas using Zod
@@ -350,13 +349,6 @@ export function EmailChangeDialog({ isOpen, onClose }: EmailChangeDialogProps) {
           <DialogTitle className="text-xl font-semibold text-gray-900">
             Change Email Address
           </DialogTitle>
-          <DialogClose
-            className="absolute right-4 top-4 p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
-            onClick={handleCloseDialog}
-            aria-label="Close email change dialog"
-          >
-            <X className="w-5 h-5" />
-          </DialogClose>
         </DialogHeader>
         <div className="p-6 sm:p-8">
           {/* Display error message if any */}

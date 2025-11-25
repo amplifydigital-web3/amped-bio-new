@@ -1,6 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
 import { X } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // Hook for managing captcha state and opening the dialog
 export const useCaptcha = () => {
@@ -60,7 +66,7 @@ export function CaptchaDialog({ isOpen, onClose, onSubmit }: CaptchaDialogProps)
     }
   }, [isOpen, isRecaptchaEnabled]);
 
-  const handleSubmit = () => {
+  const handleSubmitInternal = () => {
     if (isRecaptchaEnabled && recaptchaRef.current) {
       const token = recaptchaRef.current.getValue();
       onSubmit(token);
@@ -76,29 +82,12 @@ export function CaptchaDialog({ isOpen, onClose, onSubmit }: CaptchaDialogProps)
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="captcha-dialog-title"
-    >
-      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-        <div className="flex items-center justify-between mb-4">
-          <h2 id="captcha-dialog-title" className="text-xl font-semibold">
-            Please verify you're human
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-1 text-gray-500 hover:text-gray-700"
-            aria-label="Close captcha dialog"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Please verify you're human</DialogTitle>
+        </DialogHeader>
         {isRecaptchaEnabled ? (
           <div className="flex flex-col items-center gap-4">
             <ReCAPTCHA
@@ -108,7 +97,7 @@ export function CaptchaDialog({ isOpen, onClose, onSubmit }: CaptchaDialogProps)
               className="flex justify-center"
             />
             <button
-              onClick={handleSubmit}
+              onClick={handleSubmitInternal}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
             >
               Continue
@@ -118,14 +107,14 @@ export function CaptchaDialog({ isOpen, onClose, onSubmit }: CaptchaDialogProps)
           <div className="text-center">
             <p className="text-gray-600 mb-4">ReCAPTCHA is disabled in this environment.</p>
             <button
-              onClick={handleSubmit}
+              onClick={handleSubmitInternal}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
             >
               Continue
             </button>
           </div>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
