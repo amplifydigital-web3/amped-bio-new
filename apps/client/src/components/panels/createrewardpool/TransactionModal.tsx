@@ -5,7 +5,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogClose,
 } from "@/components/ui/dialog";
 
 interface TransactionModalProps {
@@ -85,12 +84,6 @@ export function TransactionModal({
               <DialogTitle className="text-xl font-bold text-red-900">
                 Transaction Failed
               </DialogTitle>
-              <DialogClose
-                onClick={onClose}
-                className="absolute right-4 top-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-              >
-                <X className="w-5 h-5" />
-              </DialogClose>
             </DialogHeader>
 
             <div className="p-6 text-center">
@@ -156,12 +149,6 @@ export function TransactionModal({
               <DialogTitle className="text-xl font-bold text-green-900">
                 Transaction Confirmed!
               </DialogTitle>
-              <DialogClose
-                onClick={onClose}
-                className="absolute right-4 top-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-              >
-                <X className="w-5 h-5" />
-              </DialogClose>
             </DialogHeader>
 
             <div className="p-6 text-center">

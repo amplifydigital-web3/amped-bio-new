@@ -16,6 +16,13 @@ import {
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { EditThemeDialog, useEditThemeDialog } from "./EditThemeDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "../../../components/ui/dialog";
 
 interface DeleteModalState {
   isOpen: boolean;
@@ -374,96 +381,85 @@ export function ViewThemesTab() {
       </div>
 
       {/* Delete Confirmation Modal */}
-      {deleteModal.isOpen && deleteModal.theme && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex-shrink-0">
-                <AlertTriangle className="h-6 w-6 text-red-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-medium text-gray-900">Delete Theme</h3>
-                <p className="text-sm text-gray-500">This action cannot be undone.</p>
-              </div>
-              <button
-                onClick={handleDeleteCancel}
-                className="ml-auto flex-shrink-0 p-1 text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="mb-6">
-              <p className="text-sm text-gray-700 mb-2">
-                Are you sure you want to delete the theme{" "}
-                <strong>"{deleteModal.theme.name || "Untitled Theme"}"</strong>?
+      <Dialog open={deleteModal.isOpen} onOpenChange={handleDeleteCancel}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              Delete Theme
+            </DialogTitle>
+            <DialogDescription>This action cannot be undone.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-700">
+              Are you sure you want to delete the theme{" "}
+              <strong>"{deleteModal.theme?.name || "Untitled Theme"}"</strong>?
+            </p>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+              <p className="text-sm text-yellow-800">
+                <strong>Warning:</strong> This theme will only be deleted if no users are
+                currently using it. If users are using this theme, the deletion will be prevented.
               </p>
-              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-3">
-                <p className="text-sm text-yellow-800">
-                  <strong>Warning:</strong> This theme will only be deleted if no users are
-                  currently using it. If users are using this theme, the deletion will be prevented.
-                </p>
-              </div>
-              <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
-                <p className="text-sm text-red-800">
-                  <strong>Files to be deleted:</strong> This action will permanently delete the
-                  theme's thumbnail and background images from the server. This cannot be undone.
-                </p>
-              </div>
-
-              <div className="mb-4">
-                <label
-                  htmlFor="confirmation-input"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
-                  To confirm deletion, type <span className="font-bold text-red-600">"delete"</span>{" "}
-                  in the field below:
-                </label>
-                <input
-                  id="confirmation-input"
-                  type="text"
-                  value={deleteModal.confirmationText}
-                  onChange={e => handleConfirmationTextChange(e.target.value)}
-                  placeholder="Type 'delete' to confirm"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                  disabled={deleteThemeMutation.isPending}
-                />
-              </div>
+            </div>
+            <div className="bg-red-50 border border-red-200 rounded-md p-3">
+              <p className="text-sm text-red-800">
+                <strong>Files to be deleted:</strong> This action will permanently delete the
+                theme's thumbnail and background images from the server. This cannot be undone.
+              </p>
             </div>
 
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={handleDeleteCancel}
+            <div className="mb-4">
+              <label
+                htmlFor="confirmation-input"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
+                To confirm deletion, type <span className="font-bold text-red-600">"delete"</span>{" "}
+                in the field below:
+              </label>
+              <input
+                id="confirmation-input"
+                type="text"
+                value={deleteModal.confirmationText}
+                onChange={e => handleConfirmationTextChange(e.target.value)}
+                placeholder="Type 'delete' to confirm"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                 disabled={deleteThemeMutation.isPending}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteConfirm}
-                disabled={deleteThemeMutation.isPending || !isDeleteConfirmed}
-                className={`px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 flex items-center gap-2 ${
-                  isDeleteConfirmed && !deleteThemeMutation.isPending
-                    ? "bg-red-600 hover:bg-red-700"
-                    : "bg-gray-400 cursor-not-allowed"
-                }`}
-              >
-                {deleteThemeMutation.isPending ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    Deleting...
-                  </>
-                ) : (
-                  <>
-                    <Trash2 className="h-4 w-4" />
-                    Delete Theme
-                  </>
-                )}
-              </button>
+              />
             </div>
           </div>
-        </div>
-      )}
+
+          <div className="flex justify-end gap-3 pt-4">
+            <button
+              onClick={handleDeleteCancel}
+              disabled={deleteThemeMutation.isPending}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDeleteConfirm}
+              disabled={deleteThemeMutation.isPending || !isDeleteConfirmed}
+              className={`px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 flex items-center gap-2 ${
+                isDeleteConfirmed && !deleteThemeMutation.isPending
+                  ? "bg-red-600 hover:bg-red-700"
+                  : "bg-gray-400 cursor-not-allowed"
+              }`}
+            >
+              {deleteThemeMutation.isPending ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4" />
+                  Delete Theme
+                </>
+              )}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Theme Dialog */}
       <EditThemeDialog

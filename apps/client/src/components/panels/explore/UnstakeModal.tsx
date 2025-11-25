@@ -9,7 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogClose,
 } from "@/components/ui/dialog";
 
 interface UnstakeModalProps {
@@ -105,15 +104,7 @@ export default function UnstakeModal({ isOpen, onClose, pool, onStakeSuccess }: 
   const renderAmountStep = () => (
     <>
       <DialogHeader className="p-6 pb-4 border-b border-gray-200">
-        <div className="flex items-center justify-between">
-          <DialogTitle className="text-xl font-bold text-gray-900">Reduce Stake</DialogTitle>
-          <DialogClose
-            onClick={handleClose}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-          >
-            <X className="w-5 h-5" />
-          </DialogClose>
-        </div>
+        <DialogTitle className="text-xl font-bold text-gray-900">Reduce Stake</DialogTitle>
       </DialogHeader>
 
       <div className="p-6 space-y-6">
@@ -257,15 +248,7 @@ export default function UnstakeModal({ isOpen, onClose, pool, onStakeSuccess }: 
   const renderConfirmStep = () => (
     <>
       <DialogHeader className="p-6 pb-4 border-b border-gray-200">
-        <div className="flex items-center justify-between">
-          <DialogTitle className="text-xl font-bold text-gray-900">Confirm Unstake</DialogTitle>
-          <DialogClose
-            onClick={() => setStep("amount")}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-          >
-            <X className="w-5 h-5" />
-          </DialogClose>
-        </div>
+        <DialogTitle className="text-xl font-bold text-gray-900">Confirm Unstake</DialogTitle>
       </DialogHeader>
 
       <div className="p-6 space-y-4">

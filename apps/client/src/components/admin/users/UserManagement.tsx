@@ -18,6 +18,12 @@ import { z } from "zod";
 import { formatUserRole, formatUserStatus, formatDate } from "../../../utils/adminFormat";
 import { maskEmail } from "../../../utils/email";
 import { Tooltip } from "@/components/ui/Tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "../../../components/ui/dialog";
 
 // Define schema for user edit form
 const editUserSchema = z.object({
@@ -778,21 +784,14 @@ export function UserManagement() {
       </div>
 
       {/* Edit User Modal */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
-          <div className="relative bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-semibold">Edit User</h3>
-              <button
-                className="text-gray-500 hover:text-gray-700"
-                onClick={() => setIsEditModalOpen(false)}
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleEditSubmit}>
-              <div className="mb-4">
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit}>
+            <div className="space-y-4 mb-4">
+              <div>
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
                   Name
                 </label>
@@ -809,7 +808,7 @@ export function UserManagement() {
                 )}
               </div>
 
-              <div className="mb-4">
+              <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                   Email
                 </label>
@@ -826,7 +825,7 @@ export function UserManagement() {
                 )}
               </div>
 
-              <div className="mb-6">
+              <div>
                 <label
                   htmlFor="confirmation"
                   className="block text-sm font-medium text-gray-700 mb-1"
@@ -858,26 +857,26 @@ export function UserManagement() {
                   </ul>
                 </div>
               </div>
+            </div>
 
-              <div className="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg"
-                  onClick={() => setIsEditModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            <div className="flex justify-end space-x-3 pt-4">
+              <button
+                type="button"
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg"
+                onClick={() => setIsEditModalOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+              >
+                Save Changes
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

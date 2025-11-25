@@ -15,6 +15,12 @@ import { SubmitHandler, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LinkFormInputs, linkFormSchema } from "./LinkForm";
 import { useCallback, useMemo } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "../../ui/dialog";
 
 // Helper function to validate YouTube URLs
 const isValidYouTubeUrl = (url: string): boolean => {
@@ -173,17 +179,13 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
   );
 
   return (
-    <div className="fixed top-0 left-0 w-screen h-screen overflow-y-auto bg-black/50 flex items-center justify-center z-50 outline-none">
-      <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">
+    <Dialog open={true} onOpenChange={onCancel}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>
             Edit {block.type === "media" ? getPlatformName(block.config.platform) : "Link"} Block
-          </h3>
-          <button onClick={onCancel} className="p-1 text-gray-500 hover:text-gray-700">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
+          </DialogTitle>
+        </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {block.type === "link" && (
             <LinkFormInputs register={register} errors={errors} watch={watch} setValue={setValue} />
@@ -214,7 +216,7 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
             </>
           )}
 
-          <div className="flex justify-end space-x-3">
+          <div className="flex justify-end space-x-3 pt-4">
             <Button variant="outline" type="button" onClick={onCancel}>
               Cancel
             </Button>
@@ -223,7 +225,7 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
