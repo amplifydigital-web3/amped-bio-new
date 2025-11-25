@@ -878,4 +878,256 @@ export const poolsCreatorRouter = router({
         });
       }
     }),
+
+  syncPoolStakes: privateProcedure
+    .input(
+      z.object({
+        poolId: z.number(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { poolId } = input;
+
+      try {
+        // Mark todo 1 as completed
+        console.log(`Starting synchronization for pool ID: ${poolId}`);
+
+        // 1. Get the pool from database
+        const pool = await prisma.creatorPool.findUnique({
+          where: { id: poolId },
+        });
+
+        if (!pool || !pool.poolAddress) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Pool not found or has no address",
+          });
+        }
+
+        // 2. Get chain config and create public client
+        const chain = getChainConfig(parseInt(pool.chainId));
+        if (!chain) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Unsupported chain ID",
+          });
+        }
+
+        const publicClient = createPublicClient({
+          chain: chain,
+          transport: http(),
+        });
+
+        console.log("Obtaining block number where pool was created...");
+
+        // Get the current block number
+        let currentBlockNumber = await publicClient.getBlockNumber();
+        console.log(`Current block number: ${currentBlockNumber}`);
+
+        // Search backwards to find the approximate creation block
+        // Start from the current block and move backwards in batches
+        const BATCH_SIZE = 10000n; // Process 10k blocks at a time
+        let foundEvents = false;
+        let lastCheckedBlock = currentBlockNumber;
+        let createdBlockNumber = currentBlockNumber; // Will be updated when we find the first events
+
+        // Search backwards until we find events or reach block 0
+        while (lastCheckedBlock > 0n && !foundEvents) {
+          const fromBlock = lastCheckedBlock - BATCH_SIZE < 0n ? 0n : lastCheckedBlock - BATCH_SIZE;
+
+          console.log(`Checking for events in blocks ${fromBlock} to ${lastCheckedBlock}...`);
+
+          // Fetch FanStaked events
+          const stakedLogs = await publicClient.getContractEvents({
+            address: pool.poolAddress as Address,
+            abi: CREATOR_POOL_ABI,
+            eventName: 'FanStaked',
+            fromBlock: fromBlock,
+            toBlock: lastCheckedBlock,
+          });
+
+          // Fetch FanUnstaked events
+          const unstakedLogs = await publicClient.getContractEvents({
+            address: pool.poolAddress as Address,
+            abi: CREATOR_POOL_ABI,
+            eventName: 'FanUnstaked',
+            fromBlock: fromBlock,
+            toBlock: lastCheckedBlock,
+          });
+
+          if (stakedLogs.length > 0 || unstakedLogs.length > 0) {
+            // Found events, so the contract existed at this point
+            foundEvents = true;
+            createdBlockNumber = fromBlock; // Contract was created at or before this block range
+            console.log(`Found events at blocks ${fromBlock} to ${lastCheckedBlock}, narrowing search...`);
+            break;
+          }
+
+          lastCheckedBlock = fromBlock;
+        }
+
+        if (!foundEvents) {
+          // If no events were found, the contract might not have been deployed yet or was deployed very recently
+          // We'll use a reasonable fallback approach by checking when the contract code first existed
+          let low = 0n;
+          let high = currentBlockNumber;
+          let contractBlock = currentBlockNumber;
+
+          // Binary search to find when the contract was deployed
+          while (low <= high) {
+            const mid = (low + high) / 2n;
+
+            try {
+              const code = await publicClient.getCode({
+                address: pool.poolAddress as Address,
+                blockNumber: mid,
+              });
+
+              if (code && code !== "0x") {
+                // Contract code exists at this block, try earlier blocks
+                contractBlock = mid;
+                high = mid - 1n;
+              } else {
+                // No contract code at this block, try later blocks
+                low = mid + 1n;
+              }
+            } catch (error) {
+              // If there's an error checking the code at this block (e.g., historical data not available),
+              // adjust the search range
+              low = mid + 1n;
+            }
+          }
+
+          createdBlockNumber = contractBlock;
+        }
+
+        console.log(`Starting full event search from block: ${createdBlockNumber}`);
+
+        // Now process all events from the estimated creation block to current block
+        const fanStakedEvents: any[] = [];
+        const fanUnstakedEvents: any[] = [];
+
+        let fromBlock = createdBlockNumber;
+
+        while (fromBlock <= currentBlockNumber) {
+          const toBlock = fromBlock + BATCH_SIZE > currentBlockNumber ? currentBlockNumber : fromBlock + BATCH_SIZE;
+
+          console.log(`Processing blocks ${fromBlock} to ${toBlock}...`);
+
+          // Fetch FanStaked events
+          const stakedLogs = await publicClient.getContractEvents({
+            address: pool.poolAddress as Address,
+            abi: CREATOR_POOL_ABI,
+            eventName: 'FanStaked',
+            fromBlock: fromBlock,
+            toBlock: toBlock,
+          });
+
+          // Fetch FanUnstaked events
+          const unstakedLogs = await publicClient.getContractEvents({
+            address: pool.poolAddress as Address,
+            abi: CREATOR_POOL_ABI,
+            eventName: 'FanUnstaked',
+            fromBlock: fromBlock,
+            toBlock: toBlock,
+          });
+
+          fanStakedEvents.push(...stakedLogs);
+          fanUnstakedEvents.push(...unstakedLogs);
+
+          fromBlock = toBlock + 1n;
+        }
+
+        console.log(`Found ${fanStakedEvents.length} FanStaked events and ${fanUnstakedEvents.length} FanUnstaked events`);
+
+        // Process events to update database
+        // First, ensure user wallets exist for each address in events
+        const addresses = new Set<string>();
+
+        for (const event of [...fanStakedEvents, ...fanUnstakedEvents]) {
+          if ('args' in event && event.args) {
+            if ('fan' in event.args && event.args.fan) {
+              addresses.add(event.args.fan as string);
+            }
+          }
+        }
+
+        // Create user wallets if they don't exist
+        for (const address of addresses) {
+          await prisma.userWallet.upsert({
+            where: { address: address },
+            update: {},
+            create: { address: address, userId: null },
+          });
+        }
+
+        // Create a raw update query to update stakedPool records based on FanStaked events
+        if (fanStakedEvents.length > 0) {
+          const stakeUpdates = fanStakedEvents.map(event => {
+            if ('args' in event && event.args && 'fan' in event.args && 'amount' in event.args) {
+              const fanAddress = event.args.fan as string;
+              const amount = event.args.amount as bigint;
+              return `('${fanAddress}', ${poolId}, '${amount.toString()}')`;
+            }
+            return null;
+          }).filter(Boolean);
+
+          if (stakeUpdates.length > 0) {
+            // Bulk upsert for staked pools
+            await prisma.$executeRawUnsafe(`
+              INSERT INTO "StakedPool" ("userWalletId", "poolId", "stakeAmount")
+              SELECT uw.id, u.poolId, u.stakeAmount
+              FROM (
+                VALUES ${stakeUpdates.join(',')}
+              ) AS u(address, poolId, stakeAmount)
+              JOIN "UserWallet" uw ON uw.address = u.address
+              ON CONFLICT ("userWalletId", "poolId")
+              DO UPDATE SET
+                "stakeAmount" = "StakedPool"."stakeAmount" + EXCLUDED."stakeAmount"
+            `);
+          }
+        }
+
+        // Create a raw update query to update stakedPool records based on FanUnstaked events
+        if (fanUnstakedEvents.length > 0) {
+          const unstakeUpdates = fanUnstakedEvents.map(event => {
+            if ('args' in event && event.args && 'fan' in event.args && 'amount' in event.args) {
+              const fanAddress = event.args.fan as string;
+              const amount = event.args.amount as bigint;
+              return `('${fanAddress}', ${poolId}, '${amount.toString()}')`;
+            }
+            return null;
+          }).filter(Boolean);
+
+          if (unstakeUpdates.length > 0) {
+            // Bulk update for unstaked pools (subtracting from existing stake)
+            await prisma.$executeRawUnsafe(`
+              UPDATE "StakedPool"
+              SET "stakeAmount" = GREATEST("StakedPool"."stakeAmount" - v.unstake_amount, 0)
+              FROM (
+                VALUES ${unstakeUpdates.join(',')}
+              ) AS v(address, pool_id, unstake_amount)
+              JOIN "UserWallet" uw ON uw.address = v.address
+              WHERE "StakedPool"."userWalletId" = uw.id AND "StakedPool"."poolId" = v.pool_id
+            `);
+          }
+        }
+
+        return {
+          success: true,
+          message: "Pool stakes synchronized successfully",
+          processedEvents: {
+            fanStaked: fanStakedEvents.length,
+            fanUnstaked: fanUnstakedEvents.length,
+          },
+        };
+      } catch (error) {
+        console.error("Error synchronizing pool stakes:", error);
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to synchronize pool stakes",
+        });
+      }
+    }),
 });
