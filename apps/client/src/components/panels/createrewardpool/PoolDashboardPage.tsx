@@ -350,24 +350,24 @@ export default function DashboardPage() {
     return activityTime.toLocaleDateString();
   }, []);
 
-  const stakeData = React.useMemo(() => {
-    return (
-      dashboardData?.dailyStakeData?.map(d => ({
-        date: d.date,
-        stake: d.stake,
-      })) || []
-    );
-  }, [dashboardData?.dailyStakeData]);
+  // const stakeData = React.useMemo(() => {
+  //   return (
+  //     dashboardData?.dailyStakeData?.map(d => ({
+  //       date: d.date,
+  //       stake: d.stake,
+  //     })) || []
+  //   );
+  // }, [dashboardData?.dailyStakeData]);
 
-  // Combine the data for the chart
-  const chartData = React.useMemo(
-    () =>
-      stakeData.map(stake => ({
-        date: stake.date,
-        stake: stake.stake,
-      })),
-    [stakeData]
-  );
+  // // Combine the data for the chart
+  // const chartData = React.useMemo(
+  //   () =>
+  //     stakeData.map(stake => ({
+  //       date: stake.date,
+  //       stake: stake.stake,
+  //     })),
+  //   [stakeData]
+  // );
 
   // Get pool details combining backend and blockchain data
   const userPool = React.useMemo<RewardPool | null>(() => {
@@ -423,102 +423,102 @@ export default function DashboardPage() {
   }, [poolData, poolName, dashboardData]);
 
   // Create line chart path
-  const createChartElements = React.useCallback(() => {
-    const chartWidth = 900;
-    const chartHeight = 400;
-    const padding = { top: 40, right: 60, bottom: 80, left: 80 };
-    const plotWidth = chartWidth - padding.left - padding.right;
-    const plotHeight = chartHeight - padding.top - padding.bottom;
+  // const createChartElements = React.useCallback(() => {
+  //   const chartWidth = 900;
+  //   const chartHeight = 400;
+  //   const padding = { top: 40, right: 60, bottom: 80, left: 80 };
+  //   const plotWidth = chartWidth - padding.left - padding.right;
+  //   const plotHeight = chartHeight - padding.top - padding.bottom;
 
-    // Check if chartData is empty to prevent errors
-    if (chartData.length === 0) {
-      return {
-        stakePoints: [],
-        stakePathData: "",
-        leftYLabels: [],
-        xLabels: [],
-        chartWidth,
-        chartHeight,
-        padding,
-      };
-    }
+  //   // Check if chartData is empty to prevent errors
+  //   if (chartData.length === 0) {
+  //     return {
+  //       stakePoints: [],
+  //       stakePathData: "",
+  //       leftYLabels: [],
+  //       xLabels: [],
+  //       chartWidth,
+  //       chartHeight,
+  //       padding,
+  //     };
+  //   }
 
-    const maxStake = Math.max(...chartData.map(d => parseFloat(formatEther(BigInt(d.stake)))));
-    const stakeRange = maxStake; // If minStake is 0, range is just maxStake
+  //   const maxStake = Math.max(...chartData.map(d => parseFloat(formatEther(BigInt(d.stake)))));
+  //   const stakeRange = maxStake; // If minStake is 0, range is just maxStake
 
-    // Handle case where all values are the same (stakeRange is 0)
-    const effectiveStakeRange = stakeRange === 0 ? 1 : stakeRange;
+  //   // Handle case where all values are the same (stakeRange is 0)
+  //   const effectiveStakeRange = stakeRange === 0 ? 1 : stakeRange;
 
-    // Create points for the stake line
-    const stakePoints = chartData.map((point, index) => {
-      // Handle division by zero when there's only one data point
-      const xFactor = chartData.length > 1 ? index / (chartData.length - 1) : 0.5;
-      const x = padding.left + 20 + xFactor * (plotWidth - 40);
+  //   // Create points for the stake line
+  //   const stakePoints = chartData.map((point, index) => {
+  //     // Handle division by zero when there's only one data point
+  //     const xFactor = chartData.length > 1 ? index / (chartData.length - 1) : 0.5;
+  //     const x = padding.left + 20 + xFactor * (plotWidth - 40);
 
-      const stakeValue = parseFloat(formatEther(BigInt(point.stake)));
-      // Use effectiveStakeRange to prevent division by zero
-      const y = padding.top + plotHeight - (stakeValue / effectiveStakeRange) * plotHeight;
+  //     const stakeValue = parseFloat(formatEther(BigInt(point.stake)));
+  //     // Use effectiveStakeRange to prevent division by zero
+  //     const y = padding.top + plotHeight - (stakeValue / effectiveStakeRange) * plotHeight;
 
-      return {
-        x: isNaN(x) ? padding.left + 20 : x,
-        y: isNaN(y) ? padding.top + plotHeight : y,
-        value: stakeValue,
-        date: point.date,
-      };
-    });
+  //     return {
+  //       x: isNaN(x) ? padding.left + 20 : x,
+  //       y: isNaN(y) ? padding.top + plotHeight : y,
+  //       value: stakeValue,
+  //       date: point.date,
+  //     };
+  //   });
 
-    // Create SVG path for stake line
-    const stakePathData = stakePoints
-      .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x},${point.y}`)
-      .join(" ");
+  //   // Create SVG path for stake line
+  //   const stakePathData = stakePoints
+  //     .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x},${point.y}`)
+  //     .join(" ");
 
-    // Create left Y-axis labels (Total Stake) - 5 evenly spaced labels
-    const leftYLabels: { value: number; y: number }[] = [];
-    const labelCount = 5;
-    for (let i = 0; i < labelCount; i++) {
-      // Handle division by zero when there's only one label
-      const denominator = labelCount - 1 > 0 ? labelCount - 1 : 1;
-      const value = (stakeRange * i) / denominator;
-      const yFactor = labelCount - 1 > 0 ? i / (labelCount - 1) : 0.5;
-      const y = padding.top + plotHeight - yFactor * plotHeight;
+  //   // Create left Y-axis labels (Total Stake) - 5 evenly spaced labels
+  //   const leftYLabels: { value: number; y: number }[] = [];
+  //   const labelCount = 5;
+  //   for (let i = 0; i < labelCount; i++) {
+  //     // Handle division by zero when there's only one label
+  //     const denominator = labelCount - 1 > 0 ? labelCount - 1 : 1;
+  //     const value = (stakeRange * i) / denominator;
+  //     const yFactor = labelCount - 1 > 0 ? i / (labelCount - 1) : 0.5;
+  //     const y = padding.top + plotHeight - yFactor * plotHeight;
 
-      leftYLabels.push({
-        value,
-        y: isNaN(y) ? padding.top + plotHeight / 2 : y,
-      });
-    }
+  //     leftYLabels.push({
+  //       value,
+  //       y: isNaN(y) ? padding.top + plotHeight / 2 : y,
+  //     });
+  //   }
 
-    // Create X-axis labels (show every 5th day for cleaner look)
-    const xLabels: { x: number; label: string; date: string }[] = chartData
-      .filter((_, index) => index % 5 === 0 || index === chartData.length - 1)
-      .map((point, _) => {
-        const originalIndex = chartData.indexOf(point);
-        // Handle division by zero when there's only one data point
-        const xFactor = chartData.length > 1 ? originalIndex / (chartData.length - 1) : 0.5;
-        const x = padding.left + 20 + xFactor * (plotWidth - 40);
+  //   // Create X-axis labels (show every 5th day for cleaner look)
+  //   const xLabels: { x: number; label: string; date: string }[] = chartData
+  //     .filter((_, index) => index % 5 === 0 || index === chartData.length - 1)
+  //     .map((point, _) => {
+  //       const originalIndex = chartData.indexOf(point);
+  //       // Handle division by zero when there's only one data point
+  //       const xFactor = chartData.length > 1 ? originalIndex / (chartData.length - 1) : 0.5;
+  //       const x = padding.left + 20 + xFactor * (plotWidth - 40);
 
-        return {
-          x: isNaN(x) ? padding.left + 20 : x,
-          label: new Date(point.date).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-          }),
-          date: point.date,
-        };
-      });
+  //       return {
+  //         x: isNaN(x) ? padding.left + 20 : x,
+  //         label: new Date(point.date).toLocaleDateString("en-US", {
+  //           month: "short",
+  //           day: "numeric",
+  //         }),
+  //         date: point.date,
+  //       };
+  //     });
 
-    return {
-      stakePoints,
-      stakePathData,
-      leftYLabels,
-      xLabels,
-      chartWidth,
-      chartHeight,
-      padding,
-    };
-  }, [chartData]);
+  //   return {
+  //     stakePoints,
+  //     stakePathData,
+  //     leftYLabels,
+  //     xLabels,
+  //     chartWidth,
+  //     chartHeight,
+  //     padding,
+  //   };
+  // }, [chartData]);
 
-  const chartElements = React.useMemo(() => createChartElements(), [createChartElements]);
+  // const chartElements = React.useMemo(() => createChartElements(), [createChartElements]);
 
   const handleViewPool = React.useCallback(() => {
     setIsPoolModalOpen(true);
@@ -559,19 +559,8 @@ export default function DashboardPage() {
   };
 
   // Show loading state while fetching pool data or dashboard data
-  if (isPoolLoading || (!!userAddress && !!chainId && (!poolData || !dashboardData))) {
-    // Only show skeleton if we have user address and chainId, otherwise show error state
-    if (userAddress && chainId) {
-      return <PoolDashboardSkeleton />;
-    } else {
-      return (
-        <div className="max-w-6xl mx-auto px-4 md:px-8 py-8 flex justify-center items-center h-64">
-          <div className="text-center">
-            <p className="text-gray-600">Connect your wallet to view pool data.</p>
-          </div>
-        </div>
-      );
-    }
+  if (!userAddress || !chainId || isPoolLoading || (!poolData || !dashboardData)) {
+    return <PoolDashboardSkeleton />;
   }
 
   // If no pool data is available after loading, show an error message
@@ -769,7 +758,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Chart Section */}
+      {/* Chart Section - HIDDEN by commenting out */}
+      {/*
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-8">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -784,7 +774,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Chart Container */}
         <div className="relative overflow-x-auto">
           <div className="min-w-[800px]">
             <svg
@@ -793,14 +782,12 @@ export default function DashboardPage() {
               className="w-full h-auto bg-white rounded-lg border border-gray-200"
               viewBox={`0 0 ${chartElements.chartWidth} ${chartElements.chartHeight}`}
             >
-              {/* Background and grid */}
               <defs>
                 <pattern id="grid" width="50" height="40" patternUnits="userSpaceOnUse">
                   <path d="M 50 0 L 0 0 0 40" fill="none" stroke="#f8fafc" strokeWidth="1" />
                 </pattern>
               </defs>
 
-              {/* Chart background */}
               <rect
                 x={chartElements.padding.left + 10}
                 y={chartElements.padding.top}
@@ -820,7 +807,6 @@ export default function DashboardPage() {
                 strokeWidth="1"
               />
 
-              {/* Horizontal grid lines */}
               {chartElements.leftYLabels?.map((label, index) => (
                 <line
                   key={`grid-h-${index}`}
@@ -834,7 +820,6 @@ export default function DashboardPage() {
                 />
               ))}
 
-              {/* Left Y-axis labels (Total Stake) */}
               {chartElements.leftYLabels?.map((label, index) => (
                 <g key={`left-label-${index}`}>
                   <text
@@ -850,7 +835,6 @@ export default function DashboardPage() {
                 </g>
               ))}
 
-              {/* X-axis labels */}
               {chartElements.xLabels?.map((label, index) => (
                 <g key={`x-label-${index}`}>
                   <text
@@ -864,7 +848,6 @@ export default function DashboardPage() {
                 </g>
               ))}
 
-              {/* Total Stake line */}
               <path
                 d={chartElements.stakePathData}
                 fill="none"
@@ -874,7 +857,6 @@ export default function DashboardPage() {
                 strokeLinejoin="round"
               />
 
-              {/* Total Stake data points */}
               {chartElements.stakePoints?.map((point, index) => (
                 <circle
                   key={`stake-point-${index}`}
@@ -890,7 +872,6 @@ export default function DashboardPage() {
                 </circle>
               ))}
 
-              {/* Axis lines */}
               <line
                 x1={chartElements.padding.left}
                 y1={chartElements.chartHeight - chartElements.padding.bottom}
@@ -919,6 +900,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+      */}
 
       {/* Fan Leaderboard */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-8">

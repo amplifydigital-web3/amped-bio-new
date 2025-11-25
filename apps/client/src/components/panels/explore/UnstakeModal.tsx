@@ -1,7 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { X, Coins, TrendingUp, AlertCircle, Check } from "lucide-react";
-import { useAccount, useBalance } from "wagmi";
-import { getChainConfig } from "@ampedbio/web3";
+import { useAccount, useBalance, usePublicClient, useWriteContract } from "wagmi";
+import { parseEther } from "viem";
+import { L2_BASE_TOKEN_ABI, getChainConfig } from "@ampedbio/web3";
+import { trpc } from "@/utils/trpc";
+import { useMutation } from "@tanstack/react-query";
+import { useStakingManager } from "@/hooks/useStakingManager";
 import {
   Dialog,
   DialogContent,
@@ -19,29 +23,36 @@ interface UnstakeModalProps {
     name: string; // Blockchain pool name (primary)
     description: string;
     chainId: string;
+    address: string; // Adding address for the staking hook
     image: {
       id: number;
       url: string;
     } | null;
     currentStake?: number;
   } | null;
-  onUnstake?: (amount: string) => Promise<void>;
-  isStaking?: boolean;
-  stakeActionError?: string | null;
+  onStakeSuccess?: () => void; // Callback for when stake/unstake completes to trigger refresh
 }
 
 export default function UnstakeModal({
   isOpen,
   onClose,
   pool,
-  onUnstake,
-  isStaking,
-  stakeActionError,
+  onStakeSuccess,
 }: UnstakeModalProps) {
   const mode = "reduce-stake";
   // Get the chain configuration once to avoid multiple calls
   const chainConfig = pool ? getChainConfig(parseInt(pool.chainId)) : null;
   const currencySymbol = chainConfig?.nativeCurrency.symbol || "REVO";
+
+  // Use the staking hook with our pool data
+  const {
+    isStaking,
+    stakeActionError,
+    unstake: handleUnstake,
+  } = useStakingManager(
+    pool ? { id: pool.id, chainId: pool.chainId, address: pool.address } : null,
+    onStakeSuccess
+  );
 
   const [step, setStep] = useState<"amount" | "confirm" | "staking" | "success">("amount");
   const [amount, setAmount] = useState("");
@@ -65,7 +76,7 @@ export default function UnstakeModal({
 
   if (!isOpen || !pool) return null;
 
-  const handleUnstake = async () => {
+  const handleUnstakeClick = async () => {
     const numericAmount = parseFloat(amount) || 0;
     if (numericAmount > (pool?.currentStake || 0)) {
       const error = `Unstake amount exceeds current stake. Current stake: ${pool?.currentStake?.toFixed(4) || 0} ${currencySymbol}`;
@@ -76,12 +87,7 @@ export default function UnstakeModal({
     setStep("staking");
 
     try {
-      if (onUnstake) {
-        await onUnstake(amount);
-      } else {
-        console.error("Unstake function not provided");
-        throw new Error("Unstake function not provided");
-      }
+      await handleUnstake(amount);
 
       setStep("success");
 
@@ -235,16 +241,16 @@ export default function UnstakeModal({
 
           <button
             onClick={() => setStep("confirm")}
-            disabled={!canProceed || !onUnstake || !!isStaking || (pool?.currentStake || 0) <= 0}
+            disabled={!canProceed || !pool?.address || !!isStaking || (pool?.currentStake || 0) <= 0}
             className={`w-full py-4 font-semibold rounded-xl transition-all duration-200 ${
-              canProceed && !isStaking && onUnstake && (pool?.currentStake || 0) > 0
+              canProceed && !isStaking && pool?.address && (pool?.currentStake || 0) > 0
                 ? "bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl"
                 : "bg-gray-300 text-gray-500 cursor-not-allowed"
             }`}
           >
             {(pool?.currentStake || 0) <= 0
               ? "No stake to unstake"
-              : !onUnstake
+              : !pool?.address
                 ? "Unstaking not available"
                 : isStaking
                   ? "Processing..."
@@ -351,7 +357,7 @@ export default function UnstakeModal({
             Back
           </button>
           <button
-            onClick={handleUnstake}
+            onClick={handleUnstakeClick}
             disabled={hasInsufficientStake}
             className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2 ${
               hasInsufficientStake

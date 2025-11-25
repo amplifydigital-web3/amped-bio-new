@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import { parseEther } from "viem";
 import { L2_BASE_TOKEN_ABI, getChainConfig } from "@ampedbio/web3";
-import { trpc } from "../utils/trpc";
+import { trpc } from "@/utils/trpc";
 import { useMutation } from "@tanstack/react-query";
 
 interface StakingPoolData {
@@ -11,7 +11,7 @@ interface StakingPoolData {
   address: string;
 }
 
-export function useStaking(pool: StakingPoolData | null, onStakeSuccess?: () => void) {
+export function useStakingManager(pool: StakingPoolData | null, onStakeSuccess?: () => void) {
   const { address: userAddress } = useAccount();
   const publicClient = usePublicClient();
 

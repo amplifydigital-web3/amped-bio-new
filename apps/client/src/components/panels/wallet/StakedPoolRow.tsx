@@ -3,8 +3,9 @@ import { Trophy, Link, TrendingUp } from "lucide-react";
 import { getChainConfig } from "@ampedbio/web3";
 import { formatUnits, formatEther } from "viem";
 import { toast } from "react-hot-toast";
-import { useStaking } from "../../../hooks/useStaking";
+import { usePoolReader } from "../../../hooks/usePoolReader";
 import { UserStakedPool } from "@ampedbio/constants";
+import { useAccount } from "wagmi";
 
 interface StakedPoolRowProps {
   poolData: UserStakedPool & { pendingRewards: bigint; stakedByYou: bigint };
@@ -22,16 +23,21 @@ export default function StakedPoolRow({
   const { pendingRewards, stakedByYou, pool } = poolData;
   const [isClaiming, setIsClaiming] = React.useState(false);
 
-  // Use the useStaking hook with the current pool
+  const { address: userAddress } = useAccount();
+
+  // Use the usePoolReader hook for reading operations
   const {
     claimReward,
-    currencySymbol,
     pendingReward: hookPendingReward,
     refetchPendingReward,
-  } = useStaking({ id: pool.id, chainId: currentChainId, address: pool.address });
+  } = usePoolReader(
+    pool.address as `0x${string}` | undefined,
+    userAddress as `0x${string}` | undefined
+  );
 
   const stakedAmount = stakedByYou;
   const chainConfig = getChainConfig(parseInt(currentChainId));
+  const currencySymbol = chainConfig?.nativeCurrency.symbol || "REVO";
 
   // Function to handle the direct claim process
   const handleClaim = async (e: React.MouseEvent) => {

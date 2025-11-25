@@ -1,7 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { X, Coins, TrendingUp, AlertCircle, Check } from "lucide-react";
-import { useAccount, useBalance } from "wagmi";
-import { getChainConfig } from "@ampedbio/web3";
+import { useAccount, useBalance, usePublicClient, useWriteContract } from "wagmi";
+import { parseEther } from "viem";
+import { L2_BASE_TOKEN_ABI, getChainConfig } from "@ampedbio/web3";
+import { trpc } from "@/utils/trpc";
+import { useMutation } from "@tanstack/react-query";
+import { useStakingManager } from "@/hooks/useStakingManager";
 import Decimal from "decimal.js";
 import {
   Dialog,
@@ -12,6 +16,12 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 
+interface StakingPoolData {
+  id: number;
+  chainId: string;
+  address: string;
+}
+
 interface StakeModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -20,6 +30,7 @@ interface StakeModalProps {
     name: string; // Blockchain pool name (primary)
     description: string;
     chainId: string;
+    address: string; // Adding address for the staking hook
     image: {
       id: number;
       url: string;
@@ -27,9 +38,7 @@ interface StakeModalProps {
     currentStake?: number;
   } | null;
   mode: "stake" | "add-stake";
-  onStake?: (amount: string) => Promise<void>;
-  isStaking?: boolean;
-  stakeActionError?: string | null;
+  onStakeSuccess?: () => void; // Callback for when stake completes to trigger refresh
 }
 
 export default function StakeModal({
@@ -37,13 +46,21 @@ export default function StakeModal({
   onClose,
   pool,
   mode,
-  onStake,
-  isStaking,
-  stakeActionError,
+  onStakeSuccess,
 }: StakeModalProps) {
   // Get the chain configuration once to avoid multiple calls
   const chainConfig = pool ? getChainConfig(parseInt(pool.chainId)) : null;
   const currencySymbol = chainConfig?.nativeCurrency.symbol || "REVO";
+
+  // Use the staking hook with our pool data
+  const {
+    isStaking,
+    stakeActionError,
+    stake: handleStake,
+  } = useStakingManager(
+    pool ? { id: pool.id, chainId: pool.chainId, address: pool.address } : null,
+    onStakeSuccess
+  );
 
   const [step, setStep] = useState<"amount" | "confirm" | "staking" | "success">("amount");
   const [amount, setAmount] = useState("");
@@ -75,16 +92,11 @@ export default function StakeModal({
     }
   };
 
-  const handleStake = async () => {
+  const handleStakeClick = async () => {
     setStep("staking");
 
     try {
-      if (onStake) {
-        await onStake(amount);
-      } else {
-        console.error("Stake function not provided");
-        throw new Error("Stake function not provided");
-      }
+      await handleStake(amount);
 
       // If successful, proceed to success step
       setStep("success");
@@ -271,14 +283,14 @@ export default function StakeModal({
 
           <button
             onClick={() => setStep("confirm")}
-            disabled={!canProceed || isBalanceLoading || !onStake || !!isStaking}
+            disabled={!canProceed || isBalanceLoading || !pool?.address || !!isStaking}
             className={`w-full py-4 font-semibold rounded-xl transition-all duration-200 ${
-              canProceed && !isBalanceLoading && !isStaking && onStake
+              canProceed && !isBalanceLoading && !isStaking && pool?.address
                 ? "bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl"
                 : "bg-gray-300 text-gray-500 cursor-not-allowed"
             }`}
           >
-            {!onStake
+            {!pool?.address
               ? "Staking not available"
               : isStaking
                 ? "Processing..."
@@ -305,7 +317,7 @@ export default function StakeModal({
           )}
 
           {/* Show error if functions are not provided */}
-          {!onStake && (
+          {!pool?.address && (
             <div className="text-sm text-red-500 flex items-center space-x-1">
               <AlertCircle className="w-4 h-4" />
               <span>Staking functionality not available for this pool</span>
@@ -418,7 +430,7 @@ export default function StakeModal({
             Back
           </button>
           <button
-            onClick={handleStake}
+            onClick={handleStakeClick}
             className="flex-1 px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white"
           >
             <Coins className="w-4 h-4" />

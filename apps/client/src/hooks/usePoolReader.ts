@@ -1,57 +1,41 @@
-import { useReadContract, useWriteContract } from "wagmi";
+import { useReadContracts, useWriteContract } from "wagmi";
 import { type Address } from "viem";
 import { CREATOR_POOL_ABI } from "@ampedbio/web3";
 
 export function usePoolReader(poolAddress?: Address, fanAddress?: Address) {
-  const { data: creatorCutData, isLoading: isReadingCreatorCut } = useReadContract({
+  const poolContract = {
     address: poolAddress,
     abi: CREATOR_POOL_ABI,
-    functionName: "creatorCut",
+  } as const;
+
+  const contracts = [
+    { ...poolContract, functionName: "creatorCut" },
+    { ...poolContract, functionName: "poolName" },
+    ...(fanAddress
+      ? ([
+          {
+            ...poolContract,
+            functionName: "pendingReward",
+            args: [fanAddress],
+          },
+          { ...poolContract, functionName: "fanStakes", args: [fanAddress] },
+        ] as const)
+      : []),
+  ];
+
+  const { data, isLoading, refetch } = useReadContracts({
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    contracts,
     query: {
       enabled: !!poolAddress,
     },
   });
 
-  const {
-    data: poolNameData,
-    isLoading: isReadingPoolName,
-    refetch: refetchPoolName,
-  } = useReadContract({
-    address: poolAddress,
-    abi: CREATOR_POOL_ABI,
-    functionName: "poolName",
-    query: {
-      enabled: !!poolAddress,
-    },
-  });
-
-  const {
-    data: pendingRewardData,
-    isLoading: isReadingPendingReward,
-    refetch: refetchPendingReward,
-  } = useReadContract({
-    address: poolAddress,
-    abi: CREATOR_POOL_ABI,
-    functionName: "pendingReward",
-    args: fanAddress ? [fanAddress] : undefined,
-    query: {
-      enabled: !!poolAddress && !!fanAddress,
-    },
-  });
-
-  const {
-    data: fanStakeData,
-    isLoading: isReadingFanStake,
-    refetch: refetchFanStake,
-  } = useReadContract({
-    address: poolAddress,
-    abi: CREATOR_POOL_ABI,
-    functionName: "fanStakes",
-    args: fanAddress ? [fanAddress] : undefined,
-    query: {
-      enabled: !!poolAddress && !!fanAddress,
-    },
-  });
+  const creatorCutResult = data?.[0];
+  const poolNameResult = data?.[1];
+  const pendingRewardResult = fanAddress ? data?.[2] : undefined;
+  const fanStakeResult = fanAddress ? data?.[3] : undefined;
 
   const { writeContractAsync: writeCreatorPoolContractAsync } = useWriteContract();
 
@@ -73,17 +57,17 @@ export function usePoolReader(poolAddress?: Address, fanAddress?: Address) {
   };
 
   return {
-    creatorCut: creatorCutData,
-    isReadingCreatorCut,
-    fanStake: fanStakeData,
-    isReadingFanStake,
-    refetchFanStake,
-    pendingReward: pendingRewardData,
-    isReadingPendingReward,
-    refetchPendingReward,
-    poolName: poolNameData,
-    isReadingPoolName,
-    refetchPoolName,
+    creatorCut: creatorCutResult?.result as bigint | undefined,
+    isReadingCreatorCut: isLoading,
+    fanStake: fanStakeResult?.result as bigint | undefined,
+    isReadingFanStake: isLoading,
+    refetchFanStake: refetch,
+    pendingReward: pendingRewardResult?.result as bigint | undefined,
+    isReadingPendingReward: isLoading,
+    refetchPendingReward: refetch,
+    poolName: poolNameResult?.result as string | undefined,
+    isReadingPoolName: isLoading,
+    refetchPoolName: refetch,
     claimReward,
   };
 }

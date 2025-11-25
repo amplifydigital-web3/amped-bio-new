@@ -16,7 +16,6 @@ import { trpcClient } from "@/utils/trpc";
 import { trpc } from "@/utils/trpc/trpc";
 import { useQuery } from "@tanstack/react-query";
 import { usePoolReader } from "../../../hooks/usePoolReader";
-import { useStaking } from "../../../hooks/useStaking";
 import { formatEther } from "viem";
 import { getChainConfig } from "@ampedbio/web3";
 
@@ -38,7 +37,7 @@ export default function ExplorePoolDetailsModal({
   const {
     data: pool,
     isLoading,
-    isError
+    isError,
   } = useQuery(
     trpc.pools.fan.getPoolDetailsForModal.queryOptions(
       { poolId },
@@ -49,23 +48,6 @@ export default function ExplorePoolDetailsModal({
     )
   );
 
-  const { creatorCut: contractCreatorCut, isReadingCreatorCut } = usePoolReader(
-    pool?.address as `0x${string}` | undefined
-  );
-  const {
-    fanStake,
-    isStaking,
-    stakeActionError,
-    stake,
-    unstake,
-    currencySymbol,
-    pendingReward,
-    isReadingPendingReward,
-    claimReward,
-    refetchFanStake,
-    refetchPendingReward,
-  } = useStaking(pool ? { id: pool.id, chainId: pool.chainId, address: pool.address } : null, onStakeSuccess);
-
   const [isStakeModalOpen, setIsStakeModalOpen] = useState(false);
   const [isUnstakeModalOpen, setIsUnstakeModalOpen] = useState(false);
   const [isImageUploadModalOpen, setIsImageUploadModalOpen] = useState(false);
@@ -73,6 +55,31 @@ export default function ExplorePoolDetailsModal({
   const [isClaiming, setIsClaiming] = useState(false);
 
   const { address: userAddress } = useAccount();
+
+  const {
+    creatorCut: contractCreatorCut,
+    isReadingCreatorCut,
+    fanStake: rawFanStake,
+    isReadingFanStake,
+    refetchFanStake,
+    pendingReward,
+    isReadingPendingReward,
+    refetchPendingReward,
+    poolName: poolNameFromContract,
+    isReadingPoolName,
+    refetchPoolName,
+    claimReward,
+  } = usePoolReader(
+    pool?.address as `0x${string}` | undefined,
+    userAddress as `0x${string}` | undefined
+  );
+
+
+  const chainConfig = getChainConfig(parseInt(pool?.chainId || "0"));
+  const currencySymbol = chainConfig?.nativeCurrency.symbol || "REVO";
+
+  // Format the raw fan stake (bigint) to a string for display
+  const fanStake = rawFanStake ? formatEther(rawFanStake) : "0";
 
   const handleImageUploadClick = useCallback(() => {
     setIsImageUploadModalOpen(true);
@@ -371,12 +378,6 @@ export default function ExplorePoolDetailsModal({
               </div>
             </div>
 
-            {/* Stake Action Error Message */}
-            {stakeActionError && (
-              <div className="mb-4 p-3 border border-red-200 rounded-lg">
-                <p className="text-red-700 text-sm">{stakeActionError}</p>
-              </div>
-            )}
           </div>
           <DialogFooter className="border-t border-gray-100 p-6">
             <div className="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0 sm:space-x-4">
@@ -393,27 +394,24 @@ export default function ExplorePoolDetailsModal({
               <div className="flex items-center space-x-3">
                 <button
                   onClick={handleReduceStake}
-                  className="flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm disabled:opacity-50"
-                  disabled={isStaking || parseFloat(fanStake) <= 0}
+                  className="flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm"
+                  disabled={parseFloat(fanStake) <= 0}
                   title={parseFloat(fanStake) <= 0 ? "You have no stake in this pool" : undefined}
                 >
                   <Minus className="w-4 h-4" />
                   <span>
-                    {isStaking
-                      ? "Processing..."
-                      : parseFloat(fanStake) <= 0
-                        ? "No Stake"
-                        : "Reduce Stake"}
+                    {parseFloat(fanStake) <= 0
+                      ? "No Stake"
+                      : "Reduce Stake"}
                   </span>
                 </button>
 
                 <button
                   onClick={handleAddStake}
-                  className="flex items-center justify-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm disabled:opacity-50"
-                  disabled={isStaking}
+                  className="flex items-center justify-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>{isStaking ? "Processing..." : "Add Stake"}</span>
+                  <span>Add Stake</span>
                 </button>
               </div>
             </div>
@@ -432,15 +430,22 @@ export default function ExplorePoolDetailsModal({
                 name: pool.name,
                 description: pool.description ?? "",
                 chainId: pool.chainId,
+                address: pool.address,
                 image: pool.image,
                 currentStake: parseFloat(fanStake),
               }
             : null
         }
         mode={stakingMode}
-        onStake={stake}
-        isStaking={isStaking}
-        stakeActionError={stakeActionError}
+        onStakeSuccess={async () => {
+          // When stake operations complete, refetch blockchain data only
+          await refetchFanStake();
+          await refetchPendingReward();
+          await refetchPoolName(); // Also refetch pool name if needed
+
+          // Call the original callback if provided
+          onStakeSuccess?.();
+        }}
       />
 
       <UnstakeModal
@@ -453,14 +458,21 @@ export default function ExplorePoolDetailsModal({
                 name: pool.name,
                 description: pool.description ?? "",
                 chainId: pool.chainId,
+                address: pool.address,
                 image: pool.image,
                 currentStake: parseFloat(fanStake),
               }
             : null
         }
-        onUnstake={unstake}
-        isStaking={isStaking}
-        stakeActionError={stakeActionError}
+        onStakeSuccess={async () => {
+          // When stake operations complete, refetch blockchain data only
+          await refetchFanStake();
+          await refetchPendingReward();
+          await refetchPoolName(); // Also refetch pool name if needed
+
+          // Call the original callback if provided
+          onStakeSuccess?.();
+        }}
       />
 
       {/* Image Upload Modal */}

@@ -6,7 +6,6 @@ import { trpc } from "../../../../utils/trpc";
 import { getChainConfig } from "@ampedbio/web3";
 import PoolDetailsModal from "../ExplorePoolDetailsModal";
 import StakeModal from "../StakeModal";
-import { useStaking } from "../../../../hooks/useStaking";
 import { formatEther } from "viem";
 import { useChainId } from "wagmi";
 
@@ -64,7 +63,7 @@ interface PoolsTabProps {
 const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }) => {
   const chainId = useChainId();
 
-  const { data: pools, isLoading } = useQuery(
+  const { data: pools, isLoading, refetch } = useQuery(
     trpc.pools.fan.getPools.queryOptions({
       chainId: chainId.toString(),
       search: searchQuery,
@@ -82,16 +81,6 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
   );
   const [isRewardPoolViewModalOpen, setIsRewardPoolViewModalOpen] = useState(false);
 
-  // Hook de staking para o pool selecionado
-  const {
-    stake: stakeFunction,
-    isStaking: stakingState,
-    stakeActionError: stakingError,
-  } = useStaking(
-    selectedStakingPool
-      ? { id: selectedStakingPool.id, chainId: selectedStakingPool.chainId, address: selectedStakingPool.address }
-      : null
-  );
 
   const handleJoinPool = (poolId: number) => {
     if (pools) {
@@ -229,9 +218,7 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
           mode={stakingMode}
           isOpen={isStakeModalOpen}
           onClose={() => setIsStakeModalOpen(false)}
-          onStake={stakeFunction}
-          isStaking={stakingState}
-          stakeActionError={stakingError}
+          onStakeSuccess={refetch}
         />
       )}
       {isRewardPoolViewModalOpen && selectedRewardPoolForView && (
