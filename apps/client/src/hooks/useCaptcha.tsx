@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
-import { X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
