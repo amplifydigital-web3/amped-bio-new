@@ -50,13 +50,15 @@ export const poolsFanRouter = router({
             poolImage: {
               select: {
                 s3_key: true,
-                bucket: true,
               },
             },
             wallet: {
               select: {
-                address: true,
-                userId: true,
+                user: {
+                  select: {
+                    name: true,
+                  },
+                },
               },
             },
             stakedPools: {
@@ -158,119 +160,6 @@ export const poolsFanRouter = router({
           }
         }
 
-        // Get current user's wallet
-        const userId = ctx.user.sub;
-        const userWallet = await prisma.userWallet.findUnique({
-          where: { userId },
-        });
-
-        // Prepare arrays for batch processing user stake amounts (only for pools where user has stakes)
-        const userStakeAmountsData = new Map<number, bigint>();
-        if (userWallet) {
-          // Filter pools where the user has stakes
-          const userStakedPools = pools.filter(pool => {
-            if (pool.poolAddress) {
-              // Check if the user has a stake in this pool
-              const userStake = pool.stakedPools.find(
-                stake => stake.userWalletId === userWallet.id && stake.poolId === pool.id
-              );
-              return userStake !== undefined;
-            }
-            return false;
-          });
-
-          // Create multicall requests for all pools where the user has stakes
-          const multicallRequests: {
-            address: Address;
-            abi: typeof CREATOR_POOL_ABI;
-            functionName: "fanStakes";
-            args: [Address];
-          }[] = userStakedPools.map(pool => ({
-            address: pool.poolAddress as Address,
-            abi: CREATOR_POOL_ABI,
-            functionName: "fanStakes" as const,
-            args: [userWallet.address as Address],
-          }));
-
-          // Execute all contract calls in a single batch
-          if (multicallRequests.length > 0) {
-            try {
-              const results = await publicClient.multicall({
-                contracts: multicallRequests,
-              });
-
-              // Process the results, mapping them back to the correct pools
-              for (let i = 0; i < userStakedPools.length; i++) {
-                const pool = userStakedPools[i];
-                const result = results[i];
-
-                if (result.status === "success") {
-                  const stakeAmount = result.result as bigint;
-                  userStakeAmountsData.set(pool.id, stakeAmount);
-                } else {
-                  console.error(
-                    `Error fetching user stake from contract for pool ${pool.id}:`,
-                    result.error
-                  );
-                  // In case of failure, we'll use the DB value later
-                }
-              }
-            } catch (error) {
-              console.error(`Multicall for user stakes failed for chain ${input.chainId}:`, error);
-            }
-          }
-        }
-
-        // Prepare arrays for batch processing user pending rewards
-        const userPendingRewardsData = new Map<number, bigint>();
-        if (userWallet) {
-          // Filter pools that have pool addresses
-          const poolsWithAddresses = pools.filter(pool => pool.poolAddress);
-
-          // Create multicall requests for all pools for user's pending rewards
-          const multicallRequests: {
-            address: Address;
-            abi: typeof CREATOR_POOL_ABI;
-            functionName: "pendingReward";
-            args: [Address];
-          }[] = poolsWithAddresses.map(pool => ({
-            address: pool.poolAddress as Address,
-            abi: CREATOR_POOL_ABI,
-            functionName: "pendingReward" as const,
-            args: [userWallet.address as Address],
-          }));
-
-          // Execute all contract calls in a single batch
-          if (multicallRequests.length > 0) {
-            try {
-              const results = await publicClient.multicall({
-                contracts: multicallRequests,
-              });
-
-              // Process the results, mapping them back to the correct pools
-              for (let i = 0; i < poolsWithAddresses.length; i++) {
-                const pool = poolsWithAddresses[i];
-                const result = results[i];
-
-                if (result.status === "success") {
-                  const pendingReward = result.result as bigint;
-                  userPendingRewardsData.set(pool.id, pendingReward);
-                } else {
-                  console.error(
-                    `Error fetching user pending rewards from contract for pool ${pool.id}:`,
-                    result.error
-                  );
-                  // In case of failure, we'll return 0n later
-                }
-              }
-            } catch (error) {
-              console.error(
-                `Multicall for user pending rewards failed for chain ${input.chainId}:`,
-                error
-              );
-            }
-          }
-        }
 
         // Arrays to collect updates for batch processing
         const poolsToUpdate: { id: number; revoStaked: string }[] = [];
