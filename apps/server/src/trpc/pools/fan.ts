@@ -665,46 +665,12 @@ export const poolsFanRouter = router({
           });
         }
 
-        // Update the database with the latest stake amounts from the blockchain using a single query
-        if (blockchainStakeData.length > 0) {
-          // Build the raw query with proper parameterization for MySQL using CASE WHEN statement
-          const caseWhens = blockchainStakeData
-            .map(
-              stakeData =>
-                `WHEN userWalletId = ${userWallet.id} AND poolId = ${stakeData.poolId} THEN '${stakeData.stakeAmount}'`
-            )
-            .join(" ");
-
-          const poolIds = blockchainStakeData.map(stakeData => stakeData.poolId).join(",");
-
-          // Use raw SQL to update multiple stakedPool records in a single query using CASE WHEN
-          await prisma.$executeRawUnsafe(`
-              UPDATE staked_pools
-              SET stakeAmount = CASE
-                ${caseWhens}
-                ELSE stakeAmount
-              END
-              WHERE userWalletId = ${userWallet.id}
-              AND poolId IN (${poolIds})
-            `);
-
-          console.log(
-            `Successfully updated ${blockchainStakeData.length} stakedPool records for userWalletId: ${userWallet.id}`
-          );
-        }
-
         // Prepare arrays for additional multicall requests
         const poolsForMulticall = userStakes.filter(
           stake => stake.pool.poolAddress && userWallet.address
         );
 
-        // Create multicall requests for pool names and user pending rewards
-        const nameRequests = poolsForMulticall.map(stake => ({
-          address: stake.pool.poolAddress as Address,
-          abi: CREATOR_POOL_ABI,
-          functionName: "poolName" as const,
-        }));
-
+        // Create multicall requests for user pending rewards only (pool names will be fetched by frontend)
         const pendingRewardRequests = poolsForMulticall.map(stake => ({
           address: stake.pool.poolAddress as Address,
           abi: CREATOR_POOL_ABI,
@@ -712,72 +678,80 @@ export const poolsFanRouter = router({
           args: [userWallet.address as Address],
         }));
 
-        // Execute name and pending reward calls in batch
-        const poolNames: (string | null)[] = [];
-        const poolPendingRewards: bigint[] = [];
+        // Execute the database update and pending reward fetch in parallel
+        const [dbUpdateResult, pendingRewardResults] = await Promise.all([
+          // Database update promise
+          (async () => {
+            if (blockchainStakeData.length > 0) {
+              // Build the raw query with proper parameterization for MySQL using CASE WHEN statement
+              const caseWhens = blockchainStakeData
+                .map(
+                  stakeData =>
+                    `WHEN userWalletId = ${userWallet.id} AND poolId = ${stakeData.poolId} THEN '${stakeData.stakeAmount}'`
+                )
+                .join(" ");
 
-        if (nameRequests.length > 0) {
-          const nameResults = await publicClient.multicall({
-            contracts: nameRequests,
-          });
+              const poolIds = blockchainStakeData.map(stakeData => stakeData.poolId).join(",");
 
-          // Process the name results
-          nameResults.forEach((result, index) => {
-            if (result.status === "success") {
-              poolNames[index] = result.result as string;
+              // Use raw SQL to update multiple stakedPool records in a single query using CASE WHEN
+              await prisma.$executeRawUnsafe(`
+                  UPDATE staked_pools
+                  SET stakeAmount = CASE
+                    ${caseWhens}
+                    ELSE stakeAmount
+                  END
+                  WHERE userWalletId = ${userWallet.id}
+                  AND poolId IN (${poolIds})
+                `);
+
               console.log(
-                `[multicall] Successfully fetched pool name from contract for pool ${poolsForMulticall[index].pool.id}: ${result.result}`
+                `Successfully updated ${blockchainStakeData.length} stakedPool records for userWalletId: ${userWallet.id}`
               );
-            } else {
-              console.error(
-                `[multicall] Error fetching pool name from contract for pool ${poolsForMulticall[index].pool.id}:`,
-                result.error
-              );
-              poolNames[index] = null;
             }
-          });
-        }
+            return blockchainStakeData; // Return to maintain the same data flow
+          })(),
 
-        if (pendingRewardRequests.length > 0) {
-          const pendingRewardResults = await publicClient.multicall({
-            contracts: pendingRewardRequests,
-          });
+          // Pending reward fetch promise
+          (async () => {
+            const poolPendingRewards: (bigint | null)[] = [];
+            if (pendingRewardRequests.length > 0) {
+              const results = await publicClient.multicall({
+                contracts: pendingRewardRequests,
+              });
 
-          // Process the pending reward results
-          pendingRewardResults.forEach((result, index) => {
-            if (result.status === "success") {
-              poolPendingRewards[index] = result.result as bigint;
-              console.log(
-                `[multicall] Successfully fetched pending reward from contract for pool ${poolsForMulticall[index].pool.id} and user ${userWallet.address}: ${result.result.toString()}`
-              );
-            } else {
-              console.error(
-                `[multicall] Error fetching pending reward from contract for pool ${poolsForMulticall[index].pool.id} and user ${userWallet.address}:`,
-                result.error
-              );
-              // If blockchain query fails, return 0n as there's no fallback in the database for pending rewards
-              poolPendingRewards[index] = 0n;
+              // Process the pending reward results
+              results.forEach((result, index) => {
+                if (result.status === "success") {
+                  poolPendingRewards[index] = result.result as bigint;
+                  console.log(
+                    `[multicall] Successfully fetched pending reward from contract for pool ${poolsForMulticall[index].pool.id} and user ${userWallet.address}: ${result.result.toString()}`
+                  );
+                } else {
+                  console.error(
+                    `[multicall] Error fetching pending reward from contract for pool ${poolsForMulticall[index].pool.id} and user ${userWallet.address}:`,
+                    result.error
+                  );
+                  // If blockchain query fails, return null as there's no fallback in the database for pending rewards
+                  poolPendingRewards[index] = null;
+                }
+              });
             }
-          });
-        }
+            return poolPendingRewards;
+          })(),
+        ]);
 
-        // Prepare final result with blockchain stake amounts, names and pending rewards
+        // Prepare final result with blockchain stake amounts and pending rewards (names will be fetched by frontend)
         const resultStakes = userStakes.map((stake, index) => {
-          // Check if we have a blockchain update for this stake
-          const blockchainData = blockchainStakeData.find(
-            data => data && data.poolId === stake.pool.id
-          );
+          // Check if we have a blockchain update for this stake (using the result from the parallel operation)
+          const blockchainData = dbUpdateResult.find(data => data && data.poolId === stake.pool.id);
 
           // Use blockchain value if available, otherwise use original database value
           const currentStakeAmount = blockchainData
             ? blockchainData.stakeAmount
             : stake.stakeAmount.toString();
 
-          // Get the pool name from multicall results
-          const poolName = poolNames[index] || `Pool ${stake.pool.id}`;
-
-          // Get the pending rewards from multicall results
-          const userPendingRewards = poolPendingRewards[index] || 0n;
+          // Get the pending rewards from multicall results (now using the result from the parallel operation)
+          const userPendingRewards = pendingRewardResults[index];
 
           const slimRewardPool: SlimRewardPool = {
             id: stake.pool.id,
@@ -789,21 +763,20 @@ export const poolsFanRouter = router({
                     url: s3Service.getFileUrl(stake.pool.poolImage.s3_key),
                   }
                 : null,
-            name: poolName, // Using blockchain name, fallback to id-based name
+            name: `Pool ${stake.pool.id}`, // Placeholder name - will be fetched by frontend
             pendingRewards: userPendingRewards,
             stakedByYou: BigInt(currentStakeAmount), // Amount of REVO that the requesting user has staked in this pool
           };
 
           const userStakedPool: UserStakedPool = {
-            ...stake,
-            stakeAmount: BigInt(currentStakeAmount), // Return as wei (bigint) without formatting
+            userWalletId: stake.userWalletId,
             pool: slimRewardPool,
           };
           return userStakedPool;
         });
 
         // Filter out stakes where the user has 0 stake amount
-        const filteredResultStakes = resultStakes.filter(stake => stake.stakeAmount > 0n);
+        const filteredResultStakes = resultStakes.filter(stake => stake.pool.stakedByYou > 0n);
 
         return filteredResultStakes;
       } catch (error) {

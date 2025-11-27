@@ -29,13 +29,18 @@ export interface SlimRewardPool {
     url: string;
   } | null;
   name: string;
-  pendingRewards: bigint;
+  pendingRewards: bigint | null;
   stakedByYou: bigint;
 }
 
 export interface UserStakedPool {
   userWalletId: number;
-  poolId: number;
-  stakeAmount: bigint;
   pool: SlimRewardPool;
+}
+
+export interface UserStakedPoolWithNullables {
+  userWalletId: number;
+  pool: SlimRewardPool;
+  pendingRewards: bigint | null;
+  stakedByYou: bigint | null;
 }
