@@ -74,17 +74,17 @@ export const poolsFanRouter = router({
           transport: http(),
         });
 
-        // Execute multicall for the specific chain
+        // Create a map to store contract data
         const blockchainStakeData = new Map<
           number,
-          { creatorStaked: bigint; totalFanStaked: bigint }
+          { creatorStaked: bigint; totalFanStaked: bigint; poolName: string }
         >();
 
         // Create multicall requests for all pools
         const multicallRequests: {
           address: Address;
           abi: typeof CREATOR_POOL_ABI;
-          functionName: "creatorStaked" | "totalFanStaked";
+          functionName: "creatorStaked" | "totalFanStaked" | "poolName";
         }[] = [];
 
         pools.forEach(pool => {
@@ -102,6 +102,13 @@ export const poolsFanRouter = router({
               abi: CREATOR_POOL_ABI,
               functionName: "totalFanStaked" as const,
             });
+
+            // Add poolName request
+            multicallRequests.push({
+              address: pool.poolAddress as Address,
+              abi: CREATOR_POOL_ABI,
+              functionName: "poolName" as const,
+            });
           }
         });
 
@@ -115,28 +122,34 @@ export const poolsFanRouter = router({
             // Process the results, mapping them back to the correct pools
             for (let i = 0; i < pools.length; i++) {
               const pool = pools[i];
-              const creatorStakedIndex = i * 2; // creatorStaked is at even indices
-              const totalFanStakedIndex = i * 2 + 1; // totalFanStaked is at odd indices
+              const creatorStakedIndex = i * 3; // creatorStaked is at every 3rd index (0, 3, 6, ...)
+              const totalFanStakedIndex = i * 3 + 1; // totalFanStaked is at every 3rd + 1 index (1, 4, 7, ...)
+              const poolNameIndex = i * 3 + 2; // poolName is at every 3rd + 2 index (2, 5, 8, ...)
 
               const creatorStakedResult = results[creatorStakedIndex];
               const totalFanStakedResult = results[totalFanStakedIndex];
+              const poolNameResult = results[poolNameIndex];
 
               if (
                 creatorStakedResult.status === "success" &&
-                totalFanStakedResult.status === "success"
+                totalFanStakedResult.status === "success" &&
+                poolNameResult.status === "success"
               ) {
                 const creatorStaked = creatorStakedResult.result as bigint;
                 const totalFanStaked = totalFanStakedResult.result as bigint;
+                const poolName = poolNameResult.result as string;
 
                 blockchainStakeData.set(pool.id, {
                   creatorStaked,
                   totalFanStaked,
+                  poolName,
                 });
               } else {
                 console.error(
-                  `Error fetching stake data from contract for pool ${pool.id}:`,
+                  `Error fetching data from contract for pool ${pool.id}:`,
                   creatorStakedResult.status === "failure" ? creatorStakedResult.error : null,
-                  totalFanStakedResult.status === "failure" ? totalFanStakedResult.error : null
+                  totalFanStakedResult.status === "failure" ? totalFanStakedResult.error : null,
+                  poolNameResult.status === "failure" ? poolNameResult.error : null
                 );
               }
             }
@@ -265,9 +278,6 @@ export const poolsFanRouter = router({
         // Apply filtering logic after getting pool data from blockchain
         const results = await Promise.allSettled(
           pools.map(async pool => {
-            // Get the chain configuration for the pool
-            const chain = getChainConfig(parseInt(pool.chainId));
-
             // Initialize totalStake to the current db value
             let totalStake: bigint = BigInt(pool.revoStaked);
 
@@ -318,43 +328,14 @@ export const poolsFanRouter = router({
               );
             }
 
-            // Get pool name, fallback to ID if chain is not supported
-            const poolName = chain
-              ? await getPoolName(pool.poolAddress as Address, parseInt(pool.chainId))
-              : `Pool ${pool.id}`;
+            // Get pool name from blockchain data, fallback to ID if not available
+            const poolData = blockchainStakeData.get(pool.id);
+            const poolName = chain && poolData?.poolName ? poolData.poolName : `Pool ${pool.id}`;
 
             // Count only users with positive stake amounts
             const activeStakers = pool.stakedPools.filter(
               staked => BigInt(staked.stakeAmount) > 0n
             ).length;
-
-            // Get current user's stake in this pool
-            let userStakeAmount = 0n;
-            if (userWallet) {
-              const userStake = pool.stakedPools.find(
-                stake => stake.userWalletId === userWallet.id && stake.poolId === pool.id
-              );
-              if (userStake) {
-                // Get the user's stake amount from our batch results
-                const blockchainStakeAmount = userStakeAmountsData.get(pool.id);
-
-                if (blockchainStakeAmount !== undefined) {
-                  userStakeAmount = blockchainStakeAmount;
-                } else {
-                  // If blockchain query failed, use the database value
-                  userStakeAmount = BigInt(userStake.stakeAmount);
-                  console.log(
-                    `Using DB value for user stake in pool ${pool.id} due to failed blockchain query`
-                  );
-                }
-              }
-            }
-
-            // Get user's pending rewards from our batch results
-            let userPendingRewards = 0n;
-            if (userWallet && userPendingRewardsData.has(pool.id)) {
-              userPendingRewards = userPendingRewardsData.get(pool.id)!;
-            }
 
             const rewardPool: PoolTabRewardPool = {
               id: pool.id,
