@@ -29,7 +29,7 @@ export interface SlimRewardPool {
     url: string;
   } | null;
   name: string;
-  pendingRewards: bigint;
+  pendingRewards: bigint | null;
   stakedByYou: bigint;
 }
 

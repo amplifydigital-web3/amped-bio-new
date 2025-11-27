@@ -53,6 +53,8 @@ export const useStakedPools = () => {
   });
 
   const combinedData = useMemo(() => {
+    console.info("Combining staked pools with multicall data", stakedPools);
+
     return stakedPools?.map((pool, index) => {
       const poolName = multicallData?.[index * 3]?.result as string | undefined;
       const pendingRewards = multicallData?.[index * 3 + 1]?.result as bigint | undefined;
@@ -64,8 +66,8 @@ export const useStakedPools = () => {
           ...pool.pool,
           name: poolName ?? pool.pool.name, // Use blockchain name if available, fallback to placeholder
         },
-        pendingRewards: pendingRewards ?? null,
-        stakedByYou: stakedByYouResult ?? null,
+        pendingRewards: pendingRewards ?? pool.pool.pendingRewards, // Use multicall data first, fallback to backend value
+        stakedByYou: stakedByYouResult ?? pool.pool.stakedByYou, // Use multicall data first, fallback to backend value
       };
     });
   }, [stakedPools, multicallData]);
