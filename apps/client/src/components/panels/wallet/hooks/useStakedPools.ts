@@ -27,11 +27,6 @@ export const useStakedPools = () => {
         {
           address: poolAddress,
           abi: CREATOR_POOL_ABI,
-          functionName: "poolName",
-        },
-        {
-          address: poolAddress,
-          abi: CREATOR_POOL_ABI,
           functionName: "pendingReward",
           args: [userAddress],
         },
@@ -56,16 +51,11 @@ export const useStakedPools = () => {
     console.info("Combining staked pools with multicall data", stakedPools);
 
     return stakedPools?.map((pool, index) => {
-      const poolName = multicallData?.[index * 3]?.result as string | undefined;
-      const pendingRewards = multicallData?.[index * 3 + 1]?.result as bigint | undefined;
-      const stakedByYouResult = multicallData?.[index * 3 + 2]?.result as bigint | undefined;
+      const pendingRewards = multicallData?.[index * 2]?.result as bigint | undefined;
+      const stakedByYouResult = multicallData?.[index * 2 + 1]?.result as bigint | undefined;
 
       return {
         ...pool,
-        pool: {
-          ...pool.pool,
-          name: poolName ?? pool.pool.name, // Use blockchain name if available, fallback to placeholder
-        },
         pendingRewards: pendingRewards ?? pool.pool.pendingRewards, // Use multicall data first, fallback to backend value
         stakedByYou: stakedByYouResult ?? pool.pool.stakedByYou, // Use multicall data first, fallback to backend value
       };
