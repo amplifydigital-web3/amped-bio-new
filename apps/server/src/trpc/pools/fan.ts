@@ -698,13 +698,7 @@ export const poolsFanRouter = router({
           stake => stake.pool.poolAddress && userWallet.address
         );
 
-        // Create multicall requests for pool names and user pending rewards
-        const nameRequests = poolsForMulticall.map(stake => ({
-          address: stake.pool.poolAddress as Address,
-          abi: CREATOR_POOL_ABI,
-          functionName: "poolName" as const,
-        }));
-
+        // Create multicall requests for user pending rewards only (pool names will be fetched by frontend)
         const pendingRewardRequests = poolsForMulticall.map(stake => ({
           address: stake.pool.poolAddress as Address,
           abi: CREATOR_POOL_ABI,
@@ -712,31 +706,8 @@ export const poolsFanRouter = router({
           args: [userWallet.address as Address],
         }));
 
-        // Execute name and pending reward calls in batch
-        const poolNames: (string | null)[] = [];
+        // Execute pending reward calls in batch
         const poolPendingRewards: bigint[] = [];
-
-        if (nameRequests.length > 0) {
-          const nameResults = await publicClient.multicall({
-            contracts: nameRequests,
-          });
-
-          // Process the name results
-          nameResults.forEach((result, index) => {
-            if (result.status === "success") {
-              poolNames[index] = result.result as string;
-              console.log(
-                `[multicall] Successfully fetched pool name from contract for pool ${poolsForMulticall[index].pool.id}: ${result.result}`
-              );
-            } else {
-              console.error(
-                `[multicall] Error fetching pool name from contract for pool ${poolsForMulticall[index].pool.id}:`,
-                result.error
-              );
-              poolNames[index] = null;
-            }
-          });
-        }
 
         if (pendingRewardRequests.length > 0) {
           const pendingRewardResults = await publicClient.multicall({
@@ -761,7 +732,7 @@ export const poolsFanRouter = router({
           });
         }
 
-        // Prepare final result with blockchain stake amounts, names and pending rewards
+        // Prepare final result with blockchain stake amounts and pending rewards (names will be fetched by frontend)
         const resultStakes = userStakes.map((stake, index) => {
           // Check if we have a blockchain update for this stake
           const blockchainData = blockchainStakeData.find(
@@ -772,9 +743,6 @@ export const poolsFanRouter = router({
           const currentStakeAmount = blockchainData
             ? blockchainData.stakeAmount
             : stake.stakeAmount.toString();
-
-          // Get the pool name from multicall results
-          const poolName = poolNames[index] || `Pool ${stake.pool.id}`;
 
           // Get the pending rewards from multicall results
           const userPendingRewards = poolPendingRewards[index] || 0n;
@@ -789,7 +757,7 @@ export const poolsFanRouter = router({
                     url: s3Service.getFileUrl(stake.pool.poolImage.s3_key),
                   }
                 : null,
-            name: poolName, // Using blockchain name, fallback to id-based name
+            name: `Pool ${stake.pool.id}`, // Placeholder name - will be fetched by frontend
             pendingRewards: userPendingRewards,
             stakedByYou: BigInt(currentStakeAmount), // Amount of REVO that the requesting user has staked in this pool
           };

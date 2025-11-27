@@ -4,11 +4,11 @@ import { getChainConfig } from "@ampedbio/web3";
 import { formatUnits, formatEther } from "viem";
 import { toast } from "react-hot-toast";
 import { usePoolReader } from "../../../hooks/usePoolReader";
-import { UserStakedPool } from "@ampedbio/constants";
+import { UserStakedPoolWithNullables } from "@ampedbio/constants";
 import { useAccount } from "wagmi";
 
 interface StakedPoolRowProps {
-  poolData: UserStakedPool & { pendingRewards: bigint; stakedByYou: bigint };
+  poolData: UserStakedPoolWithNullables;
   refetchAllStakedPools: () => void;
   onViewPool: (poolId: number) => void;
   currentChainId: string;
@@ -118,33 +118,41 @@ export default function StakedPoolRow({
           {/* Staked Amount */}
           <div
             className="flex items-center space-x-1 px-2 py-1 bg-blue-50 rounded-full group/tooltip relative"
-            title={`You have staked ${formatUnits(
+            title={`You have staked ${stakedAmount ? formatUnits(
               stakedAmount,
               18
-            )} ${chainConfig?.nativeCurrency.symbol || "REVO"} in this pool`}
+            ) : "0"} ${chainConfig?.nativeCurrency.symbol || "REVO"} in this pool`}
           >
             <Link className="w-3 h-3 text-blue-600" />
-            <span className="text-xs font-medium text-blue-700">
-              {Number(formatUnits(stakedAmount, 18)) >= 1000
-                ? `${(Number(formatUnits(stakedAmount, 18)) / 1000).toFixed(1)}k`
-                : Number(formatUnits(stakedAmount, 18)).toLocaleString()}
-            </span>
+            {stakedAmount !== null ? (
+              <span className="text-xs font-medium text-blue-700">
+                {Number(formatUnits(stakedAmount, 18)) >= 1000
+                  ? `${(Number(formatUnits(stakedAmount, 18)) / 1000).toFixed(1)}k`
+                  : Number(formatUnits(stakedAmount, 18)).toLocaleString()}
+              </span>
+            ) : (
+              <div className="h-4 bg-gray-200 rounded animate-pulse w-12"></div>
+            )}
           </div>
 
           {/* Pending Rewards */}
           <div
             className="flex items-center space-x-1 px-2 py-1 bg-green-50 rounded-full group/tooltip relative"
-            title={`You have pending rewards of ${formatUnits(
+            title={`You have pending rewards of ${pendingRewards ? formatUnits(
               pendingRewards,
               18
-            )} ${chainConfig?.nativeCurrency.symbol || "REVO"} from this pool`}
+            ) : "0"} ${chainConfig?.nativeCurrency.symbol || "REVO"} from this pool`}
           >
             <TrendingUp className="w-3 h-3 text-green-600" />
-            <span className="text-xs font-medium text-green-700">
-              {Number(formatUnits(pendingRewards, 18)) >= 1000
-                ? `${(Number(formatUnits(pendingRewards, 18)) / 1000).toFixed(1)}k`
-                : Number(formatUnits(pendingRewards, 18)).toLocaleString()}
-            </span>
+            {pendingRewards !== null ? (
+              <span className="text-xs font-medium text-green-700">
+                {Number(formatUnits(pendingRewards, 18)) >= 1000
+                  ? `${(Number(formatUnits(pendingRewards, 18)) / 1000).toFixed(1)}k`
+                  : Number(formatUnits(pendingRewards, 18)).toLocaleString()}
+              </span>
+            ) : (
+              <div className="h-4 bg-gray-200 rounded animate-pulse w-12"></div>
+            )}
           </div>
         </div>
 
@@ -153,19 +161,27 @@ export default function StakedPoolRow({
           <div className="flex flex-wrap gap-1.5">
             <div className="flex items-center space-x-1 px-2 py-1 bg-blue-50 rounded-full">
               <Link className="w-3 h-3 text-blue-600" />
-              <span className="text-xs font-medium text-blue-700">
-                {Number(formatUnits(stakedAmount, 18)) >= 1000
-                  ? `${(Number(formatUnits(stakedAmount, 18)) / 1000).toFixed(1)}k`
-                  : Number(formatUnits(stakedAmount, 18)).toLocaleString()}
-              </span>
+              {stakedAmount !== null ? (
+                <span className="text-xs font-medium text-blue-700">
+                  {Number(formatUnits(stakedAmount, 18)) >= 1000
+                    ? `${(Number(formatUnits(stakedAmount, 18)) / 1000).toFixed(1)}k`
+                    : Number(formatUnits(stakedAmount, 18)).toLocaleString()}
+                </span>
+              ) : (
+                <div className="h-4 bg-gray-200 rounded animate-pulse w-8"></div>
+              )}
             </div>
             <div className="flex items-center space-x-1 px-2 py-1 bg-green-50 rounded-full">
               <TrendingUp className="w-3 h-3 text-green-600" />
-              <span className="text-xs font-medium text-green-700">
-                {Number(formatUnits(pendingRewards, 18)) >= 1000
-                  ? `${(Number(formatUnits(pendingRewards, 18)) / 1000).toFixed(1)}k`
-                  : Number(formatUnits(pendingRewards, 18)).toLocaleString()}
-              </span>
+              {pendingRewards !== null ? (
+                <span className="text-xs font-medium text-green-700">
+                  {Number(formatUnits(pendingRewards, 18)) >= 1000
+                    ? `${(Number(formatUnits(pendingRewards, 18)) / 1000).toFixed(1)}k`
+                    : Number(formatUnits(pendingRewards, 18)).toLocaleString()}
+                </span>
+              ) : (
+                <div className="h-4 bg-gray-200 rounded animate-pulse w-8"></div>
+              )}
             </div>
           </div>
         </div>

@@ -4,6 +4,7 @@ import { useAccount, useReadContracts } from "wagmi";
 import { CREATOR_POOL_ABI } from "@ampedbio/web3";
 import { useMemo } from "react";
 import { type Address } from "viem";
+import { UserStakedPoolWithNullables } from "@ampedbio/constants";
 
 export const useStakedPools = () => {
   const { address: userAddress, chainId } = useAccount();
@@ -23,6 +24,11 @@ export const useStakedPools = () => {
     return (stakedPools || []).flatMap(pool => {
       const poolAddress = pool.pool.address as Address;
       return [
+        {
+          address: poolAddress,
+          abi: CREATOR_POOL_ABI,
+          functionName: "poolName",
+        },
         {
           address: poolAddress,
           abi: CREATOR_POOL_ABI,
@@ -48,13 +54,18 @@ export const useStakedPools = () => {
 
   const combinedData = useMemo(() => {
     return stakedPools?.map((pool, index) => {
-      const pendingRewards = multicallData?.[index * 2]?.result as bigint | undefined;
-      const stakedByYouResult = multicallData?.[index * 2 + 1]?.result as bigint | undefined;
+      const poolName = multicallData?.[index * 3]?.result as string | undefined;
+      const pendingRewards = multicallData?.[index * 3 + 1]?.result as bigint | undefined;
+      const stakedByYouResult = multicallData?.[index * 3 + 2]?.result as bigint | undefined;
 
       return {
         ...pool,
-        pendingRewards: pendingRewards ?? 0n,
-        stakedByYou: stakedByYouResult ?? 0n,
+        pool: {
+          ...pool.pool,
+          name: poolName ?? pool.pool.name, // Use blockchain name if available, fallback to placeholder
+        },
+        pendingRewards: pendingRewards ?? null,
+        stakedByYou: stakedByYouResult ?? null,
       };
     });
   }, [stakedPools, multicallData]);
@@ -68,5 +79,9 @@ export const useStakedPools = () => {
     stakedPools: combinedData,
     isLoading: isLoadingPools,
     refetch,
+  } as {
+    stakedPools: UserStakedPoolWithNullables[] | undefined;
+    isLoading: boolean;
+    refetch: () => Promise<void>;
   };
 };
