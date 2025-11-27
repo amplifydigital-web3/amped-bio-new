@@ -66,7 +66,11 @@ export default function ExplorePoolDetailsModal({
     claimReward,
   } = usePoolReader(
     pool?.address as `0x${string}` | undefined,
-    userAddress as `0x${string}` | undefined
+    userAddress as `0x${string}` | undefined,
+    {
+      initialFanStake: pool?.stakedByYou,
+      initialPendingReward: pool?.pendingRewards,
+    }
   );
 
   const chainConfig = getChainConfig(parseInt(pool?.chainId || "0"));

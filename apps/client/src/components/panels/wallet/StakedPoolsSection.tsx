@@ -1,5 +1,5 @@
 import React from "react";
-import { Trophy, ChevronLeft, ChevronRight } from "lucide-react";
+import { Trophy, ChevronLeft, ChevronRight, Coins } from "lucide-react";
 import ExplorePoolDetailsModal from "../explore/ExplorePoolDetailsModal";
 import { useAccount } from "wagmi";
 import StakedPoolRow from "./StakedPoolRow";
@@ -11,6 +11,8 @@ export default function StakedPoolsSection() {
     stakedPools: allStakedPools,
     isLoading: loading,
     refetch: refetchAllStakedPools,
+    claimAll,
+    isClaiming,
   } = useStakedPools();
   const { chainId: currentChainId } = useAccount();
 
@@ -21,6 +23,13 @@ export default function StakedPoolsSection() {
   const poolsPerPage = 6;
 
   const selectedExplorePool = allStakedPools?.find(p => p.pool.id === selectedPoolId) || null;
+
+  const totalPendingRewards =
+    allStakedPools?.reduce((acc, pool) => {
+      return acc + (pool.pendingRewards ? BigInt(pool.pendingRewards) : 0n);
+    }, 0n) ?? 0n;
+
+  const canClaimAll = totalPendingRewards > 0n && !isClaiming;
 
   // Calculate pagination
   const totalPages = allStakedPools ? Math.ceil(allStakedPools.length / poolsPerPage) : 0;
@@ -194,9 +203,18 @@ export default function StakedPoolsSection() {
           </p>
         </div>
         <div className="flex items-center justify-between sm:justify-end space-x-4">
-          <span className="text-sm text-gray-500">
-            Page {currentPage} of {totalPages}
-          </span>
+          <button
+            onClick={() => void claimAll()}
+            disabled={!canClaimAll}
+            className={`flex items-center space-x-2 px-3 py-2 rounded-lg font-medium transition-colors duration-200 text-sm ${
+              canClaimAll
+                ? "bg-green-600 text-white hover:bg-green-700"
+                : "bg-gray-200 text-gray-500 cursor-not-allowed"
+            }`}
+          >
+            <Coins className="w-4 h-4" />
+            <span>{isClaiming ? "Claiming..." : "Claim All"}</span>
+          </button>
           <Trophy className="w-5 h-5 text-gray-400" />
         </div>
       </div>

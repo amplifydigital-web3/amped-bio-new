@@ -29,10 +29,11 @@ export default function StakedPoolRow({
   const {
     claimReward,
     pendingReward: hookPendingReward,
+    fanStake: hookFanStake,
     fetchAllData,
   } = usePoolReader(
     pool.address as `0x${string}` | undefined,
-    userAddress as `0x${string}` | undefined
+    userAddress as `0x${string}` | undefined,
   );
 
   const stakedAmount = stakedByYou;
@@ -118,17 +119,17 @@ export default function StakedPoolRow({
           {/* Staked Amount */}
           <div
             className="flex items-center space-x-1 px-2 py-1 bg-blue-50 rounded-full group/tooltip relative"
-            title={`You have staked ${stakedAmount ? formatUnits(
-              stakedAmount,
+            title={`You have staked ${hookFanStake ? formatUnits(
+              hookFanStake,
               18
             ) : "0"} ${chainConfig?.nativeCurrency.symbol || "REVO"} in this pool`}
           >
             <Link className="w-3 h-3 text-blue-600" />
-            {stakedAmount !== null ? (
+            {hookFanStake !== undefined ? (
               <span className="text-xs font-medium text-blue-700">
-                {Number(formatUnits(stakedAmount, 18)) >= 1000
-                  ? `${(Number(formatUnits(stakedAmount, 18)) / 1000).toFixed(1)}k`
-                  : Number(formatUnits(stakedAmount, 18)).toLocaleString()}
+                {Number(formatUnits(hookFanStake, 18)) >= 1000
+                  ? `${(Number(formatUnits(hookFanStake, 18)) / 1000).toFixed(1)}k`
+                  : Number(formatUnits(hookFanStake, 18)).toLocaleString()}
               </span>
             ) : (
               <div className="h-4 bg-gray-200 rounded animate-pulse w-12"></div>
@@ -138,17 +139,17 @@ export default function StakedPoolRow({
           {/* Pending Rewards */}
           <div
             className="flex items-center space-x-1 px-2 py-1 bg-green-50 rounded-full group/tooltip relative"
-            title={`You have pending rewards of ${pendingRewards ? formatUnits(
-              pendingRewards,
+            title={`You have pending rewards of ${hookPendingReward ? formatUnits(
+              hookPendingReward,
               18
             ) : "0"} ${chainConfig?.nativeCurrency.symbol || "REVO"} from this pool`}
           >
             <TrendingUp className="w-3 h-3 text-green-600" />
-            {pendingRewards !== null ? (
+            {hookPendingReward !== undefined ? (
               <span className="text-xs font-medium text-green-700">
-                {Number(formatUnits(pendingRewards, 18)) >= 1000
-                  ? `${(Number(formatUnits(pendingRewards, 18)) / 1000).toFixed(1)}k`
-                  : Number(formatUnits(pendingRewards, 18)).toLocaleString()}
+                {Number(formatUnits(hookPendingReward, 18)) >= 1000
+                  ? `${(Number(formatUnits(hookPendingReward, 18)) / 1000).toFixed(1)}k`
+                  : Number(formatUnits(hookPendingReward, 18)).toLocaleString()}
               </span>
             ) : (
               <div className="h-4 bg-gray-200 rounded animate-pulse w-12"></div>
@@ -161,11 +162,11 @@ export default function StakedPoolRow({
           <div className="flex flex-wrap gap-1.5">
             <div className="flex items-center space-x-1 px-2 py-1 bg-blue-50 rounded-full">
               <Link className="w-3 h-3 text-blue-600" />
-              {stakedAmount !== null ? (
+              {hookFanStake !== undefined ? (
                 <span className="text-xs font-medium text-blue-700">
-                  {Number(formatUnits(stakedAmount, 18)) >= 1000
-                    ? `${(Number(formatUnits(stakedAmount, 18)) / 1000).toFixed(1)}k`
-                    : Number(formatUnits(stakedAmount, 18)).toLocaleString()}
+                  {Number(formatUnits(hookFanStake, 18)) >= 1000
+                    ? `${(Number(formatUnits(hookFanStake, 18)) / 1000).toFixed(1)}k`
+                    : Number(formatUnits(hookFanStake, 18)).toLocaleString()}
                 </span>
               ) : (
                 <div className="h-4 bg-gray-200 rounded animate-pulse w-8"></div>
@@ -173,11 +174,11 @@ export default function StakedPoolRow({
             </div>
             <div className="flex items-center space-x-1 px-2 py-1 bg-green-50 rounded-full">
               <TrendingUp className="w-3 h-3 text-green-600" />
-              {pendingRewards !== null ? (
+              {hookPendingReward !== undefined ? (
                 <span className="text-xs font-medium text-green-700">
-                  {Number(formatUnits(pendingRewards, 18)) >= 1000
-                    ? `${(Number(formatUnits(pendingRewards, 18)) / 1000).toFixed(1)}k`
-                    : Number(formatUnits(pendingRewards, 18)).toLocaleString()}
+                  {Number(formatUnits(hookPendingReward, 18)) >= 1000
+                    ? `${(Number(formatUnits(hookPendingReward, 18)) / 1000).toFixed(1)}k`
+                    : Number(formatUnits(hookPendingReward, 18)).toLocaleString()}
                 </span>
               ) : (
                 <div className="h-4 bg-gray-200 rounded animate-pulse w-8"></div>

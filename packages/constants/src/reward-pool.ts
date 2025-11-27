@@ -44,3 +44,17 @@ export interface UserStakedPoolWithNullables {
   pendingRewards: bigint | null;
   stakedByYou: bigint | null;
 }
+
+export interface PoolTabRewardPool {
+  id: number;
+  name: string;
+  description: string | null;
+  chainId: string;
+  address: string;
+  image: {
+    id: number;
+    url: string;
+  } | null;
+  stakedAmount: bigint;
+  fans: number;
+}

@@ -1,6 +1,9 @@
 import { Address, createPublicClient, http } from "viem";
 import { getChainConfig, CREATOR_POOL_ABI } from "./index";
 
+/**
+ * @deprecated call using multicall instead
+ */
 export const getPoolName = async (poolAddress: Address, chainId: number): Promise<string> => {
   const chain = getChainConfig(chainId);
   if (!chain) {
