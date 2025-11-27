@@ -85,7 +85,8 @@ export function usePoolReader(
   };
 
   const fetchAllData = async () => {
-    return await refetch();
+    await refetch();
+    await pendingRewardContract.refetch();
   };
 
   // For pendingReward, we'll use the separate query data
