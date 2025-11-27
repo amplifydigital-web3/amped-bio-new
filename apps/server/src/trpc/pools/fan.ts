@@ -25,6 +25,12 @@ export const poolsFanRouter = router({
     )
     .query(async ({ ctx, input }): Promise<RewardPool[]> => {
       try {
+        const chain = getChainConfig(parseInt(input.chainId));
+
+        if (!chain) {
+          return [];
+        }
+
         const whereClause: any = {
           chainId: input.chainId, // Only fetch pools from the specified chain
         };
@@ -74,43 +80,26 @@ export const poolsFanRouter = router({
           },
         });
 
-        // Prepare arrays for batch processing by chain
-        const poolsByChain: { [chainId: string]: typeof pools } = {};
-        pools.forEach(pool => {
-          if (pool.poolAddress) {
-            const chain = getChainConfig(parseInt(pool.chainId));
-            if (chain) {
-              if (!poolsByChain[pool.chainId]) {
-                poolsByChain[pool.chainId] = [];
-              }
-              poolsByChain[pool.chainId].push(pool);
-            }
-          }
+        const publicClient = createPublicClient({
+          chain: chain,
+          transport: http(),
         });
 
-        // Execute multicall for each chain
+        // Execute multicall for the specific chain
         const blockchainStakeData = new Map<
           number,
           { creatorStaked: bigint; totalFanStaked: bigint }
         >();
 
-        for (const [chainId, chainPools] of Object.entries(poolsByChain)) {
-          const chain = getChainConfig(parseInt(chainId));
-          if (!chain) continue;
+        // Create multicall requests for all pools
+        const multicallRequests: {
+          address: Address;
+          abi: typeof CREATOR_POOL_ABI;
+          functionName: "creatorStaked" | "totalFanStaked";
+        }[] = [];
 
-          const publicClient = createPublicClient({
-            chain: chain,
-            transport: http(),
-          });
-
-          // Create multicall requests for all pools on this chain
-          const multicallRequests: {
-            address: Address;
-            abi: typeof CREATOR_POOL_ABI;
-            functionName: "creatorStaked" | "totalFanStaked";
-          }[] = [];
-
-          chainPools.forEach(pool => {
+        pools.forEach(pool => {
+          if (pool.poolAddress) {
             // Add creatorStaked request
             multicallRequests.push({
               address: pool.poolAddress as Address,
@@ -124,46 +113,46 @@ export const poolsFanRouter = router({
               abi: CREATOR_POOL_ABI,
               functionName: "totalFanStaked" as const,
             });
-          });
+          }
+        });
 
-          // Execute all contract calls in a single batch
-          if (multicallRequests.length > 0) {
-            try {
-              const results = await publicClient.multicall({
-                contracts: multicallRequests,
-              });
+        // Execute all contract calls in a single batch
+        if (multicallRequests.length > 0) {
+          try {
+            const results = await publicClient.multicall({
+              contracts: multicallRequests,
+            });
 
-              // Process the results, mapping them back to the correct pools
-              for (let i = 0; i < chainPools.length; i++) {
-                const pool = chainPools[i];
-                const creatorStakedIndex = i * 2; // creatorStaked is at even indices
-                const totalFanStakedIndex = i * 2 + 1; // totalFanStaked is at odd indices
+            // Process the results, mapping them back to the correct pools
+            for (let i = 0; i < pools.length; i++) {
+              const pool = pools[i];
+              const creatorStakedIndex = i * 2; // creatorStaked is at even indices
+              const totalFanStakedIndex = i * 2 + 1; // totalFanStaked is at odd indices
 
-                const creatorStakedResult = results[creatorStakedIndex];
-                const totalFanStakedResult = results[totalFanStakedIndex];
+              const creatorStakedResult = results[creatorStakedIndex];
+              const totalFanStakedResult = results[totalFanStakedIndex];
 
-                if (
-                  creatorStakedResult.status === "success" &&
-                  totalFanStakedResult.status === "success"
-                ) {
-                  const creatorStaked = creatorStakedResult.result as bigint;
-                  const totalFanStaked = totalFanStakedResult.result as bigint;
+              if (
+                creatorStakedResult.status === "success" &&
+                totalFanStakedResult.status === "success"
+              ) {
+                const creatorStaked = creatorStakedResult.result as bigint;
+                const totalFanStaked = totalFanStakedResult.result as bigint;
 
-                  blockchainStakeData.set(pool.id, {
-                    creatorStaked,
-                    totalFanStaked,
-                  });
-                } else {
-                  console.error(
-                    `Error fetching stake data from contract for pool ${pool.id}:`,
-                    creatorStakedResult.status === "failure" ? creatorStakedResult.error : null,
-                    totalFanStakedResult.status === "failure" ? totalFanStakedResult.error : null
-                  );
-                }
+                blockchainStakeData.set(pool.id, {
+                  creatorStaked,
+                  totalFanStaked,
+                });
+              } else {
+                console.error(
+                  `Error fetching stake data from contract for pool ${pool.id}:`,
+                  creatorStakedResult.status === "failure" ? creatorStakedResult.error : null,
+                  totalFanStakedResult.status === "failure" ? totalFanStakedResult.error : null
+                );
               }
-            } catch (error) {
-              console.error(`Multicall failed for chain ${chainId}:`, error);
             }
+          } catch (error) {
+            console.error(`Multicall failed for chain ${input.chainId}:`, error);
           }
         }
 
@@ -173,145 +162,110 @@ export const poolsFanRouter = router({
           where: { userId },
         });
 
-        // Prepare arrays for batch processing user stake amounts by chain (only for pools where user has stakes)
+        // Prepare arrays for batch processing user stake amounts (only for pools where user has stakes)
         const userStakeAmountsData = new Map<number, bigint>();
         if (userWallet) {
-          const poolsByChainForUserStakes: { [chainId: string]: typeof pools } = {};
-
-          pools.forEach(pool => {
-            if (pool.poolAddress && getChainConfig(parseInt(pool.chainId))) {
+          // Filter pools where the user has stakes
+          const userStakedPools = pools.filter(pool => {
+            if (pool.poolAddress) {
               // Check if the user has a stake in this pool
               const userStake = pool.stakedPools.find(
                 stake => stake.userWalletId === userWallet.id && stake.poolId === pool.id
               );
-              if (userStake) {
-                if (!poolsByChainForUserStakes[pool.chainId]) {
-                  poolsByChainForUserStakes[pool.chainId] = [];
-                }
-                poolsByChainForUserStakes[pool.chainId].push(pool);
-              }
+              return userStake !== undefined;
             }
+            return false;
           });
 
-          // Execute multicall for user stake amounts for each chain
-          for (const [chainId, chainPools] of Object.entries(poolsByChainForUserStakes)) {
-            const chain = getChainConfig(parseInt(chainId));
-            if (!chain) continue;
+          // Create multicall requests for all pools where the user has stakes
+          const multicallRequests: {
+            address: Address;
+            abi: typeof CREATOR_POOL_ABI;
+            functionName: "fanStakes";
+            args: [Address];
+          }[] = userStakedPools.map(pool => ({
+            address: pool.poolAddress as Address,
+            abi: CREATOR_POOL_ABI,
+            functionName: "fanStakes" as const,
+            args: [userWallet.address as Address],
+          }));
 
-            const publicClient = createPublicClient({
-              chain: chain,
-              transport: http(),
-            });
+          // Execute all contract calls in a single batch
+          if (multicallRequests.length > 0) {
+            try {
+              const results = await publicClient.multicall({
+                contracts: multicallRequests,
+              });
 
-            // Create multicall requests for all pools on this chain for user's stake amounts
-            const multicallRequests: {
-              address: Address;
-              abi: typeof CREATOR_POOL_ABI;
-              functionName: "fanStakes";
-              args: [Address];
-            }[] = chainPools.map(pool => ({
-              address: pool.poolAddress as Address,
-              abi: CREATOR_POOL_ABI,
-              functionName: "fanStakes" as const,
-              args: [userWallet.address as Address],
-            }));
+              // Process the results, mapping them back to the correct pools
+              for (let i = 0; i < userStakedPools.length; i++) {
+                const pool = userStakedPools[i];
+                const result = results[i];
 
-            // Execute all contract calls in a single batch
-            if (multicallRequests.length > 0) {
-              try {
-                const results = await publicClient.multicall({
-                  contracts: multicallRequests,
-                });
-
-                // Process the results, mapping them back to the correct pools
-                for (let i = 0; i < chainPools.length; i++) {
-                  const pool = chainPools[i];
-                  const result = results[i];
-
-                  if (result.status === "success") {
-                    const stakeAmount = result.result as bigint;
-                    userStakeAmountsData.set(pool.id, stakeAmount);
-                  } else {
-                    console.error(
-                      `Error fetching user stake from contract for pool ${pool.id}:`,
-                      result.error
-                    );
-                    // In case of failure, we'll use the DB value later
-                  }
+                if (result.status === "success") {
+                  const stakeAmount = result.result as bigint;
+                  userStakeAmountsData.set(pool.id, stakeAmount);
+                } else {
+                  console.error(
+                    `Error fetching user stake from contract for pool ${pool.id}:`,
+                    result.error
+                  );
+                  // In case of failure, we'll use the DB value later
                 }
-              } catch (error) {
-                console.error(`Multicall for user stakes failed for chain ${chainId}:`, error);
               }
+            } catch (error) {
+              console.error(`Multicall for user stakes failed for chain ${input.chainId}:`, error);
             }
           }
         }
 
-        // Prepare arrays for batch processing user pending rewards by chain
+        // Prepare arrays for batch processing user pending rewards
         const userPendingRewardsData = new Map<number, bigint>();
         if (userWallet) {
-          const poolsByChainForPendingRewards: { [chainId: string]: typeof pools } = {};
+          // Filter pools that have pool addresses
+          const poolsWithAddresses = pools.filter(pool => pool.poolAddress);
 
-          pools.forEach(pool => {
-            if (pool.poolAddress && getChainConfig(parseInt(pool.chainId))) {
-              if (!poolsByChainForPendingRewards[pool.chainId]) {
-                poolsByChainForPendingRewards[pool.chainId] = [];
-              }
-              poolsByChainForPendingRewards[pool.chainId].push(pool);
-            }
-          });
+          // Create multicall requests for all pools for user's pending rewards
+          const multicallRequests: {
+            address: Address;
+            abi: typeof CREATOR_POOL_ABI;
+            functionName: "pendingReward";
+            args: [Address];
+          }[] = poolsWithAddresses.map(pool => ({
+            address: pool.poolAddress as Address,
+            abi: CREATOR_POOL_ABI,
+            functionName: "pendingReward" as const,
+            args: [userWallet.address as Address],
+          }));
 
-          // Execute multicall for user pending rewards for each chain
-          for (const [chainId, chainPools] of Object.entries(poolsByChainForPendingRewards)) {
-            const chain = getChainConfig(parseInt(chainId));
-            if (!chain) continue;
+          // Execute all contract calls in a single batch
+          if (multicallRequests.length > 0) {
+            try {
+              const results = await publicClient.multicall({
+                contracts: multicallRequests,
+              });
 
-            const publicClient = createPublicClient({
-              chain: chain,
-              transport: http(),
-            });
+              // Process the results, mapping them back to the correct pools
+              for (let i = 0; i < poolsWithAddresses.length; i++) {
+                const pool = poolsWithAddresses[i];
+                const result = results[i];
 
-            // Create multicall requests for all pools on this chain for user's pending rewards
-            const multicallRequests: {
-              address: Address;
-              abi: typeof CREATOR_POOL_ABI;
-              functionName: "pendingReward";
-              args: [Address];
-            }[] = chainPools.map(pool => ({
-              address: pool.poolAddress as Address,
-              abi: CREATOR_POOL_ABI,
-              functionName: "pendingReward" as const,
-              args: [userWallet.address as Address],
-            }));
-
-            // Execute all contract calls in a single batch
-            if (multicallRequests.length > 0) {
-              try {
-                const results = await publicClient.multicall({
-                  contracts: multicallRequests,
-                });
-
-                // Process the results, mapping them back to the correct pools
-                for (let i = 0; i < chainPools.length; i++) {
-                  const pool = chainPools[i];
-                  const result = results[i];
-
-                  if (result.status === "success") {
-                    const pendingReward = result.result as bigint;
-                    userPendingRewardsData.set(pool.id, pendingReward);
-                  } else {
-                    console.error(
-                      `Error fetching user pending rewards from contract for pool ${pool.id}:`,
-                      result.error
-                    );
-                    // In case of failure, we'll return 0n later
-                  }
+                if (result.status === "success") {
+                  const pendingReward = result.result as bigint;
+                  userPendingRewardsData.set(pool.id, pendingReward);
+                } else {
+                  console.error(
+                    `Error fetching user pending rewards from contract for pool ${pool.id}:`,
+                    result.error
+                  );
+                  // In case of failure, we'll return 0n later
                 }
-              } catch (error) {
-                console.error(
-                  `Multicall for user pending rewards failed for chain ${chainId}:`,
-                  error
-                );
               }
+            } catch (error) {
+              console.error(
+                `Multicall for user pending rewards failed for chain ${input.chainId}:`,
+                error
+              );
             }
           }
         }
@@ -460,9 +414,9 @@ export const poolsFanRouter = router({
         // Apply filters to the processed pools
         let filteredPools = processedPools;
         if (input.filter === "no-fans") {
-          filteredPools = processedPools.filter(pool => pool.participants === 0);
+          filteredPools = processedPools.filter(pool => pool.fans === 0);
         } else if (input.filter === "more-than-10-fans") {
-          filteredPools = processedPools.filter(pool => pool.participants > 10);
+          filteredPools = processedPools.filter(pool => pool.fans > 10);
         } else if (input.filter === "more-than-10k-stake") {
           // Convert 10k ether to wei for comparison: 10000 * 10^18
           const tenKEtherInWei = BigInt(10000) * BigInt(10) ** BigInt(18);
@@ -478,7 +432,7 @@ export const poolsFanRouter = router({
             filteredPools.sort((a, b) => b.name.localeCompare(a.name));
             break;
           case "most-fans":
-            filteredPools.sort((a, b) => b.participants - a.participants);
+            filteredPools.sort((a, b) => b.fans - a.fans);
             break;
           case "most-staked":
             filteredPools.sort((a, b) => {

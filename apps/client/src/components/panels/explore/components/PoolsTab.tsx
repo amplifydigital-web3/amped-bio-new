@@ -14,47 +14,6 @@ import Decimal from "decimal.js";
 type PoolFilter = "all" | "no-fans" | "more-than-10-fans" | "more-than-10k-stake";
 type PoolSort = "newest" | "name-asc" | "name-desc" | "most-fans" | "most-staked";
 
-interface Pool {
-  id: number;
-  name: string;
-  description: string | null;
-  stakedAmount: bigint | null;
-  fans: number | null;
-  image: {
-    id: number;
-    url: string;
-  } | null;
-  chainId: string;
-  walletId: number;
-  address?: string | null;
-  totalReward?: bigint;
-  creator: {
-    userId: number;
-    address: string;
-  } | null;
-}
-
-interface RewardPool {
-  id: number;
-  description: string | null;
-  chainId: string;
-  address: string;
-  image: {
-    id: number;
-    url: string;
-  } | null;
-  name: string;
-  totalReward: bigint;
-  stakedAmount: bigint;
-  fans: number;
-  pendingRewards: bigint;
-  stakedByYou: bigint;
-  creator: {
-    userId: number;
-    address: string;
-  };
-}
-
 interface PoolsTabProps {
   searchQuery: string;
   poolFilter: PoolFilter;
@@ -68,22 +27,21 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
     data: pools,
     isLoading,
     refetch,
-  } = useQuery(
-    trpc.pools.fan.getPools.queryOptions({
+  } = useQuery({
+    ...trpc.pools.fan.getPools.queryOptions({
       chainId: chainId.toString(),
       search: searchQuery,
       filter: poolFilter,
       sort: poolSort,
-    })
-  );
+    }),
+    enabled: !!chainId,
+  });
 
   // State for modals and selected pool
   const [selectedStakingPool, setSelectedStakingPool] = useState<any>(null);
   const [isStakeModalOpen, setIsStakeModalOpen] = useState(false);
   const [stakingMode, setStakingMode] = useState<"stake" | "add-stake">("stake");
-  const [selectedRewardPoolForView, setSelectedRewardPoolForView] = useState<RewardPool | null>(
-    null
-  );
+  const [selectedRewardPoolForView, setSelectedRewardPoolForView] = useState<number | null>(null);
   const [isRewardPoolViewModalOpen, setIsRewardPoolViewModalOpen] = useState(false);
 
   const handleJoinPool = (poolId: number) => {
@@ -110,31 +68,8 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
   };
 
   const handleViewPool = (poolId: number) => {
-    if (pools) {
-      const pool = pools.find(p => p.id === poolId);
-      if (pool) {
-        const poolForView: RewardPool = {
-          id: pool.id,
-          description: pool.description,
-          chainId: pool.chainId,
-          address: pool.address,
-          image: pool.image,
-          name: pool.name, // Use name from blockchain
-          totalReward: pool.totalReward || 0n, // Placeholder as bigint
-          stakedAmount: pool.stakedAmount || 0n, // Add stakedAmount as bigint
-          fans: pool.fans || 0, // Placeholder
-          pendingRewards: 0n, // Placeholder as bigint
-          stakedByYou: pool.stakedByYou || 0n, // Using stakedByYou from the updated server response
-          creator: pool.creator || {
-            userId: 0, // Default userId when creator object is not available
-            address: "0x0000000000000000000000000000000000000000", // Default address when not available
-          }, // Add creator object
-        };
-
-        setSelectedRewardPoolForView(poolForView);
-        setIsRewardPoolViewModalOpen(true);
-      }
-    }
+    setSelectedRewardPoolForView(poolId);
+    setIsRewardPoolViewModalOpen(true);
   };
 
   // Apply filtering and sorting
@@ -174,7 +109,10 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
                     <span className="text-gray-500">Total Stake</span>
                     <span className="font-semibold text-gray-900">
                       {pool.stakedAmount !== undefined && pool.stakedAmount !== null
-                        ? Decimal.max(new Decimal("0"), new Decimal(formatEther(pool.stakedAmount)).minus(new Decimal("0.0015")))
+                        ? Decimal.max(
+                            new Decimal("0"),
+                            new Decimal(formatEther(pool.stakedAmount)).minus(new Decimal("0.0015"))
+                          )
                             .toDecimalPlaces(3, Decimal.ROUND_DOWN)
                             .toString()
                         : "0"}{" "}
@@ -229,7 +167,7 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
       )}
       {isRewardPoolViewModalOpen && selectedRewardPoolForView && (
         <PoolDetailsModal
-          poolId={selectedRewardPoolForView.id}
+          poolId={selectedRewardPoolForView}
           isOpen={isRewardPoolViewModalOpen}
           onClose={() => {
             setIsRewardPoolViewModalOpen(false);
