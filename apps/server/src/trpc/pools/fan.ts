@@ -5,7 +5,7 @@ import { prisma } from "../../services/DB";
 import { Address, createPublicClient, http, decodeEventLog } from "viem";
 import { getChainConfig, L2_BASE_TOKEN_ABI, CREATOR_POOL_ABI, getPoolName } from "@ampedbio/web3";
 import { s3Service } from "../../services/S3Service";
-import { RewardPool, SlimRewardPool, UserStakedPool } from "@ampedbio/constants";
+import { SlimRewardPool, UserStakedPool, PoolTabRewardPool } from "@ampedbio/constants";
 
 export const poolsFanRouter = router({
   getPools: privateProcedure
@@ -23,7 +23,7 @@ export const poolsFanRouter = router({
           .default("newest"),
       })
     )
-    .query(async ({ ctx, input }): Promise<RewardPool[]> => {
+    .query(async ({ ctx, input }): Promise<PoolTabRewardPool[]> => {
       try {
         const chain = getChainConfig(parseInt(input.chainId));
 
@@ -57,17 +57,6 @@ export const poolsFanRouter = router({
               select: {
                 address: true,
                 userId: true,
-                user: {
-                  select: {
-                    id: true,
-                    name: true,
-                  },
-                },
-              },
-            },
-            _count: {
-              select: {
-                stakedPools: true,
               },
             },
             stakedPools: {
@@ -270,6 +259,9 @@ export const poolsFanRouter = router({
           }
         }
 
+        // Arrays to collect updates for batch processing
+        const poolsToUpdate: { id: number; revoStaked: string }[] = [];
+
         // Apply filtering logic after getting pool data from blockchain
         const results = await Promise.allSettled(
           pools.map(async pool => {
@@ -301,20 +293,11 @@ export const poolsFanRouter = router({
                   const totalStakeValue = (stakeData.creatorStaked +
                     stakeData.totalFanStaked) as bigint;
 
-                  // Update the database with the value from the contract
-                  try {
-                    await prisma.creatorPool.update({
-                      where: { id: pool.id },
-                      data: { revoStaked: totalStakeValue.toString() },
-                    });
-                    console.log(`Successfully updated revoStaked in database for pool ${pool.id}`);
-                  } catch (updateError) {
-                    console.error(
-                      `Error updating revoStaked in database for pool ${pool.id}:`,
-                      updateError
-                    );
-                    // Continue anyway, we'll still return the blockchain value
-                  }
+                  // Collect the update for batch processing later
+                  poolsToUpdate.push({
+                    id: pool.id,
+                    revoStaked: totalStakeValue.toString(),
+                  });
 
                   totalStake = totalStakeValue;
                 } else {
@@ -373,7 +356,7 @@ export const poolsFanRouter = router({
               userPendingRewards = userPendingRewardsData.get(pool.id)!;
             }
 
-            const rewardPool: RewardPool = {
+            const rewardPool: PoolTabRewardPool = {
               id: pool.id,
               description: pool.description,
               chainId: pool.chainId,
@@ -386,19 +369,37 @@ export const poolsFanRouter = router({
                     }
                   : null,
               name: poolName || `Pool ${pool.id}`, // Using blockchain name, fallback to id-based name
-              totalReward: totalStake, // Return as wei (bigint)
               stakedAmount: totalStake, // Return as wei (bigint)
               fans: activeStakers,
-              pendingRewards: userPendingRewards, // User's pending rewards that can be claimed
-              stakedByYou: userStakeAmount, // Amount of REVO that the requesting user has staked in this pool
-              creator: {
-                userId: pool.wallet!.userId!,
-                address: pool.wallet!.address!,
-              },
             };
             return rewardPool;
           })
         );
+
+        // Batch update all pools that need updating
+        if (poolsToUpdate.length > 0) {
+          try {
+            // Build the SQL query for batch update in MySQL
+            const poolIds = poolsToUpdate.map(update => update.id).join(",");
+            const caseWhens = poolsToUpdate
+              .map(update => `WHEN id = ${update.id} THEN '${update.revoStaked}'`)
+              .join(" ");
+
+            await prisma.$executeRawUnsafe(`
+              UPDATE creator_pools
+              SET revoStaked = CASE
+                ${caseWhens}
+                ELSE revoStaked
+              END
+              WHERE id IN (${poolIds})
+            `);
+
+            console.log(`Successfully batch updated revoStaked for ${poolsToUpdate.length} pools`);
+          } catch (batchUpdateError) {
+            console.error(`Error in batch update of revoStaked:`, batchUpdateError);
+            // Continue anyway, as we still have the correct values in memory for the response
+          }
+        }
 
         // Filter out rejected promises and return only successful results
         const processedPools = results
