@@ -3,7 +3,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { prisma } from "../../services/DB";
 import { Address, createPublicClient, http, decodeEventLog } from "viem";
-import { getChainConfig, L2_BASE_TOKEN_ABI, CREATOR_POOL_ABI, getPoolName } from "@ampedbio/web3";
+import { getChainConfig, L2_BASE_TOKEN_ABI, CREATOR_POOL_ABI } from "@ampedbio/web3";
 import { s3Service } from "../../services/S3Service";
 import { SlimRewardPool, UserStakedPool, PoolTabRewardPool } from "@ampedbio/constants";
 
@@ -23,7 +23,7 @@ export const poolsFanRouter = router({
           .default("newest"),
       })
     )
-    .query(async ({ ctx, input }): Promise<PoolTabRewardPool[]> => {
+    .query(async ({ input }): Promise<PoolTabRewardPool[]> => {
       try {
         const chain = getChainConfig(parseInt(input.chainId));
 
@@ -159,7 +159,6 @@ export const poolsFanRouter = router({
             console.error(`Multicall failed for chain ${input.chainId}:`, error);
           }
         }
-
 
         // Arrays to collect updates for batch processing
         const poolsToUpdate: { id: number; revoStaked: string }[] = [];
@@ -1066,7 +1065,7 @@ export const poolsFanRouter = router({
         poolId: z.number(),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       try {
         const pool = await prisma.creatorPool.findUnique({
           where: { id: input.poolId },
@@ -1101,70 +1100,265 @@ export const poolsFanRouter = router({
         // Get the chain configuration for the pool
         const chain = getChainConfig(parseInt(pool.chainId));
 
-        // Initialize totalStake to the current db value
-        let totalStake: bigint = BigInt(pool.revoStaked);
-
-        // Query the totalStaked from the pool contract if we have the necessary data
-        if (pool.poolAddress && chain) {
-          try {
-            const publicClient = createPublicClient({
-              chain: chain,
-              transport: http(),
-            });
-
-            // Get the totalFanStaked from the pool contract
-            const totalFanStaked = (await publicClient.readContract({
-              address: pool.poolAddress as Address,
-              abi: CREATOR_POOL_ABI,
-              functionName: "totalFanStaked",
-            })) as bigint;
-
-            // Get the creatorStaked from the pool contract
-            const creatorStaked = (await publicClient.readContract({
-              address: pool.poolAddress as Address,
-              abi: CREATOR_POOL_ABI,
-              functionName: "creatorStaked",
-            })) as bigint;
-
-            // Calculate the total stake as sum of creatorStaked and totalFanStaked
-            totalStake = (creatorStaked + totalFanStaked) as bigint;
-
-            // Update the database with the value from the contract
-            try {
-              await prisma.creatorPool.update({
-                where: { id: pool.id },
-                data: { revoStaked: totalStake.toString() },
-              });
-            } catch (updateError) {
-              console.error(
-                `Error updating revoStaked in database for pool ${pool.id}:`,
-                updateError
-              );
-              // Continue anyway, we'll still return the blockchain value
-            }
-          } catch (error) {
-            console.error(`Error fetching totalStaked from contract for pool ${pool.id}:`, error);
-            // If contract query fails, we'll keep the db value
-          }
+        if (!chain) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Unsupported chain ID for the pool",
+          });
         }
 
-        // Get pool name, fallback to ID if chain is not supported
-        const poolName = chain
-          ? await getPoolName(pool.poolAddress as Address, parseInt(pool.chainId))
-          : `Pool ${pool.id}`;
-
-        // Count only users with positive stake amounts
-        const activeStakers = await prisma.stakedPool.count({
-          where: {
-            poolId: pool.id,
-            stakeAmount: { not: "0" }, // Count only stakes with amount > 0
-          },
+        const publicClient = createPublicClient({
+          chain: chain,
+          transport: http(),
         });
+
+        // Initialize totalStake to the current db value
+        let totalStake: bigint = BigInt(pool.revoStaked);
+        let poolName = `Pool ${pool.id}`; // Default fallback
+
+        // Get user wallet to fetch user-specific data
+        const userId = ctx.user.sub;
+        const userWallet = await prisma.userWallet.findUnique({
+          where: { userId },
+        });
+
+        // Prepare promises for parallel execution: blockchain data, active stakers count, and user-specific data
+        const [blockchainData, activeStakers, userData] = await Promise.all([
+          // Fetch blockchain data (totalFanStaked, creatorStaked, poolName)
+          (async () => {
+            if (!pool.poolAddress) {
+              return { totalStake, poolName };
+            }
+
+            try {
+              // Create multicall requests for all the data we need from the contract
+              const multicallRequests = [
+                {
+                  address: pool.poolAddress as Address,
+                  abi: CREATOR_POOL_ABI,
+                  functionName: "totalFanStaked" as const,
+                },
+                {
+                  address: pool.poolAddress as Address,
+                  abi: CREATOR_POOL_ABI,
+                  functionName: "creatorStaked" as const,
+                },
+                {
+                  address: pool.poolAddress as Address,
+                  abi: CREATOR_POOL_ABI,
+                  functionName: "poolName" as const,
+                },
+              ];
+
+              // Execute all contract calls in a single batch
+              const results = await publicClient.multicall({
+                contracts: multicallRequests,
+              });
+
+              // Process the results
+              const totalFanStakedResult = results[0];
+              const creatorStakedResult = results[1];
+              const poolNameResult = results[2];
+
+              let totalFanStaked: bigint | null = null;
+              let creatorStaked: bigint | null = null;
+
+              // Handle totalFanStaked result
+              if (totalFanStakedResult.status === "success") {
+                totalFanStaked = totalFanStakedResult.result as bigint;
+                console.log(
+                  `Successfully fetched totalFanStaked from contract for pool ${pool.id}: ${totalFanStaked.toString()}`
+                );
+              } else {
+                console.error(
+                  `Error fetching totalFanStaked from contract for pool ${pool.id}:`,
+                  totalFanStakedResult.error
+                );
+              }
+
+              // Handle creatorStaked result
+              if (creatorStakedResult.status === "success") {
+                creatorStaked = creatorStakedResult.result as bigint;
+                console.log(
+                  `Successfully fetched creatorStaked from contract for pool ${pool.id}: ${creatorStaked.toString()}`
+                );
+              } else {
+                console.error(
+                  `Error fetching creatorStaked from contract for pool ${pool.id}:`,
+                  creatorStakedResult.error
+                );
+              }
+
+              // Handle poolName result
+              if (poolNameResult.status === "success") {
+                const name = poolNameResult.result as string;
+                poolName = name || `Pool ${pool.id}`;
+                console.log(
+                  `Successfully fetched pool name from contract for pool ${pool.id}: ${name}`
+                );
+              } else {
+                console.error(
+                  `Error fetching pool name from contract for pool ${pool.id}:`,
+                  poolNameResult.error
+                );
+                poolName = `Pool ${pool.id}`; // Fallback to default name
+              }
+
+              // Calculate the total stake as sum of creatorStaked and totalFanStaked only if both calls succeeded
+              if (totalFanStaked !== null && creatorStaked !== null) {
+                const newTotalStake = (totalFanStaked + creatorStaked) as bigint;
+
+                // Update the database with the value from the contract
+                try {
+                  await prisma.creatorPool.update({
+                    where: { id: pool.id },
+                    data: { revoStaked: newTotalStake.toString() },
+                  });
+                  console.log(
+                    `Successfully updated revoStaked in database for pool ${pool.id}: ${newTotalStake.toString()}`
+                  );
+                } catch (updateError) {
+                  console.error(
+                    `Error updating revoStaked in database for pool ${pool.id}:`,
+                    updateError
+                  );
+                  // Continue anyway, we'll still return the blockchain value
+                }
+
+                return { totalStake: newTotalStake, poolName };
+              } else {
+                console.warn(
+                  `Could not fetch both totalFanStaked and creatorStaked for pool ${pool.id}, using DB value`
+                );
+                return { totalStake, poolName };
+              }
+            } catch (error) {
+              console.error(`Error fetching data from contract for pool ${pool.id}:`, error);
+              // If contract query fails, we'll keep the db value and fallback pool name
+              return { totalStake, poolName };
+            }
+          })(),
+
+          // Count only users with positive stake amounts
+          prisma.stakedPool.count({
+            where: {
+              poolId: pool.id,
+              stakeAmount: { not: "0" }, // Count only stakes with amount > 0
+            },
+          }),
+
+          // Fetch user-specific data (stakedByYou and pendingRewards) if user has a wallet
+          (async () => {
+            if (!pool.poolAddress || !userWallet || !userWallet.address) {
+              return { stakedByYou: 0n, pendingRewards: 0n };
+            }
+
+            try {
+              // Create multicall requests for user-specific data
+              const userMulticallRequests = [
+                {
+                  address: pool.poolAddress as Address,
+                  abi: CREATOR_POOL_ABI,
+                  functionName: "fanStakes" as const,
+                  args: [userWallet.address as Address],
+                },
+                {
+                  address: pool.poolAddress as Address,
+                  abi: CREATOR_POOL_ABI,
+                  functionName: "pendingReward" as const,
+                  args: [userWallet.address as Address],
+                },
+              ];
+
+              // Execute user-specific contract calls in a single batch
+              const userResults = await publicClient.multicall({
+                contracts: userMulticallRequests,
+              });
+
+              // Process the results
+              const fanStakesResult = userResults[0];
+              const pendingRewardResult = userResults[1];
+
+              let stakedByYou: bigint = 0n;
+              let pendingRewards: bigint = 0n;
+
+              // Handle fanStakes result
+              if (fanStakesResult.status === "success") {
+                stakedByYou = fanStakesResult.result as bigint;
+                console.log(
+                  `Successfully fetched stakedByYou from contract for pool ${pool.id} and user ${userWallet.address}: ${stakedByYou.toString()}`
+                );
+              } else {
+                console.error(
+                  `Error fetching stakedByYou from contract for pool ${pool.id} and user ${userWallet.address}:`,
+                  fanStakesResult.error
+                );
+              }
+
+              // Handle pendingReward result
+              if (pendingRewardResult.status === "success") {
+                pendingRewards = pendingRewardResult.result as bigint;
+                console.log(
+                  `Successfully fetched pendingRewards from contract for pool ${pool.id} and user ${userWallet.address}: ${pendingRewards.toString()}`
+                );
+              } else {
+                console.error(
+                  `Error fetching pendingRewards from contract for pool ${pool.id} and user ${userWallet.address}:`,
+                  pendingRewardResult.error
+                );
+              }
+
+              // Update the stakedPool record in database if we got blockchain data
+              if (fanStakesResult.status === "success") {
+                try {
+                  await prisma.stakedPool.upsert({
+                    where: {
+                      userWalletId_poolId: {
+                        userWalletId: userWallet.id,
+                        poolId: pool.id,
+                      },
+                    },
+                    update: {
+                      stakeAmount: stakedByYou.toString(),
+                      updatedAt: new Date(),
+                    },
+                    create: {
+                      userWalletId: userWallet.id,
+                      poolId: pool.id,
+                      stakeAmount: stakedByYou.toString(),
+                    },
+                  });
+                  console.log(
+                    `Successfully updated stakedPool record for userWalletId: ${userWallet.id}, poolId: ${pool.id}, amount: ${stakedByYou.toString()}`
+                  );
+                } catch (updateError) {
+                  console.error(
+                    `Error updating stakedPool record for userWalletId: ${userWallet.id}, poolId: ${pool.id}:`,
+                    updateError
+                  );
+                  // Continue anyway, we'll still return the blockchain value
+                }
+              }
+
+              return { stakedByYou, pendingRewards };
+            } catch (error) {
+              console.error(`Error fetching user data from contract for pool ${pool.id}:`, error);
+              // If contract query fails, return default values
+              return { stakedByYou: 0n, pendingRewards: 0n };
+            }
+          })(),
+        ]);
+
+        // Update values with data from blockchain calls
+        totalStake = blockchainData.totalStake;
+        poolName = blockchainData.poolName;
+        const stakedByYou = userData.stakedByYou;
+        const pendingRewards = userData.pendingRewards;
 
         // Return only the data that is actually displayed in the modal
         return {
           id: pool.id,
-          name: poolName || `Pool ${pool.id}`,
+          name: poolName,
           description: pool.description,
           chainId: pool.chainId,
           address: pool.poolAddress!,
@@ -1178,8 +1372,8 @@ export const poolsFanRouter = router({
           totalReward: totalStake,
           stakedAmount: totalStake, // Include for compatibility
           fans: activeStakers,
-          pendingRewards: 0n, // Default value - will be fetched by client-side hook
-          stakedByYou: 0n, // Default value - will be fetched by client-side hook
+          pendingRewards,
+          stakedByYou,
           creator: {
             userId: pool.wallet!.userId!,
             address: pool.wallet!.address!,

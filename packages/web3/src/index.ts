@@ -2,6 +2,7 @@ import { type Address } from "viem";
 import { chainConfig } from "viem/zksync";
 
 export * from "./pools";
+export * from "./abis/multicall3";
 
 export const revolutionDevnet = {
   ...chainConfig,

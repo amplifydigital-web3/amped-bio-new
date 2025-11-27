@@ -1,8 +1,18 @@
-import { useReadContracts, useWriteContract } from "wagmi";
+import { useReadContracts, useWriteContract, useReadContract } from "wagmi";
 import { type Address } from "viem";
 import { CREATOR_POOL_ABI } from "@ampedbio/web3";
+import React from "react";
 
-export function usePoolReader(poolAddress?: Address, fanAddress?: Address) {
+interface UsePoolReaderOptions {
+  initialFanStake?: bigint;
+  initialPendingReward?: bigint;
+}
+
+export function usePoolReader(
+  poolAddress?: Address,
+  fanAddress?: Address,
+  options?: UsePoolReaderOptions
+) {
   const poolContract = {
     address: poolAddress,
     abi: CREATOR_POOL_ABI,
@@ -12,14 +22,7 @@ export function usePoolReader(poolAddress?: Address, fanAddress?: Address) {
     { ...poolContract, functionName: "creatorCut" },
     { ...poolContract, functionName: "poolName" },
     ...(fanAddress
-      ? ([
-          {
-            ...poolContract,
-            functionName: "pendingReward",
-            args: [fanAddress],
-          },
-          { ...poolContract, functionName: "fanStakes", args: [fanAddress] },
-        ] as const)
+      ? ([{ ...poolContract, functionName: "fanStakes", args: [fanAddress] }] as const)
       : []),
   ];
 
@@ -34,8 +37,33 @@ export function usePoolReader(poolAddress?: Address, fanAddress?: Address) {
 
   const creatorCutResult = data?.[0];
   const poolNameResult = data?.[1];
-  const pendingRewardResult = fanAddress ? data?.[2] : undefined;
-  const fanStakeResult = fanAddress ? data?.[3] : undefined;
+  const fanStakeResult = fanAddress ? data?.[2] : undefined;
+
+  // Using useReadContract for pendingReward
+  const pendingRewardContract = useReadContract({
+    address: poolAddress,
+    abi: CREATOR_POOL_ABI,
+    functionName: "pendingReward",
+    args: fanAddress ? [fanAddress] : undefined,
+    query: {
+      enabled: !!poolAddress && !!fanAddress,
+      initialData: options?.initialPendingReward,
+    },
+  });
+
+  // Set up refetch interval to update pendingReward every 15 seconds
+  React.useEffect(() => {
+    if (!poolAddress || !fanAddress || !pendingRewardContract.refetch) return;
+
+    const interval = setInterval(() => {
+      pendingRewardContract.refetch();
+    }, 15000); // 15 seconds
+
+    return () => clearInterval(interval);
+  }, [poolAddress, fanAddress, pendingRewardContract.refetch]);
+
+  const pendingRewardResult = pendingRewardContract.data;
+  const isPendingRewardLoading = pendingRewardContract.isLoading;
 
   const { writeContractAsync: writeCreatorPoolContractAsync } = useWriteContract();
 
@@ -60,12 +88,20 @@ export function usePoolReader(poolAddress?: Address, fanAddress?: Address) {
     return await refetch();
   };
 
+  // For pendingReward, we'll use the separate query data
+  // During loading, show initial value if available, otherwise show undefined
+  const finalPendingReward = isPendingRewardLoading
+    ? options?.initialPendingReward
+    : pendingRewardResult;
+
   return {
     creatorCut: creatorCutResult?.result as bigint | undefined,
     isReadingCreatorCut: isLoading,
-    fanStake: fanStakeResult?.result as bigint | undefined,
-    pendingReward: pendingRewardResult?.result as bigint | undefined,
-    isReadingPendingReward: isLoading,
+    fanStake: isLoading
+      ? (options?.initialFanStake ?? (fanStakeResult?.result as bigint | undefined))
+      : (fanStakeResult?.result as bigint | undefined),
+    pendingReward: finalPendingReward,
+    isReadingPendingReward: isPendingRewardLoading,
     poolName: poolNameResult?.result as string | undefined,
     fetchAllData,
     claimReward,
