@@ -35,15 +35,11 @@ export interface SlimRewardPool {
 
 export interface UserStakedPool {
   userWalletId: number;
-  poolId: number;
-  stakeAmount: bigint;
   pool: SlimRewardPool;
 }
 
 export interface UserStakedPoolWithNullables {
   userWalletId: number;
-  poolId: number;
-  stakeAmount: bigint;
   pool: SlimRewardPool;
   pendingRewards: bigint | null;
   stakedByYou: bigint | null;

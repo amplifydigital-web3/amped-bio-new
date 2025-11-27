@@ -769,15 +769,14 @@ export const poolsFanRouter = router({
           };
 
           const userStakedPool: UserStakedPool = {
-            ...stake,
-            stakeAmount: BigInt(currentStakeAmount), // Return as wei (bigint) without formatting
+            userWalletId: stake.userWalletId,
             pool: slimRewardPool,
           };
           return userStakedPool;
         });
 
         // Filter out stakes where the user has 0 stake amount
-        const filteredResultStakes = resultStakes.filter(stake => stake.stakeAmount > 0n);
+        const filteredResultStakes = resultStakes.filter(stake => stake.pool.stakedByYou > 0n);
 
         return filteredResultStakes;
       } catch (error) {

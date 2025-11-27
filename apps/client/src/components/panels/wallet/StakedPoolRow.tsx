@@ -72,13 +72,13 @@ export default function StakedPoolRow({
   // Function to handle view pool click
   const handleViewPool = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onViewPool(poolData.poolId);
+    onViewPool(poolData.pool.id);
   };
 
   return (
     <div className="relative">
       <div
-        onClick={() => onViewPool(poolData.poolId)}
+        onClick={() => onViewPool(poolData.pool.id)}
         className={`
           flex items-center py-3 px-2 hover:bg-gray-50 cursor-pointer transition-colors duration-200 group
           border-b border-gray-100
@@ -105,7 +105,7 @@ export default function StakedPoolRow({
           {/* Pool Name and Badges */}
           <div className="flex-1 min-w-0">
             <h4 className="text-sm font-medium text-gray-900 truncate group-hover:text-blue-600 transition-colors duration-200">
-              {poolData.pool.name || `Pool #${poolData.poolId}`}
+              {poolData.pool.name || `Pool #${poolData.pool.id}`}
             </h4>
           </div>
         </div>

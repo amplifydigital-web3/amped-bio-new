@@ -20,7 +20,7 @@ export default function StakedPoolsSection() {
   const [isExplorePoolModalOpen, setIsExplorePoolModalOpen] = React.useState(false);
   const poolsPerPage = 6;
 
-  const selectedExplorePool = allStakedPools?.find(p => p.poolId === selectedPoolId) || null;
+  const selectedExplorePool = allStakedPools?.find(p => p.pool.id === selectedPoolId) || null;
 
   // Calculate pagination
   const totalPages = allStakedPools ? Math.ceil(allStakedPools.length / poolsPerPage) : 0;
@@ -205,7 +205,7 @@ export default function StakedPoolsSection() {
       <div className="space-y-0">
         {currentPools.map(poolData => (
           <StakedPoolRow
-            key={poolData.poolId}
+            key={poolData.pool.id}
             poolData={poolData}
             refetchAllStakedPools={refetchAllStakedPools}
             onViewPool={handlePoolClick}
