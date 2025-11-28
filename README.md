@@ -335,3 +335,55 @@ If you need to run both client and server while using Bolt, you can manually run
 ```sh
 pnpm dev:full
 ```
+
+## Docker Configuration
+
+This project includes Dockerfiles for both the server and client applications, allowing you to containerize and deploy the applications easily.
+
+### Dockerfiles
+
+- `apps/server/Dockerfile` - Builds the server application
+- `apps/client/Dockerfile` - Builds the client application (multi-stage build with nginx)
+
+### Prerequisites
+
+Before building the Docker images, ensure you have:
+
+- Docker installed
+- Sufficient disk space (the build process requires multiple dependencies)
+
+### Building the Images
+
+#### Server Image
+
+To build the server Docker image, run from the project root:
+
+```bash
+docker build -f apps/server/Dockerfile -t amped-bio-server .
+```
+
+#### Client Image
+
+To build the client Docker image, run from the project root:
+
+```bash
+docker build -f apps/client/Dockerfile -t amped-bio-client .
+```
+
+### Running the Containers
+
+#### Server Container
+
+To run the server container:
+
+```bash
+docker run -p 3000:3000 --env-file ./apps/server/.env amped-bio-server
+```
+
+#### Client Container
+
+To run the client container:
+
+```bash
+docker run -p 80:80 amped-bio-client
+```
