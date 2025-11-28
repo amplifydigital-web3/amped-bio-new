@@ -60,7 +60,7 @@ export function usePoolReader(
     }, 15000); // 15 seconds
 
     return () => clearInterval(interval);
-  }, [poolAddress, fanAddress, pendingRewardContract.refetch]);
+  }, [poolAddress, fanAddress, pendingRewardContract.refetch, pendingRewardContract]);
 
   const pendingRewardResult = pendingRewardContract.data;
   const isPendingRewardLoading = pendingRewardContract.isLoading;
