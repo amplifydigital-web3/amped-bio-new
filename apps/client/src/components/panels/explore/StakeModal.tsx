@@ -218,8 +218,20 @@ export default function StakeModal({
           <div className="flex space-x-2 mt-3">
             {[25, 50, 75, 100].map(percentage => {
               const balanceValue = new Decimal(balanceData?.formatted || 0);
-              const percentageDecimal = new Decimal(percentage);
-              const quickAmount = balanceValue.times(percentageDecimal).div(100);
+              let quickAmount;
+
+              if (percentage === 100) {
+                // For 100%, subtract 0.0015 ETH from the balance to leave some for gas
+                quickAmount = balanceValue.minus(new Decimal("0.0015"));
+                // Ensure the amount doesn't go below 0
+                if (quickAmount.lt(0)) {
+                  quickAmount = new Decimal(0);
+                }
+              } else {
+                const percentageDecimal = new Decimal(percentage);
+                quickAmount = balanceValue.times(percentageDecimal).div(100);
+              }
+
               // Limit to 4 decimal places for all quick amounts to ensure precision consistency
               const formattedAmount = quickAmount.toFixed(4).replace(/\.?0+$/, "");
               return (
