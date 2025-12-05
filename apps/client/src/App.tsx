@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Editor } from "./pages/Editor";
 import { View } from "./pages/View";
+import { PoolPage } from "./pages/PoolPage";
 
 import { AdminLayout } from "./pages/admin/AdminLayout";
 import { AdminDashboard, AdminUsers, AdminThemes, AdminBlocks, AdminFiles } from "./pages/admin";
@@ -31,6 +32,7 @@ function AppRouter() {
       <Route path="/register" element={<View />} />
       <Route path="/login" element={<View />} />
       <Route path="/" element={<View />} />
+      <Route path="/pool/:address" element={<PoolPage />} />
 
       {/* Admin Routes with nested routing */}
       <Route

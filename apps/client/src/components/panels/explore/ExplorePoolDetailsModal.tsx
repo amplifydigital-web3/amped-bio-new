@@ -137,7 +137,7 @@ export default function ExplorePoolDetailsModal({
   if (!isOpen || (!poolId && !poolAddress) || !pool?.address) return null;
 
   const handleShare = () => {
-    const poolUrl = `${window.location.origin}/pool/${pool.id}`;
+    const poolUrl = `${window.location.origin}/pool/${pool.address}`;
 
     if (navigator.share) {
       navigator
