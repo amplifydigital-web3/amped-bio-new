@@ -1061,34 +1061,82 @@ export const poolsFanRouter = router({
 
   getPoolDetailsForModal: privateProcedure
     .input(
-      z.object({
-        poolId: z.number(),
-      })
+      z
+        .object({
+          poolId: z.number().optional(),
+          poolAddress: z.string().optional(),
+        })
+        .superRefine((data, ctx) => {
+          if (!data.poolId && !data.poolAddress) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: "Either poolId or poolAddress must be provided.",
+            });
+          }
+        })
     )
     .query(async ({ input, ctx }) => {
       try {
-        const pool = await prisma.creatorPool.findUnique({
-          where: { id: input.poolId },
-          include: {
-            poolImage: {
-              select: {
-                s3_key: true,
-                bucket: true,
+        let pool;
+        if (input.poolId) {
+          pool = await prisma.creatorPool.findUnique({
+            where: { id: input.poolId },
+            include: {
+              poolImage: {
+                select: {
+                  s3_key: true,
+                  bucket: true,
+                },
+              },
+              wallet: {
+                select: {
+                  address: true,
+                  userId: true,
+                  user: {
+                    select: {
+                      onelink: true,
+                      name: true,
+                    },
+                  },
+                },
+              },
+              _count: {
+                select: {
+                  stakedPools: true,
+                },
               },
             },
-            wallet: {
-              select: {
-                address: true,
-                userId: true,
+          });
+        } else if (input.poolAddress) {
+          pool = await prisma.creatorPool.findUnique({
+            where: { poolAddress: input.poolAddress.toLowerCase() },
+            include: {
+              poolImage: {
+                select: {
+                  s3_key: true,
+                  bucket: true,
+                },
+              },
+              wallet: {
+                select: {
+                  address: true,
+                  userId: true,
+                  user: {
+                    select: {
+                      onelink: true,
+                      name: true,
+                    },
+                  },
+                },
+              },
+              _count: {
+                select: {
+                  stakedPools: true,
+                },
               },
             },
-            _count: {
-              select: {
-                stakedPools: true,
-              },
-            },
-          },
-        });
+          });
+        }
 
         if (!pool) {
           throw new TRPCError({
@@ -1377,6 +1425,8 @@ export const poolsFanRouter = router({
           creator: {
             userId: pool.wallet!.userId!,
             address: pool.wallet!.address!,
+            littlelink: pool.wallet!.user?.onelink || null,
+            name: pool.wallet!.user?.name || 'Unknown Creator',
           },
         };
       } catch (error) {

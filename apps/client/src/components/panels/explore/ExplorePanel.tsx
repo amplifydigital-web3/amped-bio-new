@@ -1,10 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useDebounce } from "@/hooks/useDebounce";
-import { Search, Trophy, Filter, SortDesc, ChevronDown, Users, Coins } from "lucide-react";
-import PoolDetailsModal from "./ExplorePoolDetailsModal";
-// import NFTOverviewModal from './NFTOverviewModal';
-import { useQuery } from "@tanstack/react-query";
-import { trpc } from "../../../utils/trpc";
+import { Search, Trophy, Filter, SortDesc, ChevronDown, Users, Coins, Loader2 } from "lucide-react";
 import UsersTab from "./components/UsersTab";
 import PoolsTab from "./components/PoolsTab";
 
@@ -53,12 +49,8 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
-  const [selectedCreatorPool, setSelectedCreatorPool] = useState<any>(null);
-  const [isCreatorPoolModalOpen, setIsCreatorPoolModalOpen] = useState(false);
 
-  const { data: users, isLoading: isLoadingUsers } = useQuery(
-    trpc.user.getUsers.queryOptions({ search: debouncedSearchQuery })
-  );
+
 
   // Sort options
   const sortOptions = {
@@ -395,17 +387,7 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
         )}
       </div>
 
-      {/* Modals */}
-      {isCreatorPoolModalOpen && selectedCreatorPool && (
-        <PoolDetailsModal
-          poolId={selectedCreatorPool.id}
-          isOpen={isCreatorPoolModalOpen}
-          onClose={() => {
-            setIsCreatorPoolModalOpen(false);
-            setSelectedCreatorPool(null);
-          }}
-        />
-      )}
+
     </div>
   );
 }

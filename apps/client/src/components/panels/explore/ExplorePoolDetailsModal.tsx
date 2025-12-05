@@ -20,11 +20,13 @@ import { formatEther } from "viem";
 import { getChainConfig } from "@ampedbio/web3";
 
 import PoolDetailsModalSkeleton from "./PoolDetailsModalSkeleton";
+import { formatOnelink } from "@/utils/onelink";
 
 interface ExplorePoolDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  poolId: number; // Now required prop to fetch data from the new TRPC method
+  poolId?: number; // Optional - used when opening from list view
+  poolAddress?: string; // Optional - used when opening from URL parameter
   onStakeSuccess?: () => void; // Callback for when stake/unstake succeeds to trigger refresh
 }
 
@@ -32,22 +34,23 @@ export default function ExplorePoolDetailsModal({
   isOpen,
   onClose,
   poolId,
+  poolAddress,
   onStakeSuccess,
 }: ExplorePoolDetailsModalProps) {
+  // Query for pool by either ID or address (the endpoint accepts both)
   const {
     data: pool,
     isLoading,
     isError,
     refetch: refetchPoolData,
-  } = useQuery(
-    trpc.pools.fan.getPoolDetailsForModal.queryOptions(
-      { poolId },
-      {
-        enabled: isOpen && !!poolId,
-        staleTime: 1000 * 60, // Cache for 1 minute
-      }
-    )
-  );
+  } = useQuery({
+    ...trpc.pools.fan.getPoolDetailsForModal.queryOptions({
+      poolId: poolId || undefined,
+      poolAddress: poolAddress || undefined
+    }),
+    enabled: isOpen && (!!poolId || !!poolAddress), // Only run if we have either poolId or poolAddress
+    staleTime: 1000 * 60, // Cache for 1 minute
+  });
 
   const [isStakeModalOpen, setIsStakeModalOpen] = useState(false);
   const [isUnstakeModalOpen, setIsUnstakeModalOpen] = useState(false);
@@ -104,7 +107,7 @@ export default function ExplorePoolDetailsModal({
     [pool?.id]
   );
 
-  // Show loading state when fetching by poolId
+  // Show loading state when fetching by poolId or poolAddress
   if (isLoading || isError) {
     if (isLoading) {
       return (
@@ -131,7 +134,7 @@ export default function ExplorePoolDetailsModal({
     return null;
   }
 
-  if (!isOpen || !pool?.address) return null;
+  if (!isOpen || (!poolId && !poolAddress) || !pool?.address) return null;
 
   const handleShare = () => {
     const poolUrl = `${window.location.origin}/pool/${pool.id}`;
@@ -207,6 +210,18 @@ export default function ExplorePoolDetailsModal({
               <div>
                 <DialogTitle className="text-2xl font-bold text-gray-900">Pool Details</DialogTitle>
                 <p className="text-lg text-gray-600 mt-1">{pool.name}</p>
+                {pool.creator.littlelink && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    Created by <a
+                      href={`/${formatOnelink(pool.creator.littlelink)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline"
+                    >
+                      {formatOnelink(pool.creator.littlelink)}
+                    </a>
+                  </p>
+                )}
               </div>
               <div className="flex items-center space-x-2">
                 <button

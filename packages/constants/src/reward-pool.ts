@@ -18,6 +18,8 @@ export interface RewardPool {
   creator: {
     userId: number;
     address: string;
+    littlelink: string | null;
+    name: string;
   };
 }
 
