@@ -202,7 +202,7 @@ export default function StakedPoolsSection() {
             {allStakedPools.length} active stake{allStakedPools.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <div className="flex items-center justify-between sm:justify-end space-x-4">
+        {/* <div className="flex items-center justify-between sm:justify-end space-x-4">
           <button
             onClick={() => void claimAll()}
             disabled={!canClaimAll}
@@ -216,7 +216,7 @@ export default function StakedPoolsSection() {
             <span>{isClaiming ? "Claiming..." : "Claim All"}</span>
           </button>
           <Trophy className="w-5 h-5 text-gray-400" />
-        </div>
+        </div> */}
       </div>
 
       {/* Pool Rows */}
