@@ -5,7 +5,12 @@ import { prisma } from "../../services/DB";
 import { Address, createPublicClient, http, decodeEventLog } from "viem";
 import { getChainConfig, L2_BASE_TOKEN_ABI, CREATOR_POOL_ABI } from "@ampedbio/web3";
 import { s3Service } from "../../services/S3Service";
-import { SlimRewardPool, UserStakedPool, PoolTabRewardPool } from "@ampedbio/constants";
+import {
+  UserStakedPool,
+  PoolTabRewardPool,
+  PoolDetailsForModal,
+  SlimPoolForUserStakedPool,
+} from "@ampedbio/constants";
 
 export const poolsFanRouter = router({
   getPools: privateProcedure
@@ -616,7 +621,7 @@ export const poolsFanRouter = router({
           // Get the pool name from multicall results, fallback to placeholder if not available
           const poolName = poolNameResults[index] || `Pool ${stake.pool.id}`;
 
-          const slimRewardPool: SlimRewardPool = {
+          const slimRewardPool: SlimPoolForUserStakedPool = {
             id: stake.pool.id,
             address: stake.pool.poolAddress!,
             image:
@@ -1061,34 +1066,82 @@ export const poolsFanRouter = router({
 
   getPoolDetailsForModal: privateProcedure
     .input(
-      z.object({
-        poolId: z.number(),
-      })
+      z
+        .object({
+          poolId: z.number().optional(),
+          poolAddress: z.string().optional(),
+        })
+        .superRefine((data, ctx) => {
+          if (!data.poolId && !data.poolAddress) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: "Either poolId or poolAddress must be provided.",
+            });
+          }
+        })
     )
-    .query(async ({ input, ctx }) => {
+    .query(async ({ input, ctx }): Promise<PoolDetailsForModal> => {
       try {
-        const pool = await prisma.creatorPool.findUnique({
-          where: { id: input.poolId },
-          include: {
-            poolImage: {
-              select: {
-                s3_key: true,
-                bucket: true,
+        let pool;
+        if (input.poolId) {
+          pool = await prisma.creatorPool.findUnique({
+            where: { id: input.poolId },
+            include: {
+              poolImage: {
+                select: {
+                  s3_key: true,
+                  bucket: true,
+                },
+              },
+              wallet: {
+                select: {
+                  address: true,
+                  userId: true,
+                  user: {
+                    select: {
+                      onelink: true,
+                      name: true,
+                    },
+                  },
+                },
+              },
+              _count: {
+                select: {
+                  stakedPools: true,
+                },
               },
             },
-            wallet: {
-              select: {
-                address: true,
-                userId: true,
+          });
+        } else if (input.poolAddress) {
+          pool = await prisma.creatorPool.findUnique({
+            where: { poolAddress: input.poolAddress.toLowerCase() },
+            include: {
+              poolImage: {
+                select: {
+                  s3_key: true,
+                  bucket: true,
+                },
+              },
+              wallet: {
+                select: {
+                  address: true,
+                  userId: true,
+                  user: {
+                    select: {
+                      onelink: true,
+                      name: true,
+                    },
+                  },
+                },
+              },
+              _count: {
+                select: {
+                  stakedPools: true,
+                },
               },
             },
-            _count: {
-              select: {
-                stakedPools: true,
-              },
-            },
-          },
-        });
+          });
+        }
 
         if (!pool) {
           throw new TRPCError({
@@ -1377,6 +1430,8 @@ export const poolsFanRouter = router({
           creator: {
             userId: pool.wallet!.userId!,
             address: pool.wallet!.address!,
+            littlelink: pool.wallet!.user?.onelink || null,
+            name: pool.wallet!.user?.name || "Unknown Creator",
           },
         };
       } catch (error) {

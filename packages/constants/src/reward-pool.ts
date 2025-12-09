@@ -21,7 +21,7 @@ export interface RewardPool {
   };
 }
 
-export interface SlimRewardPool {
+export interface SlimPoolForUserStakedPool {
   id: number;
   address: string;
   image: {
@@ -35,12 +35,12 @@ export interface SlimRewardPool {
 
 export interface UserStakedPool {
   userWalletId: number;
-  pool: SlimRewardPool;
+  pool: SlimPoolForUserStakedPool;
 }
 
 export interface UserStakedPoolWithNullables {
   userWalletId: number;
-  pool: SlimRewardPool;
+  pool: SlimPoolForUserStakedPool;
   pendingRewards: bigint | null;
   stakedByYou: bigint | null;
 }
@@ -57,4 +57,28 @@ export interface PoolTabRewardPool {
   } | null;
   stakedAmount: bigint;
   fans: number;
+}
+
+// Interface specifically for getPoolDetailsForModal return type
+export interface PoolDetailsForModal {
+  id: number;
+  name: string;
+  description: string | null;
+  chainId: string;
+  address: string;
+  image: {
+    id: number;
+    url: string;
+  } | null;
+  totalReward: bigint;
+  stakedAmount: bigint;
+  fans: number;
+  pendingRewards: bigint;
+  stakedByYou: bigint; // Amount of REVO that the requesting user has staked in this pool
+  creator: {
+    userId: number;
+    address: string;
+    littlelink: string | null;
+    name: string;
+  };
 }

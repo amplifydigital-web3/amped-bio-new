@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Users, Coins } from "lucide-react";
 import PoolSkeleton from "./PoolSkeleton";
 import { useQuery } from "@tanstack/react-query";
@@ -36,6 +36,25 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
     }),
     enabled: !!chainId,
   });
+
+  // State for pool address detection (for opening modal directly from URL)
+  const [poolAddressFromParam, setPoolAddressFromParam] = useState<string | null>(null);
+  const [isPoolModalOpen, setIsPoolModalOpen] = useState(false);
+
+  // Check for pool address parameter on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const poolAddress = urlParams.get("pa"); // Using 'pa' parameter for pool address to avoid conflict with panel param
+
+      // Validate if it looks like an Ethereum address
+      if (poolAddress && /^0x[a-fA-F0-9]{40}$/.test(poolAddress)) {
+        setPoolAddressFromParam(poolAddress);
+        // Open modal directly with the address
+        setIsPoolModalOpen(true);
+      }
+    }
+  }, []);
 
   // State for modals and selected pool
   const [selectedStakingPool, setSelectedStakingPool] = useState<any>(null);
@@ -172,6 +191,17 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
           onClose={() => {
             setIsRewardPoolViewModalOpen(false);
             setSelectedRewardPoolForView(null);
+          }}
+        />
+      )}
+      {/* Pool Details Modal for address parameter - Now in PoolsTab as requested */}
+      {isPoolModalOpen && poolAddressFromParam && (
+        <PoolDetailsModal
+          poolAddress={poolAddressFromParam} // Pass the address directly
+          isOpen={isPoolModalOpen}
+          onClose={() => {
+            setIsPoolModalOpen(false);
+            setPoolAddressFromParam(null);
           }}
         />
       )}
