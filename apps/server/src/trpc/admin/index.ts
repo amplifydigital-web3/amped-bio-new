@@ -7,6 +7,7 @@ import { filesRouter } from "./files";
 import { adminUploadRouter } from "./upload";
 import { walletAdminRouter } from "./wallet";
 import { settingsRouter } from "./settings";
+import { adminPoolsRouter } from "./pools";
 
 export const adminRouter = router({
   // User Management
@@ -32,4 +33,7 @@ export const adminRouter = router({
 
   // Site Settings
   settings: settingsRouter,
+
+  // Pool Management
+  pools: adminPoolsRouter,
 });

@@ -5,7 +5,7 @@ import { View } from "./pages/View";
 import { PoolPage } from "./pages/PoolPage";
 
 import { AdminLayout } from "./pages/admin/AdminLayout";
-import { AdminDashboard, AdminUsers, AdminThemes, AdminBlocks, AdminFiles } from "./pages/admin";
+import { AdminDashboard, AdminUsers, AdminThemes, AdminBlocks, AdminFiles, AdminPools } from "./pages/admin";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { initParticlesEngine } from "@tsparticles/react";
 import { loadAll } from "@tsparticles/all";
@@ -48,6 +48,7 @@ function AppRouter() {
         <Route path="themes" element={<AdminThemes />} />
         <Route path="blocks" element={<AdminBlocks />} />
         <Route path="files" element={<AdminFiles />} />
+        <Route path="pools" element={<AdminPools />} />
       </Route>
 
       {/* Authentication Routes */}
