@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { BarChart3, Users, Layers, LogOut, Home, Hexagon, Files } from "lucide-react";
+import { BarChart3, Users, Layers, LogOut, Home, Hexagon, Files, CoinsIcon } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { AdminHeader } from "../../components/admin";
 import { AdminBreadcrumb } from "../../components/admin";
@@ -21,6 +21,7 @@ export function AdminLayout() {
     { id: "blocks", icon: Layers, label: "Blocks", path: "/admin/blocks", shortcut: "⌘⌥B" },
     { id: "themes", icon: Hexagon, label: "Themes", path: "/admin/themes", shortcut: "⌘⌥T" },
     { id: "files", icon: Files, label: "Files", path: "/admin/files", shortcut: "⌘⌥F" },
+    { id: "pools", icon: CoinsIcon, label: "Pools", path: "/admin/pools", shortcut: "⌘⌥P" },
   ];
 
   // Handle logout
@@ -47,6 +48,8 @@ export function AdminLayout() {
         return "Theme Management";
       case "/admin/files":
         return "File Management";
+      case "/admin/pools":
+        return "Pool Management";
       default:
         return "Admin Dashboard";
     }
