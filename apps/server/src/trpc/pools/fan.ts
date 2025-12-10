@@ -49,7 +49,7 @@ export const poolsFanRouter = router({
           ];
         }
 
-        whereClause.OR.push([{ hidden: false }, { hidden: null }]);
+        whereClause.OR.push(...[{ hidden: false }, { hidden: null }]);
 
         // Build the pools query with the where clause
         const pools = await prisma.creatorPool.findMany({
