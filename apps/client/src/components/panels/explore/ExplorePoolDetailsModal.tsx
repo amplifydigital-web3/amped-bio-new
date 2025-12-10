@@ -165,6 +165,8 @@ export default function ExplorePoolDetailsModal({
     setIsClaiming(true);
     try {
       await claimReward();
+      // Introduce a 1-second delay to allow the blockchain to update before refetching
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       // Refetch all pool data after successful claim
       await fetchAllData();
 

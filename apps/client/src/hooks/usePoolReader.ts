@@ -1,7 +1,8 @@
-import { useReadContracts, useWriteContract, useReadContract } from "wagmi";
+import { useReadContracts, useWriteContract, useReadContract, useConfig } from "wagmi";
 import { type Address } from "viem";
 import { CREATOR_POOL_ABI } from "@ampedbio/web3";
 import React from "react";
+import { waitForTransactionReceipt } from "@wagmi/core";
 
 interface UsePoolReaderOptions {
   initialFanStake?: bigint;
@@ -65,18 +66,25 @@ export function usePoolReader(
   const pendingRewardResult = pendingRewardContract.data;
   const isPendingRewardLoading = pendingRewardContract.isLoading;
 
+  const config = useConfig();
   const { writeContractAsync: writeCreatorPoolContractAsync } = useWriteContract();
 
   const claimReward = async () => {
     if (!poolAddress) {
       throw new Error("Pool address is missing");
     }
+
     try {
       const hash = await writeCreatorPoolContractAsync({
         address: poolAddress,
         abi: CREATOR_POOL_ABI,
         functionName: "claimReward",
       });
+
+      if (hash) {
+        await waitForTransactionReceipt(config, { hash });
+      }
+
       return hash;
     } catch (error) {
       console.error("Error claiming reward:", error);
