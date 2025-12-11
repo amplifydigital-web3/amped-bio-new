@@ -1,4 +1,3 @@
-import axios from "axios";
 import { env } from "../env";
 
 export async function verifyRecaptcha(token: string | null): Promise<boolean> {
@@ -20,15 +19,25 @@ export async function verifyRecaptcha(token: string | null): Promise<boolean> {
     formData.append("secret", env.RECAPTCHA_SECRET_KEY);
     formData.append("response", token);
 
-    const response = await axios.post("https://www.google.com/recaptcha/api/siteverify", formData, {
+    const response = await fetch("https://www.google.com/recaptcha/api/siteverify", {
+      method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
+      body: formData,
     });
 
-    const data = response.data;
+    const data = await response.json();
 
     if (data.success) {
+      // Verificar o score do reCAPTCHA (para v3)
+      const score = data.score || 1.0;
+      
+      if (score < 0.5) {
+        console.warn("reCAPTCHA score too low (bot detected):", score);
+        return false;
+      }
+      
       return true;
     } else {
       console.warn("reCAPTCHA verification failed:", data["error-codes"]);
