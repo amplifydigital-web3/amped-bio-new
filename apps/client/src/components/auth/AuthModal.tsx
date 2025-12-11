@@ -12,7 +12,8 @@ import { useOnelinkAvailability } from "@/hooks/useOnelinkAvailability";
 import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
 import { useGoogleLogin } from "@react-oauth/google";
 import { GoogleLoginButton } from "./GoogleLoginButton";
-import { useCaptcha, CaptchaDialog } from "@/hooks/useCaptcha";
+import { useCaptcha } from "@/hooks/useCaptcha";
+import { CaptchaActions } from "@ampedbio/constants";
 import {
   normalizeOnelink,
   cleanOnelinkInput,
@@ -98,14 +99,12 @@ const PasswordStrengthIndicator = ({ password }: { password: string }) => {
 
 export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: AuthModalProps) {
   const { signIn, signInWithGoogle, signUp, resetPassword } = useAuth();
-  const { isOpen: isCaptchaOpen, openCaptcha, closeCaptcha, handleSubmit } = useCaptcha();
+  const { executeCaptcha, isRecaptchaEnabled } = useCaptcha();
   const [loading, setLoading] = useState(false);
   const [sharedEmail, setSharedEmail] = useState("");
   const isUserTyping = useRef(false);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
-  const isRecaptchaEnabled =
-    import.meta.env.MODE !== "testing" && !!import.meta.env.VITE_RECAPTCHA_SITE_KEY;
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -244,14 +243,8 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setLoading(true);
     setLoginError(null);
     try {
-      // Get reCAPTCHA token using the new hook
-      const recaptchaToken = isRecaptchaEnabled ? await openCaptcha() : null;
-
-      if (recaptchaToken === null && isRecaptchaEnabled) {
-        // User cancelled the captcha
-        setLoading(false);
-        return;
-      }
+      // Get reCAPTCHA token using the invisible captcha
+      const recaptchaToken = isRecaptchaEnabled ? await executeCaptcha(CaptchaActions.LOGIN) : null;
 
       const user = await signIn(data.email, data.password, recaptchaToken);
       onClose(user);
@@ -316,14 +309,8 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setLoading(true);
     setRegisterError(null);
     try {
-      // Get reCAPTCHA token using the new hook
-      const recaptchaToken = isRecaptchaEnabled ? await openCaptcha() : null;
-
-      if (recaptchaToken === null && isRecaptchaEnabled) {
-        // User cancelled the captcha
-        setLoading(false);
-        return;
-      }
+      // Get reCAPTCHA token using the invisible captcha
+      const recaptchaToken = isRecaptchaEnabled ? await executeCaptcha(CaptchaActions.REGISTER) : null;
 
       const user = await signUp(data.onelink, data.email, data.password, recaptchaToken);
       onClose(user);
@@ -346,14 +333,8 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setResetError(null);
     setResetSuccess(false);
     try {
-      // Get reCAPTCHA token using the new hook
-      const recaptchaToken = isRecaptchaEnabled ? await openCaptcha() : null;
-
-      if (recaptchaToken === null && isRecaptchaEnabled) {
-        // User cancelled the captcha
-        setLoading(false);
-        return;
-      }
+      // Get reCAPTCHA token using the invisible captcha
+      const recaptchaToken = isRecaptchaEnabled ? await executeCaptcha(CaptchaActions.RESET_PASSWORD) : null;
 
       const response = await resetPassword(data.email, recaptchaToken);
       if (response.success) {
@@ -759,7 +740,6 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
               . Your amped.bio profile doubles as your wallet and hub for staking into Reward Pools.
             </p>
           )}
-          <CaptchaDialog isOpen={isCaptchaOpen} onClose={closeCaptcha} onSubmit={handleSubmit} />
         </div>
       </DialogContent>
     </Dialog>
