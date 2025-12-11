@@ -5,8 +5,8 @@ export async function verifyRecaptcha(token: string | null): Promise<boolean> {
     return true;
   }
 
-  if (env.RECAPTCHA_SECRET_KEY.length === 0) {
-    console.warn("RECAPTCHA_SECRET_KEY is not set. Skipping reCAPTCHA verification.");
+  if (env.CAPTCHA_SECRET_KEY.length === 0) {
+    console.warn("CAPTCHA_SECRET_KEY is not set. Skipping reCAPTCHA verification.");
     return true;
   }
 
@@ -16,7 +16,7 @@ export async function verifyRecaptcha(token: string | null): Promise<boolean> {
 
   try {
     const formData = new URLSearchParams();
-    formData.append("secret", env.RECAPTCHA_SECRET_KEY);
+    formData.append("secret", env.CAPTCHA_SECRET_KEY);
     formData.append("response", token);
 
     const response = await fetch("https://www.google.com/recaptcha/api/siteverify", {
@@ -30,7 +30,6 @@ export async function verifyRecaptcha(token: string | null): Promise<boolean> {
     const data = await response.json();
 
     if (data.success) {
-      // Verificar o score do reCAPTCHA (para v3)
       const score = data.score || 1.0;
 
       if (score < 0.5) {
