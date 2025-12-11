@@ -32,12 +32,12 @@ export async function verifyRecaptcha(token: string | null): Promise<boolean> {
     if (data.success) {
       // Verificar o score do reCAPTCHA (para v3)
       const score = data.score || 1.0;
-      
+
       if (score < 0.5) {
         console.warn("reCAPTCHA score too low (bot detected):", score);
         return false;
       }
-      
+
       return true;
     } else {
       console.warn("reCAPTCHA verification failed:", data["error-codes"]);
