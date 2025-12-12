@@ -187,16 +187,6 @@ export function View() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Navbar - Visible when on landingpage profile or root route */}
-      {shouldShowNavbar && (
-        <header className="sticky top-0 z-30 h-16 border-b bg-white px-6 flex items-center justify-between shrink-0 shadow-sm">
-          <div className="flex items-center">
-            <img src={AMPLIFY_FULL_K} alt="Amplify Logo" className="h-8" />
-          </div>
-          <UserMenu />
-        </header>
-      )}
-
       <Preview
         isEditing={false}
         onelink={normalizedOnelink}
