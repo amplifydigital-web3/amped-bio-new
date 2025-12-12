@@ -99,13 +99,6 @@ export function View() {
   // Determine if this is the initial/home page (no onelink parameter in URL)
   const isInitialPage = !onelink || onelink === "";
 
-  // Determine if navbar should be shown (landingpage user, root route, or register route)
-  const shouldShowNavbar =
-    normalizedOnelink === DEFAULT_ONELINK ||
-    location.pathname === "/" ||
-    isRegisterRoute ||
-    isLoginRoute;
-
   // Show auth modal when on register route and not logged in
   const [showAuthModal, setShowAuthModal] = useState(isRegisterRoute && !authUser);
   const [initialAuthForm, setInitialAuthForm] = useState<"login" | "register" | "reset">(

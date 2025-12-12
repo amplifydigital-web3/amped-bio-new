@@ -1,19 +1,42 @@
-import React from "react";
-import { Outlet, Link, useLocation } from "react-router-dom";
+import React, { useState } from "react";
+import { Outlet, Link, useLocation, useParams } from "react-router-dom";
 import AMPLIFY_FULL_K from "@/assets/AMPLIFY_FULL_K.svg";
 import { UserMenu } from "../auth/UserMenu";
+import { normalizeOnelink } from "@/utils/onelink";
+
+// Default onelink username to show when accessing root URL
+const DEFAULT_ONELINK = "landingpage";
 
 interface PublicLayoutProps {
   children?: React.ReactNode;
 }
 
 const PublicLayout: React.FC<PublicLayoutProps> = ({ children }) => {
+  const { onelink = "" } = useParams();
   const location = useLocation();
-  const shouldShowNavbar = location.pathname === "/" ||
-    location.pathname.startsWith("/@") ||
-    location.pathname === "/register" ||
-    location.pathname === "/login" ||
-    location.pathname === "/i/pools";
+
+  // Check if we're on the register route
+  const isRegisterRoute = location.pathname === "/register";
+  const isLoginRoute = location.pathname === "/login";
+
+  const [loading, setLoading] = useState(isRegisterRoute || isLoginRoute ? false : true);
+
+  // Use default onelink when on root URL with no onelink parameter
+  const effectiveOnelink =
+    ["/", "/register", "/login"].includes(location.pathname) && (!onelink || onelink === "")
+      ? DEFAULT_ONELINK
+      : onelink;
+
+  // Normalize onelink to handle @ symbols in URLs
+  const normalizedOnelink = normalizeOnelink(effectiveOnelink);
+
+  // Determine if navbar should be shown (landingpage user, root route, or register route)
+  const shouldShowNavbar =
+    location.pathname.includes("/i/") ||
+    normalizedOnelink === DEFAULT_ONELINK ||
+    location.pathname === "/" ||
+    isRegisterRoute ||
+    isLoginRoute;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -32,9 +55,7 @@ const PublicLayout: React.FC<PublicLayoutProps> = ({ children }) => {
         </header>
       )}
 
-      <main className="flex-grow">
-        {children || <Outlet />}
-      </main>
+      <main className="flex-grow">{children || <Outlet />}</main>
     </div>
   );
 };
