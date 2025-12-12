@@ -3,19 +3,73 @@ import { Preview } from "../components/Preview";
 import { Settings } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useEffect, useState } from "react";
-import { AuthModal } from "../components/auth/AuthModal";
 import { formatOnelink, normalizeOnelink } from "@/utils/onelink";
-import type { AuthUser } from "../types/auth";
-import { UserMenu } from "../components/auth/UserMenu";
-import AMPLIFY_FULL_K from "@/assets/AMPLIFY_FULL_K.svg";
 import { trpcClient } from "@/utils/trpc";
 import type { UserProfile, Theme } from "@/types/editor";
 import { TRPCClientError } from "@trpc/client";
 import initialState from "@/store/defaults";
 import { BlockType } from "@ampedbio/constants";
+import { Skeleton } from "@/components/ui/skeleton";
+import { AuthModal } from "@/components/auth/AuthModal";
+import { AuthUser } from "@/types/auth";
 
 // Default onelink username to show when accessing root URL
 const DEFAULT_ONELINK = "landingpage";
+
+function ProfileSkeleton() {
+  return (
+    <div className="flex flex-col h-screen">
+      {/* Background Layer - Fixed to viewport */}
+      <div className="fixed inset-0 w-full h-full z-[1] bg-gray-100">
+        <div className="absolute inset-0" />
+      </div>
+
+      {/* Content Layer */}
+      <div className="min-h-full relative z-[2]">
+        <div className="relative min-h-full py-8 px-4 transition-all duration-300 mx-auto z-10 max-w-[640px]">
+          {/* Container */}
+          <div className="w-full space-y-8 p-8 bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg">
+            {/* Profile Section */}
+            <div className="flex flex-col items-center text-center space-y-6">
+              <div className="relative">
+                <Skeleton className="w-32 h-32 rounded-full object-cover ring-4 ring-white/50 shadow-xl" />
+                <div className="absolute -inset-1 rounded-full" />
+              </div>
+
+              <div className="space-y-4">
+                <Skeleton className="h-8 w-48 mx-auto rounded" />
+
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-64 mx-auto rounded" />
+                  <Skeleton className="h-4 w-56 mx-auto rounded" />
+                  <Skeleton className="h-4 w-60 mx-auto rounded" />
+                </div>
+              </div>
+            </div>
+
+            {/* Links & Blocks */}
+            <div className="space-y-4">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="w-full px-4 py-3 flex items-center space-x-3 rounded-lg"
+                >
+                  <Skeleton className="w-5 h-5 flex-shrink-0 rounded-full" />
+                  <Skeleton className="flex-1 h-5 rounded" />
+                </div>
+              ))}
+            </div>
+
+            {/* Powered by footer */}
+            <div className="pt-4 text-center">
+              <Skeleton className="h-4 w-40 mx-auto rounded" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function View() {
   const { onelink = "" } = useParams();
@@ -172,15 +226,11 @@ export function View() {
       navigate("/");
     }
   };
-
+  
   if (loading || !profile) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-white">
-        <img src={AMPLIFY_FULL_K} alt="Amplify Logo" className="h-12 mb-6" />
-        <div className="relative">
-          <div className="h-12 w-12 rounded-full border-4 border-t-black border-r-gray-200 border-b-gray-200 border-l-gray-200 animate-spin"></div>
-        </div>
-        <p className="mt-4 text-gray-600 font-medium">Loading profile...</p>
+      <div className="min-h-screen">
+        <ProfileSkeleton />
       </div>
     );
   }
