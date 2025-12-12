@@ -1,4 +1,4 @@
-import { privateProcedure, router } from "../trpc";
+import { privateProcedure, publicProcedure, router } from "../trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { prisma } from "../../services/DB";
@@ -13,7 +13,7 @@ import {
 } from "@ampedbio/constants";
 
 export const poolsFanRouter = router({
-  getPools: privateProcedure
+  getPools: publicProcedure
     .input(
       z.object({
         chainId: z.string(),
