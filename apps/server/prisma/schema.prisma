@@ -187,6 +187,7 @@ model CreatorPool {
   poolImage     UploadedFile? @relation("CreatorPoolImage", fields: [image_file_id], references: [id], onDelete: SetNull)
   stakedPools   StakedPool[]
   stakeEvents   StakeEvent[]
+  hidden        Boolean?      @default(false)
 
   @@unique([walletId, chainId])
   @@map("creator_pools")

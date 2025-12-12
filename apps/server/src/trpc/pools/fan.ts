@@ -37,6 +37,7 @@ export const poolsFanRouter = router({
         }
 
         const whereClause: any = {
+          OR: [],
           chainId: input.chainId, // Only fetch pools from the specified chain
         };
 
@@ -47,6 +48,8 @@ export const poolsFanRouter = router({
             { wallet: { user: { name: { contains: input.search } } } }, // Search by creator's name
           ];
         }
+
+        whereClause.OR.push(...[{ hidden: false }, { hidden: null }]);
 
         // Build the pools query with the where clause
         const pools = await prisma.creatorPool.findMany({

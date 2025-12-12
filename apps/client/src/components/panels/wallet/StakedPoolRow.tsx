@@ -33,7 +33,7 @@ export default function StakedPoolRow({
     fetchAllData,
   } = usePoolReader(
     pool.address as `0x${string}` | undefined,
-    userAddress as `0x${string}` | undefined,
+    userAddress as `0x${string}` | undefined
   );
 
   const stakedAmount = stakedByYou;

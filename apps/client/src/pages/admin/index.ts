@@ -4,3 +4,4 @@ export { AdminThemes } from "./AdminThemes";
 export { AdminBlocks } from "./AdminBlocks";
 export { AdminFiles } from "./AdminFiles";
 export { AdminLayout } from "./AdminLayout";
+export { AdminPools } from "./AdminPools";
