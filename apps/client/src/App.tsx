@@ -3,6 +3,9 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Editor } from "./pages/Editor";
 import { View } from "./pages/View";
 import { PoolPage } from "./pages/PoolPage";
+import PoolsPage from "./pages/PoolsPage";
+import { PoolDetailsPage } from "./pages/PoolDetailsPage";
+import PublicLayout from "./components/layout/PublicLayout";
 
 import { AdminLayout } from "./pages/admin/AdminLayout";
 import { AdminDashboard, AdminUsers, AdminThemes, AdminBlocks, AdminFiles, AdminPools } from "./pages/admin";
@@ -28,10 +31,32 @@ function AppRouter() {
           </ProtectedRoute>
         }
       />
-      <Route path="/:onelink" element={<View />} />
-      <Route path="/register" element={<View />} />
-      <Route path="/login" element={<View />} />
-      <Route path="/" element={<View />} />
+      <Route path="/" element={
+        <PublicLayout>
+          <View />
+        </PublicLayout>
+      } />
+      <Route path="/:onelink" element={
+        <PublicLayout>
+          <View />
+        </PublicLayout>
+      } />
+      <Route path="/register" element={
+        <PublicLayout>
+          <View />
+        </PublicLayout>
+      } />
+      <Route path="/login" element={
+        <PublicLayout>
+          <View />
+        </PublicLayout>
+      } />
+      <Route path="/i/pools" element={
+        <PublicLayout>
+          <PoolsPage />
+        </PublicLayout>
+      } />
+      <Route path="/i/pools/:address" element={<PoolDetailsPage />} />
       <Route path="/pool/:address" element={<PoolPage />} />
 
       {/* Admin Routes with nested routing */}
