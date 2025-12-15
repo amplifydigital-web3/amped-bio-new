@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Users, Coins } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import PoolSkeleton from "./PoolSkeleton";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "../../../../utils/trpc";
@@ -21,6 +22,7 @@ interface PoolsTabProps {
 }
 
 const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }) => {
+  const navigate = useNavigate();
   const chainId = useChainId();
 
   const {
@@ -60,8 +62,6 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
   const [selectedStakingPool, setSelectedStakingPool] = useState<any>(null);
   const [isStakeModalOpen, setIsStakeModalOpen] = useState(false);
   const [stakingMode, setStakingMode] = useState<"stake" | "add-stake">("stake");
-  const [selectedRewardPoolForView, setSelectedRewardPoolForView] = useState<number | null>(null);
-  const [isRewardPoolViewModalOpen, setIsRewardPoolViewModalOpen] = useState(false);
 
   const handleJoinPool = (poolId: number) => {
     if (pools) {
@@ -87,8 +87,13 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
   };
 
   const handleViewPool = (poolId: number) => {
-    setSelectedRewardPoolForView(poolId);
-    setIsRewardPoolViewModalOpen(true);
+    if (pools) {
+      const pool = pools.find(p => p.id === poolId);
+      if (pool && pool.address) {
+        // Navigate to the dedicated pool page
+        navigate(`/i/pools/${pool.address}`);
+      }
+    }
   };
 
   // Apply filtering and sorting
@@ -182,16 +187,6 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
           isOpen={isStakeModalOpen}
           onClose={() => setIsStakeModalOpen(false)}
           onStakeSuccess={refetch}
-        />
-      )}
-      {isRewardPoolViewModalOpen && selectedRewardPoolForView && (
-        <PoolDetailsModal
-          poolId={selectedRewardPoolForView}
-          isOpen={isRewardPoolViewModalOpen}
-          onClose={() => {
-            setIsRewardPoolViewModalOpen(false);
-            setSelectedRewardPoolForView(null);
-          }}
         />
       )}
       {/* Pool Details Modal for address parameter - Now in PoolsTab as requested */}

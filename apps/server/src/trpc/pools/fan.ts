@@ -1067,7 +1067,7 @@ export const poolsFanRouter = router({
       }
     }),
 
-  getPoolDetailsForModal: privateProcedure
+  getPoolDetailsForModal: publicProcedure
     .input(
       z
         .object({
