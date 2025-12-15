@@ -19,9 +19,10 @@ interface PoolsTabProps {
   searchQuery: string;
   poolFilter: PoolFilter;
   poolSort: PoolSort;
+  shouldOpenModal?: boolean; // If true, open modal instead of navigating to pool page
 }
 
-const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }) => {
+const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort, shouldOpenModal = false }) => {
   const navigate = useNavigate();
   const chainId = useChainId();
 
@@ -92,9 +93,14 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
     if (pools) {
       const pool = pools.find(p => p.id === poolId);
       if (pool && pool.address) {
-        // Set the selected pool address and open the modal
-        setSelectedPoolAddress(pool.address);
-        setIsPoolModalOpen(true);
+        if (shouldOpenModal) {
+          // Open modal instead of navigating
+          setSelectedPoolAddress(pool.address);
+          setIsPoolModalOpen(true);
+        } else {
+          // Navigate to the dedicated pool page
+          navigate(`/i/pools/${pool.address}`);
+        }
       }
     }
   };
