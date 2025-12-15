@@ -7,9 +7,9 @@ export function PoolDetailsPage() {
   const { address: poolAddress } = useParams<{ address: string }>();
   const navigate = useNavigate();
 
-  // Handle browser back navigation
+  // Navigate to the public pools page instead of using browser history
   const handleBack = () => {
-    navigate(-1); // Go back to previous page
+    navigate("/i/pools"); // Navigate to public pools page
   };
 
   return (

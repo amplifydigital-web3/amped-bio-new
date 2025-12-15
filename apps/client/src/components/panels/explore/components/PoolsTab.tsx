@@ -42,6 +42,7 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
   // State for pool address detection (for opening modal directly from URL)
   const [poolAddressFromParam, setPoolAddressFromParam] = useState<string | null>(null);
   const [isPoolModalOpen, setIsPoolModalOpen] = useState(false);
+  const [selectedPoolAddress, setSelectedPoolAddress] = useState<string | null>(null);
 
   // Check for pool address parameter on mount
   useEffect(() => {
@@ -52,6 +53,7 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
       // Validate if it looks like an Ethereum address
       if (poolAddress && /^0x[a-fA-F0-9]{40}$/.test(poolAddress)) {
         setPoolAddressFromParam(poolAddress);
+        setSelectedPoolAddress(poolAddress);
         // Open modal directly with the address
         setIsPoolModalOpen(true);
       }
@@ -90,8 +92,9 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
     if (pools) {
       const pool = pools.find(p => p.id === poolId);
       if (pool && pool.address) {
-        // Navigate to the dedicated pool page
-        navigate(`/i/pools/${pool.address}`);
+        // Set the selected pool address and open the modal
+        setSelectedPoolAddress(pool.address);
+        setIsPoolModalOpen(true);
       }
     }
   };
@@ -151,10 +154,6 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
                   </div>
                 </div>
 
-                <span className="absolute top-2 right-2 inline-flex items-center rounded-full border border-blue-400 bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">
-                  New
-                </span>
-
                 <div className="flex space-x-2">
                   <button
                     onClick={() => handleViewPool(pool.id)}
@@ -189,14 +188,15 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
           onStakeSuccess={refetch}
         />
       )}
-      {/* Pool Details Modal for address parameter - Now in PoolsTab as requested */}
-      {isPoolModalOpen && poolAddressFromParam && (
+      {/* Pool Details Modal for both URL parameter and clicked pools */}
+      {isPoolModalOpen && (poolAddressFromParam || selectedPoolAddress) && (
         <PoolDetailsModal
-          poolAddress={poolAddressFromParam} // Pass the address directly
+          poolAddress={poolAddressFromParam || selectedPoolAddress || undefined} // Use either URL parameter or selected pool, ensuring it's string or undefined for the prop
           isOpen={isPoolModalOpen}
           onClose={() => {
             setIsPoolModalOpen(false);
             setPoolAddressFromParam(null);
+            setSelectedPoolAddress(null);
           }}
         />
       )}

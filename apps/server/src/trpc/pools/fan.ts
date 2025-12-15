@@ -1073,6 +1073,7 @@ export const poolsFanRouter = router({
         .object({
           poolId: z.number().optional(),
           poolAddress: z.string().optional(),
+          walletAddress: z.string().optional(),
         })
         .superRefine((data, ctx) => {
           if (!data.poolId && !data.poolAddress) {
@@ -1083,7 +1084,7 @@ export const poolsFanRouter = router({
           }
         })
     )
-    .query(async ({ input, ctx }): Promise<PoolDetailsForModal> => {
+    .query(async ({ input, ctx: _ctx }): Promise<PoolDetailsForModal> => {
       try {
         let pool;
         if (input.poolId) {
@@ -1172,11 +1173,8 @@ export const poolsFanRouter = router({
         let totalStake: bigint = BigInt(pool.revoStaked);
         let poolName = `Pool ${pool.id}`; // Default fallback
 
-        // Get user wallet to fetch user-specific data
-        const userId = ctx.user.sub;
-        const userWallet = await prisma.userWallet.findUnique({
-          where: { userId },
-        });
+        // Use only the wallet address provided in the input, ignoring any user context
+        const targetWalletAddress = input.walletAddress || null;
 
         // Prepare promises for parallel execution: blockchain data, active stakers count, and user-specific data
         const [blockchainData, activeStakers, userData] = await Promise.all([
@@ -1303,26 +1301,31 @@ export const poolsFanRouter = router({
             },
           }),
 
-          // Fetch user-specific data (stakedByYou and pendingRewards) if user has a wallet
+          // Fetch user-specific data (stakedByYou and pendingRewards) if wallet address is available
           (async () => {
-            if (!pool.poolAddress || !userWallet || !userWallet.address) {
-              return { stakedByYou: 0n, pendingRewards: 0n };
+            if (!pool.poolAddress || !targetWalletAddress) {
+              return { stakedByYou: null, pendingRewards: null };
             }
 
             try {
+              // Get user wallet record by address to get userWalletId
+              const targetUserWallet = await prisma.userWallet.findUnique({
+                where: { address: targetWalletAddress.toLowerCase() },
+              });
+
               // Create multicall requests for user-specific data
               const userMulticallRequests = [
                 {
                   address: pool.poolAddress as Address,
                   abi: CREATOR_POOL_ABI,
                   functionName: "fanStakes" as const,
-                  args: [userWallet.address as Address],
+                  args: [targetWalletAddress as Address],
                 },
                 {
                   address: pool.poolAddress as Address,
                   abi: CREATOR_POOL_ABI,
                   functionName: "pendingReward" as const,
-                  args: [userWallet.address as Address],
+                  args: [targetWalletAddress as Address],
                 },
               ];
 
@@ -1335,18 +1338,18 @@ export const poolsFanRouter = router({
               const fanStakesResult = userResults[0];
               const pendingRewardResult = userResults[1];
 
-              let stakedByYou: bigint = 0n;
-              let pendingRewards: bigint = 0n;
+              let stakedByYou: bigint | null = null;
+              let pendingRewards: bigint | null = null;
 
               // Handle fanStakes result
               if (fanStakesResult.status === "success") {
                 stakedByYou = fanStakesResult.result as bigint;
                 console.log(
-                  `Successfully fetched stakedByYou from contract for pool ${pool.id} and user ${userWallet.address}: ${stakedByYou.toString()}`
+                  `Successfully fetched stakedByYou from contract for pool ${pool.id} and address ${targetWalletAddress}: ${stakedByYou.toString()}`
                 );
               } else {
                 console.error(
-                  `Error fetching stakedByYou from contract for pool ${pool.id} and user ${userWallet.address}:`,
+                  `Error fetching stakedByYou from contract for pool ${pool.id} and address ${targetWalletAddress}:`,
                   fanStakesResult.error
                 );
               }
@@ -1355,41 +1358,41 @@ export const poolsFanRouter = router({
               if (pendingRewardResult.status === "success") {
                 pendingRewards = pendingRewardResult.result as bigint;
                 console.log(
-                  `Successfully fetched pendingRewards from contract for pool ${pool.id} and user ${userWallet.address}: ${pendingRewards.toString()}`
+                  `Successfully fetched pendingRewards from contract for pool ${pool.id} and address ${targetWalletAddress}: ${pendingRewards.toString()}`
                 );
               } else {
                 console.error(
-                  `Error fetching pendingRewards from contract for pool ${pool.id} and user ${userWallet.address}:`,
+                  `Error fetching pendingRewards from contract for pool ${pool.id} and address ${targetWalletAddress}:`,
                   pendingRewardResult.error
                 );
               }
 
-              // Update the stakedPool record in database if we got blockchain data
-              if (fanStakesResult.status === "success") {
+              // Update the stakedPool record in database if we got blockchain data and we have the user wallet
+              if (fanStakesResult.status === "success" && targetUserWallet) {
                 try {
                   await prisma.stakedPool.upsert({
                     where: {
                       userWalletId_poolId: {
-                        userWalletId: userWallet.id,
+                        userWalletId: targetUserWallet.id,
                         poolId: pool.id,
                       },
                     },
                     update: {
-                      stakeAmount: stakedByYou.toString(),
+                      stakeAmount: (stakedByYou || 0n).toString(),
                       updatedAt: new Date(),
                     },
                     create: {
-                      userWalletId: userWallet.id,
+                      userWalletId: targetUserWallet.id,
                       poolId: pool.id,
-                      stakeAmount: stakedByYou.toString(),
+                      stakeAmount: (stakedByYou || "0").toString(),
                     },
                   });
                   console.log(
-                    `Successfully updated stakedPool record for userWalletId: ${userWallet.id}, poolId: ${pool.id}, amount: ${stakedByYou.toString()}`
+                    `Successfully updated stakedPool record for userWalletId: ${targetUserWallet.id}, poolId: ${pool.id}, amount: ${(stakedByYou || 0n).toString()}`
                   );
                 } catch (updateError) {
                   console.error(
-                    `Error updating stakedPool record for userWalletId: ${userWallet.id}, poolId: ${pool.id}:`,
+                    `Error updating stakedPool record for userWalletId: ${targetUserWallet.id}, poolId: ${pool.id}:`,
                     updateError
                   );
                   // Continue anyway, we'll still return the blockchain value
@@ -1399,8 +1402,8 @@ export const poolsFanRouter = router({
               return { stakedByYou, pendingRewards };
             } catch (error) {
               console.error(`Error fetching user data from contract for pool ${pool.id}:`, error);
-              // If contract query fails, return default values
-              return { stakedByYou: 0n, pendingRewards: 0n };
+              // If contract query fails, return null values
+              return { stakedByYou: null, pendingRewards: null };
             }
           })(),
         ]);

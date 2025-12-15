@@ -5,6 +5,7 @@ import {
 } from "@/components/ui/dialog";
 import { trpc } from "@/utils/trpc/trpc";
 import { useQuery } from "@tanstack/react-query";
+import { useAccount } from "wagmi";
 import PoolDetailContent from "./PoolDetailContent";
 
 interface ExplorePoolDetailsModalProps {
@@ -22,11 +23,14 @@ export default function ExplorePoolDetailsModal({
   poolAddress,
   onStakeSuccess,
 }: ExplorePoolDetailsModalProps) {
+  const { address: userAddress } = useAccount();
+
   // Query for the pool to get its address if only poolId is provided
   const { data: pool } = useQuery({
     ...trpc.pools.fan.getPoolDetailsForModal.queryOptions({
       poolId: poolId || undefined,
-      poolAddress: poolAddress || undefined
+      poolAddress: poolAddress || undefined,
+      walletAddress: userAddress || undefined
     }),
     enabled: isOpen && (!!poolId || !!poolAddress),
     staleTime: 1000 * 60, // Cache for 1 minute

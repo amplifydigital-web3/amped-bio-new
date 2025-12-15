@@ -31,6 +31,8 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
   shareUrl,
   onStakeSuccess
 }) => {
+  const { address: userAddress } = useAccount();
+
   // Query for pool by address from URL parameter
   const {
     data: pool,
@@ -40,6 +42,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
   } = useQuery({
     ...trpc.pools.fan.getPoolDetailsForModal.queryOptions({
       poolAddress: poolAddress || undefined,
+      walletAddress: userAddress || undefined,
     }),
     enabled: !!poolAddress,
     staleTime: 1000 * 60, // Cache for 1 minute
@@ -51,7 +54,6 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
   const [stakingMode, setStakingMode] = useState<"stake" | "add-stake">("stake");
   const [isClaiming, setIsClaiming] = useState(false);
 
-  const { address: userAddress } = useAccount();
 
   const {
     creatorCut: contractCreatorCut,
@@ -64,8 +66,8 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
     pool?.address as `0x${string}` | undefined,
     userAddress as `0x${string}` | undefined,
     {
-      initialFanStake: pool?.stakedByYou,
-      initialPendingReward: pool?.pendingRewards,
+      initialFanStake: pool?.stakedByYou ?? undefined,
+      initialPendingReward: pool?.pendingRewards ?? undefined,
     }
   );
 
@@ -170,7 +172,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
 
       // Show success toast
       toast.success(
-        `Rewards claimed successfully! Your wallet has been updated with ${formatEther(pendingReward || BigInt(0))} ${currencySymbol}`
+        `Rewards claimed successfully! Your wallet has been updated with ${formatEther(pendingReward || pool.pendingRewards || BigInt(0))} ${currencySymbol}`
       );
     } catch (error) {
       console.error("Failed to claim rewards:", error);
@@ -270,69 +272,71 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
               {/* Stats Grid - 2x2 with matching height */}
               <div className="h-64">
                 <div className="grid grid-cols-2 gap-4 h-full">
-                  <div className="rounded-xl p-4 border border-blue-100 flex flex-col justify-center">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <Coins className="w-4 h-4 text-blue-600" />
-                      <span className="text-sm font-medium text-blue-700">Your Stake</span>
+                  {/* Conditionally render Your Stake card if not null */}
+                  {pool?.stakedByYou !== null && pool.stakedByYou !== undefined && (
+                    <div className="rounded-xl p-4 border border-blue-100 flex flex-col justify-center">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Coins className="w-4 h-4 text-blue-600" />
+                        <span className="text-sm font-medium text-blue-700">Your Stake</span>
+                      </div>
+                      <div className="text-xl font-bold text-blue-900">
+                        {parseFloat(formatEther(pool.stakedByYou)).toLocaleString()}
+                      </div>
+                      <div className="text-xs text-blue-600">{currencySymbol}</div>
                     </div>
-                    <div className="text-xl font-bold text-blue-900">
-                      {parseFloat(fanStake).toLocaleString()}
-                    </div>
-                    <div className="text-xs text-blue-600">{currencySymbol}</div>
-                  </div>
+                  )}
 
-                  <div className="rounded-xl p-4 border border-yellow-100 flex flex-col justify-center">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <Gift className="w-4 h-4 text-yellow-600" />
-                      <span className="text-sm font-medium text-yellow-700">Pending Rewards</span>
+                  {/* Conditionally render Pending Rewards card if not null */}
+                  {pool?.pendingRewards !== null && pool.pendingRewards !== undefined && (
+                    <div className="rounded-xl p-4 border border-yellow-100 flex flex-col justify-center">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Gift className="w-4 h-4 text-yellow-600" />
+                        <span className="text-sm font-medium text-yellow-700">Pending Rewards</span>
+                      </div>
+                      <div className="text-xl font-bold text-yellow-900">
+                        {parseFloat(formatEther(pool.pendingRewards)).toLocaleString()}
+                      </div>
+                      <div className="text-xs text-yellow-600">{currencySymbol}</div>
+                      <button
+                        onClick={handleClaimReward}
+                        className="mt-2 px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-xs font-medium transition-colors duration-200 disabled:opacity-50 flex items-center justify-center"
+                        disabled={
+                          isReadingPendingReward ||
+                          !pool?.pendingRewards ||
+                          pool.pendingRewards === BigInt(0) ||
+                          isClaiming
+                        }
+                      >
+                        {isClaiming ? (
+                          <>
+                            <svg
+                              className="animate-spin -ml-1 mr-2 h-3 w-3 text-white"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              ></circle>
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                              ></path>
+                            </svg>
+                            Claiming...
+                          </>
+                        ) : (
+                          "Claim"
+                        )}
+                      </button>
                     </div>
-                    <div className="text-xl font-bold text-yellow-900">
-                      {isReadingPendingReward
-                        ? "Loading..."
-                        : pendingReward !== undefined && pendingReward !== null
-                        ? parseFloat(formatEther(pendingReward)).toLocaleString()
-                        : "0"}
-                    </div>
-                    <div className="text-xs text-yellow-600">{currencySymbol}</div>
-                    <button
-                      onClick={handleClaimReward}
-                      className="mt-2 px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-xs font-medium transition-colors duration-200 disabled:opacity-50 flex items-center justify-center"
-                      disabled={
-                        isReadingPendingReward ||
-                        !pendingReward ||
-                        pendingReward === BigInt(0) ||
-                        isClaiming
-                      }
-                    >
-                      {isClaiming ? (
-                        <>
-                          <svg
-                            className="animate-spin -ml-1 mr-2 h-3 w-3 text-white"
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                          >
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            ></circle>
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            ></path>
-                          </svg>
-                          Claiming...
-                        </>
-                      ) : (
-                        "Claim"
-                      )}
-                    </button>
-                  </div>
+                  )}
 
                   <div className="rounded-xl p-4 border border-purple-100 flex flex-col justify-center">
                     <div className="flex items-center space-x-2 mb-2">
@@ -402,11 +406,11 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                 <button
                   onClick={handleReduceStake}
                   className="flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm"
-                  disabled={parseFloat(fanStake) <= 0}
-                  title={parseFloat(fanStake) <= 0 ? "You have no stake in this pool" : undefined}
+                  disabled={pool?.stakedByYou === null || pool.stakedByYou === undefined || pool.stakedByYou <= 0n}
+                  title={pool?.stakedByYou === null || pool.stakedByYou === undefined ? "Connect wallet to view stake" : pool.stakedByYou <= 0n ? "You have no stake in this pool" : undefined}
                 >
                   <Minus className="w-4 h-4" />
-                  <span>{parseFloat(fanStake) <= 0 ? "No Stake" : "Reduce Stake"}</span>
+                  <span>{pool?.stakedByYou === null || pool.stakedByYou === undefined ? "Connect Wallet" : pool.stakedByYou <= 0n ? "No Stake" : "Reduce Stake"}</span>
                 </button>
 
                 <button
@@ -414,7 +418,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                   className="flex items-center justify-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Add Stake</span>
+                  <span>{pool?.stakedByYou !== null && pool.stakedByYou !== undefined ? "Add Stake" : "Stake to Pool"}</span>
                 </button>
               </div>
             </div>
@@ -427,7 +431,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
         isOpen={isStakeModalOpen}
         onClose={() => setIsStakeModalOpen(false)}
         pool={
-          pool
+          pool && pool.stakedByYou !== null && pool.stakedByYou !== undefined
             ? {
                 id: pool.id,
                 name: pool.name,
@@ -435,7 +439,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                 chainId: pool.chainId,
                 address: pool.address,
                 image: pool.image,
-                currentStake: parseFloat(fanStake),
+                currentStake: parseFloat(formatEther(pool.stakedByYou)),
               }
             : null
         }
@@ -456,7 +460,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
         isOpen={isUnstakeModalOpen}
         onClose={() => setIsUnstakeModalOpen(false)}
         pool={
-          pool
+          pool && pool.stakedByYou !== null && pool.stakedByYou !== undefined
             ? {
                 id: pool.id,
                 name: pool.name,
@@ -464,7 +468,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                 chainId: pool.chainId,
                 address: pool.address,
                 image: pool.image,
-                currentStake: parseFloat(fanStake),
+                currentStake: parseFloat(formatEther(pool.stakedByYou)),
               }
             : null
         }
