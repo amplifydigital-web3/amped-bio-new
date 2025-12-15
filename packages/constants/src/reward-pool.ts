@@ -73,8 +73,8 @@ export interface PoolDetailsForModal {
   totalReward: bigint;
   stakedAmount: bigint;
   fans: number;
-  pendingRewards: bigint;
-  stakedByYou: bigint; // Amount of REVO that the requesting user has staked in this pool
+  pendingRewards: bigint | null;
+  stakedByYou: bigint | null; // Amount of REVO that the requesting user has staked in this pool
   creator: {
     userId: number;
     address: string;
