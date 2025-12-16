@@ -42,11 +42,22 @@ export const poolsFanRouter = router({
         };
 
         if (input.search) {
-          whereClause.OR = [
-            { description: { contains: input.search } },
-            { poolAddress: { contains: input.search } }, // Adding pool address search as well
-            { wallet: { user: { name: { contains: input.search } } } }, // Search by creator's name
-          ];
+          // Check if the search query looks like an Ethereum address (0x followed by 40 hex chars)
+          const isAddress = /^0x[a-fA-F0-9]{40}$/.test(input.search.trim());
+
+          if (isAddress) {
+            // For address search, do exact match
+            whereClause.OR = [
+              { poolAddress: { equals: input.search.toLowerCase() } }, // Exact match for address
+            ];
+          } else {
+            // For text search, keep fuzzy matching
+            whereClause.OR = [
+              { description: { contains: input.search } },
+              { poolAddress: { contains: input.search } }, // Still allow partial address matches for text searches
+              { wallet: { user: { name: { contains: input.search } } } }, // Search by creator's name
+            ];
+          }
         }
 
         whereClause.OR.push(...[{ hidden: false }, { hidden: null }]);
