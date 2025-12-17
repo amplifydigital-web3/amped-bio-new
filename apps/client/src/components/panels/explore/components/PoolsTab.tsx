@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Users, Coins } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import PoolSkeleton from "./PoolSkeleton";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "../../../../utils/trpc";
@@ -9,6 +10,7 @@ import StakeModal from "../StakeModal";
 import { formatEther } from "viem";
 import { useChainId } from "wagmi";
 import Decimal from "decimal.js";
+import { formatNumberWithSeparators } from "@/utils/numberUtils";
 
 // Define filter and sort types
 type PoolFilter = "all" | "no-fans" | "more-than-10-fans" | "more-than-10k-stake";
@@ -18,9 +20,11 @@ interface PoolsTabProps {
   searchQuery: string;
   poolFilter: PoolFilter;
   poolSort: PoolSort;
+  shouldOpenModal?: boolean; // If true, open modal instead of navigating to pool page
 }
 
-const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }) => {
+const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort, shouldOpenModal = false }) => {
+  const navigate = useNavigate();
   const chainId = useChainId();
 
   const {
@@ -40,6 +44,7 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
   // State for pool address detection (for opening modal directly from URL)
   const [poolAddressFromParam, setPoolAddressFromParam] = useState<string | null>(null);
   const [isPoolModalOpen, setIsPoolModalOpen] = useState(false);
+  const [selectedPoolAddress, setSelectedPoolAddress] = useState<string | null>(null);
 
   // Check for pool address parameter on mount
   useEffect(() => {
@@ -50,6 +55,7 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
       // Validate if it looks like an Ethereum address
       if (poolAddress && /^0x[a-fA-F0-9]{40}$/.test(poolAddress)) {
         setPoolAddressFromParam(poolAddress);
+        setSelectedPoolAddress(poolAddress);
         // Open modal directly with the address
         setIsPoolModalOpen(true);
       }
@@ -60,8 +66,6 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
   const [selectedStakingPool, setSelectedStakingPool] = useState<any>(null);
   const [isStakeModalOpen, setIsStakeModalOpen] = useState(false);
   const [stakingMode, setStakingMode] = useState<"stake" | "add-stake">("stake");
-  const [selectedRewardPoolForView, setSelectedRewardPoolForView] = useState<number | null>(null);
-  const [isRewardPoolViewModalOpen, setIsRewardPoolViewModalOpen] = useState(false);
 
   const handleJoinPool = (poolId: number) => {
     if (pools) {
@@ -87,8 +91,19 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
   };
 
   const handleViewPool = (poolId: number) => {
-    setSelectedRewardPoolForView(poolId);
-    setIsRewardPoolViewModalOpen(true);
+    if (pools) {
+      const pool = pools.find(p => p.id === poolId);
+      if (pool && pool.address) {
+        if (shouldOpenModal) {
+          // Open modal instead of navigating
+          setSelectedPoolAddress(pool.address);
+          setIsPoolModalOpen(true);
+        } else {
+          // Navigate to the dedicated pool page
+          navigate(`/i/pools/${pool.address}`);
+        }
+      }
+    }
   };
 
   // Apply filtering and sorting
@@ -128,12 +143,14 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
                     <span className="text-gray-500">Total Stake</span>
                     <span className="font-semibold text-gray-900">
                       {pool.stakedAmount !== undefined && pool.stakedAmount !== null
-                        ? Decimal.max(
-                            new Decimal("0"),
-                            new Decimal(formatEther(pool.stakedAmount)).minus(new Decimal("0.0015"))
+                        ? formatNumberWithSeparators(
+                            Decimal.max(
+                              new Decimal("0"),
+                              new Decimal(formatEther(pool.stakedAmount)).minus(new Decimal("0.0015"))
+                            )
+                              .toDecimalPlaces(3, Decimal.ROUND_DOWN)
+                              .toString()
                           )
-                            .toDecimalPlaces(3, Decimal.ROUND_DOWN)
-                            .toString()
                         : "0"}{" "}
                       {getChainConfig(parseInt(pool.chainId))?.nativeCurrency.symbol || "REVO"}
                     </span>
@@ -145,10 +162,6 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
                     </span>
                   </div>
                 </div>
-
-                <span className="absolute top-2 right-2 inline-flex items-center rounded-full border border-blue-400 bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">
-                  New
-                </span>
 
                 <div className="flex space-x-2">
                   <button
@@ -184,24 +197,15 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
           onStakeSuccess={refetch}
         />
       )}
-      {isRewardPoolViewModalOpen && selectedRewardPoolForView && (
+      {/* Pool Details Modal for both URL parameter and clicked pools */}
+      {isPoolModalOpen && (poolAddressFromParam || selectedPoolAddress) && (
         <PoolDetailsModal
-          poolId={selectedRewardPoolForView}
-          isOpen={isRewardPoolViewModalOpen}
-          onClose={() => {
-            setIsRewardPoolViewModalOpen(false);
-            setSelectedRewardPoolForView(null);
-          }}
-        />
-      )}
-      {/* Pool Details Modal for address parameter - Now in PoolsTab as requested */}
-      {isPoolModalOpen && poolAddressFromParam && (
-        <PoolDetailsModal
-          poolAddress={poolAddressFromParam} // Pass the address directly
+          poolAddress={poolAddressFromParam || selectedPoolAddress || undefined} // Use either URL parameter or selected pool, ensuring it's string or undefined for the prop
           isOpen={isPoolModalOpen}
           onClose={() => {
             setIsPoolModalOpen(false);
             setPoolAddressFromParam(null);
+            setSelectedPoolAddress(null);
           }}
         />
       )}

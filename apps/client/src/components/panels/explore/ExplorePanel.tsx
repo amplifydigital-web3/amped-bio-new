@@ -372,6 +372,7 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
             searchQuery={debouncedSearchQuery}
             poolFilter={poolFilter}
             poolSort={poolSort}
+            shouldOpenModal={true}
           />
         )}
         {activeTab === "nfts" && (
