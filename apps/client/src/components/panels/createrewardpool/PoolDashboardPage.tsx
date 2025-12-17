@@ -26,6 +26,7 @@ import { CREATOR_POOL_ABI, getChainConfig } from "@ampedbio/web3";
 import { Address, formatEther } from "viem";
 import { useQuery } from "@tanstack/react-query";
 import { trpcClient } from "@/utils/trpc";
+import { formatNumberWithSeparators } from "@/utils/numberUtils";
 import { ImageUploadModal } from "@/components/ImageUploadModal";
 import { RewardPool } from "@ampedbio/constants";
 import { PoolDashboardSkeleton } from "./PoolDashboardSkeleton";
@@ -249,7 +250,7 @@ export default function DashboardPage() {
     } else {
       displayValue = value;
     }
-    return `${displayValue.toLocaleString()} ${currencySymbol}`;
+    return `${formatNumberWithSeparators(displayValue)} ${currencySymbol}`;
   }, []);
 
   const getTierInfo = React.useCallback((tierLevel: number) => {
@@ -749,7 +750,7 @@ export default function DashboardPage() {
           </div>
           <div className="space-y-1">
             <p className="text-2xl font-bold text-gray-900">
-              {userPool ? userPool.fans.toLocaleString() : "0"}
+              {userPool ? formatNumberWithSeparators(userPool.fans) : "0"}
             </p>
             <p className="text-sm text-purple-600 flex items-center">
               <TrendingUp className="w-4 h-4 mr-1" />+{dashboardData?.newFansThisWeek} new this week

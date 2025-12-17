@@ -55,7 +55,11 @@ function AppRouter() {
           <PoolsPage />
         </PublicLayout>
       } />
-      <Route path="/i/pools/:address" element={<PoolDetailsPage />} />
+      <Route path="/i/pools/:address" element={
+        <PublicLayout>
+          <PoolDetailsPage />
+        </PublicLayout>
+      } />
 
       {/* Admin Routes with nested routing */}
       <Route

@@ -3,6 +3,7 @@ import { X, Coins, TrendingUp, AlertCircle, Check } from "lucide-react";
 import { useAccount, useBalance } from "wagmi";
 import { getChainConfig } from "@ampedbio/web3";
 import { useStakingManager } from "@/hooks/useStakingManager";
+import { formatNumberWithSeparators } from "@/utils/numberUtils";
 import {
   Dialog,
   DialogContent,
@@ -69,7 +70,7 @@ export default function UnstakeModal({ isOpen, onClose, pool, onStakeSuccess }: 
   const handleUnstakeClick = async () => {
     const numericAmount = parseFloat(amount) || 0;
     if (numericAmount > (pool?.currentStake || 0)) {
-      const error = `Unstake amount exceeds current stake. Current stake: ${pool?.currentStake?.toFixed(4) || 0} ${currencySymbol}`;
+      const error = `Unstake amount exceeds current stake. Current stake: ${formatNumberWithSeparators(pool?.currentStake || 0)} ${currencySymbol}`;
       console.error(error);
       throw new Error(error);
     }
@@ -135,7 +136,7 @@ export default function UnstakeModal({ isOpen, onClose, pool, onStakeSuccess }: 
               <span className="text-sm font-medium text-green-800">Current Stake</span>
             </div>
             <span className="text-lg font-bold text-green-900">
-              {(pool.currentStake || 0).toLocaleString(undefined, { maximumFractionDigits: 4 })}{" "}
+              {formatNumberWithSeparators(pool.currentStake || 0)}{" "}
               {currencySymbol}
             </span>
           </div>
@@ -183,9 +184,7 @@ export default function UnstakeModal({ isOpen, onClose, pool, onStakeSuccess }: 
                 <AlertCircle className="w-4 h-4" />
                 <span>
                   {hasInsufficientStake
-                    ? `Insufficient stake: ${(pool?.currentStake || 0).toLocaleString(undefined, {
-                        maximumFractionDigits: 4,
-                      })} ${currencySymbol} staked`
+                    ? `Insufficient stake: ${formatNumberWithSeparators(pool?.currentStake || 0)} ${currencySymbol} staked`
                     : "Please enter a valid amount"}
                 </span>
               </div>
@@ -277,7 +276,7 @@ export default function UnstakeModal({ isOpen, onClose, pool, onStakeSuccess }: 
             <TrendingUp className="w-6 h-6 text-blue-600 transform scale-x-[-1]" />
           </div>
           <h3 className="text-2xl font-bold text-gray-900 mb-1">
-            {parseFloat(amount).toLocaleString()} {currencySymbol}
+            {formatNumberWithSeparators(amount)} {currencySymbol}
           </h3>
           <p className="text-gray-600">Amount to unstake</p>
         </div>
@@ -288,14 +287,14 @@ export default function UnstakeModal({ isOpen, onClose, pool, onStakeSuccess }: 
           <div className="flex justify-between text-sm">
             <span className="text-blue-700">Unstake Amount:</span>
             <span className="font-medium text-blue-900">
-              {parseFloat(amount).toLocaleString()} {currencySymbol}
+              {formatNumberWithSeparators(amount)} {currencySymbol}
             </span>
           </div>
 
           <div className="flex justify-between text-sm border-t border-blue-200 pt-1">
             <span className="text-blue-700">New Total Stake:</span>
             <span className="font-bold text-blue-900">
-              {Math.max(0, (pool.currentStake || 0) - parseFloat(amount)).toLocaleString()}{" "}
+              {formatNumberWithSeparators(Math.max(0, (pool.currentStake || 0) - parseFloat(amount)))}{" "}
               {currencySymbol}
             </span>
           </div>
@@ -359,7 +358,7 @@ export default function UnstakeModal({ isOpen, onClose, pool, onStakeSuccess }: 
         <div className="animate-spin w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full mb-6"></div>
         <h3 className="text-lg font-semibold text-gray-900 mb-2">Unstaking Tokens</h3>
         <p className="text-gray-600 text-center">
-          {`Returning ${parseFloat(amount).toLocaleString()} ${currencySymbol} to your wallet...`}
+          {`Returning ${formatNumberWithSeparators(amount)} ${currencySymbol} to your wallet...`}
         </p>
       </div>
     </>
@@ -381,7 +380,7 @@ export default function UnstakeModal({ isOpen, onClose, pool, onStakeSuccess }: 
           <p className="text-gray-600 mb-4">
             You've successfully unstaked{" "}
             <strong>
-              {parseFloat(amount).toLocaleString()} {currencySymbol}
+              {formatNumberWithSeparators(amount)} {currencySymbol}
             </strong>{" "}
             from {pool.name}
           </p>
@@ -391,7 +390,7 @@ export default function UnstakeModal({ isOpen, onClose, pool, onStakeSuccess }: 
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-green-700">Your Total Stake</span>
             <span className="text-lg font-bold text-green-900">
-              {Math.max(0, (pool.currentStake || 0) - parseFloat(amount)).toLocaleString()}{" "}
+              {formatNumberWithSeparators(Math.max(0, (pool.currentStake || 0) - parseFloat(amount)))}{" "}
               {currencySymbol}
             </span>
           </div>

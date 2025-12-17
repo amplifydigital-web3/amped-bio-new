@@ -15,6 +15,7 @@ import { getChainConfig } from "@ampedbio/web3";
 import PoolDetailsModalSkeleton from "./PoolDetailsModalSkeleton";
 import { formatOnelink } from "@/utils/onelink";
 import { Button } from "@/components/ui/Button";
+import { formatNumberWithSeparators } from "@/utils/numberUtils";
 
 interface PoolDetailContentProps {
   poolAddress: string;
@@ -32,6 +33,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
   onStakeSuccess
 }) => {
   const { address: userAddress } = useAccount();
+  const isUserLoggedIn = !!userAddress;
 
   // Query for pool by address from URL parameter
   const {
@@ -280,7 +282,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                         <span className="text-sm font-medium text-blue-700">Your Stake</span>
                       </div>
                       <div className="text-xl font-bold text-blue-900">
-                        {parseFloat(formatEther(pool.stakedByYou)).toLocaleString()}
+                        {formatNumberWithSeparators(formatEther(pool.stakedByYou))}
                       </div>
                       <div className="text-xs text-blue-600">{currencySymbol}</div>
                     </div>
@@ -294,7 +296,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                         <span className="text-sm font-medium text-yellow-700">Pending Rewards</span>
                       </div>
                       <div className="text-xl font-bold text-yellow-900">
-                        {parseFloat(formatEther(pool.pendingRewards)).toLocaleString()}
+                        {formatNumberWithSeparators(formatEther(pool.pendingRewards))}
                       </div>
                       <div className="text-xs text-yellow-600">{currencySymbol}</div>
                       <button
@@ -344,7 +346,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                       <span className="text-sm font-medium text-purple-700">Total Pool Stake</span>
                     </div>
                     <div className="text-xl font-bold text-purple-900">
-                      {parseFloat(formatEther(BigInt(pool.totalReward))).toFixed(8)}
+                      {formatNumberWithSeparators(formatEther(BigInt(pool.totalReward)))}
                     </div>
                     <div className="text-xs text-purple-600">{currencySymbol}</div>
                   </div>
@@ -403,23 +405,35 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
 
               {/* Action Buttons */}
               <div className="flex items-center space-x-3">
-                <button
-                  onClick={handleReduceStake}
-                  className="flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm"
-                  disabled={pool?.stakedByYou === null || pool.stakedByYou === undefined || pool.stakedByYou <= 0n}
-                  title={pool?.stakedByYou === null || pool.stakedByYou === undefined ? "Connect wallet to view stake" : pool.stakedByYou <= 0n ? "You have no stake in this pool" : undefined}
-                >
-                  <Minus className="w-4 h-4" />
-                  <span>{pool?.stakedByYou === null || pool.stakedByYou === undefined ? "Connect Wallet" : pool.stakedByYou <= 0n ? "No Stake" : "Reduce Stake"}</span>
-                </button>
+                {!isUserLoggedIn ? (
+                  <button
+                    className="flex items-center justify-center space-x-2 px-6 py-3 bg-gray-300 text-gray-700 rounded-xl font-medium transition-colors duration-200 shadow-sm cursor-not-allowed"
+                    disabled={true}
+                    title="You need to be logged in to stake in this pool"
+                  >
+                    <span>You need to be logged in to stake in this pool</span>
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={handleReduceStake}
+                      className="flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm"
+                      disabled={pool?.stakedByYou === null || pool.stakedByYou === undefined || pool.stakedByYou <= 0n}
+                      title={pool?.stakedByYou === null || pool.stakedByYou === undefined ? "Connect wallet to view stake" : pool.stakedByYou <= 0n ? "You have no stake in this pool" : undefined}
+                    >
+                      <Minus className="w-4 h-4" />
+                      <span>{pool?.stakedByYou === null || pool.stakedByYou === undefined ? "Connect Wallet" : pool.stakedByYou <= 0n ? "No Stake" : "Reduce Stake"}</span>
+                    </button>
 
-                <button
-                  onClick={handleAddStake}
-                  className="flex items-center justify-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>{pool?.stakedByYou !== null && pool.stakedByYou !== undefined ? "Add Stake" : "Stake to Pool"}</span>
-                </button>
+                    <button
+                      onClick={handleAddStake}
+                      className="flex items-center justify-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>{pool?.stakedByYou !== null && pool.stakedByYou !== undefined ? "Add Stake" : "Stake to Pool"}</span>
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>

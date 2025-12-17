@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import type { ThemeConfig } from "../../types/editor";
 import { type MediaBlock } from "@ampedbio/constants";
+import { formatNumberWithSeparators } from "@/utils/numberUtils";
 
 interface CreatorPoolBlockProps {
   block: MediaBlock;
@@ -97,7 +98,7 @@ export function CreatorPoolBlock({ theme }: CreatorPoolBlockProps) {
                 color: theme.fontColor,
               }}
             >
-              {poolStats.totalStaked.toLocaleString()}
+              {formatNumberWithSeparators(poolStats.totalStaked)}
             </p>
             <div className="flex items-center text-green-400 text-xs">
               <DollarSign className="w-3 h-3 mr-0.5" />
@@ -123,7 +124,7 @@ export function CreatorPoolBlock({ theme }: CreatorPoolBlockProps) {
                 color: theme.fontColor,
               }}
             >
-              {poolStats.totalEarnedByFans.toLocaleString()}
+              {formatNumberWithSeparators(poolStats.totalEarnedByFans)}
             </p>
             <div className="flex items-center text-green-400 text-xs">
               <DollarSign className="w-3 h-3 mr-0.5" />
@@ -149,7 +150,7 @@ export function CreatorPoolBlock({ theme }: CreatorPoolBlockProps) {
                 color: theme.fontColor,
               }}
             >
-              {poolStats.activeStakers.toLocaleString()}
+              {formatNumberWithSeparators(poolStats.activeStakers)}
             </p>
             <p className="text-xs text-blue-400 mt-1">Growing community</p>
           </div>
@@ -232,7 +233,7 @@ export function CreatorPoolBlock({ theme }: CreatorPoolBlockProps) {
                   Total Rewards
                 </p>
                 <p className="text-sm font-bold" style={{ color: theme.fontColor }}>
-                  {poolStats.totalRewards.toLocaleString()} tokens
+                  {formatNumberWithSeparators(poolStats.totalRewards)} tokens
                 </p>
                 <div className="flex items-center text-green-400 text-xs mt-1">
                   <DollarSign className="w-3 h-3 mr-0.5" />
@@ -244,7 +245,7 @@ export function CreatorPoolBlock({ theme }: CreatorPoolBlockProps) {
                   Last Month Earned
                 </p>
                 <p className="text-sm font-bold" style={{ color: theme.fontColor }}>
-                  {poolStats.lastMonthEarned.toLocaleString()} tokens
+                  {formatNumberWithSeparators(poolStats.lastMonthEarned)} tokens
                 </p>
                 <div className="flex items-center text-green-400 text-xs mt-1">
                   <DollarSign className="w-3 h-3 mr-0.5" />

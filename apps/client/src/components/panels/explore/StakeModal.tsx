@@ -3,6 +3,7 @@ import { X, Coins, TrendingUp, AlertCircle, Check } from "lucide-react";
 import { useAccount, useBalance } from "wagmi";
 import { getChainConfig } from "@ampedbio/web3";
 import { useStakingManager } from "@/hooks/useStakingManager";
+import { formatNumberWithSeparators } from "@/utils/numberUtils";
 import Decimal from "decimal.js";
 import {
   Dialog,
@@ -163,9 +164,7 @@ export default function StakeModal({
             <span className="text-lg font-bold text-green-900">
               {isBalanceLoading
                 ? "Loading..."
-                : `${Number(balanceData?.formatted || 0).toLocaleString(undefined, {
-                    maximumFractionDigits: 4,
-                  })} ${balanceData?.symbol || currencySymbol}`}
+                : `${formatNumberWithSeparators(balanceData?.formatted || 0)} ${balanceData?.symbol || currencySymbol}`}
             </span>
           </div>
         </div>
@@ -255,7 +254,7 @@ export default function StakeModal({
                 <AlertCircle className="w-4 h-4" />
                 <span>
                   {amount && new Decimal(amount).gt(userBalance)
-                    ? `Insufficient balance: ${userBalance.toFixed(4).replace(/\.?0+$/, "")} ${balanceData?.symbol || currencySymbol} available`
+                    ? `Insufficient balance: ${formatNumberWithSeparators(userBalance.toString())} ${balanceData?.symbol || currencySymbol} available`
                     : "Please enter a valid amount"}
                 </span>
               </div>
@@ -362,7 +361,7 @@ export default function StakeModal({
             <Coins className="w-6 h-6 text-blue-600" />
           </div>
           <h3 className="text-2xl font-bold text-gray-900 mb-1">
-            {amount ? new Decimal(amount).toFixed(4).replace(/\.?0+$/, "") : "0"} {currencySymbol}
+            {amount ? formatNumberWithSeparators(amount) : "0"} {currencySymbol}
           </h3>
           <p className="text-gray-600">
             {mode === "stake" ? "Initial stake amount" : "Additional stake amount"}
@@ -376,7 +375,7 @@ export default function StakeModal({
           <div className="flex justify-between text-sm">
             <span className="text-blue-700">Stake Amount:</span>
             <span className="font-medium text-blue-900">
-              {amount ? new Decimal(amount).toFixed(4).replace(/\.?0+$/, "") : "0"} {currencySymbol}
+              {amount ? formatNumberWithSeparators(amount) : "0"} {currencySymbol}
             </span>
           </div>
 
@@ -448,7 +447,7 @@ export default function StakeModal({
         <div className="animate-spin w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full mb-6"></div>
         <h3 className="text-lg font-semibold text-gray-900 mb-2">Staking Tokens</h3>
         <p className="text-gray-600 text-center">
-          {`Transferring ${amount ? new Decimal(amount).toFixed(4).replace(/\.?0+$/, "") : "0"} ${currencySymbol} to the pool...`}
+          {`Transferring ${amount ? formatNumberWithSeparators(amount) : "0"} ${currencySymbol} to the pool...`}
         </p>
       </div>
     </>
@@ -472,7 +471,7 @@ export default function StakeModal({
           <p className="text-gray-600 mb-4">
             You've successfully staked{" "}
             <strong>
-              {amount ? new Decimal(amount).toFixed(4).replace(/\.?0+$/, "") : "0"} {currencySymbol}
+              {amount ? formatNumberWithSeparators(amount) : "0"} {currencySymbol}
             </strong>{" "}
             to {pool.name}
           </p>

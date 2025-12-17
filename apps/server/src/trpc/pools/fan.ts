@@ -37,30 +37,37 @@ export const poolsFanRouter = router({
         }
 
         const whereClause: any = {
-          OR: [],
           chainId: input.chainId, // Only fetch pools from the specified chain
+          AND: [
+            {
+              OR: [{ hidden: false }, { hidden: null }],
+            },
+          ],
         };
 
         if (input.search) {
           // Check if the search query looks like an Ethereum address (0x followed by 40 hex chars)
           const isAddress = /^0x[a-fA-F0-9]{40}$/.test(input.search.trim());
 
+          // Add search conditions to the AND array to properly combine with other filters
+          const searchConditions: any = {};
+
           if (isAddress) {
             // For address search, do exact match
-            whereClause.OR = [
+            searchConditions.OR = [
               { poolAddress: { equals: input.search.toLowerCase() } }, // Exact match for address
             ];
           } else {
             // For text search, keep fuzzy matching
-            whereClause.OR = [
+            searchConditions.OR = [
               { description: { contains: input.search } },
               { poolAddress: { contains: input.search } }, // Still allow partial address matches for text searches
               { wallet: { user: { name: { contains: input.search } } } }, // Search by creator's name
             ];
           }
-        }
 
-        whereClause.OR.push(...[{ hidden: false }, { hidden: null }]);
+          whereClause.AND.push(searchConditions);
+        }
 
         // Build the pools query with the where clause
         const pools = await prisma.creatorPool.findMany({
