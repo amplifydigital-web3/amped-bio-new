@@ -38,6 +38,21 @@ const confirmPoolImageUploadSchema = z.object({
   fileName: z.string().min(1),
 });
 
+const getFansSchema = z.object({
+  pagination: z
+    .object({
+      page: z.number().min(1).default(1),
+      pageSize: z.number().min(1).max(100).default(10),
+    })
+    .optional(),
+  order: z
+    .object({
+      orderBy: z.enum(["createdAt", "stakeAmount"]).default("createdAt"),
+      orderDirection: z.enum(["asc", "desc"]).default("desc"),
+    })
+    .optional(),
+});
+
 export const poolsCreatorRouter = router({
   getPool: privateProcedure
     .input(
@@ -685,16 +700,47 @@ export const poolsCreatorRouter = router({
       }
     }),
 
-  getPoolDashboard: publicProcedure
+  getPoolDashboard: privateProcedure
     .input(
       z.object({
-        poolId: z.number(),
+        chainId: z.string(),
       })
     )
-    .query(async ({ input }) => {
-      const { poolId } = input;
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.user.sub;
+      const { chainId } = input;
 
       try {
+        // First, verify that the user owns a pool for this chainId
+        const wallet = await prisma.userWallet.findUnique({
+          where: { userId },
+        });
+
+        if (!wallet) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "User does not have a wallet",
+          });
+        }
+
+        const pool = await prisma.creatorPool.findUnique({
+          where: {
+            walletId_chainId: {
+              walletId: wallet.id,
+              chainId: chainId,
+            },
+          },
+        });
+
+        if (!pool) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Access denied. You don't own a pool for this chain.",
+          });
+        }
+
+        const poolId = pool.id;
+
         // Total Stake
         const stakeEvents = await prisma.stakeEvent.findMany({
           where: { poolId },
@@ -717,43 +763,6 @@ export const poolsCreatorRouter = router({
               gt: "0", // Only count pools with stakeAmount greater than 0
             },
           },
-        });
-
-        // Top Fans - get from StakedPool to ensure consistency with active stakes
-        const stakedPools = await prisma.stakedPool.findMany({
-          where: {
-            poolId: poolId,
-          },
-          include: {
-            userWallet: {
-              include: {
-                user: {
-                  include: {
-                    profileImage: true,
-                  },
-                },
-              },
-            },
-          },
-        });
-
-        // Sort staked pools by stake amount descending (converting to BigInt for comparison)
-        stakedPools.sort((a, b) => (BigInt(a.stakeAmount) > BigInt(b.stakeAmount) ? -1 : 1));
-
-        // Get top 10 for later use
-        const topStakedPools = stakedPools
-          .filter(stakedPool => BigInt(stakedPool.stakeAmount) > 0n) // Only include users with positive stake
-          .slice(0, 10); // Get top 10
-
-        // Map sorted staked pools to top fans format
-        const topFans = topStakedPools.map(stakedPool => {
-          return {
-            onelink: stakedPool.userWallet.user?.onelink || stakedPool.userWallet.address,
-            amount: stakedPool.stakeAmount.toString(),
-            avatar: stakedPool.userWallet.user?.profileImage
-              ? s3Service.getFileUrl(stakedPool.userWallet.user.profileImage.s3_key)
-              : null,
-          };
         });
 
         // Recent Activity
@@ -856,7 +865,6 @@ export const poolsCreatorRouter = router({
         return {
           totalStake: totalStake.toString(),
           totalFans: totalActiveFans,
-          topFans,
           recentActivity: recentActivity.map(event => ({
             ...event,
             amount: event.amount.toString(),
@@ -875,6 +883,111 @@ export const poolsCreatorRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to fetch pool dashboard",
+        });
+      }
+    }),
+
+  getFans: privateProcedure
+    .input(
+      getFansSchema.extend({
+        chainId: z.string(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.user.sub;
+      const { chainId, pagination, order } = input;
+      const page = pagination?.page || 1;
+      const pageSize = pagination?.pageSize || 10;
+      const orderBy = order?.orderBy || "createdAt";
+      const orderDirection = order?.orderDirection || "desc";
+      const skip = (page - 1) * pageSize;
+
+      try {
+        // First, verify that the user owns a pool for this chainId
+        const wallet = await prisma.userWallet.findUnique({
+          where: { userId },
+        });
+
+        if (!wallet) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "User does not have a wallet",
+          });
+        }
+
+        const pool = await prisma.creatorPool.findUnique({
+          where: {
+            walletId_chainId: {
+              walletId: wallet.id,
+              chainId: chainId,
+            },
+          },
+        });
+
+        if (!pool) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Access denied. You don't own a pool for this chain.",
+          });
+        }
+
+        const poolId = pool.id;
+
+        const fans = await prisma.stakedPool.findMany({
+          where: {
+            poolId: poolId,
+            stakeAmount: {
+              gt: "0", // Only consider active fans
+            },
+          },
+          skip,
+          take: pageSize,
+          orderBy: {
+            [orderBy]: orderDirection,
+          },
+          include: {
+            userWallet: {
+              include: {
+                user: {
+                  include: {
+                    profileImage: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        const totalFans = await prisma.stakedPool.count({
+          where: {
+            poolId: poolId,
+            stakeAmount: {
+              gt: "0",
+            },
+          },
+        });
+
+        return {
+          fans: fans.map(fan => ({
+            id: fan.id,
+            stakeAmount: fan.stakeAmount.toString(),
+            createdAt: fan.createdAt,
+            updatedAt: fan.updatedAt,
+            onelink: fan.userWallet.user?.onelink || fan.userWallet.address,
+            avatar: fan.userWallet.user?.profileImage
+              ? s3Service.getFileUrl(fan.userWallet.user.profileImage.s3_key)
+              : null,
+          })),
+          totalFans,
+          page,
+          pageSize,
+        };
+      } catch (error) {
+        console.error("Error fetching pool fans:", error);
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch pool fans",
         });
       }
     }),

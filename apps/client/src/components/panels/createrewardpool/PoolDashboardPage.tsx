@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Trophy,
   Users,
@@ -17,6 +17,9 @@ import {
   Gift,
   Edit3,
   User,
+  ListOrdered,
+  ArrowUpNarrowWide,
+  ArrowDownWideNarrow,
 } from "lucide-react";
 import ExplorePoolDetailsModal from "../explore/ExplorePoolDetailsModal";
 import { trpc } from "@/utils/trpc";
@@ -48,6 +51,9 @@ export default function DashboardPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [currentHistoryPage, setCurrentHistoryPage] = useState(1);
   const [isImageUploadModalOpen, setIsImageUploadModalOpen] = useState(false);
+  const [fansOrderBy, setFansOrderBy] = useState<"createdAt" | "stakeAmount">("createdAt");
+  const [fansOrderDirection, setFansOrderDirection] = useState<"asc" | "desc">("desc");
+
   const fansPerPage = 10;
   const activitiesPerPage = 8;
 
@@ -70,10 +76,35 @@ export default function DashboardPage() {
 
   const { data: dashboardData, refetch: refetchDashboardData } = useQuery(
     trpc.pools.creator.getPoolDashboard.queryOptions(
-      { poolId: poolData?.id as number },
-      { enabled: !!poolData?.id }
+      { chainId: poolData?.chainId as string },
+      { enabled: !!poolData?.chainId }
     )
   );
+
+  // Fetch paginated and sorted fans data
+  const {
+    data: fansData,
+    isLoading: isFansLoading,
+    refetch: refetchFansData,
+  } = useQuery(
+    trpc.pools.creator.getFans.queryOptions(
+      {
+        chainId: poolData?.chainId as string,
+        pagination: {
+          page: currentPage,
+          pageSize: fansPerPage,
+        },
+        order: {
+          orderBy: fansOrderBy,
+          orderDirection: fansOrderDirection,
+        },
+      },
+      {
+        enabled: !!poolData?.chainId,
+      }
+    )
+  );
+
   // Mutation for updating pool description
   const updateDescriptionMutation = useMutation({
     ...trpc.pools.creator.updateDescription.mutationOptions(),
@@ -92,18 +123,19 @@ export default function DashboardPage() {
   // Refetch pool data after successful update to get the new description
   useEffect(() => {
     if (updateDescriptionMutation.isSuccess && !isEditingDescription) {
-      // Refetch the query to update the UI with new description
       refetchPoolData();
       refetchDashboardData();
+      refetchFansData(); // Also refetch fans data
     }
   }, [
     updateDescriptionMutation.isSuccess,
     isEditingDescription,
     refetchPoolData,
     refetchDashboardData,
+    refetchFansData,
   ]);
 
-  const handleImageUploadClick = React.useCallback(() => {
+  const handleImageUploadClick = useCallback(() => {
     setIsImageUploadModalOpen(true);
   }, []);
 
@@ -180,10 +212,13 @@ export default function DashboardPage() {
     );
   }, [dashboardData?.recentActivity]);
 
-  const fans = React.useMemo(() => dashboardData?.topFans || [], [dashboardData]);
+  const fans = React.useMemo(() => fansData?.fans || [], [fansData]);
 
   // Calculate pagination
-  const totalPages = React.useMemo(() => Math.ceil(fans.length / fansPerPage), [fans, fansPerPage]);
+  const totalPages = React.useMemo(
+    () => Math.ceil((fansData?.totalFans || 0) / fansPerPage),
+    [fansData?.totalFans, fansPerPage]
+  );
   const startIndex = React.useMemo(
     () => (currentPage - 1) * fansPerPage,
     [currentPage, fansPerPage]
@@ -910,6 +945,57 @@ export default function DashboardPage() {
             <h3 className="text-lg font-semibold text-gray-900">Top Fans</h3>
             <p className="text-sm text-gray-600">Your most dedicated supporters</p>
           </div>
+          <div className="flex space-x-4">
+            {/* Order By */}
+            <div className="flex items-center space-x-2">
+              <span className="text-sm font-medium text-gray-700">Order by:</span>
+              <button
+                onClick={() => setFansOrderBy("createdAt")}
+                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                  fansOrderBy === "createdAt"
+                    ? "bg-blue-600 text-white"
+                    : "text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                Date
+              </button>
+              <button
+                onClick={() => setFansOrderBy("stakeAmount")}
+                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                  fansOrderBy === "stakeAmount"
+                    ? "bg-blue-600 text-white"
+                    : "text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                Stake Amount
+              </button>
+            </div>
+
+            {/* Order Direction */}
+            <div className="flex items-center space-x-2">
+              <span className="text-sm font-medium text-gray-700">Direction:</span>
+              <button
+                onClick={() => setFansOrderDirection("asc")}
+                className={`p-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                  fansOrderDirection === "asc"
+                    ? "bg-blue-600 text-white"
+                    : "text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                <ArrowUpNarrowWide className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setFansOrderDirection("desc")}
+                className={`p-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                  fansOrderDirection === "desc"
+                    ? "bg-blue-600 text-white"
+                    : "text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                <ArrowDownWideNarrow className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="space-y-4">
@@ -951,7 +1037,7 @@ export default function DashboardPage() {
                 <div className="flex items-center space-x-6">
                   <div className="text-right">
                     <p className="font-semibold text-gray-900">
-                      {formatValue(fan.amount, currencySymbol)}
+                      {formatValue(fan.stakeAmount, currencySymbol)}
                     </p>
                     <p className="text-sm text-gray-500">Staked</p>
                   </div>
@@ -976,8 +1062,8 @@ export default function DashboardPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
             <div className="text-sm text-gray-600">
-              Showing {startIndex + 1}-{Math.min(endIndex, dashboardData?.topFans?.length || 0)} of{" "}
-              {dashboardData?.topFans?.length || 0} fans
+              Showing {startIndex + 1}-{Math.min(endIndex, fansData?.totalFans || 0)} of{" "}
+              {fansData?.totalFans || 0} fans
             </div>
 
             <div className="flex items-center space-x-2">

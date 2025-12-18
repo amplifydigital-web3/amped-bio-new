@@ -49,7 +49,7 @@ export default function ExplorePoolDetailsModal({
             poolAddress={finalPoolAddress}
             onClose={onClose}
             onStakeSuccess={onStakeSuccess}
-            shareUrl={`${window.location.origin}/pool/${finalPoolAddress}`}
+            shareUrl={`${window.location.origin}/i/pools/${finalPoolAddress}`}
           />
         </DialogContent>
       </Dialog>
