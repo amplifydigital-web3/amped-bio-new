@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Loader2, Eye, EyeOff, Check, X as XIcon, AlertCircle } from "lucide-react";
+import { Loader2, Eye, EyeOff, Check, X as XIcon, AlertCircle } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
@@ -10,10 +10,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useOnelinkAvailability } from "@/hooks/useOnelinkAvailability";
 import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
-import { useGoogleLogin } from "@react-oauth/google";
 import { GoogleLoginButton } from "./GoogleLoginButton";
 import { useCaptcha } from "@/hooks/useCaptcha";
 import { CaptchaActions } from "@ampedbio/constants";
+import { authClient } from "@/lib/auth-client";
 import {
   normalizeOnelink,
   cleanOnelinkInput,
@@ -21,12 +21,7 @@ import {
   formatOnelink,
 } from "@/utils/onelink";
 import { trackGAEvent } from "@/utils/ga";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -246,43 +241,115 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
       // Get reCAPTCHA token using the invisible captcha
       const recaptchaToken = isRecaptchaEnabled ? await executeCaptcha(CaptchaActions.LOGIN) : null;
 
-      const user = await signIn(data.email, data.password, recaptchaToken);
-      onClose(user);
+      // Using better-auth for email/password login
+      const response = await authClient.signIn.email({
+        email: data.email,
+        password: data.password,
+        callbackURL: `/${normalizeOnelink(data.email.split("@")[0] || "home")}/edit`,
+        fetchOptions: {
+          headers: recaptchaToken
+            ? {
+                "x-captcha-response": recaptchaToken!,
+              }
+            : undefined,
+        },
+      });
 
-      // Redirect the user to their edit page with panel state set to "home"
-      if (user && user.onelink) {
-        const formattedOnelink = formatOnelink(user.onelink);
-        navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
+      if (response?.error) {
+        throw new Error(response.error.message || "Login failed");
+      }
+
+      // After successful login, get the current session to get user details
+      const session = await authClient.getSession();
+      if (session?.user) {
+        const user = session.user;
+        onClose({
+          id: user.id,
+          email: user.email,
+          name: user.name || user.email?.split("@")[0] || "",
+          onelink: user.username || user.email?.split("@")[0] || "",
+          avatar: user.image || null,
+          createdAt: user.createdAt || new Date(),
+        });
+
+        // Redirect the user to their edit page with panel state set to "home"
+        if (user.username) {
+          const formattedOnelink = formatOnelink(user.username);
+          navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
+        } else {
+          // Fallback if username isn't available
+          const fallbackOnelink = formatOnelink(user.email?.split("@")[0] || "home");
+          navigate(`/${fallbackOnelink}/edit`, { state: { panel: "home" } });
+        }
+      } else {
+        throw new Error("Login successful but could not retrieve user session");
       }
     } catch (error) {
-      setLoginError((error as Error).message);
+      setLoginError((error as Error).message || "Login failed");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleLogin = useGoogleLogin({
-    onSuccess: async tokenResponse => {
-      setLoading(true);
-      setLoginError(null);
-      try {
-        const user = await signInWithGoogle(tokenResponse.access_token);
-        onClose(user);
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    setLoginError(null);
 
-        if (user && user.onelink) {
-          const formattedOnelink = formatOnelink(user.onelink);
-          navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
-        }
-      } catch (error) {
-        setLoginError((error as Error).message);
-      } finally {
+    try {
+      // Store the current location to redirect after successful login
+      const redirectAfterLogin = () => {
+        // Check session after some time to see if login was successful
+        setTimeout(async () => {
+          try {
+            const session = await authClient.getSession();
+            if (session?.user) {
+              const user = session.user;
+              onClose({
+                id: user.id,
+                email: user.email,
+                name: user.name || (user.email ? user.email.split("@")[0] : ""),
+                onelink: user.username || (user.email ? user.email.split("@")[0] : ""),
+                avatar: user.image || null,
+                createdAt: user.createdAt || new Date(),
+              });
+
+              if (user.username) {
+                const formattedOnelink = formatOnelink(user.username);
+                navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
+              } else {
+                // Fallback if username isn't available
+                const fallbackOnelink = formatOnelink(user.email ? user.email.split("@")[0] : "");
+                navigate(`/${fallbackOnelink}/edit`, { state: { panel: "home" } });
+              }
+            }
+          } catch (error) {
+            setLoginError((error as Error).message || "Failed to get session after login");
+          } finally {
+            setLoading(false);
+          }
+        }, 2000); // Wait 2 seconds to allow redirect and session establishment
+      };
+
+      // Using better-auth's Google OAuth flow
+      // This will likely redirect the user to Google's authentication page
+      const response = await authClient.signIn.social({
+        provider: "google",
+        callbackURL: window.location.href, // Return to current page
+      });
+
+      if (response?.error) {
         setLoading(false);
+        setLoginError(response.error.message || "Google login failed");
+        return;
       }
-    },
-    onError: () => {
-      setLoginError("Google login failed");
-    },
-  });
+
+      // Set up monitoring for session after redirect
+      redirectAfterLogin();
+    } catch (error) {
+      setLoginError((error as Error).message || "Google login failed");
+      setLoading(false);
+    }
+  };
 
   const renderSignInWithGoogle = () => {
     return (
@@ -310,18 +377,49 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setRegisterError(null);
     try {
       // Get reCAPTCHA token using the invisible captcha
-      const recaptchaToken = isRecaptchaEnabled ? await executeCaptcha(CaptchaActions.REGISTER) : null;
+      const recaptchaToken = isRecaptchaEnabled
+        ? await executeCaptcha(CaptchaActions.REGISTER)
+        : null;
 
-      const user = await signUp(data.onelink, data.email, data.password, recaptchaToken);
-      onClose(user);
+      // Using better-auth signup
+      const response = await authClient.signUp.email({
+        email: data.email,
+        password: data.password,
+        name: data.onelink, // Using onelink as the name
+        username: data.onelink,
+        callbackURL: `/${data.onelink}/edit`,
+      });
 
-      // Redirect to edit page with home panel selected
-      if (user && user.onelink) {
-        const formattedOnelink = formatOnelink(user.onelink);
-        navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
+      if (response?.error) {
+        throw new Error(response.error.message || "Registration failed");
+      }
+
+      // After successful registration, get the current session to get user details
+      const session = await authClient.getSession();
+      if (session?.user) {
+        const user = session.user;
+        onClose({
+          id: user.id,
+          email: user.email,
+          name: user.name || data.onelink,
+          onelink: user.username || data.onelink,
+          avatar: user.image || null,
+          createdAt: user.createdAt || new Date(),
+        });
+
+        // Redirect to edit page with home panel selected
+        if (user.username) {
+          const formattedOnelink = formatOnelink(user.username);
+          navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
+        } else {
+          const formattedOnelink = formatOnelink(data.onelink);
+          navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
+        }
+      } else {
+        throw new Error("Registration successful but could not retrieve user session");
       }
     } catch (error) {
-      setRegisterError((error as Error).message);
+      setRegisterError((error as Error).message || "Registration failed");
     } finally {
       setLoading(false);
     }
@@ -334,7 +432,9 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setResetSuccess(false);
     try {
       // Get reCAPTCHA token using the invisible captcha
-      const recaptchaToken = isRecaptchaEnabled ? await executeCaptcha(CaptchaActions.RESET_PASSWORD) : null;
+      const recaptchaToken = isRecaptchaEnabled
+        ? await executeCaptcha(CaptchaActions.RESET_PASSWORD)
+        : null;
 
       const response = await resetPassword(data.email, recaptchaToken);
       if (response.success) {

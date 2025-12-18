@@ -142,4 +142,9 @@ export const env = cleanEnv(process.env, {
     desc: "Google OAuth 2.0 Client ID",
     default: "",
   }),
+
+  BETTER_AUTH_SECRET: str({
+    desc: "Better Auth secret for authentication",
+    default: "",
+  }),
 });

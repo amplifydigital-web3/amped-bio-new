@@ -77,16 +77,6 @@ const validateTokenWithServer = async (): Promise<{ isValid: boolean; user?: Aut
   }
 };
 
-// Helper function to attempt token refresh
-const attemptTokenRefresh = async (): Promise<{ success: boolean; newToken?: string }> => {
-  try {
-    const response = await trpcClient.auth.refreshToken.mutate();
-    return { success: true, newToken: response.accessToken };
-  } catch (error) {
-    console.error("Token refresh failed:", error);
-    return { success: false };
-  }
-};
 
 type AuthContextType = {
   authUser: AuthUser | null;
@@ -169,25 +159,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       invalidateUserSession();
     };
 
-    // Handler for token refreshed event
-    const handleTokenRefreshed = (event: CustomEvent<{ token: string }>) => {
-      console.log("Token refreshed event received");
-      if (event.detail?.token) {
-        updateToken(event.detail.token);
-      }
-    };
-
     // Add event listeners
     window.addEventListener(AUTH_EVENTS.TOKEN_EXPIRED, handleTokenExpired);
-    window.addEventListener(AUTH_EVENTS.TOKEN_REFRESHED, handleTokenRefreshed as EventListener);
 
     // Remove event listeners on cleanup
     return () => {
       window.removeEventListener(AUTH_EVENTS.TOKEN_EXPIRED, handleTokenExpired);
-      window.removeEventListener(
-        AUTH_EVENTS.TOKEN_REFRESHED,
-        handleTokenRefreshed as EventListener
-      );
     };
   }, [invalidateUserSession, updateToken]);
 
@@ -217,31 +194,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setAuthUser(user);
         localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_USER, JSON.stringify(user));
         setIsAuthenticated(true);
-
-        // The dedicated effect above will handle the connection when token and Web3Auth are ready
       } else {
-        // Token is invalid, try to refresh
-        const refreshResult = await attemptTokenRefresh();
-
-        if (refreshResult.success && refreshResult.newToken) {
-          // Refresh successful, set new token and validate again
-          updateToken(refreshResult.newToken);
-
-          const { isValid: isValidAfterRefresh, user: userAfterRefresh } =
-            await validateTokenWithServer();
-
-          if (isValidAfterRefresh && userAfterRefresh) {
-            setAuthUser(userAfterRefresh);
-            localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_USER, JSON.stringify(userAfterRefresh));
-            setIsAuthenticated(true);
-          } else {
-            // Still invalid after refresh, invalidate session and disconnect Web3Auth
-            await invalidateUserSession();
-          }
-        } else {
-          // Refresh failed, invalidate session and disconnect Web3Auth
-          await invalidateUserSession();
-        }
+        // Token is invalid, invalidate session
+        await invalidateUserSession();
       }
     };
 
