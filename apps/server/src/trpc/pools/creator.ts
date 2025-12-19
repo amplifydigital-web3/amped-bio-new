@@ -1,4 +1,4 @@
-import { privateProcedure, publicProcedure, router } from "../trpc";
+import { privateProcedure, router } from "../trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { prisma } from "../../services/DB";
@@ -47,7 +47,7 @@ const getFansSchema = z.object({
     .optional(),
   order: z
     .object({
-      orderBy: z.enum(["created_at", "stakeAmount"]).default("created_at"),
+      orderBy: z.enum(["createdAt", "stakeAmount"]).default("createdAt"),
       orderDirection: z.enum(["asc", "desc"]).default("desc"),
     })
     .optional(),
@@ -769,7 +769,7 @@ export const poolsCreatorRouter = router({
         const recentActivity = await prisma.stakeEvent.findMany({
           where: { poolId },
           orderBy: {
-            created_at: "desc",
+            createdAt: "desc",
           },
           take: 10,
           include: {
@@ -790,7 +790,7 @@ export const poolsCreatorRouter = router({
         const startOfWeek = new Date(now.setDate(now.getDate() - 7));
 
         const stakeAtStartOfMonth = stakeEvents
-          .filter(event => new Date(event.created_at) < startOfMonth)
+          .filter(event => new Date(event.createdAt) < startOfMonth)
           .reduce((acc, event) => {
             const eventAmount = BigInt(event.amount);
             if (event.eventType === "stake") {
@@ -816,7 +816,7 @@ export const poolsCreatorRouter = router({
           by: ["userWalletId"],
           where: {
             poolId,
-            created_at: {
+            createdAt: {
               gte: startOfWeek,
             },
             eventType: "stake",
@@ -831,7 +831,7 @@ export const poolsCreatorRouter = router({
         const dailyStakeEvents = await prisma.stakeEvent.findMany({
           where: {
             poolId,
-            created_at: {
+            createdAt: {
               gte: thirtyDaysAgo,
             },
           },
@@ -845,7 +845,7 @@ export const poolsCreatorRouter = router({
 
           const netStake = dailyStakeEvents
             .filter(
-              event => new Date(event.created_at) >= dayStart && new Date(event.created_at) <= dayEnd
+              event => new Date(event.createdAt) >= dayStart && new Date(event.createdAt) <= dayEnd
             )
             .reduce((acc, event) => {
               const eventAmount = BigInt(event.amount);
@@ -898,7 +898,7 @@ export const poolsCreatorRouter = router({
       const { chainId, pagination, order } = input;
       const page = pagination?.page || 1;
       const pageSize = pagination?.pageSize || 10;
-      const orderBy = order?.orderBy || "created_at";
+      const orderBy = order?.orderBy || "createdAt";
       const orderDirection = order?.orderDirection || "desc";
       const skip = (page - 1) * pageSize;
 
@@ -971,8 +971,8 @@ export const poolsCreatorRouter = router({
           fans: fans.map(fan => ({
             id: fan.id,
             stakeAmount: fan.stakeAmount.toString(),
-            created_at: fan.created_at,
-            updated_at: fan.updated_at,
+            createdAt: fan.createdAt,
+            updatedAt: fan.updatedAt,
             onelink: fan.userWallet.user?.onelink || fan.userWallet.address,
             avatar: fan.userWallet.user?.profileImage
               ? s3Service.getFileUrl(fan.userWallet.user.profileImage.s3_key)

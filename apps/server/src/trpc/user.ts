@@ -28,7 +28,7 @@ const confirmEmailChangeSchema = z.object({
 
 // Function to generate a random 6-digit code
 const generateSixDigitCode = (): string => {
-  return crypto.randomInt(100000, 1000000).toString();
+  return crypto.randomInt(100000, 1000000).toString().padStart(6, "0");
 };
 
 type Creator = {
@@ -272,7 +272,7 @@ export const userRouter = router({
           where: { id: userId },
           data: {
             email: newEmail,
-            updatedAt: new Date(),
+            updated_at: new Date(),
           },
         });
 
@@ -464,7 +464,7 @@ export const userRouter = router({
             onelink: true,
             image: true,
             description: true,
-            createdAt: true,
+            created_at: true,
             wallet: {
               select: {
                 id: true,
@@ -496,7 +496,7 @@ export const userRouter = router({
                 onelink: user.onelink,
                 image: user.image,
                 description: user.description,
-                createdAt: user.createdAt,
+                created_at: user.created_at,
               },
               totalStake,
             };
@@ -513,7 +513,7 @@ export const userRouter = router({
             break;
           case "newest":
             usersWithCalculatedStakes.sort(
-              (a, b) => b.user.createdAt.getTime() - a.user.createdAt.getTime()
+              (a, b) => b.user.created_at.getTime() - a.user.created_at.getTime()
             );
             break;
           case "stake-desc":
@@ -554,7 +554,7 @@ export const userRouter = router({
             orderBy = { name: "desc" };
             break;
           case "newest":
-            orderBy = { createdAt: "desc" };
+            orderBy = { created_at: "desc" };
             break;
           default:
             break;
@@ -572,7 +572,7 @@ export const userRouter = router({
             onelink: true,
             image: true,
             description: true,
-            createdAt: true,
+            created_at: true,
           },
           orderBy,
           skip: (safePage - 1) * safeLimit,
