@@ -2,11 +2,12 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 // If your Prisma file is located elsewhere, you can change the path
 import { PrismaClient } from "@prisma/client";
-import { captcha, jwt } from "better-auth/plugins";
+import { captcha, jwt, oneTap } from "better-auth/plugins";
 import { env } from "../env";
 
 const prisma = new PrismaClient();
 export const auth = betterAuth({
+  trustedOrigins: [env.FRONTEND_URL],
   plugins: [
     captcha({
       provider: "google-recaptcha",
@@ -17,6 +18,7 @@ export const auth = betterAuth({
         jwksPath: "/.well-known/jwks.json",
       },
     }),
+    oneTap(),
   ],
   database: prismaAdapter(prisma, {
     provider: "mysql",

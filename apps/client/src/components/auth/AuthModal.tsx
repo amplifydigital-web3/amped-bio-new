@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, } from "react";
 import { Loader2, Eye, EyeOff, Check, X as XIcon, AlertCircle } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { Input } from "../ui/Input";
@@ -249,8 +249,8 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         fetchOptions: {
           headers: recaptchaToken
             ? {
-                "x-captcha-response": recaptchaToken!,
-              }
+              "x-captcha-response": recaptchaToken!,
+            }
             : undefined,
         },
       });

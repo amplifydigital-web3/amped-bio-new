@@ -8,6 +8,6 @@ const router: Router = express.Router();
 
 // Register all routes
 router.use("/admin", adminRoutes);
-router.all("/api/auth/*", toNodeHandler(auth));
+router.all("/auth/*", toNodeHandler(auth));
 
 export default router;

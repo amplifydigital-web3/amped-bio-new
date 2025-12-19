@@ -1,10 +1,10 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "mysql"
   url      = env("DATABASE_URL")
-}
-
-generator client {
-  provider = "prisma-client-js"
 }
 
 model User {
@@ -79,7 +79,7 @@ model Account {
 model Verification {
   id         String    @id
   identifier String
-  value      String
+  value      String    @db.LongText
   expires_at DateTime
   created_at DateTime?
   updated_at DateTime?
