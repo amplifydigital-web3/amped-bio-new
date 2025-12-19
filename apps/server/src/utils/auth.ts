@@ -23,6 +23,11 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "mysql",
   }),
+  advanced: {
+    database: {
+      useNumberId: true,
+    },
+  },
   user: {
     modelName: "User",
     fields: {
@@ -43,6 +48,9 @@ export const auth = betterAuth({
     },
   },
   account: {
+    accountLinking: {
+      trustedProviders: ["google"],
+    },
     modelName: "Account",
     fields: {
       accountId: "account_id",
@@ -67,7 +75,7 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
-    autoSignIn: false,
+    autoSignIn: true,
   },
   socialProviders: {
     google: {

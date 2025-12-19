@@ -334,7 +334,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
       // This will likely redirect the user to Google's authentication page
       const response = await authClient.signIn.social({
         provider: "google",
-        callbackURL: window.location.href, // Return to current page
+        callbackURL: window.location.href, // Return to current page 
       });
 
       if (response?.error) {
