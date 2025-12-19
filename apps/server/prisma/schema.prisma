@@ -246,8 +246,8 @@ model StakedPool {
   userWalletId Int
   poolId       Int
   stakeAmount  String @db.Text // Using Text to handle potentially very large stake amounts
-  created_at    DateTime      @default(now())
-  updated_at    DateTime?     @updatedAt
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime?     @updatedAt
 
   userWallet  UserWallet    @relation(fields: [userWalletId], references: [id], onDelete: Cascade)
   pool        CreatorPool   @relation(fields: [poolId], references: [id], onDelete: Cascade)
@@ -263,7 +263,7 @@ model StakeEvent {
   amount            String @db.Text // The amount of tokens staked or unstaked (positive for stake, negative for unstake)
   eventType         String // "stake" or "unstake"
   transactionHash   String // Transaction hash for verification
-  created_at         DateTime   @default(now())
+  createdAt         DateTime   @default(now())
 
   userWallet UserWallet @relation(fields: [userWalletId], references: [id], onDelete: Cascade)
   pool       CreatorPool @relation(fields: [poolId], references: [id], onDelete: Cascade)
