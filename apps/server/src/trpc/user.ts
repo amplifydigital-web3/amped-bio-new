@@ -3,7 +3,6 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { sendEmailChangeVerification } from "../utils/email/email";
 import { generateAccessToken } from "../utils/token";
-import { hashRefreshToken } from "../utils/tokenHash";
 import crypto from "crypto";
 import { prisma } from "../services/DB";
 import { editUserSchema } from "../schemas/user.schema";
@@ -129,18 +128,18 @@ export const userRouter = router({
           where: {
             userId,
             type: "EMAIL_CHANGE",
-            created_at: {
+            createdAt: {
               gt: new Date(Date.now() - 60000), // 1 minute ago
             },
           },
           orderBy: {
-            created_at: "desc",
+            createdAt: "desc",
           },
         });
 
         if (latestCode) {
           // Calculate when the user can retry (1 minute after last request)
-          const retryAfter = new Date(latestCode.created_at);
+          const retryAfter = new Date(latestCode.createdAt);
           retryAfter.setMinutes(retryAfter.getMinutes() + 1);
 
           throw new TRPCError({
@@ -157,8 +156,8 @@ export const userRouter = router({
         const code = generateSixDigitCode();
 
         // Set expiration (5 minutes from now)
-        const expires_at = new Date();
-        expires_at.setMinutes(expires_at.getMinutes() + 5);
+        const expiresAt = new Date();
+        expiresAt.setMinutes(expiresAt.getMinutes() + 5);
 
         // Delete any existing EMAIL_CHANGE codes for this user
         await prisma.confirmationCode.deleteMany({
@@ -175,7 +174,7 @@ export const userRouter = router({
             code,
             type: "EMAIL_CHANGE",
             userId,
-            expires_at,
+            expiresAt,
           },
         });
 
@@ -185,7 +184,7 @@ export const userRouter = router({
         return {
           success: true,
           message: "Verification code sent to your email",
-          expires_at,
+          expiresAt,
         };
       } catch (error: any) {
         console.error("Error initiating email change:", error);
@@ -223,7 +222,7 @@ export const userRouter = router({
           await prisma.confirmationCode.deleteMany({
             where: {
               type: "EMAIL_CHANGE",
-              expires_at: {
+              expiresAt: {
                 lt: new Date(),
               },
             },
@@ -240,7 +239,7 @@ export const userRouter = router({
             code: input.code,
             type: "EMAIL_CHANGE",
             used: false,
-            expires_at: {
+            expiresAt: {
               gt: new Date(),
             },
           },
@@ -273,7 +272,7 @@ export const userRouter = router({
           where: { id: userId },
           data: {
             email: newEmail,
-            updated_at: new Date(),
+            updatedAt: new Date(),
           },
         });
 
@@ -358,18 +357,18 @@ export const userRouter = router({
           where: {
             userId,
             type: "EMAIL_CHANGE",
-            created_at: {
+            createdAt: {
               gt: new Date(Date.now() - 60000), // 1 minute ago
             },
           },
           orderBy: {
-            created_at: "desc",
+            createdAt: "desc",
           },
         });
 
         if (latestCode) {
           // Calculate when the user can retry (1 minute after last request)
-          const retryAfter = new Date(latestCode.created_at);
+          const retryAfter = new Date(latestCode.createdAt);
           retryAfter.setMinutes(retryAfter.getMinutes() + 1);
 
           throw new TRPCError({
@@ -386,8 +385,8 @@ export const userRouter = router({
         const code = generateSixDigitCode();
 
         // Set expiration (5 minutes from now)
-        const expires_at = new Date();
-        expires_at.setMinutes(expires_at.getMinutes() + 5);
+        const expiresAt = new Date();
+        expiresAt.setMinutes(expiresAt.getMinutes() + 5);
 
         // Create a new confirmation code without deleting existing ones
         await prisma.confirmationCode.create({
@@ -395,7 +394,7 @@ export const userRouter = router({
             code,
             type: "EMAIL_CHANGE",
             userId,
-            expires_at,
+            expiresAt,
           },
         });
 
@@ -405,7 +404,7 @@ export const userRouter = router({
         return {
           success: true,
           message: "New verification code sent to your email",
-          expires_at,
+          expiresAt,
         };
       } catch (error: any) {
         if (error instanceof TRPCError) {
@@ -465,7 +464,7 @@ export const userRouter = router({
             onelink: true,
             image: true,
             description: true,
-            created_at: true,
+            createdAt: true,
             wallet: {
               select: {
                 id: true,
@@ -497,7 +496,7 @@ export const userRouter = router({
                 onelink: user.onelink,
                 image: user.image,
                 description: user.description,
-                created_at: user.created_at,
+                createdAt: user.createdAt,
               },
               totalStake,
             };
@@ -514,7 +513,7 @@ export const userRouter = router({
             break;
           case "newest":
             usersWithCalculatedStakes.sort(
-              (a, b) => b.user.created_at.getTime() - a.user.created_at.getTime()
+              (a, b) => b.user.createdAt.getTime() - a.user.createdAt.getTime()
             );
             break;
           case "stake-desc":
@@ -555,7 +554,7 @@ export const userRouter = router({
             orderBy = { name: "desc" };
             break;
           case "newest":
-            orderBy = { created_at: "desc" };
+            orderBy = { createdAt: "desc" };
             break;
           default:
             break;
@@ -573,7 +572,7 @@ export const userRouter = router({
             onelink: true,
             image: true,
             description: true,
-            created_at: true,
+            createdAt: true,
           },
           orderBy,
           skip: (safePage - 1) * safeLimit,
