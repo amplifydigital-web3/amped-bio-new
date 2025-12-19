@@ -81,7 +81,7 @@ export const filesRouter = router({
           skip,
           take: limit,
           where,
-          orderBy: { uploaded_at: "desc" },
+          orderBy: { created_at: "desc" },
           include: {
             user: {
               select: {
@@ -105,7 +105,7 @@ export const filesRouter = router({
           file_type: file.file_type,
           size: file.size ? Number(file.size) : 0,
           user_id: file.user_id,
-          uploaded_at: file.uploaded_at.toISOString(),
+          created_at: file.created_at.toISOString(),
           status: file.status,
           userName: file.user ? file.user.name : "System",
           preview_url:
@@ -165,7 +165,6 @@ export const filesRouter = router({
         file_type: file.file_type,
         size: file.size ? Number(file.size) : 0,
         user_id: file.user_id,
-        uploaded_at: file.uploaded_at.toISOString(),
         created_at: file.created_at.toISOString(),
         updated_at: file.updated_at?.toISOString(),
         status: file.status,

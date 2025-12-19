@@ -81,11 +81,11 @@ export const dashboardRouter = router({
       },
     });
 
-    // Count active users based on valid refresh tokens
-    const activeUsers = await prisma.refreshToken.count({
+    // Count active users based on valid sessions (Better Auth)
+    const activeUsers = await prisma.session.count({
       where: {
-        expiresAt: {
-          gte: new Date(), // Valid (not expired) refresh tokens
+        expires_at: {
+          gte: new Date(), // Valid (not expired) sessions
         },
       },
     });

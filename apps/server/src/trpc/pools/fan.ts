@@ -820,7 +820,7 @@ export const poolsFanRouter = router({
             },
             update: {
               stakeAmount: newStakeAmount,
-              updatedAt: new Date(),
+              updated_at: new Date(),
             },
             create: {
               userWalletId: userWallet.id,
@@ -1036,7 +1036,7 @@ export const poolsFanRouter = router({
             },
             update: {
               stakeAmount: newStakeAmount,
-              updatedAt: new Date(),
+              updated_at: new Date(),
             },
             create: {
               userWalletId: userWallet.id,
@@ -1397,7 +1397,7 @@ export const poolsFanRouter = router({
                     },
                     update: {
                       stakeAmount: (stakedByYou || 0n).toString(),
-                      updatedAt: new Date(),
+                      updated_at: new Date(),
                     },
                     create: {
                       userWalletId: targetUserWallet.id,

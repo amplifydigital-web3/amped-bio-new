@@ -129,18 +129,18 @@ export const userRouter = router({
           where: {
             userId,
             type: "EMAIL_CHANGE",
-            createdAt: {
+            created_at: {
               gt: new Date(Date.now() - 60000), // 1 minute ago
             },
           },
           orderBy: {
-            createdAt: "desc",
+            created_at: "desc",
           },
         });
 
         if (latestCode) {
           // Calculate when the user can retry (1 minute after last request)
-          const retryAfter = new Date(latestCode.createdAt);
+          const retryAfter = new Date(latestCode.created_at);
           retryAfter.setMinutes(retryAfter.getMinutes() + 1);
 
           throw new TRPCError({
@@ -157,8 +157,8 @@ export const userRouter = router({
         const code = generateSixDigitCode();
 
         // Set expiration (5 minutes from now)
-        const expiresAt = new Date();
-        expiresAt.setMinutes(expiresAt.getMinutes() + 5);
+        const expires_at = new Date();
+        expires_at.setMinutes(expires_at.getMinutes() + 5);
 
         // Delete any existing EMAIL_CHANGE codes for this user
         await prisma.confirmationCode.deleteMany({
@@ -175,7 +175,7 @@ export const userRouter = router({
             code,
             type: "EMAIL_CHANGE",
             userId,
-            expiresAt,
+            expires_at,
           },
         });
 
@@ -185,7 +185,7 @@ export const userRouter = router({
         return {
           success: true,
           message: "Verification code sent to your email",
-          expiresAt,
+          expires_at,
         };
       } catch (error: any) {
         console.error("Error initiating email change:", error);
@@ -223,7 +223,7 @@ export const userRouter = router({
           await prisma.confirmationCode.deleteMany({
             where: {
               type: "EMAIL_CHANGE",
-              expiresAt: {
+              expires_at: {
                 lt: new Date(),
               },
             },
@@ -240,7 +240,7 @@ export const userRouter = router({
             code: input.code,
             type: "EMAIL_CHANGE",
             used: false,
-            expiresAt: {
+            expires_at: {
               gt: new Date(),
             },
           },
@@ -282,30 +282,6 @@ export const userRouter = router({
           where: { id: confirmationCode.id },
           data: { used: true },
         });
-
-        // Delete all refresh tokens except for the current session's token
-        // Get the current refresh token from the request
-        const currentRefreshToken = ctx.req.cookies["refresh-token"];
-        if (currentRefreshToken) {
-          const hashedCurrentRefreshToken = hashRefreshToken(currentRefreshToken);
-
-          // Delete all refresh tokens for this user except the current one
-          await prisma.refreshToken.deleteMany({
-            where: {
-              userId: userId,
-              token: {
-                not: hashedCurrentRefreshToken, // Keep only the current token
-              },
-            },
-          });
-        } else {
-          // If no refresh token is available in the request, delete all refresh tokens
-          await prisma.refreshToken.deleteMany({
-            where: {
-              userId: userId,
-            },
-          });
-        }
 
         // Fetch user's wallet address
         const userWallet = await prisma.userWallet.findUnique({
@@ -382,18 +358,18 @@ export const userRouter = router({
           where: {
             userId,
             type: "EMAIL_CHANGE",
-            createdAt: {
+            created_at: {
               gt: new Date(Date.now() - 60000), // 1 minute ago
             },
           },
           orderBy: {
-            createdAt: "desc",
+            created_at: "desc",
           },
         });
 
         if (latestCode) {
           // Calculate when the user can retry (1 minute after last request)
-          const retryAfter = new Date(latestCode.createdAt);
+          const retryAfter = new Date(latestCode.created_at);
           retryAfter.setMinutes(retryAfter.getMinutes() + 1);
 
           throw new TRPCError({
@@ -410,8 +386,8 @@ export const userRouter = router({
         const code = generateSixDigitCode();
 
         // Set expiration (5 minutes from now)
-        const expiresAt = new Date();
-        expiresAt.setMinutes(expiresAt.getMinutes() + 5);
+        const expires_at = new Date();
+        expires_at.setMinutes(expires_at.getMinutes() + 5);
 
         // Create a new confirmation code without deleting existing ones
         await prisma.confirmationCode.create({
@@ -419,7 +395,7 @@ export const userRouter = router({
             code,
             type: "EMAIL_CHANGE",
             userId,
-            expiresAt,
+            expires_at,
           },
         });
 
@@ -429,7 +405,7 @@ export const userRouter = router({
         return {
           success: true,
           message: "New verification code sent to your email",
-          expiresAt,
+          expires_at,
         };
       } catch (error: any) {
         if (error instanceof TRPCError) {

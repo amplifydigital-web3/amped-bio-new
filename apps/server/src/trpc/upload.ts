@@ -483,7 +483,7 @@ export const uploadRouter = router({
           size: file.size ? Number(file.size) : null,
           url: s3Service.getFileUrl(file.s3_key),
           status: file.status,
-          uploadedAt: file.uploaded_at,
+          uploaded_at: file.created_at,
           isServerFile: file.user_id === null,
         };
       } catch (error) {

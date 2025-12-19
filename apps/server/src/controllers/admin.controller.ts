@@ -157,7 +157,7 @@ export const adminController = {
       });
 
       // Remove password from response
-      const { password: _, ...userWithoutPassword } = updatedUser;
+      const { password: _password, ...userWithoutPassword } = updatedUser;
 
       res.json(userWithoutPassword);
     } catch (error) {
@@ -198,7 +198,7 @@ export const adminController = {
       });
 
       // Remove password from response
-      const { password: _, ...userWithoutPassword } = updatedUser;
+      const { password: _password, ...userWithoutPassword } = updatedUser;
 
       res.json(userWithoutPassword);
     } catch (error) {
@@ -236,7 +236,7 @@ export const adminController = {
       });
 
       // Remove password from response
-      const { password: _, ...userWithoutPassword } = updatedUser;
+      const { password: _password, ...userWithoutPassword } = updatedUser;
 
       res.json(userWithoutPassword);
     } catch (error) {

@@ -11,13 +11,13 @@ model User {
   id                  Int       @id @default(autoincrement())
   name                String
   email               String    @unique
+  email_verified      Boolean   @default(false) @map("email_verified")
   email_verified_at   DateTime?
-  password            String
+  password            String?   // password is optional if using social only
   onelink             String?   @unique @map("littlelink_name")
   description         String?   @db.LongText @map("littlelink_description")
   role                String    @default("user")
   block               String    @default("no")
-  remember_token      String?
   theme               String?
   auth_as             Int?
   provider            String?
@@ -28,16 +28,63 @@ model User {
   created_at          DateTime  @default(now())
   updated_at          DateTime? @updatedAt
 
+  sessions            Session[]
+  accounts            Account[]
+
   themes              Theme[]
   blocks              Block[]
   confirmationCodes   ConfirmationCode[]
   uploadedFiles       UploadedFile[]
   profileImage        UploadedFile? @relation("UserProfileImage", fields: [image_file_id], references: [id], onDelete: SetNull)
 
-  refreshTokens       RefreshToken[]
   wallet              UserWallet?
 
   @@map("users")
+}
+
+model Session {
+  id          String   @id
+  expires_at  DateTime
+  token       String
+  created_at  DateTime
+  updated_at  DateTime
+  ip_address  String?
+  user_agent  String?
+  user_id     Int
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@map("session")
+}
+
+model Account {
+  id                       String    @id
+  account_id               String
+  provider_id              String
+  user_id                  Int
+  user                     User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  access_token             String?   @db.Text
+  refresh_token            String?   @db.Text
+  id_token                 String?   @db.Text
+  access_token_expires_at  DateTime?
+  refresh_token_expires_at DateTime?
+  scope                    String?
+  password                 String?
+  created_at               DateTime
+  updated_at               DateTime
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expires_at DateTime
+  created_at DateTime?
+  updated_at DateTime?
+
+  @@map("verification")
 }
 
 model ThemeCategory {
@@ -92,26 +139,26 @@ model Block {
   @@map("blocks")
 }
 
-enum ConfirmationCodeType {
-  EMAIL_CONFIRMATION
-  EMAIL_CHANGE
-  PASSWORD_RESET
-}
-
 model ConfirmationCode {
   id          Int                  @id @default(autoincrement())
   code        String               @db.Char(6)
   type        ConfirmationCodeType
   userId      Int
   used        Boolean              @default(false)
-  expiresAt   DateTime
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime?            @updatedAt
+  expires_at   DateTime
+  created_at   DateTime             @default(now())
+  updated_at   DateTime?            @updatedAt
   
   user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@index([code])
   @@map("confirmation_codes")
+}
+
+enum ConfirmationCodeType {
+  EMAIL_CONFIRMATION
+  EMAIL_CHANGE
+  PASSWORD_RESET
 }
 
 enum FileStatus {
@@ -128,8 +175,8 @@ model UploadedFile {
   file_type           String?       @db.VarChar(100)
   size                BigInt?
   user_id             Int? // Nullable for admin/server files
-  uploaded_at         DateTime      @default(now())
   status              FileStatus    @default(PENDING)
+  uploaded_at         DateTime      @default(now())
   created_at          DateTime      @default(now())
   updated_at          DateTime?     @updatedAt
   user                User?         @relation(fields: [user_id], references: [id], onDelete: Cascade)
@@ -144,20 +191,6 @@ model UploadedFile {
   @@map("uploaded_files")
 }
 
-model RefreshToken {
-  id        Int      @id @default(autoincrement())
-  token     String   @db.Char(64) // SHA256 hash
-  userId    Int
-  createdAt DateTime @default(now())
-  expiresAt DateTime
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([token])
-  @@index([userId])
-  @@map("refresh_tokens")
-}
-
-// User wallet address mapping table (one-to-one with User)
 model UserWallet {
   id                   Int       @id @default(autoincrement())
   address              String    @unique
@@ -209,12 +242,12 @@ model SiteSettings {
 }
 
 model StakedPool {
-  id          Int           @id @default(autoincrement())
+  id           Int           @id @default(autoincrement())
   userWalletId Int
-  poolId      Int
-  stakeAmount String @db.Text // Using Text to handle potentially very large stake amounts
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime?     @updatedAt
+  poolId       Int
+  stakeAmount  String @db.Text // Using Text to handle potentially very large stake amounts
+  created_at    DateTime      @default(now())
+  updated_at    DateTime?     @updatedAt
 
   userWallet  UserWallet    @relation(fields: [userWalletId], references: [id], onDelete: Cascade)
   pool        CreatorPool   @relation(fields: [poolId], references: [id], onDelete: Cascade)
@@ -230,7 +263,7 @@ model StakeEvent {
   amount            String @db.Text // The amount of tokens staked or unstaked (positive for stake, negative for unstake)
   eventType         String // "stake" or "unstake"
   transactionHash   String // Transaction hash for verification
-  createdAt         DateTime   @default(now())
+  created_at         DateTime   @default(now())
 
   userWallet UserWallet @relation(fields: [userWalletId], references: [id], onDelete: Cascade)
   pool       CreatorPool @relation(fields: [poolId], references: [id], onDelete: Cascade)

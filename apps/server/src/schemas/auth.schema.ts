@@ -30,6 +30,7 @@ export const passwordResetRequestSchema = z.object({
 
 export const processPasswordResetSchema = z.object({
   token: z.string(),
+  email: z.string().email(),
   newPassword: z.string().min(8),
 });
 
