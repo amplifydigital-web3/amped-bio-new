@@ -56,7 +56,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const mappedUser: AuthUser = {
             id: parseInt(user.id),
             email: user.email,
-            onelink: user.onelink || user.name || user.email?.split("@")[0] || "",
+            onelink: user.onelink || "",
             role: user.role || "user",
             image: user.image || null,
             wallet: null,
@@ -85,7 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const mappedUser: AuthUser = {
           id: parseInt(user.id),
           email: user.email,
-          onelink: user.onelink || user.name || user.email?.split("@")[0] || "",
+          onelink: user.onelink || "",
           role: user.role || "user",
           image: user.image || null,
           wallet: null,
@@ -198,10 +198,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const session = await authClient.getSession();
         if (session?.data?.user) {
           const user = session.data.user as BetterAuthUser;
+
           const mappedUser: AuthUser = {
             id: parseInt(user.id),
             email: user.email,
-            onelink: user.onelink || user.name || user.email?.split("@")[0] || "",
+            onelink: user.onelink || "",
             role: user.role || "user",
             image: user.image || null,
             wallet: null,

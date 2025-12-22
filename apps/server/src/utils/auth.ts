@@ -3,6 +3,7 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { PrismaClient } from "@prisma/client";
 import { captcha, jwt, oneTap } from "better-auth/plugins";
 import { env } from "../env";
+import { processEmailToUniqueOnelink } from "./onelink-generator";
 
 const prisma = new PrismaClient();
 export const auth = betterAuth({
@@ -62,6 +63,12 @@ export const auth = betterAuth({
         required: false,
         defaultValue: null,
       },
+    },
+    beforeCreate: async user => {
+      // Generate unique onelink for social auth users who don't have one
+      if (!user.onelink && user.email) {
+        user.onelink = await processEmailToUniqueOnelink(user.email);
+      }
     },
   },
   account: {
