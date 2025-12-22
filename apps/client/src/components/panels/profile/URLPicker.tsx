@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useEditor } from "../../../contexts/EditorContext";
 import { Button } from "@/components/ui/Button";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useOnelinkAvailability } from "@/hooks/useOnelinkAvailability";

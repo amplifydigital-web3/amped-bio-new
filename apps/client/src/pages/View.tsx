@@ -1,4 +1,4 @@
-import { Link, useParams, useLocation, useNavigate } from "react-router-dom";
+import { Link, useParams, useLocation, useNavigate } from "react-router";
 import { Preview } from "../components/Preview";
 import { Settings } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";

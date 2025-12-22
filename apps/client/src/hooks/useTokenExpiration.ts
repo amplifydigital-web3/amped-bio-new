@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { AUTH_STORAGE_KEYS } from "../constants/auth-storage";
 
 /**

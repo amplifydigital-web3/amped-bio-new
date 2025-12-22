@@ -16,7 +16,7 @@ import { formatOnelink, normalizeOnelink } from "@/utils/onelink";
 import { trpcClient } from "@/utils/trpc";
 import { exportThemeConfigAsJson, importThemeConfigFromJson } from "@/utils/theme";
 import { mergeTheme } from "@/utils/mergeTheme";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router";
 
 interface EditorContextType extends EditorState {
   changes: boolean;

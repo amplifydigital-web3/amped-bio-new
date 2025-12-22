@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -45,6 +45,7 @@ const PasswordStrengthIndicator = ({ password }: { password: string }) => {
 // Define the validation schema using Zod
 const passwordResetSchema = z
   .object({
+    email: z.string().email("Invalid email address").optional(),
     token: z.string().min(1, "Token is required"),
     password: z
       .string()
@@ -101,6 +102,7 @@ export function PasswordReset() {
     try {
       // Use tRPC to process the password reset
       const response = await trpcClient.auth.processPasswordReset.mutate({
+        email: data.email || "",
         token: data.token,
         newPassword: data.password,
       });

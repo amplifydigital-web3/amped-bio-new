@@ -1,5 +1,9 @@
-// Auth event constants for managing authentication state across components
+/**
+ * Auth event constants for better-auth integration
+ */
 export const AUTH_EVENTS = {
-  TOKEN_EXPIRED: "auth:token-expired",
-  TOKEN_REFRESHED: "auth:token-refreshed",
-};
+  SIGN_IN: "auth.sign_in",
+  SIGN_OUT: "auth.sign_out",
+  SIGN_UP: "auth.sign_up",
+  SESSION_UPDATED: "auth.session_updated",
+} as const;

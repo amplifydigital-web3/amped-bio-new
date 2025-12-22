@@ -1,6 +1,5 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-// If your Prisma file is located elsewhere, you can change the path
 import { PrismaClient } from "@prisma/client";
 import { captcha, jwt, oneTap } from "better-auth/plugins";
 import { env } from "../env";
@@ -34,6 +33,27 @@ export const auth = betterAuth({
       emailVerified: "email_verified",
       createdAt: "created_at",
       updatedAt: "updated_at",
+      name: "name",
+      onelink: "onelink",
+      role: "role",
+      image: "image",
+    },
+    additionalFields: {
+      onelink: {
+        type: "string",
+        required: false,
+        defaultValue: null,
+      },
+      role: {
+        type: "string",
+        required: false,
+        defaultValue: "user",
+      },
+      image: {
+        type: "string",
+        required: false,
+        defaultValue: null,
+      },
     },
   },
   session: {

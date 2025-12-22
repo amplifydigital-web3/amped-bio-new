@@ -1,4 +1,4 @@
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router";
 import { BarChart3, Users, Layers, LogOut, Home, Hexagon, Files, CoinsIcon } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { AdminHeader } from "../../components/admin";

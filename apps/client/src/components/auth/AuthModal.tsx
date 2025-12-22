@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Loader2, Eye, EyeOff, Check, X as XIcon, AlertCircle } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { Input } from "../ui/Input";
@@ -7,7 +7,7 @@ import type { AuthUser } from "../../types/auth";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router";
 import { useOnelinkAvailability } from "@/hooks/useOnelinkAvailability";
 import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
 import { GoogleLoginButton } from "./GoogleLoginButton";
@@ -21,7 +21,20 @@ import {
   formatOnelink,
 } from "@/utils/onelink";
 import { trackGAEvent } from "@/utils/ga";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+
+// Extended user type for better-auth session
+interface BetterAuthUser {
+  id: string;
+  email: string;
+  emailVerified: boolean;
+  name: string;
+  image?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  onelink?: string | null;
+  role?: string;
+}
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -249,8 +262,8 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         fetchOptions: {
           headers: recaptchaToken
             ? {
-              "x-captcha-response": recaptchaToken!,
-            }
+                "x-captcha-response": recaptchaToken!,
+              }
             : undefined,
         },
       });
@@ -261,26 +274,23 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
 
       // After successful login, get the current session to get user details
       const session = await authClient.getSession();
-      if (session?.user) {
-        const user = session.user;
+      if (session?.data?.user) {
+        const user = session.data.user as BetterAuthUser;
         onClose({
-          id: user.id,
+          id: parseInt(user.id),
           email: user.email,
-          name: user.name || user.email?.split("@")[0] || "",
-          onelink: user.username || user.email?.split("@")[0] || "",
-          avatar: user.image || null,
-          createdAt: user.createdAt || new Date(),
+          onelink: user.onelink || user.name || user.email?.split("@")[0] || "",
+          role: user.role || "user",
+          image: user.image || null,
+          wallet: null,
         });
 
         // Redirect the user to their edit page with panel state set to "home"
-        if (user.username) {
-          const formattedOnelink = formatOnelink(user.username);
-          navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
-        } else {
-          // Fallback if username isn't available
-          const fallbackOnelink = formatOnelink(user.email?.split("@")[0] || "home");
-          navigate(`/${fallbackOnelink}/edit`, { state: { panel: "home" } });
-        }
+        const userData = session.data.user as BetterAuthUser;
+        const onelink =
+          userData.onelink || userData.name || userData.email?.split("@")[0] || "home";
+        const formattedOnelink = formatOnelink(onelink);
+        navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
       } else {
         throw new Error("Login successful but could not retrieve user session");
       }
@@ -302,25 +312,22 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         setTimeout(async () => {
           try {
             const session = await authClient.getSession();
-            if (session?.user) {
-              const user = session.user;
+            if (session?.data?.user) {
+              const user = session.data.user as BetterAuthUser;
               onClose({
-                id: user.id,
+                id: parseInt(user.id),
                 email: user.email,
-                name: user.name || (user.email ? user.email.split("@")[0] : ""),
-                onelink: user.username || (user.email ? user.email.split("@")[0] : ""),
-                avatar: user.image || null,
-                createdAt: user.createdAt || new Date(),
+                onelink: user.onelink || user.name || (user.email ? user.email.split("@")[0] : ""),
+                role: user.role || "user",
+                image: user.image || null,
+                wallet: null,
               });
 
-              if (user.username) {
-                const formattedOnelink = formatOnelink(user.username);
-                navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
-              } else {
-                // Fallback if username isn't available
-                const fallbackOnelink = formatOnelink(user.email ? user.email.split("@")[0] : "");
-                navigate(`/${fallbackOnelink}/edit`, { state: { panel: "home" } });
-              }
+              const userData = session.data.user as BetterAuthUser;
+              const onelink =
+                userData.onelink || userData.name || userData.email?.split("@")[0] || "home";
+              const formattedOnelink = formatOnelink(onelink);
+              navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
             }
           } catch (error) {
             setLoginError((error as Error).message || "Failed to get session after login");
@@ -334,7 +341,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
       // This will likely redirect the user to Google's authentication page
       const response = await authClient.signIn.social({
         provider: "google",
-        callbackURL: window.location.href, // Return to current page 
+        callbackURL: window.location.href, // Return to current page
       });
 
       if (response?.error) {
@@ -386,7 +393,6 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         email: data.email,
         password: data.password,
         name: data.onelink, // Using onelink as the name
-        username: data.onelink,
         callbackURL: `/${data.onelink}/edit`,
       });
 
@@ -396,25 +402,20 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
 
       // After successful registration, get the current session to get user details
       const session = await authClient.getSession();
-      if (session?.user) {
-        const user = session.user;
+      if (session?.data?.user) {
+        const user = session.data.user as BetterAuthUser;
         onClose({
-          id: user.id,
+          id: parseInt(user.id),
           email: user.email,
-          name: user.name || data.onelink,
-          onelink: user.username || data.onelink,
-          avatar: user.image || null,
-          createdAt: user.createdAt || new Date(),
+          onelink: user.onelink || user.name || data.onelink,
+          role: user.role || "user",
+          image: user.image || null,
+          wallet: null,
         });
 
         // Redirect to edit page with home panel selected
-        if (user.username) {
-          const formattedOnelink = formatOnelink(user.username);
-          navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
-        } else {
-          const formattedOnelink = formatOnelink(data.onelink);
-          navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
-        }
+        const formattedOnelink = formatOnelink(user.name || data.onelink);
+        navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
       } else {
         throw new Error("Registration successful but could not retrieve user session");
       }
@@ -466,6 +467,11 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
             {form === "login" && "Sign In"}
             {form === "reset" && "Reset Password"}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            {form === "register" && "Sign up form for creating a new account"}
+            {form === "login" && "Sign in form for existing users"}
+            {form === "reset" && "Password reset form to recover your account"}
+          </DialogDescription>
         </DialogHeader>
         <div className="p-6">
           {form === "login" && (

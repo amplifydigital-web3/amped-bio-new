@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { Outlet, Link, useLocation, useParams } from "react-router-dom";
+import { Outlet, Link, useLocation, useParams } from "react-router";
 import AMPLIFY_FULL_K from "@/assets/AMPLIFY_FULL_K.svg";
 import { UserMenu } from "../auth/UserMenu";
 import { normalizeOnelink } from "@/utils/onelink";

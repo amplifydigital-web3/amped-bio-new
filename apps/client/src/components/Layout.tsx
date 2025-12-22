@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { Banner } from "./Banner";
 import { Sidebar } from "./Sidebar";
 import { Preview } from "./Preview";
