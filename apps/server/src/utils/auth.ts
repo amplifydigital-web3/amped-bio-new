@@ -24,7 +24,14 @@ export const auth = betterAuth({
   }),
   advanced: {
     database: {
-      useNumberId: true,
+      generateId: options => {
+        // Let the database auto-generate IDs for 'user' and 'users' tables
+        if (options.model === "user" || options.model === "users") {
+          return false;
+        }
+        // Generate UUIDs for all other tables
+        return crypto.randomUUID();
+      },
     },
   },
   user: {
