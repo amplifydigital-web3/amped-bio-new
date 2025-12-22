@@ -27,7 +27,7 @@ DROP TABLE `refresh_tokens`;
 
 -- CreateTable
 CREATE TABLE `session` (
-    `id` VARCHAR(191) NOT NULL,
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
     `expiresAt` DATETIME(3) NOT NULL,
     `token` VARCHAR(191) NOT NULL,
     `createdAt` DATETIME(3) NOT NULL,
@@ -42,13 +42,13 @@ CREATE TABLE `session` (
 
 -- CreateTable
 CREATE TABLE `account` (
-    `id` VARCHAR(191) NOT NULL,
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
     `accountId` VARCHAR(191) NOT NULL,
     `providerId` VARCHAR(191) NOT NULL,
     `userId` INTEGER NOT NULL,
-    `accessToken` VARCHAR(191) NULL,
+    `accessToken` LONGTEXT NULL,
     `refreshToken` VARCHAR(191) NULL,
-    `idToken` VARCHAR(191) NULL,
+    `idToken` LONGTEXT NULL,
     `accessTokenExpiresAt` DATETIME(3) NULL,
     `refreshTokenExpiresAt` DATETIME(3) NULL,
     `scope` VARCHAR(191) NULL,
@@ -61,12 +61,23 @@ CREATE TABLE `account` (
 
 -- CreateTable
 CREATE TABLE `verification` (
-    `id` VARCHAR(191) NOT NULL,
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
     `identifier` VARCHAR(191) NOT NULL,
     `value` LONGTEXT NOT NULL,
     `expiresAt` DATETIME(3) NOT NULL,
     `createdAt` DATETIME(3) NULL,
     `updatedAt` DATETIME(3) NULL,
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `jwks` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `publicKey` LONGTEXT NOT NULL,
+    `privateKey` LONGTEXT NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `expiresAt` DATETIME(3) NULL,
 
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
