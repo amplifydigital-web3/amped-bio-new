@@ -75,7 +75,7 @@ model Account {
 model Verification {
   id         String    @id
   identifier String
-  value      String
+  value      String   @db.LongText
   expiresAt  DateTime
   createdAt  DateTime?
   updatedAt  DateTime?
