@@ -30,6 +30,10 @@ export const auth = betterAuth({
   user: {
     modelName: "User",
     fields: {
+      id: {
+        required: false,
+        type: "number",
+      },
       emailVerified: "email_verified",
       createdAt: "created_at",
       updatedAt: "updated_at",
@@ -56,42 +60,11 @@ export const auth = betterAuth({
       },
     },
   },
-  session: {
-    modelName: "Session",
-    fields: {
-      expiresAt: "expires_at",
-      createdAt: "created_at",
-      updatedAt: "updated_at",
-      ipAddress: "ip_address",
-      userAgent: "user_agent",
-      userId: "user_id",
-    },
-  },
   account: {
     accountLinking: {
       trustedProviders: ["google"],
     },
     modelName: "Account",
-    fields: {
-      accountId: "account_id",
-      providerId: "provider_id",
-      userId: "user_id",
-      accessToken: "access_token",
-      refreshToken: "refresh_token",
-      idToken: "id_token",
-      accessTokenExpiresAt: "access_token_expires_at",
-      refreshTokenExpiresAt: "refresh_token_expires_at",
-      createdAt: "created_at",
-      updatedAt: "updated_at",
-    },
-  },
-  verification: {
-    modelName: "Verification",
-    fields: {
-      expiresAt: "expires_at",
-      createdAt: "created_at",
-      updatedAt: "updated_at",
-    },
   },
   emailAndPassword: {
     enabled: true,

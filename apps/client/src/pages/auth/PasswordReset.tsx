@@ -5,7 +5,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader, Check, X, Eye, EyeOff } from "lucide-react";
 import { AuthHeader } from "../../components/auth/AuthHeader";
-import { trpcClient } from "../../utils/trpc";
+import { authClient } from "../../lib/auth-client";
 
 // Password strength indicator component
 const PasswordStrengthIndicator = ({ password }: { password: string }) => {
@@ -100,15 +100,19 @@ export function PasswordReset() {
     setIsLoading(true);
 
     try {
-      // Use tRPC to process the password reset
-      const response = await trpcClient.auth.processPasswordReset.mutate({
-        email: data.email || "",
-        token: data.token,
+      // Use better-auth to process the password reset
+      const response = await authClient.resetPassword({
         newPassword: data.password,
+        token: data.token,
       });
 
-      setStatus("success");
-      setMessage(response.message || "Password has been successfully reset.");
+      if (response.error) {
+        setStatus("error");
+        setMessage(response.error.message || "Failed to reset password.");
+      } else {
+        setStatus("success");
+        setMessage("Password has been successfully reset.");
+      }
     } catch (error) {
       setStatus("error");
       setMessage(

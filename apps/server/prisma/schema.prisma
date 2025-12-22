@@ -10,26 +10,21 @@ datasource db {
 model User {
   id                  Int       @id @default(autoincrement())
   name                String
-  email               String    @unique
+  email               String
   email_verified      Boolean   @default(false) @map("email_verified")
-  email_verified_at   DateTime?
-  password            String?   // password is optional if using social only
+  image               String?   @db.LongText // Keep for backward compatibility
   onelink             String?   @unique @map("littlelink_name")
+  created_at          DateTime  @default(now())
+  updated_at          DateTime? @updatedAt
+  sessions            Session[]
+  accounts            Account[]
+
   description         String?   @db.LongText @map("littlelink_description")
   role                String    @default("user")
   block               String    @default("no")
   theme               String?
-  auth_as             Int?
-  provider            String?
-  provider_id         String?
-  image               String?   @db.LongText // Keep for backward compatibility
   image_file_id       Int?
   reward_business_id  String?
-  created_at          DateTime  @default(now())
-  updated_at          DateTime? @updatedAt
-
-  sessions            Session[]
-  accounts            Account[]
 
   themes              Theme[]
   blocks              Block[]
@@ -39,39 +34,40 @@ model User {
 
   wallet              UserWallet?
 
+  @@unique([email])
   @@map("users")
 }
 
 model Session {
-  id          String   @id
-  expires_at  DateTime
-  token       String
-  created_at  DateTime
-  updated_at  DateTime
-  ip_address  String?
-  user_agent  String?
-  user_id     Int
-  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime
+  updatedAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([token])
   @@map("session")
 }
 
 model Account {
-  id                       String    @id
-  account_id               String
-  provider_id              String
-  user_id                  Int
-  user                     User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  access_token             String?   @db.Text
-  refresh_token            String?   @db.Text
-  id_token                 String?   @db.Text
-  access_token_expires_at  DateTime?
-  refresh_token_expires_at DateTime?
-  scope                    String?
-  password                 String?
-  created_at               DateTime
-  updated_at               DateTime
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                Int
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime
+  updatedAt             DateTime
 
   @@map("account")
 }
@@ -79,10 +75,10 @@ model Account {
 model Verification {
   id         String    @id
   identifier String
-  value      String    @db.LongText
-  expires_at DateTime
-  created_at DateTime?
-  updated_at DateTime?
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
 
   @@map("verification")
 }

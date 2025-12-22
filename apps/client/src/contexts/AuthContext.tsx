@@ -73,12 +73,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     checkSession();
   }, []);
 
-  const signIn = async (email: string, password: string, recaptchaToken: string | null) => {
+  const signIn = async (email: string, password: string, _recaptchaToken: string | null) => {
     try {
       setError(null);
-      const response = await trpcClient.auth.login.mutate({ email, password, recaptchaToken });
-      setAuthUser(response.user);
-      return response.user;
+      const response = await authClient.signIn.email({
+        email,
+        password,
+      });
+      if (response.data?.user) {
+        const user = response.data.user as BetterAuthUser;
+        const mappedUser: AuthUser = {
+          id: parseInt(user.id),
+          email: user.email,
+          onelink: user.onelink || user.name || user.email?.split("@")[0] || "",
+          role: user.role || "user",
+          image: user.image || null,
+          wallet: null,
+        };
+        setAuthUser(mappedUser);
+        return mappedUser;
+      } else {
+        throw new Error("Login failed");
+      }
     } catch (error) {
       setError((error as Error).message);
       throw error;
@@ -89,36 +105,53 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     onelink: string,
     email: string,
     password: string,
-    recaptchaToken: string | null
+    _recaptchaToken: string | null
   ) => {
     try {
       setError(null);
-      const response = await trpcClient.auth.register.mutate({
-        onelink,
+      const response = await authClient.signUp.email({
         email,
         password,
-        recaptchaToken,
+        name: onelink,
       });
-      const authUser: AuthUser = {
-        id: response.user.id,
-        email: response.user.email,
-        onelink: onelink,
-        role: "user",
-        image: null,
-        wallet: null,
-      };
-      setAuthUser(authUser);
-      return authUser;
+      if (response.data?.user) {
+        const user = response.data.user as BetterAuthUser;
+        const mappedUser: AuthUser = {
+          id: parseInt(user.id),
+          email: user.email,
+          onelink: onelink,
+          role: user.role || "user",
+          image: user.image || null,
+          wallet: null,
+        };
+        setAuthUser(mappedUser);
+        return mappedUser;
+      } else {
+        throw new Error("Sign up failed");
+      }
     } catch (error) {
       setError((error as Error).message);
       throw error;
     }
   };
 
-  const resetPassword = async (email: string, recaptchaToken: string | null) => {
+  const resetPassword = async (email: string, _recaptchaToken: string | null) => {
     try {
-      const response = await trpcClient.auth.passwordResetRequest.mutate({ email, recaptchaToken });
-      return response;
+      // Use forgotPassword method for password reset request
+      const response = await (authClient as any).forgotPassword({
+        email,
+        redirectTo: "/auth/reset-password",
+      });
+      if (response.error) {
+        return {
+          success: false,
+          message: response.error.message || "Password reset request failed",
+        };
+      }
+      return {
+        success: true,
+        message: "Password reset email sent",
+      };
     } catch (error) {
       setError((error as Error).message);
       return {
@@ -154,12 +187,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signInWithGoogle = async (token: string) => {
+  const signInWithGoogle = async (_token: string) => {
     try {
       setError(null);
-      const response = await trpcClient.auth.googleAuth.mutate({ token });
-      setAuthUser(response.user);
-      return response.user;
+      const response = await authClient.signIn.social({
+        provider: "google",
+        callbackURL: "/",
+      });
+      if (response.data && !response.error) {
+        const session = await authClient.getSession();
+        if (session?.data?.user) {
+          const user = session.data.user as BetterAuthUser;
+          const mappedUser: AuthUser = {
+            id: parseInt(user.id),
+            email: user.email,
+            onelink: user.onelink || user.name || user.email?.split("@")[0] || "",
+            role: user.role || "user",
+            image: user.image || null,
+            wallet: null,
+          };
+          setAuthUser(mappedUser);
+          return mappedUser;
+        }
+      }
+      throw new Error("Google sign in failed");
     } catch (error) {
       setError((error as Error).message);
       throw error;

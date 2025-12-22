@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useLocation, Link, useNavigate } from "react-router";
 import { Loader } from "lucide-react";
 import { AuthHeader } from "../../components/auth/AuthHeader";
-import { trpcClient } from "@/utils/trpc";
+import { authClient } from "../../lib/auth-client";
 
 export function EmailVerification() {
   const { token } = useParams();
@@ -43,11 +43,27 @@ export function EmailVerification() {
     }
 
     // Use the API function to verify the email
-    trpcClient.auth.verifyEmail
-      .mutate({ token, email })
-      .then(data => {
-        setStatus("success");
-        if (data.onelink) setOnelink(data.onelink);
+    authClient
+      .verifyEmail({
+        query: {
+          token,
+          callbackURL: "/",
+        },
+      })
+      .then(response => {
+        if (response.data?.status) {
+          setStatus("success");
+          // Get session to get user data
+          authClient.getSession().then(sessionResponse => {
+            if (sessionResponse.data?.user) {
+              const user = sessionResponse.data.user as any;
+              if (user.onelink) setOnelink(user.onelink);
+            }
+          });
+        } else {
+          setStatus("error");
+          setMessage(response.error?.message || "Verification failed");
+        }
       })
       .catch(error => {
         setStatus("error");

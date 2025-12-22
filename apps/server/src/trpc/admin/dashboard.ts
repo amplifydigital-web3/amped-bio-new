@@ -84,7 +84,7 @@ export const dashboardRouter = router({
     // Count active users based on valid sessions (Better Auth)
     const activeUsers = await prisma.session.count({
       where: {
-        expires_at: {
+        expiresAt: {
           gte: new Date(), // Valid (not expired) sessions
         },
       },

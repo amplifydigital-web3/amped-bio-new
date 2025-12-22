@@ -12,7 +12,7 @@ export const demoUser = {
   block: "no",
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
-  email_verified_at: new Date().toISOString(),
+
   reward_business_id: null,
 };
 
