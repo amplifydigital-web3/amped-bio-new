@@ -1,4 +1,4 @@
-// Note: Banner component uses react-router-dom hooks
+// Note: Banner component uses react-router hooks
 // and should be imported directly where there's a router context
 // export { Banner } from "./Banner";
 export { Layout } from "./Layout";
