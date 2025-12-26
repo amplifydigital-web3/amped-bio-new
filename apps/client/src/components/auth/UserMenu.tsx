@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { formatOnelink } from "@/utils/onelink";
 import { cn } from "@/lib/utils";
 import { useAccount } from "wagmi";

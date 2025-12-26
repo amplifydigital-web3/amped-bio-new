@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Users, Coins } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import PoolSkeleton from "./PoolSkeleton";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "../../../../utils/trpc";

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useLocation, Link, useNavigate } from "react-router-dom";
+import { useParams, useLocation, Link, useNavigate } from "react-router";
 import { Loader } from "lucide-react";
 import { AuthHeader } from "../../components/auth/AuthHeader";
 import { trpcClient } from "@/utils/trpc";
