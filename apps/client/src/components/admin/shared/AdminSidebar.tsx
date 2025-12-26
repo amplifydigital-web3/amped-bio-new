@@ -1,5 +1,5 @@
 import { BarChart3, Users, Layers, Settings, LogOut, Home, Hexagon, FileText } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useAuth } from "../../../contexts/AuthContext";
 
 interface AdminSidebarProps {

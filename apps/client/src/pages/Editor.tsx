@@ -1,9 +1,9 @@
-import { useParams, useLocation } from "react-router-dom";
+import { useParams, useLocation } from "react-router";
 import { Layout } from "../components/Layout";
 import { useAuth } from "../contexts/AuthContext";
 import { useEffect, useState } from "react";
 import { useEditor } from "../contexts/EditorContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { normalizeOnelink, formatOnelink, isEquivalentOnelink } from "@/utils/onelink";
 import { toast } from "react-hot-toast";
 import { trpc } from "../utils/trpc";

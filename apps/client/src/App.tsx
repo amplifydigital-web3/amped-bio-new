@@ -1,5 +1,5 @@
 import { useEffect, lazy, Suspense } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router";
 import { Editor } from "./pages/Editor";
 import { View } from "./pages/View";
 import PoolsPage from "./pages/PoolsPage";

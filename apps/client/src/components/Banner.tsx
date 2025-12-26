@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Info, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import { useEditor } from "../contexts/EditorContext";
 

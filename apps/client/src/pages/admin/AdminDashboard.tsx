@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "../../utils/trpc";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import {
   AdminUserStats,
   AdminBlockStats,

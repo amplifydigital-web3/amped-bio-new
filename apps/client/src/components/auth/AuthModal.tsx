@@ -7,7 +7,7 @@ import type { AuthUser } from "../../types/auth";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router";
 import { useOnelinkAvailability } from "@/hooks/useOnelinkAvailability";
 import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
 import { useGoogleLogin } from "@react-oauth/google";
