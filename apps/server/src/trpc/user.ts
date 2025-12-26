@@ -3,7 +3,6 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { sendEmailChangeVerification } from "../utils/email/email";
 import { generateAccessToken } from "../utils/token";
-import { hashRefreshToken } from "../utils/tokenHash";
 import crypto from "crypto";
 import { prisma } from "../services/DB";
 import { editUserSchema } from "../schemas/user.schema";
@@ -29,7 +28,7 @@ const confirmEmailChangeSchema = z.object({
 
 // Function to generate a random 6-digit code
 const generateSixDigitCode = (): string => {
-  return crypto.randomInt(100000, 1000000).toString();
+  return crypto.randomInt(100000, 1000000).toString().padStart(6, "0");
 };
 
 type Creator = {
@@ -282,30 +281,6 @@ export const userRouter = router({
           where: { id: confirmationCode.id },
           data: { used: true },
         });
-
-        // Delete all refresh tokens except for the current session's token
-        // Get the current refresh token from the request
-        const currentRefreshToken = ctx.req.cookies["refresh-token"];
-        if (currentRefreshToken) {
-          const hashedCurrentRefreshToken = hashRefreshToken(currentRefreshToken);
-
-          // Delete all refresh tokens for this user except the current one
-          await prisma.refreshToken.deleteMany({
-            where: {
-              userId: userId,
-              token: {
-                not: hashedCurrentRefreshToken, // Keep only the current token
-              },
-            },
-          });
-        } else {
-          // If no refresh token is available in the request, delete all refresh tokens
-          await prisma.refreshToken.deleteMany({
-            where: {
-              userId: userId,
-            },
-          });
-        }
 
         // Fetch user's wallet address
         const userWallet = await prisma.userWallet.findUnique({
