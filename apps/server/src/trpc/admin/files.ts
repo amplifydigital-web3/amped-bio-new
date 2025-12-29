@@ -144,7 +144,7 @@ export const filesRouter = router({
               id: true,
               name: true,
               email: true,
-              onelink: true,
+              handle: true,
             },
           },
         },
@@ -174,7 +174,7 @@ export const filesRouter = router({
               id: file.user.id,
               name: file.user.name,
               email: file.user.email,
-              onelink: file.user.onelink,
+              handle: file.user.handle,
             }
           : null,
         url: s3Service.getFileUrl(file.s3_key),

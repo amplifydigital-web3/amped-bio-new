@@ -78,7 +78,7 @@ export interface PoolDetailsForModal {
   creator: {
     userId: number;
     address: string;
-    littlelink: string | null;
+    handle: string | null;
     name: string;
   };
 }

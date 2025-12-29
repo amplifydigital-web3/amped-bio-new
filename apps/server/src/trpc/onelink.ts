@@ -27,25 +27,25 @@ export const redeemOnelinkSchema = z.object({
 });
 
 const appRouter = router({
-  // Check if a onelink is available for use
+  // Check if a handle is available for use
   checkAvailability: publicProcedure.input(onelinkParamSchema).query(async ({ input }) => {
-    console.group("🔍 CHECK ONELINK REQUEST (tRPC)");
-    console.info("📥 Received request to check onelink availability");
+    console.group("🔍 CHECK HANDLE REQUEST (tRPC)");
+    console.info("📥 Received request to check handle availability");
     const { onelink } = input;
     console.info(`🔍 Checking availability for: ${onelink}`);
 
     try {
-      console.info("🔄 Querying database to count matching onelinks");
+      console.info("🔄 Querying database to count matching handles");
       const count = await prisma.user.count({
         where: {
-          onelink: onelink,
+          handle: onelink,
         },
       });
       console.info(`🔢 Count result: ${count}`);
 
       const available = count === 0;
       console.info(
-        `${available ? "✅" : "❌"} Onelink "${onelink}" is ${available ? "available" : "taken"}`
+        `${available ? "✅" : "❌"} Handle "${onelink}" is ${available ? "available" : "taken"}`
       );
       console.groupEnd();
 
@@ -54,7 +54,7 @@ const appRouter = router({
         onelink,
       };
     } catch (error) {
-      console.error("❌ ERROR in checkOnelink", error);
+      console.error("❌ ERROR in checkHandle", error);
       console.groupEnd();
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
@@ -63,66 +63,66 @@ const appRouter = router({
     }
   }),
 
-  // Redeem/change a user's onelink
+  // Redeem/change a user's handle
   redeem: privateProcedure.input(redeemOnelinkSchema).mutation(async ({ ctx, input }) => {
-    console.group("🔄 REDEEM ONELINK REQUEST (tRPC)");
-    console.info("📥 Received request to redeem onelink");
+    console.group("🔄 REDEEM HANDLE REQUEST (tRPC)");
+    console.info("📥 Received request to redeem handle");
 
     const { newOnelink } = input;
     const userId = ctx.user.sub;
 
     try {
-      // Get current onelink for logging purposes
+      // Get current handle for logging purposes
       const currentUser = await prisma.user.findUnique({
         where: {
           id: userId,
         },
         select: {
-          onelink: true,
+          handle: true,
         },
       });
 
-      const currentOnelink = currentUser?.onelink;
+      const currentHandle = currentUser?.handle;
       console.info(
-        `🔄 User ${userId} requesting to change onelink from "${currentOnelink}" to "${newOnelink}"`
+        `🔄 User ${userId} requesting to change handle from "${currentHandle}" to "${newOnelink}"`
       );
 
-      // Check if the new onelink is available
-      const existingOnelink = await prisma.user.findUnique({
+      // Check if the new handle is available
+      const existingHandle = await prisma.user.findUnique({
         where: {
-          onelink: newOnelink,
+          handle: newOnelink,
         },
       });
 
-      if (existingOnelink) {
-        console.info(`❌ Onelink "${newOnelink}" is already taken`);
+      if (existingHandle) {
+        console.info(`❌ Handle "${newOnelink}" is already taken`);
         console.groupEnd();
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "This onelink is already taken",
+          message: "This handle is already taken",
         });
       }
 
-      // Update the user's onelink
+      // Update the user's handle
       await prisma.user.update({
         where: {
           id: userId,
         },
         data: {
-          onelink: newOnelink,
+          handle: newOnelink,
         },
       });
 
-      console.info(`✅ Onelink successfully updated to "${newOnelink}"`);
+      console.info(`✅ Handle successfully updated to "${newOnelink}"`);
       console.groupEnd();
 
       return {
         success: true,
-        message: "Onelink updated successfully",
+        message: "Handle updated successfully",
         onelink: newOnelink,
       };
     } catch (error) {
-      console.error("❌ ERROR in redeemOnelink", error);
+      console.error("❌ ERROR in redeemHandle", error);
       console.groupEnd();
       if (error instanceof TRPCError) throw error;
       throw new TRPCError({
@@ -133,26 +133,26 @@ const appRouter = router({
   }),
 
   getOnelink: publicProcedure.input(onelinkParamSchema).query(async opts => {
-    console.group("🔗 GET ONELINK REQUEST");
-    console.info("📥 Received request for onelink");
+    console.group("🔗 GET HANDLE REQUEST");
+    console.info("📥 Received request for handle");
     const { onelink } = opts.input;
-    console.info(`🔍 Looking up onelink: ${onelink}`);
+    console.info(`🔍 Looking up handle: ${onelink}`);
 
     try {
       console.info("🔄 Querying database for user");
       const user = await prisma.user.findUnique({
         where: {
-          onelink: onelink,
+          handle: onelink,
         },
       });
       console.info(`🔍 User lookup result: ${user ? "✅ Found" : "❌ Not found"}`);
 
       if (user === null) {
-        console.info(`⚠️ Onelink not found: ${onelink}`);
+        console.info(`⚠️ Handle not found: ${onelink}`);
         console.groupEnd();
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: `Onelink not found: ${onelink}`,
+          message: `Handle not found: ${onelink}`,
         });
       }
 

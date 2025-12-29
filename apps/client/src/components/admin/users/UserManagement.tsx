@@ -18,12 +18,7 @@ import { z } from "zod";
 import { formatUserRole, formatUserStatus, formatDate } from "../../../utils/adminFormat";
 import { maskEmail } from "../../../utils/email";
 import { Tooltip } from "@/components/ui/Tooltip";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "../../../components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
 
 // Define schema for user edit form
 const editUserSchema = z.object({
@@ -322,7 +317,7 @@ export function UserManagement() {
         user.id,
         escapeCSV(user.name),
         escapeCSV(user.email),
-        escapeCSV(user.onelink),
+        escapeCSV(user.handle),
         escapeCSV(user.role),
         escapeCSV(user.block === "yes" ? "Blocked" : "Active"),
         user._count.blocks,
@@ -472,11 +467,11 @@ export function UserManagement() {
                     </th>
                     <th
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleSort("onelink")}
+                      onClick={() => handleSort("handle")}
                     >
                       <div className="flex items-center">
                         Onelink
-                        {renderSortArrow("onelink")}
+                        {renderSortArrow("handle")}
                       </div>
                     </th>
                     <th
@@ -562,7 +557,7 @@ export function UserManagement() {
                         {showEmails ? user.email : maskEmail(user.email)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {user.onelink || "-"}
+                        {user.handle || "-"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {(() => {
@@ -631,8 +626,8 @@ export function UserManagement() {
                         <button
                           className="text-blue-600 hover:text-blue-900 mr-3"
                           onClick={() => {
-                            if (user.onelink) {
-                              window.open(`/@${user.onelink}`, "_blank");
+                            if (user.handle) {
+                              window.open(`/@${user.handle}`, "_blank");
                             }
                           }}
                         >

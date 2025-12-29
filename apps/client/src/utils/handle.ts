@@ -15,7 +15,7 @@ export type { OnelinkStatus };
 // Utility functions
 
 /**
- * Normalize an onelink by removing @ prefix if present
+ * Normalize an handle by removing @ prefix if present
  */
 export function normalizeOnelink(rawOnelink: string): string {
   if (!rawOnelink) return "";
@@ -23,7 +23,7 @@ export function normalizeOnelink(rawOnelink: string): string {
 }
 
 /**
- * Format an onelink with @ prefix for display
+ * Format an handle with @ prefix for display
  */
 export function formatOnelink(normalizedOnelink: string): `@${string}` {
   if (!normalizedOnelink) return "@";
@@ -33,7 +33,7 @@ export function formatOnelink(normalizedOnelink: string): `@${string}` {
 }
 
 /**
- * Get the full public URL for an onelink
+ * Get the full public URL for an handle
  */
 export function getOnelinkPublicUrl(normalizedOrFormattedOnelink: string): string {
   if (!normalizedOrFormattedOnelink) return BASE_URL;
@@ -42,7 +42,7 @@ export function getOnelinkPublicUrl(normalizedOrFormattedOnelink: string): strin
 }
 
 /**
- * Clean onelink input by removing spaces and special characters
+ * Clean handle input by removing spaces and special characters
  */
 export function cleanOnelinkInput(rawInput: string): string {
   // Remove @ prefix if present
@@ -53,7 +53,7 @@ export function cleanOnelinkInput(rawInput: string): string {
 }
 
 /**
- * Validate the format of an onelink (without @ prefix)
+ * Validate the format of an handle (without @ prefix)
  * Only alphanumeric, underscore and hyphen allowed
  */
 export function validateOnelinkFormat(normalizedOnelink: string): boolean {
@@ -61,14 +61,14 @@ export function validateOnelinkFormat(normalizedOnelink: string): boolean {
 }
 
 /**
- * Validate the length of an onelink
+ * Validate the length of an handle
  */
 export function validateOnelinkLength(normalizedOnelink: string): boolean {
   return normalizedOnelink.length >= ONELINK_MIN_LENGTH;
 }
 
 /**
- * Compare two onelinks for equivalence (ignoring @ prefix and case)
+ * Compare two handles for equivalence (ignoring @ prefix and case)
  */
 export function isEquivalentOnelink(rawOnelink1: string, rawOnelink2: string): boolean {
   if (!rawOnelink1 || !rawOnelink2) return false;
@@ -78,7 +78,7 @@ export function isEquivalentOnelink(rawOnelink1: string, rawOnelink2: string): b
 }
 
 /**
- * Check if an onelink is available via API
+ * Check if an handle is available via API
  */
 export async function checkOnelink(rawOnelink: string): Promise<boolean> {
   try {
@@ -86,14 +86,14 @@ export async function checkOnelink(rawOnelink: string): Promise<boolean> {
     const normalizedOnelink = normalizeOnelink(rawOnelink);
 
     // API call to check availability
-    const response = await trpcClient.onelink.checkAvailability.query({
-      onelink: normalizedOnelink,
+    const response = await trpcClient.handle.checkAvailability.query({
+      handle: normalizedOnelink,
     });
 
     // Return true if available, false if taken
     return response.available;
   } catch (error) {
-    console.error("Error checking onelink availability:", error);
+    console.error("Error checking handle availability:", error);
     return false;
   }
 }

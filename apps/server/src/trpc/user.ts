@@ -486,7 +486,7 @@ export const userRouter = router({
           select: {
             id: true,
             name: true,
-            onelink: true,
+            handle: true,
             image: true,
             description: true,
             created_at: true,
@@ -518,7 +518,7 @@ export const userRouter = router({
               user: {
                 id: user.id,
                 name: user.name,
-                onelink: user.onelink,
+                handle: user.handle,
                 image: user.image,
                 description: user.description,
                 created_at: user.created_at,
@@ -558,7 +558,7 @@ export const userRouter = router({
           users: paginatedUsers.map(item => ({
             id: item.user.id.toString(),
             displayName: item.user.name,
-            username: item.user.onelink || "",
+            username: item.user.handle || "",
             avatar: item.user.image,
             bio: item.user.description || "",
             banner: null, // Placeholder
@@ -594,7 +594,7 @@ export const userRouter = router({
           select: {
             id: true,
             name: true,
-            onelink: true,
+            handle: true,
             image: true,
             description: true,
             created_at: true,
@@ -646,7 +646,7 @@ export const userRouter = router({
           users: paginatedUsers.map(user => ({
             id: user.id.toString(),
             displayName: user.name,
-            username: user.onelink || "",
+            username: user.handle || "",
             avatar: user.image,
             bio: user.description || "",
             banner: null, // Placeholder

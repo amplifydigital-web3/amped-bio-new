@@ -1,7 +1,7 @@
 import React from "react";
 import { CheckCircle, XCircle, Clock, AlertCircle } from "lucide-react";
 import { Tooltip } from "./Tooltip";
-import { OnelinkStatus } from "@/utils/onelink";
+import { OnelinkStatus } from "@/utils/handle";
 
 interface URLStatusIndicatorProps {
   status: OnelinkStatus;

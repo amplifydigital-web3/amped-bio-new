@@ -571,7 +571,7 @@ export const walletRouter = router({
       }
     }),
 
-  // Search users by onelink or wallet address
+  // Search users by handle or wallet address
   searchUsers: privateProcedure
     .input(z.string()) // Input is the search query
     .query(async ({ input }) => {
@@ -581,7 +581,7 @@ export const walletRouter = router({
         where: {
           OR: [
             {
-              onelink: {
+              handle: {
                 contains: searchQuery,
               },
             },
@@ -597,7 +597,7 @@ export const walletRouter = router({
         select: {
           id: true,
           name: true,
-          onelink: true,
+          handle: true,
           image: true,
           description: true,
           wallet: {
@@ -612,7 +612,7 @@ export const walletRouter = router({
       // Map Prisma results to the User interface expected by the client
       return users.map(user => ({
         id: user.id.toString(), // Convert Int to String
-        username: user.onelink!.toLowerCase(), // Fallback to a derived username if onelink is null
+        username: user.handle!.toLowerCase(), // Convert handle to lowercase for username
         displayName: user.name,
         avatar: user.image,
         walletAddress: (user.wallet?.address as Address | undefined) ?? undefined,
@@ -632,7 +632,7 @@ export const walletRouter = router({
           user: {
             select: {
               name: true,
-              onelink: true,
+              handle: true,
               image: true,
             },
           },
@@ -645,7 +645,7 @@ export const walletRouter = router({
 
       return {
         name: userWallet.user.name,
-        onelink: userWallet.user.onelink,
+        handle: userWallet.user.handle,
         image: userWallet.user.image,
       };
     }),

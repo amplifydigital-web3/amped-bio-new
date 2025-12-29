@@ -5,7 +5,7 @@ export const UserSchema = z.object({
   id: z.number(),
   name: z.string(),
   email: z.string().email(),
-  onelink: z.string().nullable(),
+  handle: z.string().nullable(),
   created_at: z.string(),
   role: z.string(),
   _count: z.object({
@@ -15,7 +15,7 @@ export const UserSchema = z.object({
 
 // Onelink schema
 export const OnelinkSchema = z.object({
-  onelink: z.string().nullable(),
+  handle: z.string().nullable(),
   name: z.string(),
   totalClicks: z.number(),
   blockCount: z.number(),

@@ -4,7 +4,7 @@ import { BlockType, LinkBlock, MediaBlock, TextBlock } from "@ampedbio/constants
 export const demoUser = {
   id: 1,
   email: "demo@example.com",
-  onelink: "demouser",
+  handle: "demouser",
   name: "Demo User",
   description: "This is a demo user profile for testing",
   image: "https://i.pravatar.cc/300",
@@ -20,7 +20,7 @@ export const demoUser = {
 const typedUser = {
   id: demoUser.id,
   email: demoUser.email,
-  onelink: demoUser.onelink,
+  handle: demoUser.handle,
 } as const;
 
 // Mock data for responses
@@ -48,7 +48,7 @@ export const mockData = {
     verifyEmail: {
       success: true,
       message: "Email verified successfully",
-      onelink: demoUser.onelink,
+      handle: demoUser.handle,
       email: demoUser.email,
     },
   },
@@ -81,7 +81,7 @@ export const mockData = {
       fileId: 1,
     },
   },
-  onelink: {
+  handle: {
     getOnelink: {
       user: {
         name: demoUser.name,
@@ -283,7 +283,7 @@ export const mockData = {
       id: demoUser.id,
       name: demoUser.name,
       email: demoUser.email,
-      onelink: demoUser.onelink,
+      handle: demoUser.handle,
       role: demoUser.role,
       block: demoUser.block,
     },
@@ -326,7 +326,7 @@ export const mockData = {
       {
         userId: demoUser.id,
         name: demoUser.name,
-        onelink: demoUser.onelink,
+        handle: demoUser.handle,
         totalClicks: 15,
         blockCount: 4,
       },

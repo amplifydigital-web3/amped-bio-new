@@ -8,7 +8,7 @@ export function EmailVerification() {
   const { token } = useParams();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [message, setMessage] = useState("");
-  const [onelink, setOnelink] = useState("");
+  const [handle, setOnelink] = useState("");
   const location = useLocation();
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
@@ -20,8 +20,8 @@ export function EmailVerification() {
     // If status or error info is passed in URL params, use that
     if (statusParam === "success") {
       setStatus("success");
-      const onelinkParam = queryParams.get("onelink");
-      if (onelinkParam) setOnelink(onelinkParam);
+      const handleParam = queryParams.get("handle");
+      if (handleParam) setOnelink(handleParam);
       return;
     } else if (errorParam) {
       setStatus("error");
@@ -47,7 +47,7 @@ export function EmailVerification() {
       .mutate({ token, email })
       .then(data => {
         setStatus("success");
-        if (data.onelink) setOnelink(data.onelink);
+        if (data.handle) setOnelink(data.handle);
       })
       .catch(error => {
         setStatus("error");
@@ -91,9 +91,9 @@ export function EmailVerification() {
             <p className="text-gray-600">
               Your email has been verified. You can now access all features of your account.
             </p>
-            {onelink ? (
+            {handle ? (
               <Link
-                to={`/${onelink}`}
+                to={`/${handle}`}
                 className="inline-block mt-4 px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
               >
                 Go to Your Profile

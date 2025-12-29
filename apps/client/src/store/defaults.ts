@@ -3,8 +3,8 @@ import AmplifySVG from "../assets/AMPLIFY_FULL_K.svg";
 
 const defaultProfile: UserProfile = {
   name: "Amplify Digital",
-  onelink: "Amped.Bio",
-  onelinkFormatted: "@Amped.Bio",
+  handle: "Amped.Bio",
+  handleFormatted: "@Amped.Bio",
   email: "info@amplifydigital.ai",
   bio: "Empowering individuals and communities, enabling seamless transactions without intermediaries",
   photoCmp: AmplifySVG,

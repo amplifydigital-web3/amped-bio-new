@@ -19,14 +19,9 @@ import {
   cleanOnelinkInput,
   getOnelinkPublicUrl,
   formatOnelink,
-} from "@/utils/onelink";
+} from "@/utils/handle";
 import { trackGAEvent } from "@/utils/ga";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -42,7 +37,7 @@ const loginSchema = z.object({
 });
 
 const registerSchema = z.object({
-  onelink: z
+  handle: z
     .string()
     .min(3, "Name must be at least 3 characters")
     .regex(/^[a-zA-Z0-9_-]+$/, "Name can only contain letters, numbers, underscores and hyphens"),
@@ -129,14 +124,14 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
   // Add success state for reset password form
   const [resetSuccess, setResetSuccess] = useState(false);
 
-  const [onelinkInput, setOnelinkInput] = useState("");
-  const { urlStatus, isValid } = useOnelinkAvailability(onelinkInput);
+  const [handleInput, setOnelinkInput] = useState("");
+  const { urlStatus, isValid } = useOnelinkAvailability(handleInput);
 
-  // Handle onelink input changes with proper cleaning
+  // Handle handle input changes with proper cleaning
   const handleOnelinkChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const cleanValue = cleanOnelinkInput(e.target.value);
     setOnelinkInput(cleanValue);
-    setRegisterValue("onelink", cleanValue);
+    setRegisterValue("handle", cleanValue);
   };
 
   // Use react-hook-form with zod resolver based on current form type
@@ -186,7 +181,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
   const loginEmail = watchLogin("email");
   const registerEmail = watchRegister("email");
   const resetEmail = watchReset("email");
-  const registerOnelink = watchRegister("onelink");
+  const registerOnelink = watchRegister("handle");
   const registerPassword = watchRegister("password");
 
   // Use a single useEffect to handle all email synchronization
@@ -212,7 +207,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     isUserTyping.current = false;
   }, [setLoginValue, setRegisterValue, setResetValue, sharedEmail]);
 
-  // Check onelink availability when it changes
+  // Check handle availability when it changes
   useEffect(() => {
     if (registerOnelink) {
       const normalizedOnelink = normalizeOnelink(registerOnelink);
@@ -250,8 +245,8 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
       onClose(user);
 
       // Redirect the user to their edit page with panel state set to "home"
-      if (user && user.onelink) {
-        const formattedOnelink = formatOnelink(user.onelink);
+      if (user && user.handle) {
+        const formattedOnelink = formatOnelink(user.handle);
         navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
       }
     } catch (error) {
@@ -269,8 +264,8 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         const user = await signInWithGoogle(tokenResponse.access_token);
         onClose(user);
 
-        if (user && user.onelink) {
-          const formattedOnelink = formatOnelink(user.onelink);
+        if (user && user.handle) {
+          const formattedOnelink = formatOnelink(user.handle);
           navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
         }
       } catch (error) {
@@ -310,14 +305,16 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setRegisterError(null);
     try {
       // Get reCAPTCHA token using the invisible captcha
-      const recaptchaToken = isRecaptchaEnabled ? await executeCaptcha(CaptchaActions.REGISTER) : null;
+      const recaptchaToken = isRecaptchaEnabled
+        ? await executeCaptcha(CaptchaActions.REGISTER)
+        : null;
 
-      const user = await signUp(data.onelink, data.email, data.password, recaptchaToken);
+      const user = await signUp(data.handle, data.email, data.password, recaptchaToken);
       onClose(user);
 
       // Redirect to edit page with home panel selected
-      if (user && user.onelink) {
-        const formattedOnelink = formatOnelink(user.onelink);
+      if (user && user.handle) {
+        const formattedOnelink = formatOnelink(user.handle);
         navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
       }
     } catch (error) {
@@ -334,7 +331,9 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setResetSuccess(false);
     try {
       // Get reCAPTCHA token using the invisible captcha
-      const recaptchaToken = isRecaptchaEnabled ? await executeCaptcha(CaptchaActions.RESET_PASSWORD) : null;
+      const recaptchaToken = isRecaptchaEnabled
+        ? await executeCaptcha(CaptchaActions.RESET_PASSWORD)
+        : null;
 
       const response = await resetPassword(data.email, recaptchaToken);
       if (response.success) {
@@ -464,19 +463,19 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
                 <Input
                   label="Claim your name"
                   leftText="@"
-                  error={registerErrors.onelink?.message}
+                  error={registerErrors.handle?.message}
                   required
                   aria-label="Claim your name"
-                  data-testid="register-onelink"
+                  data-testid="register-handle"
                   autoComplete="username"
                   placeholder="your-name"
-                  {...registerSignUp("onelink")}
+                  {...registerSignUp("handle")}
                   onChange={e => {
-                    registerSignUp("onelink").onChange(e);
+                    registerSignUp("handle").onChange(e);
                     handleOnelinkChange(e);
                   }}
                   onBlur={e => {
-                    registerSignUp("onelink").onBlur(e);
+                    registerSignUp("handle").onBlur(e);
                     trackGAEvent("Input", "AuthModal", "RegisterOnelinkInput");
                   }}
                 />
@@ -484,17 +483,17 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
                   <URLStatusIndicator status={urlStatus} isCurrentUrl={false} compact={true} />
                 </div>
               </div>
-              {onelinkInput && (
+              {handleInput && (
                 <p className="text-sm text-gray-600" data-testid="public-url-preview">
                   Public URL:{" "}
                   <a
-                    href={getOnelinkPublicUrl(onelinkInput)}
+                    href={getOnelinkPublicUrl(handleInput)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:text-blue-700"
                     onClick={() => trackGAEvent("Click", "AuthModal", "PublicURLPreviewLink")}
                   >
-                    {getOnelinkPublicUrl(onelinkInput)}
+                    {getOnelinkPublicUrl(handleInput)}
                   </a>
                 </p>
               )}
@@ -550,8 +549,8 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
               <Button
                 type="submit"
                 className="w-full relative"
-                disabled={loading || urlStatus === "Unavailable" || !isValid || !onelinkInput}
-                aria-disabled={loading || urlStatus === "Unavailable" || !isValid || !onelinkInput}
+                disabled={loading || urlStatus === "Unavailable" || !isValid || !handleInput}
+                aria-disabled={loading || urlStatus === "Unavailable" || !isValid || !handleInput}
                 aria-label="Create Account"
                 data-testid="register-submit"
                 onClick={() => trackGAEvent("Click", "AuthModal", "CreateAccountButton")}
@@ -568,7 +567,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
 
               {renderSignInWithGoogle()}
 
-              {urlStatus === "Unavailable" && onelinkInput && (
+              {urlStatus === "Unavailable" && handleInput && (
                 <p
                   className="text-xs text-center text-red-600"
                   data-testid="url-unavailable-message"

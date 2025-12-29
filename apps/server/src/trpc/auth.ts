@@ -116,7 +116,7 @@ async function handleTokenGeneration(
     user: {
       id: user.id,
       email: user.email,
-      onelink: user.onelink || "",
+      handle: user.handle || "",
       role: user.role,
       image: imageUrl,
       wallet: userWallet?.address || null,
@@ -135,7 +135,7 @@ export const authRouter = router({
   // Register a new user
   register: publicProcedure.input(registerSchema).mutation(async ({ input, ctx }) => {
     try {
-      const { onelink, email, password, recaptchaToken } = input;
+      const { onelink: handle, email, password, recaptchaToken } = input;
 
       // Verify reCAPTCHA token
       const isRecaptchaValid = await verifyRecaptcha(recaptchaToken);
@@ -146,12 +146,12 @@ export const authRouter = router({
         });
       }
 
-      // Check if onelink already exists
-      const existingOnelinkCount = await prisma.user.count({
-        where: { onelink },
+      // Check if handle already exists
+      const existingHandleCount = await prisma.user.count({
+        where: { handle },
       });
 
-      if (existingOnelinkCount > 0) {
+      if (existingHandleCount > 0) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "URL already taken",
@@ -185,8 +185,8 @@ export const authRouter = router({
       // Create user
       const result = await prisma.user.create({
         data: {
-          onelink,
-          name: onelink,
+          handle,
+          name: handle,
           email,
           password: hashedPassword,
           remember_token,
@@ -404,7 +404,7 @@ export const authRouter = router({
         user: {
           id: user.id,
           email: user.email,
-          onelink: user.onelink,
+          handle: user.handle,
           // emailVerified: user.email_verified_at !== null,
           role: user.role,
           image: imageUrl,
@@ -570,7 +570,7 @@ export const authRouter = router({
 
         return {
           message: "Email verified successfully",
-          onelink: result.onelink,
+          handle: result.handle,
           email,
         };
       } catch (error) {
@@ -692,20 +692,20 @@ export const authRouter = router({
 
       if (!user) {
         // User doesn't exist, create a new one
-        // Generate onelink from email (use part before @)
-        let onelink = googleUser.email.split("@")[0].toLowerCase();
+        // Generate handle from email (use part before @)
+        let handle = googleUser.email.split("@")[0].toLowerCase();
 
-        // Clean onelink (remove special chars)
-        onelink = onelink.replace(/[^a-z0-9_-]/g, "");
+        // Clean handle (remove special chars)
+        handle = handle.replace(/[^a-z0-9_-]/g, "");
 
-        // Check if onelink exists
-        const existingOnelink = await prisma.user.findFirst({
-          where: { onelink },
+        // Check if handle exists
+        const existingHandle = await prisma.user.findFirst({
+          where: { handle },
         });
 
-        if (existingOnelink) {
-          // Append random string to make onelink unique
-          onelink = `${onelink}${Math.random().toString(36).substring(2, 6)}`;
+        if (existingHandle) {
+          // Append random string to make handle unique
+          handle = `${handle}${Math.random().toString(36).substring(2, 6)}`;
         }
 
         // Generate a random password
@@ -722,8 +722,8 @@ export const authRouter = router({
 
         const newUser = await prisma.user.create({
           data: {
-            onelink,
-            name: googleUser.name || onelink,
+            handle,
+            name: googleUser.name || handle,
             email: googleUser.email,
             password: hashedPassword,
             email_verified_at: new Date(), // Email is already verified with Google

@@ -13,7 +13,7 @@ import { formatEther } from "viem";
 import { getChainConfig } from "@ampedbio/web3";
 
 import PoolDetailsModalSkeleton from "./PoolDetailsModalSkeleton";
-import { formatOnelink } from "@/utils/onelink";
+import { formatOnelink } from "@/utils/handle";
 import { Button } from "@/components/ui/Button";
 import { formatNumberWithSeparators } from "@/utils/numberUtils";
 

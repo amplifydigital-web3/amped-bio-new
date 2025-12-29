@@ -62,7 +62,7 @@ const validateTokenWithServer = async (): Promise<{ isValid: boolean; user?: Aut
     const user: AuthUser = {
       id: response.user.id,
       email: response.user.email,
-      onelink: response.user.onelink ?? "",
+      handle: response.user.handle ?? "",
       role: response.user.role,
       image: response.user.image,
       wallet: response.user.wallet,
@@ -96,7 +96,7 @@ type AuthContextType = {
   signIn: (email: string, password: string, recaptchaToken: string | null) => Promise<AuthUser>;
   signInWithGoogle: (token: string) => Promise<AuthUser>; // Add Google auth method
   signUp: (
-    onelink: string,
+    handle: string,
     email: string,
     password: string,
     recaptchaToken: string | null
@@ -263,7 +263,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signUp = async (
-    onelink: string,
+    handle: string,
     email: string,
     password: string,
     recaptchaToken: string | null
@@ -271,7 +271,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       setError(null);
       const response = await trpcClient.auth.register.mutate({
-        onelink,
+        handle,
         email,
         password,
         recaptchaToken,

@@ -6,15 +6,15 @@ import {
   validateOnelinkLength,
   isEquivalentOnelink,
   checkOnelink,
-} from "@/utils/onelink";
+} from "@/utils/handle";
 
 // Re-export the OnelinkStatus type for backward compatibility
 export type URLStatus = OnelinkStatus;
 
 /**
- * Hook for checking onelink availability with debounce
- * @param url The onelink to check (with or without @ prefix)
- * @param currentUrl The current user's onelink (optional, for comparison)
+ * Hook for checking handle availability with debounce
+ * @param url The handle to check (with or without @ prefix)
+ * @param currentUrl The current user's handle (optional, for comparison)
  */
 export function useOnelinkAvailability(url: string, currentUrl: string = "") {
   const [urlStatus, setUrlStatus] = useState<URLStatus>("Unknown");
@@ -41,7 +41,7 @@ export function useOnelinkAvailability(url: string, currentUrl: string = "") {
       return;
     }
 
-    // Check if URL is the same as current onelink
+    // Check if URL is the same as current handle
     if (isCurrentUrl) {
       setUrlStatus("Unknown"); // We'll handle this special case in the UI
       return;

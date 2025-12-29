@@ -41,10 +41,10 @@ export const adminController = {
   // Create a new user
   async createUser(req: Request, res: Response) {
     try {
-      const { name, email, password, onelink, description, role } = req.body;
+      const { name, email, password, onelink: handle, description, role } = req.body;
 
       // Validate required fields
-      if (!name || !email || !password || !onelink) {
+      if (!name || !email || !password || !handle) {
         return res.status(400).json({ message: "Missing required fields" });
       }
 
@@ -57,13 +57,13 @@ export const adminController = {
         return res.status(400).json({ message: "Email already in use" });
       }
 
-      // Check if onelink already exists
-      const existingOnelink = await prisma.user.findUnique({
-        where: { onelink },
+      // Check if handle already exists
+      const existingHandle = await prisma.user.findUnique({
+        where: { handle },
       });
 
-      if (existingOnelink) {
-        return res.status(400).json({ message: "Onelink name already in use" });
+      if (existingHandle) {
+        return res.status(400).json({ message: "Handle name already in use" });
       }
 
       // Hash password
@@ -75,7 +75,7 @@ export const adminController = {
           name,
           email,
           password: hashedPassword,
-          onelink,
+          handle,
           description,
           role: role || "user",
         },
@@ -98,7 +98,7 @@ export const adminController = {
   async updateUser(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { name, email, password, onelink, description, role, block } = req.body;
+      const { name, email, password, handle, description, role, block } = req.body;
 
       // Check if user exists
       const existingUser = await prisma.user.findUnique({
@@ -130,17 +130,17 @@ export const adminController = {
         updateData.email = email;
       }
 
-      // If onelink is being updated, check uniqueness
-      if (onelink && onelink !== existingUser.onelink) {
-        const existingOnelink = await prisma.user.findUnique({
-          where: { onelink },
+      // If handle is being updated, check uniqueness
+      if (handle && handle !== existingUser.handle) {
+        const existingHandle = await prisma.user.findUnique({
+          where: { handle },
         });
 
-        if (existingOnelink) {
-          return res.status(400).json({ message: "Onelink name already in use" });
+        if (existingHandle) {
+          return res.status(400).json({ message: "Handle name already in use" });
         }
 
-        updateData.onelink = onelink;
+        updateData.handle = handle;
       }
 
       // If password is being updated, hash it
