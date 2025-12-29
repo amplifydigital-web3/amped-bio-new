@@ -37,6 +37,17 @@ export const auth = betterAuth({
     },
   },
   user: {
+    changeEmail: {
+      enabled: true,
+    },
+    emailVerification: {
+      // Required to send the verification email
+      sendVerificationEmail: async ({ user, url, token }) => {
+        void sendEmail({
+          to: user.email,
+        });
+      },
+    },
     modelName: "User",
     fields: {
       emailVerified: "email_verified",
