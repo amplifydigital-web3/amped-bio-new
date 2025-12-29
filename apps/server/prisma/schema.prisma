@@ -10,6 +10,7 @@ generator client {
 model User {
   id                  Int       @id @default(autoincrement())
   name                String
+  revo_name           String?   @unique
   email               String    @unique
   email_verified_at   DateTime?
   password            String

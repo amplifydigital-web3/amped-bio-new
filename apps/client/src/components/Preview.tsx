@@ -14,6 +14,8 @@ import { isHTML } from "@/utils/htmlutils";
 import { type BlockType } from "@ampedbio/constants";
 import { Theme, UserProfile } from "@/types/editor";
 import { trpcClient } from "@/utils/trpc";
+import { useState } from "react";
+import { Check, Copy } from "lucide-react";
 
 // Helper function to extract the root domain from a URL
 const extractRootDomain = (url: string): string => {
@@ -37,12 +39,19 @@ interface PreviewProps {
 }
 
 export function Preview({ profile, blocks, theme }: PreviewProps) {
+  const [copied, setCopied] = useState(false);
   const themeConfig = theme.config;
 
   const handleLinkClick = (block: BlockType) => {
     if (block.type === "link") {
       trpcClient.blocks.registerClick.mutate({ id: block.id });
     }
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(profile.revoName ?? "");
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   // console.info("blocks preview", blocks);
@@ -134,18 +143,44 @@ export function Preview({ profile, blocks, theme }: PreviewProps) {
                   </div>
                 )}
                 <div className="space-y-4">
-                  <h1
-                    className={cn(
-                      "text-4xl font-bold tracking-tight",
-                      getHeroEffectStyle(themeConfig?.heroEffect)
+                  <div>
+                    <h1
+                      className={cn(
+                        "text-4xl font-bold tracking-tight",
+                        getHeroEffectStyle(themeConfig?.heroEffect)
+                      )}
+                      style={{
+                        fontFamily: themeConfig?.fontFamily,
+                        color: themeConfig?.fontColor,
+                      }}
+                    >
+                      {profile.name}
+                    </h1>
+                    {profile.revoName && (
+                      <div
+                        className={cn(
+                          "font-bold tracking-tight flex items-center justify-center space-x-2",
+                          getHeroEffectStyle(themeConfig?.heroEffect)
+                        )}
+                        style={{
+                          fontFamily: themeConfig?.fontFamily,
+                          color: themeConfig?.fontColor,
+                        }}
+                      >
+                        <button
+                          onClick={handleCopy}
+                          className="text-sm font-bold transition-all duration-300"
+                        >
+                          {!copied ? (
+                            <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                          ) : (
+                            <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" />
+                          )}
+                        </button>
+                        <span className="font-medium">{profile.revoName}</span>
+                      </div>
                     )}
-                    style={{
-                      fontFamily: themeConfig?.fontFamily,
-                      color: themeConfig?.fontColor,
-                    }}
-                  >
-                    {profile.name}
-                  </h1>
+                  </div>
                   {profile.bio &&
                     (isHTML(profile.bio) ? (
                       <p

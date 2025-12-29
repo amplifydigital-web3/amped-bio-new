@@ -51,9 +51,9 @@ export const userRouter = router({
     console.info("📝 Starting user edit process");
     console.info(`👤 User ID: ${userId}`);
 
-    const { name, description, theme, image, reward_business_id } = input;
+    const { name, description, theme, image, reward_business_id, revo_name } = input;
     console.info(
-      `📋 Edit data: ${JSON.stringify({ name, description, theme, image, reward_business_id })}`
+      `📋 Edit data: ${JSON.stringify({ name, description, theme, image, reward_business_id, revo_name })}`
     );
 
     try {
@@ -63,6 +63,7 @@ export const userRouter = router({
         data: {
           name,
           description,
+          revo_name,
           theme: `${theme}`,
           image,
           reward_business_id,

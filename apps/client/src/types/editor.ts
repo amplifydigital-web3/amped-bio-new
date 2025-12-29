@@ -10,6 +10,7 @@ export type UserProfile = {
   name: string;
   onelink: string; // Without @ symbol
   onelinkFormatted: string; // With @ symbol
+  revoName?: string;
   email: string;
   bio: string;
   photoUrl?: string;

@@ -98,7 +98,7 @@ export const adminController = {
   async updateUser(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { name, email, password, onelink, description, role, block } = req.body;
+      const { name, email, password, onelink, revoName, description, role, block } = req.body;
 
       // Check if user exists
       const existingUser = await prisma.user.findUnique({
@@ -116,6 +116,7 @@ export const adminController = {
       if (description !== undefined) updateData.description = description;
       if (role) updateData.role = role;
       if (block) updateData.block = block;
+      if (revoName) updateData.revoName = revoName;
 
       // If email is being updated, validate and check uniqueness
       if (email && email !== existingUser.email) {
