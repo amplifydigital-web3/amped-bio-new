@@ -1,19 +1,19 @@
 import { ArrowUpRight } from "lucide-react";
 
-interface AdminTopOnelinkItem {
+interface AdminTopHandleItem {
   handle: string | null;
   name: string;
   totalClicks: number;
   blockCount: number;
 }
 
-interface AdminTopOnelinksProps {
-  topOnelinks: AdminTopOnelinkItem[];
+interface AdminTopHandlesProps {
+  topHandles: AdminTopHandleItem[];
 }
 
-export const AdminTopOnelinks = ({ topOnelinks }: AdminTopOnelinksProps) => {
+export const AdminTopHandles = ({ topHandles }: AdminTopHandlesProps) => {
   // Handle handle click
-  const openOnelink = (handle: string | null) => {
+  const openHandle = (handle: string | null) => {
     if (handle) {
       window.open(`/@${handle}`, "_blank");
     }
@@ -22,14 +22,14 @@ export const AdminTopOnelinks = ({ topOnelinks }: AdminTopOnelinksProps) => {
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
       <div className="py-4 px-6 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-900">Top Performing Onelinks</h2>
+        <h2 className="text-lg font-semibold text-gray-900">Top Performing Handles</h2>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead className="bg-gray-50">
             <tr>
               <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Onelink
+                Handle
               </th>
               <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Total Clicks
@@ -40,7 +40,7 @@ export const AdminTopOnelinks = ({ topOnelinks }: AdminTopOnelinksProps) => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {topOnelinks.map((item, index) => (
+            {topHandles.map((item, index) => (
               <tr key={index} className="hover:bg-gray-50">
                 <td className="py-4 px-6">
                   <div className="flex items-center">
@@ -50,7 +50,7 @@ export const AdminTopOnelinks = ({ topOnelinks }: AdminTopOnelinksProps) => {
                     <div className="ml-4">
                       <div
                         className="text-sm font-medium text-gray-900 hover:text-blue-600 cursor-pointer flex items-center"
-                        onClick={() => openOnelink(item.handle)}
+                        onClick={() => openHandle(item.handle)}
                       >
                         @{item.handle || "unnamed"}
                         <ArrowUpRight className="h-3 w-3 ml-1" />
@@ -69,7 +69,7 @@ export const AdminTopOnelinks = ({ topOnelinks }: AdminTopOnelinksProps) => {
                 </td>
               </tr>
             ))}
-            {topOnelinks.length === 0 && (
+            {topHandles.length === 0 && (
               <tr>
                 <td colSpan={4} className="py-6 text-center text-gray-500">
                   No data available

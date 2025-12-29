@@ -82,7 +82,7 @@ export const mockData = {
     },
   },
   handle: {
-    getOnelink: {
+    getHandle: {
       user: {
         name: demoUser.name,
         email: demoUser.email,
@@ -322,7 +322,7 @@ export const mockData = {
         { type: "TEXT", totalClicks: 0 },
       ],
     },
-    getTopOnelinks: [
+    getTopHandles: [
       {
         userId: demoUser.id,
         name: demoUser.name,

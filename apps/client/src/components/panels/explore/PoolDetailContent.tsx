@@ -13,7 +13,7 @@ import { formatEther } from "viem";
 import { getChainConfig } from "@ampedbio/web3";
 
 import PoolDetailsModalSkeleton from "./PoolDetailsModalSkeleton";
-import { formatOnelink } from "@/utils/handle";
+import { formatHandle } from "@/utils/handle";
 import { Button } from "@/components/ui/Button";
 import { formatNumberWithSeparators } from "@/utils/numberUtils";
 
@@ -219,12 +219,12 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                   <p className="text-sm text-gray-500 mt-1">
                     Created by{" "}
                     <a
-                      href={`/${formatOnelink(pool.creator.littlelink)}`}
+                      href={`/${formatHandle(pool.creator.littlelink)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-600 hover:underline"
                     >
-                      {formatOnelink(pool.creator.littlelink)}
+                      {formatHandle(pool.creator.littlelink)}
                     </a>
                   </p>
                 )}

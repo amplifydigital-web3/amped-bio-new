@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router";
-import { formatOnelink } from "@/utils/handle";
+import { formatHandle } from "@/utils/handle";
 import { cn } from "@/lib/utils";
 import { useAccount } from "wagmi";
 import { useWalletContext } from "@/contexts/WalletContext";
@@ -46,15 +46,15 @@ export function UserMenu() {
 
     // Redirect to the edit page instead of public profile
     if (user && user.handle) {
-      const formattedOnelink = formatOnelink(user.handle);
+      const formattedHandle = formatHandle(user.handle);
       // Check if there's a panel parameter in the current URL
       const searchParams = new URLSearchParams(window.location.search);
       const panelParam = searchParams.get("p");
 
       if (panelParam) {
-        return navigate(`/${formattedOnelink}/edit?p=${panelParam}`);
+        return navigate(`/${formattedHandle}/edit?p=${panelParam}`);
       }
-      return navigate(`/${formattedOnelink}/edit`);
+      return navigate(`/${formattedHandle}/edit`);
     }
     return navigate("/");
   };
@@ -80,13 +80,13 @@ export function UserMenu() {
 
   const handleNavigateToWallet = () => {
     if (authUser?.handle) {
-      return navigate(`/${formatOnelink(authUser.handle)}/edit?p=wallet`);
+      return navigate(`/${formatHandle(authUser.handle)}/edit?p=wallet`);
     }
   };
 
   const handleNavigateToProfile = () => {
     if (authUser?.handle) {
-      return navigate(`/${formatOnelink(authUser.handle)}/edit?p=profile`);
+      return navigate(`/${formatHandle(authUser.handle)}/edit?p=profile`);
     }
   };
 

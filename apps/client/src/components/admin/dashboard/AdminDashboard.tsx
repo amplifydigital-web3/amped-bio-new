@@ -73,7 +73,7 @@ export const AdminDashboard = ({
         averageBlocksPerUser={blockStats.averageBlocksPerUser}
       />
 
-// Top Performing Handles */}
+      {/* Top Performing Handles */}
       <AdminTopHandles topHandles={topHandles} />
 
       {/* Recent Users */}

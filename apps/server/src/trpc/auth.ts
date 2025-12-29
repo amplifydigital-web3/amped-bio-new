@@ -135,7 +135,7 @@ export const authRouter = router({
   // Register a new user
   register: publicProcedure.input(registerSchema).mutation(async ({ input, ctx }) => {
     try {
-      const { onelink: handle, email, password, recaptchaToken } = input;
+      const { handle, email, password, recaptchaToken } = input;
 
       // Verify reCAPTCHA token
       const isRecaptchaValid = await verifyRecaptcha(recaptchaToken);

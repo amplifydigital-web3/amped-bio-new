@@ -8,7 +8,7 @@ export function EmailVerification() {
   const { token } = useParams();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [message, setMessage] = useState("");
-  const [handle, setOnelink] = useState("");
+  const [handle, setHandle] = useState("");
   const location = useLocation();
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
@@ -21,7 +21,7 @@ export function EmailVerification() {
     if (statusParam === "success") {
       setStatus("success");
       const handleParam = queryParams.get("handle");
-      if (handleParam) setOnelink(handleParam);
+      if (handleParam) setHandle(handleParam);
       return;
     } else if (errorParam) {
       setStatus("error");
@@ -47,7 +47,7 @@ export function EmailVerification() {
       .mutate({ token, email })
       .then(data => {
         setStatus("success");
-        if (data.handle) setOnelink(data.handle);
+        if (data.handle) setHandle(data.handle);
       })
       .catch(error => {
         setStatus("error");

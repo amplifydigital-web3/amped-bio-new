@@ -43,7 +43,7 @@ export const AdminRecentUsers = ({
   // Email obscuring functionality moved to utils/email.ts
 
   // Handle handle click
-  const openOnelink = (handle: string | null) => {
+  const openHandle = (handle: string | null) => {
     if (handle) {
       window.open(`/@${handle}`, "_blank");
     }
@@ -112,7 +112,7 @@ export const AdminRecentUsers = ({
                 User
               </th>
               <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Onelink
+                Handle
               </th>
               <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Joined
@@ -149,7 +149,7 @@ export const AdminRecentUsers = ({
                   {user.handle ? (
                     <span
                       className="text-blue-600 hover:text-blue-800 cursor-pointer flex items-center"
-                      onClick={() => openOnelink(user.handle)}
+                      onClick={() => openHandle(user.handle)}
                     >
                       @{user.handle}
                       <ArrowUpRight className="h-3 w-3 ml-1" />

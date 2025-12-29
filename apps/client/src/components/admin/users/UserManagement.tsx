@@ -303,7 +303,7 @@ export function UserManagement() {
       "ID",
       "Name",
       "Email",
-      "Onelink",
+      "Handle",
       "Role",
       "Status",
       "Blocks",
@@ -470,7 +470,7 @@ export function UserManagement() {
                       onClick={() => handleSort("handle")}
                     >
                       <div className="flex items-center">
-                        Onelink
+                        Handle
                         {renderSortArrow("handle")}
                       </div>
                     </th>

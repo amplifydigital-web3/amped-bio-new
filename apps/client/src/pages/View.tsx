@@ -3,7 +3,7 @@ import { Preview } from "../components/Preview";
 import { Settings } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useEffect, useState } from "react";
-import { formatOnelink, normalizeOnelink } from "@/utils/handle";
+import { formatHandle, normalizeHandle } from "@/utils/handle";
 import { trpcClient } from "@/utils/trpc";
 import type { UserProfile, Theme } from "@/types/editor";
 import { TRPCClientError } from "@trpc/client";
@@ -88,13 +88,13 @@ export function View() {
   const [loading, setLoading] = useState(isRegisterRoute || isLoginRoute ? false : true);
 
   // Use default handle when on root URL with no handle parameter
-  const effectiveOnelink =
+  const effectiveHandle =
     ["/", "/register", "/login"].includes(location.pathname) && (!handle || handle === "")
       ? DEFAULT_ONELINK
       : handle;
 
   // Normalize handle to handle @ symbols in URLs
-  const normalizedOnelink = normalizeOnelink(effectiveOnelink);
+  const normalizedHandle = normalizeHandle(effectiveHandle);
 
   // Determine if this is the initial/home page (no handle parameter in URL)
   const isInitialPage = !handle || handle === "";
@@ -112,8 +112,8 @@ export function View() {
       setInitialAuthForm(isRegisterRoute ? "register" : "login");
     } else if ((isRegisterRoute || isLoginRoute) && authUser) {
       // If already logged in, redirect to their edit page
-      const formattedOnelink = formatOnelink(authUser.handle);
-      navigate(`/${formattedOnelink}/edit`);
+      const formattedHandle = formatHandle(authUser.handle);
+      navigate(`/${formattedHandle}/edit`);
     }
   }, [isRegisterRoute, isLoginRoute, authUser, navigate]);
 
@@ -125,34 +125,34 @@ export function View() {
     // 3. Not the landingpage on root URL
     // 4. The handle doesn't already start with @
     if (
-      effectiveOnelink &&
+      effectiveHandle &&
       !(isRegisterRoute || isLoginRoute) &&
-      !(effectiveOnelink === "landingpage" && location.pathname === "/") &&
-      !effectiveOnelink.startsWith("@")
+      !(effectiveHandle === "landingpage" && location.pathname === "/") &&
+      !effectiveHandle.startsWith("@")
     ) {
       // Navigate to the same route but with @ symbol
-      navigate(`/@${effectiveOnelink}${location.search}`, { replace: true });
+      navigate(`/@${effectiveHandle}${location.search}`, { replace: true });
     }
-  }, [effectiveOnelink, navigate, location.pathname, location.search, isRegisterRoute]);
+  }, [effectiveHandle, navigate, location.pathname, location.search, isRegisterRoute]);
 
   useEffect(() => {
-    if (normalizedOnelink) {
+    if (normalizedHandle) {
       const fetchData = async () => {
         setLoading(true);
         try {
-          const onlinkData = await trpcClient.handle.getOnelink.query({
-            handle: normalizedOnelink,
+          const onlinkData = await trpcClient.handle.getHandle.query({
+            handle: normalizedHandle,
           });
 
           if (onlinkData) {
             const { user, theme, blocks: blocks_raw, hasCreatorPool } = onlinkData;
             const { name, email, description, image } = user;
-            const formattedOnelink = formatOnelink(normalizedOnelink);
+            const formattedHandle = formatHandle(normalizedHandle);
 
             setProfile({
               name,
-              handle: normalizedOnelink,
-              handleFormatted: formattedOnelink,
+              handle: normalizedHandle,
+              handleFormatted: formattedHandle,
               email,
               bio: description ?? "",
               photoUrl: image ?? "",
@@ -165,7 +165,7 @@ export function View() {
             setHasCreatorPool(hasCreatorPool);
           } else {
             // Only redirect if the current handle is not already the default
-            if (normalizedOnelink !== DEFAULT_ONELINK) {
+            if (normalizedHandle !== DEFAULT_ONELINK) {
               navigate("/");
             }
           }
@@ -176,7 +176,7 @@ export function View() {
           if (
             error instanceof TRPCClientError &&
             error.data?.code === "NOT_FOUND" &&
-            normalizedOnelink === DEFAULT_ONELINK
+            normalizedHandle === DEFAULT_ONELINK
           ) {
             // Use default data from initialState
             setProfile(initialState.profile);
@@ -184,7 +184,7 @@ export function View() {
             setBlocks(initialState.blocks);
           }
           // Only redirect on error if not the default handle
-          else if (normalizedOnelink !== DEFAULT_ONELINK) {
+          else if (normalizedHandle !== DEFAULT_ONELINK) {
             navigate("/");
           }
         } finally {
@@ -194,7 +194,7 @@ export function View() {
 
       fetchData();
     }
-  }, [normalizedOnelink, navigate]);
+  }, [normalizedHandle, navigate]);
 
   // Handle auth modal close
   const handleSignIn = (user: AuthUser) => {
@@ -206,8 +206,8 @@ export function View() {
 
     // If user registered/logged in, redirect to their edit page
     if (user && user.handle) {
-      const formattedOnelink = formatOnelink(user.handle);
-      navigate(`/${formattedOnelink}/edit`);
+      const formattedHandle = formatHandle(user.handle);
+      navigate(`/${formattedHandle}/edit`);
     }
   };
 
@@ -232,7 +232,7 @@ export function View() {
     <div className="min-h-screen flex flex-col">
       <Preview
         isEditing={false}
-        handle={normalizedOnelink}
+        handle={normalizedHandle}
         profile={profile}
         blocks={blocks}
         theme={theme ?? initialState.theme}
@@ -242,7 +242,7 @@ export function View() {
         {/* View Creator Pool Button */}
         {hasCreatorPool && (
           <Link
-            to={`/pools/${normalizedOnelink}`}
+            to={`/pools/${normalizedHandle}`}
             className="p-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
           >
             <span>View Creator Pool</span>
@@ -252,7 +252,7 @@ export function View() {
         {/* Edit Button */}
         {authUser && (isInitialPage || authUser.email === profile.email) && (
           <Link
-            to={`/${formatOnelink(authUser.handle)}/edit`}
+            to={`/${formatHandle(authUser.handle)}/edit`}
             className="p-3 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-colors flex items-center space-x-2"
           >
             <Settings className="w-5 h-5" />

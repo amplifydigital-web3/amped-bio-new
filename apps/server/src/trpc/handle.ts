@@ -4,54 +4,54 @@ import { getFileUrl } from "../utils/fileUrlResolver";
 import { ThemeConfig } from "@ampedbio/constants";
 import { prisma } from "../services/DB";
 import { z } from "zod";
-import { ONELINK_MIN_LENGTH, ONELINK_REGEX } from "@ampedbio/constants";
+import { HANDLE_MIN_LENGTH, HANDLE_REGEX } from "@ampedbio/constants";
 
-// Create a base schema for onelink validation
-export const onelinkBaseSchema = z
+// Create a base schema for handle validation
+export const handleBaseSchema = z
   .string()
   .transform(value => (value.startsWith("@") ? value.substring(1) : value)) // Normalize by removing @ prefix if present
   .pipe(
     z
       .string()
-      .min(ONELINK_MIN_LENGTH, `Name must be at least ${ONELINK_MIN_LENGTH} characters`)
-      .regex(ONELINK_REGEX, "Name can only contain letters, numbers, underscores and hyphens")
+      .min(HANDLE_MIN_LENGTH, `Name must be at least ${HANDLE_MIN_LENGTH} characters`)
+      .regex(HANDLE_REGEX, "Name can only contain letters, numbers, underscores and hyphens")
   );
 
 // Use the base schema in specific contexts
-export const onelinkParamSchema = z.object({
-  onelink: onelinkBaseSchema,
+export const handleParamSchema = z.object({
+  handle: handleBaseSchema,
 });
 
-export const redeemOnelinkSchema = z.object({
-  newOnelink: onelinkBaseSchema,
+export const redeemHandleSchema = z.object({
+  newHandle: handleBaseSchema,
 });
 
 const appRouter = router({
   // Check if a handle is available for use
-  checkAvailability: publicProcedure.input(onelinkParamSchema).query(async ({ input }) => {
+  checkAvailability: publicProcedure.input(handleParamSchema).query(async ({ input }) => {
     console.group("🔍 CHECK HANDLE REQUEST (tRPC)");
     console.info("📥 Received request to check handle availability");
-    const { onelink } = input;
-    console.info(`🔍 Checking availability for: ${onelink}`);
+    const { handle } = input;
+    console.info(`🔍 Checking availability for: ${handle}`);
 
     try {
       console.info("🔄 Querying database to count matching handles");
       const count = await prisma.user.count({
         where: {
-          handle: onelink,
+          handle: handle,
         },
       });
       console.info(`🔢 Count result: ${count}`);
 
       const available = count === 0;
       console.info(
-        `${available ? "✅" : "❌"} Handle "${onelink}" is ${available ? "available" : "taken"}`
+        `${available ? "✅" : "❌"} Handle "${handle}" is ${available ? "available" : "taken"}`
       );
       console.groupEnd();
 
       return {
         available,
-        onelink,
+        handle,
       };
     } catch (error) {
       console.error("❌ ERROR in checkHandle", error);
@@ -64,11 +64,11 @@ const appRouter = router({
   }),
 
   // Redeem/change a user's handle
-  redeem: privateProcedure.input(redeemOnelinkSchema).mutation(async ({ ctx, input }) => {
+  redeem: privateProcedure.input(redeemHandleSchema).mutation(async ({ ctx, input }) => {
     console.group("🔄 REDEEM HANDLE REQUEST (tRPC)");
     console.info("📥 Received request to redeem handle");
 
-    const { newOnelink } = input;
+    const { newHandle } = input;
     const userId = ctx.user.sub;
 
     try {
@@ -84,18 +84,18 @@ const appRouter = router({
 
       const currentHandle = currentUser?.handle;
       console.info(
-        `🔄 User ${userId} requesting to change handle from "${currentHandle}" to "${newOnelink}"`
+        `🔄 User ${userId} requesting to change handle from "${currentHandle}" to "${newHandle}"`
       );
 
       // Check if the new handle is available
       const existingHandle = await prisma.user.findUnique({
         where: {
-          handle: newOnelink,
+          handle: newHandle,
         },
       });
 
       if (existingHandle) {
-        console.info(`❌ Handle "${newOnelink}" is already taken`);
+        console.info(`❌ Handle "${newHandle}" is already taken`);
         console.groupEnd();
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -109,17 +109,17 @@ const appRouter = router({
           id: userId,
         },
         data: {
-          handle: newOnelink,
+          handle: newHandle,
         },
       });
 
-      console.info(`✅ Handle successfully updated to "${newOnelink}"`);
+      console.info(`✅ Handle successfully updated to "${newHandle}"`);
       console.groupEnd();
 
       return {
         success: true,
         message: "Handle updated successfully",
-        onelink: newOnelink,
+        handle: newHandle,
       };
     } catch (error) {
       console.error("❌ ERROR in redeemHandle", error);
@@ -132,27 +132,27 @@ const appRouter = router({
     }
   }),
 
-  getOnelink: publicProcedure.input(onelinkParamSchema).query(async opts => {
+  getHandle: publicProcedure.input(handleParamSchema).query(async opts => {
     console.group("🔗 GET HANDLE REQUEST");
     console.info("📥 Received request for handle");
-    const { onelink } = opts.input;
-    console.info(`🔍 Looking up handle: ${onelink}`);
+    const { handle } = opts.input;
+    console.info(`🔍 Looking up handle: ${handle}`);
 
     try {
       console.info("🔄 Querying database for user");
       const user = await prisma.user.findUnique({
         where: {
-          handle: onelink,
+          handle: handle,
         },
       });
       console.info(`🔍 User lookup result: ${user ? "✅ Found" : "❌ Not found"}`);
 
       if (user === null) {
-        console.info(`⚠️ Handle not found: ${onelink}`);
+        console.info(`⚠️ Handle not found: ${handle}`);
         console.groupEnd();
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: `Handle not found: ${onelink}`,
+          message: `Handle not found: ${handle}`,
         });
       }
 
@@ -205,12 +205,12 @@ const appRouter = router({
       };
       console.info("🔄 Preparing response with user data, theme, and blocks");
 
-      console.info("✅ Successfully processed onelink request");
+      console.info("✅ Successfully processed handle request");
       console.groupEnd();
 
       return result;
     } catch (error) {
-      console.error("❌ ERROR in getOnelink", error);
+      console.error("❌ ERROR in getHandle", error);
       console.groupEnd();
       if (error instanceof TRPCError) throw error;
       throw new TRPCError({

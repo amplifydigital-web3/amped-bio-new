@@ -8,17 +8,17 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate, useLocation } from "react-router";
-import { useOnelinkAvailability } from "@/hooks/useOnelinkAvailability";
+import { useHandleAvailability } from "@/hooks/useHandleAvailability";
 import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
 import { useGoogleLogin } from "@react-oauth/google";
 import { GoogleLoginButton } from "./GoogleLoginButton";
 import { useCaptcha } from "@/hooks/useCaptcha";
 import { CaptchaActions } from "@ampedbio/constants";
 import {
-  normalizeOnelink,
-  cleanOnelinkInput,
-  getOnelinkPublicUrl,
-  formatOnelink,
+  normalizeHandle,
+  cleanHandleInput,
+  getHandlePublicUrl,
+  formatHandle,
 } from "@/utils/handle";
 import { trackGAEvent } from "@/utils/ga";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -124,13 +124,13 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
   // Add success state for reset password form
   const [resetSuccess, setResetSuccess] = useState(false);
 
-  const [handleInput, setOnelinkInput] = useState("");
-  const { urlStatus, isValid } = useOnelinkAvailability(handleInput);
+  const [handleInput, setHandleInput] = useState("");
+  const { urlStatus, isValid } = useHandleAvailability(handleInput);
 
   // Handle handle input changes with proper cleaning
-  const handleOnelinkChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const cleanValue = cleanOnelinkInput(e.target.value);
-    setOnelinkInput(cleanValue);
+  const handleHandleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cleanValue = cleanHandleInput(e.target.value);
+    setHandleInput(cleanValue);
     setRegisterValue("handle", cleanValue);
   };
 
@@ -181,7 +181,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
   const loginEmail = watchLogin("email");
   const registerEmail = watchRegister("email");
   const resetEmail = watchReset("email");
-  const registerOnelink = watchRegister("handle");
+  const registerHandle = watchRegister("handle");
   const registerPassword = watchRegister("password");
 
   // Use a single useEffect to handle all email synchronization
@@ -209,11 +209,11 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
 
   // Check handle availability when it changes
   useEffect(() => {
-    if (registerOnelink) {
-      const normalizedOnelink = normalizeOnelink(registerOnelink);
-      setOnelinkInput(normalizedOnelink);
+    if (registerHandle) {
+      const normalizedHandle = normalizeHandle(registerHandle);
+      setHandleInput(normalizedHandle);
     }
-  }, [registerOnelink]);
+  }, [registerHandle]);
 
   // Custom form switcher that maintains email and clears errors
   const switchForm = (newForm: FormType) => {
@@ -246,8 +246,8 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
 
       // Redirect the user to their edit page with panel state set to "home"
       if (user && user.handle) {
-        const formattedOnelink = formatOnelink(user.handle);
-        navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
+        const formattedHandle = formatHandle(user.handle);
+        navigate(`/${formattedHandle}/edit`, { state: { panel: "home" } });
       }
     } catch (error) {
       setLoginError((error as Error).message);
@@ -265,8 +265,8 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         onClose(user);
 
         if (user && user.handle) {
-          const formattedOnelink = formatOnelink(user.handle);
-          navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
+          const formattedHandle = formatHandle(user.handle);
+          navigate(`/${formattedHandle}/edit`, { state: { panel: "home" } });
         }
       } catch (error) {
         setLoginError((error as Error).message);
@@ -314,8 +314,8 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
 
       // Redirect to edit page with home panel selected
       if (user && user.handle) {
-        const formattedOnelink = formatOnelink(user.handle);
-        navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
+        const formattedHandle = formatHandle(user.handle);
+        navigate(`/${formattedHandle}/edit`, { state: { panel: "home" } });
       }
     } catch (error) {
       setRegisterError((error as Error).message);
@@ -472,11 +472,11 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
                   {...registerSignUp("handle")}
                   onChange={e => {
                     registerSignUp("handle").onChange(e);
-                    handleOnelinkChange(e);
+                    handleHandleChange(e);
                   }}
                   onBlur={e => {
                     registerSignUp("handle").onBlur(e);
-                    trackGAEvent("Input", "AuthModal", "RegisterOnelinkInput");
+                    trackGAEvent("Input", "AuthModal", "RegisterHandleInput");
                   }}
                 />
                 <div className="absolute right-3 top-9">
@@ -487,13 +487,13 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
                 <p className="text-sm text-gray-600" data-testid="public-url-preview">
                   Public URL:{" "}
                   <a
-                    href={getOnelinkPublicUrl(handleInput)}
+                    href={getHandlePublicUrl(handleInput)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:text-blue-700"
                     onClick={() => trackGAEvent("Click", "AuthModal", "PublicURLPreviewLink")}
                   >
-                    {getOnelinkPublicUrl(handleInput)}
+                    {getHandlePublicUrl(handleInput)}
                   </a>
                 </p>
               )}

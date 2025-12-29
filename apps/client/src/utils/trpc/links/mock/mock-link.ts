@@ -66,7 +66,7 @@ const mockRequester = async (opts: { type: string; path: string; input: any }) =
     result = JSON.parse(JSON.stringify(mockData[namespace][procedure]));
 
     // Special handling for certain endpoints
-    if (path === "handle.getOnelink" && input && typeof input === "object" && "handle" in input) {
+    if (path === "handle.getHandle" && input && typeof input === "object" && "handle" in input) {
       console.log("[MOCK] Customizing handle response for input:", input);
       // Customize handle response based on input
       if (input.handle !== "demo-user") {

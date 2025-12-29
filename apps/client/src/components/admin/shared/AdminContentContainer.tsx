@@ -12,7 +12,7 @@ interface AdminContentContainerProps {
     userStats: any;
     blockStats: any;
     blockTypeDistribution: Record<string, number>;
-    topOnelinks: any[];
+    topHandles
     recentUsers: any[];
   };
   loading: boolean;
@@ -24,7 +24,7 @@ export const AdminContentContainer = ({
   dashboardData,
   loading,
 }: AdminContentContainerProps) => {
-  const { userStats, blockStats, blockTypeDistribution, topOnelinks, recentUsers } = dashboardData;
+  const { userStats, blockStats, blockTypeDistribution, topHandles, recentUsers } = dashboardData;
 
   if (loading) {
     return (
@@ -64,7 +64,7 @@ export const AdminContentContainer = ({
           userStats={userStats}
           blockStats={blockStats}
           blockTypeDistribution={blockTypeDistribution}
-          topOnelinks={topOnelinks}
+          topHandles={topHandles}
           recentUsers={recentUsers}
           onViewAllUsersClick={() => setActiveMenu("users")}
         />

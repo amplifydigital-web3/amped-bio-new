@@ -1,10 +1,10 @@
 import React from "react";
 import { CheckCircle, XCircle, Clock, AlertCircle } from "lucide-react";
 import { Tooltip } from "./Tooltip";
-import { OnelinkStatus } from "@/utils/handle";
+import { HandleStatus } from "@/utils/handle";
 
 interface URLStatusIndicatorProps {
-  status: OnelinkStatus;
+  status: HandleStatus;
   isCurrentUrl?: boolean;
   compact?: boolean; // Added to support compact mode for AuthModal
 }

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Outlet, Link, useLocation, useParams } from "react-router";
 import AMPLIFY_FULL_K from "@/assets/AMPLIFY_FULL_K.svg";
 import { UserMenu } from "../auth/UserMenu";
-import { normalizeOnelink } from "@/utils/handle";
+import { normalizeHandle } from "@/utils/handle";
 
 // Default handle username to show when accessing root URL
 const DEFAULT_ONELINK = "landingpage";
@@ -22,18 +22,18 @@ const PublicLayout: React.FC<PublicLayoutProps> = ({ children }) => {
   const [loading, setLoading] = useState(isRegisterRoute || isLoginRoute ? false : true);
 
   // Use default handle when on root URL with no handle parameter
-  const effectiveOnelink =
+  const effectiveHandle =
     ["/", "/register", "/login"].includes(location.pathname) && (!handle || handle === "")
       ? DEFAULT_ONELINK
       : handle;
 
   // Normalize handle to handle @ symbols in URLs
-  const normalizedOnelink = normalizeOnelink(effectiveOnelink);
+  const normalizedHandle = normalizeHandle(effectiveHandle);
 
   // Determine if navbar should be shown (landingpage user, root route, or register route)
   const shouldShowNavbar =
     location.pathname.includes("/i/") ||
-    normalizedOnelink === DEFAULT_ONELINK ||
+    normalizedHandle === DEFAULT_ONELINK ||
     location.pathname === "/" ||
     isRegisterRoute ||
     isLoginRoute;

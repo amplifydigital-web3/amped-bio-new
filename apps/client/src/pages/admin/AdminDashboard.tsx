@@ -66,7 +66,7 @@ export function AdminDashboard() {
 
   // Get recent users and top handles from query results
   const recentUsers = usersData?.users || [];
-  const topOnelinks = (topHandlesData || []).filter(
+  const topHandles = (topHandlesData || []).filter(
     (
       item
     ): item is {
@@ -153,8 +153,8 @@ export function AdminDashboard() {
         averageBlocksPerUser={blockStats.averageBlocksPerUser}
       />
 
-      {/* Top Performing Onelinks */}
-      <AdminTopOnelinks topOnelinks={topOnelinks} />
+// Top Performing Handles
+      <AdminTopHandles topHandles={topHandles} />
 
       {/* Recent Users */}
       <AdminRecentUsers
