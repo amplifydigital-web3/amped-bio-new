@@ -13,7 +13,7 @@ model User {
   email               String    @unique
   email_verified_at   DateTime?
   password            String
-  onelink             String?   @unique @map("littlelink_name")
+  handle             String?   @unique @map("littlelink_name")
   description         String?   @db.LongText @map("littlelink_description")
   role                String    @default("user")
   block               String    @default("no")

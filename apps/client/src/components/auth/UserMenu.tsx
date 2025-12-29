@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router";
-import { formatOnelink } from "@/utils/onelink";
+import { formatHandle } from "@/utils/handle";
 import { cn } from "@/lib/utils";
 import { useAccount } from "wagmi";
 import { useWalletContext } from "@/contexts/WalletContext";
@@ -42,19 +42,19 @@ export function UserMenu() {
 
   const handleSignIn = (user: AuthUser) => {
     setShowAuthModal(false);
-    setUser(user.onelink);
+    setUser(user.handle);
 
     // Redirect to the edit page instead of public profile
-    if (user && user.onelink) {
-      const formattedOnelink = formatOnelink(user.onelink);
+    if (user && user.handle) {
+      const formattedHandle = formatHandle(user.handle);
       // Check if there's a panel parameter in the current URL
       const searchParams = new URLSearchParams(window.location.search);
       const panelParam = searchParams.get("p");
 
       if (panelParam) {
-        return navigate(`/${formattedOnelink}/edit?p=${panelParam}`);
+        return navigate(`/${formattedHandle}/edit?p=${panelParam}`);
       }
-      return navigate(`/${formattedOnelink}/edit`);
+      return navigate(`/${formattedHandle}/edit`);
     }
     return navigate("/");
   };
@@ -75,18 +75,18 @@ export function UserMenu() {
   };
 
   const handleNavtoHome = () => {
-    return navigate(`/@${authUser?.onelink}`);
+    return navigate(`/@${authUser?.handle}`);
   };
 
   const handleNavigateToWallet = () => {
-    if (authUser?.onelink) {
-      return navigate(`/${formatOnelink(authUser.onelink)}/edit?p=wallet`);
+    if (authUser?.handle) {
+      return navigate(`/${formatHandle(authUser.handle)}/edit?p=wallet`);
     }
   };
 
   const handleNavigateToProfile = () => {
-    if (authUser?.onelink) {
-      return navigate(`/${formatOnelink(authUser.onelink)}/edit?p=profile`);
+    if (authUser?.handle) {
+      return navigate(`/${formatHandle(authUser.handle)}/edit?p=profile`);
     }
   };
 
@@ -147,10 +147,10 @@ export function UserMenu() {
                       formatAddress(walletAddress!)
                     )}
                   </span>
-                  <span className="text-xs text-gray-500">@{authUser.onelink}</span>
+                  <span className="text-xs text-gray-500">@{authUser.handle}</span>
                 </>
               ) : (
-                <span className="text-sm font-semibold text-gray-900">@{authUser.onelink}</span>
+                <span className="text-sm font-semibold text-gray-900">@{authUser.handle}</span>
               )}
             </div>
           </div>
@@ -178,7 +178,7 @@ export function UserMenu() {
           <LogOut className="w-4 h-4 mr-2" />
           <span>Sign Out</span>
         </DropdownMenuItem>
-        {authUser.onelink !== profile.onelink && (
+        {authUser.handle !== profile.handle && (
           <DropdownMenuItem onClick={handleNavtoHome}>
             <span>Go To My Home</span>
           </DropdownMenuItem>

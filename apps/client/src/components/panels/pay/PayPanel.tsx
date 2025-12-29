@@ -439,14 +439,14 @@ const PayRow: React.FC<{
             <span className="font-semibold text-gray-900">Paid to</span>
             <Tooltip content={transaction.to}>
               <span>
-                {data?.onelink && (
+                {data?.handle && (
                   <>
                     <a
-                      href={`${currentUrl}/@${data.onelink}`}
+                      href={`${currentUrl}/@${data.handle}`}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      @{data.onelink}
+                      @{data.handle}
                     </a>{" "}
                   </>
                 )}

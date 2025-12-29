@@ -202,7 +202,7 @@ export default function DashboardPage() {
       dashboardData?.recentActivity?.map(activity => ({
         id: activity.id.toString(),
         type: activity.eventType as "stake" | "unstake" | "claim",
-        user: activity.onelink || "",
+        user: activity.handle || "",
         avatar: activity.avatar,
         amount: activity.amount,
 
@@ -1005,7 +1005,7 @@ export default function DashboardPage() {
 
             return (
               <div
-                key={fan.onelink}
+                key={fan.handle}
                 className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200"
               >
                 <div className="flex items-center space-x-4">
@@ -1019,7 +1019,7 @@ export default function DashboardPage() {
                   {fan.avatar ? (
                     <img
                       src={fan.avatar}
-                      alt={fan.onelink}
+                      alt={fan.handle}
                       className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
                     />
                   ) : (
@@ -1029,7 +1029,7 @@ export default function DashboardPage() {
                   )}
 
                   <div>
-                    <p className="font-medium text-gray-900">{fan.onelink}</p>
+                    <p className="font-medium text-gray-900">{fan.handle}</p>
                     <p className="text-sm text-gray-500">Joined recently</p>
                   </div>
                 </div>

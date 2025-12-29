@@ -1,29 +1,29 @@
 import { useState, useEffect, useRef } from "react";
 import {
-  OnelinkStatus,
-  normalizeOnelink,
-  validateOnelinkFormat,
-  validateOnelinkLength,
-  isEquivalentOnelink,
-  checkOnelink,
-} from "@/utils/onelink";
+  HandleStatus,
+  normalizeHandle,
+  validateHandleFormat,
+  validateHandleLength,
+  isEquivalentHandle,
+  checkHandle,
+} from "@/utils/handle";
 
-// Re-export the OnelinkStatus type for backward compatibility
-export type URLStatus = OnelinkStatus;
+// Re-export the HandleStatus type for backward compatibility
+export type URLStatus = HandleStatus;
 
 /**
- * Hook for checking onelink availability with debounce
- * @param url The onelink to check (with or without @ prefix)
- * @param currentUrl The current user's onelink (optional, for comparison)
+ * Hook for checking handle availability with debounce
+ * @param url The handle to check (with or without @ prefix)
+ * @param currentUrl The current user's handle (optional, for comparison)
  */
-export function useOnelinkAvailability(url: string, currentUrl: string = "") {
+export function useHandleAvailability(url: string, currentUrl: string = "") {
   const [urlStatus, setUrlStatus] = useState<URLStatus>("Unknown");
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Use the centralized validation functions
-  const normalizedUrl = normalizeOnelink(url);
-  const isValid = validateOnelinkFormat(normalizedUrl) && validateOnelinkLength(normalizedUrl);
-  const isCurrentUrl = isEquivalentOnelink(url, currentUrl) && currentUrl !== "";
+  const normalizedUrl = normalizeHandle(url);
+  const isValid = validateHandleFormat(normalizedUrl) && validateHandleLength(normalizedUrl);
+  const isCurrentUrl = isEquivalentHandle(url, currentUrl) && currentUrl !== "";
 
   useEffect(() => {
     if (normalizedUrl.trim() === "") {
@@ -31,17 +31,17 @@ export function useOnelinkAvailability(url: string, currentUrl: string = "") {
       return;
     }
 
-    if (!validateOnelinkLength(normalizedUrl)) {
+    if (!validateHandleLength(normalizedUrl)) {
       setUrlStatus("TooShort");
       return;
     }
 
-    if (!validateOnelinkFormat(normalizedUrl)) {
+    if (!validateHandleFormat(normalizedUrl)) {
       setUrlStatus("Invalid");
       return;
     }
 
-    // Check if URL is the same as current onelink
+    // Check if URL is the same as current handle
     if (isCurrentUrl) {
       setUrlStatus("Unknown"); // We'll handle this special case in the UI
       return;
@@ -56,7 +56,7 @@ export function useOnelinkAvailability(url: string, currentUrl: string = "") {
 
     // Set a new timer
     debounceTimer.current = setTimeout(() => {
-      checkOnelink(normalizedUrl).then(available => {
+      checkHandle(normalizedUrl).then(available => {
         setUrlStatus(available ? "Available" : "Unavailable");
       });
     }, 500);

@@ -26,7 +26,7 @@ export const usersRouter = router({
               OR: [
                 { name: { contains: search } },
                 { email: { contains: search } },
-                { onelink: { contains: search } },
+                { handle: { contains: search } },
                 { wallet: { address: { contains: search } } },
               ],
             }
@@ -78,7 +78,7 @@ export const usersRouter = router({
             id: true,
             name: true,
             email: true,
-            onelink: true,
+            handle: true,
             role: true,
             block: true,
             created_at: true,
@@ -117,7 +117,7 @@ export const usersRouter = router({
             id: true,
             name: true,
             email: true,
-            onelink: true,
+            handle: true,
             role: true,
             block: true,
             created_at: true,
@@ -241,7 +241,7 @@ export const usersRouter = router({
           id: true,
           name: true,
           email: true,
-          onelink: true,
+          handle: true,
           role: true,
           block: true,
         },
@@ -270,7 +270,7 @@ export const usersRouter = router({
         id: true,
         name: true,
         email: true,
-        onelink: true,
+        handle: true,
         role: true,
         block: true,
         image: true,
@@ -287,7 +287,7 @@ export const usersRouter = router({
     return users;
   }),
 
-  getTopOnelinks: adminProcedure
+  getTopHandles: adminProcedure
     .input(
       z.object({
         limit: z.number().default(5),
@@ -335,22 +335,22 @@ export const usersRouter = router({
       const userMap = new Map(users.map(user => [user.id, user]));
 
       // Combine the data, preserving the order from topBlocks
-      const topOnelinks = topBlocks
+      const topHandles = topBlocks
         .map(block => {
           const user = userMap.get(block.user_id);
-          if (!user || !user.onelink) {
+          if (!user || !user.handle) {
             return null;
           }
           return {
             userId: user.id,
             name: user.name,
-            onelink: user.onelink,
+            handle: user.handle,
             totalClicks: block._sum.clicks || 0,
             blockCount: user._count.blocks,
           };
         })
         .filter(Boolean);
 
-      return topOnelinks;
+      return topHandles;
     }),
 });

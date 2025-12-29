@@ -23,8 +23,8 @@ export function ThemeCard({ theme, onApply }: ThemeCardProps) {
       onApply(theme.theme);
 
       // Refetch the current user data to get the updated theme in the store
-      if (profile?.onelink) {
-        await setUser(profile.onelink);
+      if (profile?.handle) {
+        await setUser(profile.handle);
       }
     },
     onError: error => {

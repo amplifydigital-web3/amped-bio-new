@@ -1,15 +1,15 @@
 import { z } from "zod";
-import { ONELINK_MIN_LENGTH, ONELINK_REGEX } from "@ampedbio/constants";
+import { HANDLE_MIN_LENGTH, HANDLE_REGEX } from "@ampedbio/constants";
 
 export const registerSchema = z.object({
-  onelink: z
+  handle: z
     .string()
     .transform(value => (value.startsWith("@") ? value.substring(1) : value)) // Normalize by removing @ prefix if present
     .pipe(
       z
         .string()
-        .min(ONELINK_MIN_LENGTH, `Name must be at least ${ONELINK_MIN_LENGTH} characters`)
-        .regex(ONELINK_REGEX, "Name can only contain letters, numbers, underscores and hyphens")
+        .min(HANDLE_MIN_LENGTH, `Name must be at least ${HANDLE_MIN_LENGTH} characters`)
+        .regex(HANDLE_REGEX, "Name can only contain letters, numbers, underscores and hyphens")
         .refine(value => !value.includes("@"), "Name cannot contain @")
     ),
   email: z.string().email(),

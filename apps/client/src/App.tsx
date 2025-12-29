@@ -30,7 +30,7 @@ function AppRouter() {
   return (
     <Routes>
       <Route
-        path="/:onelink/edit"
+        path="/:handle/edit"
         element={
           <ProtectedRoute>
             <Editor />
@@ -42,7 +42,7 @@ function AppRouter() {
           <View />
         </PublicLayout>
       } />
-      <Route path="/:onelink" element={
+      <Route path="/:handle" element={
         <PublicLayout>
           <View />
         </PublicLayout>

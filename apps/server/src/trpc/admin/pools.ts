@@ -12,7 +12,7 @@ export const adminPoolsRouter = router({
             select: {
               user: {
                 select: {
-                  onelink: true,
+                  handle: true,
                   email: true,
                 },
               },

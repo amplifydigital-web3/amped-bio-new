@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/Button";
 import { useNavigate } from "react-router";
 import { Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { useOnelinkAvailability } from "@/hooks/useOnelinkAvailability";
+import { useHandleAvailability } from "@/hooks/useHandleAvailability";
 import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
-import { normalizeOnelink, formatOnelink, cleanOnelinkInput } from "@/utils/onelink";
+import { normalizeHandle, formatHandle, cleanHandleInput } from "@/utils/handle";
 import { useAuth } from "@/contexts/AuthContext";
 import { trpcClient } from "@/utils/trpc";
 
@@ -14,29 +14,29 @@ export function URLPicker() {
   // Extract profile data safely from the store
   const { profile, setProfile } = useEditor();
 
-  // Safely extract and process onelink values with default fallbacks
-  const currentOnelink = normalizeOnelink(profile?.onelink || "");
+  // Safely extract and process handle values with default fallbacks
+  const currentHandle = normalizeHandle(profile?.handle || "");
 
   // Initialize state with safe default values
-  const [url, setUrl] = useState(currentOnelink || "");
+  const [url, setUrl] = useState(currentHandle || "");
   const [isUpdating, setIsUpdating] = useState(false);
 
   // Use our custom hook for URL validation and availability checking
-  const { urlStatus, isValid, isCurrentUrl } = useOnelinkAvailability(url, currentOnelink);
+  const { urlStatus, isValid, isCurrentUrl } = useHandleAvailability(url, currentHandle);
 
   const { updateAuthUser } = useAuth();
   const nav = useNavigate();
 
   // Update local state if profile changes
   useEffect(() => {
-    if (profile?.onelink) {
-      setUrl(normalizeOnelink(profile.onelink));
+    if (profile?.handle) {
+      setUrl(normalizeHandle(profile.handle));
     }
-  }, [profile?.onelink]);
+  }, [profile?.handle]);
 
   const handleUrlChange = (value: string) => {
     // Use our central utility function to clean the input
-    const cleanValue = cleanOnelinkInput(value);
+    const cleanValue = cleanHandleInput(value);
     setUrl(cleanValue);
   };
 
@@ -47,14 +47,14 @@ export function URLPicker() {
 
     setIsUpdating(true);
 
-    // Apply our formatOnelink utility to ensure @ prefix for formatted version
+    // Apply our formatHandle utility to ensure @ prefix for formatted version
     // and normalized version without @ prefix
-    const formattedURL = formatOnelink(value);
-    const normalizedURL = normalizeOnelink(value);
+    const formattedURL = formatHandle(value);
+    const normalizedURL = normalizeHandle(value);
 
     try {
-      // Call the API to update the onelink - with normalized value (without @ symbol)
-      const response = await trpcClient.onelink.redeem.mutate({ newOnelink: normalizedURL });
+      // Call the API to update the handle - with normalized value (without @ symbol)
+      const response = await trpcClient.handle.redeem.mutate({ newHandle: normalizedURL });
 
       if (response.success) {
         toast.success("URL updated successfully!");
@@ -66,22 +66,22 @@ export function URLPicker() {
           // Update local state on success with both versions
           setProfile({
             ...profile,
-            onelink: normalizedURL,
-            onelinkFormatted: formattedURL,
+            handle: normalizedURL,
+            handleFormatted: formattedURL,
           });
 
           updateAuthUser({
-            onelink: normalizedURL,
+            handle: normalizedURL,
           });
         }, 500);
       } else {
         // Handle unsuccessful response
-        console.error("Failed to update onelink:", response.message);
+        console.error("Failed to update handle:", response.message);
         toast.error(`Failed to update URL: ${response.message}`);
       }
     } catch (error) {
       // Handle errors
-      console.error("Error updating onelink:", error);
+      console.error("Error updating handle:", error);
       toast.error("Failed to update URL. Please try again");
     } finally {
       setIsUpdating(false);
