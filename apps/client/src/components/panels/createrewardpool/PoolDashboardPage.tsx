@@ -17,7 +17,6 @@ import {
   Gift,
   Edit3,
   User,
-  ListOrdered,
   ArrowUpNarrowWide,
   ArrowDownWideNarrow,
 } from "lucide-react";

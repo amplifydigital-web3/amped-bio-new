@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { FC } from "react";
 import { trpc } from "../../utils/trpc/trpc";
 import { Switch } from "../../components/ui/Switch";
 import { toast } from "sonner";

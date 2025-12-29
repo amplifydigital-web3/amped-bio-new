@@ -2,15 +2,7 @@ import { privateProcedure, router } from "./trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { env } from "../env";
-import {
-  createWalletClient,
-  http,
-  parseEther,
-  Address,
-  createPublicClient,
-  formatEther,
-  keccak256,
-} from "viem";
+import { createWalletClient, http, parseEther, Address, createPublicClient, keccak256 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { getAddress } from "viem/utils";
 import { prisma } from "../services/DB";

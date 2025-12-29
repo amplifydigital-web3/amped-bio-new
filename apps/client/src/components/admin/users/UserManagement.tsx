@@ -6,7 +6,6 @@ import {
   ChevronRight,
   ChevronUp,
   ChevronDown,
-  X,
   Eye,
   EyeOff,
   ClipboardCopy,

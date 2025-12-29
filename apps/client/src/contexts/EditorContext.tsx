@@ -60,7 +60,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     // console.group(`🔍 Setting User: ${handle}`);
     // console.info("🚀 Loading user data...");
     try {
-      const onlinkData = await trpcClient.onelink.getHandle.query({ handle: onelink });
+      const onlinkData = await trpcClient.onelink.getHandle.query({ handle });
 
       if (!onlinkData) {
         // console.info("❌ User not found:", handle);

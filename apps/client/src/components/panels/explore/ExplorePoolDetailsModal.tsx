@@ -1,8 +1,5 @@
 import React from "react";
-import {
-  Dialog,
-  DialogContent,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { trpc } from "@/utils/trpc/trpc";
 import { useQuery } from "@tanstack/react-query";
 import { useAccount } from "wagmi";
@@ -30,7 +27,7 @@ export default function ExplorePoolDetailsModal({
     ...trpc.pools.fan.getPoolDetailsForModal.queryOptions({
       poolId: poolId || undefined,
       poolAddress: poolAddress || undefined,
-      walletAddress: userAddress || undefined
+      walletAddress: userAddress || undefined,
     }),
     enabled: isOpen && (!!poolId || !!poolAddress),
     staleTime: 1000 * 60, // Cache for 1 minute

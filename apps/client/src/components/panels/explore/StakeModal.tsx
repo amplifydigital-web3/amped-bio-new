@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Coins, TrendingUp, AlertCircle, Check } from "lucide-react";
+import { Coins, TrendingUp, AlertCircle, Check } from "lucide-react";
 import { useAccount, useBalance } from "wagmi";
 import { getChainConfig } from "@ampedbio/web3";
 import { useStakingManager } from "@/hooks/useStakingManager";

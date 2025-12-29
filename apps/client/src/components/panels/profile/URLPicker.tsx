@@ -54,7 +54,7 @@ export function URLPicker() {
 
     try {
       // Call the API to update the handle - with normalized value (without @ symbol)
-      const response = await trpcClient.handle.redeem.mutate({ handle: normalizedURL });
+      const response = await trpcClient.onelink.redeem.mutate({ newHandle: normalizedURL });
 
       if (response.success) {
         toast.success("URL updated successfully!");

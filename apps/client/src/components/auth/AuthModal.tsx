@@ -200,7 +200,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
   const loginEmail = watchLogin("email");
   const registerEmail = watchRegister("email");
   const resetEmail = watchReset("email");
-  const registerOnelink = watchRegister("onelink");
+  const registerHandle = watchRegister("handle");
   const registerPassword = watchRegister("password");
 
   // Use a single useEffect to handle all email synchronization
@@ -226,13 +226,13 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     isUserTyping.current = false;
   }, [setLoginValue, setRegisterValue, setResetValue, sharedEmail]);
 
-  // Check onelink availability when it changes
+  // Check handle availability when it changes
   useEffect(() => {
-    if (registerOnelink) {
-      const normalizedOnelink = normalizeOnelink(registerOnelink);
-      setOnelinkInput(normalizedOnelink);
+    if (registerHandle) {
+      const normalizedHandle = normalizeOnelink(registerHandle);
+      setHandleInput(normalizedHandle);
     }
-  }, [registerOnelink]);
+  }, [registerHandle]);
 
   // Custom form switcher that maintains email and clears errors
   const switchForm = (newForm: FormType) => {

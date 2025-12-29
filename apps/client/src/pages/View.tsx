@@ -232,7 +232,7 @@ export function View() {
     <div className="min-h-screen flex flex-col">
       <Preview
         isEditing={false}
-        onelink={normalizedOnelink}
+        handle={normalizedOnelink}
         profile={profile}
         blocks={blocks}
         theme={theme ?? initialState.theme}
