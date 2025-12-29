@@ -30,7 +30,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
   onClose,
   onBack,
   shareUrl,
-  onStakeSuccess
+  onStakeSuccess,
 }) => {
   const { address: userAddress } = useAccount();
   const isUserLoggedIn = !!userAddress;
@@ -55,7 +55,6 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
   const [isImageUploadModalOpen, setIsImageUploadModalOpen] = useState(false);
   const [stakingMode, setStakingMode] = useState<"stake" | "add-stake">("stake");
   const [isClaiming, setIsClaiming] = useState(false);
-
 
   const {
     creatorCut: contractCreatorCut,
@@ -121,11 +120,11 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
       <div className="min-h-screen bg-gray-50 flex justify-center items-center">
         <div className="max-w-md p-6 bg-white rounded-xl">
           <p className="text-red-500 text-center">Error loading pool details</p>
-          <Button 
+          <Button
             onClick={() => {
               if (onClose) onClose();
               if (onBack) onBack();
-            }} 
+            }}
             className="mt-4 w-full"
           >
             Back to Explore
@@ -168,7 +167,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
     try {
       await claimReward();
       // Introduce a 1-second delay to allow the blockchain to update before refetching
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 1000));
       // Refetch all pool data after successful claim
       await fetchAllData();
 
@@ -215,16 +214,16 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Pool Details</h1>
                 <p className="text-lg text-gray-600 mt-1">{pool.name}</p>
-                {pool.creator.littlelink && (
+                {pool.creator.handle && (
                   <p className="text-sm text-gray-500 mt-1">
                     Created by{" "}
                     <a
-                      href={`/${formatHandle(pool.creator.littlelink)}`}
+                      href={`/${formatHandle(pool.creator.handle)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-600 hover:underline"
                     >
-                      {formatHandle(pool.creator.littlelink)}
+                      {formatHandle(pool.creator.handle)}
                     </a>
                   </p>
                 )}
@@ -418,11 +417,27 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                     <button
                       onClick={handleReduceStake}
                       className="flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm"
-                      disabled={pool?.stakedByYou === null || pool.stakedByYou === undefined || pool.stakedByYou <= 0n}
-                      title={pool?.stakedByYou === null || pool.stakedByYou === undefined ? "Connect wallet to view stake" : pool.stakedByYou <= 0n ? "You have no stake in this pool" : undefined}
+                      disabled={
+                        pool?.stakedByYou === null ||
+                        pool.stakedByYou === undefined ||
+                        pool.stakedByYou <= 0n
+                      }
+                      title={
+                        pool?.stakedByYou === null || pool.stakedByYou === undefined
+                          ? "Connect wallet to view stake"
+                          : pool.stakedByYou <= 0n
+                            ? "You have no stake in this pool"
+                            : undefined
+                      }
                     >
                       <Minus className="w-4 h-4" />
-                      <span>{pool?.stakedByYou === null || pool.stakedByYou === undefined ? "Connect Wallet" : pool.stakedByYou <= 0n ? "No Stake" : "Reduce Stake"}</span>
+                      <span>
+                        {pool?.stakedByYou === null || pool.stakedByYou === undefined
+                          ? "Connect Wallet"
+                          : pool.stakedByYou <= 0n
+                            ? "No Stake"
+                            : "Reduce Stake"}
+                      </span>
                     </button>
 
                     <button
@@ -430,7 +445,11 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                       className="flex items-center justify-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm"
                     >
                       <Plus className="w-4 h-4" />
-                      <span>{pool?.stakedByYou !== null && pool.stakedByYou !== undefined ? "Add Stake" : "Stake to Pool"}</span>
+                      <span>
+                        {pool?.stakedByYou !== null && pool.stakedByYou !== undefined
+                          ? "Add Stake"
+                          : "Stake to Pool"}
+                      </span>
                     </button>
                   </>
                 )}
