@@ -63,6 +63,7 @@ export function ProfileSection({
   const { authUser } = useAuth();
   const { profile } = useEditor();
   const [copyStatus, setCopyStatus] = useState<"idle" | "success">("idle");
+  const [revoNameCopyStatus, setRevoNameCopyStatus] = useState<"idle" | "success">("idle");
   const chainId = useChainId();
   const [currentNetwork, setCurrentNetwork] = useState<Chain>(AVAILABLE_CHAINS[0]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -127,6 +128,16 @@ export function ProfileSection({
       setCopyStatus("success");
       setTimeout(() => {
         setCopyStatus("idle");
+      }, 1000);
+    }
+  };
+
+  const copyRevoName = () => {
+    if (profile?.revoName && !loading) {
+      navigator.clipboard.writeText(profile.revoName);
+      setRevoNameCopyStatus("success");
+      setTimeout(() => {
+        setRevoNameCopyStatus("idle");
       }, 1000);
     }
   };
@@ -207,6 +218,25 @@ export function ProfileSection({
                 )}
               </button>
             </div>
+            {profile.revoName && (
+              <div className="flex items-center space-x-2 min-w-0">
+                <span className="text-xs sm:text-sm font-mono text-gray-600 bg-white px-2 sm:px-3 py-1 rounded-full border border-gray-200 truncate">
+                  {profile.revoName}
+                </span>
+                <button
+                  onClick={copyRevoName}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-white rounded-lg transition-colors duration-200 flex-shrink-0"
+                  title="Copy full wallet address"
+                  disabled={loading}
+                >
+                  {revoNameCopyStatus === "idle" ? (
+                    <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  ) : (
+                    <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" />
+                  )}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Center Avatar (Hidden from flex, positioned absolutely) */}
