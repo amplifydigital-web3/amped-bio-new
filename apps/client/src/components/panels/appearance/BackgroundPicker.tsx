@@ -127,12 +127,12 @@ export const BackgroundPicker = memo(({ value, onChange, themeId }: BackgroundPi
         console.log("Server confirmed background upload:", result);
 
         // Instead of calling onChange/onUploadChange, refetch the theme data like the gallery does
-        if (profile?.onelink) {
+        if (profile?.handle) {
           console.log("Refetching theme data after background upload...");
-          await setUser(profile.onelink);
+          await setUser(profile.handle);
           console.log("Theme data refetched successfully");
         } else {
-          console.warn("No profile onelink available for theme refetch");
+          console.warn("No profile handle available for theme refetch");
         }
       } catch (e) {
         console.error("Error uploading background:", e);

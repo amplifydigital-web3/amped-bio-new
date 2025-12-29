@@ -1121,7 +1121,7 @@ export const poolsFanRouter = router({
                   userId: true,
                   user: {
                     select: {
-                      onelink: true,
+                      handle: true,
                       name: true,
                     },
                   },
@@ -1150,7 +1150,7 @@ export const poolsFanRouter = router({
                   userId: true,
                   user: {
                     select: {
-                      onelink: true,
+                      handle: true,
                       name: true,
                     },
                   },
@@ -1454,7 +1454,7 @@ export const poolsFanRouter = router({
           creator: {
             userId: pool.wallet!.userId!,
             address: pool.wallet!.address!,
-            littlelink: pool.wallet!.user?.onelink || null,
+            littlelink: pool.wallet!.user?.handle || null,
             name: pool.wallet!.user?.name || "Unknown Creator",
           },
         };

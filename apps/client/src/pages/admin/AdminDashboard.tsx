@@ -71,7 +71,7 @@ export function AdminDashboard() {
       item
     ): item is {
       name: string;
-      onelink: string;
+      handle: string;
       userId: number;
       totalClicks: number;
       blockCount: number;

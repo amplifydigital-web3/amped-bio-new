@@ -115,7 +115,7 @@ export const blocksRouter = router({
               id: true,
               name: true,
               email: true,
-              onelink: true,
+              handle: true,
             },
           },
         },

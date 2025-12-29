@@ -342,7 +342,7 @@ export const themesRouter = router({
             id: true,
             name: true,
             email: true,
-            onelink: true,
+            handle: true,
           },
         });
 

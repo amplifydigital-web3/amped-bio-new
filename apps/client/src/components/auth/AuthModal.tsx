@@ -17,7 +17,7 @@ import { authClient } from "@/lib/auth-client";
 import {
   normalizeOnelink,
   cleanOnelinkInput,
-  getOnelinkPublicUrl,
+  getHandlePublicUrl,
   formatOnelink,
 } from "@/utils/onelink";
 import { trackGAEvent } from "@/utils/ga";
@@ -38,7 +38,7 @@ interface BetterAuthUser {
   image?: string | null;
   createdAt: Date;
   updatedAt: Date;
-  onelink?: string | null;
+  handle?: string | null;
   role?: string;
 }
 
@@ -56,7 +56,7 @@ const loginSchema = z.object({
 });
 
 const registerSchema = z.object({
-  onelink: z
+  handle: z
     .string()
     .min(3, "Name must be at least 3 characters")
     .regex(/^[a-zA-Z0-9_-]+$/, "Name can only contain letters, numbers, underscores and hyphens"),
@@ -143,14 +143,14 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
   // Add success state for reset password form
   const [resetSuccess, setResetSuccess] = useState(false);
 
-  const [onelinkInput, setOnelinkInput] = useState("");
-  const { urlStatus, isValid } = useOnelinkAvailability(onelinkInput);
+  const [handleInput, setHandleInput] = useState("");
+  const { urlStatus, isValid } = useOnelinkAvailability(handleInput);
 
   // Handle onelink input changes with proper cleaning
-  const handleOnelinkChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleHandleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const cleanValue = cleanOnelinkInput(e.target.value);
-    setOnelinkInput(cleanValue);
-    setRegisterValue("onelink", cleanValue);
+    setHandleInput(cleanValue);
+    setRegisterValue("handle", cleanValue);
   };
 
   // Use react-hook-form with zod resolver based on current form type
@@ -265,6 +265,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         email: data.email,
         password: data.password,
         callbackURL: window.location.href,
+        rememberMe: true,
         fetchOptions: {
           headers: recaptchaToken
             ? {
@@ -285,7 +286,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         onClose({
           id: parseInt(user.id),
           email: user.email,
-          onelink: user.onelink || user.name || user.email?.split("@")[0] || "",
+          handle: user.handle || user.name || user.email?.split("@")[0] || "",
           role: user.role || "user",
           image: user.image || null,
           wallet: null,
@@ -293,10 +294,9 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
 
         // Redirect the user to their edit page with panel state set to "home"
         const userData = session.data.user as BetterAuthUser;
-        const onelink =
-          userData.onelink || userData.name || userData.email?.split("@")[0] || "home";
-        const formattedOnelink = formatOnelink(onelink);
-        navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
+        const handle = userData.handle || userData.name || userData.email?.split("@")[0] || "home";
+        const formattedHandle = formatOnelink(handle);
+        navigate(`/${formattedHandle}/edit`, { state: { panel: "home" } });
       } else {
         throw new Error("Login successful but could not retrieve user session");
       }
@@ -323,17 +323,17 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
               onClose({
                 id: parseInt(user.id),
                 email: user.email,
-                onelink: user.onelink || user.name || (user.email ? user.email.split("@")[0] : ""),
+                handle: user.handle || user.name || (user.email ? user.email.split("@")[0] : ""),
                 role: user.role || "user",
                 image: user.image || null,
                 wallet: null,
               });
 
               const userData = session.data.user as BetterAuthUser;
-              const onelink =
-                userData.onelink || userData.name || userData.email?.split("@")[0] || "home";
-              const formattedOnelink = formatOnelink(onelink);
-              navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
+              const handle =
+                userData.handle || userData.name || userData.email?.split("@")[0] || "home";
+              const formattedHandle = formatOnelink(handle);
+              navigate(`/${formattedHandle}/edit`, { state: { panel: "home" } });
             }
           } catch (error) {
             setLoginError((error as Error).message || "Failed to get session after login");
@@ -396,7 +396,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
       const response = await authClient.signUp.email({
         email: data.email,
         password: data.password,
-        name: data.onelink, // Using onelink as the name
+        name: data.handle, // Using handle as the name
         callbackURL: window.location.href,
         fetchOptions: {
           headers: recaptchaToken
@@ -418,15 +418,15 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         onClose({
           id: parseInt(user.id),
           email: user.email,
-          onelink: user.onelink || user.name || data.onelink,
+          handle: user.handle || user.name || data.handle,
           role: user.role || "user",
           image: user.image || null,
           wallet: null,
         });
 
         // Redirect to edit page with home panel selected
-        const formattedOnelink = formatOnelink(user.name || data.onelink);
-        navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
+        const formattedHandle = formatOnelink(user.name || data.handle);
+        navigate(`/${formattedHandle}/edit`, { state: { panel: "home" } });
       } else {
         throw new Error("Registration successful but could not retrieve user session");
       }
@@ -442,7 +442,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setLoading(true);
     setResetError(null);
     setResetSuccess(false);
-    
+
     try {
       // Get reCAPTCHA token using the invisible captcha
       const recaptchaToken = await executeCaptcha(CaptchaActions.RESET_PASSWORD);
@@ -579,37 +579,37 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
                 <Input
                   label="Claim your name"
                   leftText="@"
-                  error={registerErrors.onelink?.message}
+                  error={registerErrors.handle?.message}
                   required
                   aria-label="Claim your name"
                   data-testid="register-onelink"
                   autoComplete="username"
                   placeholder="your-name"
-                  {...registerSignUp("onelink")}
+                  {...registerSignUp("handle")}
                   onChange={e => {
-                    registerSignUp("onelink").onChange(e);
-                    handleOnelinkChange(e);
+                    registerSignUp("handle").onChange(e);
+                    handleHandleChange(e);
                   }}
                   onBlur={e => {
-                    registerSignUp("onelink").onBlur(e);
-                    trackGAEvent("Input", "AuthModal", "RegisterOnelinkInput");
+                    registerSignUp("handle").onBlur(e);
+                    trackGAEvent("Input", "AuthModal", "RegisterHandleInput");
                   }}
                 />
                 <div className="absolute right-3 top-9">
                   <URLStatusIndicator status={urlStatus} isCurrentUrl={false} compact={true} />
                 </div>
               </div>
-              {onelinkInput && (
+              {handleInput && (
                 <p className="text-sm text-gray-600" data-testid="public-url-preview">
                   Public URL:{" "}
                   <a
-                    href={getOnelinkPublicUrl(onelinkInput)}
+                    href={getHandlePublicUrl(handleInput)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:text-blue-700"
                     onClick={() => trackGAEvent("Click", "AuthModal", "PublicURLPreviewLink")}
                   >
-                    {getOnelinkPublicUrl(onelinkInput)}
+                    {getHandlePublicUrl(handleInput)}
                   </a>
                 </p>
               )}
@@ -665,8 +665,8 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
               <Button
                 type="submit"
                 className="w-full relative"
-                disabled={loading || urlStatus === "Unavailable" || !isValid || !onelinkInput}
-                aria-disabled={loading || urlStatus === "Unavailable" || !isValid || !onelinkInput}
+                disabled={loading || urlStatus === "Unavailable" || !isValid || !handleInput}
+                aria-disabled={loading || urlStatus === "Unavailable" || !isValid || !handleInput}
                 aria-label="Create Account"
                 data-testid="register-submit"
                 onClick={() => trackGAEvent("Click", "AuthModal", "CreateAccountButton")}
@@ -683,7 +683,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
 
               {renderSignInWithGoogle()}
 
-              {urlStatus === "Unavailable" && onelinkInput && (
+              {urlStatus === "Unavailable" && handleInput && (
                 <p
                   className="text-xs text-center text-red-600"
                   data-testid="url-unavailable-message"

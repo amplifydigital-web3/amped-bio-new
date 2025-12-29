@@ -9,7 +9,7 @@ const generateUniqueEmail = (prefix = "test") => {
 const testUser = {
   email: "",
   password: "",
-  onelink: "",
+  handle: "",
 };
 
 describe("Authentication", () => {
@@ -149,9 +149,9 @@ describe("Authentication", () => {
       const timestamp = Date.now();
       const randomStr = Math.random().toString(36).substring(2, 8);
       testUser.email = `test-integrated-${timestamp}-${randomStr}@example.com`;
-      testUser.onelink = `test-user-${timestamp}-${randomStr}`;
+      testUser.handle = `test-user-${timestamp}-${randomStr}`;
       testUser.password = "Password123@";
-      cy.log(`Using test credentials - Email: ${testUser.email}, Onelink: ${testUser.onelink}`);
+      cy.log(`Using test credentials - Email: ${testUser.email}, Handle: ${testUser.handle}`);
     });
 
     it("should handle successful registration and redirect to dashboard", () => {

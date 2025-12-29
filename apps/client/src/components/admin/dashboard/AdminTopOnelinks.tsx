@@ -1,7 +1,7 @@
 import { ArrowUpRight } from "lucide-react";
 
 interface AdminTopOnelinkItem {
-  onelink: string | null;
+  handle: string | null;
   name: string;
   totalClicks: number;
   blockCount: number;
@@ -12,10 +12,10 @@ interface AdminTopOnelinksProps {
 }
 
 export const AdminTopOnelinks = ({ topOnelinks }: AdminTopOnelinksProps) => {
-  // Handle onelink click
-  const openOnelink = (onelink: string | null) => {
-    if (onelink) {
-      window.open(`/@${onelink}`, "_blank");
+  // Handle handle click
+  const openOnelink = (handle: string | null) => {
+    if (handle) {
+      window.open(`/@${handle}`, "_blank");
     }
   };
 
@@ -50,9 +50,9 @@ export const AdminTopOnelinks = ({ topOnelinks }: AdminTopOnelinksProps) => {
                     <div className="ml-4">
                       <div
                         className="text-sm font-medium text-gray-900 hover:text-blue-600 cursor-pointer flex items-center"
-                        onClick={() => openOnelink(item.onelink)}
+                        onClick={() => openOnelink(item.handle)}
                       >
-                        @{item.onelink || "unnamed"}
+                        @{item.handle || "unnamed"}
                         <ArrowUpRight className="h-3 w-3 ml-1" />
                       </div>
                       <div className="text-xs text-gray-500">{item.name}</div>

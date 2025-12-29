@@ -868,7 +868,7 @@ export const poolsCreatorRouter = router({
           recentActivity: recentActivity.map(event => ({
             ...event,
             amount: event.amount.toString(),
-            onelink: event.userWallet.user?.onelink || event.userWallet.address,
+            handle: event.userWallet.user?.handle || event.userWallet.address,
             avatar: event.userWallet.user?.profileImage
               ? s3Service.getFileUrl(event.userWallet.user.profileImage.s3_key)
               : null,
@@ -973,7 +973,7 @@ export const poolsCreatorRouter = router({
             stakeAmount: fan.stakeAmount.toString(),
             createdAt: fan.createdAt,
             updatedAt: fan.updatedAt,
-            onelink: fan.userWallet.user?.onelink || fan.userWallet.address,
+            handle: fan.userWallet.user?.handle || fan.userWallet.address,
             avatar: fan.userWallet.user?.profileImage
               ? s3Service.getFileUrl(fan.userWallet.user.profileImage.s3_key)
               : null,

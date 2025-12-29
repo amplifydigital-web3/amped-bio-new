@@ -12,50 +12,50 @@ export function extractHandleFromEmail(email: string): string {
 }
 
 /**
- * Checks if a onelink (littlelink name) is available
+ * Checks if a handle (littlelink name) is available
  */
-export async function isOnelinkAvailable(onelink: string): Promise<boolean> {
+export async function isHandleAvailable(handle: string): Promise<boolean> {
   try {
     const existingUser = await prisma.user.findUnique({
-      where: { onelink },
+      where: { handle },
       select: { id: true },
     });
     return !existingUser;
   } catch (error) {
-    console.error("Error checking onelink availability:", error);
+    console.error("Error checking handle availability:", error);
     return false;
   }
 }
 
 /**
- * Generates a unique onelink by appending random numbers if needed
+ * Generates a unique handle by appending random numbers if needed
  */
-export async function generateUniqueOnelink(baseHandle: string): Promise<string> {
-  let onelink = baseHandle;
+export async function generateUniqueHandle(baseHandle: string): Promise<string> {
+  let handle = baseHandle;
   let attempts = 0;
   const maxAttempts = 100;
 
   while (attempts < maxAttempts) {
-    const isAvailable = await isOnelinkAvailable(onelink);
+    const isAvailable = await isHandleAvailable(handle);
 
     if (isAvailable) {
-      return onelink;
+      return handle;
     }
 
     // If not available, append random number
     const randomSuffix = Math.floor(Math.random() * 10000);
-    onelink = `${baseHandle}${randomSuffix}`;
+    handle = `${baseHandle}${randomSuffix}`;
     attempts++;
   }
 
-  // If we can't find an available onelink after many attempts, use timestamp
+  // If we can't find an available handle after many attempts, use timestamp
   return `${baseHandle}${Date.now()}`;
 }
 
 /**
- * Processes email to generate a unique onelink
+ * Processes email to generate a unique handle
  */
-export async function processEmailToUniqueOnelink(email: string): Promise<string> {
+export async function processEmailToUniqueHandle(email: string): Promise<string> {
   const baseHandle = extractHandleFromEmail(email);
-  return await generateUniqueOnelink(baseHandle);
+  return await generateUniqueHandle(baseHandle);
 }

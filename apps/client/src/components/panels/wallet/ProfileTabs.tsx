@@ -48,7 +48,7 @@ const RenderAddressProfile: React.FC<{ address: Address; explorerUrl: string }> 
   const { data } = useQuery(trpc.wallet.getUserByAddress.queryOptions({ address }));
   const currentUrl = window.location.origin;
 
-  if (!data?.onelink) {
+  if (!data?.handle) {
     return (
       <Tooltip content={address}>
         <a
@@ -64,9 +64,9 @@ const RenderAddressProfile: React.FC<{ address: Address; explorerUrl: string }> 
   }
 
   return (
-    <Tooltip content={data.onelink}>
+    <Tooltip content={data.handle}>
       <a
-        href={`${currentUrl}/@${data.onelink}`}
+        href={`${currentUrl}/@${data.handle}`}
         target="_blank"
         rel="noopener noreferrer"
         className="text-blue-600 hover:underline cursor-pointer flex items-center"
@@ -82,7 +82,7 @@ const RenderAddressProfile: React.FC<{ address: Address; explorerUrl: string }> 
             <User className="w-4 h-4 text-gray-400" />
           </div>
         )}
-        @{data.onelink}
+        @{data.handle}
       </a>
     </Tooltip>
   );

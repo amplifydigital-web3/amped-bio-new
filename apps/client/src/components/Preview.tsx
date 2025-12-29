@@ -30,7 +30,7 @@ const extractRootDomain = (url: string): string => {
 
 interface PreviewProps {
   isEditing: boolean;
-  onelink: string;
+  handle: string;
   profile: UserProfile;
   blocks: BlockType[];
   theme: Theme;

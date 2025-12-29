@@ -8,8 +8,8 @@ import type {
 
 export type UserProfile = {
   name: string;
-  onelink: string; // Without @ symbol
-  onelinkFormatted: string; // With @ symbol
+  handle: string; // Without @ symbol
+  handleFormatted: string; // With @ symbol
   email: string;
   bio: string;
   photoUrl?: string;

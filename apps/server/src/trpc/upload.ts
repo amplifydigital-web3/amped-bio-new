@@ -120,7 +120,7 @@ export const uploadRouter = router({
 
         const userFound = await prisma.user.findUnique({
           where: { id: userId },
-          select: { theme: true, onelink: true },
+          select: { theme: true, handle: true },
         });
 
         let themeId = userFound?.theme;
@@ -129,7 +129,7 @@ export const uploadRouter = router({
           const theme = await prisma.theme.create({
             data: {
               user_id: userId,
-              name: `${userFound!.onelink}'s theme`,
+              name: `${userFound!.handle}'s theme`,
               share_level: "private",
               share_config: {},
               config: {},

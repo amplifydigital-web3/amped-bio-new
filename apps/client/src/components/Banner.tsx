@@ -48,14 +48,14 @@ export const Banner: React.FC<BannerProps> = ({ message, type = "info", show = t
   };
 
   const handleClick = () => {
-    if (profile && profile.onelink) {
+    if (profile && profile.handle) {
       if (panel) {
         // If a panel is specified, navigate to the user's editor route with panel state
         // The Editor component will handle setting the active panel from location.state
-        navigate(`/@${profile.onelink}/edit`, { state: { panel } });
+        navigate(`/@${profile.handle}/edit`, { state: { panel } });
       } else {
         // If no panel is specified, just navigate to the user's editor route
-        navigate(`/@${profile.onelink}/edit`);
+        navigate(`/@${profile.handle}/edit`);
       }
     } else {
       // Fallback if profile is not available (shouldn't happen in the editor context)

@@ -1,7 +1,8 @@
-import { createContext, useContext, ReactNode, useCallback, useState, useEffect } from "react";
+import { createContext, useContext, ReactNode, useState, useEffect } from "react";
 import type { AuthUser } from "../types/auth";
 import { trpcClient } from "../utils/trpc";
 import { authClient } from "../lib/auth-client";
+import { createAuthClient } from "better-auth/react";
 
 // Extended user type for better-auth session
 interface BetterAuthUser {
@@ -12,7 +13,7 @@ interface BetterAuthUser {
   image?: string | null;
   createdAt: Date;
   updatedAt: Date;
-  onelink?: string | null;
+  handle?: string | null;
   role?: string;
 }
 
@@ -20,9 +21,8 @@ type AuthContextType = {
   authUser: AuthUser | null;
   error: string | null;
   isAuthenticated: boolean;
-  isLoading: boolean;
- 
- 
+  isPending: boolean;
+
   signOut: () => Promise<void>;
   resetPassword: (
     email: string,
@@ -34,38 +34,41 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Create auth client for useSession hook
+const { useSession } = createAuthClient();
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  // Check for existing session on mount
+  // Use the useSession hook to manage session state
+  const { data: session, isPending, error: sessionError } = useSession();
+
+  // Sync session data with AuthContext
   useEffect(() => {
-    const checkSession = async () => {
-      try {
-        setIsLoading(true);
-        const session = await authClient.getSession();
-        if (session?.data?.user) {
-          const user = session.data.user as BetterAuthUser;
-          const mappedUser: AuthUser = {
-            id: parseInt(user.id),
-            email: user.email,
-            onelink: user.onelink || "",
-            role: user.role || "user",
-            image: user.image || null,
-            wallet: null,
-          };
-          setAuthUser(mappedUser);
-        }
-      } catch (error) {
-        console.error("Error checking session:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    console.log("AuthProvider session changed:", session);
+    if (session?.user) {
+      const user = session.user as BetterAuthUser;
+      const mappedUser: AuthUser = {
+        id: parseInt(user.id),
+        email: user.email,
+        handle: user.handle || user.name || "",
+        role: user.role || "user",
+        image: user.image || null,
+        wallet: null,
+      };
+      setAuthUser(mappedUser);
+    } else {
+      setAuthUser(null);
+    }
+  }, [session]);
 
-    checkSession();
-  }, []);
+  // Handle session errors
+  useEffect(() => {
+    if (sessionError) {
+      setError(sessionError.message);
+    }
+  }, [sessionError]);
 
   const signIn = async (email: string, password: string, _recaptchaToken: string | null) => {
     try {
@@ -79,7 +82,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const mappedUser: AuthUser = {
           id: parseInt(user.id),
           email: user.email,
-          onelink: user.onelink || "",
+          handle: user.handle || "",
           role: user.role || "user",
           image: user.image || null,
           wallet: null,
@@ -96,7 +99,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signUp = async (
-    onelink: string,
+    handle: string,
     email: string,
     password: string,
     _recaptchaToken: string | null
@@ -106,14 +109,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const response = await authClient.signUp.email({
         email,
         password,
-        name: onelink,
+        name: handle,
       });
       if (response.data?.user) {
         const user = response.data.user as BetterAuthUser;
         const mappedUser: AuthUser = {
           id: parseInt(user.id),
           email: user.email,
-          onelink: onelink,
+          handle: handle,
           role: user.role || "user",
           image: user.image || null,
           wallet: null,
@@ -171,7 +174,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const mappedUser: AuthUser = {
         id: response.user.id,
         email: response.user.email,
-        onelink: response.user.onelink ?? "",
+        handle: response.user.handle ?? "",
         role: response.user.role,
         image: response.user.image,
         wallet: response.user.wallet,
@@ -197,7 +200,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const mappedUser: AuthUser = {
             id: parseInt(user.id),
             email: user.email,
-            onelink: user.onelink || "",
+            handle: user.handle || "",
             role: user.role || "user",
             image: user.image || null,
             wallet: null,
@@ -217,7 +220,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     authUser,
     error,
     isAuthenticated: !!authUser,
-    isLoading,
+    isPending,
     signIn,
     signUp,
     signInWithGoogle,

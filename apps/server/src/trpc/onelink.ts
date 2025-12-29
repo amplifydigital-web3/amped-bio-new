@@ -19,11 +19,11 @@ export const onelinkBaseSchema = z
 
 // Use the base schema in specific contexts
 export const onelinkParamSchema = z.object({
-  onelink: onelinkBaseSchema,
+  handle: onelinkBaseSchema,
 });
 
 export const redeemOnelinkSchema = z.object({
-  newOnelink: onelinkBaseSchema,
+  newHandle: onelinkBaseSchema,
 });
 
 const appRouter = router({
@@ -31,14 +31,14 @@ const appRouter = router({
   checkAvailability: publicProcedure.input(onelinkParamSchema).query(async ({ input }) => {
     console.group("🔍 CHECK ONELINK REQUEST (tRPC)");
     console.info("📥 Received request to check onelink availability");
-    const { onelink } = input;
+    const { handle: onelink } = input;
     console.info(`🔍 Checking availability for: ${onelink}`);
 
     try {
       console.info("🔄 Querying database to count matching onelinks");
       const count = await prisma.user.count({
         where: {
-          onelink: onelink,
+          handle: onelink,
         },
       });
       console.info(`🔢 Count result: ${count}`);
@@ -68,7 +68,7 @@ const appRouter = router({
     console.group("🔄 REDEEM ONELINK REQUEST (tRPC)");
     console.info("📥 Received request to redeem onelink");
 
-    const { newOnelink } = input;
+    const { newHandle: newOnelink } = input;
     const userId = ctx.user.sub;
 
     try {
@@ -78,11 +78,11 @@ const appRouter = router({
           id: userId,
         },
         select: {
-          onelink: true,
+          handle: true,
         },
       });
 
-      const currentOnelink = currentUser?.onelink;
+      const currentOnelink = currentUser?.handle;
       console.info(
         `🔄 User ${userId} requesting to change onelink from "${currentOnelink}" to "${newOnelink}"`
       );
@@ -90,7 +90,7 @@ const appRouter = router({
       // Check if the new onelink is available
       const existingOnelink = await prisma.user.findUnique({
         where: {
-          onelink: newOnelink,
+          handle: newOnelink,
         },
       });
 
@@ -109,7 +109,7 @@ const appRouter = router({
           id: userId,
         },
         data: {
-          onelink: newOnelink,
+          handle: newOnelink,
         },
       });
 
@@ -119,7 +119,7 @@ const appRouter = router({
       return {
         success: true,
         message: "Onelink updated successfully",
-        onelink: newOnelink,
+        handle: newOnelink,
       };
     } catch (error) {
       console.error("❌ ERROR in redeemOnelink", error);
@@ -132,17 +132,17 @@ const appRouter = router({
     }
   }),
 
-  getOnelink: publicProcedure.input(onelinkParamSchema).query(async opts => {
+  getHandle: publicProcedure.input(onelinkParamSchema).query(async opts => {
     console.group("🔗 GET ONELINK REQUEST");
     console.info("📥 Received request for onelink");
-    const { onelink } = opts.input;
+    const { handle: onelink } = opts.input;
     console.info(`🔍 Looking up onelink: ${onelink}`);
 
     try {
       console.info("🔄 Querying database for user");
       const user = await prisma.user.findUnique({
         where: {
-          onelink: onelink,
+          handle: onelink,
         },
       });
       console.info(`🔍 User lookup result: ${user ? "✅ Found" : "❌ Not found"}`);
@@ -210,7 +210,7 @@ const appRouter = router({
 
       return result;
     } catch (error) {
-      console.error("❌ ERROR in getOnelink", error);
+      console.error("❌ ERROR in getHandle", error);
       console.groupEnd();
       if (error instanceof TRPCError) throw error;
       throw new TRPCError({

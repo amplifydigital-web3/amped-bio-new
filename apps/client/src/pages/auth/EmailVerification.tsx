@@ -57,7 +57,7 @@ export function EmailVerification() {
           authClient.getSession().then(sessionResponse => {
             if (sessionResponse.data?.user) {
               const user = sessionResponse.data.user as any;
-              if (user.onelink) setOnelink(user.onelink);
+              if (user.handle) setOnelink(user.handle);
             }
           });
         } else {

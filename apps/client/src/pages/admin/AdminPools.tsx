@@ -102,14 +102,14 @@ export const AdminPools: FC = () => {
                     {pool.poolAddress || "N/A"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-500 dark:text-gray-400">
-                    {pool.wallet?.user?.onelink ? (
+                    {pool.wallet?.user?.handle ? (
                       <a
-                        href={`/${formatOnelink(pool.wallet.user.onelink)}`}
+                        href={`/${formatOnelink(pool.wallet.user.handle)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:underline"
                       >
-                        {formatOnelink(pool.wallet.user.onelink)}
+                        {formatOnelink(pool.wallet.user.handle)}
                       </a>
                     ) : (
                       pool.wallet?.user?.email || "N/A"

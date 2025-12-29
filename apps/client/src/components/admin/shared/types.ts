@@ -5,7 +5,7 @@ export const UserSchema = z.object({
   id: z.number(),
   name: z.string(),
   email: z.string().email(),
-  onelink: z.string().nullable(),
+  handle: z.string().nullable(),
   created_at: z.string(),
   role: z.string(),
   _count: z.object({
@@ -13,9 +13,9 @@ export const UserSchema = z.object({
   }),
 });
 
-// Onelink schema
-export const OnelinkSchema = z.object({
-  onelink: z.string().nullable(),
+// Handle schema
+export const HandleSchema = z.object({
+  handle: z.string().nullable(),
   name: z.string(),
   totalClicks: z.number(),
   blockCount: z.number(),
@@ -60,13 +60,13 @@ export const DashboardDataSchema = z.object({
   userStats: UserStatsSchema,
   blockStats: BlockStatsSchema,
   blockTypeDistribution: z.record(z.number()),
-  topOnelinks: z.array(OnelinkSchema),
+  topOnelinks: z.array(HandleSchema),
   recentUsers: z.array(UserSchema),
 });
 
 // Export types from schemas
 export type User = z.infer<typeof UserSchema>;
-export type Onelink = z.infer<typeof OnelinkSchema>;
+export type Handle = z.infer<typeof HandleSchema>;
 export type BlockType = z.infer<typeof BlockTypeSchema>;
 export type UserStats = z.infer<typeof UserStatsSchema>;
 export type BlockStats = z.infer<typeof BlockStatsSchema>;

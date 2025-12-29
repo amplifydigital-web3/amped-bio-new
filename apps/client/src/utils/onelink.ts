@@ -33,9 +33,9 @@ export function formatOnelink(normalizedOnelink: string): `@${string}` {
 }
 
 /**
- * Get the full public URL for an onelink
+ * Get the full public URL for a handle
  */
-export function getOnelinkPublicUrl(normalizedOrFormattedOnelink: string): string {
+export function getHandlePublicUrl(normalizedOrFormattedOnelink: string): string {
   if (!normalizedOrFormattedOnelink) return BASE_URL;
   const formattedOnelink = formatOnelink(normalizeOnelink(normalizedOrFormattedOnelink));
   return `${BASE_URL}/${formattedOnelink}`;
@@ -87,7 +87,7 @@ export async function checkOnelink(rawOnelink: string): Promise<boolean> {
 
     // API call to check availability
     const response = await trpcClient.onelink.checkAvailability.query({
-      onelink: normalizedOnelink,
+      handle: normalizedOnelink,
     });
 
     // Return true if available, false if taken

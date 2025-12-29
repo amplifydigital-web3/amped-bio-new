@@ -20,7 +20,7 @@ interface AdminDashboardProps {
   };
   blockTypeDistribution: Record<string, number>;
   topOnelinks: Array<{
-    onelink: string | null;
+    handle: string | null;
     name: string;
     totalClicks: number;
     blockCount: number;
@@ -29,7 +29,7 @@ interface AdminDashboardProps {
     id: number;
     name: string;
     email: string;
-    onelink: string | null;
+    handle: string | null;
     created_at: string;
     role: string;
     _count: {

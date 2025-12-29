@@ -3,7 +3,7 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { PrismaClient } from "@prisma/client";
 import { captcha, jwt, oneTap } from "better-auth/plugins";
 import { env } from "../env";
-import { processEmailToUniqueOnelink } from "./onelink-generator";
+import { processEmailToUniqueHandle } from "./onelink-generator";
 import { sendEmailVerification } from "./email/email";
 import { hashPassword, verifyPassword } from "./password";
 
@@ -45,7 +45,7 @@ export const auth = betterAuth({
     },
     emailVerification: {
       // Required to send the verification email
-      sendVerificationEmail: async ({ user, url, token }) => {
+      sendVerificationEmail: async ({ user, url, token }: { user: any; url: any; token: any }) => {
         console.info("Sending email verification to:", JSON.stringify({ user, url, token }));
         sendEmailVerification(user.email, token);
       },
@@ -59,12 +59,12 @@ export const auth = betterAuth({
       createdAt: "created_at",
       updatedAt: "updated_at",
       name: "name",
-      onelink: "onelink",
+      handle: "handle",
       role: "role",
       image: "image",
     },
     additionalFields: {
-      onelink: {
+      handle: {
         type: "string",
         required: false,
         defaultValue: null,
@@ -80,10 +80,15 @@ export const auth = betterAuth({
         defaultValue: null,
       },
     },
-    beforeCreate: async user => {
-      // Generate unique onelink for social auth users who don't have one
-      if (!user.onelink && user.email) {
-        user.onelink = await processEmailToUniqueOnelink(user.email);
+    beforeCreate: async (user: any, context: any) => {
+      // Generate unique handle for social auth users who don't have one
+      if (!user.handle && user.email) {
+        user.handle = await processEmailToUniqueHandle(user.email);
+      }
+
+      // For social providers (like Google), use the name from the provider
+      if (context?.provider === "google" && context?.profile?.name && !user.name) {
+        user.name = context.profile.name;
       }
     },
   },

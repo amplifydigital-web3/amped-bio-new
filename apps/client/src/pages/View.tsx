@@ -112,7 +112,7 @@ export function View() {
       setInitialAuthForm(isRegisterRoute ? "register" : "login");
     } else if ((isRegisterRoute || isLoginRoute) && authUser) {
       // If already logged in, redirect to their edit page
-      const formattedOnelink = formatOnelink(authUser.onelink);
+      const formattedOnelink = formatOnelink(authUser.handle);
       navigate(`/${formattedOnelink}/edit`);
     }
   }, [isRegisterRoute, isLoginRoute, authUser, navigate]);
@@ -140,8 +140,8 @@ export function View() {
       const fetchData = async () => {
         setLoading(true);
         try {
-          const onlinkData = await trpcClient.onelink.getOnelink.query({
-            onelink: normalizedOnelink,
+          const onlinkData = await trpcClient.onelink.getHandle.query({
+            handle: normalizedOnelink,
           });
 
           if (onlinkData) {
@@ -151,8 +151,8 @@ export function View() {
 
             setProfile({
               name,
-              onelink: normalizedOnelink,
-              onelinkFormatted: formattedOnelink,
+              handle: normalizedOnelink,
+              handleFormatted: formattedOnelink,
               email,
               bio: description ?? "",
               photoUrl: image ?? "",
@@ -205,8 +205,8 @@ export function View() {
     }
 
     // If user registered/logged in, redirect to their edit page
-    if (user && user.onelink) {
-      const formattedOnelink = formatOnelink(user.onelink);
+    if (user && user.handle) {
+      const formattedOnelink = formatOnelink(user.handle);
       navigate(`/${formattedOnelink}/edit`);
     }
   };
@@ -219,7 +219,7 @@ export function View() {
       navigate("/");
     }
   };
-  
+
   if (loading || !profile) {
     return (
       <div className="min-h-screen">
@@ -252,7 +252,7 @@ export function View() {
         {/* Edit Button */}
         {authUser && (isInitialPage || authUser.email === profile.email) && (
           <Link
-            to={`/${formatOnelink(authUser.onelink)}/edit`}
+            to={`/${formatOnelink(authUser.handle)}/edit`}
             className="p-3 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-colors flex items-center space-x-2"
           >
             <Settings className="w-5 h-5" />

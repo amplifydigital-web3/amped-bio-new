@@ -21,7 +21,7 @@ import { useNavigate, useLocation } from "react-router";
 interface EditorContextType extends EditorState {
   changes: boolean;
   themeChanges: boolean;
-  setUser: (onelink: string) => Promise<any>;
+  setUser: (handle: string) => Promise<any>;
   setProfile: (profile: UserProfile) => void;
   addBlock: (block: BlockType) => Promise<BlockType>;
   removeBlock: (id: number) => void;
@@ -56,21 +56,21 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
 
   const { authUser } = useAuth();
 
-  const setUser = useCallback(async (onelink: string) => {
-    // console.group(`🔍 Setting User: ${onelink}`);
+  const setUser = useCallback(async (handle: string) => {
+    // console.group(`🔍 Setting User: ${handle}`);
     // console.info("🚀 Loading user data...");
     try {
-      const onlinkData = await trpcClient.onelink.getOnelink.query({ onelink });
+      const onlinkData = await trpcClient.onelink.getHandle.query({ handle: onelink });
 
       if (!onlinkData) {
-        // console.info("❌ User not found:", onelink);
+        // console.info("❌ User not found:", handle);
         // console.groupEnd();
         return;
       }
       const { user, theme, blocks: blocks_raw, hasCreatorPool } = onlinkData;
       const { name, email, description, image } = user;
-      const normalizedOnelink = normalizeOnelink(onelink);
-      const formattedOnelink = formatOnelink(onelink);
+      const normalizedOnelink = normalizeOnelink(handle);
+      const formattedOnelink = formatOnelink(handle);
       // console.info("👤 User data loaded:", { name, email, blocks: blocks_raw, theme });
 
       const blocks = blocks_raw.sort((a, b) => a.order - b.order);
@@ -79,8 +79,8 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         ...prevState,
         profile: {
           name,
-          onelink: normalizedOnelink,
-          onelinkFormatted: formattedOnelink,
+          handle: normalizedOnelink,
+          handleFormatted: formattedOnelink,
           email,
           bio: description ?? "",
           photoUrl: image ?? "",
@@ -105,17 +105,17 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     const updatedProfile = { ...profile };
 
     if (
-      "onelink" in profile &&
-      (!profile.onelinkFormatted || profile.onelinkFormatted !== formatOnelink(profile.onelink))
+      "handle" in profile &&
+      (!profile.handleFormatted || profile.handleFormatted !== formatOnelink(profile.handle))
     ) {
-      updatedProfile.onelinkFormatted = formatOnelink(profile.onelink);
+      updatedProfile.handleFormatted = formatOnelink(profile.handle);
     }
 
     if (
-      "onelinkFormatted" in profile &&
-      (!profile.onelink || profile.onelink !== normalizeOnelink(profile.onelinkFormatted))
+      "handleFormatted" in profile &&
+      (!profile.handle || profile.handle !== normalizeOnelink(profile.handleFormatted))
     ) {
-      updatedProfile.onelink = normalizeOnelink(profile.onelinkFormatted);
+      updatedProfile.handle = normalizeOnelink(profile.handleFormatted);
     }
 
     setState(prevState => ({
@@ -124,10 +124,10 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     }));
     setChanges(true);
     console.info(
-      "✅ Profile updated with onelink:",
-      updatedProfile.onelink,
-      "and formatted onelink:",
-      updatedProfile.onelinkFormatted
+      "✅ Profile updated with handle:",
+      updatedProfile.handle,
+      "and formatted handle:",
+      updatedProfile.handleFormatted
     );
     console.groupEnd();
   }, []);

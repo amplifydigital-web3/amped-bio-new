@@ -1,9 +1,6 @@
 import { router, publicProcedure, privateProcedure } from "./trpc";
-import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { verifyRecaptcha } from "../utils/recaptcha";
-import crypto from "crypto";
-import { sendEmailVerification } from "../utils/email/email";
 import { generateAccessToken } from "../utils/token";
 import { getFileUrl } from "../utils/fileUrlResolver";
 import { passwordResetRequestSchema, processPasswordResetSchema } from "../schemas/auth.schema";
@@ -104,7 +101,7 @@ export const authRouter = router({
         user: {
           id: user.id,
           email: user.email,
-          onelink: user.onelink,
+          handle: user.handle,
           // emailVerified: user.email_verified_at !== null,
           role: user.role,
           image: imageUrl,
@@ -149,119 +146,6 @@ export const authRouter = router({
           code: "BAD_REQUEST",
           message: "Invalid or expired reset token",
         });
-      }
-    }),
-
-  // Verify email
-  verifyEmail: publicProcedure
-    .input(
-      z.object({
-        token: z.string(),
-        email: z.string().email(),
-      })
-    )
-    .mutation(async ({ input }) => {
-      try {
-        const { token, email } = input;
-
-        // Find user with token and email
-        const user = await prisma.user.findFirst({
-          where: {
-            remember_token: token,
-            email,
-          },
-        });
-
-        if (!user) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "(Token, Email) not found",
-          });
-        }
-
-        // Update user as verified
-        const result = await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            email_verified_at: new Date(),
-            remember_token: null,
-          },
-        });
-
-        return {
-          message: "Email verified successfully",
-          onelink: result.onelink,
-          email,
-        };
-      } catch (error) {
-        if (error instanceof TRPCError) {
-          // Re-throw TRPC errors as-is
-          throw error;
-        }
-        return handlePrismaError(error, "verifyEmail");
-      }
-    }),
-
-  // Send email verification
-  sendVerifyEmail: publicProcedure
-    .input(
-      z.object({
-        email: z.string().email(),
-      })
-    )
-    .mutation(async ({ input }) => {
-      try {
-        const { email } = input;
-
-        // Find user
-        const user = await prisma.user.findUnique({
-          where: { email },
-        });
-
-        if (!user) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "User not found",
-          });
-        }
-
-        // Generate new verification token
-        const remember_token = crypto.randomBytes(32).toString("hex");
-
-        // Update user with new token
-        const updatedUser = await prisma.user.update({
-          where: { id: user.id },
-          data: { remember_token },
-        });
-
-        if (!updatedUser.remember_token) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Failed to generate verification token",
-          });
-        }
-
-        // Send verification email
-        try {
-          await sendEmailVerification(updatedUser.email, updatedUser.remember_token);
-        } catch (error) {
-          console.error("Error sending verification email:", error);
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Failed to send verification email",
-          });
-        }
-
-        return {
-          success: true,
-          message: "Verification email sent successfully",
-        };
-      } catch (error) {
-        if (error instanceof TRPCError) {
-          // Re-throw TRPC errors as-is
-          throw error;
-        }
-        return handlePrismaError(error, "sendVerifyEmail");
       }
     }),
 

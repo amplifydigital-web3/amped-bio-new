@@ -14,7 +14,6 @@ model User {
   email_verified      Boolean   @default(false) @map("email_verified")
   image               String?   @db.LongText // Keep for backward compatibility
   handle              String?   @unique @map("littlelink_name")
-  onelink             String?   @unique @map("littlelink_name")
   created_at          DateTime  @default(now())
   updated_at          DateTime? @updatedAt
   sessions            Session[]

@@ -55,7 +55,7 @@ export function Editor() {
       "identify",
       "ticketForm",
       {
-        name: authUser!.onelink,
+        name: authUser!.handle,
         email: authUser!.email,
       },
       {
@@ -94,7 +94,7 @@ export function Editor() {
     }
 
     // Now check if logged-in user owns this onelink
-    const isOwner = isEquivalentOnelink(authUser.onelink, normalizedOnelink);
+    const isOwner = isEquivalentOnelink(authUser.handle, normalizedOnelink);
 
     if (!isOwner) {
       // User is logged in but doesn't own this onelink
@@ -127,7 +127,7 @@ export function Editor() {
   }, [location.search, location.state, authUser, setActivePanel]);
 
   useEffect(() => {
-    if (normalizedOnelink && normalizedOnelink !== profile.onelink) {
+    if (normalizedOnelink && normalizedOnelink !== profile.handle) {
       setLoading(true);
       setUser(normalizedOnelink).then(() => {
         setLoading(false);
@@ -149,7 +149,7 @@ export function Editor() {
   return (
     <div className="h-screen flex flex-col">
       <div className="flex-1 overflow-hidden">
-        <Layout onelink={normalizedOnelink} bannerData={bannerData} bannerLoading={bannerLoading} />
+        <Layout handle={normalizedOnelink} bannerData={bannerData} bannerLoading={bannerLoading} />
       </div>
     </div>
   );

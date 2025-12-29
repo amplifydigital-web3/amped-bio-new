@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ONELINK_MIN_LENGTH, ONELINK_REGEX } from "@ampedbio/constants";
 
 export const registerSchema = z.object({
-  onelink: z
+  handle: z
     .string()
     .transform(value => (value.startsWith("@") ? value.substring(1) : value)) // Normalize by removing @ prefix if present
     .pipe(
