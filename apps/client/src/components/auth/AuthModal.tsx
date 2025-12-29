@@ -21,7 +21,13 @@ import {
   formatOnelink,
 } from "@/utils/onelink";
 import { trackGAEvent } from "@/utils/ga";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 // Extended user type for better-auth session
 interface BetterAuthUser {
@@ -106,8 +112,8 @@ const PasswordStrengthIndicator = ({ password }: { password: string }) => {
 };
 
 export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: AuthModalProps) {
-  const { signIn, signInWithGoogle, signUp, resetPassword } = useAuth();
-  const { executeCaptcha, isRecaptchaEnabled } = useCaptcha();
+  const { resetPassword } = useAuth();
+  const { executeCaptcha } = useCaptcha();
   const [loading, setLoading] = useState(false);
   const [sharedEmail, setSharedEmail] = useState("");
   const isUserTyping = useRef(false);
@@ -252,13 +258,13 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setLoginError(null);
     try {
       // Get reCAPTCHA token using the invisible captcha
-      const recaptchaToken = isRecaptchaEnabled ? await executeCaptcha(CaptchaActions.LOGIN) : null;
+      const recaptchaToken = await executeCaptcha(CaptchaActions.LOGIN);
 
       // Using better-auth for email/password login
       const response = await authClient.signIn.email({
         email: data.email,
         password: data.password,
-        callbackURL: `/${normalizeOnelink(data.email.split("@")[0] || "home")}/edit`,
+        callbackURL: window.location.href,
         fetchOptions: {
           headers: recaptchaToken
             ? {
@@ -384,16 +390,21 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setRegisterError(null);
     try {
       // Get reCAPTCHA token using the invisible captcha
-      const recaptchaToken = isRecaptchaEnabled
-        ? await executeCaptcha(CaptchaActions.REGISTER)
-        : null;
+      const recaptchaToken = await executeCaptcha(CaptchaActions.REGISTER);
 
       // Using better-auth signup
       const response = await authClient.signUp.email({
         email: data.email,
         password: data.password,
         name: data.onelink, // Using onelink as the name
-        callbackURL: `/${data.onelink}/edit`,
+        callbackURL: window.location.href,
+        fetchOptions: {
+          headers: recaptchaToken
+            ? {
+                "x-captcha-response": recaptchaToken!,
+              }
+            : undefined,
+        },
       });
 
       if (response?.error) {
@@ -431,12 +442,10 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setLoading(true);
     setResetError(null);
     setResetSuccess(false);
+    
     try {
       // Get reCAPTCHA token using the invisible captcha
-      const recaptchaToken = isRecaptchaEnabled
-        ? await executeCaptcha(CaptchaActions.RESET_PASSWORD)
-        : null;
-
+      const recaptchaToken = await executeCaptcha(CaptchaActions.RESET_PASSWORD);
       const response = await resetPassword(data.email, recaptchaToken);
       if (response.success) {
         setResetSuccess(true);

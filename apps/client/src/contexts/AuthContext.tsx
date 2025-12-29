@@ -21,14 +21,8 @@ type AuthContextType = {
   error: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  signIn: (email: string, password: string, recaptchaToken: string | null) => Promise<AuthUser>;
-  signInWithGoogle: (token: string) => Promise<AuthUser>;
-  signUp: (
-    onelink: string,
-    email: string,
-    password: string,
-    recaptchaToken: string | null
-  ) => Promise<AuthUser>;
+ 
+ 
   signOut: () => Promise<void>;
   resetPassword: (
     email: string,
@@ -138,10 +132,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const resetPassword = async (email: string, _recaptchaToken: string | null) => {
     try {
       // Use forgotPassword method for password reset request
-      const response = await (authClient as any).forgotPassword({
+      const response = await authClient.requestPasswordReset({
         email,
         redirectTo: "/auth/reset-password",
       });
+
       if (response.error) {
         return {
           success: false,

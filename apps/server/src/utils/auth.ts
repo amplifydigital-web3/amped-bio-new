@@ -4,8 +4,11 @@ import { PrismaClient } from "@prisma/client";
 import { captcha, jwt, oneTap } from "better-auth/plugins";
 import { env } from "../env";
 import { processEmailToUniqueOnelink } from "./onelink-generator";
+import { sendEmailVerification } from "./email/email";
+import { hashPassword, verifyPassword } from "./password";
 
 const prisma = new PrismaClient();
+
 export const auth = betterAuth({
   trustedOrigins: [env.FRONTEND_URL],
   plugins: [
@@ -43,10 +46,12 @@ export const auth = betterAuth({
     emailVerification: {
       // Required to send the verification email
       sendVerificationEmail: async ({ user, url, token }) => {
-        void sendEmail({
-          to: user.email,
-        });
+        console.info("Sending email verification to:", JSON.stringify({ user, url, token }));
+        sendEmailVerification(user.email, token);
       },
+      sendOnSignUp: true,
+      autoSignInAfterVerification: true,
+      expiresIn: 1 * 60 * 60, // 1 hour
     },
     modelName: "User",
     fields: {
@@ -91,6 +96,10 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     autoSignIn: true,
+    password: {
+      hash: hashPassword,
+      verify: verifyPassword,
+    },
   },
   socialProviders: {
     google: {
