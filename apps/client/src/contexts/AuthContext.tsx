@@ -2,7 +2,6 @@ import { createContext, useContext, ReactNode, useState, useEffect } from "react
 import type { AuthUser } from "../types/auth";
 import { trpcClient } from "../utils/trpc";
 import { authClient } from "../lib/auth-client";
-import { createAuthClient } from "better-auth/react";
 
 // Extended user type for better-auth session
 interface BetterAuthUser {
@@ -34,15 +33,12 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Create auth client for useSession hook
-const { useSession } = createAuthClient();
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Use the useSession hook to manage session state
-  const { data: session, isPending, error: sessionError } = useSession();
+  const { data: session, isPending, error: sessionError } = authClient.useSession();
 
   // Sync session data with AuthContext
   useEffect(() => {
@@ -186,45 +182,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signInWithGoogle = async (_token: string) => {
-    try {
-      setError(null);
-      const response = await authClient.signIn.social({
-        provider: "google",
-        callbackURL: "/",
-      });
-      if (response.data && !response.error) {
-        const session = await authClient.getSession();
-        if (session?.data?.user) {
-          const user = session.data.user as BetterAuthUser;
-
-          const mappedUser: AuthUser = {
-            id: parseInt(user.id),
-            email: user.email,
-            handle: user.handle || "",
-            role: user.role || "user",
-            image: user.image || null,
-            wallet: null,
-          };
-          setAuthUser(mappedUser);
-          return mappedUser;
-        }
-      }
-      throw new Error("Google sign in failed");
-    } catch (error) {
-      setError((error as Error).message);
-      throw error;
-    }
-  };
-
   const value = {
     authUser,
     error,
     isAuthenticated: !!authUser,
     isPending,
-    signIn,
     signUp,
-    signInWithGoogle,
     signOut: async () => {
       try {
         await authClient.signOut();

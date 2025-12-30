@@ -18,10 +18,15 @@ import {
   normalizeHandle,
   cleanHandleInput,
   getHandlePublicUrl,
-  formatHandle,
 } from "@/utils/handle";
 import { trackGAEvent } from "@/utils/ga";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // Extended user type for better-auth session
 interface BetterAuthUser {
@@ -33,7 +38,7 @@ interface BetterAuthUser {
   createdAt: Date;
   updatedAt: Date;
   handle: string;
-  role?: string;
+  role: string;
 }
 
 interface AuthModalProps {
@@ -273,27 +278,16 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         throw new Error(response.error.message || "Login failed");
       }
 
-      // After successful login, get the current session to get user details
-      const session = await authClient.getSession();
-      if (session?.data?.user) {
-        const user = session.data.user as BetterAuthUser;
-        onClose({
-          id: parseInt(user.id),
-          email: user.email,
-          handle: user.handle || user.name || user.email?.split("@")[0] || "",
-          role: user.role || "user",
-          image: user.image || null,
-          wallet: null,
-        });
+      const user = response.data.user as BetterAuthUser;
 
-        // Redirect the user to their edit page with panel state set to "home"
-        const userData = session.data.user as BetterAuthUser;
-        const handle = userData.handle || userData.name || userData.email?.split("@")[0] || "home";
-        const formattedHandle = formatHandle(handle);
-        navigate(`/${formattedHandle}/edit`, { state: { panel: "home" } });
-      } else {
-        throw new Error("Login successful but could not retrieve user session");
-      }
+      onClose({
+        id: parseInt(user.id),
+        email: user.email,
+        handle: user.handle,
+        role: user.role,
+        image: user.image || null,
+        wallet: null,
+      });
     } catch (error) {
       setLoginError((error as Error).message || "Login failed");
     } finally {
@@ -306,37 +300,6 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setLoginError(null);
 
     try {
-      // Store the current location to redirect after successful login
-      const redirectAfterLogin = () => {
-        // Check session after some time to see if login was successful
-        setTimeout(async () => {
-          try {
-            const session = await authClient.getSession();
-            if (session?.data?.user) {
-              const user = session.data.user as BetterAuthUser;
-              onClose({
-                id: parseInt(user.id),
-                email: user.email,
-                handle: user.handle || user.name || (user.email ? user.email.split("@")[0] : ""),
-                role: user.role || "user",
-                image: user.image || null,
-                wallet: null,
-              });
-
-              const userData = session.data.user as BetterAuthUser;
-              const handle =
-                userData.handle || userData.name || userData.email?.split("@")[0] || "home";
-              const formattedHandle = formatHandle(handle);
-              navigate(`/${formattedHandle}/edit`, { state: { panel: "home" } });
-            }
-          } catch (error) {
-            setLoginError((error as Error).message || "Failed to get session after login");
-          } finally {
-            setLoading(false);
-          }
-        }, 2000); // Wait 2 seconds to allow redirect and session establishment
-      };
-
       // Using better-auth's Google OAuth flow
       // This will likely redirect the user to Google's authentication page
       const response = await authClient.signIn.social({
@@ -351,7 +314,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
       }
 
       // Set up monitoring for session after redirect
-      redirectAfterLogin();
+      // redirectAfterLogin();
     } catch (error) {
       setLoginError((error as Error).message || "Google login failed");
       setLoading(false);
@@ -405,25 +368,15 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         throw new Error(response.error.message || "Registration failed");
       }
 
-      // After successful registration, get the current session to get user details
-      const session = await authClient.getSession();
-      if (session?.data?.user) {
-        const user = session.data.user as BetterAuthUser;
-        onClose({
-          id: parseInt(user.id),
-          email: user.email,
-          handle: user.handle || user.name || data.handle,
-          role: user.role || "user",
-          image: user.image || null,
-          wallet: null,
-        });
-
-        // Redirect to edit page with home panel selected
-        const formattedHandle = formatHandle(user.handle);
-        navigate(`/${formattedHandle}/edit`, { state: { panel: "home" } });
-      } else {
-        throw new Error("Registration successful but could not retrieve user session");
-      }
+      const user = response.data.user as BetterAuthUser;
+      onClose({
+        id: parseInt(user.id),
+        email: user.email,
+        handle: user.handle,
+        role: user.role,
+        image: user.image || null,
+        wallet: null,
+      });
     } catch (error) {
       setRegisterError((error as Error).message || "Registration failed");
     } finally {
