@@ -10,6 +10,7 @@ import { StatsSection } from "./StatsSection";
 import { type StatBoxProps } from "./types";
 import { AVAILABLE_CHAINS } from "@ampedbio/web3";
 import { Chain } from "viem";
+import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
 
 interface ProfileSectionProps {
   address?: string;
@@ -67,6 +68,8 @@ export function ProfileSection({
   const chainId = useChainId();
   const [currentNetwork, setCurrentNetwork] = useState<Chain>(AVAILABLE_CHAINS[0]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  const { navigateToProfile } = useRNSNavigation();
 
   useEffect(() => {
     if (chainId) {
@@ -220,7 +223,10 @@ export function ProfileSection({
             </div>
             {profile.revoName && (
               <div className="flex items-center space-x-2 min-w-0">
-                <span className="text-xs sm:text-sm font-mono text-gray-600 bg-white px-2 sm:px-3 py-1 rounded-full border border-gray-200 truncate">
+                <span
+                  onClick={() => navigateToProfile(profile.revoName!.split(".")[0])}
+                  className="text-xs cursor-pointer sm:text-sm font-mono text-gray-600 bg-white px-2 sm:px-3 py-1 rounded-full border border-gray-200 truncate"
+                >
                   {profile.revoName}
                 </span>
                 <button

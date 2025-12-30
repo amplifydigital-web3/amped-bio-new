@@ -16,6 +16,7 @@ import { Theme, UserProfile } from "@/types/editor";
 import { trpcClient } from "@/utils/trpc";
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
+import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
 
 // Helper function to extract the root domain from a URL
 const extractRootDomain = (url: string): string => {
@@ -40,6 +41,7 @@ interface PreviewProps {
 
 export function Preview({ profile, blocks, theme }: PreviewProps) {
   const [copied, setCopied] = useState(false);
+  const { navigateToProfile } = useRNSNavigation();
   const themeConfig = theme.config;
 
   const handleLinkClick = (block: BlockType) => {
@@ -177,7 +179,12 @@ export function Preview({ profile, blocks, theme }: PreviewProps) {
                             <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" />
                           )}
                         </button>
-                        <span className="font-medium">{profile.revoName}</span>
+                        <span
+                          className="font-medium cursor-pointer"
+                          onClick={() => navigateToProfile(profile.revoName!.split(".")[0])}
+                        >
+                          {profile.revoName}
+                        </span>
                       </div>
                     )}
                   </div>

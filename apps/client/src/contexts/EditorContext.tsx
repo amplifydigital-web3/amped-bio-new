@@ -268,6 +268,19 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         searchParams.delete("t");
       }
 
+      // If navigating to the RNS panel, ensure we go to the editor route
+      // for the current profile (so Preview clicks navigate to /@<onelink>/edit?t=...)
+      try {
+        const profileOnelink = state?.profile?.onelink;
+        if (activePanel === "rns" && profileOnelink) {
+          const formatted = formatOnelink(profileOnelink);
+          navigate(`/${formatted}/edit?${searchParams.toString()}`, { replace: true });
+          return;
+        }
+      } catch (e) {
+        // fallback to current pathname
+      }
+
       navigate(`${location.pathname}?${searchParams.toString()}`, { replace: true });
     },
     [navigate, location]
