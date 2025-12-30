@@ -1454,7 +1454,7 @@ export const poolsFanRouter = router({
           creator: {
             userId: pool.wallet!.userId!,
             address: pool.wallet!.address!,
-            littlelink: pool.wallet!.user?.handle || null,
+            handle: pool.wallet!.user?.handle || null,
             name: pool.wallet!.user?.name || "Unknown Creator",
           },
         };

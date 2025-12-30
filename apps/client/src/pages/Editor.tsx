@@ -4,13 +4,13 @@ import { useAuth } from "../contexts/AuthContext";
 import { useEffect, useState } from "react";
 import { useEditor } from "../contexts/EditorContext";
 import { useNavigate } from "react-router";
-import { normalizeOnelink, formatOnelink, isEquivalentOnelink } from "@/utils/onelink";
+import { normalizeHandle, formatHandle, isEquivalentHandle } from "@/utils/handle";
 import { toast } from "react-hot-toast";
 import { trpc } from "../utils/trpc";
 import { useQuery } from "@tanstack/react-query";
 
 export function Editor() {
-  const { onelink = "" } = useParams();
+  const { handle = "" } = useParams();
   const { authUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [authorized, setAuthorized] = useState(false);
@@ -23,9 +23,9 @@ export function Editor() {
     trpc.public.getBanner.queryOptions()
   );
 
-  // Normalize onelink to handle @ symbols in URLs
-  const normalizedOnelink = normalizeOnelink(onelink);
-  const formattedOnelink = formatOnelink(onelink);
+  // Normalize handle to handle @ symbols in URLs
+  const normalizedHandle = normalizeHandle(handle);
+  const formattedHandle = formatHandle(handle);
 
   // Initialize Freshworks help widget
   useEffect(() => {
@@ -76,11 +76,11 @@ export function Editor() {
 
   // Redirect to URL with @ symbol if missing
   useEffect(() => {
-    if (onelink && !onelink.startsWith("@")) {
+    if (handle && !handle.startsWith("@")) {
       // Navigate to the same route but with @ symbol
-      nav(`/@${onelink}/edit${location.search}`, { replace: true });
+      nav(`/@${handle}/edit${location.search}`, { replace: true });
     }
-  }, [onelink, nav, location.search]);
+  }, [handle, nav, location.search]);
 
   // Check if user is allowed to edit this page
   useEffect(() => {
@@ -89,23 +89,23 @@ export function Editor() {
     if (!isLoggedIn) {
       // User is not logged in, redirect to view page
       toast.error("You need to log in to edit this page");
-      nav(`/${formattedOnelink}`, { replace: true });
+      nav(`/${formattedHandle}`, { replace: true });
       return;
     }
 
-    // Now check if logged-in user owns this onelink
-    const isOwner = isEquivalentOnelink(authUser.handle, normalizedOnelink);
+    // Now check if logged-in user owns this handle
+    const isOwner = isEquivalentHandle(authUser.handle, normalizedHandle);
 
     if (!isOwner) {
-      // User is logged in but doesn't own this onelink
+      // User is logged in but doesn't own this handle
       toast.error("You cannot edit this page as it belongs to another user");
-      nav(`/${formattedOnelink}`, { replace: true });
+      nav(`/${formattedHandle}`, { replace: true });
       return;
     }
 
     // User is authorized to edit
     setAuthorized(true);
-  }, [normalizedOnelink, authUser, nav, formattedOnelink]);
+  }, [normalizedHandle, authUser, nav, formattedHandle]);
 
   // Set active panel from URL query parameter or location state
   useEffect(() => {
@@ -127,15 +127,15 @@ export function Editor() {
   }, [location.search, location.state, authUser, setActivePanel]);
 
   useEffect(() => {
-    if (normalizedOnelink && normalizedOnelink !== profile.handle) {
+    if (normalizedHandle && normalizedHandle !== profile.handle) {
       setLoading(true);
-      setUser(normalizedOnelink).then(() => {
+      setUser(normalizedHandle).then(() => {
         setLoading(false);
       });
     } else {
       setLoading(false);
     }
-  }, [normalizedOnelink, profile, setUser]);
+  }, [normalizedHandle, profile, setUser]);
 
   if (loading) {
     return <div>Loading...</div>;
@@ -149,7 +149,7 @@ export function Editor() {
   return (
     <div className="h-screen flex flex-col">
       <div className="flex-1 overflow-hidden">
-        <Layout handle={normalizedOnelink} bannerData={bannerData} bannerLoading={bannerLoading} />
+        <Layout handle={normalizedHandle} bannerData={bannerData} bannerLoading={bannerLoading} />
       </div>
     </div>
   );

@@ -287,7 +287,7 @@ export const usersRouter = router({
     return users;
   }),
 
-  getTopOnelinks: adminProcedure
+  getTopHandles: adminProcedure
     .input(
       z.object({
         limit: z.number().default(5),
@@ -335,7 +335,7 @@ export const usersRouter = router({
       const userMap = new Map(users.map(user => [user.id, user]));
 
       // Combine the data, preserving the order from topBlocks
-      const topOnelinks = topBlocks
+      const topHandles = topBlocks
         .map(block => {
           const user = userMap.get(block.user_id);
           if (!user || !user.handle) {
@@ -351,6 +351,6 @@ export const usersRouter = router({
         })
         .filter(Boolean);
 
-      return topOnelinks;
+      return topHandles;
     }),
 });

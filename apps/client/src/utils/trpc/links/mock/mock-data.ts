@@ -322,7 +322,7 @@ export const mockData = {
         { type: "TEXT", totalClicks: 0 },
       ],
     },
-    getTopOnelinks: [
+    getTopHandles: [
       {
         userId: demoUser.id,
         name: demoUser.name,

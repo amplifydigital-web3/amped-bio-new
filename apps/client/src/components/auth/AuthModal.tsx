@@ -8,26 +8,20 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate, useLocation } from "react-router";
-import { useOnelinkAvailability } from "@/hooks/useOnelinkAvailability";
+import { useHandleAvailability } from "@/hooks/useHandleAvailability";
 import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
 import { GoogleLoginButton } from "./GoogleLoginButton";
 import { useCaptcha } from "@/hooks/useCaptcha";
 import { CaptchaActions } from "@ampedbio/constants";
 import { authClient } from "@/lib/auth-client";
 import {
-  normalizeOnelink,
-  cleanOnelinkInput,
+  normalizeHandle,
+  cleanHandleInput,
   getHandlePublicUrl,
-  formatOnelink,
-} from "@/utils/onelink";
+  formatHandle,
+} from "@/utils/handle";
 import { trackGAEvent } from "@/utils/ga";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 // Extended user type for better-auth session
 interface BetterAuthUser {
@@ -38,7 +32,7 @@ interface BetterAuthUser {
   image?: string | null;
   createdAt: Date;
   updatedAt: Date;
-  handle?: string | null;
+  handle: string;
   role?: string;
 }
 
@@ -144,11 +138,11 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
   const [resetSuccess, setResetSuccess] = useState(false);
 
   const [handleInput, setHandleInput] = useState("");
-  const { urlStatus, isValid } = useOnelinkAvailability(handleInput);
+  const { urlStatus, isValid } = useHandleAvailability(handleInput);
 
-  // Handle onelink input changes with proper cleaning
+  // Handle handle input changes with proper cleaning
   const handleHandleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const cleanValue = cleanOnelinkInput(e.target.value);
+    const cleanValue = cleanHandleInput(e.target.value);
     setHandleInput(cleanValue);
     setRegisterValue("handle", cleanValue);
   };
@@ -229,7 +223,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
   // Check handle availability when it changes
   useEffect(() => {
     if (registerHandle) {
-      const normalizedHandle = normalizeOnelink(registerHandle);
+      const normalizedHandle = normalizeHandle(registerHandle);
       setHandleInput(normalizedHandle);
     }
   }, [registerHandle]);
@@ -295,7 +289,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         // Redirect the user to their edit page with panel state set to "home"
         const userData = session.data.user as BetterAuthUser;
         const handle = userData.handle || userData.name || userData.email?.split("@")[0] || "home";
-        const formattedHandle = formatOnelink(handle);
+        const formattedHandle = formatHandle(handle);
         navigate(`/${formattedHandle}/edit`, { state: { panel: "home" } });
       } else {
         throw new Error("Login successful but could not retrieve user session");
@@ -332,7 +326,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
               const userData = session.data.user as BetterAuthUser;
               const handle =
                 userData.handle || userData.name || userData.email?.split("@")[0] || "home";
-              const formattedHandle = formatOnelink(handle);
+              const formattedHandle = formatHandle(handle);
               navigate(`/${formattedHandle}/edit`, { state: { panel: "home" } });
             }
           } catch (error) {
@@ -425,7 +419,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         });
 
         // Redirect to edit page with home panel selected
-        const formattedHandle = formatOnelink(user.name || data.handle);
+        const formattedHandle = formatHandle(user.handle);
         navigate(`/${formattedHandle}/edit`, { state: { panel: "home" } });
       } else {
         throw new Error("Registration successful but could not retrieve user session");
@@ -582,7 +576,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
                   error={registerErrors.handle?.message}
                   required
                   aria-label="Claim your name"
-                  data-testid="register-onelink"
+                  data-testid="register-handle"
                   autoComplete="username"
                   placeholder="your-name"
                   {...registerSignUp("handle")}

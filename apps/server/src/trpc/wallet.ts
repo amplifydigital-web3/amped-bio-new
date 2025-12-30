@@ -604,7 +604,7 @@ export const walletRouter = router({
       // Map Prisma results to the User interface expected by the client
       return users.map(user => ({
         id: user.id.toString(), // Convert Int to String
-        username: user.handle!.toLowerCase(), // Fallback to a derived username if handle is null
+        username: user.handle!.toLowerCase(), // Convert handle to lowercase for username
         displayName: user.name,
         avatar: user.image,
         walletAddress: (user.wallet?.address as Address | undefined) ?? undefined,

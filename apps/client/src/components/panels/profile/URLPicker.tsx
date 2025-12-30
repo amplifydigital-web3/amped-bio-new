@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/Button";
 import { useNavigate } from "react-router";
 import { Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { useOnelinkAvailability } from "@/hooks/useOnelinkAvailability";
+import { useHandleAvailability } from "@/hooks/useHandleAvailability";
 import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
-import { normalizeOnelink, formatOnelink, cleanOnelinkInput } from "@/utils/onelink";
+import { normalizeHandle, formatHandle, cleanHandleInput } from "@/utils/handle";
 import { useAuth } from "@/contexts/AuthContext";
 import { trpcClient } from "@/utils/trpc";
 
@@ -15,14 +15,14 @@ export function URLPicker() {
   const { profile, setProfile } = useEditor();
 
   // Safely extract and process handle values with default fallbacks
-  const currentHandle = normalizeOnelink(profile?.handle || "");
+  const currentHandle = normalizeHandle(profile?.handle || "");
 
   // Initialize state with safe default values
   const [url, setUrl] = useState(currentHandle || "");
   const [isUpdating, setIsUpdating] = useState(false);
 
   // Use our custom hook for URL validation and availability checking
-  const { urlStatus, isValid, isCurrentUrl } = useOnelinkAvailability(url, currentHandle);
+  const { urlStatus, isValid, isCurrentUrl } = useHandleAvailability(url, currentHandle);
 
   const { updateAuthUser } = useAuth();
   const nav = useNavigate();
@@ -30,13 +30,13 @@ export function URLPicker() {
   // Update local state if profile changes
   useEffect(() => {
     if (profile?.handle) {
-      setUrl(normalizeOnelink(profile.handle));
+      setUrl(normalizeHandle(profile.handle));
     }
   }, [profile?.handle]);
 
   const handleUrlChange = (value: string) => {
     // Use our central utility function to clean the input
-    const cleanValue = cleanOnelinkInput(value);
+    const cleanValue = cleanHandleInput(value);
     setUrl(cleanValue);
   };
 
@@ -47,14 +47,14 @@ export function URLPicker() {
 
     setIsUpdating(true);
 
-    // Apply our formatOnelink utility to ensure @ prefix for formatted version
+    // Apply our formatHandle utility to ensure @ prefix for formatted version
     // and normalized version without @ prefix
-    const formattedURL = formatOnelink(value);
-    const normalizedURL = normalizeOnelink(value);
+    const formattedURL = formatHandle(value);
+    const normalizedURL = normalizeHandle(value);
 
     try {
       // Call the API to update the handle - with normalized value (without @ symbol)
-      const response = await trpcClient.onelink.redeem.mutate({ newHandle: normalizedURL });
+      const response = await trpcClient.handle.redeem.mutate({ newHandle: normalizedURL });
 
       if (response.success) {
         toast.success("URL updated successfully!");
@@ -76,12 +76,12 @@ export function URLPicker() {
         }, 500);
       } else {
         // Handle unsuccessful response
-        console.error("Failed to update onelink:", response.message);
+        console.error("Failed to update handle:", response.message);
         toast.error(`Failed to update URL: ${response.message}`);
       }
     } catch (error) {
       // Handle errors
-      console.error("Error updating onelink:", error);
+      console.error("Error updating handle:", error);
       toast.error("Failed to update URL. Please try again");
     } finally {
       setIsUpdating(false);

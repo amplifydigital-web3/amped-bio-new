@@ -1,6 +1,6 @@
-# OneLink
+# Amped Bio (amped.bio)
 
-New pure React implementation of OneLink.
+New pure React implementation of Amped Bio (formerly known as OneLink).
 
 ## Project Architecture
 
@@ -65,6 +65,25 @@ Key directories:
 - `src/services/` - Business logic and data access
 - `src/utils/` - Utility functions
 
+## Important Terminology Update
+
+**Amped Bio (amped.bio)** is the new name for what was previously known as OneLink. This project represents a complete rebranding and modernization of the platform.
+
+### Key Terminology Changes:
+
+- **OneLink → Amped Bio (amped.bio)**: The platform has been rebranded from OneLink to Amped Bio
+- **onelink → handle**: User identifiers are now called "handles" instead of "onelinks"
+- **littlelink → handle**: The database field and API responses now consistently use "handle"
+
+### What This Means:
+
+- All user profile URLs now use the handle terminology (e.g., `amped.bio/username`)
+- API responses return `handle` instead of `onelink` or `littlelink`
+- Database queries use the `handle` field
+- User interface elements refer to "handles" instead of "onelinks"
+
+The functionality remains the same, but the terminology has been updated to be more intuitive and consistent with modern social platform conventions.
+
 ## Getting Started
 
 Follow these instructions to get a copy of the project up and running on your local machine for development and testing purposes.
@@ -80,11 +99,11 @@ Make sure you have the following installed:
 
 1. Clone the repository:
    ```sh
-   git clone https://github.com/yourusername/OneLink-new.git
+   git clone https://github.com/yourusername/amped-bio-new.git
    ```
 2. Navigate to the project directory:
    ```sh
-   cd OneLink-new
+   cd amped-bio-new
    ```
 3. Install dependencies for all workspaces:
    ```sh
@@ -168,7 +187,7 @@ The project uses [Prisma](https://www.prisma.io/) as an ORM for database access 
 
 2. Set up your environment variables in `apps/server/.env`:
    ```
-   DATABASE_URL="postgresql://username:password@localhost:5432/onelink?schema=public"
+   DATABASE_URL="postgresql://username:password@localhost:5432/amped_bio?schema=public"
    ```
 
 ### Running Migrations

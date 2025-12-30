@@ -109,6 +109,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const response = await authClient.signUp.email({
         email,
         password,
+        // TODO fix this, add correct handle and name field
         name: handle,
       });
       if (response.data?.user) {

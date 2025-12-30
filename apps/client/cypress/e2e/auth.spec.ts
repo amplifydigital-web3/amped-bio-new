@@ -36,7 +36,7 @@ describe("Authentication", () => {
 
     // Check that register form is displayed
     cy.get("[data-testid='auth-modal-title']").should("have.text", "Sign Up for Free");
-    cy.get("[data-testid='register-onelink']").should("be.visible");
+    cy.get("[data-testid='register-handle']").should("be.visible");
 
     // Switch back to login form
     cy.get("[data-testid='switch-to-login']").click();
@@ -80,7 +80,7 @@ describe("Authentication", () => {
     // Fill and blur each field to trigger validation
     cy.get("[data-testid='register-email']").click().blur();
     cy.get("[data-testid='register-password']").click().blur();
-    cy.get("[data-testid='register-onelink']").click().blur();
+    cy.get("[data-testid='register-handle']").click().blur();
 
     cy.contains("Please enter a valid email address").should("be.visible");
     cy.contains("Password must be at least 8 characters long").should("be.visible");
@@ -138,7 +138,7 @@ describe("Authentication", () => {
   it("should check URL availability during registration", () => {
     cy.contains("button", "Sign In").click();
     cy.get("[data-testid='switch-to-register']").click();
-    cy.get("[data-testid='register-onelink']").type("test-user");
+    cy.get("[data-testid='register-handle']").type("test-user");
     cy.get("[data-testid='public-url-preview']")
       .should("be.visible")
       .and("contain.text", "Public URL:");
@@ -151,7 +151,7 @@ describe("Authentication", () => {
       testUser.email = `test-integrated-${timestamp}-${randomStr}@example.com`;
       testUser.handle = `test-user-${timestamp}-${randomStr}`;
       testUser.password = "Password123@";
-      cy.log(`Using test credentials - Email: ${testUser.email}, Handle: ${testUser.handle}`);
+      cy.log(`Using test credentials - Email: ${testUser.email}, Onelink: ${testUser.handle}`);
     });
 
     it("should handle successful registration and redirect to dashboard", () => {
@@ -159,14 +159,14 @@ describe("Authentication", () => {
       cy.contains("button", "Sign In").click();
       cy.get("[data-testid='switch-to-register']").click();
 
-      cy.get("[data-testid='register-onelink']").type(testUser.onelink);
+      cy.get("[data-testid='register-handle']").type(testUser.handle);
       cy.get("[data-testid='register-email']").type(testUser.email);
       cy.get("[data-testid='register-password']").type(testUser.password);
 
-      cy.log(`Submitting registration with: ${testUser.email}, ${testUser.onelink}`);
+      cy.log(`Submitting registration with: ${testUser.email}, ${testUser.handle}`);
       cy.get("[data-testid='register-submit']").click();
 
-      cy.url().should("match", new RegExp(`/@${testUser.onelink}/edit`), { timeout: 10000 });
+      cy.url().should("match", new RegExp(`/@${testUser.handle}/edit`), { timeout: 10000 });
       cy.contains("span", "Home", { timeout: 10000 }).should("be.visible");
       cy.log(`Registration complete for: ${testUser.email}`);
     });
@@ -181,7 +181,7 @@ describe("Authentication", () => {
       cy.log(`Submitting login with: ${testUser.email}`);
       cy.get("[data-testid='login-submit']").click();
 
-      cy.url().should("match", new RegExp(`/@${testUser.onelink}/edit`), { timeout: 10000 });
+      cy.url().should("match", new RegExp(`/@${testUser.handle}/edit`), { timeout: 10000 });
       cy.contains("span", "Home", { timeout: 10000 }).should("be.visible");
       cy.log(`Login successful for: ${testUser.email}`);
     });

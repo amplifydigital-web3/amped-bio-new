@@ -2,7 +2,7 @@ import { AdminUserStats } from "./AdminUserStats";
 import { AdminBlockStats } from "./AdminBlockStats";
 import { AdminRewardStats } from "./AdminRewardStats";
 import { AdminBlockDistribution } from "./AdminBlockDistribution";
-import { AdminTopOnelinks } from "./AdminTopOnelinks";
+import { AdminTopHandles } from "./AdminTopHandles";
 import { AdminRecentUsers } from "./AdminRecentUsers";
 
 interface AdminDashboardProps {
@@ -19,7 +19,7 @@ interface AdminDashboardProps {
     averageBlocksPerUser: number;
   };
   blockTypeDistribution: Record<string, number>;
-  topOnelinks: Array<{
+    topHandles: Array<{
     handle: string | null;
     name: string;
     totalClicks: number;
@@ -43,7 +43,7 @@ export const AdminDashboard = ({
   userStats,
   blockStats,
   blockTypeDistribution,
-  topOnelinks,
+  topHandles,
   recentUsers,
   onViewAllUsersClick,
 }: AdminDashboardProps) => {
@@ -73,8 +73,8 @@ export const AdminDashboard = ({
         averageBlocksPerUser={blockStats.averageBlocksPerUser}
       />
 
-      {/* Top Performing Onelinks */}
-      <AdminTopOnelinks topOnelinks={topOnelinks} />
+      {/* Top Performing Handles */}
+      <AdminTopHandles topHandles={topHandles} />
 
       {/* Recent Users */}
       <AdminRecentUsers

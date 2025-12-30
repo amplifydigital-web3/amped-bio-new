@@ -60,7 +60,7 @@ export const DashboardDataSchema = z.object({
   userStats: UserStatsSchema,
   blockStats: BlockStatsSchema,
   blockTypeDistribution: z.record(z.number()),
-  topOnelinks: z.array(HandleSchema),
+  topHandles: z.array(HandleSchema),
   recentUsers: z.array(UserSchema),
 });
 

@@ -44,61 +44,43 @@ function AppRouter() {
   return (
     <Routes>
       <Route
-        path="/:onelink/edit"
+        path="/:handle/edit"
         element={
           <ProtectedRoute>
             <Editor />
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/"
-        element={
-          <PublicLayout>
-            <View />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/:onelink"
-        element={
-          <PublicLayout>
-            <View />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/register"
-        element={
-          <PublicLayout>
-            <View />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/login"
-        element={
-          <PublicLayout>
-            <View />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/i/pools"
-        element={
-          <PublicLayout>
-            <PoolsPage />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/i/pools/:address"
-        element={
-          <PublicLayout>
-            <PoolDetailsPage />
-          </PublicLayout>
-        }
-      />
+      <Route path="/" element={
+        <PublicLayout>
+          <View />
+        </PublicLayout>
+      } />
+      <Route path="/:handle" element={
+        <PublicLayout>
+          <View />
+        </PublicLayout>
+      } />
+      <Route path="/register" element={
+        <PublicLayout>
+          <View />
+        </PublicLayout>
+      } />
+      <Route path="/login" element={
+        <PublicLayout>
+          <View />
+        </PublicLayout>
+      } />
+      <Route path="/i/pools" element={
+        <PublicLayout>
+          <PoolsPage />
+        </PublicLayout>
+      } />
+      <Route path="/i/pools/:address" element={
+        <PublicLayout>
+          <PoolDetailsPage />
+        </PublicLayout>
+      } />
 
       {/* Admin Routes with nested routing - lazy loaded with Suspense */}
       <Route

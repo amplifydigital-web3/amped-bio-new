@@ -302,7 +302,7 @@ export function UserManagement() {
       "ID",
       "Name",
       "Email",
-      "Onelink",
+      "Handle",
       "Role",
       "Status",
       "Blocks",

@@ -12,7 +12,7 @@ import initialState from "../store/defaults";
 import { useAuth } from "./AuthContext";
 import toast from "react-hot-toast";
 import { BlockType } from "@ampedbio/constants";
-import { formatOnelink, normalizeOnelink } from "@/utils/onelink";
+import { formatHandle, normalizeHandle } from "@/utils/handle";
 import { trpcClient } from "@/utils/trpc";
 import { exportThemeConfigAsJson, importThemeConfigFromJson } from "@/utils/theme";
 import { mergeTheme } from "@/utils/mergeTheme";
@@ -60,7 +60,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     // console.group(`🔍 Setting User: ${handle}`);
     // console.info("🚀 Loading user data...");
     try {
-      const onlinkData = await trpcClient.onelink.getHandle.query({ handle });
+      const onlinkData = await trpcClient.handle.getHandle.query({ handle });
 
       if (!onlinkData) {
         // console.info("❌ User not found:", handle);
@@ -69,8 +69,8 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
       }
       const { user, theme, blocks: blocks_raw, hasCreatorPool } = onlinkData;
       const { name, email, description, image } = user;
-      const normalizedOnelink = normalizeOnelink(handle);
-      const formattedOnelink = formatOnelink(handle);
+      const normalizedHandle = normalizeHandle(handle);
+      const formattedHandle = formatHandle(handle);
       // console.info("👤 User data loaded:", { name, email, blocks: blocks_raw, theme });
 
       const blocks = blocks_raw.sort((a, b) => a.order - b.order);
@@ -79,8 +79,8 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         ...prevState,
         profile: {
           name,
-          handle: normalizedOnelink,
-          handleFormatted: formattedOnelink,
+          handle: normalizedHandle,
+          handleFormatted: formattedHandle,
           email,
           bio: description ?? "",
           photoUrl: image ?? "",
@@ -106,16 +106,16 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
 
     if (
       "handle" in profile &&
-      (!profile.handleFormatted || profile.handleFormatted !== formatOnelink(profile.handle))
+      (!profile.handleFormatted || profile.handleFormatted !== formatHandle(profile.handle))
     ) {
-      updatedProfile.handleFormatted = formatOnelink(profile.handle);
+      updatedProfile.handleFormatted = formatHandle(profile.handle);
     }
 
     if (
       "handleFormatted" in profile &&
-      (!profile.handle || profile.handle !== normalizeOnelink(profile.handleFormatted))
+      (!profile.handle || profile.handle !== normalizeHandle(profile.handleFormatted))
     ) {
-      updatedProfile.handle = normalizeOnelink(profile.handleFormatted);
+      updatedProfile.handle = normalizeHandle(profile.handleFormatted);
     }
 
     setState(prevState => ({
