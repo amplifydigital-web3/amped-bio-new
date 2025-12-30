@@ -5,7 +5,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader } from "lucide-react";
 import { AuthHeader } from "../../components/auth/AuthHeader";
-import { trpcClient } from "@/utils/trpc";
+import { authClient } from "../../lib/auth-client";
 
 // Define the validation schema using Zod
 const emailSchema = z.object({
@@ -77,15 +77,17 @@ export function EmailVerificationResent() {
     }
 
     // Use the API function to resend verification email
-    trpcClient.auth.sendVerifyEmail
-      .mutate({ email: emailParam })
-      .then(data => {
-        if (data.success) {
+    authClient
+      .sendVerificationEmail({
+        email: emailParam,
+      })
+      .then(response => {
+        if (response.data) {
           setStatus("success");
-          setMessage(data.message || "Verification email has been sent");
+          setMessage("Verification email has been sent");
         } else {
           setStatus("error");
-          setMessage(data.message || "Failed to resend verification email");
+          setMessage(response.error?.message || "Failed to resend verification email");
         }
       })
       .catch(error => {
@@ -98,16 +100,16 @@ export function EmailVerificationResent() {
     setStatus("loading");
 
     try {
-      const response = await trpcClient.auth.sendVerifyEmail.mutate({
+      const response = await authClient.sendVerificationEmail({
         email: data.email,
       });
 
-      if (response.success) {
+      if (response.data) {
         setStatus("success");
-        setMessage(response.message || "Verification email has been sent");
+        setMessage("Verification email has been sent");
       } else {
         setStatus("error");
-        setMessage(response.message || "Failed to resend verification email");
+        setMessage(response.error?.message || "Failed to resend verification email");
       }
     } catch (error) {
       setStatus("error");

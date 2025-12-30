@@ -119,10 +119,9 @@ export default function StakedPoolRow({
           {/* Staked Amount */}
           <div
             className="flex items-center space-x-1 px-2 py-1 bg-blue-50 rounded-full group/tooltip relative"
-            title={`You have staked ${hookFanStake ? formatUnits(
-              hookFanStake,
-              18
-            ) : "0"} ${chainConfig?.nativeCurrency.symbol || "REVO"} in this pool`}
+            title={`You have staked ${
+              hookFanStake ? formatUnits(hookFanStake, 18) : "0"
+            } ${chainConfig?.nativeCurrency.symbol || "REVO"} in this pool`}
           >
             <Link className="w-3 h-3 text-blue-600" />
             {hookFanStake !== undefined ? (
@@ -139,10 +138,9 @@ export default function StakedPoolRow({
           {/* Pending Rewards */}
           <div
             className="flex items-center space-x-1 px-2 py-1 bg-green-50 rounded-full group/tooltip relative"
-            title={`You have pending rewards of ${hookPendingReward ? formatUnits(
-              hookPendingReward,
-              18
-            ) : "0"} ${chainConfig?.nativeCurrency.symbol || "REVO"} from this pool`}
+            title={`You have pending rewards of ${
+              hookPendingReward ? formatUnits(hookPendingReward, 18) : "0"
+            } ${chainConfig?.nativeCurrency.symbol || "REVO"} from this pool`}
           >
             <TrendingUp className="w-3 h-3 text-green-600" />
             {hookPendingReward !== undefined ? (

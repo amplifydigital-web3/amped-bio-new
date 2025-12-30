@@ -7,7 +7,7 @@ import { addBlockSchema, blockIdParamSchema, editBlocksSchema } from "@ampedbio/
 export const blocksRouter = router({
   // Get all blocks for the user
   getAll: privateProcedure.query(async ({ ctx }) => {
-    const userId = ctx.user.sub;
+    const userId = ctx.user!.sub;
 
     try {
       const result = await prisma.block.findMany({
@@ -69,7 +69,7 @@ export const blocksRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
       const { id, type, order, config } = input;
 
       try {
@@ -113,7 +113,7 @@ export const blocksRouter = router({
     }),
 
   editBlocks: privateProcedure.input(editBlocksSchema).mutation(async ({ ctx, input }) => {
-    const userId = ctx.user.sub;
+    const userId = ctx.user!.sub;
     const { blocks } = input;
 
     try {
@@ -158,7 +158,7 @@ export const blocksRouter = router({
   }),
 
   addBlock: privateProcedure.input(addBlockSchema).mutation(async ({ ctx, input }) => {
-    const userId = ctx.user.sub;
+    const userId = ctx.user!.sub;
     const { type, config } = input;
 
     try {
@@ -181,7 +181,7 @@ export const blocksRouter = router({
   }),
 
   deleteBlock: privateProcedure.input(blockIdParamSchema).mutation(async ({ ctx, input }) => {
-    const userId = ctx.user.sub;
+    const userId = ctx.user!.sub;
 
     try {
       const block = await prisma.block.findUnique({

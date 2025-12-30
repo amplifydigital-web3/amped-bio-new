@@ -54,7 +54,7 @@ export const themeRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const { id, theme } = input;
-      const user_id = ctx.user.sub;
+      const user_id = ctx.user!.sub;
 
       // The theme object is now properly validated using the shared schema
       const { name, description, share_level, share_config, config } = theme;
@@ -172,7 +172,7 @@ export const themeRouter = router({
   // Delete user's own theme (authenticated users only)
   deleteTheme: privateProcedure.input(themeIdSchema).mutation(async ({ ctx, input }) => {
     const { id } = input;
-    const user_id = ctx.user.sub;
+    const user_id = ctx.user!.sub;
 
     try {
       const theme = await prisma.theme.findUnique({
@@ -211,7 +211,7 @@ export const themeRouter = router({
 
   // Get user's own themes (authenticated users only - for theme management dashboard)
   getUserThemes: privateProcedure.query(async ({ ctx }) => {
-    const user_id = ctx.user.sub;
+    const user_id = ctx.user!.sub;
 
     try {
       const themes = await prisma.theme.findMany({
@@ -254,7 +254,7 @@ export const themeRouter = router({
 
   // Apply theme to user (authenticated users only)
   applyTheme: privateProcedure.input(applyThemeSchema).mutation(async ({ ctx, input }) => {
-    const userId = ctx.user.sub;
+    const userId = ctx.user!.sub;
     const { themeId, theme } = input;
 
     try {

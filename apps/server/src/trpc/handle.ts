@@ -69,7 +69,7 @@ const appRouter = router({
     console.info("📥 Received request to redeem handle");
 
     const { newHandle } = input;
-    const userId = ctx.user.sub;
+    const userId = ctx.user!.sub;
 
     try {
       // Get current handle for logging purposes

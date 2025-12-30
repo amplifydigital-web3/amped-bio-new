@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { Outlet, Link, useLocation, useParams } from "react-router";
 import AMPLIFY_FULL_K from "@/assets/AMPLIFY_FULL_K.svg";
-import { UserMenu } from "../auth/UserMenu";
+import { UserMenu } from "../auth/UserMenu"; 
+import { oneTapCall } from "@/lib/auth-client";
 import { normalizeHandle } from "@/utils/handle";
 
 // Default handle username to show when accessing root URL
@@ -31,12 +32,21 @@ const PublicLayout: React.FC<PublicLayoutProps> = ({ children }) => {
   const normalizedHandle = normalizeHandle(effectiveHandle);
 
   // Determine if navbar should be shown (landingpage user, root route, or register route)
-  const shouldShowNavbar =
-    location.pathname.includes("/i/") ||
-    normalizedHandle === DEFAULT_ONELINK ||
-    location.pathname === "/" ||
-    isRegisterRoute ||
-    isLoginRoute;
+  const shouldShowNavbar = useMemo(() => {
+    return (
+      location.pathname.includes("/i/") ||
+      normalizedHandle === DEFAULT_ONELINK ||
+      location.pathname === "/" ||
+      isRegisterRoute ||
+      isLoginRoute
+    );
+  }, [location.pathname, normalizedHandle, isRegisterRoute, isLoginRoute]);
+
+  useEffect(() => {
+    if (shouldShowNavbar) {
+      oneTapCall();
+    }
+  }, [shouldShowNavbar]);
 
   return (
     <div className="min-h-screen flex flex-col">

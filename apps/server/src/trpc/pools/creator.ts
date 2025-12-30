@@ -1,4 +1,4 @@
-import { privateProcedure, publicProcedure, router } from "../trpc";
+import { privateProcedure, router } from "../trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { prisma } from "../../services/DB";
@@ -61,7 +61,7 @@ export const poolsCreatorRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
 
       try {
         const wallet = await prisma.userWallet.findUnique({
@@ -233,7 +233,7 @@ export const poolsCreatorRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
 
       const wallet = await prisma.userWallet.findUnique({
         where: { userId },
@@ -361,7 +361,7 @@ export const poolsCreatorRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
 
       const userWallet = await prisma.userWallet.findUnique({
         where: { userId },
@@ -455,7 +455,7 @@ export const poolsCreatorRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
 
       // Find the wallet for the user
       const wallet = await prisma.userWallet.findUnique({
@@ -498,7 +498,7 @@ export const poolsCreatorRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
 
       try {
         const wallet = await prisma.userWallet.findUnique({
@@ -544,7 +544,7 @@ export const poolsCreatorRouter = router({
   requestPoolImagePresignedUrl: privateProcedure
     .input(requestPoolImagePresignedUrlSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
 
       try {
         if (input.fileSize > env.UPLOAD_LIMIT_POOL_IMAGE_MB * 1024 * 1024) {
@@ -587,7 +587,7 @@ export const poolsCreatorRouter = router({
   confirmPoolImageUpload: privateProcedure
     .input(confirmPoolImageUploadSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
 
       try {
         const uploadedFile = await uploadedFileService.getFileById(input.fileId);
@@ -649,7 +649,7 @@ export const poolsCreatorRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
 
       try {
         const wallet = await prisma.userWallet.findUnique({
@@ -707,7 +707,7 @@ export const poolsCreatorRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
       const { chainId } = input;
 
       try {
@@ -894,7 +894,7 @@ export const poolsCreatorRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
       const { chainId, pagination, order } = input;
       const page = pagination?.page || 1;
       const pageSize = pagination?.pageSize || 10;

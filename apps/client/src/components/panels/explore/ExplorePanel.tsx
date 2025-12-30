@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useDebounce } from "@/hooks/useDebounce";
-import { Search, Trophy, Filter, SortDesc, ChevronDown, Users, Coins, Loader2 } from "lucide-react";
+import { Search, Trophy, Filter, SortDesc, ChevronDown, Users, Coins } from "lucide-react";
 import UsersTab from "./components/UsersTab";
 import PoolsTab from "./components/PoolsTab";
 
@@ -49,8 +49,6 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
-
-
 
   // Sort options
   const sortOptions = {
@@ -387,8 +385,6 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
           </div>
         )}
       </div>
-
-
     </div>
   );
 }

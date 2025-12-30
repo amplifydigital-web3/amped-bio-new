@@ -1,10 +1,5 @@
-import { X, Send, DollarSign, Trophy, ExternalLink } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Send, DollarSign, Trophy, ExternalLink } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface NFTModalProps {
   isOpen: boolean;

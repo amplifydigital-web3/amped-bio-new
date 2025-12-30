@@ -11,7 +11,6 @@ import {
   Folder,
   Image,
   AlertTriangle,
-  X,
   Loader2,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
@@ -397,8 +396,8 @@ export function ViewThemesTab() {
             </p>
             <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
               <p className="text-sm text-yellow-800">
-                <strong>Warning:</strong> This theme will only be deleted if no users are
-                currently using it. If users are using this theme, the deletion will be prevented.
+                <strong>Warning:</strong> This theme will only be deleted if no users are currently
+                using it. If users are using this theme, the deletion will be prevented.
               </p>
             </div>
             <div className="bg-red-50 border border-red-200 rounded-md p-3">

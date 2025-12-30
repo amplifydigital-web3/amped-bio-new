@@ -1,11 +1,15 @@
 import React, { useState } from "react";
-import { Search, Filter, ArrowUpDown } from "lucide-react";
+import { Search } from "lucide-react";
 import PoolsTab from "../components/panels/explore/components/PoolsTab";
 
 const PoolsPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [poolFilter, setPoolFilter] = useState<"all" | "no-fans" | "more-than-10-fans" | "more-than-10k-stake">("all");
-  const [poolSort, setPoolSort] = useState<"newest" | "name-asc" | "name-desc" | "most-fans" | "most-staked">("newest");
+  const [poolFilter, setPoolFilter] = useState<
+    "all" | "no-fans" | "more-than-10-fans" | "more-than-10k-stake"
+  >("all");
+  const [poolSort, setPoolSort] = useState<
+    "newest" | "name-asc" | "name-desc" | "most-fans" | "most-staked"
+  >("newest");
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -24,7 +28,7 @@ const PoolsPage: React.FC = () => {
               placeholder="Search pools..."
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={e => setSearchQuery(e.target.value)}
             />
           </div>
 
@@ -32,7 +36,7 @@ const PoolsPage: React.FC = () => {
             <select
               className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={poolFilter}
-              onChange={(e) => setPoolFilter(e.target.value as any)}
+              onChange={e => setPoolFilter(e.target.value as any)}
             >
               <option value="all">All Pools</option>
               <option value="no-fans">No Fans</option>
@@ -43,7 +47,7 @@ const PoolsPage: React.FC = () => {
             <select
               className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={poolSort}
-              onChange={(e) => setPoolSort(e.target.value as any)}
+              onChange={e => setPoolSort(e.target.value as any)}
             >
               <option value="newest">Newest</option>
               <option value="name-asc">Name A-Z</option>
@@ -55,11 +59,7 @@ const PoolsPage: React.FC = () => {
         </div>
       </div>
 
-      <PoolsTab
-        searchQuery={searchQuery}
-        poolFilter={poolFilter}
-        poolSort={poolSort}
-      />
+      <PoolsTab searchQuery={searchQuery} poolFilter={poolFilter} poolSort={poolSort} />
     </div>
   );
 };

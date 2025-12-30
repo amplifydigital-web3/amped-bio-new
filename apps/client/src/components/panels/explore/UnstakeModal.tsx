@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Coins, TrendingUp, AlertCircle, Check } from "lucide-react";
+import { Coins, TrendingUp, AlertCircle, Check } from "lucide-react";
 import { useAccount, useBalance } from "wagmi";
 import { getChainConfig } from "@ampedbio/web3";
 import { useStakingManager } from "@/hooks/useStakingManager";
@@ -136,8 +136,7 @@ export default function UnstakeModal({ isOpen, onClose, pool, onStakeSuccess }: 
               <span className="text-sm font-medium text-green-800">Current Stake</span>
             </div>
             <span className="text-lg font-bold text-green-900">
-              {formatNumberWithSeparators(pool.currentStake || 0)}{" "}
-              {currencySymbol}
+              {formatNumberWithSeparators(pool.currentStake || 0)} {currencySymbol}
             </span>
           </div>
         </div>
@@ -294,7 +293,9 @@ export default function UnstakeModal({ isOpen, onClose, pool, onStakeSuccess }: 
           <div className="flex justify-between text-sm border-t border-blue-200 pt-1">
             <span className="text-blue-700">New Total Stake:</span>
             <span className="font-bold text-blue-900">
-              {formatNumberWithSeparators(Math.max(0, (pool.currentStake || 0) - parseFloat(amount)))}{" "}
+              {formatNumberWithSeparators(
+                Math.max(0, (pool.currentStake || 0) - parseFloat(amount))
+              )}{" "}
               {currencySymbol}
             </span>
           </div>
@@ -390,7 +391,9 @@ export default function UnstakeModal({ isOpen, onClose, pool, onStakeSuccess }: 
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-green-700">Your Total Stake</span>
             <span className="text-lg font-bold text-green-900">
-              {formatNumberWithSeparators(Math.max(0, (pool.currentStake || 0) - parseFloat(amount)))}{" "}
+              {formatNumberWithSeparators(
+                Math.max(0, (pool.currentStake || 0) - parseFloat(amount))
+              )}{" "}
               {currencySymbol}
             </span>
           </div>

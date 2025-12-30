@@ -1,17 +1,11 @@
 import { TextBlock } from "@ampedbio/constants";
 import SlateEditor from "@/components/blocks/text/TextEditor/SlateEditor";
 import { Button } from "../../ui/Button";
-import { X } from "lucide-react";
 import { z } from "zod";
 import { Resolver, SubmitHandler, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCallback, useMemo } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "../../ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../ui/dialog";
 
 // Create Zod schema for text block validation
 export const textBlockSchema = z.object({

@@ -14,7 +14,6 @@ import {
   Loader2,
   AlertCircle,
   Trash2,
-  X,
 } from "lucide-react";
 import { FileData, FileStatus, FileType } from "../shared/fileTypes";
 import { trpc } from "../../../utils/trpc";

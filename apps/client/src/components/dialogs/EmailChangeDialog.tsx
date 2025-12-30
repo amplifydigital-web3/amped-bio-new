@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Loader2, Check, AlertCircle } from "lucide-react";
+import { Loader2, Check, AlertCircle } from "lucide-react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,12 +19,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 // Define validation schemas using Zod
 const initiateEmailSchema = z

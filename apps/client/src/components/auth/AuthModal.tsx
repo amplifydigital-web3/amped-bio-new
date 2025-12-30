@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Loader2, Eye, EyeOff, Check, X as XIcon, AlertCircle } from "lucide-react";
+import { Loader2, Eye, EyeOff, Check, X as XIcon, AlertCircle } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
@@ -10,18 +10,36 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate, useLocation } from "react-router";
 import { useHandleAvailability } from "@/hooks/useHandleAvailability";
 import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
-import { useGoogleLogin } from "@react-oauth/google";
 import { GoogleLoginButton } from "./GoogleLoginButton";
 import { useCaptcha } from "@/hooks/useCaptcha";
 import { CaptchaActions } from "@ampedbio/constants";
+import { authClient } from "@/lib/auth-client";
 import {
   normalizeHandle,
   cleanHandleInput,
   getHandlePublicUrl,
-  formatHandle,
 } from "@/utils/handle";
 import { trackGAEvent } from "@/utils/ga";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+// Extended user type for better-auth session
+interface BetterAuthUser {
+  id: string;
+  email: string;
+  emailVerified: boolean;
+  name: string;
+  image?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  handle: string;
+  role: string;
+}
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -93,8 +111,8 @@ const PasswordStrengthIndicator = ({ password }: { password: string }) => {
 };
 
 export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: AuthModalProps) {
-  const { signIn, signInWithGoogle, signUp, resetPassword } = useAuth();
-  const { executeCaptcha, isRecaptchaEnabled } = useCaptcha();
+  const { resetPassword } = useAuth();
+  const { executeCaptcha } = useCaptcha();
   const [loading, setLoading] = useState(false);
   const [sharedEmail, setSharedEmail] = useState("");
   const isUserTyping = useRef(false);
@@ -239,45 +257,69 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setLoginError(null);
     try {
       // Get reCAPTCHA token using the invisible captcha
-      const recaptchaToken = isRecaptchaEnabled ? await executeCaptcha(CaptchaActions.LOGIN) : null;
+      const recaptchaToken = await executeCaptcha(CaptchaActions.LOGIN);
 
-      const user = await signIn(data.email, data.password, recaptchaToken);
-      onClose(user);
+      // Using better-auth for email/password login
+      const response = await authClient.signIn.email({
+        email: data.email,
+        password: data.password,
+        callbackURL: window.location.href,
+        rememberMe: true,
+        fetchOptions: {
+          headers: recaptchaToken
+            ? {
+                "x-captcha-response": recaptchaToken!,
+              }
+            : undefined,
+        },
+      });
 
-      // Redirect the user to their edit page with panel state set to "home"
-      if (user && user.handle) {
-        const formattedHandle = formatHandle(user.handle);
-        navigate(`/${formattedHandle}/edit`, { state: { panel: "home" } });
+      if (response?.error) {
+        throw new Error(response.error.message || "Login failed");
       }
+
+      const user = response.data.user as BetterAuthUser;
+
+      onClose({
+        id: parseInt(user.id),
+        email: user.email,
+        handle: user.handle,
+        role: user.role,
+        image: user.image || null,
+        wallet: null,
+      });
     } catch (error) {
-      setLoginError((error as Error).message);
+      setLoginError((error as Error).message || "Login failed");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleLogin = useGoogleLogin({
-    onSuccess: async tokenResponse => {
-      setLoading(true);
-      setLoginError(null);
-      try {
-        const user = await signInWithGoogle(tokenResponse.access_token);
-        onClose(user);
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    setLoginError(null);
 
-        if (user && user.handle) {
-          const formattedHandle = formatHandle(user.handle);
-          navigate(`/${formattedHandle}/edit`, { state: { panel: "home" } });
-        }
-      } catch (error) {
-        setLoginError((error as Error).message);
-      } finally {
+    try {
+      // Using better-auth's Google OAuth flow
+      // This will likely redirect the user to Google's authentication page
+      const response = await authClient.signIn.social({
+        provider: "google",
+        callbackURL: window.location.href, // Return to current page
+      });
+
+      if (response?.error) {
         setLoading(false);
+        setLoginError(response.error.message || "Google login failed");
+        return;
       }
-    },
-    onError: () => {
-      setLoginError("Google login failed");
-    },
-  });
+
+      // Set up monitoring for session after redirect
+      // redirectAfterLogin();
+    } catch (error) {
+      setLoginError((error as Error).message || "Google login failed");
+      setLoading(false);
+    }
+  };
 
   const renderSignInWithGoogle = () => {
     return (
@@ -305,20 +347,38 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setRegisterError(null);
     try {
       // Get reCAPTCHA token using the invisible captcha
-      const recaptchaToken = isRecaptchaEnabled
-        ? await executeCaptcha(CaptchaActions.REGISTER)
-        : null;
+      const recaptchaToken = await executeCaptcha(CaptchaActions.REGISTER);
 
-      const user = await signUp(data.handle, data.email, data.password, recaptchaToken);
-      onClose(user);
+      // Using better-auth signup
+      const response = await authClient.signUp.email({
+        email: data.email,
+        password: data.password,
+        name: data.handle, // Using handle as the name
+        callbackURL: window.location.href,
+        fetchOptions: {
+          headers: recaptchaToken
+            ? {
+                "x-captcha-response": recaptchaToken!,
+              }
+            : undefined,
+        },
+      });
 
-      // Redirect to edit page with home panel selected
-      if (user && user.handle) {
-        const formattedHandle = formatHandle(user.handle);
-        navigate(`/${formattedHandle}/edit`, { state: { panel: "home" } });
+      if (response?.error) {
+        throw new Error(response.error.message || "Registration failed");
       }
+
+      const user = response.data.user as BetterAuthUser;
+      onClose({
+        id: parseInt(user.id),
+        email: user.email,
+        handle: user.handle,
+        role: user.role,
+        image: user.image || null,
+        wallet: null,
+      });
     } catch (error) {
-      setRegisterError((error as Error).message);
+      setRegisterError((error as Error).message || "Registration failed");
     } finally {
       setLoading(false);
     }
@@ -329,12 +389,10 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setLoading(true);
     setResetError(null);
     setResetSuccess(false);
+
     try {
       // Get reCAPTCHA token using the invisible captcha
-      const recaptchaToken = isRecaptchaEnabled
-        ? await executeCaptcha(CaptchaActions.RESET_PASSWORD)
-        : null;
-
+      const recaptchaToken = await executeCaptcha(CaptchaActions.RESET_PASSWORD);
       const response = await resetPassword(data.email, recaptchaToken);
       if (response.success) {
         setResetSuccess(true);
@@ -365,6 +423,11 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
             {form === "login" && "Sign In"}
             {form === "reset" && "Reset Password"}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            {form === "register" && "Sign up form for creating a new account"}
+            {form === "login" && "Sign in form for existing users"}
+            {form === "reset" && "Password reset form to recover your account"}
+          </DialogDescription>
         </DialogHeader>
         <div className="p-6">
           {form === "login" && (
