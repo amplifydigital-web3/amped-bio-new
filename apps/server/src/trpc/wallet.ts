@@ -94,7 +94,7 @@ export const walletRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
 
       let address: Address;
 
@@ -194,7 +194,7 @@ export const walletRouter = router({
     )
     .query(async ({ ctx, input }) => {
       try {
-        const userId = ctx.user.sub;
+        const userId = ctx.user!.sub;
         const chain = getChainConfig(input.chainId);
 
         if (!chain) {
@@ -302,7 +302,7 @@ export const walletRouter = router({
 
   // Get the wallet address linked to the current user (1:1 relationship)
   getUserWallet: privateProcedure.query(async ({ ctx }) => {
-    const userId = ctx.user.sub;
+    const userId = ctx.user!.sub;
 
     try {
       const wallet = await prisma.userWallet.findFirst({
@@ -330,7 +330,7 @@ export const walletRouter = router({
     .output(faucetResponseSchema)
     .mutation(async ({ ctx, input }) => {
       try {
-        const userId = ctx.user.sub;
+        const userId = ctx.user!.sub;
 
         let address: Address;
 
@@ -644,7 +644,7 @@ export const walletRouter = router({
 
   // Get wallet statistics for the current user
   getWalletStats: privateProcedure.query(async ({ ctx }) => {
-    const userId = ctx.user.sub;
+    const userId = ctx.user!.sub;
 
     try {
       // Get user's wallet

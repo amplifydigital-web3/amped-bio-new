@@ -365,7 +365,7 @@ export const poolsFanRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
 
       try {
         const userWallet = await prisma.userWallet.findUnique({
@@ -427,7 +427,7 @@ export const poolsFanRouter = router({
       })
     )
     .query(async ({ ctx, input }): Promise<Array<UserStakedPool>> => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
 
       try {
         const userWallet = await prisma.userWallet.findUnique({
@@ -686,7 +686,7 @@ export const poolsFanRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
 
       try {
         const userWallet = await prisma.userWallet.findUnique({
@@ -877,7 +877,7 @@ export const poolsFanRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
 
       try {
         const userWallet = await prisma.userWallet.findUnique({

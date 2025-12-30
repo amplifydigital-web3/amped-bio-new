@@ -65,7 +65,7 @@ export const uploadRouter = router({
   requestAvatarPresignedUrl: privateProcedure
     .input(requestPresignedUrlSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
 
       try {
         if (input.fileSize > env.UPLOAD_LIMIT_PROFILE_PHOTO_MB * 1024 * 1024) {
@@ -108,7 +108,7 @@ export const uploadRouter = router({
   requestThemeBackgroundUrl: privateProcedure
     .input(requestThemeBackgroundUrlSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
 
       try {
         if (input.fileSize > env.UPLOAD_LIMIT_BACKGROUND_MB * 1024 * 1024) {
@@ -187,7 +187,7 @@ export const uploadRouter = router({
   confirmThemeBackgroundUpload: privateProcedure
     .input(confirmThemeBackgroundSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
 
       try {
         // Get the uploaded file record first to get the fileKey
@@ -350,7 +350,7 @@ export const uploadRouter = router({
   confirmProfilePictureUpload: privateProcedure
     .input(confirmUploadSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
 
       try {
         // Get the uploaded file record first to get the fileKey
@@ -455,7 +455,7 @@ export const uploadRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
 
       try {
         const file = await uploadedFileService.getFileById(input.fileId);

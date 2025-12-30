@@ -2,7 +2,6 @@ import { privateProcedure, publicProcedure, router } from "./trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { sendEmailChangeVerification } from "../utils/email/email";
-import { generateAccessToken } from "../utils/token";
 import crypto from "crypto";
 import { prisma } from "../services/DB";
 import { editUserSchema } from "../schemas/user.schema";
@@ -45,7 +44,7 @@ type Creator = {
 export const userRouter = router({
   // Edit user profile
   edit: privateProcedure.input(editUserSchema).mutation(async ({ ctx, input }) => {
-    const userId = ctx.user.sub;
+    const userId = ctx.user!.sub;
     console.group("🔄 User Edit Operation (tRPC)");
     console.info("📝 Starting user edit process");
     console.info(`👤 User ID: ${userId}`);
@@ -88,7 +87,7 @@ export const userRouter = router({
   initiateEmailChange: privateProcedure
     .input(initiateEmailChangeSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
 
       try {
         // Check if user exists
@@ -202,7 +201,7 @@ export const userRouter = router({
   confirmEmailChange: privateProcedure
     .input(confirmEmailChangeSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
 
       try {
         // Check if user exists
@@ -282,24 +281,9 @@ export const userRouter = router({
           data: { used: true },
         });
 
-        // Fetch user's wallet address
-        const userWallet = await prisma.userWallet.findUnique({
-          where: { userId: userId },
-          select: { address: true },
-        });
-
-        // Generate new JWT token with updated email
-        const token = generateAccessToken({
-          id: userId,
-          email: newEmail,
-          role: updatedUser.role,
-          wallet: userWallet?.address ?? null,
-        });
-
         return {
           success: true,
           message: "Email address has been successfully updated",
-          token, // Return the new token
         };
       } catch (error: any) {
         console.error("Error confirming email change:", error);
@@ -317,7 +301,7 @@ export const userRouter = router({
   resendEmailVerification: privateProcedure
     .input(resendEmailVerificationSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
 
       try {
         // Check if user exists

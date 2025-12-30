@@ -1,7 +1,6 @@
 import { router, publicProcedure, privateProcedure } from "./trpc";
 import { TRPCError } from "@trpc/server";
 import { verifyRecaptcha } from "../utils/recaptcha";
-import { generateAccessToken } from "../utils/token";
 import { getFileUrl } from "../utils/fileUrlResolver";
 import { passwordResetRequestSchema, processPasswordResetSchema } from "../schemas/auth.schema";
 import { env } from "../env";
@@ -69,9 +68,54 @@ export const authRouter = router({
       }
     }),
 
+  getWalletToken: privateProcedure.query(async ({ ctx }) => {
+    try {
+      // Fetch user's wallet address
+      const userWallet = await prisma.userWallet.findUnique({
+        where: { userId: ctx.user!.sub },
+        select: { address: true },
+      });
+
+      // Get session using better-auth
+      const session = await auth.api.getSession({
+        headers: ctx.req.headers as any,
+      });
+
+      if (!session) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "No active session",
+        });
+      }
+
+      // Generate JWT token using better-auth's internal API
+      const token = await auth.api.signJWT({
+        body: {
+          payload: {
+            sub: session.user.id.toString(),
+            email: session.user.email,
+            role: session.user.role || "user",
+            wallet: userWallet?.address ?? null,
+          },
+        },
+      });
+
+      return {
+        walletToken: token,
+        wallet: userWallet?.address ?? null,
+      };
+    } catch (error) {
+      if (error instanceof TRPCError) {
+        // Re-throw TRPC errors as-is
+        throw error;
+      }
+      return handlePrismaError(error, "getWalletToken");
+    }
+  }),
+
   me: privateProcedure.query(async ({ ctx }) => {
     try {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
 
       // Find user
       const user = await prisma.user.findUnique({
@@ -148,29 +192,4 @@ export const authRouter = router({
         });
       }
     }),
-
-  getWalletToken: privateProcedure.query(async ({ ctx }) => {
-    try {
-      // Fetch user's wallet address
-      const userWallet = await prisma.userWallet.findUnique({
-        where: { userId: ctx.user.sub },
-        select: { address: true },
-      });
-
-      return {
-        walletToken: generateAccessToken({
-          id: ctx.user.sub,
-          email: ctx.user.email,
-          role: ctx.user.role,
-          wallet: userWallet?.address ?? null,
-        }),
-      };
-    } catch (error) {
-      if (error instanceof TRPCError) {
-        // Re-throw TRPC errors as-is
-        throw error;
-      }
-      return handlePrismaError(error, "getWalletToken");
-    }
-  }),
 });
