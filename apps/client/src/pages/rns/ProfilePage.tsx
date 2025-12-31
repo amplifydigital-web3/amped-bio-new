@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { domainName, scannerURL, trimmedDomainName } from "@/utils/rns";
 import { Copy, ExternalLink } from "lucide-react";
 import { useAccount } from "wagmi";
-import { Button } from "@/components/ui/Button";
 import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
 import { ProfileCard } from "@/components/rns/profile/ProfileCard";
 import { ProfileNav } from "@/components/rns/profile/ProfileNav";
@@ -71,7 +70,13 @@ export default function ProfilePage({ name, activeTab = "details" }: ProfilePage
           />
         </div>
 
-        {isDifferentOwner && <Button onClick={navigateToHome}>Register your own REVO Name</Button>}
+        {isDifferentOwner && (
+          <div className="cursor-pointer" onClick={navigateToHome}>
+            <span className="text-blue-600 font-bold hover:underline hover:text-blue-500">
+              Register your own REVO Name
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col-reverse sm:flex-row sm:justify-between px-5 gap-1">
