@@ -68,7 +68,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       const { user, theme, blocks: blocks_raw, hasCreatorPool } = onlinkData;
-      const { name, email, description, image } = user;
+      const { name, email, revoName, description, image } = user;
       const normalizedOnelink = normalizeOnelink(onelink);
       const formattedOnelink = formatOnelink(onelink);
       // console.info("👤 User data loaded:", { name, email, blocks: blocks_raw, theme });
@@ -81,6 +81,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
           name,
           onelink: normalizedOnelink,
           onelinkFormatted: formattedOnelink,
+          revoName: revoName ?? "",
           email,
           bio: description ?? "",
           photoUrl: image ?? "",
@@ -427,6 +428,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
       const status = await trpcClient.user.edit.mutate({
         name: profile.name,
         description: profile.bio,
+        revo_name: profile.revoName || "",
         image: profile.photoUrl || "",
         reward_business_id: "",
         theme: theme_status_id,

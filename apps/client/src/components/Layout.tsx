@@ -19,6 +19,7 @@ import { EditorPanelType } from "@/types/editor.ts";
 import PayPanel from "./panels/pay/PayPanel.tsx";
 // import RewardsPage from "./panels/rewardpools/RewardsPanel.tsx";
 import ExplorePage from "./panels/explore/ExplorePanel.tsx";
+import RNSHeader from "./rns/RNSHeader.tsx";
 
 interface LayoutProps {
   onelink: string;
@@ -65,7 +66,7 @@ export function Layout({ onelink, bannerData, bannerLoading }: LayoutProps) {
     rewardPools: { layout: "single", width: "full" },
     createRewardPool: { layout: "single", width: "full" },
     leaderboard: { layout: "two-column", width: "wide" },
-    rns: { layout: "two-column", width: "wide" },
+    rns: { layout: "single", width: "full" },
 
     // Two column pages with standard panels (for editing/configuration)
     gallery: { layout: "two-column", width: "standard" },
@@ -104,7 +105,7 @@ export function Layout({ onelink, bannerData, bannerLoading }: LayoutProps) {
           {/* Header - Now always visible regardless of panel */}
           <div className="h-16 border-b bg-white px-6 flex items-center justify-between shrink-0 shadow-sm z-[10] overflow-x-auto">
             {/* View Button - Only show for logged in users */}
-            <div className="max-h-10 flex-shrink-0">
+            <div className="flex gap-10 max-h-10 flex-shrink-0">
               <Link
                 to={`/${onelink}`}
                 className="px-2 py-1 md:px-4 md:py-2 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-colors flex items-center space-x-1 md:space-x-2"
@@ -112,6 +113,7 @@ export function Layout({ onelink, bannerData, bannerLoading }: LayoutProps) {
                 <Eye className="w-3 h-3 md:w-4 md:h-4" />
                 <span className="text-xs md:text-sm font-medium">View Page</span>
               </Link>
+              {activePanel === "rns" && <RNSHeader />}
             </div>
 
             <div className="flex items-center justify-end flex-shrink-0 ml-2">
@@ -119,6 +121,12 @@ export function Layout({ onelink, bannerData, bannerLoading }: LayoutProps) {
               <UserMenu />
             </div>
           </div>
+
+          {activePanel === "rns" && (
+            <div className="sm:hidden h-10 bg-slate-100 px-6 flex items-center justify-center w-full">
+              <RNSHeader mobile />
+            </div>
+          )}
 
           <div className="flex-1 flex flex-col md:flex-row min-h-0">
             {/* Panel Container */}

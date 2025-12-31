@@ -146,7 +146,7 @@ export function View() {
 
           if (onlinkData) {
             const { user, theme, blocks: blocks_raw, hasCreatorPool } = onlinkData;
-            const { name, email, description, image } = user;
+            const { name, email, description, image, revoName } = user;
             const formattedOnelink = formatOnelink(normalizedOnelink);
 
             setProfile({
@@ -154,6 +154,7 @@ export function View() {
               onelink: normalizedOnelink,
               onelinkFormatted: formattedOnelink,
               email,
+              revoName: revoName ?? "",
               bio: description ?? "",
               photoUrl: image ?? "",
               photoCmp: "",
