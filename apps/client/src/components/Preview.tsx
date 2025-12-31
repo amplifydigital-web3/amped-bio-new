@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ParticlesBackground } from "./particles/ParticlesBackground";
 import { cn } from "../utils/cn";
 import {
@@ -41,6 +41,7 @@ interface PreviewProps {
 export function Preview({ profile, blocks, theme }: PreviewProps) {
   const [copied, setCopied] = useState(false);
   const themeConfig = theme.config;
+  const navigate = useNavigate();
 
   const handleLinkClick = (block: BlockType) => {
     if (block.type === "link") {
@@ -52,6 +53,17 @@ export function Preview({ profile, blocks, theme }: PreviewProps) {
     navigator.clipboard.writeText(profile.revoName ?? "");
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleRevoNameRedirection = (revoName: string) => {
+    const pathname = location.pathname.includes("/edit")
+      ? location.pathname
+      : `${location.pathname.replace(/\/$/, "")}/edit`;
+
+    const searchParams = new URLSearchParams(location.search);
+    searchParams.set("p", "rns");
+    searchParams.set("t", `profile:${encodeURIComponent(revoName)}:details`);
+    navigate(`${pathname}?${searchParams.toString()}`, { replace: true });
   };
 
   // console.info("blocks preview", blocks);
@@ -177,7 +189,12 @@ export function Preview({ profile, blocks, theme }: PreviewProps) {
                             <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" />
                           )}
                         </button>
-                        <span className="font-medium">{profile.revoName}</span>
+                        <span
+                          className="font-medium cursor-pointer"
+                          onClick={() => handleRevoNameRedirection(profile.revoName!.split(".")[0])}
+                        >
+                          {profile.revoName}
+                        </span>
                       </div>
                     )}
                   </div>
