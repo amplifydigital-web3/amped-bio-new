@@ -128,6 +128,5 @@ export const env = cleanEnv(process.env, {
 
   BETTER_AUTH_SECRET: str({
     desc: "Better Auth secret for authentication",
-    default: "",
   }),
 });
