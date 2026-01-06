@@ -86,7 +86,7 @@ export const useStakedPools = () => {
       return;
     }
 
-    if (!chainConfig?.contracts || !('multicall3' in chainConfig.contracts)) {
+    if (!chainConfig?.contracts || !("multicall3" in chainConfig.contracts)) {
       toast.error("Multicall contract not found for this chain.");
       return;
     }

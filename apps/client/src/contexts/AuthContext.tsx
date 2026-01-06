@@ -1,261 +1,93 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import { createContext, useContext, ReactNode, useState, useEffect } from "react";
 import type { AuthUser } from "../types/auth";
 import { trpcClient } from "../utils/trpc";
-import { AUTH_EVENTS } from "../constants/auth-events";
-import { AUTH_STORAGE_KEYS } from "../constants/auth-storage";
+import { authClient } from "../lib/auth-client";
 
-// Define a type for JWT payload
-interface JwtPayload {
-  exp?: number;
-  iat?: number;
-  sub?: string;
-  [key: string]: any;
+// Extended user type for better-auth session
+interface BetterAuthUser {
+  id: string;
+  email: string;
+  emailVerified: boolean;
+  name: string;
+  image?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  handle?: string | null;
+  role?: string;
 }
-
-// Helper function to decode JWT and get its payload (browser-compatible)
-const decodeToken = (token: string | null): JwtPayload | null => {
-  if (!token) return null;
-
-  try {
-    // Split the JWT into header, payload, signature
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
-
-    // Convert base64url to base64
-    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-
-    // Add padding if needed
-    const paddedBase64 = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
-
-    // Use Buffer to decode
-    const jsonStr = Buffer.from(paddedBase64, "base64").toString("utf8");
-
-    return JSON.parse(jsonStr);
-  } catch (error) {
-    console.error("Error decoding JWT token:", error);
-    return null;
-  }
-};
-
-// Helper function to check if token is expired or invalid
-// Returns true if the token is expired, has no expiration date, or is invalid
-const isTokenExpired = (token: string | null): boolean => {
-  const payload = decodeToken(token);
-
-  if (!payload || !payload.exp) return true;
-
-  const expirationTime = payload.exp * 1000; // Convert to milliseconds
-  const now = Date.now();
-
-  return now >= expirationTime;
-};
-
-// Helper function to validate token using tRPC "me" method
-const validateTokenWithServer = async (): Promise<{ isValid: boolean; user?: AuthUser }> => {
-  try {
-    const token = localStorage.getItem(AUTH_STORAGE_KEYS.AUTH_TOKEN);
-    if (!token) return { isValid: false };
-
-    const response = await trpcClient.auth.me.query();
-
-    // Map server response to AuthUser type
-    const user: AuthUser = {
-      id: response.user.id,
-      email: response.user.email,
-      handle: response.user.handle ?? "",
-      role: response.user.role,
-      image: response.user.image,
-      wallet: response.user.wallet,
-    };
-
-    return { isValid: true, user };
-  } catch (error) {
-    console.error("Token validation failed:", error);
-    // Clear invalid token from localStorage
-    localStorage.removeItem(AUTH_STORAGE_KEYS.AUTH_TOKEN);
-    return { isValid: false };
-  }
-};
-
-// Helper function to attempt token refresh
-const attemptTokenRefresh = async (): Promise<{ success: boolean; newToken?: string }> => {
-  try {
-    const response = await trpcClient.auth.refreshToken.mutate();
-    return { success: true, newToken: response.accessToken };
-  } catch (error) {
-    console.error("Token refresh failed:", error);
-    return { success: false };
-  }
-};
 
 type AuthContextType = {
   authUser: AuthUser | null;
   error: string | null;
-  isAuthenticated: boolean | null; // null = loading, true = authenticated, false = not authenticated
-  jwtToken: string | null; // Add JWT token to context
-  signIn: (email: string, password: string, recaptchaToken: string | null) => Promise<AuthUser>;
-  signInWithGoogle: (token: string) => Promise<AuthUser>; // Add Google auth method
-  signUp: (
-    handle: string,
-    email: string,
-    password: string,
-    recaptchaToken: string | null
-  ) => Promise<AuthUser>;
+  isAuthenticated: boolean;
+  isPending: boolean;
+
   signOut: () => Promise<void>;
   resetPassword: (
     email: string,
     recaptchaToken: string | null
   ) => Promise<{ success: boolean; message: string }>;
   updateAuthUser: (userData: Partial<AuthUser>) => void;
-  updateToken: (token: string | null) => void; // Add method to update token
-  refreshUserData: () => Promise<void>; // New method to refresh user data
+  refreshUserData: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [authUser, _setAuthUser] = useState<AuthUser | null>(null);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null); // Start with null (loading)
-  const [jwtToken, setJwtToken] = useState<string | null>(
-    localStorage.getItem(AUTH_STORAGE_KEYS.AUTH_TOKEN)
-  );
 
-  // Method to update JWT token
-  const updateToken = useCallback((token: string | null) => {
-    // First, update localStorage (this will trigger the storage event in other tabs)
-    if (token) {
-      localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_TOKEN, token);
-      // The dedicated effect will handle connection when both token and Web3Auth are ready
+  // Use the useSession hook to manage session state
+  const { data: session, isPending, error: sessionError } = authClient.useSession();
+
+  // Sync session data with AuthContext
+  useEffect(() => {
+    console.log("AuthProvider session changed:", session);
+    if (session?.user) {
+      const user = session.user as BetterAuthUser;
+      const mappedUser: AuthUser = {
+        id: parseInt(user.id),
+        email: user.email,
+        handle: user.handle || user.name || "",
+        role: user.role || "user",
+        image: user.image || null,
+        wallet: null,
+      };
+      setAuthUser(mappedUser);
     } else {
-      localStorage.removeItem(AUTH_STORAGE_KEYS.AUTH_TOKEN);
+      setAuthUser(null);
     }
-    // Then update local state
-    setJwtToken(token);
-  }, []);
+  }, [session]);
 
-  // Helper function to invalidate user session (for token expiry/invalid token)
-  const invalidateUserSession = useCallback(async () => {
-    console.log("Invalidating user session due to invalid/expired token");
-    setAuthUser(null);
-    updateToken(null);
-    localStorage.removeItem(AUTH_STORAGE_KEYS.AUTH_USER);
-    setIsAuthenticated(false);
-  }, [updateToken]);
-
-  const signOut = useCallback(async () => {
-    setError(null);
-
-    try {
-      // Invalidate refresh token on backend
-      await trpcClient.auth.logout.mutate();
-      console.log("Backend logout successful");
-    } catch (error) {
-      console.error("Backend logout failed:", error);
-      // Continue with local logout even if backend logout fails
+  // Handle session errors
+  useEffect(() => {
+    if (sessionError) {
+      setError(sessionError.message);
     }
+  }, [sessionError]);
 
-    setAuthUser(null);
-    updateToken(null);
-    localStorage.removeItem(AUTH_STORAGE_KEYS.AUTH_USER);
-    setIsAuthenticated(false);
-  }, [updateToken]);
-
-  // Listen for auth events
-  useEffect(() => {
-    // Handler for token expired event
-    const handleTokenExpired = () => {
-      console.log("Token expired event received");
-      invalidateUserSession();
-    };
-
-    // Handler for token refreshed event
-    const handleTokenRefreshed = (event: CustomEvent<{ token: string }>) => {
-      console.log("Token refreshed event received");
-      if (event.detail?.token) {
-        updateToken(event.detail.token);
-      }
-    };
-
-    // Add event listeners
-    window.addEventListener(AUTH_EVENTS.TOKEN_EXPIRED, handleTokenExpired);
-    window.addEventListener(AUTH_EVENTS.TOKEN_REFRESHED, handleTokenRefreshed as EventListener);
-
-    // Remove event listeners on cleanup
-    return () => {
-      window.removeEventListener(AUTH_EVENTS.TOKEN_EXPIRED, handleTokenExpired);
-      window.removeEventListener(
-        AUTH_EVENTS.TOKEN_REFRESHED,
-        handleTokenRefreshed as EventListener
-      );
-    };
-  }, [invalidateUserSession, updateToken]);
-
-  // Storage event listener to sync auth state across tabs - simplified approach
-  useEffect(() => {
-    const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === AUTH_STORAGE_KEYS.AUTH_TOKEN) {
-        setJwtToken(event.newValue);
-
-        if (!event.newValue) {
-          // Token was removed, invalidate session
-          setAuthUser(null);
-          setIsAuthenticated(false);
-        }
-      }
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
-
-  useEffect(() => {
-    const validateToken = async () => {
-      const { isValid, user } = await validateTokenWithServer();
-
-      if (isValid && user) {
-        setAuthUser(user);
-        localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_USER, JSON.stringify(user));
-        setIsAuthenticated(true);
-
-        // The dedicated effect above will handle the connection when token and Web3Auth are ready
-      } else {
-        // Token is invalid, try to refresh
-        const refreshResult = await attemptTokenRefresh();
-
-        if (refreshResult.success && refreshResult.newToken) {
-          // Refresh successful, set new token and validate again
-          updateToken(refreshResult.newToken);
-
-          const { isValid: isValidAfterRefresh, user: userAfterRefresh } =
-            await validateTokenWithServer();
-
-          if (isValidAfterRefresh && userAfterRefresh) {
-            setAuthUser(userAfterRefresh);
-            localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_USER, JSON.stringify(userAfterRefresh));
-            setIsAuthenticated(true);
-          } else {
-            // Still invalid after refresh, invalidate session and disconnect Web3Auth
-            await invalidateUserSession();
-          }
-        } else {
-          // Refresh failed, invalidate session and disconnect Web3Auth
-          await invalidateUserSession();
-        }
-      }
-    };
-
-    validateToken();
-  }, [invalidateUserSession, updateToken]);
-
-  const signIn = async (email: string, password: string, recaptchaToken: string | null) => {
+  const signIn = async (email: string, password: string, _recaptchaToken: string | null) => {
     try {
       setError(null);
-      const response = await trpcClient.auth.login.mutate({ email, password, recaptchaToken });
-      updateToken(response.accessToken);
-      setAuthUser(response.user);
-      setIsAuthenticated(true);
-      return response.user;
+      const response = await authClient.signIn.email({
+        email,
+        password,
+      });
+      if (response.data?.user) {
+        const user = response.data.user as BetterAuthUser;
+        const mappedUser: AuthUser = {
+          id: parseInt(user.id),
+          email: user.email,
+          handle: user.handle || "",
+          role: user.role || "user",
+          image: user.image || null,
+          wallet: null,
+        };
+        setAuthUser(mappedUser);
+        return mappedUser;
+      } else {
+        throw new Error("Login failed");
+      }
     } catch (error) {
       setError((error as Error).message);
       throw error;
@@ -266,30 +98,55 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     handle: string,
     email: string,
     password: string,
-    recaptchaToken: string | null
+    _recaptchaToken: string | null
   ) => {
     try {
       setError(null);
-      const response = await trpcClient.auth.register.mutate({
-        handle,
+      const response = await authClient.signUp.email({
         email,
         password,
-        recaptchaToken,
+        // TODO fix this, add correct handle and name field
+        name: handle,
       });
-      updateToken(response.accessToken);
-      setAuthUser(response.user);
-      setIsAuthenticated(true);
-      return response.user;
+      if (response.data?.user) {
+        const user = response.data.user as BetterAuthUser;
+        const mappedUser: AuthUser = {
+          id: parseInt(user.id),
+          email: user.email,
+          handle: handle,
+          role: user.role || "user",
+          image: user.image || null,
+          wallet: null,
+        };
+        setAuthUser(mappedUser);
+        return mappedUser;
+      } else {
+        throw new Error("Sign up failed");
+      }
     } catch (error) {
       setError((error as Error).message);
       throw error;
     }
   };
 
-  const resetPassword = async (email: string, recaptchaToken: string | null) => {
+  const resetPassword = async (email: string, _recaptchaToken: string | null) => {
     try {
-      const response = await trpcClient.auth.passwordResetRequest.mutate({ email, recaptchaToken });
-      return response;
+      // Use forgotPassword method for password reset request
+      const response = await authClient.requestPasswordReset({
+        email,
+        redirectTo: "/auth/reset-password",
+      });
+
+      if (response.error) {
+        return {
+          success: false,
+          message: response.error.message || "Password reset request failed",
+        };
+      }
+      return {
+        success: true,
+        message: "Password reset email sent",
+      };
     } catch (error) {
       setError((error as Error).message);
       return {
@@ -299,73 +156,49 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const setAuthUser = (user: AuthUser | null) => {
-    _setAuthUser(user);
-    if (user) {
-      localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_USER, JSON.stringify(user));
-    } else {
-      localStorage.removeItem(AUTH_STORAGE_KEYS.AUTH_USER);
-    }
+  const _setAuthUser = (user: AuthUser | null) => {
+    setAuthUser(user);
   };
 
   const updateAuthUser = (userData: Partial<AuthUser>) => {
     const newUser = authUser ? { ...authUser, ...userData } : null;
     setAuthUser(newUser);
-    if (newUser) {
-      localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_USER, JSON.stringify(newUser));
-    }
   };
 
-  // Função para recarregar os dados do usuário do servidor
   const refreshUserData = async () => {
     try {
-      if (!jwtToken) {
-        console.log("No token available, can't refresh user data");
-        return;
-      }
-
-      console.log("Refreshing user data from server...");
-      const { isValid, user } = await validateTokenWithServer();
-
-      if (isValid && user) {
-        console.log("User data refreshed successfully");
-        setAuthUser(user);
-        localStorage.setItem(AUTH_STORAGE_KEYS.AUTH_USER, JSON.stringify(user));
-      } else {
-        console.warn("Failed to refresh user data: token invalid");
-      }
+      const response = await trpcClient.auth.me.query();
+      const mappedUser: AuthUser = {
+        id: response.user.id,
+        email: response.user.email,
+        handle: response.user.handle ?? "",
+        role: response.user.role,
+        image: response.user.image,
+        wallet: response.user.wallet,
+      };
+      setAuthUser(mappedUser);
     } catch (error) {
       console.error("Error refreshing user data:", error);
-    }
-  };
-
-  // Sign in with Google
-  const signInWithGoogle = async (token: string) => {
-    try {
-      setError(null);
-      const response = await trpcClient.auth.googleAuth.mutate({ token });
-      updateToken(response.accessToken);
-      setAuthUser(response.user);
-      setIsAuthenticated(true);
-      return response.user;
-    } catch (error) {
-      setError((error as Error).message);
-      throw error;
     }
   };
 
   const value = {
     authUser,
     error,
-    isAuthenticated,
-    jwtToken,
-    signIn,
+    isAuthenticated: !!authUser,
+    isPending,
     signUp,
-    signInWithGoogle,
-    signOut,
+    signOut: async () => {
+      try {
+        await authClient.signOut();
+        setAuthUser(null);
+        setError(null);
+      } catch (error) {
+        setError((error as Error).message);
+      }
+    },
     resetPassword,
     updateAuthUser,
-    updateToken,
     refreshUserData,
   };
 

@@ -15,13 +15,27 @@ import { EditorProvider } from "./contexts/EditorContext";
 import { useTokenExpiration } from "./hooks/useTokenExpiration";
 
 // Lazy load admin components - they will only be loaded when needed
-const AdminLayout = lazy(() => import("./pages/admin/AdminLayout").then(module => ({ default: module.AdminLayout })));
-const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard").then(module => ({ default: module.AdminDashboard })));
-const AdminUsers = lazy(() => import("./pages/admin/AdminUsers").then(module => ({ default: module.AdminUsers })));
-const AdminThemes = lazy(() => import("./pages/admin/AdminThemes").then(module => ({ default: module.AdminThemes })));
-const AdminBlocks = lazy(() => import("./pages/admin/AdminBlocks").then(module => ({ default: module.AdminBlocks })));
-const AdminFiles = lazy(() => import("./pages/admin/AdminFiles").then(module => ({ default: module.AdminFiles })));
-const AdminPools = lazy(() => import("./pages/admin/AdminPools").then(module => ({ default: module.AdminPools })));
+const AdminLayout = lazy(() =>
+  import("./pages/admin/AdminLayout").then(module => ({ default: module.AdminLayout }))
+);
+const AdminDashboard = lazy(() =>
+  import("./pages/admin/AdminDashboard").then(module => ({ default: module.AdminDashboard }))
+);
+const AdminUsers = lazy(() =>
+  import("./pages/admin/AdminUsers").then(module => ({ default: module.AdminUsers }))
+);
+const AdminThemes = lazy(() =>
+  import("./pages/admin/AdminThemes").then(module => ({ default: module.AdminThemes }))
+);
+const AdminBlocks = lazy(() =>
+  import("./pages/admin/AdminBlocks").then(module => ({ default: module.AdminBlocks }))
+);
+const AdminFiles = lazy(() =>
+  import("./pages/admin/AdminFiles").then(module => ({ default: module.AdminFiles }))
+);
+const AdminPools = lazy(() =>
+  import("./pages/admin/AdminPools").then(module => ({ default: module.AdminPools }))
+);
 
 function AppRouter() {
   // Use the token expiration hook inside the router context
@@ -79,36 +93,54 @@ function AppRouter() {
           </ProtectedRoute>
         }
       >
-        <Route index element={
-          <Suspense fallback={<div>Loading dashboard...</div>}>
-            <AdminDashboard />
-          </Suspense>
-        } />
-        <Route path="users" element={
-          <Suspense fallback={<div>Loading users...</div>}>
-            <AdminUsers />
-          </Suspense>
-        } />
-        <Route path="themes" element={
-          <Suspense fallback={<div>Loading themes...</div>}>
-            <AdminThemes />
-          </Suspense>
-        } />
-        <Route path="blocks" element={
-          <Suspense fallback={<div>Loading blocks...</div>}>
-            <AdminBlocks />
-          </Suspense>
-        } />
-        <Route path="files" element={
-          <Suspense fallback={<div>Loading files...</div>}>
-            <AdminFiles />
-          </Suspense>
-        } />
-        <Route path="pools" element={
-          <Suspense fallback={<div>Loading pools...</div>}>
-            <AdminPools />
-          </Suspense>
-        } />
+        <Route
+          index
+          element={
+            <Suspense fallback={<div>Loading dashboard...</div>}>
+              <AdminDashboard />
+            </Suspense>
+          }
+        />
+        <Route
+          path="users"
+          element={
+            <Suspense fallback={<div>Loading users...</div>}>
+              <AdminUsers />
+            </Suspense>
+          }
+        />
+        <Route
+          path="themes"
+          element={
+            <Suspense fallback={<div>Loading themes...</div>}>
+              <AdminThemes />
+            </Suspense>
+          }
+        />
+        <Route
+          path="blocks"
+          element={
+            <Suspense fallback={<div>Loading blocks...</div>}>
+              <AdminBlocks />
+            </Suspense>
+          }
+        />
+        <Route
+          path="files"
+          element={
+            <Suspense fallback={<div>Loading files...</div>}>
+              <AdminFiles />
+            </Suspense>
+          }
+        />
+        <Route
+          path="pools"
+          element={
+            <Suspense fallback={<div>Loading pools...</div>}>
+              <AdminPools />
+            </Suspense>
+          }
+        />
       </Route>
 
       {/* Authentication Routes */}

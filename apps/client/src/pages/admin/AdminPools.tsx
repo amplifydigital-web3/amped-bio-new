@@ -1,13 +1,9 @@
-import { FC, useState } from "react";
+import { FC } from "react";
 import { trpc } from "../../utils/trpc/trpc";
 import { Switch } from "../../components/ui/Switch";
 import { toast } from "sonner";
-import { RouterOutputs } from "../../utils/trpc/types";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { formatHandle } from "../../utils/handle";
-
-// Define the Pool type using RouterOutputs
-type Pool = RouterOutputs["admin"]["pools"]["getAllPools"][number];
 
 export const AdminPools: FC = () => {
   const {
