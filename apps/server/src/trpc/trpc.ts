@@ -21,7 +21,8 @@ export const createContext = async ({
   res,
 }: CreateExpressContextOptions): Promise<Context> => {
   // Validate session using better-auth (reads from cookies)
-  const session = await auth.api.getSession({
+  const authInstance = await auth;
+  const session = await authInstance.api.getSession({
     headers: req.headers as any,
   });
 

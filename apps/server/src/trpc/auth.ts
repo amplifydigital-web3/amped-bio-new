@@ -43,7 +43,8 @@ export const authRouter = router({
         }
 
         // Use better-auth to send password reset email
-        await auth.api.requestPasswordReset({
+        const authInstance = await auth;
+        await authInstance.api.requestPasswordReset({
           body: {
             email,
             redirectTo: `${env.FRONTEND_URL}/reset-password`,
@@ -77,7 +78,8 @@ export const authRouter = router({
       });
 
       // Get session using better-auth
-      const session = await auth.api.getSession({
+      const authInstance = await auth;
+      const session = await authInstance.api.getSession({
         headers: ctx.req.headers as any,
       });
 
@@ -89,7 +91,7 @@ export const authRouter = router({
       }
 
       // Generate JWT token using better-auth's internal API
-      const token = await auth.api.signJWT({
+      const token = await authInstance.api.signJWT({
         body: {
           payload: {
             sub: session.user.id.toString(),
@@ -170,7 +172,8 @@ export const authRouter = router({
         const { token: requestToken, newPassword } = input;
 
         // Use better-auth to reset password
-        await auth.api.resetPassword({
+        const authInstance = await auth;
+        await authInstance.api.resetPassword({
           body: {
             token: requestToken,
             newPassword,
