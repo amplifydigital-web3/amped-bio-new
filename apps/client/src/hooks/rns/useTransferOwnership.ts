@@ -10,6 +10,7 @@ import { useAccount, useWriteContract, usePublicClient } from "wagmi";
 
 import { domainName } from "@/utils/rns";
 import { ContractStep, TxStatus, TxStep } from "@/types/rns/common";
+import { useEditor } from "@/contexts/EditorContext";
 
 export type StepState = {
   step: TxStep;
@@ -35,6 +36,7 @@ export function useTransferOwnership() {
   const { address, chainId } = useAccount();
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
+  const { profile, setProfile, saveChanges } = useEditor();
 
   const networkConfig = getChainConfig(chainId ?? 0);
 
@@ -126,7 +128,15 @@ export function useTransferOwnership() {
         for (const step of contractSteps) {
           await executeStep(step);
         }
+        if (name === profile.revoName?.split(".")[0]) {
+          console.log("Updating profile");
+          setProfile({
+            ...profile,
+            revoName: "",
+          });
 
+          saveChanges();
+        }
         return {
           success: true,
           steps,

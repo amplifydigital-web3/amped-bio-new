@@ -201,27 +201,28 @@ export function ProfileSection({
             >
               @{authUser?.onelink || "User"}
             </h1>
-            <div className="flex items-center space-x-2 min-w-0">
-              <span
-                className="text-xs sm:text-sm font-mono text-gray-600 bg-white px-2 sm:px-3 py-1 rounded-full border border-gray-200 truncate"
-                title={address || ""}
-              >
-                {formatAddress(address || "")}
-              </span>
-              <button
-                onClick={copyAddress}
-                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-white rounded-lg transition-colors duration-200 flex-shrink-0"
-                title="Copy full wallet address"
-                disabled={loading}
-              >
-                {copyStatus === "idle" ? (
-                  <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                ) : (
-                  <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" />
-                )}
-              </button>
-            </div>
-            {profile.revoName && (
+            {!profile.revoName ? (
+              <div className="flex items-center space-x-2 min-w-0">
+                <span
+                  className="text-xs sm:text-sm font-mono text-gray-600 bg-white px-2 sm:px-3 py-1 rounded-full border border-gray-200 truncate"
+                  title={address || ""}
+                >
+                  {formatAddress(address || "")}
+                </span>
+                <button
+                  onClick={copyAddress}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-white rounded-lg transition-colors duration-200 flex-shrink-0"
+                  title="Copy full wallet address"
+                  disabled={loading}
+                >
+                  {copyStatus === "idle" ? (
+                    <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  ) : (
+                    <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" />
+                  )}
+                </button>
+              </div>
+            ) : (
               <div className="flex items-center space-x-2 min-w-0">
                 <span
                   onClick={() => navigateToProfile(profile.revoName!.split(".")[0])}

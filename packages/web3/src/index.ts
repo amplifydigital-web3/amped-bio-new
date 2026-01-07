@@ -65,17 +65,17 @@ export const libertasTestnet = {
     },
   },
   testnet: true,
-  contracts: {  
+  contracts: {
     L2_BASE_TOKEN: { address: "0x000000000000000000000000000000000000800A" as Address },
     NODE: { address: "0x019bbe745b5c9b70060408Bf720B1E5172EEa5A3" as Address },
     CREATOR_POOL_FACTORY: { address: "0x38df3c6acEe3511c088c84d0191f550b24726f0f" as Address },
     multicall3: { address: "0x97cb78d5be963e2534a2156c88093a49f15315c8" as Address },
-    REGISTRAR_CONTROLLER: { address: "0x6976f68f9d363962f2e70484a5ACC94Bacb8b671" as Address },
-    L2_RESOLVER: { address: "0x9E86dB3c2b644EC19e8dA6Ad21D04B7Af38C3707" as Address },
-    BASE_REGISTRAR: { address: "0x6fb4834326a955949A6447F0f0a01333d729C213" as Address },
-    REVERSE_REGISTRAR: { address: "0xcEa357DD5F29e574DDe8bB658B1A02b97512F879" as Address },
+    REGISTRAR_CONTROLLER: { address: "0xA47c64B7858Fe8FeEE02316202967d28D7965e73" as Address },
+    L2_RESOLVER: { address: "0x027Bff282062453EbC713B88911686E92660cab2" as Address },
+    BASE_REGISTRAR: { address: "0xc5CE470e9040720602D93bDE15F2104150F429d5" as Address },
+    REVERSE_REGISTRAR: { address: "0xeE0CEf328f32241bAfC6BA44792ab2c193350498" as Address },
   },
-  subgraphUrl: "https://graph.libertas.revolutionchain.io/subgraphs/name/subgraph/revo-names",
+  subgraphUrl: "https://graph.libertas.revolutionchain.io/subgraphs/name/rns/subgraph",
   gas: 5_000_000,
 } as const;
 

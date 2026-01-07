@@ -1,28 +1,39 @@
 import React, { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 
-import { useTransferOwnership } from "@/hooks/rns/useTransferOwnership";
+import { StepState } from "@/hooks/rns/useTransferOwnership";
 import { useNameDetails } from "@/hooks/rns/useNameDetails";
 import SearchStep from "./TransferSteps/SearchStep";
 import FormStep from "./TransferSteps/FormStep";
 import { WarningModal } from "./TransferSteps/WarningModal";
 import TransactionProgressModal from "./TransferSteps/TransactionProgressStep";
 import SuccessStep from "./TransferSteps/SuccessStep";
-import { AddressResult } from "@/types/rns/common";
+import { AddressResult, TxStatus, TxStep } from "@/types/rns/common";
+import toast from "react-hot-toast";
 
 interface TransferNameModalProps {
   onClose: () => void;
   ensName?: string;
   expiryDate?: string;
+  isConnected: boolean;
+  overallStatus: TxStatus;
+  steps: Record<TxStep, StepState>;
+  transferOwnership;
 }
 
 type ModalStep = "search" | "form" | "warning" | "confirm" | "final";
 
-const TransferNameModal: React.FC<TransferNameModalProps> = ({ onClose, ensName = "" }) => {
+const TransferNameModal: React.FC<TransferNameModalProps> = ({
+  onClose,
+  ensName = "",
+  isConnected,
+  overallStatus,
+  steps,
+  transferOwnership,
+}) => {
   const [step, setStep] = useState<ModalStep>("search");
   const [recipient, setRecipient] = useState("");
   const [selectedAddress, setSelectedAddress] = useState<AddressResult | null>(null);
-  const [isValidatingAddress, setIsValidatingAddress] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
 
   const { address } = useAccount();
@@ -30,11 +41,10 @@ const TransferNameModal: React.FC<TransferNameModalProps> = ({ onClose, ensName 
   const domain = ensName?.split(".")[0] || "";
   const { ownerAddress, displayAddress, nftId } = useNameDetails(domain);
 
-  const { transferOwnership, isConnected, steps, overallStatus } = useTransferOwnership();
-
   useEffect(() => {
     if (step === "confirm" && overallStatus === "success") {
       setStep("final");
+      toast.success("Name Successfully Transferred.");
     }
   }, [overallStatus, step]);
 
