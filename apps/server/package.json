@@ -6,8 +6,8 @@
     "node": ">=24.12.0"
   },
   "scripts": {
-    "start": "node dist/index.js",
-    "dev": "tsx watch -r dotenv/config src/index.ts",
+    "start": "node dist/local.js",
+    "dev": "tsx watch -r dotenv/config src/local.ts",
     "build": "tsc && ts-add-js-extension --dir=dist",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix --exit-on-fatal-error",
