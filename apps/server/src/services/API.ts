@@ -5,7 +5,7 @@ import cors from "cors";
 // import helmet from "helmet";
 // import cookieParser from "cookie-parser";
 // import router from "../routes";
-// import { trpcMiddleware } from "../trpc/router";
+import { trpcMiddleware } from "../trpc/router";
 
 const logTag = "[API]";
 
@@ -41,7 +41,7 @@ app.use(
   })
 );
 
-// app.use("/trpc", trpcMiddleware);
+app.use("/trpc", trpcMiddleware);
 // app.use("/api/", router);
 
 function logErrors(err: any, req: Request, res: Response, next: NextFunction) {
