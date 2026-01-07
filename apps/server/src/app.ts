@@ -24,13 +24,10 @@ BigInt.prototype.toJSON = function () {
 export const DI = {} as IDI;
 
 DI.API = new API(DI);
+DI.API.setup();
 
 export default DI.API.app;
 
-const startServer = async () => {
+export async function startServer() {
   await DI.API.start();
-};
-
-if (module.parent === null) {
-  startServer();
 }

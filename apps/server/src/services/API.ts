@@ -15,15 +15,21 @@ const logTag = "[API]";
 export class API implements Service {
   public app: Application;
   private di: IDI;
+  private isSetup: boolean;
 
   private server!: Server;
 
   constructor(di: IDI) {
     this.app = express();
     this.di = di;
+    this.isSetup = false;
   }
 
-  async start() {
+  setup() {
+    if (this.isSetup) {
+      return;
+    }
+    this.isSetup = true;
     this.app.use(helmet());
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
@@ -78,6 +84,10 @@ export class API implements Service {
 
     this.app.use(logErrors);
     this.app.use(handleErrors);
+  }
+
+  async start() {
+    this.setup();
 
     this.server = this.app.listen(env.PORT, () =>
       console.log(logTag, `listening on port ${env.PORT}`)
