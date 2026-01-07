@@ -12,7 +12,6 @@ interface TransactionProgressModalProps {
 
 const TransactionProgressModal: React.FC<TransactionProgressModalProps> = ({
   onClose,
-  overallStatus,
   embedded = false,
   steps,
 }) => {
@@ -76,19 +75,15 @@ const TransactionProgressModal: React.FC<TransactionProgressModalProps> = ({
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-2xl font-semibold">Processing transactions</h2>
-
-        {overallStatus !== "pending" && (
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="h-5 w-5" />
-          </button>
-        )}
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <X className="h-5 w-5" />
+        </button>
       </div>
 
       {/* Info */}
       <div className="mb-6 rounded-lg bg-blue-50 p-4">
         <p className="text-blue-800">
-          We’re processing the required on-chain steps. This may take a few moments — please don’t
-          close this window.
+          We’re processing the required on-chain steps. This may take a few moments.
         </p>
       </div>
 

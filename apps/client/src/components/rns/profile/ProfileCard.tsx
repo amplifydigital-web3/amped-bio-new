@@ -1,5 +1,6 @@
 import { trimmedDomainName } from "@/utils/rns";
 import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
+import { Copy } from "lucide-react";
 
 interface ProfileCardProps {
   name: string;
@@ -16,7 +17,7 @@ const TagBox = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
-export const ProfileCard = ({ name, addressFormatted, expiry }: ProfileCardProps) => {
+export const ProfileCard = ({ name, addressFull, addressFormatted, expiry }: ProfileCardProps) => {
   const { navigateToProfileOwnership } = useRNSNavigation();
 
   return (
@@ -43,8 +44,8 @@ export const ProfileCard = ({ name, addressFormatted, expiry }: ProfileCardProps
       <div className="bg-white rounded-2xl shadow-sm p-6">
         <h2 className="font-bold text-gray-400 mb-4">Addresses</h2>
 
-        <div className="bg-gray-50 rounded-lg p-3 sm:p-4 mb-8 inline-flex items-center w-auto">
-          <svg
+        <div className="bg-gray-50 rounded-lg p-3 sm:p-4 mb-8 inline-flex items-center gap-2 w-auto">
+          {/* <svg
             className="w-5 h-5 mr-2 text-gray-600"
             viewBox="0 0 24 24"
             fill="none"
@@ -55,9 +56,12 @@ export const ProfileCard = ({ name, addressFormatted, expiry }: ProfileCardProps
               fill="#343434"
             />
             <path d="M11.943 0L4.58 12.223L11.943 16.573L19.313 12.223L11.943 0Z" fill="#8C8C8C" />
-          </svg>
+          </svg> */}
           <span className="font-mono text-md mr-2">{addressFormatted}</span>
-          <button className="text-gray-400"></button>
+          <Copy
+            className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-muted-foreground/60"
+            onClick={() => navigator.clipboard.writeText(addressFull)}
+          />
         </div>
 
         <div className="flex items-center mb-4">

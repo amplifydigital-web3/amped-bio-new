@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { HelpCircle, Send, FastForward, RefreshCcw, Copy, Info } from "lucide-react";
+import { HelpCircle, Send, FastForward, RefreshCcw, Copy, Info, Loader } from "lucide-react";
 import TransferNameModal from "@/components/rns/modal/TransferNameModal";
 import ExtendRegistrationModal from "@/components/rns/modal/ExtendRegistrationModal";
 import { formatDateTime, scannerURL } from "@/utils/rns";
 import { Address } from "viem";
 import { NameDates } from "@/types/rns/name";
+import { useTransferOwnership } from "@/hooks/rns/useTransferOwnership";
 
 interface OwnershipDetailsProps {
   name: string;
@@ -29,6 +30,8 @@ const OwnershipDetail = ({
 }: OwnershipDetailsProps) => {
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isExtRegModalOpen, setIsExtRegModalOpen] = useState(false);
+
+  const { overallStatus, steps, transferOwnership, isConnected } = useTransferOwnership();
 
   const handleRefetch = async () => {
     refetchNameDetails();
@@ -90,11 +93,21 @@ const OwnershipDetail = ({
           <div className="flex flex-col sm:flex-row sm:justify-end gap-3 mt-6">
             {isCurrentOwner && (
               <button
-                className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-100 w-full sm:w-auto"
+                disabled={overallStatus === "pending"}
+                className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-100 w-full sm:w-auto min-w-10 disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={() => setIsTransferModalOpen(true)}
               >
-                <Send className="w-4 h-4" />
-                Transfer
+                {overallStatus === "pending" ? (
+                  <>
+                    <Loader className="animate-spin" />
+                    <span title="Name is being transferred">Transferring</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    Transfer
+                  </>
+                )}
               </button>
             )}
           </div>
@@ -172,6 +185,10 @@ const OwnershipDetail = ({
           }}
           ensName={name}
           expiryDate={dates.expiry.date}
+          isConnected={isConnected}
+          overallStatus={overallStatus}
+          steps={steps}
+          transferOwnership={transferOwnership}
         />
       )}
 
