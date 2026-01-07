@@ -1,4 +1,4 @@
-import "express-async-errors";
+// import "express-async-errors";
 import { IDI } from "../types/di";
 import { Service } from "../types/service";
 import express, { type Application, type NextFunction, type Request, type Response } from "express";
