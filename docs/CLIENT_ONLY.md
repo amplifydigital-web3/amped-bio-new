@@ -9,7 +9,7 @@ This document explains how to run the client application without requiring the s
 To install only the dependencies needed for client-only mode, run:
 
 ```bash
-pnpm client-only:install
+bun run client-only:install
 ```
 
 This will install only the dependencies required for the client and its dependencies.
@@ -19,7 +19,7 @@ This will install only the dependencies required for the client and its dependen
 To run the client application in demo mode (without a server), use:
 
 ```bash
-pnpm client-only
+bun run client-only
 ```
 
 This command:
@@ -56,7 +56,7 @@ If you need to extend or modify the mock behavior, update these files accordingl
 You can create a production build of the client in demo mode by running:
 
 ```bash
-pnpm build:packages && pnpm --filter @ampedbio/client build:client-only
+bun run build:packages && bun run --filter @ampedbio/client build:client-only
 ```
 
 This is useful for deploying a demo version that doesn't require a backend server.
@@ -66,5 +66,5 @@ This is useful for deploying a demo version that doesn't require a backend serve
 To run the full application with both client and server, use the standard development command:
 
 ```bash
-pnpm dev
+bun run dev
 ```

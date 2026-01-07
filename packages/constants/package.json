@@ -15,7 +15,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix --exit-on-fatal-error",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf coverage",
-    "prepare": "pnpm run build"
+    "prepare": "bun run build"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
