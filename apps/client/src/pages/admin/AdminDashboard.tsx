@@ -108,9 +108,7 @@ export function AdminDashboard() {
         onRefresh={handleRefresh}
         isLoading={loading}
       />
-
       <AdminBannerSettings />
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Users Stats */}
         <AdminUserStats
@@ -145,17 +143,14 @@ export function AdminDashboard() {
         {/* Faucet Wallet Stats */}
         <AdminFaucetWalletStats />
       </div>
-
       {/* Block Distribution */}
       <AdminBlockDistribution
         blockTypeDistribution={blockTypeDistribution}
         mostPopularBlockType={blockStats.mostPopularBlockType}
         averageBlocksPerUser={blockStats.averageBlocksPerUser}
       />
-
-// Top Performing Handles
+      // Top Performing Handles
       <AdminTopHandles topHandles={topHandles} />
-
       {/* Recent Users */}
       <AdminRecentUsers
         recentUsers={recentUsers}

@@ -19,7 +19,7 @@ interface AdminDashboardProps {
     averageBlocksPerUser: number;
   };
   blockTypeDistribution: Record<string, number>;
-    topHandles: Array<{
+  topHandles: Array<{
     handle: string | null;
     name: string;
     totalClicks: number;

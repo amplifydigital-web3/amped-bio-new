@@ -14,11 +14,7 @@ import { GoogleLoginButton } from "./GoogleLoginButton";
 import { useCaptcha } from "@/hooks/useCaptcha";
 import { CaptchaActions } from "@ampedbio/constants";
 import { authClient } from "@/lib/auth-client";
-import {
-  normalizeHandle,
-  cleanHandleInput,
-  getHandlePublicUrl,
-} from "@/utils/handle";
+import { normalizeHandle, cleanHandleInput, getHandlePublicUrl } from "@/utils/handle";
 import { trackGAEvent } from "@/utils/ga";
 import {
   Dialog,
