@@ -1,3 +1,5 @@
-import { DI } from "./bootstrap";
+import { env } from "./env";
+import app from "./services/API";
+import "./bootstrap";
 
-DI.API.start();
+app.listen(env.PORT, () => console.log(`listening on port ${env.PORT}`));
