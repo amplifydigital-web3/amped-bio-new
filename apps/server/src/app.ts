@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 import { API } from "./services/API";
 import { IDI } from "./types/di";
+// eslint-disable-next-line unused-imports/no-unused-imports, @typescript-eslint/no-unused-vars
+import express from "express";
 // import { exec } from "child_process";
 
 // @ts-ignore
