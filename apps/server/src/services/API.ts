@@ -1,20 +1,20 @@
 import "express-async-errors";
 import express, { type Application, type NextFunction, type Request, type Response } from "express";
-import helmet from "helmet";
-import cors from "cors";
-import cookieParser from "cookie-parser";
 import { env } from "../env";
-import router from "../routes";
-import { trpcMiddleware } from "../trpc/router";
+import cors from "cors";
+// import helmet from "helmet";
+// import cookieParser from "cookie-parser";
+// import router from "../routes";
+// import { trpcMiddleware } from "../trpc/router";
 
 const logTag = "[API]";
 
 const app: Application = express();
 
-app.use(helmet());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
+// app.use(helmet());
+// app.use(express.json());
+// app.use(express.urlencoded({ extended: true }));
+// app.use(cookieParser());
 
 app.use(
   cors({
@@ -41,8 +41,8 @@ app.use(
   })
 );
 
-app.use("/trpc", trpcMiddleware);
-app.use("/api/", router);
+// app.use("/trpc", trpcMiddleware);
+// app.use("/api/", router);
 
 function logErrors(err: any, req: Request, res: Response, next: NextFunction) {
   if (err.code !== 401)
