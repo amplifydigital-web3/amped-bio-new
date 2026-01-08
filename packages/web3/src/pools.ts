@@ -22,8 +22,8 @@ export const getPoolName = async (poolAddress: Address, chainId: number): Promis
       functionName: "poolName",
     });
     return poolName as string;
-  } catch (error) {
-    console.error(`Error fetching pool name for ${poolAddress}:`, error);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars, unused-imports/no-unused-vars
+  } catch (_) {
     return "Unknown Pool";
   }
 };
