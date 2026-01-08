@@ -1,13 +1,11 @@
 import "express-async-errors";
 import express, { type Application, type NextFunction, type Request, type Response } from "express";
-import { env } from "../env";
+import { env } from "./env";
 import cors from "cors";
 // import helmet from "helmet";
 // import cookieParser from "cookie-parser";
 // import router from "../routes";
-import { trpcMiddleware } from "../trpc/router";
-
-const logTag = "[API]";
+import { trpcMiddleware } from "./trpc/router";
 
 const app: Application = express();
 
