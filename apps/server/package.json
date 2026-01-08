@@ -14,6 +14,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix --exit-on-fatal-error",
     "typecheck": "tsc --noEmit",
+    "postbuild": "prisma generate && ts-add-js-extension --dir=dist",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
