@@ -4,6 +4,7 @@ import { Editor } from "./pages/Editor";
 import { View } from "./pages/View";
 import PoolsPage from "./pages/PoolsPage";
 import { PoolDetailsPage } from "./pages/PoolDetailsPage";
+import { PoolDebugPage } from "./pages/PoolDebugPage";
 import PublicLayout from "./components/layout/PublicLayout";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -96,6 +97,14 @@ function AppRouter() {
         element={
           <PublicLayout>
             <PoolDetailsPage />
+          </PublicLayout>
+        }
+      />
+      <Route
+        path="/i/pools/:address/debug"
+        element={
+          <PublicLayout>
+            <PoolDebugPage />
           </PublicLayout>
         }
       />

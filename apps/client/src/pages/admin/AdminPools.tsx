@@ -1,9 +1,11 @@
 import { FC } from "react";
 import { trpc } from "../../utils/trpc/trpc";
 import { Switch } from "../../components/ui/Switch";
+import { Button } from "../../components/ui/Button";
 import { toast } from "sonner";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { formatHandle } from "../../utils/handle";
+import { formatHandle } from "../../utils/handle"; 
+import SyncTransactionDialog from "./SyncTransactionDialog";
 
 export const AdminPools: FC = () => {
   const {
@@ -13,6 +15,12 @@ export const AdminPools: FC = () => {
     error,
     refetch,
   } = useQuery(trpc.admin.pools.getAllPools.queryOptions());
+
+  const [isSyncDialogOpen, setIsSyncDialogOpen] = useState(false);
+
+  const handleSyncComplete = () => {
+    refetch();
+  };
 
   const setHiddenMutation = useMutation({
     mutationFn: trpc.admin.pools.setHidden.mutationOptions().mutationFn,
@@ -49,7 +57,10 @@ export const AdminPools: FC = () => {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-4">Manage Creator Pools</h1>
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Manage Creator Pools</h1>
+        <Button onClick={() => setIsSyncDialogOpen(true)}>Sync Transaction</Button>
+      </div>
 
       {pools && pools.length > 0 ? (
         <div className="overflow-x-auto">
@@ -129,6 +140,12 @@ export const AdminPools: FC = () => {
       ) : (
         <p>No pools found.</p>
       )}
+
+      <SyncTransactionDialog
+        isOpen={isSyncDialogOpen}
+        onClose={() => setIsSyncDialogOpen(false)}
+        onSyncComplete={handleSyncComplete}
+      />
     </div>
   );
 };
