@@ -1,4 +1,13 @@
-import { S3Client, type S3FilePresignOptions } from "bun";
+import {
+  S3Client,
+  DeleteObjectCommand,
+  ListBucketsCommand,
+  HeadObjectCommand,
+  GetObjectCommand,
+  type S3ClientConfig,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import AWS from "aws-sdk"; // Import AWS SDK for the getSignedUrlPromise method
 import crypto from "crypto";
 import { env } from "../env";
 import {
@@ -43,25 +52,22 @@ export interface GenerateServerFileKeyParams {
 }
 
 class S3Service {
+  private s3Client: S3Client; // For newer AWS SDK operations
+  private s3: AWS.S3; // For signed URL generation using the v2 API
   private bucketName: string;
   private bucketRegion: string;
   private publicBaseUrl: string;
-  private s3: S3Client;
-  private s3Config: {
-    accessKeyId: string;
-    secretAccessKey: string;
-    bucket: string;
-    region: string;
-    endpoint?: string;
-  };
 
   constructor() {
+    // Ensure region is trimmed and correctly formatted
     this.bucketRegion = env.AWS_REGION.trim();
     this.bucketName = env.AWS_S3_BUCKET_NAME.trim();
 
+    // Debug credentials (partially masked for security)
     const accessKeyLastChars = env.AWS_ACCESS_KEY_ID.slice(-4);
     const secretKeyLastChars = env.AWS_SECRET_ACCESS_KEY.slice(-4);
 
+    // Enhanced logging for debugging credential issues
     console.info(
       "[INFO] S3Service initializing with credentials",
       JSON.stringify({
@@ -78,6 +84,7 @@ class S3Service {
       })
     );
 
+    // Log if any credentials appear to be missing or malformed
     if (!env.AWS_REGION || env.AWS_REGION.length < 2) {
       console.error("[ERROR] AWS_REGION is missing or invalid");
     }
@@ -88,22 +95,46 @@ class S3Service {
       console.error("[ERROR] AWS_SECRET_ACCESS_KEY is missing or invalid");
     }
 
-    this.publicBaseUrl = `https://${this.bucketName}.s3.${this.bucketRegion}.amazonaws.com`;
-
-    this.s3Config = {
-      accessKeyId: env.AWS_ACCESS_KEY_ID.trim(),
-      secretAccessKey: env.AWS_SECRET_ACCESS_KEY.trim(),
-      bucket: this.bucketName,
+    const clientOptions: S3ClientConfig = {
       region: this.bucketRegion,
+      credentials: {
+        accessKeyId: env.AWS_ACCESS_KEY_ID.trim(),
+        secretAccessKey: env.AWS_SECRET_ACCESS_KEY.trim(),
+      },
     };
 
+    // Set the standard S3 public URL format based on the region
+    this.publicBaseUrl = `https://${this.bucketName}.s3.${this.bucketRegion}.amazonaws.com`;
+
+    // Add custom endpoint if provided (for local development with S3Mock or other S3-compatible services)
     if (env.AWS_S3_ENDPOINT && env.AWS_S3_ENDPOINT.trim().length > 0) {
-      const endpoint = env.AWS_S3_ENDPOINT.trim();
-      this.s3Config.endpoint = endpoint;
-      this.publicBaseUrl = `${endpoint}/${this.bucketName}`;
+      // Configure the API endpoint for the client
+      clientOptions.endpoint = env.AWS_S3_ENDPOINT.trim();
+      clientOptions.forcePathStyle = true; // Required for S3-compatible services
+
+      // For local development with custom endpoints, adjust the public URL format accordingly
+      // but keep the bucket name in the path
+      this.publicBaseUrl = `${env.AWS_S3_ENDPOINT.trim()}/${this.bucketName}`;
     }
 
-    this.s3 = new S3Client(this.s3Config);
+    // Initialize both S3 client types
+    this.s3Client = new S3Client(clientOptions);
+
+    // Initialize AWS SDK v2 S3 client for signed URL generation
+    AWS.config.update({
+      region: this.bucketRegion,
+      accessKeyId: env.AWS_ACCESS_KEY_ID.trim(),
+      secretAccessKey: env.AWS_SECRET_ACCESS_KEY.trim(),
+    });
+
+    if (env.AWS_S3_ENDPOINT && env.AWS_S3_ENDPOINT.trim().length > 0) {
+      this.s3 = new AWS.S3({
+        endpoint: env.AWS_S3_ENDPOINT.trim(),
+        s3ForcePathStyle: true,
+      });
+    } else {
+      this.s3 = new AWS.S3();
+    }
 
     console.info(
       "[INFO] S3Service initialized",
@@ -111,30 +142,72 @@ class S3Service {
         bucketName: this.bucketName,
         region: this.bucketRegion,
         publicBaseUrl: this.publicBaseUrl,
-        customEndpoint: this.s3Config.endpoint || "default AWS",
+        customEndpoint: clientOptions.endpoint || "default AWS",
+        forcePathStyle: clientOptions.forcePathStyle || false,
       })
     );
 
+    // Immediately test the connection
     this.testConnection();
   }
 
+  /**
+   * Create an S3Client with the current configuration
+   * This method ensures consistent client configuration across different operations
+   * @returns S3Client - Configured S3 client instance
+   */
+  private createS3Client(): S3Client {
+    const clientOptions: S3ClientConfig = {
+      region: this.bucketRegion,
+      credentials: {
+        accessKeyId: env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
+      },
+    };
+
+    // Add custom endpoint if provided (for local development with S3Mock or other S3-compatible services)
+    if (env.AWS_S3_ENDPOINT && env.AWS_S3_ENDPOINT.length > 0) {
+      clientOptions.endpoint = env.AWS_S3_ENDPOINT;
+      clientOptions.forcePathStyle = true;
+    }
+
+    return new S3Client(clientOptions);
+  }
+
+  /**
+   * Test the S3 connection by listing buckets
+   * This validates that the credentials are correct
+   */
   async testConnection(): Promise<void> {
     try {
       console.info("[INFO] Testing S3 connection...");
-      await this.s3.list();
+      const command = new ListBucketsCommand({});
+      const response = await this.s3Client.send(command);
+
+      const buckets = response.Buckets || [];
+      const bucketNames = buckets.map(bucket => bucket.Name);
 
       console.info(
         "[INFO] S3 credentials validated successfully!",
         JSON.stringify({
-          bucketName: this.bucketName,
-          region: this.bucketRegion,
+          bucketsFound: buckets.length,
+          bucketNames: bucketNames.slice(0, 5), // Show first 5 buckets
+          targetBucketFound: bucketNames.includes(this.bucketName),
         })
       );
+
+      if (!bucketNames.includes(this.bucketName)) {
+        console.warn(
+          "[WARN] Target bucket not found in accessible buckets. Check permissions or bucket name."
+        );
+      }
     } catch (error) {
       console.error(
         "[ERROR] S3 credential validation failed! Your AWS keys are likely invalid.",
         error instanceof Error ? error.message : error
       );
+
+      // Don't throw - allow the service to initialize, but mark it as problematic
       console.error(
         "[ERROR] S3Service initialized with invalid credentials - file operations will fail!"
       );
@@ -292,6 +365,14 @@ class S3Service {
     return fileKey;
   }
 
+  /**
+   * Get a signed URL for any S3 operation (getObject, putObject, deleteObject)
+   * @param key - Object path/key in the bucket
+   * @param operation - S3 operation type
+   * @param expiresIn - URL expiration time in seconds (default: 300)
+   * @param contentType - Content-Type header to include in signature calculation (for uploads)
+   * @returns Promise<string> - Signed URL
+   */
   async getSignedUrl(
     key: string,
     operation: S3Operation,
@@ -310,15 +391,19 @@ class S3Service {
         })
       );
 
-      const method =
-        operation === "putObject" ? "PUT" : operation === "deleteObject" ? "DELETE" : "GET";
-      const options: S3FilePresignOptions = { expiresIn, method };
+      // Use a generic Record type instead of AWS.S3.PresignedUrlRequest
+      const params: Record<string, any> = {
+        Bucket: this.bucketName,
+        Key: key,
+        Expires: expiresIn,
+      };
 
-      if (contentType) {
-        options.type = contentType;
+      // Add Content-Type to signature calculation for PUT operations
+      if (operation === "putObject" && contentType) {
+        params.ContentType = contentType;
       }
 
-      const url = this.s3.presign(key, options);
+      const url = await this.s3.getSignedUrlPromise(operation, params);
 
       console.info(
         "[INFO] Generated signed URL for operation",
@@ -328,7 +413,7 @@ class S3Service {
           expiresIn,
           contentType,
           urlLength: url.length,
-          url: url.substring(0, 100) + "...",
+          url: url.substring(0, 100) + "...", // Log partial URL for security
         })
       );
 
@@ -400,9 +485,17 @@ class S3Service {
     return this.getSignedUrl(fileKey, "getObject", expiresIn);
   }
 
+  /**
+   * Delete a file from S3
+   */
   async deleteFile(fileKey: string): Promise<void> {
     try {
-      await this.s3.delete(fileKey);
+      const deleteObjectCommand = new DeleteObjectCommand({
+        Bucket: this.bucketName,
+        Key: fileKey,
+      });
+
+      await this.s3Client.send(deleteObjectCommand);
       console.info("[INFO] File deleted successfully", JSON.stringify({ fileKey }));
     } catch (error) {
       console.error(
@@ -516,6 +609,11 @@ class S3Service {
     return result;
   }
 
+  /**
+   * Check if a file exists in S3 bucket
+   * @param params - Object containing fileKey and optional bucket
+   * @returns Promise<boolean> - True if file exists, false otherwise
+   */
   async fileExists(params: FileExistsParams): Promise<boolean> {
     const { fileKey, bucket } = params;
     const targetBucket = bucket || this.bucketName;
@@ -526,13 +624,19 @@ class S3Service {
         JSON.stringify({ fileKey, bucket: targetBucket })
       );
 
-      const exists = await this.s3.exists(fileKey);
-      console.info(
-        "[INFO] File exists in S3",
-        JSON.stringify({ fileKey, bucket: targetBucket, exists })
-      );
-      return exists;
+      // Use the existing s3Client if checking default bucket, otherwise create a new one
+      const s3Client = bucket ? this.createS3Client() : this.s3Client;
+
+      const headObjectCommand = new HeadObjectCommand({
+        Bucket: targetBucket,
+        Key: fileKey,
+      });
+
+      await s3Client.send(headObjectCommand);
+      console.info("[INFO] File exists in S3", JSON.stringify({ fileKey, bucket: targetBucket }));
+      return true;
     } catch (error: any) {
+      // If the error is NotFound (404), the file doesn't exist
       if (error.name === "NotFound" || error.$metadata?.httpStatusCode === 404) {
         console.info(
           "[INFO] File does not exist in S3",
@@ -541,6 +645,7 @@ class S3Service {
         return false;
       }
 
+      // For other errors, log and re-throw
       console.error(
         "[ERROR] Error checking file existence in S3",
         error instanceof Error ? error.stack : error,
@@ -550,6 +655,12 @@ class S3Service {
     }
   }
 
+  /**
+   * Generate a temporary URL for accessing a file in any S3 bucket
+   * This function allows access to files in different buckets, not just the default one
+   * @param params - Object containing bucket name, file key, and optional expiration time
+   * @returns Promise<string> - Temporary URL for accessing the file
+   */
   async getTempFileUrl(params: GetTempFileUrlParams): Promise<string> {
     const { bucket, fileKey, expiresIn = 3600 } = params;
 
@@ -563,7 +674,19 @@ class S3Service {
         })
       );
 
-      const tempUrl = this.s3.presign(fileKey, { expiresIn });
+      // Use the reusable S3Client creation method
+      const s3Client = this.createS3Client();
+
+      // Create the GetObjectCommand for the specific bucket and file
+      const getObjectCommand = new GetObjectCommand({
+        Bucket: bucket,
+        Key: fileKey,
+      });
+
+      // Generate the signed URL using AWS SDK v3
+      const tempUrl = await getSignedUrl(s3Client, getObjectCommand, {
+        expiresIn,
+      });
 
       console.info(
         "[INFO] Generated temporary file URL successfully",
@@ -572,7 +695,7 @@ class S3Service {
           fileKey,
           expiresIn,
           urlLength: tempUrl.length,
-          url: tempUrl.substring(0, 100) + "...",
+          url: tempUrl.substring(0, 100) + "...", // Log partial URL for security
         })
       );
 
@@ -604,8 +727,8 @@ class S3Service {
   }> {
     try {
       // Validate file type based on category
-      const fileCategory: FileCategory = category === "category" ? "profiles" : category;
-      const validation = this.validateFile(contentType, fileCategory);
+      const fileCategory = category === "category" ? "profiles" : category;
+      const validation = this.validateFile(contentType, fileCategory as FileCategory);
       if (!validation.valid) {
         throw new Error(validation.message || "File validation failed");
       }

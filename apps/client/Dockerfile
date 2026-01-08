@@ -1,6 +1,6 @@
 # Multi-stage build for efficient client production image
 # Stage 1: Build the client application
-FROM node:20-alpine as builder
+FROM node:24-alpine as builder
 
 # Install Python, build tools and Python build dependencies
 RUN apk add --no-cache python3 make g++ py3-pip py3-setuptools

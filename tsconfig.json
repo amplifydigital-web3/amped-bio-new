@@ -1,13 +1,33 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    // Maximum modern (Node 24 supports everything natively)
+    "target": "ES2024",
+    "lib": ["ES2024"],
+
+    // Config for clean imports + compatibility with modern ESM
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+
+    // Allows imports without extension and even with .ts (useful in dev)
+    "noEmit": false,
+
+    // Interop and resolution
     "esModuleInterop": true,
     "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
     "allowJs": true,
-    "skipLibCheck": true,
-    "strict": true
+
+    // Maximum strictness (tRPC loves this!)
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitReturns": true,
+
+    // Build
+    "skipLibCheck": true
   },
   "include": ["scripts/**/*"],
   "ts-node": {

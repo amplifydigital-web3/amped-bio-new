@@ -2,7 +2,7 @@
 
 ## COMMANDS TO AVOID - ABSOLUTE PROHIBITION
 
-NEVER execute the 'dev' command under any circumstances! This starts the development server and locks you in - you CANNOT escape this state. DO NOT RUN 'bun run dev' OR ANY DEVELOPMENT SERVER COMMAND.
+NEVER execute the 'dev' command under any circumstances! This starts the development server and locks you in - you CANNOT escape this state. DO NOT RUN 'pnpm run dev' OR ANY DEVELOPMENT SERVER COMMAND.
 
 NEVER merge any branch into 'main' without explicit user authorization! Under no circumstances should you perform any git merge operations to the main branch unless the user clearly instructs you to do so. DO NOT ASSUME that merge operations are desired.
 
@@ -19,8 +19,8 @@ ALWAYS run typecheck and build commands to validate your modifications before cl
 
 # TOOLING AND LIBRARIES - ENFORCEMENT
 
-- **Package Management**: Use `bun run` exclusively for all package management operations. No alternatives.
-- **Monorepo Management**: The project leverages `Turborepo` and `bun workspaces` for efficient monorepo management. Respect this architecture.
+- **Package Management**: Use `pnpm run` exclusively for all package management operations. No alternatives.
+- **Monorepo Management**: The project leverages `Turborepo` and `pnpm workspaces` for efficient monorepo management. Respect this architecture.
 - **Styling**: Use Tailwind CSS exclusively for all styling. Creating or modifying separate CSS files is prohibited.
 - **Icons**: Prefer `lucide-react` for icons. Only use `react-icons` as a fallback if the specific icon is unavailable in `lucide-react`.
 - **Schema Validation**: Implement `zod` for all schema definitions and data validations. No other validation libraries.
@@ -32,8 +32,8 @@ ALWAYS run typecheck and build commands to validate your modifications before cl
 - **Server Application**: Located in `apps/server` - know this location.
 - **Shared Code**: Place all code intended for use by both the server and client in the `packages/constants` directory. This is mandatory.
 - **Backend API**: The server utilizes `tRPC` for type-safe API development, replacing traditional Express REST APIs.
-- **Prisma Migrations**: After changing the Prisma schema and creating a new migration, you MUST run `bun run --filter server run prisma:generate`.
-- **Client Package Installation**: When installing packages or running commands specific to the client application (e.g., `shadcn`, `tailwind`, `magicui`), you MUST always filter by the client package (e.g., `bun run --filter client add <package-name>` or `bunx --filter client <command>`).
+- **Prisma Migrations**: After changing the Prisma schema and creating a new migration, you MUST run `pnpm run --filter server run prisma:generate`.
+- **Client Package Installation**: When installing packages or running commands specific to the client application (e.g., `shadcn`, `tailwind`, `magicui`), you MUST always filter by the client package (e.g., `pnpm run --filter client add <package-name>` or `pnpm dlx --filter client <command>`).
 
 # CODE QUALITY STANDARDS - NON-NEGOTIABLE
 
