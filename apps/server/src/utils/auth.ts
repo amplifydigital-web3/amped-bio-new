@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../services/DB";
 import { env } from "../env";
 import { processEmailToUniqueHandle } from "./onelink-generator";
 import { sendEmailVerification } from "./email/email";
@@ -6,8 +6,6 @@ import { hashPassword, verifyPassword } from "./password";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { captcha, jwt, oneTap } from "better-auth/plugins";
-
-const prisma = new PrismaClient();
 
 export const auth = betterAuth({
   trustedOrigins: [env.FRONTEND_URL],
