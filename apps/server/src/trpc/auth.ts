@@ -1,6 +1,5 @@
 import { router, publicProcedure, privateProcedure } from "./trpc";
 import { TRPCError } from "@trpc/server";
-import { verifyRecaptcha } from "../utils/recaptcha";
 import { getFileUrl } from "../utils/fileUrlResolver";
 import { passwordResetRequestSchema, processPasswordResetSchema } from "../schemas/auth.schema";
 import { env } from "../env";
@@ -31,16 +30,16 @@ export const authRouter = router({
     .input(passwordResetRequestSchema)
     .mutation(async ({ input }) => {
       try {
-        const { email, recaptchaToken } = input;
+        const { email } = input;
 
         // Verify reCAPTCHA token
-        const isRecaptchaValid = await verifyRecaptcha(recaptchaToken);
-        if (!isRecaptchaValid) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "reCAPTCHA verification failed",
-          });
-        }
+        // const isRecaptchaValid = await verifyRecaptcha(recaptchaToken);
+        // if (!isRecaptchaValid) {
+        //   throw new TRPCError({
+        //     code: "BAD_REQUEST",
+        //     message: "reCAPTCHA verification failed",
+        //   });
+        // }
 
         // Use better-auth to send password reset email
         const authInstance = await auth;
