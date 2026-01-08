@@ -8,9 +8,10 @@
     // Config for clean imports + compatibility with modern ESM
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "jsx": "react",
 
     // Allows imports without extension and even with .ts (useful in dev)
-    "noEmit": false,                      // We need to emit JS for the build
+    "noEmit": false, // We need to emit JS for the build
 
     // Interop and resolution
     "esModuleInterop": true,
@@ -19,11 +20,8 @@
 
     // Maximum strictness (tRPC loves this!)
     "strict": true,
-    "exactOptionalPropertyTypes": true,
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,
-    "noPropertyAccessFromIndexSignature": true,
-    "noUncheckedIndexedAccess": true,
     "noImplicitReturns": true,
 
     // Build

@@ -5,8 +5,9 @@ import { prisma } from "../services/DB";
  */
 export function extractHandleFromEmail(email: string): string {
   const localPart = email.split("@")[0]; // Get part before "@"
+  if (!localPart) return "";
   const handleWithoutAlias = localPart.split("+")[0]; // Remove alias part after "+"
-  return handleWithoutAlias;
+  return handleWithoutAlias || "";
 }
 
 /**

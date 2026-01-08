@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node dist/local.js",
     "dev": "tsx watch -r dotenv/config src/local.ts",
-    "build": "tsc && tsx ts-add-js-extension --dir=dist",
+    "build": "tsc && ts-add-js-extension --dir=dist",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix --exit-on-fatal-error",
     "typecheck": "tsc --noEmit",

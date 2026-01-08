@@ -27,7 +27,11 @@ export async function verifyRecaptcha(token: string | null): Promise<boolean> {
       body: formData,
     });
 
-    const data = await response.json();
+    const data = (await response.json()) as {
+      success: boolean;
+      score?: number;
+      "error-codes"?: string[];
+    };
 
     if (data.success) {
       const score = data.score || 1.0;

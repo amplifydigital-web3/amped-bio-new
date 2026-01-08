@@ -1,10 +1,10 @@
-import { FC } from "react";
+import { FC, useState } from "react";
 import { trpc } from "../../utils/trpc/trpc";
 import { Switch } from "../../components/ui/Switch";
 import { Button } from "../../components/ui/Button";
 import { toast } from "sonner";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { formatHandle } from "../../utils/handle"; 
+import { formatHandle } from "../../utils/handle";
 import SyncTransactionDialog from "./SyncTransactionDialog";
 
 export const AdminPools: FC = () => {
