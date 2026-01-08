@@ -60,3 +60,4 @@ apps/client/tsconfig.app.tsbuildinfo
 packages/web3/tsconfig.tsbuildinfo
 packages/web3/tsconfig.tsbuildinfo
 .env
+apps/server/src/lib/prisma

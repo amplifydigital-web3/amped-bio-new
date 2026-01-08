@@ -4,26 +4,29 @@
   "type": "module",
   "private": true,
   "engines": {
-    "bun": ">=1.2.0"
+    "node": ">=24.0.0",
+    "pnpm": ">=9.0.0"
   },
   "scripts": {
-    "start-local": "bun dist/local.js",
-    "dev": "bun run tsx watch -r dotenv/config src/local.ts",
-    "build-local": "bun run tsc && bun run ts-add-js-extension --dir=dist",
+    "start-local": "node dist/local.js",
+    "dev": "tsx watch -r dotenv/config src/local.ts",
+    "build-local": "tsc && tsx ts-add-js-extension --dir=dist",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix --exit-on-fatal-error",
     "typecheck": "tsc --noEmit",
-    "postbuild": "bun run prisma:migrate",
-    "postinstall": "bun --bun prisma generate",
-    "prisma:generate": "bun --bun prisma generate",
-    "prisma:migrate": "bun --bun prisma migrate deploy",
-    "prisma:studio": "bun --bun prisma studio",
-    "prisma:migrate:dev": "if [ \"$NODE_ENV\" = \"production\" ]; then echo \"You are in production. Use prisma:migrate instead.\"; exit 1; fi && bun --bun prisma migrate dev",
+    "postbuild": "pnpm run prisma:migrate",
+    "postinstall": "prisma generate",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy",
+    "prisma:studio": "prisma studio",
+    "prisma:migrate:dev": "if [ \"$NODE_ENV\" = \"production\" ]; then echo \"You are in production. Use prisma:migrate instead.\"; exit 1; fi && prisma migrate dev",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf coverage"
   },
   "dependencies": {
     "@ampedbio/constants": "workspace:*",
     "@ampedbio/web3": "workspace:*",
+    "@aws-sdk/client-s3": "^3.965.0",
+    "@aws-sdk/s3-request-presigner": "^3.965.0",
     "@noble/hashes": "^1.3.3",
     "@prisma/client": "6.7.0",
     "@react-email/components": "^0.0.36",
@@ -31,6 +34,7 @@
     "@trpc/server": "^11.1.2",
     "@types/decimal.js": "^7.4.3",
     "@vercel/related-projects": "^1.0.0",
+    "aws-sdk": "^2.1693.0",
     "axios": "^1.9.0",
     "bcrypt": "^6.0.0",
     "better-auth": "^1.4.7",
@@ -57,17 +61,16 @@
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
     "@types/bcrypt": "^5.0.2",
-    "@types/bun": "^1.3.5",
     "@types/compression": "^1.7.5",
     "@types/cookie-parser": "^1.4.9",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
-    "@types/node": "^20.11.16",
+    "@types/node": "^24.0.0",
     "@types/nodemailer": "^6.4.17",
     "@types/pg": "^8.11.0",
     "@types/react": "^18.3.5",
     "ts-add-js-extension": "^1.6.6",
-    "tsx": "^4.19.3",
+    "tsx": "^4.19.4",
     "typescript": "5.9.2"
   }
 }

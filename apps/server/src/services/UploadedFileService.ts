@@ -1,4 +1,4 @@
-import { FileStatus } from "@prisma/client";
+import { FileStatus } from "../lib/prisma";
 import { prisma } from "./DB";
 
 export interface CreateUploadedFileParams {

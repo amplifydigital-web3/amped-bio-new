@@ -21,12 +21,13 @@ amped-bio-new/
 │       ├── prisma/     # Database schema and migrations
 │       └── ...
 │
-├── docs/               # Documentation files
-│   └── CLIENT_ONLY.md  # Guide for client-only mode
-│
- ├── bun.lockb            # Bun lockfile
- ├── turbo.json          # Turborepo configuration
- └── package.json        # Root package.json for workspace management
+ ├── docs/               # Documentation files
+ │   └── CLIENT_ONLY.md  # Guide for client-only mode
+ │
+  ├── pnpm-lock.yaml      # pnpm lockfile
+  ├── pnpm-workspace.yaml # pnpm workspace configuration
+  ├── turbo.json          # Turborepo configuration
+  └── package.json        # Root package.json for workspace management
 ```
 
 ### Client Architecture
@@ -92,7 +93,8 @@ Follow these instructions to get a copy of the project up and running on your lo
 
 Make sure you have the following installed:
 
-- [Bun](https://bun.sh/) (version 1.2.6 or later)
+- [Node.js](https://nodejs.org/) (version 24 or later)
+- [pnpm](https://pnpm.io/) (version 9 or later)
 
 ### Installation
 
@@ -106,7 +108,7 @@ Make sure you have the following installed:
    ```
 3. Install dependencies for all workspaces:
    ```sh
-   bun install
+   pnpm install
    ```
 
 ## Development
@@ -117,10 +119,10 @@ To run the full development environment (client + server):
 
 ```bash
 # Install dependencies
-bun install
+pnpm install
 
 # Start full development environment (client + server)
-bun run dev:full
+pnpm run dev:full
 ```
 
 ### Client-Only Development
@@ -129,10 +131,10 @@ To run only the client application without needing the server:
 
 ```bash
 # Install only client-related dependencies
-bun run client-only:install
+pnpm run client-only:install
 
 # Run client in demo mode (no server required)
-bun run client-only
+pnpm run client-only
 ```
 
 For more details on client-only mode, see [CLIENT_ONLY.md](docs/CLIENT_ONLY.md).
@@ -142,31 +144,31 @@ For more details on client-only mode, see [CLIENT_ONLY.md](docs/CLIENT_ONLY.md).
 Run client-only development (default):
 
 ```sh
-bun run dev
+pnpm run dev
 ```
 
 Run full stack development (client + server):
 
 ```sh
-bun run dev:full
+pnpm run dev:full
 ```
 
 Run only the client explicitly:
 
 ```sh
-bun run --filter client dev
+pnpm run --filter client dev
 ```
 
 Run only the server:
 
 ```sh
-bun run --filter server dev
+pnpm run --filter server dev
 ```
 
 Build all applications:
 
 ```sh
-bun run build
+pnpm run build
 ```
 
 The client will be available at `http://localhost:5173`.
@@ -194,7 +196,7 @@ The project uses [Prisma](https://www.prisma.io/) as an ORM for database access 
 To apply existing migrations to your database:
 
 ```sh
-bun run --filter server run prisma:migrate
+pnpm run --filter server run prisma:migrate
 ```
 
 ### Creating New Migrations
@@ -204,7 +206,7 @@ When you need to update the database schema:
 1. Update the schema in `apps/server/prisma/schema.prisma`
 2. Generate a migration with a descriptive name:
    ```sh
-   bun run --filter server run prisma:migrate:dev -- --name descriptive_migration_name
+    pnpm run --filter server run prisma:migrate:dev -- --name descriptive_migration_name
    ```
    This command will:
    - Generate SQL migration files based on schema changes
@@ -216,7 +218,7 @@ When you need to update the database schema:
 To regenerate the Prisma client after schema changes:
 
 ```sh
-bun run --filter server run prisma:generate
+pnpm run --filter server run prisma:generate
 ```
 
 This command regenerates the Prisma client with the latest schema definitions.
@@ -226,7 +228,7 @@ This command regenerates the Prisma client with the latest schema definitions.
 To explore and edit your database with a visual interface:
 
 ```sh
-bun run --filter server run prisma:studio
+pnpm run --filter server run prisma:studio
 ```
 
 This will open Prisma Studio in your browser at `http://localhost:5555`.
@@ -236,7 +238,7 @@ This will open Prisma Studio in your browser at `http://localhost:5555`.
 During development, you may need to reset your database:
 
 ```sh
-bun run --filter server npx prisma migrate reset
+pnpm run --filter server npx prisma migrate reset
 ```
 
 This command will:
@@ -337,7 +339,7 @@ For more options and information, check the [Act documentation](https://github.c
 
 ## Using Bolt for Development
 
-[Bolt](https://boltjs.com/) is an development tool that can be used with this project to automatically run `bun install` and `bun dev` commands. The project is configured so that when using Bolt:
+[Bolt](https://boltjs.com/) is an development tool that can be used with this project to automatically run `pnpm install` and `pnpm dev` commands. The project is configured so that when using Bolt:
 
 1. Only the client application will be started (not the server)
 2. Required packages will be pre-built before starting the client
@@ -351,7 +353,7 @@ This setup provides a faster development experience when you're focused on front
 If you need to run both client and server while using Bolt, you can manually run:
 
 ```sh
-bun run dev:full
+pnpm run dev:full
 ```
 
 ## Docker Configuration

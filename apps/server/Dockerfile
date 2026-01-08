@@ -1,5 +1,5 @@
-# Use the official Node.js 20 image as the base image
-FROM node:20-alpine
+# Use the official Node.js 24 image as the base image
+FROM node:24-alpine
 
 # Install Python, build tools and Python build dependencies
 RUN apk add --no-cache python3 make g++ py3-pip py3-setuptools
