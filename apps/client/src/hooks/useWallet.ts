@@ -57,6 +57,7 @@ export const useWeb3AuthWallet = () => {
   const getTokenAndConnect = useCallback(async () => {
     try {
       const { walletToken } = await trpcClient.auth.getWalletToken.query();
+      console.log("Fetched wallet token:", walletToken);
       await connectTo(WALLET_CONNECTORS.AUTH, {
         authConnection: AUTH_CONNECTION.CUSTOM,
         authConnectionId: import.meta.env.VITE_WEB3AUTH_AUTH_CONNECTION_ID,
