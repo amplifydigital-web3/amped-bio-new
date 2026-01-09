@@ -10,7 +10,7 @@ export const authClient = createAuthClient({
   ],
   /** The base URL of the server (optional if you're using the same domain) */
   baseURL: import.meta.env.VITE_API_URL,
-  basePath: "/api/auth",
+  basePath: "/auth",
 });
 
 export const oneTapCall = async () => {

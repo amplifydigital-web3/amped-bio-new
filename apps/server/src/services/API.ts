@@ -5,7 +5,8 @@ import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import { trpcMiddleware } from "../trpc/router";
-import router from "../routes";
+import { auth } from "../utils/auth";
+import { toNodeHandler } from "better-auth/node";
 
 const app: Application = express();
 
@@ -40,7 +41,11 @@ app.use(
 );
 
 app.use("/trpc", trpcMiddleware);
-app.use("/api/", router);
+
+app.all("/", async (req, res) => {
+  const handler = toNodeHandler(auth);
+  return handler(req, res);
+});
 
 function logErrors(err: any, req: Request, res: Response, next: NextFunction) {
   if (err.code !== 401)
