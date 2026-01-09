@@ -66,34 +66,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [sessionError]);
 
-  const signIn = async (email: string, password: string, _recaptchaToken: string | null) => {
-    try {
-      setError(null);
-      const response = await authClient.signIn.email({
-        email,
-        password,
-      });
-      if (response.data?.user) {
-        const user = response.data.user as BetterAuthUser;
-        const mappedUser: AuthUser = {
-          id: parseInt(user.id),
-          email: user.email,
-          handle: user.handle || "",
-          role: user.role || "user",
-          image: user.image || null,
-          wallet: null,
-        };
-        setAuthUser(mappedUser);
-        return mappedUser;
-      } else {
-        throw new Error("Login failed");
-      }
-    } catch (error) {
-      setError((error as Error).message);
-      throw error;
-    }
-  };
-
   const signUp = async (
     handle: string,
     email: string,
@@ -107,6 +79,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         password,
         // TODO fix this, add correct handle and name field
         name: handle,
+        fetchOptions: {
+          headers: _recaptchaToken
+            ? {
+                "x-captcha-response": _recaptchaToken!,
+              }
+            : undefined,
+        },
       });
       if (response.data?.user) {
         const user = response.data.user as BetterAuthUser;
@@ -134,6 +113,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const response = await authClient.requestPasswordReset({
         email,
         redirectTo: `${window.location.origin}/auth/reset-password`,
+        fetchOptions: {
+          headers: _recaptchaToken
+            ? {
+                "x-captcha-response": _recaptchaToken!,
+              }
+            : undefined,
+        },
       });
 
       if (response.error) {
