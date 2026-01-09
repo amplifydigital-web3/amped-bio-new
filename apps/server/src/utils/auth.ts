@@ -17,7 +17,7 @@ export const auth = betterAuth({
     }),
     jwt({
       jwt: {
-        expirationTime: 5 * 60, // 5 minutes
+        expirationTime: "5min",
       },
       jwks: {
         jwksPath: "/.well-known/jwks.json",
