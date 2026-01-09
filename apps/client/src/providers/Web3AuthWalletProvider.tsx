@@ -7,6 +7,7 @@ import { useWeb3AuthWallet } from "../hooks/useWallet";
 import { trpcClient } from "../utils/trpc";
 
 const THROTTLE_DURATION = 3_000; // 3 seconds in milliseconds
+const TOKEN_REFRESH_INTERVAL = 270_000; // 4 minutes and 30 seconds in milliseconds
 
 export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) => {
   const { authUser, updateAuthUser } = useAuth();
@@ -107,6 +108,23 @@ export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) =>
     };
     linkAddress();
   }, [authUser, wallet.status, wallet.address, wallet, publicKey]);
+
+  useEffect(() => {
+    const refreshToken = async () => {
+      if (authUser && wallet.status === "connected") {
+        try {
+          await wallet.connect();
+          console.info("Token refreshed successfully");
+        } catch (error) {
+          console.error("Error refreshing token:", error);
+        }
+      }
+    };
+
+    const interval = setInterval(refreshToken, TOKEN_REFRESH_INTERVAL);
+
+    return () => clearInterval(interval);
+  }, [authUser, wallet.status, wallet.connect]);
 
   const updateBalanceDelayed = () => {
     setTimeout(() => balance?.refetch(), 2000);
