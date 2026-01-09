@@ -237,6 +237,19 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setResetSuccess(false);
     setForm(newForm);
 
+    // Ensure email is set in the new form based on sharedEmail
+    const currentEmail =
+      newForm === "login" ? loginEmail : newForm === "register" ? registerEmail : resetEmail;
+    if (sharedEmail && currentEmail !== sharedEmail) {
+      if (newForm === "login") {
+        setLoginValue("email", sharedEmail);
+      } else if (newForm === "register") {
+        setRegisterValue("email", sharedEmail);
+      } else if (newForm === "reset") {
+        setResetValue("email", sharedEmail);
+      }
+    }
+
     // Update URL based on the new form type
     if (newForm === "login") {
       window.history.replaceState(null, "", "/login");
@@ -706,7 +719,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
                 <div className="text-center text-sm text-gray-600 mt-4 p-3 border border-gray-200 rounded-md bg-gray-50">
                   <p>Already have a password reset token?</p>
                   <Link
-                    to="/auth/reset-password/"
+                    to={`/auth/reset-password/?email=${encodeURIComponent(resetEmail)}`}
                     className="inline-block mt-2 text-blue-600 hover:text-blue-700 hover:underline font-medium"
                     aria-label="Use reset token"
                     data-testid="use-reset-token"

@@ -112,7 +112,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const response = await authClient.requestPasswordReset({
         email,
-        redirectTo: `${window.location.origin}/auth/reset-password`,
+        redirectTo: `${window.location.origin}/auth/reset-password?email=${encodeURIComponent(email)}`,
         fetchOptions: {
           headers: _recaptchaToken
             ? {
