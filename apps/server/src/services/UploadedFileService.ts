@@ -1,4 +1,4 @@
-import { FileStatus } from "../lib/prisma";
+import { FileStatus } from "../lib/prisma/index.js";
 import { prisma } from "./DB";
 
 export interface CreateUploadedFileParams {
