@@ -1,4 +1,4 @@
-import app from "./API";
+import app from "./services/API";
 import { env } from "./env";
 import "./bootstrap";
 // the line below is necessary to make sure vercel recognizes this file as an edge function
