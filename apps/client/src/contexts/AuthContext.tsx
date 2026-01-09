@@ -131,10 +131,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const resetPassword = async (email: string, _recaptchaToken: string | null) => {
     try {
-      // Use forgotPassword method for password reset request
       const response = await authClient.requestPasswordReset({
         email,
-        redirectTo: "/auth/reset-password",
+        redirectTo: `${window.location.origin}/auth/reset-password`,
       });
 
       if (response.error) {

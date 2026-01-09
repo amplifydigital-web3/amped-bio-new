@@ -1,7 +1,7 @@
 import { prisma } from "../services/DB";
 import { env } from "../env";
 import { processEmailToUniqueHandle } from "./onelink-generator";
-import { sendEmailVerification } from "./email/email";
+import { sendEmailVerification, sendPasswordResetEmail } from "./email/email";
 import { hashPassword, verifyPassword } from "./password";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
@@ -104,6 +104,10 @@ export const auth = betterAuth({
     password: {
       hash: hashPassword,
       verify: verifyPassword,
+    },
+    sendResetPassword: async ({ user, url, token }: { user: any; url: any; token: any }) => {
+      console.info("Sending password reset email to:", JSON.stringify({ user, url, token }));
+      await sendPasswordResetEmail(user.email, token);
     },
   },
   socialProviders: {

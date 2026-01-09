@@ -23,18 +23,5 @@ export const loginSchema = z.object({
   recaptchaToken: z.string().nullable(),
 });
 
-export const passwordResetRequestSchema = z.object({
-  email: z.string().email(),
-  recaptchaToken: z.string().nullable(),
-});
-
-export const processPasswordResetSchema = z.object({
-  token: z.string(),
-  email: z.string().email(),
-  newPassword: z.string().min(8),
-});
-
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
-export type PasswordResetRequestInput = z.infer<typeof passwordResetRequestSchema>;
-export type ProcessPasswordResetInput = z.infer<typeof processPasswordResetSchema>;
