@@ -5,4 +5,4 @@ import "./bootstrap";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars, unused-imports/no-unused-imports
 import express from "express";
 
-app.listen(env.PORT, () => console.log(`listening on port ${env.PORT}`));
+app.listen(env.PORT, () => console.log(`listening on port: ${env.PORT}`));
