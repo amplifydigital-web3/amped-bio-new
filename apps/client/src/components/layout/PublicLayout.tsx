@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { Outlet, Link, useLocation, useParams } from "react-router";
 import AMPLIFY_FULL_K from "@/assets/AMPLIFY_FULL_K.svg";
 import { UserMenu } from "../auth/UserMenu";
-import { oneTapCall } from "@/lib/auth-client";
+// import { oneTapCall } from "@/lib/auth-client";
 import { normalizeHandle } from "@/utils/handle";
 
 // Default handle username to show when accessing root URL
@@ -44,7 +44,7 @@ const PublicLayout: React.FC<PublicLayoutProps> = ({ children }) => {
 
   useEffect(() => {
     if (shouldShowNavbar) {
-      oneTapCall();
+      // oneTapCall();
     }
   }, [shouldShowNavbar]);
 

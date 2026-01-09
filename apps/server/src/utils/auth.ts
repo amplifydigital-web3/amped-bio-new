@@ -5,7 +5,7 @@ import { sendEmailVerification } from "./email/email";
 import { hashPassword, verifyPassword } from "./password";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { captcha, jwt, oneTap } from "better-auth/plugins";
+import { captcha, jwt } from "better-auth/plugins";
 
 export const auth = betterAuth({
   trustedOrigins: [env.FRONTEND_URL],
@@ -19,7 +19,7 @@ export const auth = betterAuth({
         jwksPath: "/.well-known/jwks.json",
       },
     }),
-    oneTap(),
+    // oneTap(),
   ],
   database: prismaAdapter(prisma, {
     provider: "mysql",
