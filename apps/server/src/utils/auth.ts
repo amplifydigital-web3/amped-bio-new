@@ -16,6 +16,9 @@ export const auth = betterAuth({
       secretKey: env.CAPTCHA_SECRET_KEY,
     }),
     jwt({
+      jwt: {
+        expirationTime: 5 * 60, // 5 minutes
+      },
       jwks: {
         jwksPath: "/.well-known/jwks.json",
         endpoint: "/.well-known/jwks.json",
