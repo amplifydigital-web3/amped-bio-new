@@ -44,7 +44,7 @@ app.use("/trpc", trpcMiddleware);
 
 const authHandler = toNodeHandler(auth);
 
-app.use("/auth", (req, res, next) => {
+app.all("/auth", (req, res) => {
   req.url = req.path.replace("/auth", "") || "/";
   return void authHandler(req, res);
 });
@@ -53,6 +53,10 @@ app.use("/auth", (req, res, next) => {
 //   req.url = "/auth/.well-known/jwks.json";
 //   return void authHandler(req, res);
 // });
+
+app.get("/", (req, res) => {
+  res.redirect(env.FRONTEND_URL);
+});
 
 function logErrors(err: any, req: Request, res: Response, next: NextFunction) {
   if (err.code !== 401)
