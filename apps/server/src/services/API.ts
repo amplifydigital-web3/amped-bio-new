@@ -10,11 +10,6 @@ import { toNodeHandler } from "better-auth/node";
 
 const app: Application = express();
 
-app.use(helmet());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
-
 app.use(
   cors({
     credentials: true,
@@ -40,8 +35,6 @@ app.use(
   })
 );
 
-app.use("/trpc", trpcMiddleware);
-
 const authHandler = toNodeHandler(auth);
 
 app.all("/auth", (req, res) => {
@@ -53,6 +46,14 @@ app.all("/auth", (req, res) => {
 //   req.url = "/auth/.well-known/jwks.json";
 //   return void authHandler(req, res);
 // });
+
+app.use(helmet());
+// Don’t use express.json() before the Better Auth handler. Use it only for other routes, or the client API will get stuck on "pending".
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+app.use("/trpc", trpcMiddleware);
 
 app.get("/", (req, res) => {
   res.redirect(env.FRONTEND_URL);
