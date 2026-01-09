@@ -38,7 +38,7 @@ app.use(
 const authHandler = toNodeHandler(auth);
 
 app.use("/auth", (req, res) => {
-  req.url = req.path.replace("/auth", "") || "/";
+  req.url = req.url.replace("/auth", "") || "/";
   return void authHandler(req, res);
 });
 
