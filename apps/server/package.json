@@ -14,7 +14,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix --exit-on-fatal-error",
     "typecheck": "tsc --noEmit",
-    "postbuild": "prisma generate",
+    "postbuild": "prisma generate && mkdir -p dist/lib/prisma && cp -r src/lib/prisma/* dist/lib/prisma/",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
