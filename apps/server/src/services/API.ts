@@ -42,10 +42,10 @@ app.use("/auth", (req, res) => {
   return void authHandler(req, res);
 });
 
-// app.get("/.well-known/jwks.json", (req, res) => {
-//   req.url = "/auth/.well-known/jwks.json";
-//   return void authHandler(req, res);
-// });
+app.get("/.well-known/jwks.json", (req, res) => {
+  req.url = "/auth/.well-known/jwks.json";
+  return void authHandler(req, res);
+});
 
 app.use(helmet());
 // Don’t use express.json() before the Better Auth handler. Use it only for other routes, or the client API will get stuck on "pending".
