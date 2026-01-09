@@ -42,10 +42,9 @@ app.use(
 
 app.use("/trpc", trpcMiddleware);
 
-app.all("/", async (req, res) => {
-  const handler = toNodeHandler(auth);
-  return handler(req, res);
-});
+const authHandler = toNodeHandler(auth);
+app.all("/auth/*", (req, res) => authHandler(req, res));
+app.all("/.well-known/jwks.json", (req, res) => authHandler(req, res));
 
 function logErrors(err: any, req: Request, res: Response, next: NextFunction) {
   if (err.code !== 401)
