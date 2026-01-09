@@ -8,6 +8,7 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { captcha, jwt } from "better-auth/plugins";
 
 export const auth = betterAuth({
+  basePath: "/auth",
   trustedOrigins: [env.FRONTEND_URL],
   plugins: [
     captcha({
