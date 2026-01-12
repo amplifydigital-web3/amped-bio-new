@@ -9,6 +9,7 @@ import { captcha, jwt } from "better-auth/plugins";
 
 export const auth = betterAuth({
   basePath: "/auth",
+  disabledPaths: ["/token"],
   trustedOrigins: [env.FRONTEND_URL],
   plugins: [
     captcha({
@@ -16,6 +17,7 @@ export const auth = betterAuth({
       secretKey: env.CAPTCHA_SECRET_KEY,
     }),
     jwt({
+      disableSettingJwtHeader: true,
       jwt: {
         expirationTime: "5min",
         issuer: env.FRONTEND_URL, // Or your app's base URL, e.g., "https://yourdomain.com"
