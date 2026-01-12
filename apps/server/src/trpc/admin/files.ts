@@ -284,36 +284,48 @@ export const filesRouter = router({
 
       // Check if file is still being used by any entity
       const fileUsages = await prisma.$transaction(async tx => {
-        const [userProfiles, themeCategories, themes, themesWithBackgrounds] = await Promise.all([
-          // Check if file is used as user profile image
-          tx.user.findMany({
-            where: { image_file_id: fileId },
-            select: { id: true, name: true, email: true },
-          }),
+        const [userProfiles, themeCategories, themes, themesWithBackgroundsRaw] = await Promise.all(
+          [
+            // Check if file is used as user profile image
+            tx.user.findMany({
+              where: { image_file_id: fileId },
+              select: { id: true, name: true, email: true },
+            }),
 
-          // Check if file is used as theme category image
-          tx.themeCategory.findMany({
-            where: { image_file_id: fileId },
-            select: { id: true, name: true, title: true },
-          }),
+            // Check if file is used as theme category image
+            tx.themeCategory.findMany({
+              where: { image_file_id: fileId },
+              select: { id: true, name: true, title: true },
+            }),
 
-          // Check if file is used as theme thumbnail
-          tx.theme.findMany({
-            where: { thumbnail_file_id: fileId },
-            select: { id: true, name: true, user: { select: { name: true, email: true } } },
-          }),
+            // Check if file is used as theme thumbnail
+            tx.theme.findMany({
+              where: { thumbnail_file_id: fileId },
+              select: { id: true, name: true },
+            }),
 
-          // Check if file is used as theme background (in config JSON)
-          tx.theme.findMany({
-            where: {
-              config: {
-                path: "$.background.fileId",
-                equals: fileId,
-              },
-            },
-            select: { id: true, name: true, user: { select: { name: true, email: true } } },
-          }),
-        ]);
+            // Check if file is used as theme background (in config JSON)
+            tx.$queryRaw`
+            SELECT t.id, t.name, u.name as user_name, u.email as user_email
+            FROM themes t
+            LEFT JOIN users u ON t.user_id = u.id
+            WHERE JSON_EXTRACT(t.config, '$.background.fileId') = ${fileId.toString()}
+          `,
+          ]
+        );
+
+        const themesWithBackgrounds = (
+          themesWithBackgroundsRaw as Array<{
+            id: number;
+            name: string | null;
+            user_name: string | null;
+            user_email: string | null;
+          }>
+        ).map(r => ({
+          id: r.id,
+          name: r.name,
+          user: r.user_name ? { name: r.user_name, email: r.user_email || "" } : null,
+        }));
 
         return { userProfiles, themeCategories, themes, themesWithBackgrounds };
       });
@@ -335,8 +347,7 @@ export const filesRouter = router({
         const themes = fileUsages.themes
           .map(t => {
             const themeName = t.name || `Theme #${t.id}`;
-            const userName = t.user?.name ? ` (by ${t.user.name})` : "";
-            return `${themeName}${userName}`;
+            return themeName;
           })
           .join(", ");
         usageDetails.push(`Theme thumbnails: ${themes}`);

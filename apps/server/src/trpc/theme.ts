@@ -101,8 +101,8 @@ export const themeRouter = router({
         const existingTheme = themeExists;
 
         // Check if there's an existing background in the theme config that needs to be deleted
-        const existingConfig = (existingTheme.config as Record<string, any>) || {};
-        const newConfig = (config as Record<string, any>) || {};
+        const existingConfig = (existingTheme.config as unknown as Record<string, any>) || {};
+        const newConfig = (config as unknown as Record<string, any>) || {};
 
         // Check if the background has changed
         const existingBackground = existingConfig.background?.value;

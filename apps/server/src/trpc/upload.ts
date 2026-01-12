@@ -131,8 +131,8 @@ export const uploadRouter = router({
               user_id: userId,
               name: `${userFound!.handle}'s theme`,
               share_level: "private",
-              share_config: {},
-              config: {},
+              share_config: {} as any,
+              config: {} as any,
             },
           });
 
