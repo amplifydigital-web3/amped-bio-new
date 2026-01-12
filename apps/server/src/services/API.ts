@@ -7,6 +7,10 @@ import cookieParser from "cookie-parser";
 import { trpcMiddleware } from "../trpc/router";
 import { auth } from "../utils/auth";
 import { toNodeHandler } from "better-auth/node";
+import {
+  oauthProviderOpenIdConfigMetadata,
+  oauthProviderAuthServerMetadata,
+} from "@better-auth/oauth-provider";
 
 const app: Application = express();
 
@@ -44,6 +48,26 @@ app.use("/auth", (req, res) => {
 
 app.get("/.well-known/jwks.json", (req, res) => {
   req.url = "/auth/.well-known/jwks.json";
+  return void authHandler(req, res);
+});
+
+app.get("/.well-known/openid-configuration", (req, res) => {
+  req.url = "/auth/.well-known/openid-configuration";
+  return void authHandler(req, res);
+});
+
+app.get("/.well-known/oauth-authorization-server", (req, res) => {
+  req.url = "/auth/.well-known/oauth-authorization-server";
+  return void authHandler(req, res);
+});
+
+app.get("/auth/.well-known/openid-configuration", (req, res) => {
+  req.url = "/auth/.well-known/openid-configuration";
+  return void authHandler(req, res);
+});
+
+app.get("/auth/.well-known/oauth-authorization-server", (req, res) => {
+  req.url = "/auth/.well-known/oauth-authorization-server";
   return void authHandler(req, res);
 });
 

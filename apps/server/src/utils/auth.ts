@@ -6,6 +6,7 @@ import { hashPassword, verifyPassword } from "./password";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { captcha, jwt } from "better-auth/plugins";
+import { oauthProvider } from "@better-auth/oauth-provider";
 
 export const auth = betterAuth({
   basePath: "/auth",
@@ -20,17 +21,18 @@ export const auth = betterAuth({
         expirationTime: "5min",
         issuer: env.FRONTEND_URL, // Or your app's base URL, e.g., "https://yourdomain.com"
         audience: env.FRONTEND_URL, // Same as above; adjust if needed for specific audiences
-        definePayload: ({ session }) => ({
-          ...session.user, // Keeps all user fields (email, role, wallet, etc.)
-          iat: Math.floor(Date.now() / 1000), // Adds iat as Unix timestamp
-        }),
       },
       jwks: {
         jwksPath: "/.well-known/jwks.json",
         endpoint: "/.well-known/jwks.json",
       },
     }),
-    // oneTap(),
+    oauthProvider({
+      issuer: env.FRONTEND_URL,
+      loginPage: "/sign-in",
+      consentPage: "/consent",
+      scopes: ["openid", "profile", "email", "offline_access"],
+    }),
   ],
   database: prismaAdapter(prisma, {
     provider: "mysql",
