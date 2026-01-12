@@ -25,6 +25,7 @@ export const auth = betterAuth({
         definePayload: ({ session }) => ({
           ...session.user, // Keeps all user fields (email, role, wallet, etc.)
           iat: Math.floor(Date.now() / 1000), // Adds iat as Unix timestamp
+          staging: true,
         }),
       },
       jwks: {
