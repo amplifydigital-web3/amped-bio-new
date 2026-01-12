@@ -18,6 +18,12 @@ export const auth = betterAuth({
     jwt({
       jwt: {
         expirationTime: "5min",
+        issuer: env.FRONTEND_URL, // Or your app's base URL, e.g., "https://yourdomain.com"
+        audience: env.FRONTEND_URL, // Same as above; adjust if needed for specific audiences
+        definePayload: ({ session }) => ({
+          ...session.user, // Keeps all user fields (email, role, wallet, etc.)
+          iat: Math.floor(Date.now() / 1000), // Adds iat as Unix timestamp
+        }),
       },
       jwks: {
         jwksPath: "/.well-known/jwks.json",
