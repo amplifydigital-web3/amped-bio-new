@@ -11,11 +11,6 @@ export const env = cleanEnv(process.env, {
   JWT_PRIVATE_KEY: str({
     desc: "Private key for JWT signing",
   }),
-  JWT_ISSUER: str({
-    desc: "Issuer of the JWT token",
-    default: "api.amped.bio",
-    example: "api.amped.bio",
-  }),
   JWT_AUDIENCE: str({
     desc: "Audience of the JWT token",
     default: "amped.bio",
@@ -31,10 +26,10 @@ export const env = cleanEnv(process.env, {
     default: "http://localhost:5173",
     example: "https://amped.bio",
   }),
-  API_URL: str({
-    desc: "Base URL for the API",
-    default: "http://localhost:43000",
-    example: "https://api.amped.bio",
+  API_HOST: str({
+    desc: "Host for the API",
+    default: "localhost:43000",
+    example: "api.amped.bio",
   }),
   // New SMTP variables with MailDev defaults
   SMTP_HOST: str({

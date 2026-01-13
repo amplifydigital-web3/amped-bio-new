@@ -1,4 +1,3 @@
-import jsonwebtoken from "jsonwebtoken";
 import { prisma } from "../services/DB";
 import { env } from "../env";
 import { processEmailToUniqueHandle } from "./onelink-generator";
@@ -31,28 +30,28 @@ export const JWT_KEYS = {
 };
 
 // TODO remove this function and use better-auth's built-in JWT signing where needed
-export const generateAccessToken = (user: {
+export const generateAccessToken = async (user: {
   id: number;
   email: string;
   role: string;
   wallet: string | null;
-}): string => {
-  return jsonwebtoken.sign(
-    {
-      sub: user.id.toString(),
-      email: user.email,
-      role: user.role,
-      wallet: user.wallet || null,
-      aud: env.JWT_AUDIENCE, // Audience of the token
-      iss: env.JWT_ISSUER, // Issuer of the token
-    },
-    JWT_KEYS.privateKey,
-    {
-      expiresIn: "10m", // 10 minutes
-      algorithm: JWT_KEYS.alg,
-      keyid: JWT_KEYS.kid,
-    }
-  );
+}): Promise<string> => {
+  return new SignJWT({
+    sub: user.id.toString(),
+    email: user.email,
+    role: user.role,
+    wallet: user.wallet || null,
+    aud: env.JWT_AUDIENCE,
+    iss: env.API_HOST,
+  })
+    .setIssuedAt()
+    .setExpirationTime("10m")
+    .setProtectedHeader({
+      alg: JWT_KEYS.alg,
+      kid: JWT_KEYS.kid,
+      typ: "JWT",
+    })
+    .sign(JWT_KEYS.privateKey);
 };
 
 // ================ better-auth configuration ==================
@@ -79,7 +78,10 @@ export const auth = betterAuth({
         },
       },
       jwks: {
-        remoteUrl: env.API_URL + "/.well-known/jwks.json",
+        remoteUrl: new URL(
+          "/.well-known/jwks.json",
+          env.API_HOST.startsWith("http") ? env.API_HOST : `https://${env.API_HOST}`
+        ).href,
         keyPairConfig: {
           alg: JWT_KEYS.alg,
         },
