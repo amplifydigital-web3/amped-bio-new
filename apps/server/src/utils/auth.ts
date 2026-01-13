@@ -27,6 +27,8 @@ export const JWT_KEYS = {
     .update(pb.export({ format: "pem", type: "spki" }))
     .digest("hex")
     .substring(0, 16), // Key ID for the JWT
+  aud: env.JWT_AUDIENCE,
+  iss: env.API_HOST,
 };
 
 // TODO remove this function and use better-auth's built-in JWT signing where needed
@@ -69,6 +71,8 @@ export const auth = betterAuth({
         sign: async (jwtPayload: JWTPayload) => {
           return await new SignJWT(jwtPayload)
             .setIssuedAt()
+            .setAudience(JWT_KEYS.aud)
+            .setIssuer(JWT_KEYS.iss)
             .setProtectedHeader({
               alg: JWT_KEYS.alg,
               kid: JWT_KEYS.kid,
