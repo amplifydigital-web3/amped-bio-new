@@ -1,3 +1,4 @@
+import jsonwebtoken from "jsonwebtoken";
 import { prisma } from "../services/DB";
 import { env } from "../env";
 import { processEmailToUniqueHandle } from "./onelink-generator";
@@ -6,10 +7,57 @@ import { hashPassword, verifyPassword } from "./password";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { captcha, jwt } from "better-auth/plugins";
+import crypto from "crypto";
+import { JWTPayload, SignJWT } from "jose";
 
+// === jwt private key generation  ===
+const pk = crypto.createPrivateKey({
+  key: Buffer.from(env.JWT_PRIVATE_KEY, "utf8"),
+  format: "pem",
+  type: "pkcs8",
+});
+
+const pb = crypto.createPublicKey(pk);
+
+export const JWT_KEYS = {
+  alg: "RS256" as const,
+  privateKey: pk,
+  publicKey: pb,
+  kid: crypto
+    .createHash("sha256")
+    .update(pb.export({ format: "pem", type: "spki" }))
+    .digest("hex")
+    .substring(0, 16), // Key ID for the JWT
+};
+
+// TODO remove this function and use better-auth's built-in JWT signing where needed
+export const generateAccessToken = (user: {
+  id: number;
+  email: string;
+  role: string;
+  wallet: string | null;
+}): string => {
+  return jsonwebtoken.sign(
+    {
+      sub: user.id.toString(),
+      email: user.email,
+      role: user.role,
+      wallet: user.wallet || null,
+      aud: env.JWT_AUDIENCE, // Audience of the token
+      iss: env.JWT_ISSUER, // Issuer of the token
+    },
+    JWT_KEYS.privateKey,
+    {
+      expiresIn: "10m", // 10 minutes
+      algorithm: JWT_KEYS.alg,
+      keyid: JWT_KEYS.kid,
+    }
+  );
+};
+
+// ================ better-auth configuration ==================
 export const auth = betterAuth({
   basePath: "/auth",
-  disabledPaths: ["/token"],
   trustedOrigins: [env.FRONTEND_URL],
   plugins: [
     captcha({
@@ -19,18 +67,22 @@ export const auth = betterAuth({
     jwt({
       disableSettingJwtHeader: true,
       jwt: {
-        expirationTime: "5min",
-        issuer: env.FRONTEND_URL, // Or your app's base URL, e.g., "https://yourdomain.com"
-        audience: env.FRONTEND_URL, // Same as above; adjust if needed for specific audiences
-        definePayload: ({ session }) => ({
-          ...session.user, // Keeps all user fields (email, role, wallet, etc.)
-          iat: Math.floor(Date.now() / 1000), // Adds iat as Unix timestamp
-          staging: true,
-        }),
+        sign: async (jwtPayload: JWTPayload) => {
+          return await new SignJWT(jwtPayload)
+            .setIssuedAt()
+            .setProtectedHeader({
+              alg: JWT_KEYS.alg,
+              kid: JWT_KEYS.kid,
+              typ: "JWT",
+            })
+            .sign(pk);
+        },
       },
       jwks: {
-        jwksPath: "/.well-known/jwks.json",
-        endpoint: "/.well-known/jwks.json",
+        remoteUrl: env.API_URL + "/.well-known/jwks.json",
+        keyPairConfig: {
+          alg: JWT_KEYS.alg,
+        },
       },
     }),
     // oneTap(),

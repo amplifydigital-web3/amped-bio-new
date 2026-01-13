@@ -178,7 +178,7 @@ const appRouter = router({
 
         console.info(`🎨 Resolved theme background file URL: ${themeConfig.background.value}`);
 
-        theme!.config = themeConfig;
+        (theme as any)!.config = themeConfig;
       }
 
       console.info(`🎨 Theme fetch result: ${theme ? "✅ Found" : "❌ Not found"}`);

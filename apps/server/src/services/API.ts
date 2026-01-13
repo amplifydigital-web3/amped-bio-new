@@ -7,6 +7,7 @@ import cookieParser from "cookie-parser";
 import { trpcMiddleware } from "../trpc/router";
 import { auth } from "../utils/auth";
 import { toNodeHandler } from "better-auth/node";
+import wellKnownRouter from "../routes/well-known";
 
 const app: Application = express();
 
@@ -42,10 +43,10 @@ app.use("/auth", (req, res) => {
   return void authHandler(req, res);
 });
 
-app.get("/.well-known/jwks.json", (req, res) => {
-  req.url = "/auth/.well-known/jwks.json";
-  return void authHandler(req, res);
-});
+// app.get("/.well-known/jwks.json", (req, res) => {
+//   req.url = "/auth/.well-known/jwks.json";
+//   return void authHandler(req, res);
+// });
 
 app.use(helmet());
 // Don’t use express.json() before the Better Auth handler. Use it only for other routes, or the client API will get stuck on "pending".
@@ -54,6 +55,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 app.use("/trpc", trpcMiddleware);
+app.use("/.well-known", wellKnownRouter);
 
 app.get("/", (req, res) => {
   res.redirect(env.FRONTEND_URL);

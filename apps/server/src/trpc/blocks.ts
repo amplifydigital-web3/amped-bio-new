@@ -133,7 +133,7 @@ export const blocksRouter = router({
               user_id: userId,
               type,
               order: idx,
-              config: config,
+              config: config as any,
             },
           });
         } else {
@@ -142,7 +142,7 @@ export const blocksRouter = router({
             data: {
               type,
               order: idx,
-              config: config,
+              config: config as any,
             },
           });
         }
@@ -167,7 +167,7 @@ export const blocksRouter = router({
           user_id: userId,
           type,
           order: 0, // Order will be updated on the client
-          config,
+          config: config as any,
         },
       });
       return { message: "Block added successfully", result };
