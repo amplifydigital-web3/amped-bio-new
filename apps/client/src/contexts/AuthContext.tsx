@@ -19,7 +19,6 @@ interface BetterAuthUser {
 type AuthContextType = {
   authUser: AuthUser | null;
   error: string | null;
-  isAuthenticated: boolean;
   isPending: boolean;
 
   signOut: () => Promise<void>;
@@ -140,10 +139,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const _setAuthUser = (user: AuthUser | null) => {
-    setAuthUser(user);
-  };
-
   const updateAuthUser = (userData: Partial<AuthUser>) => {
     const newUser = authUser ? { ...authUser, ...userData } : null;
     setAuthUser(newUser);
@@ -169,7 +164,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const value = {
     authUser,
     error,
-    isAuthenticated: !!authUser,
     isPending,
     signUp,
     signOut: async () => {

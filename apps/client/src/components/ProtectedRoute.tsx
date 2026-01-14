@@ -14,11 +14,11 @@ export function ProtectedRoute({
   redirectTo = "/",
   adminOnly = false,
 }: ProtectedRouteProps) {
-  const { isAuthenticated, authUser } = useAuth();
+  const { isPending, authUser } = useAuth();
   console.info("ProtectedRoute: Checking authentication and authorization", authUser);
 
   // Show loading while checking authentication status
-  if (isAuthenticated === null) {
+  if (isPending) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="text-center p-8">
@@ -34,7 +34,7 @@ export function ProtectedRoute({
   }
 
   // Redirect if not authenticated
-  if (isAuthenticated === false) {
+  if (authUser === null) {
     return <Navigate to={redirectTo} replace />;
   }
 
