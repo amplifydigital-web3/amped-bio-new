@@ -25,6 +25,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   // Use the useSession hook to manage session state
   const { data: session, isPending, error: sessionError } = authClient.useSession();
@@ -42,10 +43,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         wallet: (user as any).wallet ?? null,
       };
       setAuthUser(mappedUser);
-    } else {
+      setIsInitializing(false);
+    } else if (!isPending) {
       setAuthUser(null);
+      setIsInitializing(false);
     }
-  }, [session]);
+  }, [session, isPending]);
 
   // Handle session errors
   useEffect(() => {
@@ -154,7 +157,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const value = {
     authUser,
     error,
-    isPending,
+    isPending: isPending || isInitializing,
     signUp,
     signOut: async () => {
       try {
