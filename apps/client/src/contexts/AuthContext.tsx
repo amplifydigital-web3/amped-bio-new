@@ -1,21 +1,10 @@
 import { createContext, useContext, ReactNode, useState, useEffect } from "react";
 import type { AuthUser } from "../types/auth";
 import { trpcClient } from "../utils/trpc";
-import { authClient } from "../lib/auth-client";
+import { authClient, type Session } from "../lib/auth-client";
 
 // Extended user type for better-auth session
-interface BetterAuthUser {
-  id: string;
-  email: string;
-  emailVerified: boolean;
-  name: string;
-  image: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-  handle: string | null;
-  role: string;
-  wallet: string | null;
-}
+type BetterAuthUser = Session["user"];
 
 type AuthContextType = {
   authUser: AuthUser | null;
@@ -50,7 +39,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         handle: user.handle || user.name || "",
         role: user.role || "user",
         image: user.image || null,
-        wallet: user.wallet ?? null,
+        wallet: (user as any).wallet ?? null,
       };
       setAuthUser(mappedUser);
     } else {

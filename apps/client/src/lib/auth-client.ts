@@ -1,8 +1,10 @@
 import { createAuthClient } from "better-auth/react";
-import { jwtClient } from "better-auth/client/plugins";
+import { inferAdditionalFields, jwtClient } from "better-auth/client/plugins";
+import { auth } from "../../../server/src/utils/auth";
 
 export const authClient = createAuthClient({
   plugins: [
+    inferAdditionalFields<typeof auth>(),
     jwtClient(),
     // oneTapClient({
     //   clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
@@ -25,3 +27,5 @@ export const oneTapCall = async () => {
     console.log(error);
   }
 };
+
+export type Session = typeof authClient.$Infer.Session;

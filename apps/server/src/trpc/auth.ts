@@ -50,8 +50,8 @@ export const authRouter = router({
           payload: {
             sub: session.user.id.toString(),
             email: session.user.email,
-            role: session.user.role || "user",
-            wallet: userWallet?.address ?? null,
+            role: (session.user as any).role || "user",
+            wallet: (session.user as any).wallet ?? null,
           },
         },
       });

@@ -156,11 +156,18 @@ export const auth = betterAuth({
         type: "string",
         required: false,
         defaultValue: "user",
+        input: false,
       },
       image: {
         type: "string",
         required: false,
         defaultValue: null,
+      },
+      wallet: {
+        type: "string",
+        required: false,
+        defaultValue: null,
+        input: false,
       },
     },
     beforeCreate: async (user: any, context: any) => {

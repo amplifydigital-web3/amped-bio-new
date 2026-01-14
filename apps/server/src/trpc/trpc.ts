@@ -32,8 +32,8 @@ export const createContext = async ({
       user: {
         sub: parseInt(session.user.id, 10),
         email: session.user.email,
-        role: session.user.role || "user",
-        wallet: null,
+        role: (session.user as any).role || "user",
+        wallet: (session.user as any).wallet ?? null,
       },
     };
   }
