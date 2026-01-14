@@ -203,6 +203,28 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
     setIsUnstakeModalOpen(true);
   };
 
+  const renderDescriptionWithLinks = (text: string) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+
+    return parts.map((part, index) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:underline"
+          >
+            {part}
+          </a>
+        );
+      }
+      return part;
+    });
+  };
+
   return (
     <>
       {/* Main content */}
@@ -369,7 +391,9 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
               <div className="rounded-xl p-6 border border-gray-100">
                 <h4 className="text-lg font-semibold text-gray-900 mb-4">About This Pool</h4>
                 <div className="max-w-3xl">
-                  <p className="text-base text-gray-700 leading-relaxed">{pool.description}</p>
+                  <p className="text-base text-gray-700 leading-relaxed">
+                    {pool.description ? renderDescriptionWithLinks(pool.description) : null}
+                  </p>
 
                   {/* Take Rate */}
                   <div className="mt-4 pt-4 border-t border-gray-200">
