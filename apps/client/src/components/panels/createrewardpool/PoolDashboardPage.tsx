@@ -1017,7 +1017,14 @@ export default function DashboardPage() {
                   )}
 
                   <div>
-                    <p className="font-medium text-gray-900">{fan.handle}</p>
+                    <a
+                      href={`/@${fan.handle}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-gray-900 hover:text-blue-600 transition-colors duration-200"
+                    >
+                      {fan.handle}
+                    </a>
                     <p className="text-sm text-gray-500">Joined recently</p>
                   </div>
                 </div>
@@ -1141,7 +1148,14 @@ export default function DashboardPage() {
                 )}
 
                 <div>
-                  <p className="font-medium text-gray-900">{activity.user}</p>
+                  <a
+                    href={`/@${activity.user}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-gray-900 hover:text-blue-600 transition-colors duration-200"
+                  >
+                    {activity.user}
+                  </a>
                   <p className="text-sm text-gray-500">{formatTimeAgo(activity.timestamp)}</p>
                 </div>
               </div>
@@ -1151,7 +1165,14 @@ export default function DashboardPage() {
                   {formatValue(activity.amount, currencySymbol)}
                 </p>
                 {activity.txHash && (
-                  <p className="text-xs text-gray-500 font-mono">{activity.txHash}</p>
+                  <a
+                    href={`${chainConfig?.blockExplorers?.default?.url}/tx/${activity.txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-gray-500 font-mono hover:text-blue-600 transition-colors duration-200"
+                  >
+                    {activity.txHash}
+                  </a>
                 )}
               </div>
             </div>
