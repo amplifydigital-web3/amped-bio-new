@@ -5,7 +5,7 @@ import { sendEmailVerification, sendPasswordResetEmail } from "./email/email";
 import { hashPassword, verifyPassword } from "./password";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { captcha, jwt } from "better-auth/plugins";
+import { captcha, jwt, customSession } from "better-auth/plugins";
 import crypto from "crypto";
 import { JWTPayload, SignJWT } from "jose";
 
@@ -61,6 +61,19 @@ export const auth = betterAuth({
   basePath: "/auth",
   trustedOrigins: [env.FRONTEND_URL],
   plugins: [
+    customSession(async ({ user, session }) => {
+      const userWallet = await prisma.userWallet.findUnique({
+        where: { userId: parseInt(user.id) },
+      });
+
+      return {
+        user: {
+          ...user,
+          wallet: userWallet?.address ?? null,
+        },
+        session,
+      };
+    }),
     captcha({
       provider: "google-recaptcha",
       secretKey: env.CAPTCHA_SECRET_KEY,

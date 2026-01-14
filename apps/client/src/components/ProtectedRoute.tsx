@@ -33,13 +33,18 @@ export function ProtectedRoute({
     );
   }
 
+  console.log("ProtectedRoute: isPending is false, authUser:", authUser);
+  console.log("ProtectedRoute: adminOnly is", adminOnly);
+  console.log("ProtectedRoute: redirectTo is", redirectTo);
+  console.log("ProtectedRoute: role is", authUser?.role, authUser?.role?.includes("admin"));
+
   // Redirect if not authenticated
   if (authUser === null) {
     return <Navigate to={redirectTo} replace />;
   }
 
   // Check admin access if required
-  if (adminOnly && (!authUser || !authUser.role?.includes("admin"))) {
+  if (adminOnly && (!authUser.role.includes("admin"))) {
     return <Navigate to="/" replace />;
   }
 

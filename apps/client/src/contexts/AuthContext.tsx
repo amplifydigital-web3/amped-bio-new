@@ -9,11 +9,12 @@ interface BetterAuthUser {
   email: string;
   emailVerified: boolean;
   name: string;
-  image?: string | null;
+  image: string | null;
   createdAt: Date;
   updatedAt: Date;
-  handle?: string | null;
-  role?: string;
+  handle: string | null;
+  role: string;
+  wallet: string | null;
 }
 
 type AuthContextType = {
@@ -49,7 +50,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         handle: user.handle || user.name || "",
         role: user.role || "user",
         image: user.image || null,
-        wallet: null,
+        wallet: user.wallet ?? null,
       };
       setAuthUser(mappedUser);
     } else {
