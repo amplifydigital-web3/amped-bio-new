@@ -5,7 +5,7 @@ import {
   useWeb3AuthDisconnect,
   useIdentityToken,
 } from "@web3auth/modal/react";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { trpcClient } from "../utils/trpc";
 import { WALLET_CONNECTORS, AUTH_CONNECTION } from "@web3auth/modal";
 
@@ -54,6 +54,7 @@ export const useWeb3AuthWallet = () => {
   const account = useAccount();
   const { getIdentityToken } = useIdentityToken();
   const publicClient = usePublicClient();
+  const benchmarkDoneRef = useRef(false);
 
   const getTokenAndConnect = useCallback(async () => {
     try {
@@ -70,7 +71,9 @@ export const useWeb3AuthWallet = () => {
   }, [connectTo]);
 
   useEffect(() => {
-    if (dataWeb3Auth.status === "connected" && publicClient) {
+    if (dataWeb3Auth.status === "connected" && publicClient && !benchmarkDoneRef.current) {
+      benchmarkDoneRef.current = true;
+
       const measureWeb3AuthCall = async () => {
         const web3AuthStart = performance.now();
         try {
