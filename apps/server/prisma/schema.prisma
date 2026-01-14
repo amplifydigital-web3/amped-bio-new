@@ -13,6 +13,7 @@ model User {
   name           String
   email          String
   email_verified Boolean   @default(false) @map("email_verified")
+  password       String?
   image          String?   @db.LongText // Keep for backward compatibility
   handle         String?   @unique @map("littlelink_name")
   created_at     DateTime  @default(now())
