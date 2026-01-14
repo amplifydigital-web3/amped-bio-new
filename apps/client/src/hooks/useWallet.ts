@@ -74,9 +74,9 @@ export const useWeb3AuthWallet = () => {
       const measureWeb3AuthCall = async () => {
         const web3AuthStart = performance.now();
         try {
-          await (dataWeb3Auth as any).getUserInfo();
+          await getIdentityToken();
           const web3AuthEnd = performance.now();
-          console.log(`Web3Auth getUserInfo: ${web3AuthEnd - web3AuthStart}ms`);
+          console.log(`Web3Auth getIdentityToken: ${Math.round(web3AuthEnd - web3AuthStart)}ms`);
         } catch (error) {
           console.error("Web3Auth call failed:", error);
         }
@@ -87,7 +87,9 @@ export const useWeb3AuthWallet = () => {
         try {
           await publicClient.getBlockNumber();
           const blockchainEnd = performance.now();
-          console.log(`Blockchain getBlockNumber: ${blockchainEnd - blockchainStart}ms`);
+          console.log(
+            `Blockchain getBlockNumber: ${Math.round(blockchainEnd - blockchainStart)}ms`
+          );
         } catch (error) {
           console.error("Blockchain call failed:", error);
         }
@@ -96,7 +98,7 @@ export const useWeb3AuthWallet = () => {
       measureWeb3AuthCall();
       measureBlockchainCall();
     }
-  }, [dataWeb3Auth.status, dataWeb3Auth, publicClient]);
+  }, [dataWeb3Auth.status, dataWeb3Auth, publicClient, getIdentityToken]);
 
   return {
     ...dataWeb3Auth,
