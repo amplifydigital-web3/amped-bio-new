@@ -15,6 +15,7 @@ export function ProtectedRoute({
   adminOnly = false,
 }: ProtectedRouteProps) {
   const { isAuthenticated, authUser } = useAuth();
+  console.info("ProtectedRoute: Checking authentication and authorization", authUser);
 
   // Show loading while checking authentication status
   if (isAuthenticated === null) {

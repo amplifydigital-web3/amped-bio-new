@@ -155,7 +155,7 @@ export function AdminDashboard() {
       <AdminRecentUsers
         recentUsers={recentUsers}
         totalUsers={userStats.totalUsers}
-        onViewAllUsersClick={() => navigate("/admin/users")}
+        onViewAllUsersClick={() => navigate("/i/admin/users")}
       />
     </div>
   );

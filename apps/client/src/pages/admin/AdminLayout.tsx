@@ -16,12 +16,12 @@ export function AdminLayout() {
 
   // Sidebar navigation items with keyboard shortcuts
   const sidebarItems = [
-    { id: "dashboard", icon: BarChart3, label: "Dashboard", path: "/admin", shortcut: "⌘⌥D" },
-    { id: "users", icon: Users, label: "Users", path: "/admin/users", shortcut: "⌘⌥U" },
-    { id: "blocks", icon: Layers, label: "Blocks", path: "/admin/blocks", shortcut: "⌘⌥B" },
-    { id: "themes", icon: Hexagon, label: "Themes", path: "/admin/themes", shortcut: "⌘⌥T" },
-    { id: "files", icon: Files, label: "Files", path: "/admin/files", shortcut: "⌘⌥F" },
-    { id: "pools", icon: CoinsIcon, label: "Pools", path: "/admin/pools", shortcut: "⌘⌥P" },
+    { id: "dashboard", icon: BarChart3, label: "Dashboard", path: "/i/admin", shortcut: "⌘⌥D" },
+    { id: "users", icon: Users, label: "Users", path: "/i/admin/users", shortcut: "⌘⌥U" },
+    { id: "blocks", icon: Layers, label: "Blocks", path: "/i/admin/blocks", shortcut: "⌘⌥B" },
+    { id: "themes", icon: Hexagon, label: "Themes", path: "/i/admin/themes", shortcut: "⌘⌥T" },
+    { id: "files", icon: Files, label: "Files", path: "/i/admin/files", shortcut: "⌘⌥F" },
+    { id: "pools", icon: CoinsIcon, label: "Pools", path: "/i/admin/pools", shortcut: "⌘⌥P" },
   ];
 
   // Handle logout
@@ -38,17 +38,17 @@ export function AdminLayout() {
   const getCurrentPageTitle = () => {
     const currentPath = location.pathname;
     switch (currentPath) {
-      case "/admin":
+      case "/i/admin":
         return "Admin Dashboard";
-      case "/admin/users":
+      case "/i/admin/users":
         return "User Management";
-      case "/admin/blocks":
+      case "/i/admin/blocks":
         return "Block Management";
-      case "/admin/themes":
+      case "/i/admin/themes":
         return "Theme Management";
-      case "/admin/files":
+      case "/i/admin/files":
         return "File Management";
-      case "/admin/pools":
+      case "/i/admin/pools":
         return "Pool Management";
       default:
         return "Admin Dashboard";

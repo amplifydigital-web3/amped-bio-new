@@ -111,7 +111,7 @@ function AppRouter() {
 
       {/* Admin Routes with nested routing - lazy loaded with Suspense */}
       <Route
-        path="/admin"
+        path="/i/admin"
         element={
           <ProtectedRoute adminOnly>
             <Suspense fallback={<div>Loading admin...</div>}>
