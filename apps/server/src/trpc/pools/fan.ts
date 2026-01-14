@@ -108,12 +108,14 @@ export const poolsFanRouter = router({
           { creatorStaked: bigint; totalFanStaked: bigint; poolName: string }
         >();
 
-        // Create multicall requests for all pools
-        const multicallRequests: {
+        type MulticallRequest = {
           address: Address;
           abi: typeof CREATOR_POOL_ABI;
           functionName: "creatorStaked" | "totalFanStaked" | "poolName";
-        }[] = [];
+        };
+
+        // Create multicall requests for all pools
+        const multicallRequests: MulticallRequest[] = [];
 
         pools.forEach(pool => {
           if (pool.poolAddress) {
@@ -140,12 +142,19 @@ export const poolsFanRouter = router({
           }
         });
 
-        // Execute all contract calls in a single batch
+        // Execute contract calls in batches of 5 pools (15 requests per batch)
         if (multicallRequests.length > 0) {
           try {
-            const results = await publicClient.multicall({
-              contracts: multicallRequests,
-            });
+            const BATCH_SIZE = 5 * 3; // 5 pools * 3 requests per pool
+            const allResults: any[] = [];
+
+            for (let i = 0; i < multicallRequests.length; i += BATCH_SIZE) {
+              const batch = multicallRequests.slice(i, i + BATCH_SIZE);
+              const batchResults = await publicClient.multicall({
+                contracts: batch,
+              });
+              allResults.push(...batchResults);
+            }
 
             // Process the results, mapping them back to the correct pools
             for (let i = 0; i < pools.length; i++) {
@@ -154,9 +163,9 @@ export const poolsFanRouter = router({
               const totalFanStakedIndex = i * 3 + 1; // totalFanStaked is at every 3rd + 1 index (1, 4, 7, ...)
               const poolNameIndex = i * 3 + 2; // poolName is at every 3rd + 2 index (2, 5, 8, ...)
 
-              const creatorStakedResult = results[creatorStakedIndex];
-              const totalFanStakedResult = results[totalFanStakedIndex];
-              const poolNameResult = results[poolNameIndex];
+              const creatorStakedResult = allResults[creatorStakedIndex];
+              const totalFanStakedResult = allResults[totalFanStakedIndex];
+              const poolNameResult = allResults[poolNameIndex];
 
               if (
                 creatorStakedResult.status === "success" &&
@@ -244,6 +253,9 @@ export const poolsFanRouter = router({
 
             // Get pool name from blockchain data, fallback to ID if not available
             const poolData = blockchainStakeData.get(pool.id);
+
+            console.info(`Preparing data for pool ${pool.id}`, JSON.stringify(poolData));
+
             const poolName = chain && poolData?.poolName ? poolData.poolName : `Pool ${pool.id}`;
 
             // Count only users with positive stake amounts

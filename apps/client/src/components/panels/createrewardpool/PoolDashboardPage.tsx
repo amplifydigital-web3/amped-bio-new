@@ -211,21 +211,10 @@ export default function DashboardPage() {
     );
   }, [dashboardData?.recentActivity]);
 
-  const fans = React.useMemo(() => fansData?.fans || [], [fansData]);
-
-  // Calculate pagination
+  const currentFans = React.useMemo(() => fansData?.fans || [], [fansData]);
   const totalPages = React.useMemo(
     () => Math.ceil((fansData?.totalFans || 0) / fansPerPage),
     [fansData?.totalFans, fansPerPage]
-  );
-  const startIndex = React.useMemo(
-    () => (currentPage - 1) * fansPerPage,
-    [currentPage, fansPerPage]
-  );
-  const endIndex = React.useMemo(() => startIndex + fansPerPage, [startIndex, fansPerPage]);
-  const currentFans = React.useMemo(
-    () => fans.slice(startIndex, endIndex),
-    [fans, startIndex, endIndex]
   );
 
   // Calculate history pagination
@@ -999,7 +988,7 @@ export default function DashboardPage() {
 
         <div className="space-y-4">
           {currentFans.map((fan, index) => {
-            const globalIndex = startIndex + index;
+            const globalIndex = (currentPage - 1) * fansPerPage + index;
             const tierInfo = getTierInfo(1);
 
             return (
@@ -1061,7 +1050,8 @@ export default function DashboardPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
             <div className="text-sm text-gray-600">
-              Showing {startIndex + 1}-{Math.min(endIndex, fansData?.totalFans || 0)} of{" "}
+              Showing {(currentPage - 1) * fansPerPage + 1}-
+              {Math.min(currentPage * fansPerPage, fansData?.totalFans || 0)} of{" "}
               {fansData?.totalFans || 0} fans
             </div>
 
