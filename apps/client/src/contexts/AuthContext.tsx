@@ -42,7 +42,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Sync session data with AuthContext
   useEffect(() => {
-    console.log("AuthProvider session changed:", session);
     if (session?.user) {
       const user = session.user as BetterAuthUser;
       const mappedUser: AuthUser = {
