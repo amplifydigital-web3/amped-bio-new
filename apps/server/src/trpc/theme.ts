@@ -54,7 +54,7 @@ export const themeRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const { id, theme } = input;
-      const user_id = ctx.user.sub;
+      const user_id = ctx.user!.sub;
 
       // The theme object is now properly validated using the shared schema
       const { name, description, share_level, share_config, config } = theme;
@@ -101,8 +101,8 @@ export const themeRouter = router({
         const existingTheme = themeExists;
 
         // Check if there's an existing background in the theme config that needs to be deleted
-        const existingConfig = (existingTheme.config as Record<string, any>) || {};
-        const newConfig = (config as Record<string, any>) || {};
+        const existingConfig = (existingTheme.config as unknown as Record<string, any>) || {};
+        const newConfig = (config as unknown as Record<string, any>) || {};
 
         // Check if the background has changed
         const existingBackground = existingConfig.background?.value;
@@ -172,7 +172,7 @@ export const themeRouter = router({
   // Delete user's own theme (authenticated users only)
   deleteTheme: privateProcedure.input(themeIdSchema).mutation(async ({ ctx, input }) => {
     const { id } = input;
-    const user_id = ctx.user.sub;
+    const user_id = ctx.user!.sub;
 
     try {
       const theme = await prisma.theme.findUnique({
@@ -211,7 +211,7 @@ export const themeRouter = router({
 
   // Get user's own themes (authenticated users only - for theme management dashboard)
   getUserThemes: privateProcedure.query(async ({ ctx }) => {
-    const user_id = ctx.user.sub;
+    const user_id = ctx.user!.sub;
 
     try {
       const themes = await prisma.theme.findMany({
@@ -254,7 +254,7 @@ export const themeRouter = router({
 
   // Apply theme to user (authenticated users only)
   applyTheme: privateProcedure.input(applyThemeSchema).mutation(async ({ ctx, input }) => {
-    const userId = ctx.user.sub;
+    const userId = ctx.user!.sub;
     const { themeId, theme } = input;
 
     try {

@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader, Check, X, Eye, EyeOff } from "lucide-react";
 import { AuthHeader } from "../../components/auth/AuthHeader";
-import { trpcClient } from "../../utils/trpc";
+import { authClient } from "../../lib/auth-client";
 
 // Password strength indicator component
 const PasswordStrengthIndicator = ({ password }: { password: string }) => {
@@ -45,6 +45,7 @@ const PasswordStrengthIndicator = ({ password }: { password: string }) => {
 // Define the validation schema using Zod
 const passwordResetSchema = z
   .object({
+    email: z.string().email("Invalid email address").optional(),
     token: z.string().min(1, "Token is required"),
     password: z
       .string()
@@ -65,6 +66,8 @@ type PasswordResetFormData = z.infer<typeof passwordResetSchema>;
 export function PasswordReset() {
   const { token: urlToken } = useParams();
   const navigate = useNavigate();
+  const searchParams = new URLSearchParams(window.location.search);
+  const emailParam = searchParams.get("email");
 
   const [status, setStatus] = useState<"valid" | "submitting" | "success" | "error">("valid");
   const [message, setMessage] = useState("");
@@ -81,6 +84,7 @@ export function PasswordReset() {
   } = useForm<PasswordResetFormData>({
     resolver: zodResolver(passwordResetSchema),
     defaultValues: {
+      email: emailParam || "",
       token: urlToken || "",
       password: "",
       confirmPassword: "",
@@ -92,21 +96,30 @@ export function PasswordReset() {
     if (urlToken) {
       setValue("token", urlToken);
     }
-  }, [urlToken, setValue]);
+    // If URL has an email parameter, set it in the form
+    if (emailParam) {
+      setValue("email", emailParam);
+    }
+  }, [urlToken, emailParam, setValue]);
 
   const onSubmit = async (data: PasswordResetFormData) => {
     setStatus("submitting");
     setIsLoading(true);
 
     try {
-      // Use tRPC to process the password reset
-      const response = await trpcClient.auth.processPasswordReset.mutate({
-        token: data.token,
+      // Use better-auth to process the password reset
+      const response = await authClient.resetPassword({
         newPassword: data.password,
+        token: data.token,
       });
 
-      setStatus("success");
-      setMessage(response.message || "Password has been successfully reset.");
+      if (response.error) {
+        setStatus("error");
+        setMessage(response.error.message || "Failed to reset password.");
+      } else {
+        setStatus("success");
+        setMessage("Password has been successfully reset.");
+      }
     } catch (error) {
       setStatus("error");
       setMessage(

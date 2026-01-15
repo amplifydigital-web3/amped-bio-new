@@ -7,13 +7,13 @@ echo "🚀 Starting client-only mode..."
 # Check if dependencies are installed
 if [ ! -d "./node_modules" ] || [ ! -d "./apps/client/node_modules" ]; then
   echo "📦 Installing dependencies for client-only mode..."
-  pnpm client-only:install
+  pnpm run client-only:install
 fi
 
 # Build required packages
 echo "🔨 Building required packages..."
-pnpm build:packages
+pnpm run build:packages
 
 # Run client in demo mode
 echo "💻 Starting client..."
-cd apps/client && pnpm dev:client-only
+cd apps/client && pnpm run dev:client-only

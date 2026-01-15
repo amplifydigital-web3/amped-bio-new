@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Users, Coins } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import PoolSkeleton from "./PoolSkeleton";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "../../../../utils/trpc";
@@ -23,7 +23,12 @@ interface PoolsTabProps {
   shouldOpenModal?: boolean; // If true, open modal instead of navigating to pool page
 }
 
-const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort, shouldOpenModal = false }) => {
+const PoolsTab: React.FC<PoolsTabProps> = ({
+  searchQuery,
+  poolFilter,
+  poolSort,
+  shouldOpenModal = false,
+}) => {
   const navigate = useNavigate();
   const chainId = useChainId();
 
@@ -146,7 +151,9 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort, 
                         ? formatNumberWithSeparators(
                             Decimal.max(
                               new Decimal("0"),
-                              new Decimal(formatEther(pool.stakedAmount)).minus(new Decimal("0.0015"))
+                              new Decimal(formatEther(pool.stakedAmount)).minus(
+                                new Decimal("0.0015")
+                              )
                             )
                               .toDecimalPlaces(3, Decimal.ROUND_DOWN)
                               .toString()

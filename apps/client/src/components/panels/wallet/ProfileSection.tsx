@@ -185,7 +185,7 @@ export function ProfileSection({
               className="text-lg sm:text-xl font-bold text-gray-900 mb-1 truncate cursor-pointer"
               onClick={onProfileOptionsClick}
             >
-              @{authUser?.onelink || "User"}
+              @{authUser?.handle || "User"}
             </h1>
             <div className="flex items-center space-x-2 min-w-0">
               <span

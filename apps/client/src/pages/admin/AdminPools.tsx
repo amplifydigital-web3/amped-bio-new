@@ -3,13 +3,9 @@ import { trpc } from "../../utils/trpc/trpc";
 import { Switch } from "../../components/ui/Switch";
 import { Button } from "../../components/ui/Button";
 import { toast } from "sonner";
-import { RouterOutputs } from "../../utils/trpc/types";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { formatOnelink } from "../../utils/onelink";
+import { formatHandle } from "../../utils/handle";
 import SyncTransactionDialog from "./SyncTransactionDialog";
-
-// Define the Pool type using RouterOutputs
-type Pool = RouterOutputs["admin"]["pools"]["getAllPools"][number];
 
 export const AdminPools: FC = () => {
   const {
@@ -113,14 +109,14 @@ export const AdminPools: FC = () => {
                     {pool.poolAddress || "N/A"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-500 dark:text-gray-400">
-                    {pool.wallet?.user?.onelink ? (
+                    {pool.wallet?.user?.handle ? (
                       <a
-                        href={`/${formatOnelink(pool.wallet.user.onelink)}`}
+                        href={`/${formatHandle(pool.wallet.user.handle)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:underline"
                       >
-                        {formatOnelink(pool.wallet.user.onelink)}
+                        {formatHandle(pool.wallet.user.handle)}
                       </a>
                     ) : (
                       pool.wallet?.user?.email || "N/A"

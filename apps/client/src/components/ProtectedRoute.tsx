@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate } from "react-router";
 import { useAuth } from "../contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 
@@ -14,10 +14,10 @@ export function ProtectedRoute({
   redirectTo = "/",
   adminOnly = false,
 }: ProtectedRouteProps) {
-  const { isAuthenticated, authUser } = useAuth();
+  const { isPending, authUser } = useAuth();
 
   // Show loading while checking authentication status
-  if (isAuthenticated === null) {
+  if (isPending) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="text-center p-8">
@@ -33,12 +33,12 @@ export function ProtectedRoute({
   }
 
   // Redirect if not authenticated
-  if (isAuthenticated === false) {
+  if (authUser === null) {
     return <Navigate to={redirectTo} replace />;
   }
 
   // Check admin access if required
-  if (adminOnly && (!authUser || !authUser.role?.includes("admin"))) {
+  if (adminOnly && !authUser.role.includes("admin")) {
     return <Navigate to="/" replace />;
   }
 

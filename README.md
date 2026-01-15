@@ -1,6 +1,6 @@
-# OneLink
+# Amped Bio (amped.bio)
 
-New pure React implementation of OneLink.
+New pure React implementation of Amped Bio (formerly known as OneLink).
 
 ## Project Architecture
 
@@ -21,12 +21,13 @@ amped-bio-new/
 │       ├── prisma/     # Database schema and migrations
 │       └── ...
 │
-├── docs/               # Documentation files
-│   └── CLIENT_ONLY.md  # Guide for client-only mode
-│
-├── pnpm-workspace.yaml # pnpm workspace configuration
-├── turbo.json          # Turborepo configuration
-└── package.json        # Root package.json for workspace management
+ ├── docs/               # Documentation files
+ │   └── CLIENT_ONLY.md  # Guide for client-only mode
+ │
+  ├── pnpm-lock.yaml      # pnpm lockfile
+  ├── pnpm-workspace.yaml # pnpm workspace configuration
+  ├── turbo.json          # Turborepo configuration
+  └── package.json        # Root package.json for workspace management
 ```
 
 ### Client Architecture
@@ -65,6 +66,25 @@ Key directories:
 - `src/services/` - Business logic and data access
 - `src/utils/` - Utility functions
 
+## Important Terminology Update
+
+**Amped Bio (amped.bio)** is the new name for what was previously known as OneLink. This project represents a complete rebranding and modernization of the platform.
+
+### Key Terminology Changes:
+
+- **OneLink → Amped Bio (amped.bio)**: The platform has been rebranded from OneLink to Amped Bio
+- **onelink → handle**: User identifiers are now called "handles" instead of "onelinks"
+- **littlelink → handle**: The database field and API responses now consistently use "handle"
+
+### What This Means:
+
+- All user profile URLs now use the handle terminology (e.g., `amped.bio/username`)
+- API responses return `handle` instead of `onelink` or `littlelink`
+- Database queries use the `handle` field
+- User interface elements refer to "handles" instead of "onelinks"
+
+The functionality remains the same, but the terminology has been updated to be more intuitive and consistent with modern social platform conventions.
+
 ## Getting Started
 
 Follow these instructions to get a copy of the project up and running on your local machine for development and testing purposes.
@@ -73,18 +93,18 @@ Follow these instructions to get a copy of the project up and running on your lo
 
 Make sure you have the following installed:
 
-- [Node.js](https://nodejs.org/) (version 22.9.0 or later)
-- [pnpm](https://pnpm.io/) (version 8.15.4 or later)
+- [Node.js](https://nodejs.org/) (version 24 or later)
+- [pnpm](https://pnpm.io/) (version 9 or later)
 
 ### Installation
 
 1. Clone the repository:
    ```sh
-   git clone https://github.com/yourusername/OneLink-new.git
+   git clone https://github.com/yourusername/amped-bio-new.git
    ```
 2. Navigate to the project directory:
    ```sh
-   cd OneLink-new
+   cd amped-bio-new
    ```
 3. Install dependencies for all workspaces:
    ```sh
@@ -102,7 +122,7 @@ To run the full development environment (client + server):
 pnpm install
 
 # Start full development environment (client + server)
-pnpm dev:full
+pnpm run dev:full
 ```
 
 ### Client-Only Development
@@ -111,10 +131,10 @@ To run only the client application without needing the server:
 
 ```bash
 # Install only client-related dependencies
-pnpm client-only:install
+pnpm run client-only:install
 
 # Run client in demo mode (no server required)
-pnpm client-only
+pnpm run client-only
 ```
 
 For more details on client-only mode, see [CLIENT_ONLY.md](docs/CLIENT_ONLY.md).
@@ -124,31 +144,31 @@ For more details on client-only mode, see [CLIENT_ONLY.md](docs/CLIENT_ONLY.md).
 Run client-only development (default):
 
 ```sh
-pnpm dev
+pnpm run dev
 ```
 
 Run full stack development (client + server):
 
 ```sh
-pnpm dev:full
+pnpm run dev:full
 ```
 
 Run only the client explicitly:
 
 ```sh
-pnpm --filter client dev
+pnpm run --filter client dev
 ```
 
 Run only the server:
 
 ```sh
-pnpm --filter server dev
+pnpm run --filter server dev
 ```
 
 Build all applications:
 
 ```sh
-pnpm build
+pnpm run build
 ```
 
 The client will be available at `http://localhost:5173`.
@@ -168,7 +188,7 @@ The project uses [Prisma](https://www.prisma.io/) as an ORM for database access 
 
 2. Set up your environment variables in `apps/server/.env`:
    ```
-   DATABASE_URL="postgresql://username:password@localhost:5432/onelink?schema=public"
+   DATABASE_URL="postgresql://username:password@localhost:5432/amped_bio?schema=public"
    ```
 
 ### Running Migrations
@@ -176,7 +196,7 @@ The project uses [Prisma](https://www.prisma.io/) as an ORM for database access 
 To apply existing migrations to your database:
 
 ```sh
-pnpm --filter server run prisma:migrate
+pnpm run --filter server run prisma:migrate
 ```
 
 ### Creating New Migrations
@@ -186,7 +206,7 @@ When you need to update the database schema:
 1. Update the schema in `apps/server/prisma/schema.prisma`
 2. Generate a migration with a descriptive name:
    ```sh
-   pnpm --filter server run prisma:migrate:dev -- --name descriptive_migration_name
+    pnpm run --filter server run prisma:migrate:dev -- --name descriptive_migration_name
    ```
    This command will:
    - Generate SQL migration files based on schema changes
@@ -198,7 +218,7 @@ When you need to update the database schema:
 To regenerate the Prisma client after schema changes:
 
 ```sh
-pnpm --filter server run prisma:generate
+pnpm run --filter server run prisma:generate
 ```
 
 This command regenerates the Prisma client with the latest schema definitions.
@@ -208,7 +228,7 @@ This command regenerates the Prisma client with the latest schema definitions.
 To explore and edit your database with a visual interface:
 
 ```sh
-pnpm --filter server run prisma:studio
+pnpm run --filter server run prisma:studio
 ```
 
 This will open Prisma Studio in your browser at `http://localhost:5555`.
@@ -218,7 +238,7 @@ This will open Prisma Studio in your browser at `http://localhost:5555`.
 During development, you may need to reset your database:
 
 ```sh
-pnpm --filter server npx prisma migrate reset
+pnpm run --filter server npx prisma migrate reset
 ```
 
 This command will:
@@ -333,7 +353,7 @@ This setup provides a faster development experience when you're focused on front
 If you need to run both client and server while using Bolt, you can manually run:
 
 ```sh
-pnpm dev:full
+pnpm run dev:full
 ```
 
 ## Docker Configuration

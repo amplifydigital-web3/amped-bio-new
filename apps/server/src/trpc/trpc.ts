@@ -1,89 +1,54 @@
 import { initTRPC, TRPCError } from "@trpc/server";
-import jwt from "jsonwebtoken";
 import { CreateExpressContextOptions } from "@trpc/server/adapters/express";
-import { ERROR_CAUSES } from "@ampedbio/constants";
-import { JWT_KEYS } from "../utils/token";
+import { auth } from "../utils/auth";
 
-// Define the user type from JWT token
-export type JWTUser = {
+export type SessionUser = {
   sub: number;
   email: string;
   role: string;
   wallet: string | null;
 };
 
-// Define the context that will be available in all procedures
 export type Context = {
   req: CreateExpressContextOptions["req"];
   res: CreateExpressContextOptions["res"];
-  user?: JWTUser;
-  tokenExpired?: boolean;
+  user?: SessionUser;
 };
 
 // Create the context for each request
-export const createContext = ({ req, res }: CreateExpressContextOptions): Context => {
-  // Get the token from the Authorization header
-  const token = req.headers.authorization?.split(" ")[1];
+export const createContext = async ({
+  req,
+  res,
+}: CreateExpressContextOptions): Promise<Context> => {
+  // Validate session using better-auth (reads from cookies)
+  const session = await auth.api.getSession({
+    headers: req.headers as any,
+  });
 
-  if (!token) {
+  if (session?.user) {
     return {
       req,
       res,
-    }; // No authenticated user
-  }
-
-  try {
-    // Verify the token and get user data
-    const jwtUser = jwt.verify(token, JWT_KEYS.publicKey, {
-      algorithms: ["RS256"],
-    }) as jwt.JwtPayload;
-
-    const user = {
-      sub: parseInt(jwtUser.sub as string, 10), // Convert sub to number
-      email: jwtUser.email as string,
-      role: jwtUser.role as string,
-      wallet: (jwtUser.wallet ?? null) as string | null,
+      user: {
+        sub: parseInt(session.user.id, 10),
+        email: session.user.email,
+        role: (session.user as any).role || "user",
+        wallet: (session.user as any).wallet ?? null,
+      },
     };
-
-    return { req, res, user: user };
-  } catch (error) {
-    // Check if the error is due to token expiration
-    if (error instanceof jwt.TokenExpiredError) {
-      return { req, res, tokenExpired: true };
-    }
-    return { req, res }; // Invalid token
   }
+
+  return {
+    req,
+    res,
+  };
 };
 
 /**
  * Initialization of tRPC backend
  * Should be done only once per backend!
  */
-const t = initTRPC.context<Context>().create({
-  errorFormatter({ shape, error }) {
-    // Ensure cause is properly serialized as a string when it's a known error cause
-    let cause: unknown = error.cause;
-
-    if (cause && typeof cause === "string" && Object.values(ERROR_CAUSES).includes(cause as any)) {
-      // Keep the string as-is for known error causes
-      // No change needed
-    } else if (cause && typeof cause === "object" && Object.keys(cause as object).length === 0) {
-      // If it's an empty object and the error message indicates token expiration,
-      // set the proper error cause
-      if (error.message?.toLowerCase().includes("token expired")) {
-        cause = ERROR_CAUSES.TOKEN_EXPIRED;
-      }
-    }
-
-    return {
-      ...shape,
-      data: {
-        ...shape.data,
-        cause,
-      },
-    };
-  },
-});
+const t = initTRPC.context<Context>().create();
 
 /**
  * Export reusable router and procedure helpers
@@ -94,43 +59,22 @@ export const publicProcedure = t.procedure;
 
 // Middleware to check if user is authenticated
 const isAuthed = t.middleware(({ ctx, next }) => {
-  if (ctx.tokenExpired) {
-    throw new TRPCError({
-      code: "UNAUTHORIZED",
-      message: "Token expired",
-      cause: ERROR_CAUSES.TOKEN_EXPIRED,
-    });
-  }
-
   if (!ctx.user) {
     throw new TRPCError({
       code: "UNAUTHORIZED",
-      message: "No token provided",
+      message: "Unauthorized",
     });
   }
-  return next({
-    ctx: {
-      // Add user data to context
-      user: ctx.user,
-    },
-  });
+  return next();
 });
 
 // Middleware to check if user has required roles
 const hasRole = (requiredRoles: string[]) =>
   t.middleware(({ ctx, next }) => {
-    if (ctx.tokenExpired) {
-      throw new TRPCError({
-        code: "UNAUTHORIZED",
-        message: "Token expired",
-        cause: ERROR_CAUSES.TOKEN_EXPIRED,
-      });
-    }
-
     if (!ctx.user) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
-        message: "No token provided",
+        message: "Unauthorized",
       });
     }
 
@@ -152,11 +96,7 @@ const hasRole = (requiredRoles: string[]) =>
       });
     }
 
-    return next({
-      ctx: {
-        user: ctx.user,
-      },
-    });
+    return next();
   });
 
 // Create a protected procedure that requires authentication

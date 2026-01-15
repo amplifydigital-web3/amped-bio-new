@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { ParticlesBackground } from "./particles/ParticlesBackground";
 import { cn } from "../utils/cn";
 import {
@@ -30,7 +30,7 @@ const extractRootDomain = (url: string): string => {
 
 interface PreviewProps {
   isEditing: boolean;
-  onelink: string;
+  handle: string;
   profile: UserProfile;
   blocks: BlockType[];
   theme: Theme;

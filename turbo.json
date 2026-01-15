@@ -5,7 +5,28 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
+      "outputs": ["dist/**"],
+      "env": [
+        "PORT",
+        "DATABASE_URL",
+        "SMTP_HOST",
+        "SMTP_PORT",
+        "SMTP_SECURE",
+        "SMTP_USER",
+        "SMTP_PASSWORD",
+        "SMTP_FROM_EMAIL",
+        "VERCEL_PROJECT_PRODUCTION_URL",
+        "AWS_REGION",
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_S3_BUCKET_NAME",
+        "AWS_S3_ENDPOINT",
+        "AWS_S3_PUBLIC_URL",
+        "CAPTCHA_SECRET_KEY",
+        "GOOGLE_CLIENT_SECRET",
+        "GOOGLE_CLIENT_ID",
+        "BETTER_AUTH_SECRET"
+      ]
     },
     "lint": {},
     "lint:fix": {

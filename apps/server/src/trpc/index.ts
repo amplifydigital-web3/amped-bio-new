@@ -1,7 +1,7 @@
 import { router } from "./trpc";
 import { userRouter } from "./user";
 import { authRouter } from "./auth";
-import appRouter from "./onelink";
+import appRouter from "./handle";
 import { adminRouter } from "./admin/index";
 import { uploadRouter } from "./upload";
 import { themeRouter } from "./theme";
@@ -14,7 +14,7 @@ import { inferRouterOutputs } from "@trpc/server";
 
 // Merge all routers
 const mergedRouter = router({
-  onelink: appRouter,
+  handle: appRouter,
   user: userRouter,
   auth: authRouter,
   admin: adminRouter,

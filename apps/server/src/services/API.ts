@@ -1,114 +1,65 @@
 import "express-async-errors";
-import { IDI } from "../types/di";
-import { Service } from "../types/service";
 import express, { type Application, type NextFunction, type Request, type Response } from "express";
-import helmet from "helmet";
-import cors from "cors";
-import cookieParser from "cookie-parser";
 import { env } from "../env";
-import { Server } from "http";
-import router from "../routes";
+import cors from "cors";
+import helmet from "helmet";
+import cookieParser from "cookie-parser";
 import { trpcMiddleware } from "../trpc/router";
-import wellKnownRoutes from "../routes/well-known";
+import { auth } from "../utils/auth";
+import { toNodeHandler } from "better-auth/node";
+import wellKnownRouter from "../routes/well-known";
 
-const logTag = "[API]";
+const app: Application = express();
 
-export class API implements Service {
-  public app: Application;
-  private di: IDI;
+app.use(
+  cors({
+    credentials: true,
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
 
-  private server!: Server;
+      const allowedOrigins = [env.FRONTEND_URL];
 
-  constructor(di: IDI) {
-    this.app = express();
-    this.di = di;
-  }
+      if (env.NODE_ENV === "development" || env.NODE_ENV === "testing") {
+        allowedOrigins.push(
+          "http://localhost:5173",
+          "http://localhost:5174",
+          "http://localhost:3000"
+        );
+      }
 
-  async start() {
-    this.app.use(helmet());
-    this.app.use(express.json());
-    this.app.use(express.urlencoded({ extended: true }));
-    this.app.use(cookieParser());
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+  })
+);
 
-    this.app.use((req, res, next) => {
-      res.locals = {
-        di: this.di,
-      };
-      next();
-    });
+const authHandler = toNodeHandler(auth);
 
-    this.app.use(
-      cors({
-        credentials: true, // Enable cookies in CORS requests
-        origin: (origin, callback) => {
-          // Allow requests with no origin (like mobile apps or curl requests)
-          if (!origin) return callback(null, true);
+app.use("/auth", (req, res) => {
+  req.url = req.url.replace("/auth", "") || "/";
+  return void authHandler(req, res);
+});
 
-          const allowedOrigins = [
-            env.FRONTEND_URL, // Use environment-specific frontend URL
-          ];
+// app.get("/.well-known/jwks.json", (req, res) => {
+//   req.url = "/auth/.well-known/jwks.json";
+//   return void authHandler(req, res);
+// });
 
-          // console.log(
-          //   `CORS debug - NODE_ENV: ${env.NODE_ENV}, FRONTEND_URL: ${env.FRONTEND_URL}, Origin: ${origin}`
-          // );
+app.use(helmet());
+// Don’t use express.json() before the Better Auth handler. Use it only for other routes, or the client API will get stuck on "pending".
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
-          // Add additional origins based on environment
-          if (env.NODE_ENV === "development" || env.NODE_ENV === "testing") {
-            allowedOrigins.push(
-              "http://localhost:5173",
-              "http://localhost:5174",
-              "http://localhost:3000"
-            );
-          }
+app.use("/trpc", trpcMiddleware);
+app.use("/.well-known", wellKnownRouter);
 
-          // console.log("CORS debug - Allowed origins:", allowedOrigins);
-
-          if (allowedOrigins.includes(origin)) {
-            callback(null, true);
-          } else {
-            callback(new Error("Not allowed by CORS"));
-          }
-        },
-      })
-    );
-
-    // Mount the tRPC middleware
-    this.app.use("/trpc", trpcMiddleware);
-
-    this.app.use("/api/", router);
-
-    this.app.use("/.well-known", wellKnownRoutes);
-
-    this.app.use(logErrors);
-    this.app.use(handleErrors);
-
-    this.server = this.app.listen(env.PORT, () =>
-      console.log(logTag, `listening on port ${env.PORT}`)
-    );
-  }
-
-  async stop() {
-    if (!this.server) {
-      return;
-    }
-
-    return new Promise<void>((resolve, reject) =>
-      this.server.close(err => {
-        if (err) {
-          console.error(logTag, "error stopping server", err);
-          reject(err);
-        } else {
-          console.log(logTag, "server stopped");
-          resolve();
-        }
-      })
-    );
-  }
-}
-
-export function handleMessage(data: any, res: Response, message = "") {
-  return res.json(data);
-}
+app.get("/", (req, res) => {
+  res.redirect(env.FRONTEND_URL);
+});
 
 function logErrors(err: any, req: Request, res: Response, next: NextFunction) {
   if (err.code !== 401)
@@ -125,3 +76,8 @@ function handleErrors(err: any, req: Request, res: Response, next?: NextFunction
 
   return res.status(500).json({ message: "Something went wrong!" });
 }
+
+app.use(logErrors);
+app.use(handleErrors);
+
+export default app;

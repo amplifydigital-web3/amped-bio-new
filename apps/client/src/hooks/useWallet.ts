@@ -1,11 +1,11 @@
-import { useAccount, useConnect, useDisconnect } from "wagmi";
+import { useAccount, useConnect, useDisconnect, usePublicClient } from "wagmi";
 import {
   useWeb3Auth,
   useWeb3AuthConnect,
   useWeb3AuthDisconnect,
   useIdentityToken,
 } from "@web3auth/modal/react";
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { trpcClient } from "../utils/trpc";
 import { WALLET_CONNECTORS, AUTH_CONNECTION } from "@web3auth/modal";
 
@@ -53,20 +53,55 @@ export const useWeb3AuthWallet = () => {
   const dataWeb3Auth = useWeb3Auth();
   const account = useAccount();
   const { getIdentityToken } = useIdentityToken();
+  const publicClient = usePublicClient();
+  const benchmarkDoneRef = useRef(false);
 
   const getTokenAndConnect = useCallback(async () => {
     try {
-      const token = await trpcClient.auth.getWalletToken.query();
+      const { walletToken } = await trpcClient.auth.getWalletToken.query();
       await connectTo(WALLET_CONNECTORS.AUTH, {
         authConnection: AUTH_CONNECTION.CUSTOM,
         authConnectionId: import.meta.env.VITE_WEB3AUTH_AUTH_CONNECTION_ID,
-        idToken: token.walletToken,
+        idToken: walletToken.token,
         extraLoginOptions: { isUserIdCaseSensitive: false },
       });
     } catch (err) {
       console.error("Error fetching wallet token:", err);
     }
   }, [connectTo]);
+
+  useEffect(() => {
+    if (dataWeb3Auth.status === "connected" && publicClient && !benchmarkDoneRef.current) {
+      benchmarkDoneRef.current = true;
+
+      const measureWeb3AuthCall = async () => {
+        const web3AuthStart = performance.now();
+        try {
+          await getIdentityToken();
+          const web3AuthEnd = performance.now();
+          console.log(`Web3Auth getIdentityToken: ${Math.round(web3AuthEnd - web3AuthStart)}ms`);
+        } catch (error) {
+          console.error("Web3Auth call failed:", error);
+        }
+      };
+
+      const measureBlockchainCall = async () => {
+        const blockchainStart = performance.now();
+        try {
+          await publicClient.getBlockNumber();
+          const blockchainEnd = performance.now();
+          console.log(
+            `Blockchain getBlockNumber: ${Math.round(blockchainEnd - blockchainStart)}ms`
+          );
+        } catch (error) {
+          console.error("Blockchain call failed:", error);
+        }
+      };
+
+      measureWeb3AuthCall();
+      measureBlockchainCall();
+    }
+  }, [dataWeb3Auth.status, dataWeb3Auth, publicClient, getIdentityToken]);
 
   return {
     ...dataWeb3Auth,

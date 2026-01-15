@@ -1,30 +1,9 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-import { API } from "./services/API";
-import { IDI } from "./types/di";
-import { exec } from "child_process";
+import app from "./services/API";
+import { env } from "./env";
+import "./bootstrap";
+// the line below is necessary to make sure vercel recognizes this file as an edge function
+import express from "express";
 
-// @ts-ignore
-BigInt.prototype.toJSON = function () {
-  return this.toString();
-};
+void express;
 
-exec("npx prisma migrate deploy", (error, stdout, stderr) => {
-  if (error) {
-    console.error(`Migration error: ${error.message}`);
-    return;
-  }
-  if (stderr) {
-    console.error(`stderr: ${stderr}`);
-  }
-  console.log(`stdout: ${stdout}`);
-});
-
-export const DI = {} as IDI;
-
-const app = async () => {
-  DI.API = new API(DI);
-
-  await DI.API.start();
-};
-
-export default app;
+app.listen(env.PORT, () => console.log(`listening on port: ${env.PORT}`));

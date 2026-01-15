@@ -7,23 +7,16 @@ export const env = cleanEnv(process.env, {
     default: "development",
     example: "development",
   }),
-  JWT_SECRET: str({
-    desc: "Secret key for JWT token generation and verification",
-    default: "your-default-jwt-secret-for-development",
-  }),
+
   JWT_PRIVATE_KEY: str({
     desc: "Private key for JWT signing",
-  }),
-  JWT_ISSUER: str({
-    desc: "Issuer of the JWT token",
-    default: "api.amped.bio",
-    example: "api.amped.bio",
   }),
   JWT_AUDIENCE: str({
     desc: "Audience of the JWT token",
     default: "amped.bio",
     example: "amped.bio",
   }),
+
   PORT: port({
     desc: "Port for the server to listen on",
     default: 43000,
@@ -32,6 +25,11 @@ export const env = cleanEnv(process.env, {
     desc: "URL for the website in production",
     default: "http://localhost:5173",
     example: "https://amped.bio",
+  }),
+  API_HOST: str({
+    desc: "Host for the API",
+    default: "localhost:43000",
+    example: "api.amped.bio",
   }),
   // New SMTP variables with MailDev defaults
   SMTP_HOST: str({
@@ -141,5 +139,9 @@ export const env = cleanEnv(process.env, {
   GOOGLE_CLIENT_ID: str({
     desc: "Google OAuth 2.0 Client ID",
     default: "",
+  }),
+
+  BETTER_AUTH_SECRET: str({
+    desc: "Better Auth secret for authentication",
   }),
 });

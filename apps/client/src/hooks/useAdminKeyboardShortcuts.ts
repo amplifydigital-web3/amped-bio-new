@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router";
 
 export function useAdminKeyboardShortcuts() {
   const navigate = useNavigate();
@@ -14,23 +14,23 @@ export function useAdminKeyboardShortcuts() {
 
         switch (event.key) {
           case "d":
-            navigateTo = "/admin";
+            navigateTo = "/i/admin";
             pageName = "Dashboard";
             break;
           case "u":
-            navigateTo = "/admin/users";
+            navigateTo = "/i/admin/users";
             pageName = "User Management";
             break;
           case "t":
-            navigateTo = "/admin/themes";
+            navigateTo = "/i/admin/themes";
             pageName = "Theme Management";
             break;
           case "b":
-            navigateTo = "/admin/blocks";
+            navigateTo = "/i/admin/blocks";
             pageName = "Block Management";
             break;
           case "f":
-            navigateTo = "/admin/files";
+            navigateTo = "/i/admin/files";
             pageName = "File Management";
             break;
 

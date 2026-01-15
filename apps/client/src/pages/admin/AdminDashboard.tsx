@@ -1,13 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "../../utils/trpc";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import {
   AdminUserStats,
   AdminBlockStats,
   AdminRewardStats,
   AdminBlockDistribution,
-  AdminTopOnelinks,
+  AdminTopHandles,
   AdminRecentUsers,
   AdminLoadingSpinner,
   AdminLoadingError,
@@ -26,8 +26,8 @@ export function AdminDashboard() {
     trpc.admin.dashboard.getDashboardStats.queryOptions()
   );
 
-  const { data: topOnelinksData, isLoading: isTopOnelinksLoading } = useQuery(
-    trpc.admin.users.getTopOnelinks.queryOptions({ limit: 5 })
+  const { data: topHandlesData, isLoading: isTopHandlesLoading } = useQuery(
+    trpc.admin.users.getTopHandles.queryOptions({ limit: 5 })
   );
 
   const { data: usersData, isLoading: isUsersLoading } = useQuery(
@@ -64,14 +64,14 @@ export function AdminDashboard() {
     clicksLastMonth: blockStats?.clicksLastMonth || 0,
   };
 
-  // Get recent users and top onelinks from query results
+  // Get recent users and top handles from query results
   const recentUsers = usersData?.users || [];
-  const topOnelinks = (topOnelinksData || []).filter(
+  const topHandles = (topHandlesData || []).filter(
     (
       item
     ): item is {
       name: string;
-      onelink: string;
+      handle: string;
       userId: number;
       totalClicks: number;
       blockCount: number;
@@ -80,7 +80,7 @@ export function AdminDashboard() {
 
   // Determine if any data is still loading
   const loading =
-    isDashboardLoading || isTopOnelinksLoading || isUsersLoading || isBlockStatsLoading;
+    isDashboardLoading || isTopHandlesLoading || isUsersLoading || isBlockStatsLoading;
 
   // Handle refresh
   const handleRefresh = () => {
@@ -108,9 +108,7 @@ export function AdminDashboard() {
         onRefresh={handleRefresh}
         isLoading={loading}
       />
-
       <AdminBannerSettings />
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Users Stats */}
         <AdminUserStats
@@ -145,22 +143,19 @@ export function AdminDashboard() {
         {/* Faucet Wallet Stats */}
         <AdminFaucetWalletStats />
       </div>
-
       {/* Block Distribution */}
       <AdminBlockDistribution
         blockTypeDistribution={blockTypeDistribution}
         mostPopularBlockType={blockStats.mostPopularBlockType}
         averageBlocksPerUser={blockStats.averageBlocksPerUser}
       />
-
-      {/* Top Performing Onelinks */}
-      <AdminTopOnelinks topOnelinks={topOnelinks} />
-
+      // Top Performing Handles
+      <AdminTopHandles topHandles={topHandles} />
       {/* Recent Users */}
       <AdminRecentUsers
         recentUsers={recentUsers}
         totalUsers={userStats.totalUsers}
-        onViewAllUsersClick={() => navigate("/admin/users")}
+        onViewAllUsersClick={() => navigate("/i/admin/users")}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { Banner } from "./Banner";
 import { Sidebar } from "./Sidebar";
 import { Preview } from "./Preview";
@@ -21,7 +21,7 @@ import PayPanel from "./panels/pay/PayPanel.tsx";
 import ExplorePage from "./panels/explore/ExplorePanel.tsx";
 
 interface LayoutProps {
-  onelink: string;
+  handle: string;
   bannerData?: {
     message: string;
     type: "info" | "warning" | "success" | "error";
@@ -47,7 +47,7 @@ interface PanelConfig {
   width: "standard" | "wide" | "full";
 }
 
-export function Layout({ onelink, bannerData, bannerLoading }: LayoutProps) {
+export function Layout({ handle, bannerData, bannerLoading }: LayoutProps) {
   const { activePanel, profile, blocks, theme } = useEditor();
   // const emailVerified = useAuth(state => state.authUser.emailVerified);
 
@@ -106,7 +106,7 @@ export function Layout({ onelink, bannerData, bannerLoading }: LayoutProps) {
             {/* View Button - Only show for logged in users */}
             <div className="max-h-10 flex-shrink-0">
               <Link
-                to={`/${onelink}`}
+                to={`/${handle}`}
                 className="px-2 py-1 md:px-4 md:py-2 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-colors flex items-center space-x-1 md:space-x-2"
               >
                 <Eye className="w-3 h-3 md:w-4 md:h-4" />
@@ -147,7 +147,7 @@ export function Layout({ onelink, bannerData, bannerLoading }: LayoutProps) {
               <div className="hidden md:flex md:flex-col md:flex-1 overflow-y-auto relative z-[5] bg-gray-100">
                 <Preview
                   isEditing={true}
-                  onelink={onelink}
+                  handle={handle}
                   profile={profile}
                   blocks={blocks}
                   theme={theme}

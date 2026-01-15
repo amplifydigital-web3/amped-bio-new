@@ -1,117 +1,162 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/lib/prisma"
+}
+
 datasource db {
   provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
 model User {
-  id                  Int       @id @default(autoincrement())
-  name                String
-  email               String    @unique
-  email_verified_at   DateTime?
-  password            String
-  onelink             String?   @unique @map("littlelink_name")
-  description         String?   @db.LongText @map("littlelink_description")
-  role                String    @default("user")
-  block               String    @default("no")
-  remember_token      String?
-  theme               String?
-  auth_as             Int?
-  provider            String?
-  provider_id         String?
-  image               String?   @db.LongText // Keep for backward compatibility
-  image_file_id       Int?
-  reward_business_id  String?
-  created_at          DateTime  @default(now())
-  updated_at          DateTime? @updatedAt
+  id             Int       @id @default(autoincrement())
+  name           String
+  email          String
+  email_verified Boolean   @default(false) @map("email_verified")
+  password       String?
+  image          String?   @db.LongText // Keep for backward compatibility
+  handle         String?   @unique @map("littlelink_name")
+  created_at     DateTime  @default(now())
+  updated_at     DateTime? @updatedAt
+  sessions       Session[]
+  accounts       Account[]
 
-  themes              Theme[]
-  blocks              Block[]
-  confirmationCodes   ConfirmationCode[]
-  uploadedFiles       UploadedFile[]
-  profileImage        UploadedFile? @relation("UserProfileImage", fields: [image_file_id], references: [id], onDelete: SetNull)
+  description        String? @map("littlelink_description") @db.LongText
+  role               String  @default("user")
+  block              String  @default("no")
+  theme              String?
+  image_file_id      Int?
+  reward_business_id String?
 
-  refreshTokens       RefreshToken[]
-  wallet              UserWallet?
+  themes            Theme[]
+  blocks            Block[]
+  confirmationCodes ConfirmationCode[]
+  uploadedFiles     UploadedFile[]
+  profileImage      UploadedFile?      @relation("UserProfileImage", fields: [image_file_id], references: [id], onDelete: SetNull)
 
+  wallet UserWallet?
+
+  @@unique([email])
   @@map("users")
 }
 
+model Session {
+  id        Int      @id @default(autoincrement())
+  expiresAt DateTime
+  token     String
+  createdAt DateTime
+  updatedAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@map("session")
+}
+
+model Account {
+  id                    Int       @id @default(autoincrement())
+  accountId             String
+  providerId            String
+  userId                Int
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?   @db.LongText
+  refreshToken          String?
+  idToken               String?   @db.LongText
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime
+  updatedAt             DateTime
+
+  @@map("account")
+}
+
+model Verification {
+  id         Int       @id @default(autoincrement())
+  identifier String
+  value      String    @db.LongText
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+
+  @@map("verification")
+}
+
 model ThemeCategory {
-  id                  Int       @id @default(autoincrement())
-  name                String    @unique
-  title               String
-  category            String
-  description         String?
-  visible             Boolean   @default(false)
-  image_file_id       Int?
-  created_at          DateTime  @default(now())
-  updated_at          DateTime? @updatedAt
-  
-  themes              Theme[]
-  categoryImage       UploadedFile? @relation("ThemeCategoryImage", fields: [image_file_id], references: [id], onDelete: SetNull)
+  id            Int       @id @default(autoincrement())
+  name          String    @unique
+  title         String
+  category      String
+  description   String?
+  visible       Boolean   @default(false)
+  image_file_id Int?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime? @updatedAt
+
+  themes        Theme[]
+  categoryImage UploadedFile? @relation("ThemeCategoryImage", fields: [image_file_id], references: [id], onDelete: SetNull)
 
   @@map("theme_categories")
 }
 
 model Theme {
-  id                  Int       @id @default(autoincrement())
-  user_id             Int?      // if it is null it is a system theme
-  share_level         String    @default("private")
-  share_config        Json?
-  name                String?
-  description         String?   @db.LongText
-  config              Json?
-  category_id         Int?
-  thumbnail_file_id   Int?
-  created_at          DateTime  @default(now())
-  updated_at          DateTime? @updatedAt
-  
-  user                User?         @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  category            ThemeCategory? @relation(fields: [category_id], references: [id], onDelete: SetNull)
-  thumbnailImage      UploadedFile? @relation("ThemeThumbnailImage", fields: [thumbnail_file_id], references: [id], onDelete: SetNull)
+  id                Int       @id @default(autoincrement())
+  user_id           Int? // if it is null it is a system theme
+  share_level       String    @default("private")
+  share_config      Json?
+  name              String?
+  description       String?   @db.LongText
+  config            Json?
+  category_id       Int?
+  thumbnail_file_id Int?
+  created_at        DateTime  @default(now())
+  updated_at        DateTime? @updatedAt
+
+  user           User?          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  category       ThemeCategory? @relation(fields: [category_id], references: [id], onDelete: SetNull)
+  thumbnailImage UploadedFile?  @relation("ThemeThumbnailImage", fields: [thumbnail_file_id], references: [id], onDelete: SetNull)
 
   @@map("themes")
 }
 
 model Block {
-  id                  Int       @id @default(autoincrement())
-  user_id             Int
-  type                String    @db.VarChar(255)
-  order               Int       @default(0)
-  clicks              Int       @default(0)
-  config              Json?
-  created_at          DateTime  @default(now())
-  updated_at          DateTime? @updatedAt
-  
-  user                User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  id         Int       @id @default(autoincrement())
+  user_id    Int
+  type       String    @db.VarChar(255)
+  order      Int       @default(0)
+  clicks     Int       @default(0)
+  config     Json?
+  created_at DateTime  @default(now())
+  updated_at DateTime? @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("blocks")
+}
+
+model ConfirmationCode {
+  id        Int                  @id @default(autoincrement())
+  code      String               @db.Char(6)
+  type      ConfirmationCodeType
+  userId    Int
+  used      Boolean              @default(false)
+  expiresAt DateTime
+  createdAt DateTime             @default(now())
+  updatedAt DateTime?            @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([code])
+  @@map("confirmation_codes")
 }
 
 enum ConfirmationCodeType {
   EMAIL_CONFIRMATION
   EMAIL_CHANGE
   PASSWORD_RESET
-}
-
-model ConfirmationCode {
-  id          Int                  @id @default(autoincrement())
-  code        String               @db.Char(6)
-  type        ConfirmationCodeType
-  userId      Int
-  used        Boolean              @default(false)
-  expiresAt   DateTime
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime?            @updatedAt
-  
-  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@index([code])
-  @@map("confirmation_codes")
 }
 
 enum FileStatus {
@@ -121,22 +166,22 @@ enum FileStatus {
 }
 
 model UploadedFile {
-  id                  Int           @id @default(autoincrement())
-  s3_key              String        @db.VarChar(255)
-  bucket              String        @db.VarChar(100)
-  file_name           String        @db.VarChar(255)
-  file_type           String?       @db.VarChar(100)
+  id                  Int             @id @default(autoincrement())
+  s3_key              String          @db.VarChar(255)
+  bucket              String          @db.VarChar(100)
+  file_name           String          @db.VarChar(255)
+  file_type           String?         @db.VarChar(100)
   size                BigInt?
   user_id             Int? // Nullable for admin/server files
-  uploaded_at         DateTime      @default(now())
-  status              FileStatus    @default(PENDING)
-  created_at          DateTime      @default(now())
-  updated_at          DateTime?     @updatedAt
-  user                User?         @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  userProfileImage    User[]        @relation("UserProfileImage")
+  status              FileStatus      @default(PENDING)
+  uploaded_at         DateTime        @default(now())
+  created_at          DateTime        @default(now())
+  updated_at          DateTime?       @updatedAt
+  user                User?           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  userProfileImage    User[]          @relation("UserProfileImage")
   themeCategoryImage  ThemeCategory[] @relation("ThemeCategoryImage")
-  themeThumbnailImage Theme[]       @relation("ThemeThumbnailImage")
-  creatorPoolImage    CreatorPool[] @relation("CreatorPoolImage")
+  themeThumbnailImage Theme[]         @relation("ThemeThumbnailImage")
+  creatorPoolImage    CreatorPool[]   @relation("CreatorPoolImage")
 
   @@index([s3_key])
   @@index([user_id])
@@ -144,28 +189,14 @@ model UploadedFile {
   @@map("uploaded_files")
 }
 
-model RefreshToken {
-  id        Int      @id @default(autoincrement())
-  token     String   @db.Char(64) // SHA256 hash
-  userId    Int
-  createdAt DateTime @default(now())
-  expiresAt DateTime
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([token])
-  @@index([userId])
-  @@map("refresh_tokens")
-}
-
-// User wallet address mapping table (one-to-one with User)
 model UserWallet {
-  id                   Int       @id @default(autoincrement())
-  address              String    @unique
-  userId               Int       @unique // Ensure one-to-one relationship
+  id                   Int           @id @default(autoincrement())
+  address              String        @unique
+  userId               Int           @unique // Ensure one-to-one relationship
   last_airdrop_request DateTime?
-  created_at           DateTime  @default(now())
-  updated_at           DateTime? @updatedAt
-  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  created_at           DateTime      @default(now())
+  updated_at           DateTime?     @updatedAt
+  user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   creatorPools         CreatorPool[]
   stakedPools          StakedPool[]
   stakeEvents          StakeEvent[]
@@ -174,14 +205,14 @@ model UserWallet {
 }
 
 model CreatorPool {
-  id            Int           @id @default(autoincrement())
-  walletId      Int
-  chainId       String
-  
+  id       Int    @id @default(autoincrement())
+  walletId Int
+  chainId  String
+
   image_file_id Int?
   description   String?       @db.LongText
   fans          Int           @default(0)
-  revoStaked    String @db.Text
+  revoStaked    String        @db.Text
   poolAddress   String?       @unique
   wallet        UserWallet    @relation(fields: [walletId], references: [id], onDelete: Cascade)
   poolImage     UploadedFile? @relation("CreatorPoolImage", fields: [image_file_id], references: [id], onDelete: SetNull)
@@ -201,40 +232,50 @@ enum SettingValueType {
 }
 
 model SiteSettings {
-  setting_key   String @id
-  setting_value String @db.LongText
+  setting_key   String           @id
+  setting_value String           @db.LongText
   value_type    SettingValueType
 
   @@map("site_settings")
 }
 
 model StakedPool {
-  id          Int           @id @default(autoincrement())
+  id           Int       @id @default(autoincrement())
   userWalletId Int
-  poolId      Int
-  stakeAmount String @db.Text // Using Text to handle potentially very large stake amounts
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime?     @updatedAt
+  poolId       Int
+  stakeAmount  String    @db.Text // Using Text to handle potentially very large stake amounts
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime? @updatedAt
 
-  userWallet  UserWallet    @relation(fields: [userWalletId], references: [id], onDelete: Cascade)
-  pool        CreatorPool   @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  userWallet UserWallet  @relation(fields: [userWalletId], references: [id], onDelete: Cascade)
+  pool       CreatorPool @relation(fields: [poolId], references: [id], onDelete: Cascade)
 
   @@unique([userWalletId, poolId]) // Each wallet can only have one staking entry per pool
   @@map("staked_pools")
 }
 
 model StakeEvent {
-  id                Int        @id @default(autoincrement())
-  userWalletId      Int
-  poolId            Int
-  amount            String @db.Text // The amount of tokens staked or unstaked (positive for stake, negative for unstake)
-  eventType         String // "stake" or "unstake"
-  transactionHash   String // Transaction hash for verification
-  createdAt         DateTime   @default(now())
+  id              Int      @id @default(autoincrement())
+  userWalletId    Int
+  poolId          Int
+  amount          String   @db.Text // The amount of tokens staked or unstaked (positive for stake, negative for unstake)
+  eventType       String // "stake" or "unstake"
+  transactionHash String // Transaction hash for verification
+  createdAt       DateTime @default(now())
 
-  userWallet UserWallet @relation(fields: [userWalletId], references: [id], onDelete: Cascade)
+  userWallet UserWallet  @relation(fields: [userWalletId], references: [id], onDelete: Cascade)
   pool       CreatorPool @relation(fields: [poolId], references: [id], onDelete: Cascade)
 
   @@unique([transactionHash, userWalletId, poolId])
   @@map("stake_events")
+}
+
+model Jwks {
+  id         Int       @id @default(autoincrement())
+  publicKey  String    @db.LongText
+  privateKey String    @db.LongText
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime?
+
+  @@map("jwks")
 }

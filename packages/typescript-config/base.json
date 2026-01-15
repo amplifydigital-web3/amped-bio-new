@@ -1,18 +1,37 @@
 {
   "compilerOptions": {
-    "target": "es2017",
-    "module": "esnext",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    // Maximum modern (Node 24 supports everything natively)
+    "target": "ES2023",
+    "lib": ["ES2023"],
+
+    // Config for clean imports + compatibility with modern ESM
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+
+    // Allows imports without extension and even with .ts (useful in dev)
+    "noEmit": false,
+
+    // Interop and resolution
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // Maximum strictness (tRPC loves this!)
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitReturns": true,
+
+    // Build
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "sourceMap": true,
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true,
-    "outDir": "./dist",
-    "strict": true,
-    "moduleResolution": "node",
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "skipLibCheck": true
   },
   "include": ["src"]
 }

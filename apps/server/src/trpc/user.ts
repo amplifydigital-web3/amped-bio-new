@@ -2,8 +2,6 @@ import { privateProcedure, publicProcedure, router } from "./trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { sendEmailChangeVerification } from "../utils/email/email";
-import { generateAccessToken } from "../utils/token";
-import { hashRefreshToken } from "../utils/tokenHash";
 import crypto from "crypto";
 import { prisma } from "../services/DB";
 import { editUserSchema } from "../schemas/user.schema";
@@ -29,7 +27,7 @@ const confirmEmailChangeSchema = z.object({
 
 // Function to generate a random 6-digit code
 const generateSixDigitCode = (): string => {
-  return crypto.randomInt(100000, 1000000).toString();
+  return crypto.randomInt(100000, 1000000).toString().padStart(6, "0");
 };
 
 type Creator = {
@@ -46,7 +44,7 @@ type Creator = {
 export const userRouter = router({
   // Edit user profile
   edit: privateProcedure.input(editUserSchema).mutation(async ({ ctx, input }) => {
-    const userId = ctx.user.sub;
+    const userId = ctx.user!.sub;
     console.group("🔄 User Edit Operation (tRPC)");
     console.info("📝 Starting user edit process");
     console.info(`👤 User ID: ${userId}`);
@@ -89,7 +87,7 @@ export const userRouter = router({
   initiateEmailChange: privateProcedure
     .input(initiateEmailChangeSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
 
       try {
         // Check if user exists
@@ -203,7 +201,7 @@ export const userRouter = router({
   confirmEmailChange: privateProcedure
     .input(confirmEmailChangeSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
 
       try {
         // Check if user exists
@@ -283,48 +281,9 @@ export const userRouter = router({
           data: { used: true },
         });
 
-        // Delete all refresh tokens except for the current session's token
-        // Get the current refresh token from the request
-        const currentRefreshToken = ctx.req.cookies["refresh-token"];
-        if (currentRefreshToken) {
-          const hashedCurrentRefreshToken = hashRefreshToken(currentRefreshToken);
-
-          // Delete all refresh tokens for this user except the current one
-          await prisma.refreshToken.deleteMany({
-            where: {
-              userId: userId,
-              token: {
-                not: hashedCurrentRefreshToken, // Keep only the current token
-              },
-            },
-          });
-        } else {
-          // If no refresh token is available in the request, delete all refresh tokens
-          await prisma.refreshToken.deleteMany({
-            where: {
-              userId: userId,
-            },
-          });
-        }
-
-        // Fetch user's wallet address
-        const userWallet = await prisma.userWallet.findUnique({
-          where: { userId: userId },
-          select: { address: true },
-        });
-
-        // Generate new JWT token with updated email
-        const token = generateAccessToken({
-          id: userId,
-          email: newEmail,
-          role: updatedUser.role,
-          wallet: userWallet?.address ?? null,
-        });
-
         return {
           success: true,
           message: "Email address has been successfully updated",
-          token, // Return the new token
         };
       } catch (error: any) {
         console.error("Error confirming email change:", error);
@@ -342,7 +301,7 @@ export const userRouter = router({
   resendEmailVerification: privateProcedure
     .input(resendEmailVerificationSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
 
       try {
         // Check if user exists
@@ -486,7 +445,7 @@ export const userRouter = router({
           select: {
             id: true,
             name: true,
-            onelink: true,
+            handle: true,
             image: true,
             description: true,
             created_at: true,
@@ -518,7 +477,7 @@ export const userRouter = router({
               user: {
                 id: user.id,
                 name: user.name,
-                onelink: user.onelink,
+                handle: user.handle,
                 image: user.image,
                 description: user.description,
                 created_at: user.created_at,
@@ -558,7 +517,7 @@ export const userRouter = router({
           users: paginatedUsers.map(item => ({
             id: item.user.id.toString(),
             displayName: item.user.name,
-            username: item.user.onelink || "",
+            username: item.user.handle || "",
             avatar: item.user.image,
             bio: item.user.description || "",
             banner: null, // Placeholder
@@ -594,7 +553,7 @@ export const userRouter = router({
           select: {
             id: true,
             name: true,
-            onelink: true,
+            handle: true,
             image: true,
             description: true,
             created_at: true,
@@ -646,7 +605,7 @@ export const userRouter = router({
           users: paginatedUsers.map(user => ({
             id: user.id.toString(),
             displayName: user.name,
-            username: user.onelink || "",
+            username: user.handle || "",
             avatar: user.image,
             bio: user.description || "",
             banner: null, // Placeholder

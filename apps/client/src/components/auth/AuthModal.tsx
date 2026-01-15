@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Loader2, Eye, EyeOff, Check, X as XIcon, AlertCircle } from "lucide-react";
+import { Loader2, Eye, EyeOff, Check, X as XIcon, AlertCircle } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
@@ -7,26 +7,35 @@ import type { AuthUser } from "../../types/auth";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import { useOnelinkAvailability } from "@/hooks/useOnelinkAvailability";
+import { Link, useNavigate, useLocation } from "react-router";
+import { useHandleAvailability } from "@/hooks/useHandleAvailability";
 import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
-import { useGoogleLogin } from "@react-oauth/google";
 import { GoogleLoginButton } from "./GoogleLoginButton";
 import { useCaptcha } from "@/hooks/useCaptcha";
 import { CaptchaActions } from "@ampedbio/constants";
-import {
-  normalizeOnelink,
-  cleanOnelinkInput,
-  getOnelinkPublicUrl,
-  formatOnelink,
-} from "@/utils/onelink";
+import { authClient } from "@/lib/auth-client";
+import { normalizeHandle, cleanHandleInput, getHandlePublicUrl } from "@/utils/handle";
 import { trackGAEvent } from "@/utils/ga";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
+// Extended user type for better-auth session
+interface BetterAuthUser {
+  id: string;
+  email: string;
+  emailVerified: boolean;
+  name: string;
+  image?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  handle: string;
+  role: string;
+}
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -42,7 +51,7 @@ const loginSchema = z.object({
 });
 
 const registerSchema = z.object({
-  onelink: z
+  handle: z
     .string()
     .min(3, "Name must be at least 3 characters")
     .regex(/^[a-zA-Z0-9_-]+$/, "Name can only contain letters, numbers, underscores and hyphens"),
@@ -98,8 +107,8 @@ const PasswordStrengthIndicator = ({ password }: { password: string }) => {
 };
 
 export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: AuthModalProps) {
-  const { signIn, signInWithGoogle, signUp, resetPassword } = useAuth();
-  const { executeCaptcha, isRecaptchaEnabled } = useCaptcha();
+  const { resetPassword } = useAuth();
+  const { executeCaptcha } = useCaptcha();
   const [loading, setLoading] = useState(false);
   const [sharedEmail, setSharedEmail] = useState("");
   const isUserTyping = useRef(false);
@@ -129,14 +138,14 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
   // Add success state for reset password form
   const [resetSuccess, setResetSuccess] = useState(false);
 
-  const [onelinkInput, setOnelinkInput] = useState("");
-  const { urlStatus, isValid } = useOnelinkAvailability(onelinkInput);
+  const [handleInput, setHandleInput] = useState("");
+  const { urlStatus, isValid } = useHandleAvailability(handleInput);
 
-  // Handle onelink input changes with proper cleaning
-  const handleOnelinkChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const cleanValue = cleanOnelinkInput(e.target.value);
-    setOnelinkInput(cleanValue);
-    setRegisterValue("onelink", cleanValue);
+  // Handle handle input changes with proper cleaning
+  const handleHandleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cleanValue = cleanHandleInput(e.target.value);
+    setHandleInput(cleanValue);
+    setRegisterValue("handle", cleanValue);
   };
 
   // Use react-hook-form with zod resolver based on current form type
@@ -186,7 +195,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
   const loginEmail = watchLogin("email");
   const registerEmail = watchRegister("email");
   const resetEmail = watchReset("email");
-  const registerOnelink = watchRegister("onelink");
+  const registerHandle = watchRegister("handle");
   const registerPassword = watchRegister("password");
 
   // Use a single useEffect to handle all email synchronization
@@ -212,13 +221,13 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     isUserTyping.current = false;
   }, [setLoginValue, setRegisterValue, setResetValue, sharedEmail]);
 
-  // Check onelink availability when it changes
+  // Check handle availability when it changes
   useEffect(() => {
-    if (registerOnelink) {
-      const normalizedOnelink = normalizeOnelink(registerOnelink);
-      setOnelinkInput(normalizedOnelink);
+    if (registerHandle) {
+      const normalizedHandle = normalizeHandle(registerHandle);
+      setHandleInput(normalizedHandle);
     }
-  }, [registerOnelink]);
+  }, [registerHandle]);
 
   // Custom form switcher that maintains email and clears errors
   const switchForm = (newForm: FormType) => {
@@ -227,6 +236,19 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setResetError(null);
     setResetSuccess(false);
     setForm(newForm);
+
+    // Ensure email is set in the new form based on sharedEmail
+    const currentEmail =
+      newForm === "login" ? loginEmail : newForm === "register" ? registerEmail : resetEmail;
+    if (sharedEmail && currentEmail !== sharedEmail) {
+      if (newForm === "login") {
+        setLoginValue("email", sharedEmail);
+      } else if (newForm === "register") {
+        setRegisterValue("email", sharedEmail);
+      } else if (newForm === "reset") {
+        setResetValue("email", sharedEmail);
+      }
+    }
 
     // Update URL based on the new form type
     if (newForm === "login") {
@@ -244,45 +266,69 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setLoginError(null);
     try {
       // Get reCAPTCHA token using the invisible captcha
-      const recaptchaToken = isRecaptchaEnabled ? await executeCaptcha(CaptchaActions.LOGIN) : null;
+      const recaptchaToken = await executeCaptcha(CaptchaActions.LOGIN);
 
-      const user = await signIn(data.email, data.password, recaptchaToken);
-      onClose(user);
+      // Using better-auth for email/password login
+      const response = await authClient.signIn.email({
+        email: data.email,
+        password: data.password,
+        callbackURL: window.location.href,
+        rememberMe: true,
+        fetchOptions: {
+          headers: recaptchaToken
+            ? {
+                "x-captcha-response": recaptchaToken!,
+              }
+            : undefined,
+        },
+      });
 
-      // Redirect the user to their edit page with panel state set to "home"
-      if (user && user.onelink) {
-        const formattedOnelink = formatOnelink(user.onelink);
-        navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
+      if (response?.error) {
+        throw new Error(response.error.message || "Login failed");
       }
+
+      const user = response.data.user as BetterAuthUser;
+
+      onClose({
+        id: parseInt(user.id),
+        email: user.email,
+        handle: user.handle,
+        role: user.role,
+        image: user.image || null,
+        wallet: null,
+      });
     } catch (error) {
-      setLoginError((error as Error).message);
+      setLoginError((error as Error).message || "Login failed");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleLogin = useGoogleLogin({
-    onSuccess: async tokenResponse => {
-      setLoading(true);
-      setLoginError(null);
-      try {
-        const user = await signInWithGoogle(tokenResponse.access_token);
-        onClose(user);
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    setLoginError(null);
 
-        if (user && user.onelink) {
-          const formattedOnelink = formatOnelink(user.onelink);
-          navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
-        }
-      } catch (error) {
-        setLoginError((error as Error).message);
-      } finally {
+    try {
+      // Using better-auth's Google OAuth flow
+      // This will likely redirect the user to Google's authentication page
+      const response = await authClient.signIn.social({
+        provider: "google",
+        callbackURL: window.location.href, // Return to current page
+      });
+
+      if (response?.error) {
         setLoading(false);
+        setLoginError(response.error.message || "Google login failed");
+        return;
       }
-    },
-    onError: () => {
-      setLoginError("Google login failed");
-    },
-  });
+
+      // Set up monitoring for session after redirect
+      // redirectAfterLogin();
+    } catch (error) {
+      setLoginError((error as Error).message || "Google login failed");
+      setLoading(false);
+    }
+  };
 
   const renderSignInWithGoogle = () => {
     return (
@@ -310,18 +356,38 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setRegisterError(null);
     try {
       // Get reCAPTCHA token using the invisible captcha
-      const recaptchaToken = isRecaptchaEnabled ? await executeCaptcha(CaptchaActions.REGISTER) : null;
+      const recaptchaToken = await executeCaptcha(CaptchaActions.REGISTER);
 
-      const user = await signUp(data.onelink, data.email, data.password, recaptchaToken);
-      onClose(user);
+      // Using better-auth signup
+      const response = await authClient.signUp.email({
+        email: data.email,
+        password: data.password,
+        name: data.handle, // Using handle as the name
+        callbackURL: window.location.href,
+        fetchOptions: {
+          headers: recaptchaToken
+            ? {
+                "x-captcha-response": recaptchaToken!,
+              }
+            : undefined,
+        },
+      });
 
-      // Redirect to edit page with home panel selected
-      if (user && user.onelink) {
-        const formattedOnelink = formatOnelink(user.onelink);
-        navigate(`/${formattedOnelink}/edit`, { state: { panel: "home" } });
+      if (response?.error) {
+        throw new Error(response.error.message || "Registration failed");
       }
+
+      const user = response.data.user as BetterAuthUser;
+      onClose({
+        id: parseInt(user.id),
+        email: user.email,
+        handle: user.handle,
+        role: user.role,
+        image: user.image || null,
+        wallet: null,
+      });
     } catch (error) {
-      setRegisterError((error as Error).message);
+      setRegisterError((error as Error).message || "Registration failed");
     } finally {
       setLoading(false);
     }
@@ -332,10 +398,10 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setLoading(true);
     setResetError(null);
     setResetSuccess(false);
+
     try {
       // Get reCAPTCHA token using the invisible captcha
-      const recaptchaToken = isRecaptchaEnabled ? await executeCaptcha(CaptchaActions.RESET_PASSWORD) : null;
-
+      const recaptchaToken = await executeCaptcha(CaptchaActions.RESET_PASSWORD);
       const response = await resetPassword(data.email, recaptchaToken);
       if (response.success) {
         setResetSuccess(true);
@@ -366,6 +432,11 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
             {form === "login" && "Sign In"}
             {form === "reset" && "Reset Password"}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            {form === "register" && "Sign up form for creating a new account"}
+            {form === "login" && "Sign in form for existing users"}
+            {form === "reset" && "Password reset form to recover your account"}
+          </DialogDescription>
         </DialogHeader>
         <div className="p-6">
           {form === "login" && (
@@ -464,37 +535,37 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
                 <Input
                   label="Claim your name"
                   leftText="@"
-                  error={registerErrors.onelink?.message}
+                  error={registerErrors.handle?.message}
                   required
                   aria-label="Claim your name"
-                  data-testid="register-onelink"
+                  data-testid="register-handle"
                   autoComplete="username"
                   placeholder="your-name"
-                  {...registerSignUp("onelink")}
+                  {...registerSignUp("handle")}
                   onChange={e => {
-                    registerSignUp("onelink").onChange(e);
-                    handleOnelinkChange(e);
+                    registerSignUp("handle").onChange(e);
+                    handleHandleChange(e);
                   }}
                   onBlur={e => {
-                    registerSignUp("onelink").onBlur(e);
-                    trackGAEvent("Input", "AuthModal", "RegisterOnelinkInput");
+                    registerSignUp("handle").onBlur(e);
+                    trackGAEvent("Input", "AuthModal", "RegisterHandleInput");
                   }}
                 />
                 <div className="absolute right-3 top-9">
                   <URLStatusIndicator status={urlStatus} isCurrentUrl={false} compact={true} />
                 </div>
               </div>
-              {onelinkInput && (
+              {handleInput && (
                 <p className="text-sm text-gray-600" data-testid="public-url-preview">
                   Public URL:{" "}
                   <a
-                    href={getOnelinkPublicUrl(onelinkInput)}
+                    href={getHandlePublicUrl(handleInput)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:text-blue-700"
                     onClick={() => trackGAEvent("Click", "AuthModal", "PublicURLPreviewLink")}
                   >
-                    {getOnelinkPublicUrl(onelinkInput)}
+                    {getHandlePublicUrl(handleInput)}
                   </a>
                 </p>
               )}
@@ -550,8 +621,8 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
               <Button
                 type="submit"
                 className="w-full relative"
-                disabled={loading || urlStatus === "Unavailable" || !isValid || !onelinkInput}
-                aria-disabled={loading || urlStatus === "Unavailable" || !isValid || !onelinkInput}
+                disabled={loading || urlStatus === "Unavailable" || !isValid || !handleInput}
+                aria-disabled={loading || urlStatus === "Unavailable" || !isValid || !handleInput}
                 aria-label="Create Account"
                 data-testid="register-submit"
                 onClick={() => trackGAEvent("Click", "AuthModal", "CreateAccountButton")}
@@ -568,7 +639,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
 
               {renderSignInWithGoogle()}
 
-              {urlStatus === "Unavailable" && onelinkInput && (
+              {urlStatus === "Unavailable" && handleInput && (
                 <p
                   className="text-xs text-center text-red-600"
                   data-testid="url-unavailable-message"
@@ -648,7 +719,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
                 <div className="text-center text-sm text-gray-600 mt-4 p-3 border border-gray-200 rounded-md bg-gray-50">
                   <p>Already have a password reset token?</p>
                   <Link
-                    to="/auth/reset-password/"
+                    to={`/auth/reset-password/?email=${encodeURIComponent(resetEmail)}`}
                     className="inline-block mt-2 text-blue-600 hover:text-blue-700 hover:underline font-medium"
                     aria-label="Use reset token"
                     data-testid="use-reset-token"

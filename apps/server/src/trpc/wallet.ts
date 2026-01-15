@@ -2,15 +2,7 @@ import { privateProcedure, router } from "./trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { env } from "../env";
-import {
-  createWalletClient,
-  http,
-  parseEther,
-  Address,
-  createPublicClient,
-  formatEther,
-  keccak256,
-} from "viem";
+import { createWalletClient, http, parseEther, Address, createPublicClient, keccak256 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { getAddress } from "viem/utils";
 import { prisma } from "../services/DB";
@@ -102,7 +94,7 @@ export const walletRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.sub;
+      const userId = ctx.user!.sub;
 
       let address: Address;
 
@@ -202,7 +194,7 @@ export const walletRouter = router({
     )
     .query(async ({ ctx, input }) => {
       try {
-        const userId = ctx.user.sub;
+        const userId = ctx.user!.sub;
         const chain = getChainConfig(input.chainId);
 
         if (!chain) {
@@ -310,7 +302,7 @@ export const walletRouter = router({
 
   // Get the wallet address linked to the current user (1:1 relationship)
   getUserWallet: privateProcedure.query(async ({ ctx }) => {
-    const userId = ctx.user.sub;
+    const userId = ctx.user!.sub;
 
     try {
       const wallet = await prisma.userWallet.findFirst({
@@ -338,7 +330,7 @@ export const walletRouter = router({
     .output(faucetResponseSchema)
     .mutation(async ({ ctx, input }) => {
       try {
-        const userId = ctx.user.sub;
+        const userId = ctx.user!.sub;
 
         let address: Address;
 
@@ -571,7 +563,7 @@ export const walletRouter = router({
       }
     }),
 
-  // Search users by onelink or wallet address
+  // Search users by handle or wallet address
   searchUsers: privateProcedure
     .input(z.string()) // Input is the search query
     .query(async ({ input }) => {
@@ -581,7 +573,7 @@ export const walletRouter = router({
         where: {
           OR: [
             {
-              onelink: {
+              handle: {
                 contains: searchQuery,
               },
             },
@@ -597,7 +589,7 @@ export const walletRouter = router({
         select: {
           id: true,
           name: true,
-          onelink: true,
+          handle: true,
           image: true,
           description: true,
           wallet: {
@@ -612,7 +604,7 @@ export const walletRouter = router({
       // Map Prisma results to the User interface expected by the client
       return users.map(user => ({
         id: user.id.toString(), // Convert Int to String
-        username: user.onelink!.toLowerCase(), // Fallback to a derived username if onelink is null
+        username: user.handle!.toLowerCase(), // Convert handle to lowercase for username
         displayName: user.name,
         avatar: user.image,
         walletAddress: (user.wallet?.address as Address | undefined) ?? undefined,
@@ -632,7 +624,7 @@ export const walletRouter = router({
           user: {
             select: {
               name: true,
-              onelink: true,
+              handle: true,
               image: true,
             },
           },
@@ -645,14 +637,14 @@ export const walletRouter = router({
 
       return {
         name: userWallet.user.name,
-        onelink: userWallet.user.onelink,
+        handle: userWallet.user.handle,
         image: userWallet.user.image,
       };
     }),
 
   // Get wallet statistics for the current user
   getWalletStats: privateProcedure.query(async ({ ctx }) => {
-    const userId = ctx.user.sub;
+    const userId = ctx.user!.sub;
 
     try {
       // Get user's wallet

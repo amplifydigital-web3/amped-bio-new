@@ -1,12 +1,12 @@
 import { Router } from "express";
-import { JWT_KEYS } from "../utils/token";
+import { JWT_KEYS } from "../utils/auth";
 
-const router: Router = Router();
+const wellKnownRouter: Router = Router();
 
-router.get("/jwks.json", async (req, res) => {
-  const jwk = JWT_KEYS.publicKey.export({ format: "jwk" }) as any;
+wellKnownRouter.get("/jwks.json", async (req, res) => {
+  const jwk = JWT_KEYS.publicKey.export({ format: "jwk" });
 
-  jwk.alg = "RS256";
+  jwk.alg = JWT_KEYS.alg;
   jwk.use = "sig";
   jwk.kid = JWT_KEYS.kid;
 
@@ -15,4 +15,4 @@ router.get("/jwks.json", async (req, res) => {
   });
 });
 
-export default router;
+export default wellKnownRouter;

@@ -12,16 +12,16 @@ import initialState from "../store/defaults";
 import { useAuth } from "./AuthContext";
 import toast from "react-hot-toast";
 import { BlockType } from "@ampedbio/constants";
-import { formatOnelink, normalizeOnelink } from "@/utils/onelink";
+import { formatHandle, normalizeHandle } from "@/utils/handle";
 import { trpcClient } from "@/utils/trpc";
 import { exportThemeConfigAsJson, importThemeConfigFromJson } from "@/utils/theme";
 import { mergeTheme } from "@/utils/mergeTheme";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router";
 
 interface EditorContextType extends EditorState {
   changes: boolean;
   themeChanges: boolean;
-  setUser: (onelink: string) => Promise<any>;
+  setUser: (handle: string) => Promise<any>;
   setProfile: (profile: UserProfile) => void;
   addBlock: (block: BlockType) => Promise<BlockType>;
   removeBlock: (id: number) => void;
@@ -56,21 +56,21 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
 
   const { authUser } = useAuth();
 
-  const setUser = useCallback(async (onelink: string) => {
-    // console.group(`🔍 Setting User: ${onelink}`);
+  const setUser = useCallback(async (handle: string) => {
+    // console.group(`🔍 Setting User: ${handle}`);
     // console.info("🚀 Loading user data...");
     try {
-      const onlinkData = await trpcClient.onelink.getOnelink.query({ onelink });
+      const onlinkData = await trpcClient.handle.getHandle.query({ handle });
 
       if (!onlinkData) {
-        // console.info("❌ User not found:", onelink);
+        // console.info("❌ User not found:", handle);
         // console.groupEnd();
         return;
       }
       const { user, theme, blocks: blocks_raw, hasCreatorPool } = onlinkData;
       const { name, email, description, image } = user;
-      const normalizedOnelink = normalizeOnelink(onelink);
-      const formattedOnelink = formatOnelink(onelink);
+      const normalizedHandle = normalizeHandle(handle);
+      const formattedHandle = formatHandle(handle);
       // console.info("👤 User data loaded:", { name, email, blocks: blocks_raw, theme });
 
       const blocks = blocks_raw.sort((a, b) => a.order - b.order);
@@ -79,8 +79,8 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         ...prevState,
         profile: {
           name,
-          onelink: normalizedOnelink,
-          onelinkFormatted: formattedOnelink,
+          handle: normalizedHandle,
+          handleFormatted: formattedHandle,
           email,
           bio: description ?? "",
           photoUrl: image ?? "",
@@ -105,17 +105,17 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     const updatedProfile = { ...profile };
 
     if (
-      "onelink" in profile &&
-      (!profile.onelinkFormatted || profile.onelinkFormatted !== formatOnelink(profile.onelink))
+      "handle" in profile &&
+      (!profile.handleFormatted || profile.handleFormatted !== formatHandle(profile.handle))
     ) {
-      updatedProfile.onelinkFormatted = formatOnelink(profile.onelink);
+      updatedProfile.handleFormatted = formatHandle(profile.handle);
     }
 
     if (
-      "onelinkFormatted" in profile &&
-      (!profile.onelink || profile.onelink !== normalizeOnelink(profile.onelinkFormatted))
+      "handleFormatted" in profile &&
+      (!profile.handle || profile.handle !== normalizeHandle(profile.handleFormatted))
     ) {
-      updatedProfile.onelink = normalizeOnelink(profile.onelinkFormatted);
+      updatedProfile.handle = normalizeHandle(profile.handleFormatted);
     }
 
     setState(prevState => ({
@@ -124,10 +124,10 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     }));
     setChanges(true);
     console.info(
-      "✅ Profile updated with onelink:",
-      updatedProfile.onelink,
-      "and formatted onelink:",
-      updatedProfile.onelinkFormatted
+      "✅ Profile updated with handle:",
+      updatedProfile.handle,
+      "and formatted handle:",
+      updatedProfile.handleFormatted
     );
     console.groupEnd();
   }, []);

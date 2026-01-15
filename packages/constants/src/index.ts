@@ -3,7 +3,7 @@
  */
 
 export * from "./upload";
-export * from "./onelink";
+export * from "./handle";
 export * from "./platforms";
 export * from "./theme";
 export * from "./collections";

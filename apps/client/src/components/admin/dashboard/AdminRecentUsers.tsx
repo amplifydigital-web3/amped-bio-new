@@ -7,7 +7,7 @@ interface User {
   id: number;
   name: string;
   email: string;
-  onelink: string | null;
+  handle: string | null;
   created_at: string;
   role: string;
   _count: {
@@ -42,10 +42,10 @@ export const AdminRecentUsers = ({
 
   // Email obscuring functionality moved to utils/email.ts
 
-  // Handle onelink click
-  const openOnelink = (onelink: string | null) => {
-    if (onelink) {
-      window.open(`/@${onelink}`, "_blank");
+  // Handle handle click
+  const openHandle = (handle: string | null) => {
+    if (handle) {
+      window.open(`/@${handle}`, "_blank");
     }
   };
 
@@ -112,7 +112,7 @@ export const AdminRecentUsers = ({
                 User
               </th>
               <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Onelink
+                Handle
               </th>
               <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Joined
@@ -146,12 +146,12 @@ export const AdminRecentUsers = ({
                   </div>
                 </td>
                 <td className="py-4 px-6 text-sm">
-                  {user.onelink ? (
+                  {user.handle ? (
                     <span
                       className="text-blue-600 hover:text-blue-800 cursor-pointer flex items-center"
-                      onClick={() => openOnelink(user.onelink)}
+                      onClick={() => openHandle(user.handle)}
                     >
-                      @{user.onelink}
+                      @{user.handle}
                       <ArrowUpRight className="h-3 w-3 ml-1" />
                     </span>
                   ) : (

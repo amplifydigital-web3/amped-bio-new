@@ -1,5 +1,5 @@
 import { ChevronRight, Home } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router";
 
 interface BreadcrumbItem {
   label: string;
@@ -12,11 +12,11 @@ export function AdminBreadcrumb() {
   const getBreadcrumbs = (): BreadcrumbItem[] => {
     const pathSegments = location.pathname.split("/").filter(Boolean);
 
-    if (pathSegments.length === 1 && pathSegments[0] === "admin") {
+    if (pathSegments.length === 2 && pathSegments[0] === "i" && pathSegments[1] === "admin") {
       return [{ label: "Dashboard" }];
     }
 
-    const breadcrumbs: BreadcrumbItem[] = [{ label: "Dashboard", path: "/admin" }];
+    const breadcrumbs: BreadcrumbItem[] = [{ label: "Dashboard", path: "/i/admin" }];
 
     switch (pathSegments[1]) {
       case "users":

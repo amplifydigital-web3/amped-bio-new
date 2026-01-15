@@ -2,25 +2,33 @@
   "name": "ampedbio",
   "private": true,
   "version": "1.0.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "engines": {
-    "node": ">=20.19.1"
+    "node": ">=24.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "overrides": {
+    "@noble/hashes": "1.3.3"
   },
   "scripts": {
     "build": "turbo build",
     "build:packages": "turbo build --filter=\"@ampedbio/constants\"",
     "build:apps": "turbo build --filter=\"@ampedbio/client\" --filter=\"@ampedbio/server\"",
-    "prebuild": "pnpm build:packages",
-    "dev": "pnpm dev:client",
-    "dev:client": "pnpm build:packages && pnpm --filter @ampedbio/client dev:client-only",
+    "prebuild": "pnpm run build:packages",
+    "dev": "pnpm run dev:client",
+    "dev:client": "pnpm run build:packages && pnpm run --filter @ampedbio/client dev:client-only",
     "dev:full": "turbo dev",
-    "client-only": "pnpm build:packages && pnpm --filter @ampedbio/client dev:client-only",
+    "client-only": "pnpm run build:packages && pnpm run --filter @ampedbio/client dev:client-only",
     "client-only:install": "pnpm install --filter @ampedbio/constants --filter @ampedbio/client",
     "lint": "turbo lint",
     "lint:fix": "turbo lint:fix",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,md}\"",
     "typecheck": "turbo typecheck",
-    "e2e:test": "pnpm --filter client e2e:test",
+    "e2e:test": "pnpm run --filter client e2e:test",
     "clear": "rm -rf .turbo && find . -name 'node_modules' -type d -prune -exec rm -rf '{}' + && find . -name 'dist' -type d -prune -exec rm -rf '{}' + && find . -name '.turbo' -type d -prune -exec rm -rf '{}' + && find . -name 'coverage' -type d -prune -exec rm -rf '{}' +",
     "clean": "turbo run clean"
   },
@@ -31,5 +39,5 @@
     "tsx": "^4.19.3",
     "turbo": "latest"
   },
-  "packageManager": "pnpm@8.15.4"
+  "packageManager": "pnpm@9.15.1"
 }

@@ -68,8 +68,8 @@ const textConfigSchema = z.object({
         const allowed = new Set(allowedHtmlTags);
 
         for (const match of html.matchAll(tagRegex)) {
-          const tagName = match[1].toLowerCase();
-          if (!allowed.has(tagName as (typeof allowedHtmlTags)[number])) {
+          const tagName = match[1]?.toLowerCase();
+          if (!tagName || !allowed.has(tagName as (typeof allowedHtmlTags)[number])) {
             return false;
           }
         }

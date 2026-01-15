@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import logoSVG from "../../assets/AMPLIFY_FULL_K.svg";
 
 interface AuthHeaderProps {

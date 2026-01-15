@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router";
 import { useReadContracts, useReadContract } from "wagmi";
 import { CREATOR_POOL_ABI } from "@ampedbio/web3";
 import { type Address } from "viem";
@@ -6,7 +6,6 @@ import { formatEther } from "viem";
 import { getChainConfig } from "@ampedbio/web3";
 import { Button } from "../components/ui/Button";
 import { useEffect, useState } from "react";
-import { trpc } from "../utils/trpc/trpc";
 
 export function PoolDebugPage() {
   const { address: poolAddress } = useParams<{ address: string }>();
