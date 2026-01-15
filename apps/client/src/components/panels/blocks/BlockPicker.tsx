@@ -143,7 +143,7 @@ export function BlockPicker({ onAdd }: BlockPickerProps) {
           <h3 className="text-sm font-medium text-gray-900">{category.category}</h3>
           <div className="grid grid-cols-2 gap-3">
             {category.blocks.map(block => {
-              const isDisabled = block.id === "creator-pool" && !hasCreatorPool;
+              const isDisabled = false;
               return (
                 <button
                   key={block.id}
