@@ -17,14 +17,13 @@
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf coverage",
     "prepare": "pnpm run build"
   },
-  "devDependencies": {
-    "@repo/typescript-config": "workspace:*",
-    "typescript": "5.9.2"
-  },
   "dependencies": {
+    "@repo/typescript-config": "workspace:*",
     "tsup": "^8.0.0",
+    "typescript": "5.9.2",
     "viem": "2.34.0"
   },
+  "devDependencies": {},
   "publishConfig": {
     "access": "public"
   }
