@@ -99,7 +99,7 @@ export const walletRouter = router({
       let address: Address;
 
       // In development, allow direct address linking without Web3Auth verification
-      if (env.NODE_ENV === "development" && input.address) {
+      if (env.APP_ENV === "development" && input.address) {
         address = getAddress(input.address as Address);
       } else {
         // In production or when no address is provided, verify the Web3Auth ID token
@@ -335,7 +335,7 @@ export const walletRouter = router({
         let address: Address;
 
         // In development, allow direct address usage without Web3Auth verification
-        if (env.NODE_ENV === "development" && input.address) {
+        if (env.APP_ENV === "development" && input.address) {
           address = getAddress(input.address as Address);
         } else {
           // In production or when no address is provided, verify the Web3Auth ID token

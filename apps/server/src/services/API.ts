@@ -19,7 +19,7 @@ app.use(
 
       const allowedOrigins = [env.FRONTEND_URL];
 
-      if (env.NODE_ENV === "development" || env.NODE_ENV === "testing") {
+      if (env.APP_ENV === "development" || env.APP_ENV === "testing") {
         allowedOrigins.push(
           "http://localhost:5173",
           "http://localhost:5174",

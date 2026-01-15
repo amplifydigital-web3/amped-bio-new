@@ -1,7 +1,6 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_VERCEL_ENV?: string;
   readonly VITE_REWARD_URL: string;
   readonly VITE_SHOW_REWARD: string;
   readonly VITE_SHOW_CREATOR_POOL: string;
