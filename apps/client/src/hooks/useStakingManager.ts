@@ -67,7 +67,7 @@ export function useStakingManager(pool: StakingPoolData | null, onStakeSuccess?:
       );
 
       const startConfirmTime = performance.now();
-      await publicClient.waitForTransactionReceipt({ hash, timeout: 5 * 60 * 1000 });
+      // await publicClient.waitForTransactionReceipt({ hash, timeout: 5 * 60 * 1000 });
       const endConfirmTime = performance.now();
       const confirmationTimeMs = endConfirmTime - startConfirmTime;
       console.log(`⏱️ Stake transaction confirmed in: ${confirmationTimeMs.toFixed(2)}ms`);
@@ -125,7 +125,7 @@ export function useStakingManager(pool: StakingPoolData | null, onStakeSuccess?:
       );
 
       const startConfirmTime = performance.now();
-      await publicClient.waitForTransactionReceipt({ hash, timeout: 5 * 60 * 1000 });
+      // await publicClient.waitForTransactionReceipt({ hash, timeout: 5 * 60 * 1000 });
       const endConfirmTime = performance.now();
       const confirmationTimeMs = endConfirmTime - startConfirmTime;
       console.log(`⏱️ Unstake transaction confirmed in: ${confirmationTimeMs.toFixed(2)}ms`);

@@ -60,7 +60,7 @@ export function useStaking(pool: StakingPoolData | null, onStakeSuccess?: () => 
         args: [pool.address as `0x${string}`, parsedAmount],
       });
 
-      await publicClient.waitForTransactionReceipt({ hash, timeout: 5 * 60 * 1000 });
+      // await publicClient.waitForTransactionReceipt({ hash, timeout: 5 * 60 * 1000 });
 
       await confirmStakeMutation.mutateAsync({
         chainId: pool.chainId,
@@ -106,7 +106,7 @@ export function useStaking(pool: StakingPoolData | null, onStakeSuccess?: () => 
         args: [pool.address as `0x${string}`, parsedAmount],
       });
 
-      await publicClient.waitForTransactionReceipt({ hash, timeout: 5 * 60 * 1000 });
+      // await publicClient.waitForTransactionReceipt({ hash, timeout: 5 * 60 * 1000 });
 
       await confirmUnstakeMutation.mutateAsync({
         chainId: pool.chainId,

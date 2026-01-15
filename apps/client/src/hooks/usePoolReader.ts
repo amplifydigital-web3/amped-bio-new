@@ -2,7 +2,6 @@ import { useReadContracts, useWriteContract, useReadContract, useConfig } from "
 import { type Address } from "viem";
 import { CREATOR_POOL_ABI } from "@ampedbio/web3";
 import React from "react";
-import { waitForTransactionReceipt } from "@wagmi/core";
 
 interface UsePoolReaderOptions {
   initialFanStake?: bigint;
@@ -88,7 +87,7 @@ export function usePoolReader(
       let confirmationTimeMs = 0;
       if (hash) {
         const startConfirmTime = performance.now();
-        await waitForTransactionReceipt(config, { hash });
+        // await waitForTransactionReceipt(config, { hash });
         const endConfirmTime = performance.now();
         confirmationTimeMs = endConfirmTime - startConfirmTime;
         console.log(`⏱️ Transaction confirmed in: ${confirmationTimeMs.toFixed(2)}ms`);

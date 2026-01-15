@@ -323,7 +323,7 @@ export function CreatorPoolPanel() {
         // Set transaction hash for display
         setTransactionHash(hash);
         // wait for confirmation
-        const res = await client!.waitForTransactionReceipt({ hash, confirmations: 2 });
+        const res = await client!.waitForTransactionReceipt({ hash, confirmations: 1 });
 
         console.info("Transaction:", res);
 
