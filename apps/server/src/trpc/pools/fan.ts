@@ -13,6 +13,157 @@ import {
 } from "@ampedbio/constants";
 
 export const poolsFanRouter = router({
+  getPoolByAddress: publicProcedure
+    .input(
+      z.object({
+        poolAddress: z.string(),
+      })
+    )
+    .query(async ({ input }) => {
+      try {
+        const pool = await prisma.creatorPool.findUnique({
+          where: { poolAddress: input.poolAddress.toLowerCase() },
+          include: {
+            poolImage: {
+              select: {
+                s3_key: true,
+                bucket: true,
+              },
+            },
+            wallet: {
+              select: {
+                address: true,
+                user: {
+                  select: {
+                    handle: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+            _count: {
+              select: {
+                stakedPools: true,
+              },
+            },
+          },
+        });
+
+        if (!pool) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Pool not found",
+          });
+        }
+
+        const chain = getChainConfig(parseInt(pool.chainId));
+
+        if (!chain) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Unsupported chain ID",
+          });
+        }
+
+        const publicClient = createPublicClient({
+          chain: chain,
+          transport: http(),
+        });
+
+        let totalStake: bigint = BigInt(pool.revoStaked);
+        let poolName = `Pool ${pool.id}`;
+        let creatorFee = 0;
+
+        try {
+          if (pool.poolAddress) {
+            const multicallRequests = [
+              {
+                address: pool.poolAddress as Address,
+                abi: CREATOR_POOL_ABI,
+                functionName: "totalFanStaked" as const,
+              },
+              {
+                address: pool.poolAddress as Address,
+                abi: CREATOR_POOL_ABI,
+                functionName: "creatorStaked" as const,
+              },
+              {
+                address: pool.poolAddress as Address,
+                abi: CREATOR_POOL_ABI,
+                functionName: "poolName" as const,
+              },
+              {
+                address: pool.poolAddress as Address,
+                abi: CREATOR_POOL_ABI,
+                functionName: "creatorFee" as const,
+              },
+            ];
+
+            const results = await publicClient.multicall({
+              contracts: multicallRequests,
+            });
+
+            const totalFanStakedResult = results[0];
+            const creatorStakedResult = results[1];
+            const poolNameResult = results[2];
+            const creatorFeeResult = results[3];
+
+            let totalFanStaked: bigint | null = null;
+            let creatorStaked: bigint | null = null;
+
+            if (totalFanStakedResult.status === "success") {
+              totalFanStaked = totalFanStakedResult.result as bigint;
+            }
+
+            if (creatorStakedResult.status === "success") {
+              creatorStaked = creatorStakedResult.result as bigint;
+            }
+
+            if (poolNameResult.status === "success") {
+              poolName = (poolNameResult.result as string) || `Pool ${pool.id}`;
+            }
+
+            if (creatorFeeResult.status === "success") {
+              creatorFee = Number(creatorFeeResult.result as bigint);
+            }
+
+            if (totalFanStaked !== null && creatorStaked !== null) {
+              totalStake = totalFanStaked + creatorStaked;
+            }
+          }
+        } catch (error) {
+          console.error(`Error fetching data from contract for pool ${pool.id}:`, error);
+        }
+
+        const activeStakers = pool._count.stakedPools;
+
+        return {
+          id: pool.id,
+          name: poolName,
+          description: pool.description,
+          chainId: pool.chainId,
+          address: pool.poolAddress!,
+          image:
+            pool.image_file_id && pool.poolImage
+              ? {
+                  id: pool.image_file_id,
+                  url: s3Service.getFileUrl(pool.poolImage.s3_key),
+                }
+              : null,
+          stakedAmount: totalStake,
+          fans: activeStakers,
+          creatorFee,
+        };
+      } catch (error) {
+        console.error("Error fetching pool by address:", error);
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch pool",
+        });
+      }
+    }),
+
   getPools: publicProcedure
     .input(
       z.object({
