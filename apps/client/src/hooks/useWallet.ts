@@ -59,6 +59,18 @@ export const useWeb3AuthWallet = () => {
   const getTokenAndConnect = useCallback(async () => {
     try {
       const { walletToken } = await trpcClient.auth.getWalletToken.query();
+
+      try {
+        const payload = JSON.parse(atob(walletToken.token.split(".")[1]));
+        if (payload.exp) {
+          const expirationTime = payload.exp * 1000;
+          localStorage.setItem("walletTokenExpiration", expirationTime.toString());
+          console.log("Token expiration set to:", new Date(expirationTime).toISOString());
+        }
+      } catch (error) {
+        console.error("Error decoding token expiration:", error);
+      }
+
       await connectTo(WALLET_CONNECTORS.AUTH, {
         authConnection: AUTH_CONNECTION.CUSTOM,
         authConnectionId: import.meta.env.VITE_WEB3AUTH_AUTH_CONNECTION_ID,

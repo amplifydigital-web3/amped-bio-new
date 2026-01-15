@@ -4,6 +4,7 @@ import {
   MediaBlock,
   MediaBlockPlatform,
   TextBlock,
+  PoolBlock,
 } from "@ampedbio/constants";
 import { getPlatformIcon } from "@/utils/platforms";
 import { FileText, LucideIcon, Coins, Lock } from "lucide-react";
@@ -34,6 +35,13 @@ const blockTypes: {
         type: "link" | "text" | "media";
         disabled?: boolean;
       }
+    | {
+        id: "pool";
+        name: string;
+        icon: LucideIcon | IconType;
+        type: "pool";
+        disabled?: boolean;
+      }
   )[];
 }[] = [
   {
@@ -59,7 +67,9 @@ const blockTypes: {
   },
   {
     category: "Web3",
-    blocks: [{ id: "creator-pool", name: "Stake in my Pool", icon: Coins, type: "media" }],
+    blocks: [
+      { id: "pool", name: "Creator Pool", icon: Coins, type: "pool" },
+    ],
   },
 ];
 
@@ -90,6 +100,16 @@ export function BlockPicker({ onAdd }: BlockPickerProps) {
           label: "",
         },
       } as LinkBlock;
+    } else if (blockType === "pool") {
+      return {
+        id: 0,
+        type: "pool",
+        order: 0,
+        config: {
+          address: "",
+          label: "",
+        },
+      } as PoolBlock;
     } else {
       return {
         id: 0,
@@ -122,6 +142,11 @@ export function BlockPicker({ onAdd }: BlockPickerProps) {
           ...editingBlock,
           config: config as LinkBlock["config"],
         } as LinkBlock);
+      } else if (editingBlock.type === "pool") {
+        onAdd({
+          ...editingBlock,
+          config: config as PoolBlock["config"],
+        } as PoolBlock);
       } else {
         onAdd({
           ...editingBlock,
@@ -143,7 +168,7 @@ export function BlockPicker({ onAdd }: BlockPickerProps) {
           <h3 className="text-sm font-medium text-gray-900">{category.category}</h3>
           <div className="grid grid-cols-2 gap-3">
             {category.blocks.map(block => {
-              const isDisabled = block.id === "creator-pool" && !hasCreatorPool;
+              const isDisabled = false;
               return (
                 <button
                   key={block.id}

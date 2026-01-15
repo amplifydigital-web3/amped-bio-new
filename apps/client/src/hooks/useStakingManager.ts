@@ -53,14 +53,25 @@ export function useStakingManager(pool: StakingPoolData | null, onStakeSuccess?:
     try {
       const parsedAmount = parseEther(amount);
 
+      const startHashTime = performance.now();
       const hash = await writeL2TokenContractAsync({
         address: tokenAddress,
         abi: L2_BASE_TOKEN_ABI,
         functionName: "stake",
         args: [pool.address as `0x${string}`, parsedAmount],
       });
+      const endHashTime = performance.now();
+      const hashTimeMs = endHashTime - startHashTime;
+      console.log(
+        `⏱️ Stake transaction hash returned in: ${hashTimeMs.toFixed(2)}ms | Hash: ${hash}`
+      );
 
-      await publicClient.waitForTransactionReceipt({ hash, timeout: 5 * 60 * 1000 });
+      const startConfirmTime = performance.now();
+      // await publicClient.waitForTransactionReceipt({ hash, timeout: 5 * 60 * 1000 });
+      const endConfirmTime = performance.now();
+      const confirmationTimeMs = endConfirmTime - startConfirmTime;
+      console.log(`⏱️ Stake transaction confirmed in: ${confirmationTimeMs.toFixed(2)}ms`);
+      console.log(`⏱️ Total stake time: ${(hashTimeMs + confirmationTimeMs).toFixed(2)}ms`);
 
       await confirmStakeMutation.mutateAsync({
         chainId: pool.chainId,
@@ -99,14 +110,26 @@ export function useStakingManager(pool: StakingPoolData | null, onStakeSuccess?:
 
     try {
       const parsedAmount = parseEther(amount);
+
+      const startHashTime = performance.now();
       const hash = await writeL2TokenContractAsync({
         address: tokenAddress,
         abi: L2_BASE_TOKEN_ABI,
         functionName: "unstake",
         args: [pool.address as `0x${string}`, parsedAmount],
       });
+      const endHashTime = performance.now();
+      const hashTimeMs = endHashTime - startHashTime;
+      console.log(
+        `⏱️ Unstake transaction hash returned in: ${hashTimeMs.toFixed(2)}ms | Hash: ${hash}`
+      );
 
-      await publicClient.waitForTransactionReceipt({ hash, timeout: 5 * 60 * 1000 });
+      const startConfirmTime = performance.now();
+      // await publicClient.waitForTransactionReceipt({ hash, timeout: 5 * 60 * 1000 });
+      const endConfirmTime = performance.now();
+      const confirmationTimeMs = endConfirmTime - startConfirmTime;
+      console.log(`⏱️ Unstake transaction confirmed in: ${confirmationTimeMs.toFixed(2)}ms`);
+      console.log(`⏱️ Total unstake time: ${(hashTimeMs + confirmationTimeMs).toFixed(2)}ms`);
 
       await confirmUnstakeMutation.mutateAsync({
         chainId: pool.chainId,

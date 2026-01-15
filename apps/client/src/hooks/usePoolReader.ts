@@ -2,7 +2,6 @@ import { useReadContracts, useWriteContract, useReadContract, useConfig } from "
 import { type Address } from "viem";
 import { CREATOR_POOL_ABI } from "@ampedbio/web3";
 import React from "react";
-import { waitForTransactionReceipt } from "@wagmi/core";
 
 interface UsePoolReaderOptions {
   initialFanStake?: bigint;
@@ -75,14 +74,24 @@ export function usePoolReader(
     }
 
     try {
+      const startHashTime = performance.now();
       const hash = await writeCreatorPoolContractAsync({
         address: poolAddress,
         abi: CREATOR_POOL_ABI,
         functionName: "claimReward",
       });
+      const endHashTime = performance.now();
+      const hashTimeMs = endHashTime - startHashTime;
+      console.log(`⏱️ Transaction hash returned in: ${hashTimeMs.toFixed(2)}ms | Hash: ${hash}`);
 
+      let confirmationTimeMs = 0;
       if (hash) {
-        await waitForTransactionReceipt(config, { hash });
+        const startConfirmTime = performance.now();
+        // await waitForTransactionReceipt(config, { hash });
+        const endConfirmTime = performance.now();
+        confirmationTimeMs = endConfirmTime - startConfirmTime;
+        console.log(`⏱️ Transaction confirmed in: ${confirmationTimeMs.toFixed(2)}ms`);
+        console.log(`⏱️ Total claim time: ${(hashTimeMs + confirmationTimeMs).toFixed(2)}ms`);
       }
 
       return hash;

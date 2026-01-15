@@ -10,6 +10,7 @@ import {
 import { getPlatformIcon } from "../utils/platforms";
 import { MediaBlock } from "./blocks/MediaBlock";
 import { TextBlock } from "./blocks/text/TextBlock";
+import { CreatorPoolBlock } from "./blocks/CreatorPoolBlock";
 import { isHTML } from "@/utils/htmlutils";
 import { type BlockType } from "@ampedbio/constants";
 import { Theme, UserProfile } from "@/types/editor";
@@ -214,6 +215,9 @@ export function Preview({ profile, blocks, theme }: PreviewProps) {
                   }
                   if (block.type === "media") {
                     return <MediaBlock key={block.id} block={block} theme={themeConfig} />;
+                  }
+                  if (block.type === "pool") {
+                    return <CreatorPoolBlock key={block.id} block={block} theme={themeConfig} />;
                   }
                   return <TextBlock key={block.id} block={block} theme={themeConfig} />;
                 })}

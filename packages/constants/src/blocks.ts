@@ -2,7 +2,7 @@ import { z } from "zod";
 import { allowedPlatforms, mediaPlataforms, PlatformId } from "./platforms";
 
 // TypeScript type definitions for block types
-type BaseBlockType = "link" | "media" | "text";
+type BaseBlockType = "link" | "media" | "text" | "pool";
 
 export type BaseBlock<type extends BaseBlockType = any, T = any> = {
   id: number;
@@ -36,7 +36,15 @@ export type TextBlock = BaseBlock<
   }
 >;
 
-export type BlockType = LinkBlock | MediaBlock | TextBlock;
+export type PoolBlock = BaseBlock<
+  "pool",
+  {
+    address: string;
+    label: string;
+  }
+>;
+
+export type BlockType = LinkBlock | MediaBlock | TextBlock | PoolBlock;
 
 // Define configuration schemas for each block type
 const linkConfigSchema = z.object({
@@ -50,6 +58,13 @@ const mediaConfigSchema = z.object({
   url: z.string().url("Must be a valid URL"),
   label: z.string(),
   content: z.string().optional(),
+});
+
+const poolConfigSchema = z.object({
+  address: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]+$/, "Must be a valid blockchain address starting with 0x"),
+  label: z.string().min(1, "Label is required"),
 });
 
 // Define allowed HTML tags
@@ -105,7 +120,7 @@ export const blockSchema = z.object({
   type: z.string().min(1, "Block type is required"),
   order: z.number().default(0),
   // Config is validated separately based on type
-  config: z.union([linkConfigSchema, mediaConfigSchema, textConfigSchema]),
+  config: z.union([linkConfigSchema, mediaConfigSchema, textConfigSchema, poolConfigSchema]),
 });
 
 // Schema for editing multiple blocks
@@ -117,7 +132,7 @@ export const editBlocksSchema = z.object({
 export const addBlockSchema = z.object({
   type: z.string().min(1, "Block type is required"),
   order: z.number().default(0),
-  config: z.union([linkConfigSchema, mediaConfigSchema, textConfigSchema]),
+  config: z.union([linkConfigSchema, mediaConfigSchema, textConfigSchema, poolConfigSchema]),
 });
 
 // Schema for block id parameter

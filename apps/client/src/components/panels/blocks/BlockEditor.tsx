@@ -72,10 +72,19 @@ const mediaBlockSchema = z
 
 const linkBlockSchema = linkFormSchema;
 
+const poolBlockSchema = z.object({
+  address: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]+$/, "Must be a valid blockchain address starting with 0x"),
+  label: z.string().min(1, "Label is required"),
+});
+
 // Dynamic schema based on block type
 const createBlockSchema = (blockType: string) => {
   if (blockType === "media") {
     return mediaBlockSchema;
+  } else if (blockType === "pool") {
+    return poolBlockSchema;
   }
 
   return linkBlockSchema;
@@ -112,7 +121,10 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
   }, [block.config, block.type]);
 
   // Create a type based on union of possible schemas
-  type BlockFormData = z.infer<typeof mediaBlockSchema> | z.infer<typeof linkBlockSchema>;
+  type BlockFormData =
+    | z.infer<typeof mediaBlockSchema>
+    | z.infer<typeof linkBlockSchema>
+    | z.infer<typeof poolBlockSchema>;
 
   const {
     watch,
@@ -164,6 +176,10 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
         }
 
         onSave(typedConfig);
+      } else if (block.type === "pool") {
+        // Handle pool block type with address and label
+        const poolConfig = data as { address: string; label: string };
+        onSave(poolConfig);
       } else {
         console.log("Saving media block:", data);
         onSave(data as BlockType["config"]);
@@ -177,15 +193,35 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            Edit {block.type === "media" ? getPlatformName(block.config.platform) : "Link"} Block
+            {block.type === "pool"
+              ? "Edit Pool Block"
+              : block.type === "media"
+                ? getPlatformName(block.config.platform)
+                : "Edit Link"}{" "}
+            Block
           </DialogTitle>
         </DialogHeader>
+        {/* @ts-expect-error - union type issue with useForm */}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {block.type === "link" && (
             <LinkFormInputs register={register} errors={errors} watch={watch} setValue={setValue} />
           )}
 
-          {block.type === "media" && (
+          {block.type === "media" && block.config.platform === "creator-pool" && (
+            <>
+              <Input
+                label="Pool Address"
+                type="text"
+                placeholder="0x..."
+                // @ts-ignore
+                error={errors.url?.message?.toString()}
+                {...register("url")}
+              />
+              <input type="hidden" {...register("platform")} value={block.config.platform} />
+            </>
+          )}
+
+          {block.type === "media" && block.config.platform !== "creator-pool" && (
             <>
               <Input
                 label="URL"
@@ -207,6 +243,27 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
                   {...register("content")}
                 />
               )}
+            </>
+          )}
+
+          {block.type === "pool" && (
+            <>
+              <Input
+                label="Pool Address"
+                type="text"
+                placeholder="0x..."
+                // @ts-ignore
+                error={errors.address?.message?.toString()}
+                {...register("address")}
+              />
+              <Input
+                label="Label"
+                type="text"
+                placeholder="Display label for the pool"
+                // @ts-ignore
+                error={errors.label?.message?.toString()}
+                {...register("label")}
+              />
             </>
           )}
 

@@ -7,7 +7,6 @@ import { TokenPriceBlock } from "./TokenPriceBlock";
 import { NFTCollectionBlock } from "./NFTCollectionBlock";
 import { UniswapBlock } from "./UniswapBlock";
 import { SubstackBlock } from "./SubstackBlock";
-import { CreatorPoolBlock } from "./CreatorPoolBlock";
 import { MediaBlock as MediaBlockType } from "@ampedbio/constants";
 import { FacebookBlock } from "./FacebookBlock";
 import { TiktokBlock } from "./TiktokBlock";
@@ -36,8 +35,6 @@ export function MediaBlock({ block, theme }: MediaBlockProps) {
       return <UniswapBlock block={block} theme={theme} />;
     case "substack":
       return <SubstackBlock block={block} theme={theme} />;
-    case "creator-pool":
-      return <CreatorPoolBlock block={block} theme={theme} />;
     case "facebook":
       return <FacebookBlock block={block} theme={theme} />;
     case "tiktok":
