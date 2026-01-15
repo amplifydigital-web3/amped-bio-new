@@ -54,7 +54,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-app.use("/trpc", trpcMiddleware);
+app.use("/trpc", trpcMiddleware as any);
 app.use("/.well-known", wellKnownRouter);
 
 app.get("/", (req, res) => {
