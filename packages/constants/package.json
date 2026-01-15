@@ -15,17 +15,17 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix --exit-on-fatal-error",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf coverage",
-    "prepare": "if [ -f \"node_modules/.bin/tsup\" ] || command -v tsup >/dev/null 2>&1; then pnpm run build; fi"
+    "prepare": "pnpm run build"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
-    "tsup": "^8.0.0",
     "typescript": "5.9.2"
   },
   "publishConfig": {
     "access": "public"
   },
   "dependencies": {
+    "tsup": "^8.0.0",
     "zod": "3.25.64"
   }
 }

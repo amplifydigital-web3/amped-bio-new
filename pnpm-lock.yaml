@@ -457,6 +457,9 @@ importers:
 
   packages/constants:
     dependencies:
+      tsup:
+        specifier: ^8.0.0
+        version: 8.4.0(jiti@1.21.7)(postcss@8.5.3)(tsx@4.19.4)(typescript@5.9.2)(yaml@2.7.1)
       zod:
         specifier: 3.25.64
         version: 3.25.64
@@ -464,9 +467,6 @@ importers:
       '@repo/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
-      tsup:
-        specifier: ^8.0.0
-        version: 8.4.0(jiti@1.21.7)(postcss@8.5.3)(tsx@4.19.4)(typescript@5.9.2)(yaml@2.7.1)
       typescript:
         specifier: 5.9.2
         version: 5.9.2
@@ -475,6 +475,9 @@ importers:
 
   packages/web3:
     dependencies:
+      tsup:
+        specifier: ^8.0.0
+        version: 8.4.0(jiti@1.21.7)(postcss@8.5.3)(tsx@4.19.4)(typescript@5.9.2)(yaml@2.7.1)
       viem:
         specifier: 2.34.0
         version: 2.34.0(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.64)
@@ -482,9 +485,6 @@ importers:
       '@repo/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
-      tsup:
-        specifier: ^8.0.0
-        version: 8.4.0(jiti@1.21.7)(postcss@8.5.3)(tsx@4.19.4)(typescript@5.9.2)(yaml@2.7.1)
       typescript:
         specifier: 5.9.2
         version: 5.9.2
