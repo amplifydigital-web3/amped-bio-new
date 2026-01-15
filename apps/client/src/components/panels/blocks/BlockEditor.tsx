@@ -73,7 +73,9 @@ const mediaBlockSchema = z
 const linkBlockSchema = linkFormSchema;
 
 const poolBlockSchema = z.object({
-  address: z.string().regex(/^0x[a-fA-F0-9]+$/, "Must be a valid blockchain address starting with 0x"),
+  address: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]+$/, "Must be a valid blockchain address starting with 0x"),
   label: z.string().min(1, "Label is required"),
 });
 
@@ -119,7 +121,10 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
   }, [block.config, block.type]);
 
   // Create a type based on union of possible schemas
-  type BlockFormData = z.infer<typeof mediaBlockSchema> | z.infer<typeof linkBlockSchema>;
+  type BlockFormData =
+    | z.infer<typeof mediaBlockSchema>
+    | z.infer<typeof linkBlockSchema>
+    | z.infer<typeof poolBlockSchema>;
 
   const {
     watch,
@@ -192,9 +197,11 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
               ? "Edit Pool Block"
               : block.type === "media"
                 ? getPlatformName(block.config.platform)
-                : "Edit Link"} Block
+                : "Edit Link"}{" "}
+            Block
           </DialogTitle>
         </DialogHeader>
+        {/* @ts-expect-error - union type issue with useForm */}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {block.type === "link" && (
             <LinkFormInputs register={register} errors={errors} watch={watch} setValue={setValue} />

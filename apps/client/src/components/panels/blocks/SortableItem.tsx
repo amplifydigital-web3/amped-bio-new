@@ -23,7 +23,7 @@ export function SortableItem({ id, block, onEdit, onRemove }: SortableItemProps)
     zIndex: isDragging ? 1 : undefined,
   };
 
-  const Icon = getPlatformIcon(block.config.platform);
+  const Icon = block.type === "pool" ? null : getPlatformIcon(block.config.platform);
 
   return (
     <div
