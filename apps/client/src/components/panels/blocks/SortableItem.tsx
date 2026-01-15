@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Trash2, Settings, ExternalLink } from "lucide-react";
+import { GripVertical, Trash2, Settings, ExternalLink, Coins } from "lucide-react";
 import type { BlockType } from "@ampedbio/constants";
 import { getPlatformIcon, getPlatformName } from "../../../utils/platforms";
 
@@ -23,7 +23,7 @@ export function SortableItem({ id, block, onEdit, onRemove }: SortableItemProps)
     zIndex: isDragging ? 1 : undefined,
   };
 
-  const Icon = block.type === "pool" ? null : getPlatformIcon(block.config.platform);
+  const Icon = block.type === "pool" ? Coins : getPlatformIcon(block.config.platform);
 
   return (
     <div
@@ -45,7 +45,9 @@ export function SortableItem({ id, block, onEdit, onRemove }: SortableItemProps)
               ? block.config.label
               : block.type === "media"
                 ? getPlatformName(block.config.platform)
-                : "Text"}
+                : block.type === "pool"
+                  ? "Creator Pool"
+                  : "Text"}
           </p>
           <p className="text-sm text-gray-500 truncate">
             {block.type === "link"
