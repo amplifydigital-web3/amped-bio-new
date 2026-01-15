@@ -7,7 +7,8 @@ import { useWeb3AuthWallet } from "../hooks/useWallet";
 import { trpcClient } from "../utils/trpc";
 
 const THROTTLE_DURATION = 3_000; // 3 seconds in milliseconds
-const TOKEN_REFRESH_INTERVAL = 270_000; // 4 minutes and 30 seconds in milliseconds
+const TOKEN_REFRESH_CHECK_INTERVAL = 30_000; // Check every 30 seconds if token needs refresh
+const TOKEN_EXPIRATION_BUFFER = 60_000; // Refresh if token expires in less than 1 minute
 
 export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) => {
   const { authUser, updateAuthUser } = useAuth();
@@ -15,6 +16,10 @@ export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) =>
 
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [isUSD, setIsUSD] = useState(false);
+  const [tokenExpiration, setTokenExpiration] = useState<number | null>(() => {
+    const storedExpiration = localStorage.getItem("walletTokenExpiration");
+    return storedExpiration ? parseInt(storedExpiration, 10) : null;
+  });
 
   const balance = useBalance({
     address: wallet.address,
@@ -23,6 +28,26 @@ export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) =>
 
   const lastConnectAttemptRef = useRef(0);
   const linkAddressRunningRef = useRef(false);
+  const refreshTokenRunningRef = useRef(false);
+
+  useEffect(() => {
+    const updateTokenExpirationFromStorage = () => {
+      const storedExpiration = localStorage.getItem("walletTokenExpiration");
+      if (storedExpiration) {
+        setTokenExpiration(parseInt(storedExpiration, 10));
+      }
+    };
+
+    updateTokenExpirationFromStorage();
+
+    const handleStorageChange = () => {
+      updateTokenExpirationFromStorage();
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
 
   useEffect(() => {
     if (wallet.error) {
@@ -43,6 +68,7 @@ export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) =>
   useEffect(() => {
     if (!authUser && wallet.status === "connected") {
       console.info("Disconnecting wallet due to user logout");
+      localStorage.removeItem("walletTokenExpiration");
       wallet.disconnect();
     }
   }, [authUser, wallet.status, wallet.disconnect]);
@@ -110,21 +136,40 @@ export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) =>
   }, [authUser, wallet.status, wallet.address, wallet, publicKey]);
 
   useEffect(() => {
-    const refreshToken = async () => {
-      if (authUser && wallet.status === "connected") {
+    const refreshTokenIfNeeded = async () => {
+      if (!authUser || wallet.status !== "connected" || refreshTokenRunningRef.current) {
+        return;
+      }
+
+      const now = Date.now();
+
+      if (!tokenExpiration) {
+        return;
+      }
+
+      const timeUntilExpiration = tokenExpiration - now;
+
+      if (timeUntilExpiration <= TOKEN_EXPIRATION_BUFFER) {
+        console.log("Token expiring soon, refreshing...");
+
+        refreshTokenRunningRef.current = true;
+
         try {
+          await wallet.disconnect();
           await wallet.connect();
           console.info("Token refreshed successfully");
         } catch (error) {
           console.error("Error refreshing token:", error);
+        } finally {
+          refreshTokenRunningRef.current = false;
         }
       }
     };
 
-    const interval = setInterval(refreshToken, TOKEN_REFRESH_INTERVAL);
+    const interval = setInterval(refreshTokenIfNeeded, TOKEN_REFRESH_CHECK_INTERVAL);
 
     return () => clearInterval(interval);
-  }, [authUser, wallet.status, wallet.connect]);
+  }, [authUser, wallet.status, wallet.connect, wallet.disconnect, tokenExpiration]);
 
   const updateBalanceDelayed = () => {
     setTimeout(() => balance?.refetch(), 2000);
