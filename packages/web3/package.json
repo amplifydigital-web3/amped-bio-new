@@ -15,7 +15,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix --exit-on-fatal-error",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf coverage",
-    "prepare": "pnpm run build"
+    "prepare": "if [ -f \"node_modules/.bin/tsup\" ] || command -v tsup >/dev/null 2>&1; then pnpm run build; fi"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
