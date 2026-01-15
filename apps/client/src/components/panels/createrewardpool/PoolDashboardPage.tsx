@@ -85,24 +85,27 @@ export default function DashboardPage() {
     data: fansData,
     isLoading: isFansLoading,
     refetch: refetchFansData,
-  } = useQuery(
-    trpc.pools.creator.getFans.queryOptions(
-      {
-        chainId: poolData?.chainId as string,
-        pagination: {
-          page: currentPage,
-          pageSize: fansPerPage,
-        },
-        order: {
-          orderBy: fansOrderBy,
-          orderDirection: fansOrderDirection,
-        },
+  } = useQuery({
+    ...trpc.pools.creator.getFans.queryOptions({
+      chainId: poolData?.chainId as string,
+      pagination: {
+        page: currentPage,
+        pageSize: fansPerPage,
       },
-      {
-        enabled: !!poolData?.chainId,
-      }
-    )
-  );
+      order: {
+        orderBy: fansOrderBy,
+        orderDirection: fansOrderDirection,
+      },
+    }),
+    enabled: !!poolData?.chainId,
+  });
+
+  // Refetch fans data when sorting parameters change
+  useEffect(() => {
+    if (poolData?.chainId) {
+      refetchFansData();
+    }
+  }, [fansOrderBy, fansOrderDirection, poolData?.chainId, refetchFansData]);
 
   // Mutation for updating pool description
   const updateDescriptionMutation = useMutation({
@@ -211,7 +214,7 @@ export default function DashboardPage() {
     );
   }, [dashboardData?.recentActivity]);
 
-  const currentFans = React.useMemo(() => fansData?.fans || [], [fansData]);
+  const currentFans = React.useMemo(() => fansData?.fans || [], [fansData?.fans]);
   const totalPages = React.useMemo(
     () => Math.ceil((fansData?.totalFans || 0) / fansPerPage),
     [fansData?.totalFans, fansPerPage]
@@ -773,7 +776,7 @@ export default function DashboardPage() {
           </div>
           <div className="space-y-1">
             <p className="text-2xl font-bold text-gray-900">
-              {userPool ? formatNumberWithSeparators(userPool.fans) : "0"}
+              {userPool?.fans ?? "-"}
             </p>
             <p className="text-sm text-purple-600 flex items-center">
               <TrendingUp className="w-4 h-4 mr-1" />+{dashboardData?.newFansThisWeek} new this week
@@ -938,7 +941,10 @@ export default function DashboardPage() {
             <div className="flex items-center space-x-2">
               <span className="text-sm font-medium text-gray-700">Order by:</span>
               <button
-                onClick={() => setFansOrderBy("createdAt")}
+                onClick={() => {
+                  setFansOrderBy("createdAt");
+                  setCurrentPage(1); // Reset to first page when sorting changes
+                }}
                 className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-200 ${
                   fansOrderBy === "createdAt"
                     ? "bg-blue-600 text-white"
@@ -948,7 +954,10 @@ export default function DashboardPage() {
                 Date
               </button>
               <button
-                onClick={() => setFansOrderBy("stakeAmount")}
+                onClick={() => {
+                  setFansOrderBy("stakeAmount");
+                  setCurrentPage(1); // Reset to first page when sorting changes
+                }}
                 className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-200 ${
                   fansOrderBy === "stakeAmount"
                     ? "bg-blue-600 text-white"
@@ -963,7 +972,10 @@ export default function DashboardPage() {
             <div className="flex items-center space-x-2">
               <span className="text-sm font-medium text-gray-700">Direction:</span>
               <button
-                onClick={() => setFansOrderDirection("asc")}
+                onClick={() => {
+                  setFansOrderDirection("asc");
+                  setCurrentPage(1); // Reset to first page when sorting changes
+                }}
                 className={`p-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
                   fansOrderDirection === "asc"
                     ? "bg-blue-600 text-white"
@@ -973,7 +985,10 @@ export default function DashboardPage() {
                 <ArrowUpNarrowWide className="w-4 h-4" />
               </button>
               <button
-                onClick={() => setFansOrderDirection("desc")}
+                onClick={() => {
+                  setFansOrderDirection("desc");
+                  setCurrentPage(1); // Reset to first page when sorting changes
+                }}
                 className={`p-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
                   fansOrderDirection === "desc"
                     ? "bg-blue-600 text-white"

@@ -185,7 +185,21 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
             <LinkFormInputs register={register} errors={errors} watch={watch} setValue={setValue} />
           )}
 
-          {block.type === "media" && (
+          {block.type === "media" && block.config.platform === "creator-pool" && (
+            <>
+              <Input
+                label="Pool Address"
+                type="text"
+                placeholder="0x..."
+                // @ts-ignore
+                error={errors.url?.message?.toString()}
+                {...register("url")}
+              />
+              <input type="hidden" {...register("platform")} value={block.config.platform} />
+            </>
+          )}
+
+          {block.type === "media" && block.config.platform !== "creator-pool" && (
             <>
               <Input
                 label="URL"

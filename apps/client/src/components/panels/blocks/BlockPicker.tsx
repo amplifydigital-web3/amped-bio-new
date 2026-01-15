@@ -59,7 +59,7 @@ const blockTypes: {
   },
   {
     category: "Web3",
-    blocks: [{ id: "creator-pool", name: "Stake in my Pool", icon: Coins, type: "media" }],
+    blocks: [{ id: "creator-pool", name: "Stake in this Pool", icon: Coins, type: "media" }],
   },
 ];
 
