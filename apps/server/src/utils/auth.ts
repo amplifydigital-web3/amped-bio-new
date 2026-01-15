@@ -31,31 +31,6 @@ export const JWT_KEYS = {
   iss: env.API_HOST,
 };
 
-// TODO remove this function and use better-auth's built-in JWT signing where needed
-export const generateAccessToken = async (user: {
-  id: number;
-  email: string;
-  role: string;
-  wallet: string | null;
-}): Promise<string> => {
-  return new SignJWT({
-    sub: user.id.toString(),
-    email: user.email,
-    role: user.role,
-    wallet: user.wallet || null,
-    aud: env.JWT_AUDIENCE,
-    iss: env.API_HOST,
-  })
-    .setIssuedAt()
-    .setExpirationTime("10m")
-    .setProtectedHeader({
-      alg: JWT_KEYS.alg,
-      kid: JWT_KEYS.kid,
-      typ: "JWT",
-    })
-    .sign(JWT_KEYS.privateKey);
-};
-
 // ================ better-auth configuration ==================
 export const auth = betterAuth({
   basePath: "/auth",
@@ -162,12 +137,6 @@ export const auth = betterAuth({
         type: "string",
         required: false,
         defaultValue: null,
-      },
-      wallet: {
-        type: "string",
-        required: false,
-        defaultValue: null,
-        input: false,
       },
     },
     beforeCreate: async (user: any, context: any) => {
