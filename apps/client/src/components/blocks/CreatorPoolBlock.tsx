@@ -58,13 +58,12 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
     }
   }, [isQueryLoading, poolAddress]);
 
-  const formatUSD = (value: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
+  const formatWeiToEther = (value: bigint) => {
+    const etherValue = Number(value) / 1e18;
+    return etherValue.toLocaleString("en-US", {
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
+      maximumFractionDigits: 2,
+    });
   };
 
   if (isLoading) {
@@ -161,12 +160,9 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
                 color: theme.fontColor,
               }}
             >
-              {formatNumberWithSeparators(poolData.stakedAmount.toString())}
+              {formatWeiToEther(poolData.stakedAmount)} REVO
             </p>
-            <div className="flex items-center text-green-400 text-xs">
-              <DollarSign className="w-3 h-3 mr-0.5" />
-              <span>{formatUSD(Number(poolData.stakedAmount) * 2.34)}</span>
-            </div>
+            <p className="text-xs text-green-400 mt-1">Total tokens staked</p>
           </div>
         </div>
 
