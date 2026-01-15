@@ -6,7 +6,6 @@ import { formatEther } from "viem";
 import { getChainConfig } from "@ampedbio/web3";
 import { Button } from "../components/ui/Button";
 import { useEffect, useState } from "react";
-import { trpc } from "../utils/trpc/trpc";
 
 export function PoolDebugPage() {
   const { address: poolAddress } = useParams<{ address: string }>();
