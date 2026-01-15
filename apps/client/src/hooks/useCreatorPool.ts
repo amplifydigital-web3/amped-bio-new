@@ -2,6 +2,7 @@ import { useChainId, useAccount, useReadContract, useWalletClient } from "wagmi"
 import { type Address, parseEther, zeroAddress } from "viem";
 import { useMemo } from "react";
 import { CREATOR_POOL_FACTORY_ABI, getChainConfig } from "@ampedbio/web3";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface CreatePoolArgs {
   creatorCut: number;
@@ -11,6 +12,7 @@ export interface CreatePoolArgs {
 
 export function useCreatorPool() {
   const chainId = useChainId();
+  const { authUser } = useAuth();
   const { address: userAddress } = useAccount();
   const { data: walletClient } = useWalletClient();
 
@@ -23,7 +25,7 @@ export function useCreatorPool() {
     address: chain?.contracts?.CREATOR_POOL_FACTORY?.address,
     abi: CREATOR_POOL_FACTORY_ABI,
     functionName: "getPoolForCreator",
-    args: userAddress ? [userAddress] : undefined,
+    args: [(authUser?.wallet ?? userAddress) as `0x${string}`],
     query: {
       enabled: !!chainId && !!userAddress && !!chain?.contracts?.CREATOR_POOL_FACTORY?.address,
     },
