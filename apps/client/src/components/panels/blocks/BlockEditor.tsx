@@ -72,10 +72,17 @@ const mediaBlockSchema = z
 
 const linkBlockSchema = linkFormSchema;
 
+const poolBlockSchema = z.object({
+  address: z.string().regex(/^0x[a-fA-F0-9]+$/, "Must be a valid blockchain address starting with 0x"),
+  label: z.string().min(1, "Label is required"),
+});
+
 // Dynamic schema based on block type
 const createBlockSchema = (blockType: string) => {
   if (blockType === "media") {
     return mediaBlockSchema;
+  } else if (blockType === "pool") {
+    return poolBlockSchema;
   }
 
   return linkBlockSchema;
@@ -164,6 +171,10 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
         }
 
         onSave(typedConfig);
+      } else if (block.type === "pool") {
+        // Handle pool block type with address and label
+        const poolConfig = data as { address: string; label: string };
+        onSave(poolConfig);
       } else {
         console.log("Saving media block:", data);
         onSave(data as BlockType["config"]);
@@ -177,7 +188,11 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            Edit {block.type === "media" ? getPlatformName(block.config.platform) : "Link"} Block
+            {block.type === "pool"
+              ? "Edit Pool Block"
+              : block.type === "media"
+                ? getPlatformName(block.config.platform)
+                : "Edit Link"} Block
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -221,6 +236,27 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
                   {...register("content")}
                 />
               )}
+            </>
+          )}
+
+          {block.type === "pool" && (
+            <>
+              <Input
+                label="Pool Address"
+                type="text"
+                placeholder="0x..."
+                // @ts-ignore
+                error={errors.address?.message?.toString()}
+                {...register("address")}
+              />
+              <Input
+                label="Label"
+                type="text"
+                placeholder="Display label for the pool"
+                // @ts-ignore
+                error={errors.label?.message?.toString()}
+                {...register("label")}
+              />
             </>
           )}
 

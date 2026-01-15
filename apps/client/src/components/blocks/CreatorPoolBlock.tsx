@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { CoinsIcon, Users, DollarSign, ExternalLink, Loader2 } from "lucide-react";
 import type { ThemeConfig } from "../../types/editor";
-import { MediaBlock } from "@ampedbio/constants";
+import { PoolBlock } from "@ampedbio/constants";
 import { formatNumberWithSeparators } from "@/utils/numberUtils";
 import { trpc } from "@/utils/trpc";
 import { useQuery } from "@tanstack/react-query";
 
 interface CreatorPoolBlockProps {
-  block: MediaBlock;
+  block: PoolBlock;
   theme: ThemeConfig;
 }
 
@@ -27,7 +27,7 @@ interface PoolData {
 }
 
 export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
-  const poolAddress = block.config.url;
+  const poolAddress = block.config.address;
   const [poolData, setPoolData] = useState<PoolData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
