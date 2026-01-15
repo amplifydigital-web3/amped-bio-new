@@ -877,8 +877,9 @@ export const poolsFanRouter = router({
           transport: http(),
         });
 
-        const transactionReceipt = await publicClient.getTransactionReceipt({
+        const transactionReceipt = await publicClient.waitForTransactionReceipt({
           hash: input.hash as `0x${string}`,
+          timeout: 5 * 60 * 1000,
         });
 
         if (!transactionReceipt) {
@@ -1068,8 +1069,9 @@ export const poolsFanRouter = router({
           transport: http(),
         });
 
-        const transactionReceipt = await publicClient.getTransactionReceipt({
+        const transactionReceipt = await publicClient.waitForTransactionReceipt({
           hash: input.hash as `0x${string}`,
+          timeout: 5 * 60 * 1000,
         });
 
         if (!transactionReceipt) {
