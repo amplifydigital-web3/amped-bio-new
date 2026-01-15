@@ -210,7 +210,7 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
                 color: theme.fontColor,
               }}
             >
-              {formatNumberWithSeparators(poolData.fans)}
+              {poolData.fans}
             </p>
             <p className="text-xs text-blue-400 mt-1">Growing community</p>
           </div>
