@@ -939,7 +939,7 @@ export const poolsCreatorRouter = router({
           const rawFans = await prisma.$queryRawUnsafe<Array<any>>(
             `SELECT sp.*,
               uw.id as wallet_id, uw.address as wallet_address, uw.userId as wallet_userId,
-              u.id as user_id, u.handle as user_handle,
+              u.id as user_id, u.littlelink_name as user_handle,
               uf.id as profileImage_id, uf.s3_key as profileImage_s3Key, uf.bucket as profileImage_bucket
             FROM staked_pools sp
             JOIN user_wallets uw ON sp.userWalletId = uw.id
