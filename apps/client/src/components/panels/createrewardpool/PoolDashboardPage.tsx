@@ -49,13 +49,11 @@ export default function DashboardPage() {
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [descriptionInput, setDescriptionInput] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [currentHistoryPage, setCurrentHistoryPage] = useState(1);
   const [isImageUploadModalOpen, setIsImageUploadModalOpen] = useState(false);
   const [fansOrderBy, setFansOrderBy] = useState<"createdAt" | "stakeAmount">("createdAt");
   const [fansOrderDirection, setFansOrderDirection] = useState<"asc" | "desc">("desc");
 
   const fansPerPage = 10;
-  const activitiesPerPage = 8;
 
   const { address: userAddress } = useAccount();
   const chainId = useChainId();
@@ -221,23 +219,7 @@ export default function DashboardPage() {
     [fansData?.totalFans, fansPerPage]
   );
 
-  // Calculate history pagination
-  const totalHistoryPages = React.useMemo(
-    () => Math.ceil(poolActivities.length / activitiesPerPage),
-    [poolActivities, activitiesPerPage]
-  );
-  const historyStartIndex = React.useMemo(
-    () => (currentHistoryPage - 1) * activitiesPerPage,
-    [currentHistoryPage, activitiesPerPage]
-  );
-  const historyEndIndex = React.useMemo(
-    () => historyStartIndex + activitiesPerPage,
-    [historyStartIndex, activitiesPerPage]
-  );
-  const currentActivities = React.useMemo(
-    () => poolActivities.slice(historyStartIndex, historyEndIndex),
-    [poolActivities, historyStartIndex, historyEndIndex]
-  );
+  const currentActivities = React.useMemo(() => poolActivities.slice(0, 10), [poolActivities]);
 
   const handlePreviousPage = React.useCallback(() => {
     setCurrentPage(prev => Math.max(prev - 1, 1));
@@ -249,18 +231,6 @@ export default function DashboardPage() {
 
   const handlePageClick = React.useCallback((page: number) => {
     setCurrentPage(page);
-  }, []);
-
-  const handlePreviousHistoryPage = React.useCallback(() => {
-    setCurrentHistoryPage(prev => Math.max(prev - 1, 1));
-  }, []);
-
-  const handleNextHistoryPage = React.useCallback(() => {
-    setCurrentHistoryPage(prev => Math.min(prev + 1, totalHistoryPages));
-  }, [totalHistoryPages]);
-
-  const handleHistoryPageClick = React.useCallback((page: number) => {
-    setCurrentHistoryPage(page);
   }, []);
 
   const currencySymbol = chainConfig?.nativeCurrency.symbol || "REVO";
@@ -1133,7 +1103,7 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
-            <p className="text-sm text-gray-600">Latest pool transactions and events</p>
+            <p className="text-sm text-gray-600">Latest 10 pool transactions and events</p>
           </div>
         </div>
 
@@ -1194,63 +1164,6 @@ export default function DashboardPage() {
             </div>
           ))}
         </div>
-
-        {/* Activity Pagination */}
-        {totalHistoryPages > 1 && (
-          <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
-            <div className="text-sm text-gray-600">
-              Showing {historyStartIndex + 1}-{Math.min(historyEndIndex, poolActivities.length)} of{" "}
-              {poolActivities.length} activities
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={handlePreviousHistoryPage}
-                disabled={currentHistoryPage === 1}
-                className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-
-              <div className="flex items-center space-x-1">
-                {Array.from({ length: Math.min(5, totalHistoryPages) }, (_, i) => {
-                  let pageNum;
-                  if (totalHistoryPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentHistoryPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentHistoryPage >= totalHistoryPages - 2) {
-                    pageNum = totalHistoryPages - 4 + i;
-                  } else {
-                    pageNum = currentHistoryPage - 2 + i;
-                  }
-
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => handleHistoryPageClick(pageNum)}
-                      className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-200 ${
-                        currentHistoryPage === pageNum
-                          ? "bg-blue-600 text-white"
-                          : "text-gray-600 hover:bg-gray-100"
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <button
-                onClick={handleNextHistoryPage}
-                disabled={currentHistoryPage === totalHistoryPages}
-                className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Pool Details Modal */}
