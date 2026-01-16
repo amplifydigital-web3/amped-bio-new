@@ -1,6 +1,6 @@
 import { useChainId, useReadContract, useWalletClient } from "wagmi";
-import { type Address, parseEther, zeroAddress } from "viem";
-import { useMemo } from "react";
+import { type Address, isAddress, parseEther, zeroAddress } from "viem";
+import { useMemo, useEffect, useRef } from "react";
 import { CREATOR_POOL_FACTORY_ABI, getChainConfig } from "@ampedbio/web3";
 import { useWalletContext } from "@/contexts/WalletContext";
 
@@ -19,6 +19,8 @@ export function useCreatorPool() {
     return getChainConfig(chainId);
   }, [chainId]);
 
+  const hasFetchedRef = useRef(false);
+
   // Use wagmi's useReadContract hook to get the pool address
   const { data: contractPoolAddress, isLoading: isReadingPoolAddress } = useReadContract({
     address: chain?.contracts?.CREATOR_POOL_FACTORY?.address,
@@ -26,9 +28,19 @@ export function useCreatorPool() {
     functionName: "getPoolForCreator",
     args: wallet.address ? [wallet.address] : undefined,
     query: {
-      enabled: !!chainId && !!wallet.address && !!chain?.contracts?.CREATOR_POOL_FACTORY?.address,
+      enabled:
+        !!chainId &&
+        !!wallet.address &&
+        !!chain?.contracts?.CREATOR_POOL_FACTORY?.address &&
+        !hasFetchedRef.current,
     },
   });
+
+  useEffect(() => {
+    if (contractPoolAddress && isAddress(contractPoolAddress as string) && !isReadingPoolAddress) {
+      hasFetchedRef.current = true;
+    }
+  }, [contractPoolAddress, isReadingPoolAddress]);
 
   console.info("contractPoolAddress", contractPoolAddress);
 
