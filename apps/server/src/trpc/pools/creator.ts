@@ -936,14 +936,17 @@ export const poolsCreatorRouter = router({
         let fans;
 
         if (orderBy === "stakeAmount") {
-          const rawFans = await prisma.$queryRaw<Array<any>>`
-            SELECT sp.*
+          const rawFans = await prisma.$queryRawUnsafe<Array<any>>(
+            `SELECT sp.*
             FROM StakedPool sp
-            WHERE sp.poolId = ${poolId}
+            WHERE sp.poolId = ?
               AND sp.stakeAmount > '0'
             ORDER BY LENGTH(sp.stakeAmount) ${orderDirection}, sp.stakeAmount ${orderDirection}
-            LIMIT ${skip}, ${pageSize}
-          `;
+            LIMIT ?, ?`,
+            poolId,
+            skip,
+            pageSize
+          );
 
           const walletIds = rawFans.map(f => f.walletId);
           const wallets = await prisma.userWallet.findMany({
