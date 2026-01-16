@@ -14,7 +14,6 @@ import {
 import { useNavigate } from "react-router";
 import { formatHandle } from "@/utils/handle";
 import { cn } from "@/lib/utils";
-import { useAccount } from "wagmi";
 import { useWalletContext } from "@/contexts/WalletContext";
 import { AuthUser } from "@/types/auth";
 import { trackGAEvent } from "@/utils/ga";
@@ -26,7 +25,6 @@ export function UserMenu() {
   const walletContext = useWalletContext();
   const { profile, setUser, setDefault } = useEditor();
   const navigate = useNavigate();
-  const { address: walletAddress } = useAccount();
 
   // Reset image error state when user changes
   useEffect(() => {
@@ -138,14 +136,10 @@ export function UserMenu() {
               )}
             </div>
             <div className="flex flex-col items-start transition-all duration-300 group-hover:translate-x-2 group-hover:opacity-0">
-              {walletAddress || walletContext.connecting ? (
+              {walletContext.address ? (
                 <>
                   <span className="text-sm font-semibold text-gray-900">
-                    {walletContext.connecting ? (
-                      <div className="h-4 w-20 bg-gray-200 animate-pulse rounded"></div>
-                    ) : (
-                      formatAddress(walletAddress!)
-                    )}
+                    {formatAddress(walletContext.address)}
                   </span>
                   <span className="text-xs text-gray-500">@{authUser.handle}</span>
                 </>
