@@ -12,6 +12,7 @@ export type WalletContextType = {
   publicKey: string | null;
   address?: `0x${string}` | undefined;
   getIdentityToken?: () => Promise<string> | undefined;
+  isWeb3Wallet: boolean;
 };
 
 export const WalletContext = createContext<WalletContextType>({
@@ -24,6 +25,7 @@ export const WalletContext = createContext<WalletContextType>({
   publicKey: null,
   address: undefined,
   getIdentityToken: undefined,
+  isWeb3Wallet: false,
 });
 
 export const useWalletContext = () => {

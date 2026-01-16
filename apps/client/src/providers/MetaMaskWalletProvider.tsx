@@ -1,10 +1,11 @@
-import { ReactNode, useState, useEffect } from "react";
+import { ReactNode, useState, useEffect, useMemo } from "react";
 import { useBalance } from "wagmi";
 import { TRPCClientError } from "@trpc/client";
 import { WalletContext } from "../contexts/WalletContext";
 import { useMetaMaskWallet } from "../hooks/useWallet";
 import { trpcClient } from "../utils/trpc";
 import { useAuth } from "../contexts/AuthContext";
+import { type Address } from "viem";
 
 export const MetaMaskWalletProvider = ({ children }: { children: ReactNode }) => {
   const { authUser } = useAuth();
@@ -39,8 +40,12 @@ export const MetaMaskWalletProvider = ({ children }: { children: ReactNode }) =>
     linkAddress();
   }, [authUser, wallet.status, wallet.address, wallet]);
 
+  const address = useMemo(() => {
+    return (authUser?.wallet ?? wallet.address) as Address | undefined;
+  }, [authUser, wallet.address]);
+
   const balance = useBalance({
-    address: wallet.address,
+    address: address,
     query: { refetchInterval: 10000 },
   });
 
@@ -59,8 +64,9 @@ export const MetaMaskWalletProvider = ({ children }: { children: ReactNode }) =>
         setIsUSD,
         updateBalanceDelayed,
         publicKey: null,
-        address: wallet.address,
+        address: address,
         getIdentityToken: undefined,
+        isWeb3Wallet: wallet?.address !== undefined,
       }}
     >
       {children}
