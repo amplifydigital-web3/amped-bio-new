@@ -938,7 +938,7 @@ export const poolsCreatorRouter = router({
         if (orderBy === "stakeAmount") {
           const rawFans = await prisma.$queryRawUnsafe<Array<any>>(
             `SELECT sp.*
-            FROM StakedPool sp
+            FROM staked_pools sp
             WHERE sp.poolId = ?
               AND sp.stakeAmount > '0'
             ORDER BY LENGTH(sp.stakeAmount) ${orderDirection}, sp.stakeAmount ${orderDirection}
