@@ -32,6 +32,7 @@ import { formatNumberWithSeparators } from "@/utils/numberUtils";
 import { ImageUploadModal } from "@/components/ImageUploadModal";
 import { RewardPool } from "@ampedbio/constants";
 import { PoolDashboardSkeleton } from "./PoolDashboardSkeleton";
+import { formatDistanceToNow } from "date-fns";
 
 interface PoolActivity {
   id: string;
@@ -775,9 +776,7 @@ export default function DashboardPage() {
             <span className="text-sm text-gray-500">Total Fans</span>
           </div>
           <div className="space-y-1">
-            <p className="text-2xl font-bold text-gray-900">
-              {userPool?.fans ?? "-"}
-            </p>
+            <p className="text-2xl font-bold text-gray-900">{userPool?.fans ?? "-"}</p>
             <p className="text-sm text-purple-600 flex items-center">
               <TrendingUp className="w-4 h-4 mr-1" />+{dashboardData?.newFansThisWeek} new this week
             </p>
@@ -1040,7 +1039,9 @@ export default function DashboardPage() {
                     >
                       {fan.handle}
                     </a>
-                    <p className="text-sm text-gray-500">Joined recently</p>
+                    <p className="text-sm text-gray-500">
+                      Joined {formatDistanceToNow(new Date(fan.createdAt), { addSuffix: true })}
+                    </p>
                   </div>
                 </div>
 

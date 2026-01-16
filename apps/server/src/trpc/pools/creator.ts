@@ -933,30 +933,62 @@ export const poolsCreatorRouter = router({
 
         const poolId = pool.id;
 
-        const fans = await prisma.stakedPool.findMany({
-          where: {
-            poolId: poolId,
-            stakeAmount: {
-              gt: "0", // Only consider active fans
+        let fans;
+
+        if (orderBy === "stakeAmount") {
+          const rawFans = await prisma.$queryRaw<Array<any>>`
+            SELECT sp.*
+            FROM StakedPool sp
+            WHERE sp.poolId = ${poolId}
+              AND sp.stakeAmount > '0'
+            ORDER BY LENGTH(sp.stakeAmount) ${orderDirection}, sp.stakeAmount ${orderDirection}
+            LIMIT ${skip}, ${pageSize}
+          `;
+
+          const walletIds = rawFans.map(f => f.walletId);
+          const wallets = await prisma.userWallet.findMany({
+            where: { id: { in: walletIds } },
+            include: {
+              user: {
+                include: {
+                  profileImage: true,
+                },
+              },
             },
-          },
-          skip,
-          take: pageSize,
-          orderBy: {
-            [orderBy]: orderDirection,
-          },
-          include: {
-            userWallet: {
-              include: {
-                user: {
-                  include: {
-                    profileImage: true,
+          });
+
+          const walletMap = new Map(wallets.map(w => [w.id, w]));
+
+          fans = rawFans.map(f => ({
+            ...f,
+            userWallet: walletMap.get(f.walletId),
+          }));
+        } else {
+          fans = await prisma.stakedPool.findMany({
+            where: {
+              poolId: poolId,
+              stakeAmount: {
+                gt: "0",
+              },
+            },
+            skip,
+            take: pageSize,
+            orderBy: {
+              [orderBy]: orderDirection,
+            },
+            include: {
+              userWallet: {
+                include: {
+                  user: {
+                    include: {
+                      profileImage: true,
+                    },
                   },
                 },
               },
             },
-          },
-        });
+          });
+        }
 
         const totalFans = await prisma.stakedPool.count({
           where: {
