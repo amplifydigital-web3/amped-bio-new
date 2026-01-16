@@ -941,7 +941,7 @@ export const poolsCreatorRouter = router({
             FROM staked_pools sp
             WHERE sp.poolId = ?
               AND sp.stakeAmount > '0'
-            ORDER BY LENGTH(sp.stakeAmount) ${orderDirection}, sp.stakeAmount ${orderDirection}
+            ORDER BY CAST(sp.stakeAmount AS UNSIGNED) ${orderDirection}
             LIMIT ?, ?`,
             poolId,
             skip,
