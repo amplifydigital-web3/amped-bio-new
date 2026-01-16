@@ -947,7 +947,7 @@ export const poolsCreatorRouter = router({
             LEFT JOIN uploaded_files uf ON u.image_file_id = uf.id
             WHERE sp.poolId = ?
               AND sp.stakeAmount > '0'
-            ORDER BY CAST(sp.stakeAmount AS UNSIGNED) ${orderDirection}
+            ORDER BY CAST(sp.stakeAmount AS DECIMAL(65,0)) ${orderDirection}
             LIMIT ?, ?`,
             poolId,
             skip,
