@@ -937,8 +937,14 @@ export const poolsCreatorRouter = router({
 
         if (orderBy === "stakeAmount") {
           const rawFans = await prisma.$queryRawUnsafe<Array<any>>(
-            `SELECT sp.*
+            `SELECT sp.*,
+              uw.id as wallet_id, uw.address as wallet_address, uw.userId as wallet_userId,
+              u.id as user_id, u.handle as user_handle,
+              uf.id as profileImage_id, uf.s3_key as profileImage_s3Key, uf.bucket as profileImage_bucket
             FROM staked_pools sp
+            JOIN user_wallets uw ON sp.userWalletId = uw.id
+            LEFT JOIN users u ON uw.userId = u.id
+            LEFT JOIN uploaded_files uf ON u.image_file_id = uf.id
             WHERE sp.poolId = ?
               AND sp.stakeAmount > '0'
             ORDER BY CAST(sp.stakeAmount AS UNSIGNED) ${orderDirection}
@@ -948,23 +954,31 @@ export const poolsCreatorRouter = router({
             pageSize
           );
 
-          const walletIds = rawFans.map(f => f.walletId);
-          const wallets = await prisma.userWallet.findMany({
-            where: { id: { in: walletIds } },
-            include: {
-              user: {
-                include: {
-                  profileImage: true,
-                },
-              },
-            },
-          });
-
-          const walletMap = new Map(wallets.map(w => [w.id, w]));
-
           fans = rawFans.map(f => ({
-            ...f,
-            userWallet: walletMap.get(f.walletId),
+            id: f.id,
+            poolId: f.poolId,
+            userWalletId: f.userWalletId,
+            stakeAmount: f.stakeAmount,
+            createdAt: f.createdAt,
+            updatedAt: f.updatedAt,
+            userWallet: {
+              id: f.wallet_id,
+              address: f.wallet_address,
+              userId: f.wallet_userId,
+              user: f.user_id
+                ? {
+                    id: f.user_id,
+                    handle: f.user_handle,
+                    profileImage: f.profileImage_id
+                      ? {
+                          id: f.profileImage_id,
+                          s3_key: f.profileImage_s3Key,
+                          bucket: f.profileImage_bucket,
+                        }
+                      : null,
+                  }
+                : null,
+            },
           }));
         } else {
           fans = await prisma.stakedPool.findMany({
