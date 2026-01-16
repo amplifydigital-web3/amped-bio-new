@@ -1,10 +1,11 @@
 import React from "react";
-import { Trophy, ChevronLeft, ChevronRight } from "lucide-react";
+import { Trophy, ChevronLeft, ChevronRight, Coins } from "lucide-react";
 import ExplorePoolDetailsModal from "../explore/ExplorePoolDetailsModal";
 import { useAccount } from "wagmi";
 import StakedPoolRow from "./StakedPoolRow";
 import { useEditor } from "../../../contexts/EditorContext";
 import { useStakedPools } from "./hooks/useStakedPools";
+import { useWalletContext } from "@/contexts/WalletContext";
 
 export default function StakedPoolsSection() {
   const {
@@ -15,6 +16,7 @@ export default function StakedPoolsSection() {
     isClaiming,
   } = useStakedPools();
   const { chainId: currentChainId } = useAccount();
+  const { isWeb3Wallet } = useWalletContext();
 
   const { setActivePanelAndNavigate } = useEditor();
   const [currentPage, setCurrentPage] = React.useState(1);
@@ -29,7 +31,7 @@ export default function StakedPoolsSection() {
       return acc + (pool.pendingRewards ? BigInt(pool.pendingRewards) : 0n);
     }, 0n) ?? 0n;
 
-  const canClaimAll = totalPendingRewards > 0n && !isClaiming;
+  const canClaimAll = isWeb3Wallet && totalPendingRewards > 0n && !isClaiming;
 
   // Calculate pagination
   const totalPages = allStakedPools ? Math.ceil(allStakedPools.length / poolsPerPage) : 0;

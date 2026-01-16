@@ -1,10 +1,11 @@
-import { useEffect, ReactNode, useRef, useState } from "react";
+import { useEffect, ReactNode, useRef, useState, useMemo } from "react";
 import { useBalance } from "wagmi";
 import { TRPCClientError } from "@trpc/client";
 import { useAuth } from "../contexts/AuthContext";
 import { WalletContext } from "../contexts/WalletContext";
 import { useWeb3AuthWallet } from "../hooks/useWallet";
 import { trpcClient } from "../utils/trpc";
+import { type Address } from "viem";
 
 const THROTTLE_DURATION = 3_000; // 3 seconds in milliseconds
 const TOKEN_REFRESH_CHECK_INTERVAL = 30_000; // Check every 30 seconds if token needs refresh
@@ -19,11 +20,6 @@ export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) =>
   const [tokenExpiration, setTokenExpiration] = useState<number | null>(() => {
     const storedExpiration = localStorage.getItem("walletTokenExpiration");
     return storedExpiration ? parseInt(storedExpiration, 10) : null;
-  });
-
-  const balance = useBalance({
-    address: wallet.address,
-    query: { refetchInterval: 10000 },
   });
 
   const lastConnectAttemptRef = useRef(0);
@@ -171,6 +167,15 @@ export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) =>
     return () => clearInterval(interval);
   }, [authUser, wallet.status, wallet.connect, wallet.disconnect, tokenExpiration]);
 
+  const address = useMemo(() => {
+    return (authUser?.wallet ?? wallet.address) as Address | undefined;
+  }, [authUser, wallet.address]);
+
+  const balance = useBalance({
+    address: address,
+    query: { refetchInterval: 10000 },
+  });
+
   const updateBalanceDelayed = () => {
     setTimeout(() => balance?.refetch(), 2000);
   };
@@ -186,8 +191,9 @@ export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) =>
         setIsUSD,
         updateBalanceDelayed,
         publicKey,
-        address: wallet.address,
+        address: address,
         getIdentityToken: wallet.getIdentityToken,
+        isWeb3Wallet: wallet?.address !== undefined,
       }}
     >
       {children}

@@ -4,6 +4,7 @@ import { useAccount, useBalance } from "wagmi";
 import { getChainConfig } from "@ampedbio/web3";
 import { useStakingManager } from "@/hooks/useStakingManager";
 import { formatNumberWithSeparators } from "@/utils/numberUtils";
+import { useWalletContext } from "@/contexts/WalletContext";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +32,7 @@ interface UnstakeModalProps {
 }
 
 export default function UnstakeModal({ isOpen, onClose, pool, onStakeSuccess }: UnstakeModalProps) {
+  const { isWeb3Wallet } = useWalletContext();
   // Get the chain configuration once to avoid multiple calls
   const chainConfig = pool ? getChainConfig(parseInt(pool.chainId)) : null;
   const currencySymbol = chainConfig?.nativeCurrency.symbol || "REVO";
@@ -222,10 +224,18 @@ export default function UnstakeModal({ isOpen, onClose, pool, onStakeSuccess }: 
           <button
             onClick={() => setStep("confirm")}
             disabled={
-              !canProceed || !pool?.address || !!isStaking || (pool?.currentStake || 0) <= 0
+              !isWeb3Wallet ||
+              !canProceed ||
+              !pool?.address ||
+              !!isStaking ||
+              (pool?.currentStake || 0) <= 0
             }
             className={`w-full py-4 font-semibold rounded-xl transition-all duration-200 ${
-              canProceed && !isStaking && pool?.address && (pool?.currentStake || 0) > 0
+              isWeb3Wallet &&
+              canProceed &&
+              !isStaking &&
+              pool?.address &&
+              (pool?.currentStake || 0) > 0
                 ? "bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl"
                 : "bg-gray-300 text-gray-500 cursor-not-allowed"
             }`}
