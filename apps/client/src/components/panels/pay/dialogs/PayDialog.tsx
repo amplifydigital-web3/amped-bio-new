@@ -24,6 +24,7 @@ export default function PayModal({ hook }: PayModalProps) {
   const wallet = useWalletContext();
 
   const explorerUrl = chain?.blockExplorers?.default.url;
+  const { isWeb3Wallet } = wallet;
 
   // Reset step when transaction status changes
   useEffect(() => {
@@ -154,7 +155,7 @@ export default function PayModal({ hook }: PayModalProps) {
 
         <button
           onClick={() => setStep("confirm")}
-          disabled={!hook.isValid || !hook.sendAddress || !hook.sendAmount}
+          disabled={!isWeb3Wallet || !hook.isValid || !hook.sendAddress || !hook.sendAmount}
           className="w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-semibold rounded-xl transition-colors"
         >
           Continue
@@ -213,7 +214,7 @@ export default function PayModal({ hook }: PayModalProps) {
           </button>
           <button
             onClick={hook.handleSendTransaction}
-            disabled={hook.isPending}
+            disabled={!isWeb3Wallet || hook.isPending}
             className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold rounded-xl transition-colors"
           >
             {hook.isPending ? "Sending..." : "Send"}

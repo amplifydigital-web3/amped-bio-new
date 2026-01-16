@@ -1,7 +1,6 @@
 import { lazy, Suspense, useState, useMemo } from "react";
 import { Users, Trophy, Coins, TrendingUp, Gift, Target } from "lucide-react";
 import { ProfileSection } from "./ProfileSection";
-import { useAccount } from "wagmi";
 import { useWalletContext } from "@/contexts/WalletContext";
 import { type StatBoxProps } from "./types";
 import { useWalletStats } from "./hooks/useWalletStats";
@@ -14,8 +13,6 @@ const LaunchPoolAd = lazy(() => import("./LaunchPoolAd"));
 
 export function MyWalletPanel() {
   const wallet = useWalletContext();
-
-  const { address } = useAccount();
   const [showProfileOptions, setShowProfileOptions] = useState(false);
 
   // Get wallet stats from backend
@@ -84,18 +81,18 @@ export function MyWalletPanel() {
       <div className="p-6 md:w-4/5 md:mx-auto">
         <div className="space-y-6">
           <ProfileSection
-            loading={!address}
-            address={address}
+            loading={!wallet.address}
+            address={wallet.address}
             walletStats={walletStats}
             onProfileOptionsClick={() => setShowProfileOptions(true)}
           />
 
           <Suspense>
-            <WalletBalance loading={!address} />
+            <WalletBalance loading={!wallet.address} />
           </Suspense>
 
           <Suspense>
-            <ProfileTabs loading={!address} />
+            <ProfileTabs loading={!wallet.address} />
           </Suspense>
 
           <Suspense>

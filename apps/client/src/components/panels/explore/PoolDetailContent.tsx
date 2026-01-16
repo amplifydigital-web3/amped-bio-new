@@ -11,6 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 import { usePoolReader } from "../../../hooks/usePoolReader";
 import { formatEther } from "viem";
 import { getChainConfig } from "@ampedbio/web3";
+import { useWalletContext } from "@/contexts/WalletContext";
 
 import PoolDetailsModalSkeleton from "./PoolDetailsModalSkeleton";
 import { formatHandle } from "@/utils/handle";
@@ -33,7 +34,9 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
   onStakeSuccess,
 }) => {
   const { address: userAddress } = useAccount();
+  const { isWeb3Wallet, address: walletAddress } = useWalletContext();
   const isUserLoggedIn = !!userAddress;
+  const isWeb3Connected = !!isWeb3Wallet;
 
   // Query for pool by address from URL parameter
   const {
@@ -324,6 +327,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                         onClick={handleClaimReward}
                         className="mt-2 px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-xs font-medium transition-colors duration-200 disabled:opacity-50 flex items-center justify-center"
                         disabled={
+                          !isWeb3Wallet ||
                           isReadingPendingReward ||
                           !pool?.pendingRewards ||
                           pool.pendingRewards === BigInt(0) ||
@@ -437,45 +441,42 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                     <span>You need to be logged in to stake in this pool</span>
                   </button>
                 ) : (
-                  <>
-                    <button
-                      onClick={handleReduceStake}
-                      className="flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm"
-                      disabled={
-                        pool?.stakedByYou === null ||
-                        pool.stakedByYou === undefined ||
-                        pool.stakedByYou <= 0n
-                      }
-                      title={
-                        pool?.stakedByYou === null || pool.stakedByYou === undefined
-                          ? "Connect wallet to view stake"
-                          : pool.stakedByYou <= 0n
-                            ? "You have no stake in this pool"
-                            : undefined
-                      }
-                    >
-                      <Minus className="w-4 h-4" />
-                      <span>
-                        {pool?.stakedByYou === null || pool.stakedByYou === undefined
-                          ? "Connect Wallet"
+                <>
+                  <button
+                    onClick={handleReduceStake}
+                    className="flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={
+                      !isWeb3Wallet ||
+                      pool?.stakedByYou === null ||
+                      pool.stakedByYou === undefined ||
+                      pool.stakedByYou <= 0n
+                    }
+                  >
+                    <Minus className="w-4 h-4" />
+                    <span>
+                      {!isWeb3Wallet
+                        ? "No Stake"
+                        : pool?.stakedByYou === null || pool.stakedByYou === undefined
+                          ? "No Stake"
                           : pool.stakedByYou <= 0n
                             ? "No Stake"
                             : "Reduce Stake"}
-                      </span>
-                    </button>
+                    </span>
+                  </button>
 
-                    <button
-                      onClick={handleAddStake}
-                      className="flex items-center justify-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>
-                        {pool?.stakedByYou !== null && pool.stakedByYou !== undefined
-                          ? "Add Stake"
-                          : "Stake to Pool"}
-                      </span>
-                    </button>
-                  </>
+                  <button
+                    onClick={handleAddStake}
+                    disabled={!isWeb3Wallet}
+                    className="flex items-center justify-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>
+                      {pool?.stakedByYou !== null && pool.stakedByYou !== undefined
+                        ? "Add Stake"
+                        : "Stake to Pool"}
+                    </span>
+                  </button>
+                </>
                 )}
               </div>
             </div>

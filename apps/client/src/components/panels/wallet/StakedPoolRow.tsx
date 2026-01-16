@@ -6,6 +6,7 @@ import { toast } from "react-hot-toast";
 import { usePoolReader } from "../../../hooks/usePoolReader";
 import { UserStakedPoolWithNullables } from "@ampedbio/constants";
 import { useAccount } from "wagmi";
+import { useWalletContext } from "@/contexts/WalletContext";
 
 interface StakedPoolRowProps {
   poolData: UserStakedPoolWithNullables;
@@ -24,6 +25,7 @@ export default function StakedPoolRow({
   const [isClaiming, setIsClaiming] = React.useState(false);
 
   const { address: userAddress } = useAccount();
+  const { isWeb3Wallet } = useWalletContext();
 
   // Use the usePoolReader hook for reading operations
   const {
@@ -192,11 +194,14 @@ export default function StakedPoolRow({
         >
           <button
             onClick={handleClaim}
-            className={`px-2 py-1.5 bg-green-600 text-white text-xs font-medium rounded-md transition-colors duration-200 ${
-              isClaiming ? "opacity-50 cursor-not-allowed" : "hover:bg-green-700"
+            className={`px-2 py-1.5 text-white text-xs font-medium rounded-md transition-colors duration-200 ${
+              isWeb3Wallet
+                ? isClaiming
+                  ? "bg-gray-400 opacity-50 cursor-not-allowed"
+                  : "bg-green-600 hover:bg-green-700"
+                : "bg-gray-400 cursor-not-allowed"
             }`}
-            title="Claim your earned rewards"
-            disabled={isClaiming}
+            disabled={!isWeb3Wallet || isClaiming}
           >
             {isClaiming ? (
               <span className="flex items-center">

@@ -4,6 +4,7 @@ import { useAccount, useBalance } from "wagmi";
 import { getChainConfig } from "@ampedbio/web3";
 import { useStakingManager } from "@/hooks/useStakingManager";
 import { formatNumberWithSeparators } from "@/utils/numberUtils";
+import { useWalletContext } from "@/contexts/WalletContext";
 import Decimal from "decimal.js";
 import {
   Dialog,
@@ -45,6 +46,7 @@ export default function StakeModal({
   mode,
   onStakeSuccess,
 }: StakeModalProps) {
+  const { isWeb3Wallet } = useWalletContext();
   // Get the chain configuration once to avoid multiple calls
   const chainConfig = pool ? getChainConfig(parseInt(pool.chainId)) : null;
   const currencySymbol = chainConfig?.nativeCurrency.symbol || "REVO";
@@ -282,12 +284,15 @@ export default function StakeModal({
 
           <button
             onClick={() => setStep("confirm")}
-            disabled={!canProceed || isBalanceLoading || !pool?.address || !!isStaking}
+            disabled={
+              !isWeb3Wallet || !canProceed || isBalanceLoading || !pool?.address || !!isStaking
+            }
             className={`w-full py-4 font-semibold rounded-xl transition-all duration-200 ${
-              canProceed && !isBalanceLoading && !isStaking && pool?.address
+              isWeb3Wallet && canProceed && !isBalanceLoading && !isStaking && pool?.address
                 ? "bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl"
                 : "bg-gray-300 text-gray-500 cursor-not-allowed"
             }`}
+            title={!isWeb3Wallet ? "Connect Web3 wallet to stake" : undefined}
           >
             {!pool?.address
               ? "Staking not available"
@@ -420,8 +425,15 @@ export default function StakeModal({
         {/* Action Buttons */}
         <DialogFooter className="flex space-x-3">
           <button
-            onClick={() => setStep("amount")}
-            className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors duration-200"
+            onClick={() => setStep("confirm")}
+            disabled={
+              !isWeb3Wallet || !canProceed || isBalanceLoading || !pool?.address || !!isStaking
+            }
+            className={`w-full py-4 font-semibold rounded-xl transition-all duration-200 ${
+              isWeb3Wallet && canProceed && !isBalanceLoading && !isStaking && pool?.address
+                ? "bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl"
+                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+            }`}
           >
             Back
           </button>

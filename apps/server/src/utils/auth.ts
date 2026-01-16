@@ -28,7 +28,7 @@ export const JWT_KEYS = {
     .digest("hex")
     .substring(0, 16), // Key ID for the JWT
   aud: env.JWT_AUDIENCE,
-  iss: env.API_HOST,
+  iss: env.APP_ENV === "development" ? "staging-api.amped.bio" : env.API_HOST,
 };
 
 // ================ better-auth configuration ==================

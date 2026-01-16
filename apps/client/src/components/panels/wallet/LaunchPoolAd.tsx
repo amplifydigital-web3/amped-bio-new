@@ -1,9 +1,11 @@
 import { Trophy, Info, TrendingUp } from "lucide-react";
 import React from "react";
+import { useWalletContext } from "@/contexts/WalletContext";
 
 // import { Container } from './styles';
 
 const LaunchPoolAd: React.FC = () => {
+  const wallet = useWalletContext();
   return (
     <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200 p-6">
       <div className="flex items-start justify-between">
@@ -34,16 +36,15 @@ const LaunchPoolAd: React.FC = () => {
         </div>
 
         <div className="w-full sm:w-auto flex justify-center">
-          <button
-            disabled
-            className="relative px-4 py-2 bg-purple-400 text-white rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2 opacity-60 cursor-not-allowed"
-          >
-            <span className="absolute -top-2 -right-2 text-xs bg-yellow-200 text-yellow-800 rounded px-2 py-0.5 shadow-sm pointer-events-none select-none">
-              Soon
-            </span>
-            <Trophy className="w-4 h-4" />
-            <span>Launch Pool</span>
-          </button>
+          {wallet.address && (
+            <button
+              disabled
+              className="relative px-4 py-2 bg-purple-400 text-white rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2 opacity-60 cursor-not-allowed"
+            >
+              <Trophy className="w-4 h-4" />
+              <span>Launch Pool</span>
+            </button>
+          )}
         </div>
       </div>
     </div>
