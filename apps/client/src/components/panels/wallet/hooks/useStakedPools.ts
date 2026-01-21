@@ -6,9 +6,11 @@ import { useMemo } from "react";
 import { type Address, encodeFunctionData } from "viem";
 import { UserStakedPoolWithNullables } from "@ampedbio/constants";
 import { toast } from "react-hot-toast";
+import { useWalletContext } from "@/contexts/WalletContext";
 
 export const useStakedPools = () => {
-  const { address: userAddress, chainId } = useAccount();
+  const { address: userAddress } = useWalletContext();
+  const { chainId } = useAccount();
   const chainConfig = getChainConfig(chainId ?? 0);
 
   const {
