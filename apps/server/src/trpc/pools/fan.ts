@@ -822,6 +822,7 @@ export const poolsFanRouter = router({
               name: poolName ?? `Pool ${stake.pool.id}`,
               pendingRewards: userPendingRewards,
               stakedByYou: BigInt(currentStakeAmount), // Amount of REVO that the requesting user has staked in this pool
+              lastClaim: stake.lastClaim,
             };
 
             const userStakedPool: UserStakedPool = {
@@ -1582,11 +1583,32 @@ export const poolsFanRouter = router({
                 }
               }
 
-              return { stakedByYou, pendingRewards };
+              // Fetch stakedPool to get lastClaim information
+              let lastClaim: Date | null = null;
+
+              if (targetUserWallet) {
+                try {
+                  const stakedPoolRecord = await prisma.stakedPool.findUnique({
+                    where: {
+                      userWalletId_poolId: {
+                        userWalletId: targetUserWallet.id,
+                        poolId: pool.id,
+                      },
+                    },
+                  });
+
+                  lastClaim = stakedPoolRecord?.lastClaim ?? null;
+                } catch (error) {
+                  console.error(`Error fetching lastClaim for pool ${pool.id}:`, error);
+                  // Continue anyway, lastClaim info is not critical
+                }
+              }
+
+              return { stakedByYou, pendingRewards, lastClaim };
             } catch (error) {
               console.error(`Error fetching user data from contract for pool ${pool.id}:`, error);
               // If contract query fails, return null values
-              return { stakedByYou: null, pendingRewards: null };
+              return { stakedByYou: null, pendingRewards: null, lastClaim: null };
             }
           })(),
         ]);
@@ -1612,6 +1634,7 @@ export const poolsFanRouter = router({
         }
         const stakedByYou = userData.stakedByYou;
         const pendingRewards = userData.pendingRewards;
+        const lastClaim = userData.lastClaim ?? null;
 
         // Return only the data that is actually displayed in the modal
         return {
@@ -1632,6 +1655,7 @@ export const poolsFanRouter = router({
           fans: activeStakers,
           pendingRewards,
           stakedByYou,
+          lastClaim,
           creator: {
             userId: pool.wallet!.userId!,
             address: pool.wallet!.address!,
@@ -1645,6 +1669,54 @@ export const poolsFanRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to fetch pool details for modal",
+        });
+      }
+    }),
+
+  confirmClaim: privateProcedure
+    .input(
+      z.object({
+        poolId: z.number(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user!.sub;
+
+      try {
+        // Get user wallet
+        const userWallet = await prisma.userWallet.findUnique({
+          where: { userId },
+        });
+
+        if (!userWallet) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "User does not have a wallet",
+          });
+        }
+
+        // Update stakedPool with lastClaim
+        await prisma.stakedPool.update({
+          where: {
+            userWalletId_poolId: {
+              userWalletId: userWallet.id,
+              poolId: input.poolId,
+            },
+          },
+          data: {
+            lastClaim: new Date(),
+          },
+        });
+
+        return {
+          success: true,
+        };
+      } catch (error) {
+        console.error("Error confirming claim:", error);
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to confirm claim",
         });
       }
     }),

@@ -2,10 +2,12 @@ import { useReadContracts, useWriteContract, useReadContract, useConfig } from "
 import { type Address } from "viem";
 import { CREATOR_POOL_ABI } from "@ampedbio/web3";
 import React from "react";
+import { trpc } from "../utils/trpc/trpc";
 
 interface UsePoolReaderOptions {
   initialFanStake?: bigint;
   initialPendingReward?: bigint;
+  lastClaim?: Date | null;
 }
 
 export function usePoolReader(
@@ -68,7 +70,7 @@ export function usePoolReader(
   const config = useConfig();
   const { writeContractAsync: writeCreatorPoolContractAsync } = useWriteContract();
 
-  const claimReward = async () => {
+  const claimReward = async (poolId: number) => {
     if (!poolAddress) {
       throw new Error("Pool address is missing");
     }
@@ -94,6 +96,18 @@ export function usePoolReader(
         console.log(`⏱️ Total claim time: ${(hashTimeMs + confirmationTimeMs).toFixed(2)}ms`);
       }
 
+      // Call backend to confirm claim and update lastClaim
+      try {
+        await trpc.pools.fan.confirmClaim.mutate({
+          poolId: poolId,
+        });
+        console.log("✅ Claim confirmed and cooldown updated");
+      } catch (backendError) {
+        console.error("⚠️ Failed to confirm claim with backend:", backendError);
+        // Don't throw here - the blockchain claim succeeded, which is what matters
+        // The cooldown tracking is best-effort
+      }
+
       return hash;
     } catch (error) {
       console.error("Error claiming reward:", error);
@@ -105,6 +119,25 @@ export function usePoolReader(
     await refetch();
     await pendingRewardContract.refetch();
   };
+
+  // Calculate cooldown status
+  const canClaimNow = React.useMemo(() => {
+    if (!options?.lastClaim) return true;
+
+    const now = new Date();
+    const timeSinceLastClaim = now.getTime() - new Date(options.lastClaim).getTime();
+    const cooldownPeriod = 24 * 60 * 60 * 1000; // 24 hours
+
+    return timeSinceLastClaim >= cooldownPeriod;
+  }, [options?.lastClaim]);
+
+  const nextClaimAvailable = React.useMemo(() => {
+    if (!options?.lastClaim) return null;
+
+    const lastClaimDate = new Date(options.lastClaim);
+    const cooldownPeriod = 24 * 60 * 60 * 1000; // 24 hours
+    return new Date(lastClaimDate.getTime() + cooldownPeriod);
+  }, [options?.lastClaim]);
 
   // For pendingReward, we'll use the separate query data
   // During loading, show initial value if available, otherwise show undefined
@@ -123,5 +156,7 @@ export function usePoolReader(
     poolName: poolNameResult?.result as string | undefined,
     fetchAllData,
     claimReward,
+    canClaimNow,
+    nextClaimAvailable,
   };
 }

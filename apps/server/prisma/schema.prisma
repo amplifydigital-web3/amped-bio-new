@@ -245,6 +245,7 @@ model StakedPool {
   userWalletId Int
   poolId       Int
   stakeAmount  String    @db.Text // Using Text to handle potentially very large stake amounts
+  lastClaim    DateTime? // Timestamp of the last reward claim
   createdAt    DateTime  @default(now())
   updatedAt    DateTime? @updatedAt
 
@@ -252,6 +253,7 @@ model StakedPool {
   pool       CreatorPool @relation(fields: [poolId], references: [id], onDelete: Cascade)
 
   @@unique([userWalletId, poolId]) // Each wallet can only have one staking entry per pool
+  @@index([userWalletId, poolId, lastClaim]) // Index for cooldown queries
   @@map("staked_pools")
 }
 

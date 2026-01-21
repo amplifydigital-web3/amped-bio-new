@@ -139,6 +139,7 @@ export const poolsCreatorRouter = router({
         });
 
         let userStakeAmount = 0n;
+        let lastClaim: Date | null = null;
         if (userWallet) {
           const userStake = await prisma.stakedPool.findUnique({
             where: {
@@ -150,6 +151,7 @@ export const poolsCreatorRouter = router({
           });
 
           if (userStake) {
+            lastClaim = userStake.lastClaim;
             // For consistency, also check blockchain for updated stake amount
             if (pool.poolAddress) {
               try {
@@ -228,6 +230,7 @@ export const poolsCreatorRouter = router({
           fans: stakedPoolsCount,
           pendingRewards: userPendingRewards,
           stakedByYou: userStakeAmount,
+          lastClaim: lastClaim,
           creator: {
             userId: pool.wallet.userId!,
             address: pool.wallet.address!,
