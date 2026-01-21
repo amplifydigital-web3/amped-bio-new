@@ -209,6 +209,7 @@ model CreatorPool {
   walletId Int
   chainId  String
 
+  name           String?       @db.VarChar(255)
   image_file_id Int?
   description   String?       @db.LongText
   fans          Int           @default(0)
