@@ -161,16 +161,6 @@ export default function DashboardPage() {
     [poolData?.id, refetchPoolData]
   );
 
-  // Fetch additional blockchain data for the pool
-  const { data: poolName } = useReadContract({
-    address: poolAddress,
-    abi: CREATOR_POOL_ABI,
-    functionName: "poolName",
-    query: {
-      enabled: !!poolAddress,
-    },
-  });
-
   useReadContract({
     address: poolAddress,
     abi: CREATOR_POOL_ABI,
@@ -377,11 +367,11 @@ export default function DashboardPage() {
     if (!dashboardData) {
       return {
         id: poolData.id,
-        name: poolName || poolData.description || "Pool Name",
+        name: poolData.name || poolData.description || "Pool Name",
         description: poolData.description || "Pool description not available",
-        image: poolData.image, // Use image object for the modal
+        image: poolData.image, // Use image object for modal
         chainId: poolData.chainId,
-        address: poolData.address!, // Add pool address for the new modal (non-nullable)
+        address: poolData.address!, // Add pool address for new modal (non-nullable)
         stakedAmount: 0n, // User's own stake in their pool (0 since it's their pool) as bigint
         fans: 0, // Default to 0 until dashboardData is available
         // TODO check if this value is required
@@ -391,7 +381,7 @@ export default function DashboardPage() {
         stakedByYou: poolData.stakedByYou || 0n, // Using stakedByYou from the updated server response
         creator: {
           userId: poolData.creator.userId,
-          address: "0x0000000000000000000000000000000000000000", // Default address when not available
+          address: "0x0000000000000000000000000000000000000", // Default address when not available
         }, // Add creator object
       };
     }
@@ -401,11 +391,11 @@ export default function DashboardPage() {
 
     return {
       id: poolData.id,
-      name: poolName || poolData.description || "Pool Name",
+      name: poolData.name || poolData.description || "Pool Name",
       description: poolData.description || "Pool description not available",
-      image: poolData.image, // Use image object for the modal
+      image: poolData.image, // Use image object for modal
       chainId: poolData.chainId,
-      address: poolData.address!, // Add pool address for the new modal (non-nullable)
+      address: poolData.address!, // Add pool address for new modal (non-nullable)
       stakedAmount: 0n, // User's own stake in their pool (0 since it's their pool) as bigint
       fans: dashboardData.totalFans, // Using totalFans from dashboardData
       // TODO check if this value is required
@@ -415,10 +405,10 @@ export default function DashboardPage() {
       stakedByYou: poolData.stakedByYou || 0n, // Using stakedByYou from the updated server response
       creator: {
         userId: poolData.creator.userId,
-        address: "0x0000000000000000000000000000000000000000", // Default address when not available
+        address: "0x0000000000000000000000000000000000000", // Default address when not available
       }, // Add creator object
     };
-  }, [poolData, poolName, dashboardData]);
+  }, [poolData, dashboardData]);
 
   // Create line chart path
   // const createChartElements = React.useCallback(() => {
