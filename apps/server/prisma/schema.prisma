@@ -253,7 +253,6 @@ model StakedPool {
   pool       CreatorPool @relation(fields: [poolId], references: [id], onDelete: Cascade)
 
   @@unique([userWalletId, poolId]) // Each wallet can only have one staking entry per pool
-  @@index([userWalletId, poolId, lastClaim]) // Index for cooldown queries
   @@map("staked_pools")
 }
 
