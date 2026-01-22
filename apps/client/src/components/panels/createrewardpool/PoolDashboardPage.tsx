@@ -379,6 +379,7 @@ export default function DashboardPage() {
         // TODO check if this value is required
         pendingRewards: 0n,
         stakedByYou: poolData.stakedByYou || 0n, // Using stakedByYou from the updated server response
+        lastClaim: null,
         creator: {
           userId: poolData.creator.userId,
           address: "0x0000000000000000000000000000000000000", // Default address when not available
@@ -403,6 +404,7 @@ export default function DashboardPage() {
       // TODO check if this value is required
       pendingRewards: 0n,
       stakedByYou: poolData.stakedByYou || 0n, // Using stakedByYou from the updated server response
+      lastClaim: null,
       creator: {
         userId: poolData.creator.userId,
         address: "0x0000000000000000000000000000000000000", // Default address when not available

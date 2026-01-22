@@ -2,7 +2,7 @@ import { useReadContracts, useWriteContract, useReadContract, useConfig } from "
 import { type Address } from "viem";
 import { CREATOR_POOL_ABI } from "@ampedbio/web3";
 import React from "react";
-import { trpc } from "../utils/trpc/trpc";
+import { trpcClient } from "../utils/trpc/trpc";
 
 interface UsePoolReaderOptions {
   initialFanStake?: bigint;
@@ -98,7 +98,7 @@ export function usePoolReader(
 
       // Call backend to confirm claim and update lastClaim
       try {
-        await trpc.pools.fan.confirmClaim.mutate({
+        await trpcClient.pools.fan.confirmClaim.mutate({
           poolId: poolId,
         });
         console.log("✅ Claim confirmed and cooldown updated");

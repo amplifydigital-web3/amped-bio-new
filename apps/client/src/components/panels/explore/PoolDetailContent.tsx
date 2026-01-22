@@ -168,7 +168,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
 
     setIsClaiming(true);
     try {
-      await claimReward();
+      await claimReward(pool.id);
       // Introduce a 1-second delay to allow the blockchain to update before refetching
       await new Promise(resolve => setTimeout(resolve, 1000));
       // Refetch all pool data after successful claim
@@ -441,42 +441,42 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                     <span>You need to be logged in to stake in this pool</span>
                   </button>
                 ) : (
-                <>
-                  <button
-                    onClick={handleReduceStake}
-                    className="flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={
-                      !isWeb3Wallet ||
-                      pool?.stakedByYou === null ||
-                      pool.stakedByYou === undefined ||
-                      pool.stakedByYou <= 0n
-                    }
-                  >
-                    <Minus className="w-4 h-4" />
-                    <span>
-                      {!isWeb3Wallet
-                        ? "No Stake"
-                        : pool?.stakedByYou === null || pool.stakedByYou === undefined
+                  <>
+                    <button
+                      onClick={handleReduceStake}
+                      className="flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={
+                        !isWeb3Wallet ||
+                        pool?.stakedByYou === null ||
+                        pool.stakedByYou === undefined ||
+                        pool.stakedByYou <= 0n
+                      }
+                    >
+                      <Minus className="w-4 h-4" />
+                      <span>
+                        {!isWeb3Wallet
                           ? "No Stake"
-                          : pool.stakedByYou <= 0n
+                          : pool?.stakedByYou === null || pool.stakedByYou === undefined
                             ? "No Stake"
-                            : "Reduce Stake"}
-                    </span>
-                  </button>
+                            : pool.stakedByYou <= 0n
+                              ? "No Stake"
+                              : "Reduce Stake"}
+                      </span>
+                    </button>
 
-                  <button
-                    onClick={handleAddStake}
-                    disabled={!isWeb3Wallet}
-                    className="flex items-center justify-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>
-                      {pool?.stakedByYou !== null && pool.stakedByYou !== undefined
-                        ? "Add Stake"
-                        : "Stake to Pool"}
-                    </span>
-                  </button>
-                </>
+                    <button
+                      onClick={handleAddStake}
+                      disabled={!isWeb3Wallet}
+                      className="flex items-center justify-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>
+                        {pool?.stakedByYou !== null && pool.stakedByYou !== undefined
+                          ? "Add Stake"
+                          : "Stake to Pool"}
+                      </span>
+                    </button>
+                  </>
                 )}
               </div>
             </div>
