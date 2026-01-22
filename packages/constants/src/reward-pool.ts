@@ -15,6 +15,7 @@ export interface RewardPool {
   fans: number;
   pendingRewards: bigint;
   stakedByYou: bigint; // Amount of REVO that the requesting user has staked in this pool
+  lastClaim: Date | null;
   creator: {
     userId: number;
     address: string;
@@ -31,6 +32,7 @@ export interface SlimPoolForUserStakedPool {
   name: string;
   pendingRewards: bigint | null;
   stakedByYou: bigint;
+  lastClaim: Date | null;
 }
 
 export interface UserStakedPool {
@@ -75,6 +77,7 @@ export interface PoolDetailsForModal {
   fans: number;
   pendingRewards: bigint | null;
   stakedByYou: bigint | null; // Amount of REVO that the requesting user has staked in this pool
+  lastClaim: Date | null;
   creator: {
     userId: number;
     address: string;

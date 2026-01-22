@@ -245,6 +245,7 @@ model StakedPool {
   userWalletId Int
   poolId       Int
   stakeAmount  String    @db.Text // Using Text to handle potentially very large stake amounts
+  lastClaim    DateTime? // Timestamp of the last reward claim
   createdAt    DateTime  @default(now())
   updatedAt    DateTime? @updatedAt
 
