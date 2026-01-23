@@ -145,6 +145,10 @@ export const auth = betterAuth({
         user.handle = await processEmailToUniqueHandle(user.email);
       }
 
+      // Generate unique referral code
+      const { generateUniqueReferralCode } = await import("./referral-code-generator");
+      user.referralCode = await generateUniqueReferralCode();
+
       // For social providers (like Google), use the name from the provider
       if (context?.provider === "google" && context?.profile?.name && !user.name) {
         user.name = context.profile.name;

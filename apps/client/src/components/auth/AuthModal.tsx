@@ -16,6 +16,7 @@ import { CaptchaActions } from "@ampedbio/constants";
 import { authClient } from "@/lib/auth-client";
 import { normalizeHandle, cleanHandleInput, getHandlePublicUrl } from "@/utils/handle";
 import { trackGAEvent } from "@/utils/ga";
+import { trpc } from "@/utils/trpc";
 import {
   Dialog,
   DialogContent,
@@ -111,6 +112,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
   const { executeCaptcha } = useCaptcha();
   const [loading, setLoading] = useState(false);
   const [sharedEmail, setSharedEmail] = useState("");
+  const [pendingReferralCode, setPendingReferralCode] = useState<string | null>(null);
   const isUserTyping = useRef(false);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
@@ -228,6 +230,17 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
       setHandleInput(normalizedHandle);
     }
   }, [registerHandle]);
+
+  // Detect referral code from URL parameter
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const refParam = params.get("ref");
+
+    if (refParam) {
+      setPendingReferralCode(refParam);
+      sessionStorage.setItem("pendingReferralCode", refParam);
+    }
+  }, []);
 
   // Custom form switcher that maintains email and clears errors
   const switchForm = (newForm: FormType) => {
@@ -378,6 +391,20 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
       }
 
       const user = response.data.user as BetterAuthUser;
+
+      // Process referral after signup
+      const pendingCode = pendingReferralCode || sessionStorage.getItem("pendingReferralCode");
+      if (pendingCode) {
+        try {
+          await trpc.referral.processReferralAfterSignup.mutate({
+            referralCode: pendingCode
+          });
+          sessionStorage.removeItem("pendingReferralCode");
+        } catch (error) {
+          console.error("Error processing referral:", error);
+        }
+      }
+
       onClose({
         id: parseInt(user.id),
         email: user.email,

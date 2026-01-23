@@ -28,13 +28,21 @@ model User {
   image_file_id      Int?
   reward_business_id String?
 
+  // Referral fields
+  referralCode       String?  @unique @map("referral_code")
+  referredBy         Int?     @map("referred_by")
+
   themes            Theme[]
   blocks            Block[]
   confirmationCodes ConfirmationCode[]
   uploadedFiles     UploadedFile[]
   profileImage      UploadedFile?      @relation("UserProfileImage", fields: [image_file_id], references: [id], onDelete: SetNull)
 
-  wallet UserWallet?
+  wallet          UserWallet?
+  referrer        User?              @relation("UserReferrals", fields: [referredBy], references: [id], onDelete: SetNull)
+  referrals       User[]             @relation("UserReferrals")
+  referralsMade   Referral[]         @relation("ReferrerReferrals")
+  referralsReceived Referral[]       @relation("ReferredReferrals")
 
   @@unique([email])
   @@map("users")
@@ -270,6 +278,22 @@ model StakeEvent {
 
   @@unique([transactionHash, userWalletId, poolId])
   @@map("stake_events")
+}
+
+model Referral {
+  id         Int      @id @default(autoincrement())
+  referrerId Int      @map("referrer_id")
+  referredId Int      @map("referred_id")
+  createdAt  DateTime @default(now())
+
+  referrer User @relation("ReferrerReferrals", fields: [referrerId], references: [id], onDelete: Cascade)
+  referred User @relation("ReferredReferrals", fields: [referredId], references: [id], onDelete: Cascade)
+
+  @@unique([referrerId, referredId])
+  @@index([referrerId])
+  @@index([referredId])
+  @@index([createdAt])
+  @@map("referrals")
 }
 
 model Jwks {

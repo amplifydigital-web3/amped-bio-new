@@ -10,6 +10,7 @@ import { walletRouter } from "./wallet";
 import { blocksRouter } from "./blocks";
 import { poolsRouter } from "./pools/index";
 import { publicSettingsRouter } from "./publicSettings";
+import { referralRouter } from "./referral";
 import { inferRouterOutputs } from "@trpc/server";
 
 // Merge all routers
@@ -17,6 +18,7 @@ const mergedRouter = router({
   handle: appRouter,
   user: userRouter,
   auth: authRouter,
+  referral: referralRouter,
   admin: adminRouter,
   upload: uploadRouter,
   theme: themeRouter,
