@@ -1,6 +1,33 @@
 import { useState, useEffect, useRef } from "react";
 import { Loader2, Eye, EyeOff, Check, X as XIcon, AlertCircle } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+
+// Helper functions para cookies com validade de 30 dias
+const setCookie = (name: string, value: string, days: number = 30) => {
+  const date = new Date();
+  date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+  const expires = `expires=${date.toUTCString()}`;
+  document.cookie = `${name}=${value};${expires};path=/`;
+};
+
+const getCookie = (name: string): string | null => {
+  const nameEQ = `${name}=`;
+  const cookies = document.cookie.split(';');
+  for (let i = 0; i < cookies.length; i++) {
+    let cookie = cookies[i];
+    while (cookie.charAt(0) === ' ') {
+      cookie = cookie.substring(1, cookie.length);
+    }
+    if (cookie.indexOf(nameEQ) === 0) {
+      return cookie.substring(nameEQ.length, cookie.length);
+    }
+  }
+  return null;
+};
+
+const eraseCookie = (name: string) => {
+  document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/`;
+};
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
 import type { AuthUser } from "../../types/auth";
@@ -238,7 +265,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
 
     if (refParam) {
       setPendingReferralCode(refParam);
-      sessionStorage.setItem("pendingReferralCode", refParam);
+      setCookie("pendingReferralCode", refParam, 30);
     }
   }, []);
 
@@ -371,12 +398,36 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
       // Get reCAPTCHA token using the invisible captcha
       const recaptchaToken = await executeCaptcha(CaptchaActions.REGISTER);
 
-      // Using better-auth signup
+      // Process referral: verificar se tem código de referral ou userId de perfil
+      const pendingCode = pendingReferralCode || getCookie("pendingReferralCode");
+      const pendingUserId = parseInt(getCookie("pendingProfileReferral") || "0");
+
+      let referredBy: number | undefined;
+
+      if (pendingCode) {
+        // Se tem código de referral, buscar o userId correspondente
+        try {
+          const referrerData = await trpc.referral.validateReferralCode.query({ code: pendingCode });
+          if (referrerData.valid && referrerData.referrer?.id) {
+            referredBy = referrerData.referrer.id;
+          }
+          eraseCookie("pendingReferralCode");
+        } catch (error) {
+          console.error("Error validating referral code:", error);
+        }
+      } else if (pendingUserId && !isNaN(pendingUserId)) {
+        // Se tem userId direto do perfil visitado
+        referredBy = pendingUserId;
+        eraseCookie("pendingProfileReferral");
+      }
+
+      // Using better-auth signup com referido se existir
       const response = await authClient.signUp.email({
         email: data.email,
         password: data.password,
         name: data.handle, // Using handle as the name
         callbackURL: window.location.href,
+        ...(referredBy && { referredBy }), // Passar referredBy se existir
         fetchOptions: {
           headers: recaptchaToken
             ? {
@@ -391,19 +442,6 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
       }
 
       const user = response.data.user as BetterAuthUser;
-
-      // Process referral after signup
-      const pendingCode = pendingReferralCode || sessionStorage.getItem("pendingReferralCode");
-      if (pendingCode) {
-        try {
-          await trpc.referral.processReferralAfterSignup.mutate({
-            referralCode: pendingCode
-          });
-          sessionStorage.removeItem("pendingReferralCode");
-        } catch (error) {
-          console.error("Error processing referral:", error);
-        }
-      }
 
       onClose({
         id: parseInt(user.id),

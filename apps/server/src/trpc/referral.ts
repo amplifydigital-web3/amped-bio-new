@@ -16,6 +16,7 @@ export const referralRouter = router({
       return {
         valid: true,
         referrer: {
+          id: referrer?.id || 0,
           name: referrer?.name || "",
           handle: referrer?.handle || ""
         }

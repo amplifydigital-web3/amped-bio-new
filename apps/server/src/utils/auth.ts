@@ -138,6 +138,12 @@ export const auth = betterAuth({
         required: false,
         defaultValue: null,
       },
+      referredBy: {
+        type: "number",
+        required: false,
+        defaultValue: null,
+        input: true, // Allow to be passed in signup
+      },
     },
     beforeCreate: async (user: any, context: any) => {
       // Generate unique handle for social auth users who don't have one
@@ -149,9 +155,39 @@ export const auth = betterAuth({
       const { generateUniqueReferralCode } = await import("./referral-code-generator");
       user.referralCode = await generateUniqueReferralCode();
 
+      // Process referral if provided
+      if (user.referredBy) {
+        // Validate that referrer exists
+        const referrer = await prisma.user.findUnique({
+          where: { id: user.referredBy },
+          select: { id: true },
+        });
+
+        // If referrer doesn't exist, remove field silently
+        if (!referrer) {
+          delete user.referredBy;
+        }
+      }
+
       // For social providers (like Google), use the name from the provider
       if (context?.provider === "google" && context?.profile?.name && !user.name) {
         user.name = context.profile.name;
+      }
+    },
+    afterCreate: async (user: any) => {
+      // Create referral record if has a referrer
+      if (user.referredBy) {
+        try {
+          await prisma.referral.create({
+            data: {
+              referrerId: user.referredBy,
+              referredId: user.id,
+            },
+          });
+        } catch (error) {
+          // Silently ignore errors (e.g., duplicate, self-referral)
+          console.error("Error creating referral:", error);
+        }
       }
     },
   },
