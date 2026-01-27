@@ -33,8 +33,6 @@ export default function StakedPoolRow({
     pendingReward: hookPendingReward,
     fanStake: hookFanStake,
     fetchAllData,
-    canClaimNow,
-    nextClaimAvailable,
   } = usePoolReader(
     pool.address as `0x${string}` | undefined,
     userAddress as `0x${string}` | undefined,
@@ -49,14 +47,7 @@ export default function StakedPoolRow({
   const handleClaim = async (e: React.MouseEvent) => {
     e.stopPropagation();
 
-    // Check cooldown before attempting claim
-    if (!canClaimNow) {
-      toast.error(
-        `Claim cooldown active. Available after ${nextClaimAvailable?.toLocaleTimeString()}`,
-        { id: "claim-process" }
-      );
-      return;
-    }
+    // Cooldown removido - usuários podem fazer claims ilimitados
 
     setIsClaiming(true); // Set loading to true when claim process starts
 
@@ -209,17 +200,13 @@ export default function StakedPoolRow({
             onClick={handleClaim}
             className={`px-2 py-1.5 text-white text-xs font-medium rounded-md transition-colors duration-200 ${
               isWeb3Wallet
-                ? !canClaimNow || isClaiming
+                ? isClaiming
                   ? "bg-gray-400 opacity-50 cursor-not-allowed"
                   : "bg-green-600 hover:bg-green-700"
                 : "bg-gray-400 cursor-not-allowed"
             }`}
-            disabled={!isWeb3Wallet || !canClaimNow || isClaiming}
-            title={
-              canClaimNow
-                ? "Claim your rewards"
-                : `Claims are only allowed once every 24 hours. Next claim available at ${nextClaimAvailable?.toLocaleString()}`
-            }
+            disabled={!isWeb3Wallet || isClaiming}
+            title="Claim your rewards"
           >
             {isClaiming ? (
               <span className="flex items-center">
@@ -245,11 +232,6 @@ export default function StakedPoolRow({
                 </svg>
                 Claiming...
               </span>
-            ) : !canClaimNow ? (
-              <>
-                <span className="hidden sm:inline">Cooldown</span>
-                <span className="sm:hidden">⏳</span>
-              </>
             ) : (
               <>
                 <span className="hidden sm:inline">Claim</span>
