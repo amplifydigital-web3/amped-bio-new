@@ -22,7 +22,7 @@ export const poolsFanRouter = router({
     .query(async ({ input }) => {
       try {
         const pool = await prisma.creatorPool.findUnique({
-          where: { poolAddress: input.poolAddress.toLowerCase() },
+          where: { poolAddress: input.poolAddress },
           include: {
             poolImage: {
               select: {
