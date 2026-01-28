@@ -28,9 +28,6 @@ model User {
   image_file_id      Int?
   reward_business_id String?
 
-  // Referral fields
-  referredBy         Int?     @map("referred_by")
-
   themes            Theme[]
   blocks            Block[]
   confirmationCodes ConfirmationCode[]
@@ -38,8 +35,6 @@ model User {
   profileImage      UploadedFile?      @relation("UserProfileImage", fields: [image_file_id], references: [id], onDelete: SetNull)
 
   wallet          UserWallet?
-  referrer        User?              @relation("UserReferrals", fields: [referredBy], references: [id], onDelete: SetNull)
-  referrals       User[]             @relation("UserReferrals")
   referralsMade   Referral[]         @relation("ReferrerReferrals")
   referralsReceived Referral[]       @relation("ReferredReferrals")
 

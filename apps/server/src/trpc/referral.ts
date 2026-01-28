@@ -16,24 +16,28 @@ export const referralRouter = router({
       const safeLimit = Math.min(input.limit, 50);
 
       const [referrals, total] = await Promise.all([
-        prisma.user.findMany({
-          where: { referredBy: userId },
+        prisma.referral.findMany({
+          where: { referrerId: userId },
           select: {
-            id: true,
-            name: true,
-            email: true,
-            handle: true,
-            created_at: true,
+            referred: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                handle: true,
+                created_at: true,
+              },
+            },
           },
-          orderBy: { created_at: "desc" },
+          orderBy: { createdAt: "desc" },
           skip: (safePage - 1) * safeLimit,
           take: safeLimit,
         }),
-        prisma.user.count({ where: { referredBy: userId } }),
+        prisma.referral.count({ where: { referrerId: userId } }),
       ]);
 
       return {
-        referrals,
+        referrals: referrals.map(r => r.referred),
         total,
         page: safePage,
         limit: safeLimit,
