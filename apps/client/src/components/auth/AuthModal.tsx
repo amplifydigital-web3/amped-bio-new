@@ -270,7 +270,9 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
 
         if (!isNaN(userIdDecimal) && userIdDecimal > 0) {
           setPendingReferrerId(userIdDecimal);
-          setCookie("pendingReferrerId", userIdDecimal.toString(), 30);
+          if (!getCookie("pendingReferrerId")) {
+            setCookie("pendingReferrerId", userIdDecimal.toString(), 30);
+          }
         }
       } catch (error) {
         console.error("Error parsing referral ID:", error);
