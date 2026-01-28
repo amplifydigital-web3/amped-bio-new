@@ -1,33 +1,6 @@
 import { Link } from "react-router";
 import { ParticlesBackground } from "./particles/ParticlesBackground";
 import { cn } from "../utils/cn";
-
-// Helper functions for cookies with 30-day expiration
-const setCookie = (name: string, value: string, days: number = 30) => {
-  const date = new Date();
-  date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
-  const expires = `expires=${date.toUTCString()}`;
-  document.cookie = `${name}=${value};${expires};path=/`;
-};
-
-const getCookie = (name: string): string | null => {
-  const nameEQ = `${name}=`;
-  const cookies = document.cookie.split(";");
-  for (let i = 0; i < cookies.length; i++) {
-    let cookie = cookies[i];
-    while (cookie.charAt(0) === " ") {
-      cookie = cookie.substring(1, cookie.length);
-    }
-    if (cookie.indexOf(nameEQ) === 0) {
-      return cookie.substring(nameEQ.length, cookie.length);
-    }
-  }
-  return null;
-};
-
-const eraseCookie = (name: string) => {
-  document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/`;
-};
 import {
   getButtonBaseStyle,
   getContainerStyle,
@@ -42,6 +15,7 @@ import { isHTML } from "@/utils/htmlutils";
 import { type BlockType } from "@ampedbio/constants";
 import { Theme, UserProfile } from "@/types/editor";
 import { trpcClient } from "@/utils/trpc";
+import { setCookie } from "@/utils/cookies";
 
 // Helper function to extract the root domain from a URL
 const extractRootDomain = (url: string): string => {

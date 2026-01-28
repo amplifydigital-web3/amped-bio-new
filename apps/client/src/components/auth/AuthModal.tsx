@@ -1,33 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Loader2, Eye, EyeOff, Check, X as XIcon, AlertCircle } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
-
-// Helper functions for cookies with a 30-day expiration
-const setCookie = (name: string, value: string, days: number = 30) => {
-  const date = new Date();
-  date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
-  const expires = `expires=${date.toUTCString()}`;
-  document.cookie = `${name}=${value};${expires};path=/`;
-};
-
-const getCookie = (name: string): string | null => {
-  const nameEQ = `${name}=`;
-  const cookies = document.cookie.split(";");
-  for (let i = 0; i < cookies.length; i++) {
-    let cookie = cookies[i];
-    while (cookie.charAt(0) === " ") {
-      cookie = cookie.substring(1, cookie.length);
-    }
-    if (cookie.indexOf(nameEQ) === 0) {
-      return cookie.substring(nameEQ.length, cookie.length);
-    }
-  }
-  return null;
-};
-
-const eraseCookie = (name: string) => {
-  document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/`;
-};
+import { setCookie, getCookie, eraseCookie } from "@/utils/cookies";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
 import type { AuthUser } from "../../types/auth";
