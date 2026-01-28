@@ -29,7 +29,6 @@ model User {
   reward_business_id String?
 
   // Referral fields
-  referralCode       String?  @unique @map("referral_code")
   referredBy         Int?     @map("referred_by")
 
   themes            Theme[]

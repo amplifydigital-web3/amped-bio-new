@@ -162,10 +162,6 @@ export const auth = betterAuth({
         user.handle = await processEmailToUniqueHandle(user.email);
       }
 
-      // Generate unique referral code
-      const { generateUniqueReferralCode } = await import("./referral-code-generator");
-      user.referralCode = await generateUniqueReferralCode();
-
       // Process referral if provided
       if (user.referredBy) {
         // Validate that referrer exists

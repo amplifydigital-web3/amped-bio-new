@@ -5,17 +5,17 @@ import { useAuth } from "../../contexts/AuthContext";
 // Helper functions para cookies com validade de 30 dias
 const setCookie = (name: string, value: string, days: number = 30) => {
   const date = new Date();
-  date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+  date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
   const expires = `expires=${date.toUTCString()}`;
   document.cookie = `${name}=${value};${expires};path=/`;
 };
 
 const getCookie = (name: string): string | null => {
   const nameEQ = `${name}=`;
-  const cookies = document.cookie.split(';');
+  const cookies = document.cookie.split(";");
   for (let i = 0; i < cookies.length; i++) {
     let cookie = cookies[i];
-    while (cookie.charAt(0) === ' ') {
+    while (cookie.charAt(0) === " ") {
       cookie = cookie.substring(1, cookie.length);
     }
     if (cookie.indexOf(nameEQ) === 0) {
@@ -43,7 +43,7 @@ import { CaptchaActions } from "@ampedbio/constants";
 import { authClient } from "@/lib/auth-client";
 import { normalizeHandle, cleanHandleInput, getHandlePublicUrl } from "@/utils/handle";
 import { trackGAEvent } from "@/utils/ga";
-import { trpc } from "@/utils/trpc";
+import { trpcClient } from "@/utils/trpc/trpc";
 import {
   Dialog,
   DialogContent,
@@ -139,7 +139,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
   const { executeCaptcha } = useCaptcha();
   const [loading, setLoading] = useState(false);
   const [sharedEmail, setSharedEmail] = useState("");
-  const [pendingReferralCode, setPendingReferralCode] = useState<string | null>(null);
+  const [pendingReferrerId, setPendingReferrerId] = useState<number | null>(null);
   const isUserTyping = useRef(false);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
@@ -258,14 +258,23 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     }
   }, [registerHandle]);
 
-  // Detect referral code from URL parameter
+  // Detect referral link from URL parameter
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const refParam = params.get("ref");
+    const rParam = params.get("r");
 
-    if (refParam) {
-      setPendingReferralCode(refParam);
-      setCookie("pendingReferralCode", refParam, 30);
+    if (rParam) {
+      try {
+        const hexValue = rParam.startsWith("0x") ? rParam : `0x${rParam}`;
+        const userIdDecimal = parseInt(hexValue, 16);
+
+        if (!isNaN(userIdDecimal) && userIdDecimal > 0) {
+          setPendingReferrerId(userIdDecimal);
+          setCookie("pendingReferrerId", userIdDecimal.toString(), 30);
+        }
+      } catch (error) {
+        console.error("Error parsing referral ID:", error);
+      }
     }
   }, []);
 
@@ -398,27 +407,17 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
       // Get reCAPTCHA token using the invisible captcha
       const recaptchaToken = await executeCaptcha(CaptchaActions.REGISTER);
 
-      // Process referral: verificar se tem código de referral ou userId de perfil
-      const pendingCode = pendingReferralCode || getCookie("pendingReferralCode");
-      const pendingUserId = parseInt(getCookie("pendingProfileReferral") || "0");
+      // Process referral: get referrer ID from cookie or state
+      const referrerIdFromCookie = parseInt(getCookie("pendingReferrerId") || "0");
+      const referrerIdFromState = pendingReferrerId;
 
       let referredBy: number | undefined;
 
-      if (pendingCode) {
-        // Se tem código de referral, buscar o userId correspondente
-        try {
-          const referrerData = await trpc.referral.validateReferralCode.query({ code: pendingCode });
-          if (referrerData.valid && referrerData.referrer?.id) {
-            referredBy = referrerData.referrer.id;
-          }
-          eraseCookie("pendingReferralCode");
-        } catch (error) {
-          console.error("Error validating referral code:", error);
-        }
-      } else if (pendingUserId && !isNaN(pendingUserId)) {
-        // Se tem userId direto do perfil visitado
-        referredBy = pendingUserId;
-        eraseCookie("pendingProfileReferral");
+      const actualReferrerId = referrerIdFromState || referrerIdFromCookie;
+
+      if (actualReferrerId && !isNaN(actualReferrerId) && actualReferrerId > 0) {
+        referredBy = actualReferrerId;
+        eraseCookie("pendingReferrerId");
       }
 
       // Using better-auth signup com referido se existir
