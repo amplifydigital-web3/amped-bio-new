@@ -146,10 +146,11 @@ export function View() {
 
           if (onlinkData) {
             const { user, theme, blocks: blocks_raw, hasCreatorPool } = onlinkData;
-            const { name, email, description, image } = user;
+            const { id, name, email, description, image } = user;
             const formattedHandle = formatHandle(normalizedHandle);
 
             setProfile({
+              id,
               name,
               handle: normalizedHandle,
               handleFormatted: formattedHandle,

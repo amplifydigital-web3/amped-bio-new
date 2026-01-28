@@ -149,6 +149,12 @@ export const auth = betterAuth({
         required: false,
         defaultValue: null,
       },
+      referrerId: {
+        type: "number",
+        required: false,
+        defaultValue: null,
+        input: true,
+      },
     },
     beforeCreate: async (user: any, context: any) => {
       // Generate unique handle for social auth users who don't have one
@@ -159,6 +165,22 @@ export const auth = betterAuth({
       // For social providers (like Google), use the name from the provider
       if (context?.provider === "google" && context?.profile?.name && !user.name) {
         user.name = context.profile.name;
+      }
+    },
+    afterCreate: async (user: any) => {
+      // Create referral record if has a referrer
+      if (user.referrerId) {
+        try {
+          await prisma.referral.create({
+            data: {
+              referrerId: user.referrerId,
+              referredId: user.id,
+            },
+          });
+        } catch (error) {
+          // Silently ignore errors (e.g., duplicate, self-referral)
+          console.error("Error creating referral:", error);
+        }
       }
     },
   },

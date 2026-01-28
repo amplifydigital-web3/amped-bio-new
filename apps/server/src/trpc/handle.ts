@@ -198,7 +198,7 @@ const appRouter = router({
       });
 
       const result = {
-        user: { name, email, description, image: resolvedImageUrl },
+        user: { id: user_id, name, email, description, image: resolvedImageUrl },
         theme,
         blocks,
         hasCreatorPool,
