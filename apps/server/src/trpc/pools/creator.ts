@@ -6,8 +6,8 @@ import { Address, createPublicClient, http, zeroAddress } from "viem";
 import {
   getChainConfig,
   CREATOR_POOL_FACTORY_ABI,
-  getPoolName,
   CREATOR_POOL_ABI,
+  getPoolName,
 } from "@ampedbio/web3";
 import {
   ALLOWED_POOL_IMAGE_FILE_EXTENSIONS,
@@ -103,8 +103,27 @@ export const poolsCreatorRouter = router({
           return null;
         }
 
-        // Get the pool name from blockchain
-        const poolName = await getPoolName(pool.poolAddress as Address, parseInt(pool.chainId));
+        // Get pool name from database first, fallback to blockchain fetch
+        let poolName = pool.name;
+        if (!poolName && pool.poolAddress) {
+          try {
+            const fetchedPoolName = await getPoolName(
+              pool.poolAddress as Address,
+              Number(pool.chainId)
+            );
+
+            if (fetchedPoolName) {
+              poolName = fetchedPoolName;
+              // Update database with the fetched name
+              await prisma.creatorPool.update({
+                where: { id: pool.id },
+                data: { name: poolName },
+              });
+            }
+          } catch (error) {
+            console.error(`Error fetching pool name from blockchain for pool ${pool.id}:`, error);
+          }
+        }
 
         // Construct the image URL from the s3_key if available
         const imageUrl = pool.poolImage ? s3Service.getFileUrl(pool.poolImage.s3_key) : null;
@@ -120,6 +139,7 @@ export const poolsCreatorRouter = router({
         });
 
         let userStakeAmount = 0n;
+        let lastClaim: Date | null = null;
         if (userWallet) {
           const userStake = await prisma.stakedPool.findUnique({
             where: {
@@ -131,6 +151,7 @@ export const poolsCreatorRouter = router({
           });
 
           if (userStake) {
+            lastClaim = userStake.lastClaim;
             // For consistency, also check blockchain for updated stake amount
             if (pool.poolAddress) {
               try {
@@ -203,12 +224,13 @@ export const poolsCreatorRouter = router({
                   url: imageUrl,
                 }
               : null,
-          name: poolName || `Pool ${pool.id}`, // Using blockchain name, fallback to id-based name
-          totalReward: BigInt(pool.revoStaked || "0"), // Return as wei (bigint)
-          stakedAmount: BigInt(pool.revoStaked || "0"), // Return total stake as wei (bigint)
-          fans: stakedPoolsCount, // Number of fans
-          pendingRewards: userPendingRewards, // User's pending rewards that can be claimed
-          stakedByYou: userStakeAmount, // Amount of REVO that the requesting user has staked in this pool
+          name: poolName || `Pool ${pool.id}`,
+          totalReward: BigInt(pool.revoStaked || "0"),
+          stakedAmount: BigInt(pool.revoStaked || "0"),
+          fans: stakedPoolsCount,
+          pendingRewards: userPendingRewards,
+          stakedByYou: userStakeAmount,
+          lastClaim: lastClaim,
           creator: {
             userId: pool.wallet.userId!,
             address: pool.wallet.address!,
@@ -404,6 +426,13 @@ export const poolsCreatorRouter = router({
         });
       }
 
+      const poolName = await publicClient.readContract({
+        address: poolAddress,
+        abi: CREATOR_POOL_ABI,
+        functionName: "poolName",
+      });
+      console.info("Fetched pool name from chain:", poolName);
+
       // Find the wallet for the user
       const wallet = await prisma.userWallet.findUnique({
         where: { userId },
@@ -428,7 +457,7 @@ export const poolsCreatorRouter = router({
       if (pool !== null) {
         await prisma.creatorPool.update({
           where: { id: pool.id },
-          data: { poolAddress },
+          data: { poolAddress, name: poolName },
         });
         return { id: pool.id };
       } else {
@@ -436,6 +465,7 @@ export const poolsCreatorRouter = router({
           data: {
             chainId: input.chainId,
             poolAddress,
+            name: poolName,
             revoStaked: "0",
             wallet: {
               connect: {

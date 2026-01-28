@@ -4,7 +4,10 @@ import { getChainConfig, CREATOR_POOL_ABI } from "./index";
 /**
  * @deprecated call using multicall instead
  */
-export const getPoolName = async (poolAddress: Address, chainId: number): Promise<string> => {
+export const getPoolName = async (
+  poolAddress: Address,
+  chainId: number
+): Promise<string | null> => {
   const chain = getChainConfig(chainId);
   if (!chain) {
     throw new Error("Unsupported chain ID");
@@ -24,6 +27,6 @@ export const getPoolName = async (poolAddress: Address, chainId: number): Promis
     return poolName as string;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars, unused-imports/no-unused-vars
   } catch (_) {
-    return "Unknown Pool";
+    return null;
   }
 };

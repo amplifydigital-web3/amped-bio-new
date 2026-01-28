@@ -209,6 +209,7 @@ model CreatorPool {
   walletId Int
   chainId  String
 
+  name           String?       @db.VarChar(255)
   image_file_id Int?
   description   String?       @db.LongText
   fans          Int           @default(0)
@@ -244,6 +245,7 @@ model StakedPool {
   userWalletId Int
   poolId       Int
   stakeAmount  String    @db.Text // Using Text to handle potentially very large stake amounts
+  lastClaim    DateTime? // Timestamp of the last reward claim
   createdAt    DateTime  @default(now())
   updatedAt    DateTime? @updatedAt
 

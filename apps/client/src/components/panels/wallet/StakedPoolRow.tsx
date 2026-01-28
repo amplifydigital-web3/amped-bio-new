@@ -35,7 +35,8 @@ export default function StakedPoolRow({
     fetchAllData,
   } = usePoolReader(
     pool.address as `0x${string}` | undefined,
-    userAddress as `0x${string}` | undefined
+    userAddress as `0x${string}` | undefined,
+    { lastClaim: pool.lastClaim }
   );
 
   const stakedAmount = stakedByYou;
@@ -45,13 +46,16 @@ export default function StakedPoolRow({
   // Function to handle the direct claim process
   const handleClaim = async (e: React.MouseEvent) => {
     e.stopPropagation();
+
+    // Cooldown removido - usuários podem fazer claims ilimitados
+
     setIsClaiming(true); // Set loading to true when claim process starts
 
     try {
       // Show a loading toast
       toast.loading("Processing claim...", { id: "claim-process" });
 
-      await claimReward();
+      await claimReward(pool.id);
 
       // Show success toast
       toast.success(
@@ -202,6 +206,7 @@ export default function StakedPoolRow({
                 : "bg-gray-400 cursor-not-allowed"
             }`}
             disabled={!isWeb3Wallet || isClaiming}
+            title="Claim your rewards"
           >
             {isClaiming ? (
               <span className="flex items-center">
