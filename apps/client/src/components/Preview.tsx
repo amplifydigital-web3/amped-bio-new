@@ -2,20 +2,20 @@ import { Link } from "react-router";
 import { ParticlesBackground } from "./particles/ParticlesBackground";
 import { cn } from "../utils/cn";
 
-// Helper functions para cookies com validade de 30 dias
+// Helper functions for cookies with 30-day expiration
 const setCookie = (name: string, value: string, days: number = 30) => {
   const date = new Date();
-  date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+  date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
   const expires = `expires=${date.toUTCString()}`;
   document.cookie = `${name}=${value};${expires};path=/`;
 };
 
 const getCookie = (name: string): string | null => {
   const nameEQ = `${name}=`;
-  const cookies = document.cookie.split(';');
+  const cookies = document.cookie.split(";");
   for (let i = 0; i < cookies.length; i++) {
     let cookie = cookies[i];
-    while (cookie.charAt(0) === ' ') {
+    while (cookie.charAt(0) === " ") {
       cookie = cookie.substring(1, cookie.length);
     }
     if (cookie.indexOf(nameEQ) === 0) {
@@ -260,9 +260,9 @@ export function Preview({ profile, blocks, theme }: PreviewProps) {
                     color: themeConfig?.fontColor,
                   }}
                   onClick={() => {
-                    // Salvar ID do perfil visitado no cookie com validade de 30 dias
+                    // Save visited profile ID in cookie with 30-day expiration
                     if (profile.id) {
-                      setCookie('pendingProfileReferral', profile.id.toString(), 30);
+                      setCookie("pendingProfileReferral", profile.id.toString(), 30);
                     }
                   }}
                 >

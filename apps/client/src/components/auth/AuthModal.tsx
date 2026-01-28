@@ -422,13 +422,13 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         eraseCookie("pendingReferrerId");
       }
 
-      // Using better-auth signup com referido se existir
+      // Using better-auth signup with referrer if exists
       const response = await authClient.signUp.email({
         email: data.email,
         password: data.password,
         name: data.handle, // Using handle as the name
         callbackURL: window.location.href,
-        ...(referredBy && { referredBy }), // Passar referredBy se existir
+        ...(referredBy && { referredBy }), // Pass referredBy if exists
         fetchOptions: {
           headers: recaptchaToken
             ? {

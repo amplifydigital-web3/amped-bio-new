@@ -12,7 +12,7 @@ export function ReferralTabContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const referralsPerPage = 10;
 
-  // Buscar lista de indicações com paginação
+  // Fetch referral list with pagination
   const { data: referralsData, isLoading: loadingReferrals } = useQuery({
     ...trpc.referral.myReferrals.queryOptions({
       page: currentPage,
@@ -21,13 +21,13 @@ export function ReferralTabContent() {
     enabled: !!authUser,
   });
 
-  // Buscar estatísticas
+  // Fetch statistics
   const { data: stats } = useQuery({
     ...trpc.referral.referralStats.queryOptions(),
     enabled: !!authUser,
   });
 
-  // Gerar link de referral usando userId em hex
+  // Generate referral link using userId in hex
   const userIdHex = authUser ? `0x${authUser.id.toString(16)}` : "";
   const referralLink = userIdHex ? `${window.location.origin}?r=${userIdHex}` : "";
 
