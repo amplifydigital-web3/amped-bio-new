@@ -393,7 +393,6 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
 
       if (actualReferrerId && !isNaN(actualReferrerId) && actualReferrerId > 0) {
         referredBy = actualReferrerId;
-        eraseCookie("pendingReferrerId");
       }
 
       // Using better-auth signup with referrer if exists
@@ -414,6 +413,11 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
 
       if (response?.error) {
         throw new Error(response.error.message || "Registration failed");
+      }
+
+      // Clear referral cookie only after successful signup
+      if (referredBy) {
+        eraseCookie("pendingReferrerId");
       }
 
       const user = response.data.user as BetterAuthUser;
