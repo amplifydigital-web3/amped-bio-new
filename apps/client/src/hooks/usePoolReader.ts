@@ -120,24 +120,10 @@ export function usePoolReader(
     await pendingRewardContract.refetch();
   };
 
-  // Calculate cooldown status
-  const canClaimNow = React.useMemo(() => {
-    if (!options?.lastClaim) return true;
+  // Cooldown removido - usuários podem fazer claims ilimitados
+  const canClaimNow = true;
 
-    const now = new Date();
-    const timeSinceLastClaim = now.getTime() - new Date(options.lastClaim).getTime();
-    const cooldownPeriod = 24 * 60 * 60 * 1000; // 24 hours
-
-    return timeSinceLastClaim >= cooldownPeriod;
-  }, [options?.lastClaim]);
-
-  const nextClaimAvailable = React.useMemo(() => {
-    if (!options?.lastClaim) return null;
-
-    const lastClaimDate = new Date(options.lastClaim);
-    const cooldownPeriod = 24 * 60 * 60 * 1000; // 24 hours
-    return new Date(lastClaimDate.getTime() + cooldownPeriod);
-  }, [options?.lastClaim]);
+  const nextClaimAvailable = null; // Não é mais necessário
 
   // For pendingReward, we'll use the separate query data
   // During loading, show initial value if available, otherwise show undefined

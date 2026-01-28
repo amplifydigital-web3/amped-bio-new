@@ -22,7 +22,7 @@ export const poolsFanRouter = router({
     .query(async ({ input }) => {
       try {
         const pool = await prisma.creatorPool.findUnique({
-          where: { poolAddress: input.poolAddress.toLowerCase() },
+          where: { poolAddress: input.poolAddress },
           include: {
             poolImage: {
               select: {
@@ -72,7 +72,7 @@ export const poolsFanRouter = router({
 
         let totalStake: bigint = BigInt(pool.revoStaked);
         let poolName = pool.name;
-        let creatorFee = 0;
+        let creatorCut = 0;
 
         try {
           if (pool.poolAddress) {
@@ -90,7 +90,7 @@ export const poolsFanRouter = router({
               {
                 address: pool.poolAddress as Address,
                 abi: CREATOR_POOL_ABI,
-                functionName: "creatorFee" as const,
+                functionName: "creatorCut" as const,
               },
             ];
 
@@ -100,7 +100,7 @@ export const poolsFanRouter = router({
 
             const totalFanStakedResult = results[0];
             const creatorStakedResult = results[1];
-            const creatorFeeResult = results[2];
+            const creatorCutResult = results[2];
 
             let totalFanStaked: bigint | null = null;
             let creatorStaked: bigint | null = null;
@@ -113,8 +113,8 @@ export const poolsFanRouter = router({
               creatorStaked = creatorStakedResult.result as bigint;
             }
 
-            if (creatorFeeResult.status === "success") {
-              creatorFee = Number(creatorFeeResult.result as bigint);
+            if (creatorCutResult.status === "success") {
+              creatorCut = Number(creatorCutResult.result as bigint);
             }
 
             if (totalFanStaked !== null && creatorStaked !== null) {
@@ -155,7 +155,7 @@ export const poolsFanRouter = router({
               : null,
           stakedAmount: totalStake,
           fans: activeStakers,
-          creatorFee,
+          creatorFee: creatorCut,
         };
       } catch (error) {
         console.error("Error fetching pool by address:", error);

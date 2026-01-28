@@ -37,6 +37,17 @@ export const auth = betterAuth({
   trustedOrigins: [env.FRONTEND_URL],
   plugins: [
     customSession(async ({ user, session }) => {
+      // Backfill handle for existing users without one
+      const userHandle = (user as any).handle;
+      if ((!userHandle || userHandle === "") && user.email) {
+        const newHandle = await processEmailToUniqueHandle(user.email);
+        await prisma.user.update({
+          where: { id: parseInt(user.id) },
+          data: { handle: newHandle },
+        });
+        (user as any).handle = newHandle;
+      }
+
       const userWallet = await prisma.userWallet.findUnique({
         where: { userId: parseInt(user.id) },
       });
@@ -147,7 +158,7 @@ export const auth = betterAuth({
     },
     beforeCreate: async (user: any, context: any) => {
       // Generate unique handle for social auth users who don't have one
-      if (!user.handle && user.email) {
+      if ((!user.handle || user.handle === "") && user.email) {
         user.handle = await processEmailToUniqueHandle(user.email);
       }
 
