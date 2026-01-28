@@ -7,7 +7,7 @@ import type {
 } from "@ampedbio/constants";
 
 export type UserProfile = {
-  id?: number;
+  id: number;
   name: string;
   handle: string; // Without @ symbol
   handleFormatted: string; // With @ symbol

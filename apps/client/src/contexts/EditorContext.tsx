@@ -68,7 +68,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       const { user, theme, blocks: blocks_raw, hasCreatorPool } = onlinkData;
-      const { name, email, description, image } = user;
+      const { id, name, email, description, image } = user;
       const normalizedHandle = normalizeHandle(handle);
       const formattedHandle = formatHandle(handle);
       // console.info("👤 User data loaded:", { name, email, blocks: blocks_raw, theme });
@@ -78,6 +78,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
       setState(prevState => ({
         ...prevState,
         profile: {
+          id,
           name,
           handle: normalizedHandle,
           handleFormatted: formattedHandle,
