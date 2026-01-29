@@ -71,12 +71,12 @@ export const libertasTestnet = {
     NODE: { address: "0x019bbe745b5c9b70060408Bf720B1E5172EEa5A3" as Address },
     CREATOR_POOL_FACTORY: { address: "0x38df3c6acEe3511c088c84d0191f550b24726f0f" as Address },
     multicall3: { address: "0x97cb78d5be963e2534a2156c88093a49f15315c8" as Address },
-    REGISTRAR_CONTROLLER: { address: "0xA47c64B7858Fe8FeEE02316202967d28D7965e73" as Address },
-    L2_RESOLVER: { address: "0x027Bff282062453EbC713B88911686E92660cab2" as Address },
-    BASE_REGISTRAR: { address: "0xc5CE470e9040720602D93bDE15F2104150F429d5" as Address },
-    REVERSE_REGISTRAR: { address: "0xeE0CEf328f32241bAfC6BA44792ab2c193350498" as Address },
+    REGISTRAR_CONTROLLER: { address: "0x12E361E2dAEaD5b25e50c70700d1B8943A34a076" as Address },
+    L2_RESOLVER: { address: "0xeFC372f73Ee92fDb1Fe8A34E294A4aD28cF506C6" as Address },
+    BASE_REGISTRAR: { address: "0x203cf3B1e39F2003453C89f26756d41264BA67e4" as Address },
+    REVERSE_REGISTRAR: { address: "0x74f5FD4675e78Aa75F72BF989B19849f281c0805" as Address },
   },
-  subgraphUrl: "https://graph.libertas.revolutionchain.io/subgraphs/name/rns/subgraph",
+  subgraphUrl: "https://graph.libertas.revolutionchain.io/subgraphs/name/subgraph/rns",
   gas: 5_000_000,
 } as const;
 
