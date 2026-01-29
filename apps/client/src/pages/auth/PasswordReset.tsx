@@ -6,6 +6,15 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader, Check, X, Eye, EyeOff } from "lucide-react";
 import { AuthHeader } from "../../components/auth/AuthHeader";
 import { authClient } from "../../lib/auth-client";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "../../components/ui/form";
+import { Input } from "../../components/ui/Input";
 
 // Password strength indicator component
 const PasswordStrengthIndicator = ({ password }: { password: string }) => {
@@ -45,7 +54,6 @@ const PasswordStrengthIndicator = ({ password }: { password: string }) => {
 // Define the validation schema using Zod
 const passwordResetSchema = z
   .object({
-    email: z.string().email("Invalid email address").optional(),
     token: z.string().min(1, "Token is required"),
     password: z
       .string()
@@ -66,48 +74,41 @@ type PasswordResetFormData = z.infer<typeof passwordResetSchema>;
 export function PasswordReset() {
   const { token: urlToken } = useParams();
   const navigate = useNavigate();
-  const searchParams = new URLSearchParams(window.location.search);
-  const emailParam = searchParams.get("email");
 
   const [status, setStatus] = useState<"valid" | "submitting" | "success" | "error">("valid");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPasswords, setShowPasswords] = useState(false);
 
-  // Initialize react-hook-form with zod resolver
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<PasswordResetFormData>({
+  const form = useForm<PasswordResetFormData>({
     resolver: zodResolver(passwordResetSchema),
     defaultValues: {
-      email: emailParam || "",
       token: urlToken || "",
       password: "",
       confirmPassword: "",
     },
+    mode: "onChange",
   });
 
   useEffect(() => {
-    // If URL has a token, set it in the form
     if (urlToken) {
-      setValue("token", urlToken);
+      form.setValue("token", urlToken);
     }
-    // If URL has an email parameter, set it in the form
-    if (emailParam) {
-      setValue("email", emailParam);
-    }
-  }, [urlToken, emailParam, setValue]);
+  }, [urlToken, form]);
 
-  const onSubmit = async (data: PasswordResetFormData) => {
+  const handleSubmit = async () => {
+    const isValid = await form.trigger();
+
+    if (!isValid) {
+      return;
+    }
+
+    const data = form.getValues();
+
     setStatus("submitting");
     setIsLoading(true);
 
     try {
-      // Use better-auth to process the password reset
       const response = await authClient.resetPassword({
         newPassword: data.password,
         token: data.token,
@@ -130,7 +131,19 @@ export function PasswordReset() {
     }
   };
 
-  const password = watch("password");
+  const password = form.watch("password");
+  const confirmPassword = form.watch("confirmPassword");
+  const token = form.watch("token");
+
+  const hasMinLength = password.length >= 8;
+  const hasUpperCase = /[A-Z]/.test(password);
+  const hasLowerCase = /[a-z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const passwordsMatch = password === confirmPassword && confirmPassword !== "";
+
+  const passwordMeetsRequirements = hasMinLength && hasUpperCase && hasLowerCase && hasNumber;
+
+  const isFormValid = passwordMeetsRequirements && passwordsMatch && token.length > 0;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
@@ -165,89 +178,98 @@ export function PasswordReset() {
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="form-group space-y-2">
-              <label htmlFor="token" className="block text-sm font-medium text-gray-700">
-                Reset Token
-              </label>
-              <input
-                type="text"
-                id="token"
-                className={`w-full px-3 py-2 border rounded-md focus:ring-primary focus:border-primary ${errors.token ? "border-red-500" : "border-gray-300"}`}
-                placeholder="Enter your reset token"
-                {...register("token")}
-              />
-              {errors.token && <p className="text-sm text-red-500 mt-1">{errors.token.message}</p>}
-            </div>
-
-            <div className="space-y-2 relative">
-              <button
-                type="button"
-                className="absolute right-3 top-9 text-gray-500 hover:text-gray-700 z-10"
-                onClick={() => setShowPasswords(!showPasswords)}
-                aria-label={showPasswords ? "Hide passwords" : "Show passwords"}
-              >
-                {showPasswords ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-
-              <div className="form-group space-y-2">
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                  New Password
-                </label>
-                <input
-                  type={showPasswords ? "text" : "password"}
-                  id="password"
-                  className={`w-full px-3 py-2 border rounded-md focus:ring-primary focus:border-primary ${errors.password ? "border-red-500" : "border-gray-300"}`}
-                  placeholder="Enter new password"
-                  {...register("password")}
-                />
-                {errors.password && (
-                  <p className="text-sm text-red-500 mt-1">{errors.password.message}</p>
-                )}
-                <PasswordStrengthIndicator password={password} />
-              </div>
-
-              <div className="form-group space-y-2">
-                <label
-                  htmlFor="confirmPassword"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Confirm Password
-                </label>
-                <input
-                  type={showPasswords ? "text" : "password"}
-                  id="confirmPassword"
-                  className={`w-full px-3 py-2 border rounded-md focus:ring-primary focus:border-primary ${errors.confirmPassword ? "border-red-500" : "border-gray-300"}`}
-                  placeholder="Confirm new password"
-                  {...register("confirmPassword")}
-                />
-                {errors.confirmPassword && (
-                  <p className="text-sm text-red-500 mt-1">{errors.confirmPassword.message}</p>
-                )}
-              </div>
-            </div>
-
-            {status === "error" && message && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                <p className="text-sm text-red-600">{message}</p>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              className="w-full px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 transition-colors"
-              disabled={isLoading}
+          <Form {...form}>
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                handleSubmit();
+              }}
+              className="space-y-4"
             >
-              {isLoading ? (
-                <div className="flex items-center justify-center">
-                  <Loader className="inline mr-2 w-4 h-4 animate-spin" />
-                  <span>Processing...</span>
+              <FormField
+                control={form.control}
+                name="token"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Reset Token</FormLabel>
+                    <FormControl>
+                      <Input type="text" placeholder="Enter your reset token" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="space-y-2 relative">
+                <button
+                  type="button"
+                  className="absolute right-3 top-9 text-gray-500 hover:text-gray-700 z-10"
+                  onClick={() => setShowPasswords(!showPasswords)}
+                  aria-label={showPasswords ? "Hide passwords" : "Show passwords"}
+                >
+                  {showPasswords ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>New Password</FormLabel>
+                      <FormControl>
+                        <Input
+                          type={showPasswords ? "text" : "password"}
+                          placeholder="Enter new password"
+                          {...field}
+                        />
+                      </FormControl>
+                      <PasswordStrengthIndicator password={password} />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Confirm Password</FormLabel>
+                      <FormControl>
+                        <Input
+                          type={showPasswords ? "text" : "password"}
+                          placeholder="Confirm new password"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {status === "error" && message && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-sm text-red-600">{message}</p>
                 </div>
-              ) : (
-                "Reset Password"
               )}
-            </button>
-          </form>
+
+              <button
+                type="submit"
+                className="w-full px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isLoading || !isFormValid}
+              >
+                {isLoading ? (
+                  <div className="flex items-center justify-center">
+                    <Loader className="inline mr-2 w-4 h-4 animate-spin" />
+                    <span>Processing...</span>
+                  </div>
+                ) : (
+                  "Reset Password"
+                )}
+              </button>
+            </form>
+          </Form>
         )}
       </div>
     </div>

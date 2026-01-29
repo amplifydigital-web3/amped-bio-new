@@ -196,9 +196,12 @@ describe("Authentication", () => {
       cy.log(`Submitting password reset for: ${testUser.email}`);
       cy.get("[data-testid='reset-submit']").click();
 
-      cy.contains("Instructions to reset your password have been sent to your email", {
-        timeout: 5000,
-      }).should("be.visible");
+      cy.contains(
+        "If a user exists with this email, instructions to reset your password have been sent.",
+        {
+          timeout: 5000,
+        }
+      ).should("be.visible");
       cy.get("[data-testid='auth-modal']").should("be.visible");
       cy.log(`Password reset requested for: ${testUser.email}`);
     });

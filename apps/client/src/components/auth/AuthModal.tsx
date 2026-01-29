@@ -718,7 +718,8 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
                 <div className="p-3 bg-green-50 border border-green-200 rounded-md flex items-start gap-2">
                   <Check className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
                   <p className="text-sm text-green-600">
-                    Instructions to reset your password have been sent to your email.
+                    If a user exists with this email, instructions to reset your password have been
+                    sent.
                   </p>
                 </div>
               ) : (
