@@ -73,7 +73,7 @@ export const libertasTestnet = {
     REGISTRAR_CONTROLLER: { address: "0x12E361E2dAEaD5b25e50c70700d1B8943A34a076" as Address },
     L2_RESOLVER: { address: "0xeFC372f73Ee92fDb1Fe8A34E294A4aD28cF506C6" as Address },
     BASE_REGISTRAR: { address: "0x203cf3B1e39F2003453C89f26756d41264BA67e4" as Address },
-    REVERSE_REGISTRAR: { address: "0x74f5FD4675e78Aa75F72BF989B19849f281c0805" as Address },
+    REVERSE_REGISTRAR: { address: "0x025b5154733E93a95F9e196c7fdAffF4584cdb5C" as Address },
   },
   subgraphUrl: "https://graph.libertas.revolutionchain.io/subgraphs/name/subgraph/rns",
   gas: 5_000_000,
