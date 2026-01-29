@@ -65,16 +65,19 @@ const TransferNameModal: React.FC<TransferNameModalProps> = ({
     setStep("warning");
   };
 
-  const handleWarningConfirm = async () => {
+  const handleWarningConfirm = () => {
     if (!selectedAddress || !address || !nftId) return;
 
     setStep("confirm");
+  };
 
+  const confirmTransfer = async () => {
+    if (!selectedAddress || !address || !nftId) return;
     try {
       await transferOwnership(domain, selectedAddress.address as `0x${string}`);
     } catch (error) {
       console.error("Transfer error:", error);
-      // Optional: surface toast or inline error here
+      toast.error("Transfer failed. Please try again.");
     }
   };
 
@@ -123,10 +126,11 @@ const TransferNameModal: React.FC<TransferNameModalProps> = ({
 
         {step === "confirm" && (
           <TransactionProgressModal
-            onClose={onClose}
+            onClose={() => setStep("warning")}
             embedded
             overallStatus={overallStatus}
             steps={steps}
+            confirmTransfer={confirmTransfer}
           />
         )}
 
