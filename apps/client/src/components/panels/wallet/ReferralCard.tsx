@@ -173,9 +173,15 @@ function ReferralCard() {
                               <p className="text-sm font-medium text-gray-900 truncate">
                                 {referral.name}
                               </p>
-                              <p className="text-xs text-gray-500 truncate">
+                              <a
+                                href={`${window.location.origin}/@${referral.handle}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-blue-600 hover:text-blue-800 hover:underline truncate"
+                                onClick={e => e.stopPropagation()}
+                              >
                                 @{referral.handle || "no-handle"}
-                              </p>
+                              </a>
                             </div>
                           </div>
                           <div className="text-right flex-shrink-0 ml-2">

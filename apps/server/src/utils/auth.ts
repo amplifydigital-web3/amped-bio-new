@@ -108,6 +108,36 @@ export const auth = betterAuth({
       // },
     },
   },
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (user: any, context: any) => {
+          if ((!user.handle || user.handle === "") && user.email) {
+            user.handle = await processEmailToUniqueHandle(user.email);
+          }
+
+          if (context?.provider === "google" && context?.profile?.name && !user.name) {
+            user.name = context.profile.name;
+          }
+        },
+        after: async (user: any, context: any) => {
+          const referrerId = context?.query?.referrerId;
+          if (referrerId) {
+            try {
+              await prisma.referral.create({
+                data: {
+                  referrerId: parseInt(referrerId),
+                  referredId: parseInt(user.id),
+                },
+              });
+            } catch (error) {
+              console.error("Error creating referral:", error);
+            }
+          }
+        },
+      },
+    },
+  },
   user: {
     changeEmail: {
       enabled: true,
@@ -149,39 +179,6 @@ export const auth = betterAuth({
         required: false,
         defaultValue: null,
       },
-      referrerId: {
-        type: "number",
-        required: false,
-        defaultValue: null,
-        input: true,
-      },
-    },
-    beforeCreate: async (user: any, context: any) => {
-      // Generate unique handle for social auth users who don't have one
-      if ((!user.handle || user.handle === "") && user.email) {
-        user.handle = await processEmailToUniqueHandle(user.email);
-      }
-
-      // For social providers (like Google), use name from provider
-      if (context?.provider === "google" && context?.profile?.name && !user.name) {
-        user.name = context.profile.name;
-      }
-    },
-    afterCreate: async (user: any) => {
-      // Create referral record if has a referrer
-      if (user.referrerId) {
-        try {
-          await prisma.referral.create({
-            data: {
-              referrerId: user.referrerId,
-              referredId: user.id,
-            },
-          });
-        } catch (error) {
-          // Silently ignore errors (e.g., duplicate, self-referral)
-          console.error("Error creating referral:", error);
-        }
-      }
     },
   },
   account: {

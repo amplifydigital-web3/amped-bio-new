@@ -375,8 +375,8 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         password: data.password,
         name: data.handle, // Using handle as name
         callbackURL: window.location.href,
-        ...(referrerId && { referrerId }), // Pass referrerId if exists
         fetchOptions: {
+          query: referrerId ? { referrerId } : undefined,
           headers: recaptchaToken
             ? {
                 "x-captcha-response": recaptchaToken!,
