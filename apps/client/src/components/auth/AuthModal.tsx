@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Loader2, Eye, EyeOff, Check, X as XIcon, AlertCircle } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
-import { setCookie, getCookie, eraseCookie } from "@/utils/cookies";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
 import type { AuthUser } from "../../types/auth";
@@ -13,6 +12,7 @@ import { useHandleAvailability } from "@/hooks/useHandleAvailability";
 import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
 import { GoogleLoginButton } from "./GoogleLoginButton";
 import { useCaptcha } from "@/hooks/useCaptcha";
+import { useReferralHandler } from "@/hooks/useReferralHandler";
 import { CaptchaActions } from "@ampedbio/constants";
 import { authClient } from "@/lib/auth-client";
 import { normalizeHandle, cleanHandleInput, getHandlePublicUrl } from "@/utils/handle";
@@ -111,6 +111,7 @@ const PasswordStrengthIndicator = ({ password }: { password: string }) => {
 export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: AuthModalProps) {
   const { resetPassword } = useAuth();
   const { executeCaptcha } = useCaptcha();
+  const { getReferrerId, clearReferrerId } = useReferralHandler();
   const [loading, setLoading] = useState(false);
   const [sharedEmail, setSharedEmail] = useState("");
   const isUserTyping = useRef(false);
@@ -311,11 +312,14 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setLoginError(null);
 
     try {
-      // Using better-auth's Google OAuth flow
-      // This will likely redirect the user to Google's authentication page
+      const referrerId = getReferrerId();
+
       const response = await authClient.signIn.social({
         provider: "google",
-        callbackURL: window.location.href, // Return to current page
+        callbackURL: window.location.href,
+        fetchOptions: {
+          query: referrerId ? { referrerId } : undefined,
+        },
       });
 
       if (response?.error) {
@@ -323,9 +327,6 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         setLoginError(response.error.message || "Google login failed");
         return;
       }
-
-      // Set up monitoring for session after redirect
-      // redirectAfterLogin();
     } catch (error) {
       setLoginError((error as Error).message || "Google login failed");
       setLoading(false);
@@ -357,23 +358,13 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setLoading(true);
     setRegisterError(null);
     try {
-      // Get reCAPTCHA token using the invisible captcha
       const recaptchaToken = await executeCaptcha(CaptchaActions.REGISTER);
+      const referrerId = getReferrerId();
 
-      // Process referral: get referrer ID from cookie
-      const referrerIdFromCookie = parseInt(getCookie("pendingReferrerId") || "0");
-
-      let referrerId: number | undefined;
-
-      if (referrerIdFromCookie && !isNaN(referrerIdFromCookie) && referrerIdFromCookie > 0) {
-        referrerId = referrerIdFromCookie;
-      }
-
-      // Using better-auth signup with referrer if exists
       const response = await authClient.signUp.email({
         email: data.email,
         password: data.password,
-        name: data.handle, // Using handle as name
+        name: data.handle,
         callbackURL: window.location.href,
         fetchOptions: {
           query: referrerId ? { referrerId } : undefined,
@@ -389,9 +380,8 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         throw new Error(response.error.message || "Registration failed");
       }
 
-      // Clear referral cookie only after successful signup
       if (referrerId) {
-        eraseCookie("pendingReferrerId");
+        clearReferrerId();
       }
 
       const user = response.data.user as BetterAuthUser;

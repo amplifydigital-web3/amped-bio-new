@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { getCookie, setCookie } from "../utils/cookies";
+import { getCookie, setCookie, eraseCookie } from "../utils/cookies";
 
 export const useReferralHandler = () => {
   useEffect(() => {
@@ -21,4 +21,18 @@ export const useReferralHandler = () => {
       }
     }
   }, []);
+
+  const getReferrerId = (): number | undefined => {
+    const referrerIdFromCookie = parseInt(getCookie("pendingReferrerId") || "0");
+    if (referrerIdFromCookie && !isNaN(referrerIdFromCookie) && referrerIdFromCookie > 0) {
+      return referrerIdFromCookie;
+    }
+    return undefined;
+  };
+
+  const clearReferrerId = (): void => {
+    eraseCookie("pendingReferrerId");
+  };
+
+  return { getReferrerId, clearReferrerId };
 };
