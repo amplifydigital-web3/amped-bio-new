@@ -14,6 +14,7 @@ import { EmailVerification, EmailVerificationResent, PasswordReset } from "./pag
 import { Toaster } from "react-hot-toast";
 import { EditorProvider } from "./contexts/EditorContext";
 import { useTokenExpiration } from "./hooks/useTokenExpiration";
+import { useReferralHandler } from "./hooks/useReferralHandler";
 
 // Lazy load admin components - they will only be loaded when needed
 const AdminLayout = lazy(() =>
@@ -179,6 +180,8 @@ function AppRouter() {
 }
 
 function App() {
+  useReferralHandler();
+
   useEffect(() => {
     initParticlesEngine(async engine => {
       await loadAll(engine);

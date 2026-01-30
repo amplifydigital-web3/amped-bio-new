@@ -3,14 +3,11 @@ import { useEditor } from "../../../contexts/EditorContext";
 import { EffectsTabContent } from "./EffectsTabContent";
 import { AppearanceTabContent } from "./AppearanceTabContent";
 import { GeneralTabContent } from "./GeneralTabContent";
-import { ReferralTabContent } from "./ReferralTabContent";
 import { Download, Upload, AlertTriangle } from "lucide-react";
 
 export function ProfilePanel() {
   const { theme, exportTheme, importTheme } = useEditor();
-  const [activeTab, setActiveTab] = useState<
-    "general" | "appearance" | "effects" | "theme" | "referral"
-  >("general");
+  const [activeTab, setActiveTab] = useState<"general" | "appearance" | "effects" | "theme">("general");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Check if theme is from server (user_id = null)
@@ -87,17 +84,6 @@ export function ProfilePanel() {
           >
             Theme
           </button>
-
-          <button
-            className={`px-3 py-2 text-sm font-medium rounded-md ${
-              activeTab === "referral"
-                ? "bg-gray-100 text-gray-900"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-            onClick={() => setActiveTab("referral")}
-          >
-            Referral
-          </button>
         </nav>
       </div>
 
@@ -107,8 +93,6 @@ export function ProfilePanel() {
         {activeTab === "appearance" && <AppearanceTabContent />}
 
         {activeTab === "effects" && <EffectsTabContent />}
-
-        {activeTab === "referral" && <ReferralTabContent />}
 
         {activeTab === "theme" && (
           <>

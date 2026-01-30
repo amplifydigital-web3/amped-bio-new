@@ -162,7 +162,7 @@ export const auth = betterAuth({
         user.handle = await processEmailToUniqueHandle(user.email);
       }
 
-      // For social providers (like Google), use the name from the provider
+      // For social providers (like Google), use name from provider
       if (context?.provider === "google" && context?.profile?.name && !user.name) {
         user.name = context.profile.name;
       }

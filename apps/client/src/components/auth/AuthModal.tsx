@@ -113,7 +113,6 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
   const { executeCaptcha } = useCaptcha();
   const [loading, setLoading] = useState(false);
   const [sharedEmail, setSharedEmail] = useState("");
-  const [pendingReferrerId, setPendingReferrerId] = useState<number | null>(null);
   const isUserTyping = useRef(false);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
@@ -231,28 +230,6 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
       setHandleInput(normalizedHandle);
     }
   }, [registerHandle]);
-
-  // Detect referral link from URL parameter
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const rParam = params.get("r");
-
-    if (rParam) {
-      try {
-        const hexValue = rParam.startsWith("0x") ? rParam : `0x${rParam}`;
-        const userIdDecimal = parseInt(hexValue, 16);
-
-        if (!isNaN(userIdDecimal) && userIdDecimal > 0) {
-          setPendingReferrerId(userIdDecimal);
-          if (!getCookie("pendingReferrerId")) {
-            setCookie("pendingReferrerId", userIdDecimal.toString(), 30);
-          }
-        }
-      } catch (error) {
-        console.error("Error parsing referral ID:", error);
-      }
-    }
-  }, []);
 
   // Custom form switcher that maintains email and clears errors
   const switchForm = (newForm: FormType) => {
@@ -383,25 +360,22 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
       // Get reCAPTCHA token using the invisible captcha
       const recaptchaToken = await executeCaptcha(CaptchaActions.REGISTER);
 
-      // Process referral: get referrer ID from cookie or state
+      // Process referral: get referrer ID from cookie
       const referrerIdFromCookie = parseInt(getCookie("pendingReferrerId") || "0");
-      const referrerIdFromState = pendingReferrerId;
 
-      let referredBy: number | undefined;
+      let referrerId: number | undefined;
 
-      const actualReferrerId = referrerIdFromState || referrerIdFromCookie;
-
-      if (actualReferrerId && !isNaN(actualReferrerId) && actualReferrerId > 0) {
-        referredBy = actualReferrerId;
+      if (referrerIdFromCookie && !isNaN(referrerIdFromCookie) && referrerIdFromCookie > 0) {
+        referrerId = referrerIdFromCookie;
       }
 
       // Using better-auth signup with referrer if exists
       const response = await authClient.signUp.email({
         email: data.email,
         password: data.password,
-        name: data.handle, // Using handle as the name
+        name: data.handle, // Using handle as name
         callbackURL: window.location.href,
-        ...(referredBy && { referredBy }), // Pass referredBy if exists
+        ...(referrerId && { referrerId }), // Pass referrerId if exists
         fetchOptions: {
           headers: recaptchaToken
             ? {
@@ -416,7 +390,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
       }
 
       // Clear referral cookie only after successful signup
-      if (referredBy) {
+      if (referrerId) {
         eraseCookie("pendingReferrerId");
       }
 
