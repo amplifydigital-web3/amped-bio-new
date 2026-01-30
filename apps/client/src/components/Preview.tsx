@@ -15,6 +15,7 @@ import { isHTML } from "@/utils/htmlutils";
 import { type BlockType } from "@ampedbio/constants";
 import { Theme, UserProfile } from "@/types/editor";
 import { trpcClient } from "@/utils/trpc";
+import { setCookie } from "@/utils/cookies";
 
 // Helper function to extract the root domain from a URL
 const extractRootDomain = (url: string): string => {
@@ -231,6 +232,12 @@ export function Preview({ profile, blocks, theme }: PreviewProps) {
                   style={{
                     fontFamily: themeConfig?.fontFamily,
                     color: themeConfig?.fontColor,
+                  }}
+                  onClick={() => {
+                    // Save visited profile ID in cookie with 30-day expiration
+                    if (profile.id) {
+                      setCookie("pendingProfileReferral", profile.id.toString(), 30);
+                    }
                   }}
                 >
                   Claim your own Amped.Bio

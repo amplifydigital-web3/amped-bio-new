@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Loader2, Eye, EyeOff, Check, X as XIcon, AlertCircle } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import { setCookie, getCookie, eraseCookie } from "@/utils/cookies";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
 import type { AuthUser } from "../../types/auth";
@@ -16,6 +17,7 @@ import { CaptchaActions } from "@ampedbio/constants";
 import { authClient } from "@/lib/auth-client";
 import { normalizeHandle, cleanHandleInput, getHandlePublicUrl } from "@/utils/handle";
 import { trackGAEvent } from "@/utils/ga";
+import { trpcClient } from "@/utils/trpc/trpc";
 import {
   Dialog,
   DialogContent,
@@ -358,13 +360,23 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
       // Get reCAPTCHA token using the invisible captcha
       const recaptchaToken = await executeCaptcha(CaptchaActions.REGISTER);
 
-      // Using better-auth signup
+      // Process referral: get referrer ID from cookie
+      const referrerIdFromCookie = parseInt(getCookie("pendingReferrerId") || "0");
+
+      let referrerId: number | undefined;
+
+      if (referrerIdFromCookie && !isNaN(referrerIdFromCookie) && referrerIdFromCookie > 0) {
+        referrerId = referrerIdFromCookie;
+      }
+
+      // Using better-auth signup with referrer if exists
       const response = await authClient.signUp.email({
         email: data.email,
         password: data.password,
-        name: data.handle, // Using handle as the name
+        name: data.handle, // Using handle as name
         callbackURL: window.location.href,
         fetchOptions: {
+          query: referrerId ? { referrerId } : undefined,
           headers: recaptchaToken
             ? {
                 "x-captcha-response": recaptchaToken!,
@@ -377,7 +389,13 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         throw new Error(response.error.message || "Registration failed");
       }
 
+      // Clear referral cookie only after successful signup
+      if (referrerId) {
+        eraseCookie("pendingReferrerId");
+      }
+
       const user = response.data.user as BetterAuthUser;
+
       onClose({
         id: parseInt(user.id),
         email: user.email,

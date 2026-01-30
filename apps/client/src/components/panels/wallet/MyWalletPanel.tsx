@@ -8,6 +8,7 @@ import { useWalletStats } from "./hooks/useWalletStats";
 const WalletBalance = lazy(() => import("./WalletBalance"));
 const StakedPoolsSection = lazy(() => import("./StakedPoolsSection"));
 const ProfileTabs = lazy(() => import("./ProfileTabs"));
+const ReferralCard = lazy(() => import("./ReferralCard"));
 // const ProfileOptionsDialog = lazy(() => import("./dialogs/ProfileOptionsDialog"));
 const LaunchPoolAd = lazy(() => import("./LaunchPoolAd"));
 
@@ -97,6 +98,10 @@ export function MyWalletPanel() {
 
           <Suspense>
             <StakedPoolsSection />
+          </Suspense>
+
+          <Suspense>
+            <ReferralCard />
           </Suspense>
 
           <Suspense>
