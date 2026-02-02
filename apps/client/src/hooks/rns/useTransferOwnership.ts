@@ -1,10 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import {
-  BASE_REGISTRAR_ABI,
-  getChainConfig,
-  RESOLVER_ABI,
-  REVERSE_REGISTRAR_ABI,
-} from "@ampedbio/web3";
+import { BASE_REGISTRAR_ABI, getChainConfig, REGISTRAR_CONTROLLER_ABI } from "@ampedbio/web3";
 import { keccak256, namehash, toBytes } from "viem";
 import { useAccount, useWriteContract, usePublicClient } from "wagmi";
 
@@ -26,9 +21,7 @@ type TransferResult = {
 };
 
 const INITIAL_STEPS: Record<TxStep, StepState> = {
-  setAddr: { step: "setAddr", status: "idle" },
-  setName: { step: "setName", status: "idle" },
-  reclaim: { step: "reclaim", status: "idle" },
+  approval: { step: "approval", status: "idle" },
   transfer: { step: "transfer", status: "idle" },
 };
 
@@ -90,37 +83,20 @@ export function useTransferOwnership() {
 
       resetSteps();
 
-      const node = namehash(domainName(name));
-      const tokenId = BigInt(keccak256(toBytes(name)));
-
       const contractSteps: ContractStep[] = [
         {
-          step: "setAddr",
-          contractAddress: networkConfig.contracts.L2_RESOLVER.address as `0x${string}`,
-          abi: RESOLVER_ABI,
-          functionName: "setAddr",
-          args: [node, receiverAddress],
-        },
-        {
-          step: "setName",
-          contractAddress: networkConfig.contracts.REVERSE_REGISTRAR.address as `0x${string}`,
-          abi: REVERSE_REGISTRAR_ABI,
-          functionName: "setName",
-          args: [""],
-        },
-        {
-          step: "reclaim",
-          contractAddress: networkConfig.contracts.BASE_REGISTRAR.address as `0x${string}`,
+          step: "approval",
+          contractAddress: networkConfig.contracts.BASE_REGISTRAR.address,
           abi: BASE_REGISTRAR_ABI,
-          functionName: "reclaim",
-          args: [tokenId, receiverAddress],
+          functionName: "setApprovalForAll",
+          args: [networkConfig.contracts.REGISTRAR_CONTROLLER.address, true],
         },
         {
           step: "transfer",
-          contractAddress: networkConfig.contracts.BASE_REGISTRAR.address as `0x${string}`,
-          abi: BASE_REGISTRAR_ABI,
-          functionName: "safeTransferFrom",
-          args: [address, receiverAddress, tokenId],
+          contractAddress: networkConfig.contracts.REGISTRAR_CONTROLLER.address,
+          abi: REGISTRAR_CONTROLLER_ABI,
+          functionName: "transferRNSName",
+          args: [name, receiverAddress, networkConfig.contracts.L2_RESOLVER.address],
         },
       ];
 

@@ -8,12 +8,15 @@ interface TransactionProgressModalProps {
   overallStatus: TxStatus;
   embedded?: boolean;
   steps: Record<TxStep, StepState>;
+  confirmTransfer: () => void;
 }
 
 const TransactionProgressModal: React.FC<TransactionProgressModalProps> = ({
   onClose,
   embedded = false,
   steps,
+  overallStatus,
+  confirmTransfer,
 }) => {
   const renderStatusIcon = (status: TxStatus) => {
     switch (status) {
@@ -64,17 +67,15 @@ const TransactionProgressModal: React.FC<TransactionProgressModalProps> = ({
    * Must match execution order in useTransferOwnership
    */
   const stepItems: Array<{ step: TxStep; label: string }> = [
-    { step: "setAddr", label: "Address record" },
-    { step: "setName", label: "Name record" },
-    { step: "reclaim", label: "Profile editing" },
-    { step: "transfer", label: "Token ownership" },
+    { step: "approval", label: "Approval for name transfer" },
+    { step: "transfer", label: "RNS name & Token Ownership Transfer" },
   ];
 
   const content = (
     <div className="p-6">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-2xl font-semibold">Processing transactions</h2>
+        <h2 className="text-2xl font-semibold">Confirm transactions</h2>
         <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
           <X className="h-5 w-5" />
         </button>
@@ -83,7 +84,11 @@ const TransactionProgressModal: React.FC<TransactionProgressModalProps> = ({
       {/* Info */}
       <div className="mb-6 rounded-lg bg-blue-50 p-4">
         <p className="text-blue-800">
-          We’re processing the required on-chain steps. This may take a few moments.
+          {overallStatus === "pending"
+            ? "We’re processing the required on-chain steps. This may take a few moments."
+            : overallStatus === "idle"
+              ? "Please confirm the following transactions to proceed with the RNS name transfer."
+              : ""}
         </p>
       </div>
 
@@ -99,6 +104,25 @@ const TransactionProgressModal: React.FC<TransactionProgressModalProps> = ({
             </div>
           );
         })}
+      </div>
+
+      <div className="flex mt-10">
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex-1 py-3 px-4 bg-gray-100 hover:bg-gray-200 rounded-xl text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={overallStatus === "pending"}
+        >
+          Back
+        </button>
+        <button
+          type="button"
+          onClick={confirmTransfer}
+          disabled={overallStatus === "pending"}
+          className="flex-1 py-3 px-4 bg-blue-500 hover:bg-blue-600 rounded-xl text-white disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Confirm
+        </button>
       </div>
     </div>
   );

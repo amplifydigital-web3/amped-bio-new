@@ -12,7 +12,7 @@ export type TransactionState = "pending" | "confirming" | "complete" | "failed";
 export type TransactionStep = {
   id: number;
   name: string;
-  type: "setAddr" | "setName" | "reclaim" | "transfer";
+  type: "approval" | "transfer";
   status: "pending" | "confirming" | "complete" | "failed";
   hash?: `0x${string}`;
 };
@@ -31,7 +31,7 @@ export type TransactionResults = {
 
 export type TxStatus = "idle" | "pending" | "success" | "error";
 
-export type TxStep = "setAddr" | "setName" | "reclaim" | "transfer";
+export type TxStep = "approval" | "transfer";
 export type TxKeys = `${TxStep}Tx`;
 
 export interface ContractStep {
