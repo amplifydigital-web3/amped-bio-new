@@ -3,7 +3,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { prisma } from "../../services/DB";
 import { Address, createPublicClient, http, decodeEventLog } from "viem";
-import { getChainConfig, L2_BASE_TOKEN_ABI, CREATOR_POOL_ABI, getPoolName } from "@ampedbio/web3";
+import { getChainConfig, L2_BASE_TOKEN_ABI, CREATOR_POOL_ABI, getPoolName, calculatePoolAPY } from "@ampedbio/web3";
 import { s3Service } from "../../services/S3Service";
 import {
   UserStakedPool,
@@ -138,6 +138,19 @@ export const poolsFanRouter = router({
           console.error(`Error fetching data from contract for pool ${pool.id}:`, error);
         }
 
+        // Calculate APY for the pool
+        let apy: number | undefined = undefined;
+        if (pool.poolAddress && totalStake > 0n) {
+          try {
+            const calculatedAPY = await calculatePoolAPY(pool.poolAddress as Address, parseInt(pool.chainId), publicClient);
+            if (calculatedAPY !== null) {
+              apy = calculatedAPY;
+            }
+          } catch (error) {
+            console.error(`Error calculating APY for pool ${pool.id}:`, error);
+          }
+        }
+
         const activeStakers = pool._count.stakedPools;
 
         return {
@@ -156,6 +169,7 @@ export const poolsFanRouter = router({
           stakedAmount: totalStake,
           fans: activeStakers,
           creatorFee: creatorCut,
+          apy,
         };
       } catch (error) {
         console.error("Error fetching pool by address:", error);
@@ -483,16 +497,41 @@ export const poolsFanRouter = router({
           })
           .map(result => result.value);
 
+        // Calculate APY for each pool (in parallel)
+        const apyPromises = processedPools.map(async (pool) => {
+          if (!pool.address || pool.stakedAmount === 0n) return { poolId: pool.id, apy: null };
+          try {
+            const apy = await calculatePoolAPY(pool.address as Address, parseInt(input.chainId), publicClient);
+            return { poolId: pool.id, apy };
+          } catch (error) {
+            console.error(`Error calculating APY for pool ${pool.id}:`, error);
+            return { poolId: pool.id, apy: null };
+          }
+        });
+
+        const apyResults = await Promise.allSettled(apyPromises);
+        const apyMap = new Map<number, number | undefined>(
+          apyResults
+            .filter((r): r is PromiseFulfilledResult<{ poolId: number; apy: number | null }> => r.status === "fulfilled" && r.value.apy !== null)
+            .map((r) => [r.value.poolId, r.value.apy!])
+        );
+
+        // Add APY to processed pools
+        const poolsWithAPY = processedPools.map(pool => ({
+          ...pool,
+          apy: apyMap.get(pool.id),
+        }));
+
         // Apply filters to the processed pools
-        let filteredPools = processedPools;
+        let filteredPools = poolsWithAPY;
         if (input.filter === "no-fans") {
-          filteredPools = processedPools.filter(pool => pool.fans === 0);
+          filteredPools = poolsWithAPY.filter(pool => pool.fans === 0);
         } else if (input.filter === "more-than-10-fans") {
-          filteredPools = processedPools.filter(pool => pool.fans > 10);
+          filteredPools = poolsWithAPY.filter(pool => pool.fans > 10);
         } else if (input.filter === "more-than-10k-stake") {
           // Convert 10k ether to wei for comparison: 10000 * 10^18
           const tenKEtherInWei = BigInt(10000) * BigInt(10) ** BigInt(18);
-          filteredPools = processedPools.filter(pool => pool.stakedAmount > tenKEtherInWei);
+          filteredPools = poolsWithAPY.filter(pool => pool.stakedAmount > tenKEtherInWei);
         }
 
         // Apply sorting
@@ -1636,6 +1675,19 @@ export const poolsFanRouter = router({
         const pendingRewards = userData.pendingRewards;
         const lastClaim = userData.lastClaim ?? null;
 
+        // Calculate APY for the pool
+        let apy: number | undefined = undefined;
+        if (pool.poolAddress && totalStake > 0n) {
+          try {
+            const calculatedAPY = await calculatePoolAPY(pool.poolAddress as Address, parseInt(pool.chainId), publicClient);
+            if (calculatedAPY !== null) {
+              apy = calculatedAPY;
+            }
+          } catch (error) {
+            console.error(`Error calculating APY for pool ${pool.id}:`, error);
+          }
+        }
+
         // Return only the data that is actually displayed in the modal
         return {
           id: pool.id,
@@ -1656,6 +1708,7 @@ export const poolsFanRouter = router({
           pendingRewards,
           stakedByYou,
           lastClaim,
+          apy,
           creator: {
             userId: pool.wallet!.userId!,
             address: pool.wallet!.address!,
