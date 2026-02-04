@@ -16,6 +16,7 @@ export interface RewardPool {
   pendingRewards: bigint;
   stakedByYou: bigint; // Amount of REVO that the requesting user has staked in this pool
   lastClaim: Date | null;
+  apy?: number; // APY in basis points (e.g., 1250 = 12.5%)
   creator: {
     userId: number;
     address: string;
@@ -59,6 +60,7 @@ export interface PoolTabRewardPool {
   } | null;
   stakedAmount: bigint;
   fans: number;
+  apy?: number; // APY in basis points (e.g., 1250 = 12.5%)
 }
 
 // Interface specifically for getPoolDetailsForModal return type
@@ -78,6 +80,7 @@ export interface PoolDetailsForModal {
   pendingRewards: bigint | null;
   stakedByYou: bigint | null; // Amount of REVO that the requesting user has staked in this pool
   lastClaim: Date | null;
+  apy?: number; // APY in basis points (e.g., 1250 = 12.5%)
   creator: {
     userId: number;
     address: string;
