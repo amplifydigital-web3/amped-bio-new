@@ -24,7 +24,6 @@ export async function calculatePoolAPY(
 ): Promise<number | null> {
   const chain = getChainConfig(chainId);
   if (!chain?.contracts?.NODE) {
-    console.error(`No NODE contract found for chain ${chainId}`);
     return null;
   }
 
@@ -134,7 +133,6 @@ export async function calculatePoolAPY(
     // Return as basis points
     return Math.round(apy * 100);
   } catch (error) {
-    console.error(`Error calculating APY for pool ${poolAddress}:`, error);
     return null;
   }
 }
