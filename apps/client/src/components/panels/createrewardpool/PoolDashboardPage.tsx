@@ -20,6 +20,7 @@ import {
   ArrowUpNarrowWide,
   ArrowDownWideNarrow,
 } from "lucide-react";
+import { BsTelegram } from "react-icons/bs";
 import ExplorePoolDetailsModal from "../explore/ExplorePoolDetailsModal";
 import { trpc } from "@/utils/trpc";
 import { useMutation } from "@tanstack/react-query";
@@ -30,7 +31,7 @@ import { useQuery } from "@tanstack/react-query";
 import { trpcClient } from "@/utils/trpc";
 import { formatNumberWithSeparators } from "@/utils/numberUtils";
 import { ImageUploadModal } from "@/components/ImageUploadModal";
-import { RewardPool } from "@ampedbio/constants";
+import { RewardPool, TELEGRAM_LINK, TELEGRAM_COLOR } from "@ampedbio/constants";
 import { PoolDashboardSkeleton } from "./PoolDashboardSkeleton";
 import { formatDistanceToNow } from "date-fns";
 
@@ -744,6 +745,20 @@ export default function DashboardPage() {
             </p>
           </div>
         </div>
+
+        {/* Telegram Card */}
+        <a
+          href={TELEGRAM_LINK}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="bg-white rounded-xl border border-blue-200 shadow-sm p-6 hover:shadow-md transition-shadow duration-200 flex flex-col justify-center items-center text-center"
+        >
+          <div className="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-full mb-4">
+            <BsTelegram className="w-6 h-6" style={{ color: TELEGRAM_COLOR }} />
+          </div>
+          <p className="text-sm font-medium text-gray-700 mb-2">Join Our Community</p>
+          <p className="text-xs text-gray-500">Stay updated with latest pool news</p>
+        </a>
       </div>
 
       {/* Chart Section - HIDDEN by commenting out */}
