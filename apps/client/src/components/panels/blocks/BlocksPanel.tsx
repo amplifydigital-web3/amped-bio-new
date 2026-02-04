@@ -3,6 +3,8 @@ import { BlockPicker } from "./BlockPicker";
 import { LinkForm } from "./LinkForm";
 import { useEditor } from "../../../contexts/EditorContext";
 import { GripVertical } from "lucide-react";
+import { BsTelegram } from "react-icons/bs";
+import { TELEGRAM_LINK, TELEGRAM_COLOR } from "@ampedbio/constants";
 
 export function BlocksPanel() {
   const { blocks, addBlock, removeBlock, updateBlock, reorderBlocks } = useEditor();
@@ -33,7 +35,7 @@ export function BlocksPanel() {
           <>
             <div className="border-t border-gray-200 my-4" />
             <p className="text-sm text-gray-500 px-1">
-              You can reorder blocks by clicking and dragging the
+              You can reorder blocks by clicking and dragging
               <span className="inline-flex items-center mx-1">
                 <GripVertical className="w-4 h-4 text-gray-400" />
               </span>
@@ -48,6 +50,20 @@ export function BlocksPanel() {
           onRemove={removeBlock}
           onReorder={reorderBlocks}
         />
+
+        {blocks.length > 0 && (
+          <div className="mt-4">
+            <a
+              href={TELEGRAM_LINK}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-800 transition-colors duration-200"
+            >
+              <BsTelegram className="w-4 h-4" style={{ color: TELEGRAM_COLOR }} />
+              <span>Can't find a specific block? Join our Telegram and send your suggestion!</span>
+            </a>
+          </div>
+        )}
       </div>
     </div>
   );

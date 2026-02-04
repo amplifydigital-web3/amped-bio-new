@@ -12,3 +12,4 @@ export * from "./blocks";
 export * from "./banner";
 export * from "./reward-pool";
 export * from "./captcha";
+export * from "./telegram";
