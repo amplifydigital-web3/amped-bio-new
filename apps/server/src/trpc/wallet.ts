@@ -166,6 +166,17 @@ export const walletRouter = router({
           },
         });
 
+        // Check and auto-pay referral rewards if applicable (non-blocking)
+        setImmediate(async () => {
+          try {
+            const { checkAndPayReferralForUser } = await import("../services/referralPayout");
+            await checkAndPayReferralForUser(userId);
+          } catch (error) {
+            console.error("Error in referral payout background task:", error);
+            // Don't throw - wallet linking should succeed even if payout fails
+          }
+        });
+
         return {
           success: true,
           message: "Wallet address successfully linked to your account",
