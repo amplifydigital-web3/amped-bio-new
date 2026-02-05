@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc/trpc";
+import { trpcClient } from "@/utils/trpc/trpc";
 import { Copy, Check, Users, Link2, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,7 +11,9 @@ function ReferralCard() {
   const [copied, setCopied] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [claimingReferralId, setClaimingReferralId] = useState<number | null>(null);
   const referralsPerPage = 10;
+  const queryClient = useQueryClient();
 
   const { data: referralsData, isLoading: loadingReferrals } = useQuery({
     ...trpc.referral.myReferrals.queryOptions({
@@ -23,6 +26,28 @@ function ReferralCard() {
   const { data: stats } = useQuery({
     ...trpc.referral.referralStats.queryOptions(),
     enabled: !!authUser,
+  });
+
+  const { data: myReferrer } = useQuery({
+    ...trpc.referral.myReferrer.queryOptions(),
+    enabled: !!authUser,
+  });
+
+  const claimMutation = useMutation({
+    mutationFn: async (referralId: number) => {
+      return trpcClient.referral.claimReferralReward.mutate({ referralId });
+    },
+    onSuccess: (data) => {
+      toast.success(`Reward claimed! TXID: ${data.txid.slice(0, 10)}...`);
+      setClaimingReferralId(null);
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to claim reward");
+      setClaimingReferralId(null);
+    },
+    onMutate: (referralId) => {
+      setClaimingReferralId(referralId);
+    },
   });
 
   const userIdHex = authUser ? `0x${authUser.id.toString(16)}` : "";
@@ -47,6 +72,10 @@ function ReferralCard() {
     if (referralsData) {
       setCurrentPage(prev => Math.min(prev + 1, referralsData.totalPages));
     }
+  };
+
+  const handleClaimReward = (referralId: number) => {
+    claimMutation.mutate(referralId);
   };
 
   if (!authUser) {
@@ -114,6 +143,56 @@ function ReferralCard() {
               </div>
             </div>
 
+            {/* Your Referrer Section */}
+            {myReferrer && (
+              <div className="bg-blue-50 rounded-lg border border-blue-200 p-4">
+                <h4 className="text-sm font-semibold text-gray-900 mb-3">Your Referrer</h4>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-medium text-blue-600">
+                        {myReferrer.referrer.name?.charAt(0).toUpperCase() || "?"}
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {myReferrer.referrer.name || "Anonymous"}
+                      </p>
+                      {myReferrer.referrer.handle && (
+                        <a
+                          href={`${window.location.origin}/@${myReferrer.referrer.handle}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 hover:text-blue-800 hover:underline truncate"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          @{myReferrer.referrer.handle}
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                    {myReferrer.txid ? (
+                      <span className="text-xs text-green-600 font-medium bg-green-50 px-2 py-1 rounded">
+                        Claimed
+                      </span>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleClaimReward(myReferrer.id);
+                        }}
+                        disabled={claimingReferralId === myReferrer.id}
+                        className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {claimingReferralId === myReferrer.id ? "Claiming..." : "Claim"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center space-x-6 text-sm">
               <div>
                 <p className="font-semibold text-gray-900">{userIdHex}</p>
@@ -123,13 +202,6 @@ function ReferralCard() {
                 <p className="font-semibold text-gray-900">{stats?.totalReferrals || 0}</p>
                 <p className="text-gray-500">Total Referrals</p>
               </div>
-            </div>
-
-            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-              <p className="text-sm text-blue-800">
-                <strong>Coming soon:</strong> Earn tokens for every successful referral! Stay tuned for
-                our rewards program.
-              </p>
             </div>
 
             <div className="bg-gray-50 rounded-lg border border-gray-200">
@@ -184,10 +256,26 @@ function ReferralCard() {
                               </a>
                             </div>
                           </div>
-                          <div className="text-right flex-shrink-0 ml-2">
+                          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                             <p className="text-xs text-gray-500">
                               {new Date(referral.created_at).toLocaleDateString()}
                             </p>
+                            {referral.txid ? (
+                              <span className="text-xs text-green-600 font-medium bg-green-50 px-2 py-1 rounded">
+                                Claimed
+                              </span>
+                            ) : (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleClaimReward(referral.referralId);
+                                }}
+                                disabled={claimingReferralId === referral.referralId}
+                                className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              >
+                                {claimingReferralId === referral.referralId ? "Claiming..." : "Claim"}
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
