@@ -124,14 +124,60 @@ export const auth = betterAuth({
           const referrerId = context?.query?.referrerId;
           if (referrerId) {
             try {
-              await prisma.referral.create({
+              // Create referral record
+              const referral = await prisma.referral.create({
                 data: {
                   referrerId: parseInt(referrerId),
                   referredId: parseInt(user.id),
                 },
               });
+
+              // Get wallet addresses for both parties
+              const [referrerWallet, refereeWallet] = await Promise.all([
+                prisma.userWallet.findFirst({
+                  where: { userId: parseInt(referrerId) },
+                }),
+                prisma.userWallet.findFirst({
+                  where: { userId: parseInt(user.id) },
+                }),
+              ]);
+
+              // Only send rewards if both parties have linked wallets
+              if (referrerWallet && refereeWallet) {
+                // Send rewards asynchronously (don't block user registration)
+                setImmediate(async () => {
+                  try {
+                    // Import reward sending function dynamically
+                    const { sendReferralRewards, updateReferralTxid } = await import("../services/referralRewards");
+
+                    const result = await sendReferralRewards(
+                      referrerWallet.address as `0x${string}`,
+                      refereeWallet.address as `0x${string}`
+                    );
+
+                    if (result.success && result.txid) {
+                      // Update referral record with transaction hash
+                      await updateReferralTxid(referral.id, result.txid);
+                      console.log(`Referral rewards sent successfully: ${result.txid}`);
+                    } else {
+                      console.error(
+                        `Failed to send referral rewards: ${result.error || "Unknown error"}`
+                      );
+                    }
+                  } catch (error) {
+                    console.error("Error in referral reward background task:", error);
+                  }
+                });
+              } else {
+                console.log(
+                  `Referral created but rewards not sent: ` +
+                  `referrer wallet: ${referrerWallet ? "yes" : "no"}, ` +
+                  `referee wallet: ${refereeWallet ? "yes" : "no"}`
+                );
+              }
             } catch (error) {
               console.error("Error creating referral:", error);
+              // Don't throw - user registration should succeed even if referral creation fails
             }
           }
         },

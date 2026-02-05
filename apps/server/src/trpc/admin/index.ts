@@ -8,6 +8,7 @@ import { adminUploadRouter } from "./upload";
 import { walletAdminRouter } from "./wallet";
 import { settingsRouter } from "./settings";
 import { adminPoolsRouter } from "./pools";
+import { affiliateAdminRouter } from "./affiliate";
 
 export const adminRouter = router({
   // User Management
@@ -36,4 +37,7 @@ export const adminRouter = router({
 
   // Pool Management
   pools: adminPoolsRouter,
+
+  // Affiliate Rewards Management
+  affiliate: affiliateAdminRouter,
 });

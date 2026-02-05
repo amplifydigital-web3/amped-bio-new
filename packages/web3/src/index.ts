@@ -32,6 +32,7 @@ export const revolutionDevnet = {
     L2_BASE_TOKEN: { address: "0x000000000000000000000000000000000000800A" as Address },
     NODE: { address: "0x0000000000000000000000000000000000000000" as Address },
     CREATOR_POOL_FACTORY: { address: "0x0000000000000000000000000000000000000000" as Address },
+    SIMPLE_BATCH_SEND: { address: "0x0000000000000000000000000000000000000000" as Address },
   },
   gas: 5_000_000,
 } as const;
@@ -64,6 +65,7 @@ export const libertasTestnet = {
     NODE: { address: "0x019bbe745b5c9b70060408Bf720B1E5172EEa5A3" as Address },
     CREATOR_POOL_FACTORY: { address: "0x38df3c6acEe3511c088c84d0191f550b24726f0f" as Address },
     multicall3: { address: "0x97cb78d5be963e2534a2156c88093a49f15315c8" as Address },
+    SIMPLE_BATCH_SEND: { address: "0x0000000000000000000000000000000000000000" as Address },
   },
   gas: 5_000_000,
 } as const;
@@ -1543,5 +1545,18 @@ export const L2_BASE_TOKEN_ABI = [
     type: "error",
     name: "ZeroAmountError",
     inputs: [],
+  },
+] as const;
+
+export const SIMPLE_BATCH_SEND_ABI = [
+  {
+    type: "function",
+    name: "send",
+    stateMutability: "payable",
+    inputs: [
+      { name: "recipients", type: "address[]" },
+      { name: "amounts", type: "uint256[]" }
+    ],
+    outputs: [],
   },
 ] as const;
