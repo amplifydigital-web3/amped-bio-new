@@ -121,15 +121,13 @@ export const referralRouter = router({
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user!.sub;
 
-      // Find the referral record - user can be either referrer OR referee
-      const referral = await prisma.referral.findFirst({
-        where: {
-          id: input.referralId,
-          OR: [{ referrerId: userId }, { referredId: userId }],
-        },
-        include: {
-          referrer: { select: { id: true, name: true } },
-          referred: { select: { id: true, name: true } },
+      const referral = await prisma.referral.findUnique({
+        where: { id: input.referralId },
+        select: {
+          id: true,
+          referrerId: true,
+          referredId: true,
+          txid: true,
         },
       });
 
@@ -140,67 +138,67 @@ export const referralRouter = router({
         });
       }
 
+      if (referral.referrerId !== userId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not authorized to claim this referral reward",
+        });
+      }
+
       if (referral.txid) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Reward already claimed",
+          message: "Referral reward has already been claimed",
         });
       }
 
-      // Get wallet addresses for both parties
       const [referrerWallet, refereeWallet] = await Promise.all([
         prisma.userWallet.findFirst({
           where: { userId: referral.referrerId },
+          select: { address: true },
         }),
         prisma.userWallet.findFirst({
           where: { userId: referral.referredId },
+          select: { address: true },
         }),
       ]);
 
-      // Check if both parties have wallets with specific error messages
-      if (!referrerWallet && !refereeWallet) {
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: "Both referrer and referee must have linked wallets to claim rewards",
-        });
-      }
-
       if (!referrerWallet) {
         throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: `Referrer ${referral.referrer.name || ""} must link their wallet first`,
+          code: "BAD_REQUEST",
+          message: "Your wallet is not linked",
         });
       }
 
       if (!refereeWallet) {
         throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: `Referee ${referral.referred.name || ""} must link their wallet first`,
+          code: "BAD_REQUEST",
+          message: "Referee has not linked their wallet yet",
         });
       }
 
-      // Send rewards using existing service
-      const { sendReferralRewards, updateReferralTxid } = await import(
-        "../services/referralRewards"
-      );
+      const { sendReferralRewards } = await import("../services/referralRewards");
 
       const result = await sendReferralRewards(
         referrerWallet.address as `0x${string}`,
         refereeWallet.address as `0x${string}`
       );
 
-      if (result.success && result.txid) {
-        // Update referral record with transaction hash
-        await updateReferralTxid(referral.id, result.txid);
-        return {
-          success: true,
-          txid: result.txid,
-        };
+      if (!result.success || !result.txid) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: result.error || "Failed to send referral rewards",
+        });
       }
 
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: result.error || "Failed to send reward",
+      await prisma.referral.update({
+        where: { id: referral.id },
+        data: { txid: result.txid },
       });
+
+      return {
+        success: true,
+        txid: result.txid,
+      };
     }),
 });
