@@ -9,6 +9,7 @@ import { prisma } from "../services/DB";
 import { getChainConfig } from "@ampedbio/web3";
 import * as jose from "jose";
 import Decimal from "decimal.js";
+import { SITE_SETTINGS } from "@ampedbio/constants";
 
 // Schema for requesting faucet tokens
 const faucetRequestSchema = z.object({
@@ -217,7 +218,7 @@ export const walletRouter = router({
 
         // Retrieve the faucet enabled status
         const faucetStatus = await prisma.siteSettings.findUnique({
-          where: { setting_key: "faucet_enabled" },
+          where: { setting_key: SITE_SETTINGS.FAUCET_ENABLED },
         });
         const faucetEnabled = faucetStatus?.setting_value === "true";
 

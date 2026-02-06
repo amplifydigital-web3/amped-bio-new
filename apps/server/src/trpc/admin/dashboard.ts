@@ -2,6 +2,7 @@ import { adminProcedure, router } from "../trpc";
 import { prisma } from "../../services/DB";
 import { z } from "zod";
 import { bannerSchema } from "../../schemas/banner";
+import { SITE_SETTINGS } from "@ampedbio/constants";
 
 // Function to check if text contains links
 const containsLink = (text: string): boolean => {
@@ -228,7 +229,7 @@ export const dashboardRouter = router({
 
   getBanner: adminProcedure.output(bannerSchema).query(async () => {
     const banner = await prisma.siteSettings.findUnique({
-      where: { setting_key: "dashboard_banner" },
+      where: { setting_key: SITE_SETTINGS.DASHBOARD_BANNER },
     });
 
     if (!banner) {
@@ -276,13 +277,13 @@ export const dashboardRouter = router({
       }
 
       return prisma.siteSettings.upsert({
-        where: { setting_key: "dashboard_banner" },
+        where: { setting_key: SITE_SETTINGS.DASHBOARD_BANNER },
         update: {
           setting_value: JSON.stringify(input.bannerObject),
           value_type: "JSON",
         },
         create: {
-          setting_key: "dashboard_banner",
+          setting_key: SITE_SETTINGS.DASHBOARD_BANNER,
           setting_value: JSON.stringify(input.bannerObject),
           value_type: "JSON",
         },
@@ -298,7 +299,7 @@ export const dashboardRouter = router({
     .mutation(async ({ input }) => {
       // Get the current banner configuration
       const currentBanner = await prisma.siteSettings.findUnique({
-        where: { setting_key: "dashboard_banner" },
+        where: { setting_key: SITE_SETTINGS.DASHBOARD_BANNER },
       });
 
       let bannerData = {
@@ -313,7 +314,7 @@ export const dashboardRouter = router({
         try {
           bannerData = JSON.parse(currentBanner.setting_value);
         } catch {
-          // If parsing fails, use the default banner data
+          // If parsing fails, use default banner data
         }
       }
 
@@ -322,13 +323,13 @@ export const dashboardRouter = router({
 
       // Save the updated banner configuration
       return prisma.siteSettings.upsert({
-        where: { setting_key: "dashboard_banner" },
+        where: { setting_key: SITE_SETTINGS.DASHBOARD_BANNER },
         update: {
           setting_value: JSON.stringify(bannerData),
           value_type: "JSON",
         },
         create: {
-          setting_key: "dashboard_banner",
+          setting_key: SITE_SETTINGS.DASHBOARD_BANNER,
           setting_value: JSON.stringify(bannerData),
           value_type: "JSON",
         },

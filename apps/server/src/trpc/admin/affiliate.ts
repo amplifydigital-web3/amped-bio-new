@@ -4,9 +4,7 @@ import { createPublicClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { AVAILABLE_CHAINS } from "@ampedbio/web3";
 import { prisma } from "../../services/DB";
-
-// Fixed chain ID for affiliate rewards (Libertas Testnet)
-const AFFILIATES_CHAIN_ID = 73863;
+import { AFFILIATES_CHAIN_ID, SITE_SETTINGS } from "@ampedbio/constants";
 
 export const affiliateAdminRouter = router({
   getAffiliateWalletInfo: adminProcedure.query(async () => {
@@ -56,10 +54,10 @@ export const affiliateAdminRouter = router({
         // Get reward amounts from SiteSettings
         const [referrerRewardSetting, refereeRewardSetting] = await Promise.all([
           prisma.siteSettings.findUnique({
-            where: { setting_key: "affiliate_referrer_reward" },
+            where: { setting_key: SITE_SETTINGS.AFFILIATE_REFERRER_REWARD },
           }),
           prisma.siteSettings.findUnique({
-            where: { setting_key: "affiliate_referee_reward" },
+            where: { setting_key: SITE_SETTINGS.AFFILIATE_REFEREE_REWARD },
           }),
         ]);
 
@@ -116,42 +114,38 @@ export const affiliateAdminRouter = router({
 
   getAffiliateStats: adminProcedure.query(async () => {
     try {
-      const [
-        totalReferrals,
-        rewardedReferrals,
-        pendingReferrals,
-        recentReferrals,
-      ] = await Promise.all([
-        prisma.referral.count(),
-        prisma.referral.count({
-          where: {
-            txid: { not: null },
-          },
-        }),
-        prisma.referral.count({
-          where: {
-            txid: null,
-          },
-        }),
-        prisma.referral.findMany({
-          include: {
-            referrer: {
-              select: {
-                name: true,
-                email: true,
+      const [totalReferrals, rewardedReferrals, pendingReferrals, recentReferrals] =
+        await Promise.all([
+          prisma.referral.count(),
+          prisma.referral.count({
+            where: {
+              txid: { not: null },
+            },
+          }),
+          prisma.referral.count({
+            where: {
+              txid: null,
+            },
+          }),
+          prisma.referral.findMany({
+            include: {
+              referrer: {
+                select: {
+                  name: true,
+                  email: true,
+                },
+              },
+              referred: {
+                select: {
+                  name: true,
+                  email: true,
+                },
               },
             },
-            referred: {
-              select: {
-                name: true,
-                email: true,
-              },
-            },
-          },
-          orderBy: { createdAt: "desc" },
-          take: 10,
-        }),
-      ]);
+            orderBy: { createdAt: "desc" },
+            take: 10,
+          }),
+        ]);
 
       return {
         totalReferrals,

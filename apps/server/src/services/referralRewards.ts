@@ -4,9 +4,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { getChainConfig } from "@ampedbio/web3";
 import { SIMPLE_BATCH_SEND_ABI } from "@ampedbio/web3";
 import { prisma } from "./DB";
-
-// Fixed chain ID for affiliate rewards (Libertas Testnet)
-const AFFILIATES_CHAIN_ID = 73863;
+import { AFFILIATES_CHAIN_ID, SITE_SETTINGS } from "@ampedbio/constants";
 
 interface ReferralRewardResult {
   success: boolean;
@@ -54,10 +52,10 @@ export async function sendReferralRewards(
     // Get reward amounts from SiteSettings
     const [referrerRewardSetting, refereeRewardSetting] = await Promise.all([
       prisma.siteSettings.findUnique({
-        where: { setting_key: "affiliate_referrer_reward" },
+        where: { setting_key: SITE_SETTINGS.AFFILIATE_REFERRER_REWARD },
       }),
       prisma.siteSettings.findUnique({
-        where: { setting_key: "affiliate_referee_reward" },
+        where: { setting_key: SITE_SETTINGS.AFFILIATE_REFEREE_REWARD },
       }),
     ]);
 
@@ -121,21 +119,19 @@ export async function sendReferralRewards(
 
     console.log(
       `Sending referral rewards via SimpleBatchSend contract: ` +
-      `${referrerReward} ${chain.nativeCurrency.symbol} to ${referrerAddress}, ` +
-      `${refereeReward} ${chain.nativeCurrency.symbol} to ${refereeAddress}`
+        `${referrerReward} ${chain.nativeCurrency.symbol} to ${referrerAddress}, ` +
+        `${refereeReward} ${chain.nativeCurrency.symbol} to ${refereeAddress}`
     );
 
     // Send transaction via SimpleBatchSend contract
-    const hash = await walletClient.writeContract(
-      {
-        account,
-        address: contractAddress,
-        abi: SIMPLE_BATCH_SEND_ABI,
-        functionName: "send",
-        args: [recipients, amounts],
-        value: totalRewardInWei,
-      } as any
-    );
+    const hash = await walletClient.writeContract({
+      account,
+      address: contractAddress,
+      abi: SIMPLE_BATCH_SEND_ABI,
+      functionName: "send",
+      args: [recipients, amounts],
+      value: totalRewardInWei,
+    } as any);
 
     console.log(`Referral rewards transaction sent: ${hash}`);
 
@@ -157,10 +153,7 @@ export async function sendReferralRewards(
  * @param referralId - ID of the referral record
  * @param txid - Transaction hash from blockchain
  */
-export async function updateReferralTxid(
-  referralId: number,
-  txid: string
-): Promise<void> {
+export async function updateReferralTxid(referralId: number, txid: string): Promise<void> {
   await prisma.referral.update({
     where: { id: referralId },
     data: { txid },
