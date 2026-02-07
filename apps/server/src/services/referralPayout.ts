@@ -1,8 +1,10 @@
 import { prisma } from "./DB";
 
+const PROCESSING_TXID = "0x0000000000000000000000000000000000000000000";
+
 /**
  * Process referral reward immediately after a user links their wallet.
- * This function only checks if the user was referred by someone and sends rewards
+ * This function only checks if user was referred by someone and sends rewards
  * to BOTH parties (referrer and referee) if both have linked wallets.
  *
  * Rules:
@@ -15,85 +17,112 @@ import { prisma } from "./DB";
  * @param userId - The user ID who just linked their wallet
  */
 export async function processReferralRewardForUser(userId: number): Promise<void> {
-  await prisma.$transaction(async tx => {
-    // Single query with SELECT FOR UPDATE to lock the referral record
-    // Only fetch referral where this user is the referee (was referred by someone)
-    const referral = await tx.referral.findFirst({
-      where: {
-        referredId: userId,
-        txid: null,
-      },
-      select: {
-        id: true,
-        referrerId: true,
-        referredId: true,
-        txid: true,
-      },
-    });
+  console.log(`[PROCESS_REFERRAL_REWARD_FOR_USER] userId=${userId}`);
 
-    if (!referral) {
-      console.log(`No unpaid referral found for user ${userId} as referee`);
-      return;
-    }
+  try {
+    await prisma.$transaction(async tx => {
+      console.log(`[REFERRAL_PAYOUT_TRANSACTION_START] userId=${userId}`);
 
-    // Get wallet addresses for both parties in a single query
-    const [referrerWallet, refereeWallet] = await Promise.all([
-      tx.userWallet.findFirst({
-        where: { userId: referral.referrerId },
-        select: { address: true },
-      }),
-      tx.userWallet.findFirst({
-        where: { userId: referral.referredId },
-        select: { address: true },
-      }),
-    ]);
+      const referral = await tx.referral.findFirst({
+        where: {
+          referredId: userId,
+          OR: [{ txid: null }, { txid: PROCESSING_TXID }],
+        },
+        select: {
+          id: true,
+          referrerId: true,
+          referredId: true,
+          txid: true,
+        },
+      });
 
-    // Only send rewards if both parties have linked wallets
-    if (!referrerWallet || !refereeWallet) {
+      if (!referral) {
+        console.log(`[NO_UNPAID_REFERRAL_FOUND] userId=${userId}`);
+        return;
+      }
+
       console.log(
-        `Referral ${referral.id}: Cannot pay - ` +
-          `referrer wallet: ${referrerWallet ? "yes" : "no"}, ` +
-          `referee wallet: ${refereeWallet ? "yes" : "no"}`
+        `[REFERRAL_FOUND_FOR_PAYOUT] referralId=${referral.id}, referrerId=${referral.referrerId}, referredId=${referral.referredId}`
       );
-      return;
-    }
 
-    // Double-check txid is still null (locked record ensures no race condition)
-    const freshReferral = await tx.referral.findUnique({
-      where: { id: referral.id },
-      select: { txid: true },
-    });
+      const [referrerWallet, refereeWallet] = await Promise.all([
+        tx.userWallet.findFirst({
+          where: { userId: referral.referrerId },
+          select: { address: true },
+        }),
+        tx.userWallet.findFirst({
+          where: { userId: referral.referredId },
+          select: { address: true },
+        }),
+      ]);
 
-    if (freshReferral?.txid) {
-      console.log(`Referral ${referral.id}: Already paid, skipping`);
-      return;
-    }
+      if (!referrerWallet || !refereeWallet) {
+        console.log(
+          `[REFERRAL_PAYOUT_INCOMPLETE_WALLETS] referralId=${referral.id}, hasReferrerWallet=${!!referrerWallet}, hasRefereeWallet=${!!refereeWallet}`
+        );
+        return;
+      }
 
-    // Import and use the reward sending service
-    const { sendReferralRewards, updateReferralTxid } = await import("./referralRewards");
+      console.log(
+        `[REFERRAL_WALLETS_READY] referralId=${referral.id}, referrerWallet=${referrerWallet.address}, refereeWallet=${refereeWallet.address}`
+      );
 
-    console.log(
-      `Referral ${referral.id}: Sending rewards - ` +
-        `referrer: ${referrerWallet.address}, referee: ${refereeWallet.address}`
-    );
+      const freshReferral = await tx.referral.findUnique({
+        where: { id: referral.id },
+        select: { txid: true },
+      });
 
-    // Send rewards via blockchain
-    const result = await sendReferralRewards(
-      referrerWallet.address as `0x${string}`,
-      refereeWallet.address as `0x${string}`
-    );
+      if (freshReferral?.txid && freshReferral.txid !== PROCESSING_TXID) {
+        console.log(
+          `[REFERRAL_ALREADY_PAID_DURING_LOCK] referralId=${referral.id}, txid=${freshReferral.txid}`
+        );
+        return;
+      }
 
-    if (result.success && result.txid) {
-      // Update referral record with transaction hash within the same transaction
+      console.log(
+        `[REFERRAL_SETTING_PROCESSING_TXID] referralId=${referral.id}, txid=${PROCESSING_TXID}`
+      );
+
       await tx.referral.update({
         where: { id: referral.id },
-        data: { txid: result.txid },
+        data: { txid: PROCESSING_TXID },
       });
-      console.log(`Referral ${referral.id}: Rewards sent successfully - txid: ${result.txid}`);
-    } else {
-      console.error(
-        `Referral ${referral.id}: Failed to send rewards - ${result.error || "Unknown error"}`
+
+      console.log(`[REFERRAL_PROCESSING_TXID_SET] referralId=${referral.id}`);
+
+      const { sendReferralRewards } = await import("./referralRewards");
+
+      console.log(
+        `[SENDING_REFERRAL_REWARDS] referralId=${referral.id}, referrerAddress=${referrerWallet.address}, refereeAddress=${refereeWallet.address}`
       );
-    }
-  });
+
+      const result = await sendReferralRewards(
+        referrerWallet.address as `0x${string}`,
+        refereeWallet.address as `0x${string}`
+      );
+
+      if (result.success && result.txid) {
+        await tx.referral.update({
+          where: { id: referral.id },
+          data: { txid: result.txid },
+        });
+
+        console.log(
+          `[REFERRAL_PAYOUT_SUCCESS] referralId=${referral.id}, txid=${result.txid}, referrerAddress=${referrerWallet.address}, refereeAddress=${refereeWallet.address}`
+        );
+      } else {
+        console.log(
+          `[REFERRAL_PAYOUT_FAILED] referralId=${referral.id}, error=${result.error}, referrerAddress=${referrerWallet.address}, refereeAddress=${refereeWallet.address}`
+        );
+        throw new Error(result.error || "Failed to send referral rewards");
+      }
+    });
+
+    console.log(`[PROCESS_REFERRAL_REWARD_FOR_USER_COMPLETE] userId=${userId}`);
+  } catch (error) {
+    console.log(
+      `[PROCESS_REFERRAL_REWARD_FOR_USER_ERROR] userId=${userId}, error=${error instanceof Error ? error.message : "Unknown error"}`
+    );
+    throw error;
+  }
 }

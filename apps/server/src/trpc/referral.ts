@@ -3,6 +3,8 @@ import { z } from "zod";
 import { prisma } from "../services/DB";
 import { TRPCError } from "@trpc/server";
 
+const PROCESSING_TXID = "0x0000000000000000000000000000000000000000000";
+
 export const referralRouter = router({
   myReferrals: privateProcedure
     .input(
@@ -121,84 +123,157 @@ export const referralRouter = router({
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user!.sub;
 
-      const referral = await prisma.referral.findUnique({
-        where: { id: input.referralId },
-        select: {
-          id: true,
-          referrerId: true,
-          referredId: true,
-          txid: true,
-        },
-      });
+      console.log(`[REFERRAL_CLAIM_ATTEMPT] userId=${userId}, referralId=${input.referralId}`);
 
-      if (!referral) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Referral not found",
+      try {
+        const result = await prisma.$transaction(async tx => {
+          console.log(
+            `[REFERRAL_CLAIM_TRANSACTION_START] userId=${userId}, referralId=${input.referralId}`
+          );
+
+          const referral = await tx.referral.findUnique({
+            where: { id: input.referralId },
+            select: {
+              id: true,
+              referrerId: true,
+              referredId: true,
+              txid: true,
+            },
+          });
+
+          if (!referral) {
+            console.log(`[REFERRAL_NOT_FOUND] userId=${userId}, referralId=${input.referralId}`);
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Referral not found",
+            });
+          }
+
+          if (referral.referrerId !== userId) {
+            console.log(
+              `[REFERRAL_UNAUTHORIZED_CLAIM] userId=${userId}, referralId=${input.referralId}, referrerId=${referral.referrerId}`
+            );
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "You are not authorized to claim this referral reward",
+            });
+          }
+
+          if (referral.txid && referral.txid !== PROCESSING_TXID) {
+            console.log(
+              `[REFERRAL_ALREADY_CLAIMED] userId=${userId}, referralId=${input.referralId}, txid=${referral.txid}`
+            );
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                referral.txid === PROCESSING_TXID
+                  ? "Referral reward is being processed"
+                  : "Referral reward has already been claimed",
+            });
+          }
+
+          console.log(
+            `[REFERRAL_VALIDATION_PASSED] userId=${userId}, referralId=${input.referralId}`
+          );
+
+          const [referrerWallet, refereeWallet] = await Promise.all([
+            tx.userWallet.findFirst({
+              where: { userId: referral.referrerId },
+              select: { address: true },
+            }),
+            tx.userWallet.findFirst({
+              where: { userId: referral.referredId },
+              select: { address: true },
+            }),
+          ]);
+
+          if (!referrerWallet) {
+            console.log(
+              `[REFERRAL_NO_REFERRER_WALLET] userId=${userId}, referralId=${input.referralId}`
+            );
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Your wallet is not linked",
+            });
+          }
+
+          if (!refereeWallet) {
+            console.log(
+              `[REFERRAL_NO_REFEREE_WALLET] userId=${userId}, referralId=${input.referralId}`
+            );
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Referee has not linked their wallet yet",
+            });
+          }
+
+          console.log(
+            `[REFERRAL_WALLETS_FOUND] userId=${userId}, referralId=${input.referralId}, referrerWallet=${referrerWallet.address}, refereeWallet=${refereeWallet.address}`
+          );
+
+          console.log(
+            `[REFERRAL_SETTING_PROCESSING_TXID] userId=${userId}, referralId=${input.referralId}, txid=${PROCESSING_TXID}`
+          );
+
+          await tx.referral.update({
+            where: { id: referral.id },
+            data: { txid: PROCESSING_TXID },
+          });
+
+          console.log(
+            `[REFERRAL_PROCESSING_TXID_SET] userId=${userId}, referralId=${input.referralId}`
+          );
+
+          const { sendReferralRewards } = await import("../services/referralRewards");
+
+          const rewardResult = await sendReferralRewards(
+            referrerWallet.address as `0x${string}`,
+            refereeWallet.address as `0x${string}`
+          );
+
+          if (!rewardResult.success || !rewardResult.txid) {
+            console.log(
+              `[REFERRAL_REWARD_SEND_FAILED] userId=${userId}, referralId=${input.referralId}, error=${rewardResult.error}`
+            );
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: rewardResult.error || "Failed to send referral rewards",
+            });
+          }
+
+          await tx.referral.update({
+            where: { id: referral.id },
+            data: { txid: rewardResult.txid },
+          });
+
+          console.log(
+            `[REFERRAL_REWARD_CLAIMED] userId=${userId}, referralId=${input.referralId}, txid=${rewardResult.txid}`
+          );
+
+          return {
+            success: true,
+            txid: rewardResult.txid,
+          };
         });
-      }
 
-      if (referral.referrerId !== userId) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You are not authorized to claim this referral reward",
-        });
-      }
+        console.log(
+          `[REFERRAL_CLAIM_SUCCESS] userId=${userId}, referralId=${input.referralId}, txid=${result.txid}`
+        );
 
-      if (referral.txid) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Referral reward has already been claimed",
-        });
-      }
+        return result;
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
 
-      const [referrerWallet, refereeWallet] = await Promise.all([
-        prisma.userWallet.findFirst({
-          where: { userId: referral.referrerId },
-          select: { address: true },
-        }),
-        prisma.userWallet.findFirst({
-          where: { userId: referral.referredId },
-          select: { address: true },
-        }),
-      ]);
+        console.log(
+          `[REFERRAL_CLAIM_ERROR] userId=${userId}, referralId=${input.referralId}, error=${error instanceof Error ? error.message : "Unknown error"}`
+        );
 
-      if (!referrerWallet) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Your wallet is not linked",
-        });
-      }
-
-      if (!refereeWallet) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Referee has not linked their wallet yet",
-        });
-      }
-
-      const { sendReferralRewards } = await import("../services/referralRewards");
-
-      const result = await sendReferralRewards(
-        referrerWallet.address as `0x${string}`,
-        refereeWallet.address as `0x${string}`
-      );
-
-      if (!result.success || !result.txid) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: result.error || "Failed to send referral rewards",
+          message: "Failed to claim referral reward",
         });
       }
-
-      await prisma.referral.update({
-        where: { id: referral.id },
-        data: { txid: result.txid },
-      });
-
-      return {
-        success: true,
-        txid: result.txid,
-      };
     }),
 });
