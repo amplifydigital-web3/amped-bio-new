@@ -1,23 +1,90 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { AVAILABLE_CHAINS } from "@ampedbio/web3";
 import { Button } from "../components/ui/Button";
+import { Wallet } from "lucide-react";
 
 declare global {
   interface Window {
     ethereum?: {
-      request: (args: {
-        method: string;
-        params?: Array<unknown>;
-      }) => Promise<unknown>;
+      request: (args: { method: string; params?: Array<unknown> }) => Promise<unknown>;
+      on: (event: string, handler: (arg: unknown) => void) => void;
+      removeListener: (event: string, handler: (arg: unknown) => void) => void;
     };
   }
 }
 
 const NetworkPage: React.FC = () => {
-  const addNetworkToMetaMask = async (
-    chain: (typeof AVAILABLE_CHAINS)[number]
-  ) => {
+  const [isConnected, setIsConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+
+  useEffect(() => {
+    const checkConnection = async () => {
+      if (window.ethereum) {
+        try {
+          const accounts = await window.ethereum.request({
+            method: "eth_accounts",
+          });
+          if ((accounts as string[]).length > 0) {
+            setIsConnected(true);
+            setWalletAddress((accounts as string[])[0]);
+          }
+        } catch (error) {
+          console.error("Error checking connection:", error);
+        }
+      }
+    };
+
+    checkConnection();
+
+    const handleAccountsChanged = (arg: unknown) => {
+      const accounts = arg as string[];
+      if (accounts.length > 0) {
+        setIsConnected(true);
+        setWalletAddress(accounts[0]);
+      } else {
+        setIsConnected(false);
+        setWalletAddress(null);
+      }
+    };
+
+    if (window.ethereum) {
+      window.ethereum.on("accountsChanged", handleAccountsChanged);
+    }
+
+    return () => {
+      if (window.ethereum) {
+        window.ethereum.removeListener("accountsChanged", handleAccountsChanged);
+      }
+    };
+  }, []);
+
+  const connectMetaMask = async () => {
+    if (!window.ethereum) {
+      toast.error("MetaMask not installed");
+      return;
+    }
+
+    setIsConnecting(true);
+    try {
+      const accounts = await window.ethereum.request({
+        method: "eth_requestAccounts",
+      });
+      if ((accounts as string[]).length > 0) {
+        setIsConnected(true);
+        setWalletAddress((accounts as string[])[0]);
+        toast.success("MetaMask connected successfully!");
+      }
+    } catch (error) {
+      console.error("Failed to connect:", error);
+      toast.error("Failed to connect to MetaMask");
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const addNetworkToMetaMask = async (chain: (typeof AVAILABLE_CHAINS)[number]) => {
     if (!window.ethereum) {
       toast.error("MetaMask not installed");
       return;
@@ -55,6 +122,27 @@ const NetworkPage: React.FC = () => {
           Configure your wallet to interact with RevolutionChain networks
         </p>
       </div>
+
+      {isConnected ? (
+        <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Wallet className="h-5 w-5 text-green-600" />
+            <span className="text-green-800 font-medium">
+              Connected: {walletAddress?.slice(0, 6)}...{walletAddress?.slice(-4)}
+            </span>
+          </div>
+        </div>
+      ) : (
+        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Wallet className="h-5 w-5 text-blue-600" />
+            <span className="text-blue-800 font-medium">Connect your wallet to add networks</span>
+          </div>
+          <Button onClick={connectMetaMask} disabled={isConnecting}>
+            {isConnecting ? "Connecting..." : "Connect MetaMask"}
+          </Button>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <table className="w-full">
@@ -108,7 +196,11 @@ const NetworkPage: React.FC = () => {
                   </a>
                 </td>
                 <td className="py-4 px-6">
-                  <Button onClick={() => addNetworkToMetaMask(chain)} size="sm">
+                  <Button
+                    onClick={() => addNetworkToMetaMask(chain)}
+                    size="sm"
+                    disabled={!isConnected}
+                  >
                     Add to MetaMask
                   </Button>
                 </td>
