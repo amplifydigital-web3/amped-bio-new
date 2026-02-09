@@ -61,14 +61,20 @@ export async function sendReferralRewards(
       };
     }
 
-    const [referrerRewardSetting, refereeRewardSetting] = await Promise.all([
-      prisma.siteSettings.findUnique({
-        where: { setting_key: SITE_SETTINGS.AFFILIATE_REFERRER_REWARD },
-      }),
-      prisma.siteSettings.findUnique({
-        where: { setting_key: SITE_SETTINGS.AFFILIATE_REFEREE_REWARD },
-      }),
-    ]);
+    const rewardSettings = await prisma.siteSettings.findMany({
+      where: {
+        setting_key: {
+          in: [SITE_SETTINGS.AFFILIATE_REFERRER_REWARD, SITE_SETTINGS.AFFILIATE_REFEREE_REWARD],
+        },
+      },
+    });
+
+    const referrerRewardSetting = rewardSettings.find(
+      s => s.setting_key === SITE_SETTINGS.AFFILIATE_REFERRER_REWARD
+    );
+    const refereeRewardSetting = rewardSettings.find(
+      s => s.setting_key === SITE_SETTINGS.AFFILIATE_REFEREE_REWARD
+    );
 
     const referrerReward = referrerRewardSetting?.setting_value
       ? Number(referrerRewardSetting.setting_value)

@@ -1,6 +1,6 @@
 import { prisma } from "./DB";
-
-const PROCESSING_TXID = "0x0000000000000000000000000000000000000000000";
+import { sendReferralRewards } from "./referralRewards";
+import { PROCESSING_TXID } from "../constants";
 
 /**
  * Process referral reward immediately after a user links their wallet.
@@ -89,8 +89,6 @@ export async function processReferralRewardForUser(userId: number): Promise<void
       });
 
       console.log(`[REFERRAL_PROCESSING_TXID_SET] referralId=${referral.id}`);
-
-      const { sendReferralRewards } = await import("./referralRewards");
 
       console.log(
         `[SENDING_REFERRAL_REWARDS] referralId=${referral.id}, referrerAddress=${referrerWallet.address}, refereeAddress=${refereeWallet.address}`

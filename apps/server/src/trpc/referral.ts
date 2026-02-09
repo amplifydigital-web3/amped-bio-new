@@ -2,8 +2,8 @@ import { router, privateProcedure } from "./trpc";
 import { z } from "zod";
 import { prisma } from "../services/DB";
 import { TRPCError } from "@trpc/server";
-
-const PROCESSING_TXID = "0x0000000000000000000000000000000000000000000";
+import { sendReferralRewards } from "../services/referralRewards";
+import { PROCESSING_TXID } from "../constants";
 
 export const referralRouter = router({
   myReferrals: privateProcedure
@@ -223,8 +223,6 @@ export const referralRouter = router({
           console.log(
             `[REFERRAL_PROCESSING_TXID_SET] userId=${userId}, referralId=${input.referralId}`
           );
-
-          const { sendReferralRewards } = await import("../services/referralRewards");
 
           const rewardResult = await sendReferralRewards(
             referrerWallet.address as `0x${string}`,
