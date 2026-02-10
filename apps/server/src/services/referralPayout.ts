@@ -110,9 +110,8 @@ export async function processReferralRewardForUser(userId: number): Promise<void
         );
       } else {
         console.log(
-          `[REFERRAL_PAYOUT_FAILED] referralId=${referral.id}, error=${result.error}, referrerAddress=${referrerWallet.address}, refereeAddress=${refereeWallet.address}`
+          `[REFERRAL_PAYOUT_SKIPPED] referralId=${referral.id}, reason=${result.error || "Reward sending failed"}, referrerAddress=${referrerWallet.address}, refereeAddress=${refereeWallet.address}. Referral remains unpaid and can be retried later.`
         );
-        throw new Error(result.error || "Failed to send referral rewards");
       }
     });
 

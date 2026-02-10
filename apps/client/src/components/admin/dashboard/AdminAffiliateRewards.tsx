@@ -26,9 +26,7 @@ export function AdminAffiliateRewards() {
     trpc.admin.settings.getAffiliateRewardsStatus.queryOptions()
   );
 
-  const { data: statsData } = useQuery(
-    trpc.admin.affiliate.getAffiliateStats.queryOptions()
-  );
+  const { data: statsData } = useQuery(trpc.admin.affiliate.getAffiliateStats.queryOptions());
 
   const setReferrerReward = useMutation({
     mutationFn: async (amount: string) => {
@@ -162,12 +160,7 @@ export function AdminAffiliateRewards() {
               </Tooltip>
             )}
           </CardTitle>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isLoading}
-          >
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
             <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
           </Button>
         </div>

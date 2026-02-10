@@ -234,8 +234,9 @@ export const referralRouter = router({
               `[REFERRAL_REWARD_SEND_FAILED] userId=${userId}, referralId=${input.referralId}, error=${rewardResult.error}`
             );
             throw new TRPCError({
-              code: "INTERNAL_SERVER_ERROR",
-              message: rewardResult.error || "Failed to send referral rewards",
+              code: "BAD_REQUEST",
+              message:
+                rewardResult.error || "Failed to send referral rewards. Please try again later.",
             });
           }
 

@@ -52,12 +52,11 @@ export async function sendReferralRewards(
 
     const contractAddress = chain.contracts?.SIMPLE_BATCH_SEND?.address;
     if (!contractAddress || contractAddress === "0x0000000000000000000000000000000000000000") {
-      console.log(
-        `[CONTRACT_ADDRESS_NOT_CONFIGURED] chainId=${AFFILIATES_CHAIN_ID}, referrer=${referrerAddress}, referee=${refereeAddress}`
+      console.warn(
+        `[CONTRACT_ADDRESS_NOT_CONFIGURED] SimpleBatchSend contract address is not configured (set to zero address). Referral rewards will not be sent. referrer=${referrerAddress}, referee=${refereeAddress}`
       );
       return {
         success: false,
-        error: "SimpleBatchSend contract address not configured in chain config",
       };
     }
 
