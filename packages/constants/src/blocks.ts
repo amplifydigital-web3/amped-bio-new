@@ -47,20 +47,20 @@ export type PoolBlock = BaseBlock<
 export type BlockType = LinkBlock | MediaBlock | TextBlock | PoolBlock;
 
 // Define configuration schemas for each block type
-const linkConfigSchema = z.object({
+export const linkConfigSchema = z.object({
   platform: z.enum(allowedPlatforms),
   url: z.string().url("Must be a valid URL"),
   label: z.string().min(1, "Label is required"),
 });
 
-const mediaConfigSchema = z.object({
+export const mediaConfigSchema = z.object({
   platform: z.enum(mediaPlataforms),
   url: z.string().url("Must be a valid URL"),
   label: z.string(),
   content: z.string().optional(),
 });
 
-const poolConfigSchema = z.object({
+export const poolConfigSchema = z.object({
   address: z
     .string()
     .regex(/^0x[a-fA-F0-9]+$/, "Must be a valid blockchain address starting with 0x"),
@@ -70,7 +70,7 @@ const poolConfigSchema = z.object({
 // Define allowed HTML tags
 const allowedHtmlTags = ["p", "a", "span", "strong", "em", "u", "b", "i", "s"] as const;
 
-const textConfigSchema = z.object({
+export const textConfigSchema = z.object({
   content: z
     .string()
     .min(0, "Content is required")
