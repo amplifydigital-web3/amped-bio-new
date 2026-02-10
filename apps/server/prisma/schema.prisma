@@ -275,10 +275,11 @@ model StakeEvent {
 }
 
 model Referral {
-  id         Int      @id @default(autoincrement())
-  referrerId Int      @map("referrer_id")
-  referredId Int      @map("referred_id")
-  createdAt  DateTime @default(now())
+  id         Int       @id @default(autoincrement())
+  referrerId Int       @map("referrer_id")
+  referredId Int       @map("referred_id")
+  txid       String?   @map("txid") @db.Text
+  createdAt  DateTime  @default(now())
 
   referrer User @relation("ReferrerReferrals", fields: [referrerId], references: [id], onDelete: Cascade)
   referred User @relation("ReferredReferrals", fields: [referredId], references: [id], onDelete: Cascade)

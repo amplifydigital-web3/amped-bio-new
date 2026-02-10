@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc/trpc";
+import { trpcClient } from "@/utils/trpc/trpc";
 import { Copy, Check, Users, Link2, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,7 +11,9 @@ function ReferralCard() {
   const [copied, setCopied] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [claimingReferralId, setClaimingReferralId] = useState<number | null>(null);
   const referralsPerPage = 10;
+  const queryClient = useQueryClient();
 
   const { data: referralsData, isLoading: loadingReferrals } = useQuery({
     ...trpc.referral.myReferrals.queryOptions({
@@ -23,6 +26,23 @@ function ReferralCard() {
   const { data: stats } = useQuery({
     ...trpc.referral.referralStats.queryOptions(),
     enabled: !!authUser,
+  });
+
+  const claimMutation = useMutation({
+    mutationFn: async (referralId: number) => {
+      return trpcClient.referral.claimReferralReward.mutate({ referralId });
+    },
+    onSuccess: data => {
+      toast.success(`Reward claimed! TXID: ${data.txid.slice(0, 10)}...`);
+      setClaimingReferralId(null);
+    },
+    onError: error => {
+      toast.error(error.message || "Failed to claim reward");
+      setClaimingReferralId(null);
+    },
+    onMutate: referralId => {
+      setClaimingReferralId(referralId);
+    },
   });
 
   const userIdHex = authUser ? `0x${authUser.id.toString(16)}` : "";
@@ -47,6 +67,10 @@ function ReferralCard() {
     if (referralsData) {
       setCurrentPage(prev => Math.min(prev + 1, referralsData.totalPages));
     }
+  };
+
+  const handleClaimReward = (referralId: number) => {
+    claimMutation.mutate(referralId);
   };
 
   if (!authUser) {
@@ -125,13 +149,6 @@ function ReferralCard() {
               </div>
             </div>
 
-            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-              <p className="text-sm text-blue-800">
-                <strong>Coming soon:</strong> Earn tokens for every successful referral! Stay tuned for
-                our rewards program.
-              </p>
-            </div>
-
             <div className="bg-gray-50 rounded-lg border border-gray-200">
               <div className="p-4 border-b border-gray-200">
                 <h4 className="text-sm font-semibold text-gray-900">Your Referrals</h4>
@@ -184,10 +201,28 @@ function ReferralCard() {
                               </a>
                             </div>
                           </div>
-                          <div className="text-right flex-shrink-0 ml-2">
+                          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                             <p className="text-xs text-gray-500">
                               {new Date(referral.created_at).toLocaleDateString()}
                             </p>
+                            {referral.txid ? (
+                              <span className="text-xs text-green-600 font-medium bg-green-50 px-2 py-1 rounded">
+                                Claimed
+                              </span>
+                            ) : (
+                              <button
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  handleClaimReward(referral.referralId);
+                                }}
+                                disabled={claimingReferralId === referral.referralId}
+                                className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              >
+                                {claimingReferralId === referral.referralId
+                                  ? "Claiming..."
+                                  : "Claim"}
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>

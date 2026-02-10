@@ -8,3 +8,4 @@ export * from "./AdminRecentUsers";
 export * from "./AdminFaucetWalletStats";
 export * from "./AdminClickStats";
 export * from "./AdminBannerSettings";
+export * from "./AdminAffiliateRewards";
