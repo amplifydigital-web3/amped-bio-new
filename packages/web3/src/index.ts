@@ -3,6 +3,7 @@ import { chainConfig } from "viem/zksync";
 
 export * from "./pools";
 export * from "./abis/multicall3";
+export * from "./abis/rns/index";
 export * from "./apy";
 
 export const revolutionDevnet = {
@@ -32,7 +33,13 @@ export const revolutionDevnet = {
     L2_BASE_TOKEN: { address: "0x000000000000000000000000000000000000800A" as Address },
     NODE: { address: "0x0000000000000000000000000000000000000000" as Address },
     CREATOR_POOL_FACTORY: { address: "0x0000000000000000000000000000000000000000" as Address },
+    multicall3: { address: "0x0000000000000000000000000000000000000000" as Address },
+    REGISTRAR_CONTROLLER: { address: "0x0000000000000000000000000000000000000000" as Address },
+    L2_RESOLVER: { address: "0x0000000000000000000000000000000000000000" as Address },
+    BASE_REGISTRAR: { address: "0x0000000000000000000000000000000000000000" as Address },
+    REVERSE_REGISTRAR: { address: "0x0000000000000000000000000000000000000000" as Address },
   },
+  subgraphUrl: "",
   gas: 5_000_000,
 } as const;
 
@@ -64,7 +71,12 @@ export const libertasTestnet = {
     NODE: { address: "0x019bbe745b5c9b70060408Bf720B1E5172EEa5A3" as Address },
     CREATOR_POOL_FACTORY: { address: "0x38df3c6acEe3511c088c84d0191f550b24726f0f" as Address },
     multicall3: { address: "0x97cb78d5be963e2534a2156c88093a49f15315c8" as Address },
+    REGISTRAR_CONTROLLER: { address: "0x12E361E2dAEaD5b25e50c70700d1B8943A34a076" as Address },
+    L2_RESOLVER: { address: "0xeFC372f73Ee92fDb1Fe8A34E294A4aD28cF506C6" as Address },
+    BASE_REGISTRAR: { address: "0x203cf3B1e39F2003453C89f26756d41264BA67e4" as Address },
+    REVERSE_REGISTRAR: { address: "0x025b5154733E93a95F9e196c7fdAffF4584cdb5C" as Address },
   },
+  subgraphUrl: "https://graph.libertas.revolutionchain.io/subgraphs/name/subgraph/rns",
   gas: 5_000_000,
 } as const;
 
