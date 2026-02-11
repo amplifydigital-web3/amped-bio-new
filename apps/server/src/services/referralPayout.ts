@@ -109,8 +109,14 @@ export async function processReferralRewardForUser(userId: number): Promise<void
           `[REFERRAL_PAYOUT_SUCCESS] referralId=${referral.id}, txid=${result.txid}, referrerAddress=${referrerWallet.address}, refereeAddress=${refereeWallet.address}`
         );
       } else {
+        // Reset txid to null so user can manually retry the claim
+        await tx.referral.update({
+          where: { id: referral.id },
+          data: { txid: null },
+        });
+
         console.log(
-          `[REFERRAL_PAYOUT_SKIPPED] referralId=${referral.id}, reason=${result.error || "Reward sending failed"}, referrerAddress=${referrerWallet.address}, refereeAddress=${refereeWallet.address}. Referral remains unpaid and can be retried later.`
+          `[REFERRAL_PAYOUT_FAILED_TXID_RESET] referralId=${referral.id}, reason=${result.error || "Reward sending failed"}, referrerAddress=${referrerWallet.address}, refereeAddress=${refereeWallet.address}. Txid reset to null - user can retry manually.`
         );
       }
     });
