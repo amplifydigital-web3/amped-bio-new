@@ -48,8 +48,8 @@ export function cleanHandleInput(rawInput: string): string {
   // Remove whitespace and convert to lowercase
   const normalizedHandle = normalizeHandle(rawInput);
 
-  // Remove any invalid characters (keep only alphanumeric, underscore, hyphen)
-  return normalizedHandle.replace(/[^a-z0-9_-]/gi, "");
+  // Remove any invalid characters (keep only lowercase alphanumeric, underscore, hyphen)
+  return normalizedHandle.toLowerCase().replace(/[^a-z0-9_-]/g, "");
 }
 
 /**

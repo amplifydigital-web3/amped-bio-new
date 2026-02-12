@@ -55,8 +55,11 @@ const loginSchema = z.object({
 const registerSchema = z.object({
   handle: z
     .string()
-    .min(3, "Name must be at least 3 characters")
-    .regex(/^[a-zA-Z0-9_-]+$/, "Name can only contain letters, numbers, underscores and hyphens"),
+    .min(3, "Handle must be at least 3 characters")
+    .regex(
+      /^[a-z0-9_-]+$/,
+      "Handle can only contain lowercase letters, numbers, underscores and hyphens"
+    ),
   email: z.string().email("Please enter a valid email address"),
   password: z
     .string()
@@ -149,6 +152,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     const cleanValue = cleanHandleInput(e.target.value);
     setHandleInput(cleanValue);
     setRegisterValue("handle", cleanValue);
+    e.target.value = cleanValue;
   };
 
   // Use react-hook-form with zod resolver based on current form type
@@ -365,6 +369,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         email: data.email,
         password: data.password,
         name: data.handle,
+        handle: data.handle,
         callbackURL: window.location.href,
         fetchOptions: {
           query: referrerId ? { referrerId } : undefined,
@@ -541,23 +546,25 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
               )}
               <div className="relative">
                 <Input
-                  label="Claim your name"
+                  label="Claim your handle"
                   leftText="@"
                   error={registerErrors.handle?.message}
                   required
-                  aria-label="Claim your name"
+                  aria-label="Claim your handle"
                   data-testid="register-handle"
                   autoComplete="username"
                   placeholder="your-name"
-                  {...registerSignUp("handle")}
-                  onChange={e => {
-                    registerSignUp("handle").onChange(e);
-                    handleHandleChange(e);
-                  }}
-                  onBlur={e => {
-                    registerSignUp("handle").onBlur(e);
-                    trackGAEvent("Input", "AuthModal", "RegisterHandleInput");
-                  }}
+                  {...registerSignUp("handle", {
+                    onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+                      e.target.value = e.target.value.toLowerCase();
+                      registerSignUp("handle").onChange(e);
+                      handleHandleChange(e);
+                    },
+                    onBlur: (e: React.FocusEvent<HTMLInputElement>) => {
+                      registerSignUp("handle").onBlur(e);
+                      trackGAEvent("Input", "AuthModal", "RegisterHandleInput");
+                    },
+                  })}
                 />
                 <div className="absolute right-3 top-9">
                   <URLStatusIndicator status={urlStatus} isCurrentUrl={false} compact={true} />

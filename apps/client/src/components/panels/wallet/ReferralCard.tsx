@@ -193,8 +193,8 @@ function ReferralCard() {
                   <div className="divide-y divide-gray-100">
                     {referralsData?.referrals.map(referral => (
                       <div key={referral.id} className="p-3 hover:bg-white transition-colors">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center space-x-3 flex-1 min-w-0">
                             <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
                               <span className="text-xs font-medium text-blue-600">
                                 {referral.name.charAt(0).toUpperCase()}
@@ -215,7 +215,21 @@ function ReferralCard() {
                               </a>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+
+                          {referral.txid && referral.txid !== PROCESSING_TXID && (
+                            <a
+                              href={`https://libertas.revoscan.io/tx/${referral.txid}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-mono text-blue-600 hover:text-blue-800 hover:underline flex-shrink-0"
+                              title={referral.txid}
+                              onClick={e => e.stopPropagation()}
+                            >
+                              {referral.txid.slice(0, 6)}...{referral.txid.slice(-4)}
+                            </a>
+                          )}
+
+                          <div className="flex items-center gap-2 flex-shrink-0">
                             <p className="text-xs text-gray-500">
                               {new Date(referral.created_at).toLocaleDateString()}
                             </p>
