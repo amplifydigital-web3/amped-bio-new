@@ -40,8 +40,14 @@ function ReferralCard() {
     mutationFn: async (referralId: number) => {
       return trpcClient.referral.claimReferralReward.mutate({ referralId });
     },
-    onSuccess: data => {
+    onSuccess: async data => {
       toast.success(`Reward claimed! TXID: ${data.txid.slice(0, 10)}...`);
+
+      // Invalidate myReferrals query to fetch updated data with txid
+      await queryClient.invalidateQueries({
+        queryKey: trpc.referral.myReferrals.queryKey(),
+      });
+
       setClaimingReferralId(null);
     },
     onError: error => {
