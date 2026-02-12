@@ -5,6 +5,7 @@ import { getChainConfig } from "@ampedbio/web3";
 import { SIMPLE_BATCH_SEND_ABI } from "@ampedbio/web3";
 import { prisma } from "./DB";
 import { AFFILIATES_CHAIN_ID, SITE_SETTINGS } from "@ampedbio/constants";
+import { rewardCache } from "../utils/cache";
 
 interface ReferralRewardResult {
   success: boolean;
@@ -60,27 +61,47 @@ export async function sendReferralRewards(
       };
     }
 
-    const rewardSettings = await prisma.siteSettings.findMany({
-      where: {
-        setting_key: {
-          in: [SITE_SETTINGS.AFFILIATE_REFERRER_REWARD, SITE_SETTINGS.AFFILIATE_REFEREE_REWARD],
+    // Try to get from cache first
+    const REWARDS_CACHE_KEY = "referral_rewards";
+    const cachedRewards = rewardCache.get(REWARDS_CACHE_KEY);
+
+    let referrerReward: number | null;
+    let refereeReward: number | null;
+
+    if (cachedRewards) {
+      console.log(
+        `[REWARDS_CACHE_HIT] referrerReward=${cachedRewards.referrerReward}, refereeReward=${cachedRewards.refereeReward}`
+      );
+      referrerReward = cachedRewards.referrerReward;
+      refereeReward = cachedRewards.refereeReward;
+    } else {
+      // Query database
+      const rewardSettings = await prisma.siteSettings.findMany({
+        where: {
+          setting_key: {
+            in: [SITE_SETTINGS.AFFILIATE_REFERRER_REWARD, SITE_SETTINGS.AFFILIATE_REFEREE_REWARD],
+          },
         },
-      },
-    });
+      });
 
-    const referrerRewardSetting = rewardSettings.find(
-      s => s.setting_key === SITE_SETTINGS.AFFILIATE_REFERRER_REWARD
-    );
-    const refereeRewardSetting = rewardSettings.find(
-      s => s.setting_key === SITE_SETTINGS.AFFILIATE_REFEREE_REWARD
-    );
+      const referrerRewardSetting = rewardSettings.find(
+        s => s.setting_key === SITE_SETTINGS.AFFILIATE_REFERRER_REWARD
+      );
+      const refereeRewardSetting = rewardSettings.find(
+        s => s.setting_key === SITE_SETTINGS.AFFILIATE_REFEREE_REWARD
+      );
 
-    const referrerReward = referrerRewardSetting?.setting_value
-      ? Number(referrerRewardSetting.setting_value)
-      : null;
-    const refereeReward = refereeRewardSetting?.setting_value
-      ? Number(refereeRewardSetting.setting_value)
-      : null;
+      referrerReward = referrerRewardSetting?.setting_value
+        ? Number(referrerRewardSetting.setting_value)
+        : null;
+      refereeReward = refereeRewardSetting?.setting_value
+        ? Number(refereeRewardSetting.setting_value)
+        : null;
+
+      // Save to cache
+      rewardCache.set(REWARDS_CACHE_KEY, { referrerReward, refereeReward });
+      console.log(`[REWARDS_CACHE_MISS] Cached rewards for 60000ms`);
+    }
 
     console.log(
       `[REWARD_AMOUNTS_FETCHED] referrerReward=${referrerReward}, refereeReward=${refereeReward}`
