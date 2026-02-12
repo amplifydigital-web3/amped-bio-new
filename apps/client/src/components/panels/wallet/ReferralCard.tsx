@@ -2,9 +2,11 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc/trpc";
 import { trpcClient } from "@/utils/trpc/trpc";
-import { Copy, Check, Users, Link2, ChevronDown, ChevronUp } from "lucide-react";
+import { Copy, Check, Users, Link2, ChevronDown, ChevronUp, Info } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { Tooltip } from "@/components/ui/Tooltip";
+import { PROCESSING_TXID } from "@ampedbio/constants";
 
 function ReferralCard() {
   const { authUser } = useAuth();
@@ -26,6 +28,12 @@ function ReferralCard() {
   const { data: stats } = useQuery({
     ...trpc.referral.referralStats.queryOptions(),
     enabled: !!authUser,
+  });
+
+  const { data: affiliateBalance } = useQuery({
+    ...trpc.referral.getAffiliateWalletBalance.queryOptions(),
+    enabled: !!authUser,
+    refetchInterval: 60000, // Refetch every minute
   });
 
   const claimMutation = useMutation({
@@ -206,10 +214,35 @@ function ReferralCard() {
                               {new Date(referral.created_at).toLocaleDateString()}
                             </p>
                             {referral.txid ? (
-                              <span className="text-xs text-green-600 font-medium bg-green-50 px-2 py-1 rounded">
-                                Claimed
-                              </span>
+                              // Already claimed
+                              referral.txid === PROCESSING_TXID ? (
+                                <span className="text-xs text-yellow-600 font-medium bg-yellow-50 px-2 py-1 rounded">
+                                  Processing...
+                                </span>
+                              ) : (
+                                <span className="text-xs text-green-600 font-medium bg-green-50 px-2 py-1 rounded">
+                                  Claimed
+                                </span>
+                              )
+                            ) : affiliateBalance?.hasBalance === false ? (
+                              // Insufficient balance - show info icon
+                              <Tooltip
+                                content={
+                                  <div className="max-w-xs">
+                                    <p className="font-semibold mb-1">Affiliate Wallet - Low Balance</p>
+                                    <p>Current balance: {affiliateBalance.balance} {affiliateBalance.currency}</p>
+                                    <p>Required: {affiliateBalance.requiredAmount} {affiliateBalance.currency}</p>
+                                    <p className="mt-1 text-xs">Please try again later when the wallet has been refilled.</p>
+                                  </div>
+                                }
+                                side="left"
+                              >
+                                <div className="flex items-center justify-center w-6 h-6 bg-yellow-100 rounded-full cursor-help">
+                                  <Info className="h-3.5 w-3.5 text-yellow-600" />
+                                </div>
+                              </Tooltip>
                             ) : (
+                              // Can claim - show button
                               <button
                                 onClick={e => {
                                   e.stopPropagation();
