@@ -60,7 +60,7 @@ function ReferralCard() {
   });
 
   const userIdHex = authUser ? `0x${authUser.id.toString(16)}` : "";
-  const referralLink = userIdHex ? `${window.location.origin}?r=${userIdHex}` : "";
+  const referralLink = userIdHex ? `${window.location.origin}/register?r=${userIdHex}` : "";
 
   const copyToClipboard = async () => {
     try {
@@ -235,10 +235,20 @@ function ReferralCard() {
                               <Tooltip
                                 content={
                                   <div className="max-w-xs">
-                                    <p className="font-semibold mb-1">Affiliate Wallet - Low Balance</p>
-                                    <p>Current balance: {affiliateBalance.balance} {affiliateBalance.currency}</p>
-                                    <p>Required: {affiliateBalance.requiredAmount} {affiliateBalance.currency}</p>
-                                    <p className="mt-1 text-xs">Please try again later when the wallet has been refilled.</p>
+                                    <p className="font-semibold mb-1">
+                                      Affiliate Wallet - Low Balance
+                                    </p>
+                                    <p>
+                                      Current balance: {affiliateBalance.balance}{" "}
+                                      {affiliateBalance.currency}
+                                    </p>
+                                    <p>
+                                      Required: {affiliateBalance.requiredAmount}{" "}
+                                      {affiliateBalance.currency}
+                                    </p>
+                                    <p className="mt-1 text-xs">
+                                      Please try again later when the wallet has been refilled.
+                                    </p>
                                   </div>
                                 }
                                 side="left"
