@@ -16,8 +16,7 @@ import { useReferralHandler } from "@/hooks/useReferralHandler";
 import { CaptchaActions } from "@ampedbio/constants";
 import { authClient } from "@/lib/auth-client";
 import { normalizeHandle, cleanHandleInput, getHandlePublicUrl } from "@/utils/handle";
-import { trackGAEvent } from "@/utils/ga";
-import { trpcClient } from "@/utils/trpc/trpc";
+import { trackGAEvent, trackTwitterEvent, loadTwitterPixel } from "@/utils/ga";
 import {
   Dialog,
   DialogContent,
@@ -236,6 +235,13 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     }
   }, [registerHandle]);
 
+  // Load Twitter Pixel only on register path
+  useEffect(() => {
+    if (location.pathname === "/register") {
+      loadTwitterPixel("tw-r4zrx");
+    }
+  }, [location.pathname]);
+
   // Custom form switcher that maintains email and clears errors
   const switchForm = (newForm: FormType) => {
     setLoginError(null);
@@ -384,6 +390,9 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
       if (response?.error) {
         throw new Error(response.error.message || "Registration failed");
       }
+
+      // Track Twitter signup conversion
+      trackTwitterEvent("tw-r4zrx-r4zss");
 
       if (referrerId) {
         clearReferrerId();
