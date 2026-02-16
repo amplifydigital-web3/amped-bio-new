@@ -3,6 +3,7 @@ import { render } from "@react-email/render";
 import verifyEmailTemplate from "./VerifyEmailTemplate";
 import resetPasswordTemplate from "./ResetPasswordTemplate";
 import emailChangeTemplate from "./EmailChangeTemplate";
+import welcomeEmailTemplate from "./WelcomeEmailTemplate";
 import { env } from "../../env";
 
 const baseURL = env.FRONTEND_URL;
@@ -128,6 +129,22 @@ export const sendEmailChangeVerification = async (
   return sendEmail({
     to: email, // Send to the current/old email address for verification
     subject: "Amped.Bio Email Change Verification",
+    html_body: htmlContent,
+  });
+};
+
+export const sendWelcomeEmail = async (email: string, name?: string) => {
+  console.log(`🎉 Sending welcome email to: ${email}`);
+
+  console.log("🎨 Rendering welcome email template...");
+  const emailComponent = welcomeEmailTemplate({ name });
+  const htmlContent = await render(emailComponent);
+  console.log("✅ Email template rendered successfully");
+
+  console.log("📨 Sending welcome email...");
+  return sendEmail({
+    to: email,
+    subject: "Welcome to Amped.Bio!",
     html_body: htmlContent,
   });
 };

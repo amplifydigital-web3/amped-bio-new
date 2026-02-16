@@ -16,6 +16,7 @@
     "typecheck": "tsc --noEmit",
     "postbuild": "prisma generate && mkdir -p dist/lib/prisma && cp -r src/lib/prisma/* dist/lib/prisma/",
     "postinstall": "prisma generate",
+    "email:dev": "email dev --dir src/utils/email",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
@@ -53,12 +54,13 @@
     "jose": "^5.6.3",
     "nodemailer": "^6.10.0",
     "prisma": "6.7.0",
-    "react": "^19",
-    "react-dom": "^19",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
     "viem": "2.34.0",
     "zod": "3.25.64"
   },
   "devDependencies": {
+    "@react-email/preview-server": "5.2.8",
     "@repo/typescript-config": "workspace:*",
     "@types/bcrypt": "^5.0.2",
     "@types/compression": "^1.7.5",
@@ -69,6 +71,7 @@
     "@types/nodemailer": "^6.4.17",
     "@types/pg": "^8.11.0",
     "@types/react": "^18.3.5",
+    "react-email": "5.2.8",
     "ts-add-js-extension": "^1.6.6",
     "tsx": "^4.19.4",
     "typescript": "5.9.2"
