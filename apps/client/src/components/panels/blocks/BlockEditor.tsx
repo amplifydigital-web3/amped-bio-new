@@ -3,6 +3,7 @@ import { Input } from "../../ui/Input";
 import { Textarea } from "../../ui/Textarea";
 import { Button } from "../../ui/Button";
 import { BlockType, LinkBlock } from "@ampedbio/constants";
+import { PoolSearchInput } from "./PoolSearchInput";
 import {
   extractUsernameFromUrl,
   getPlatformName,
@@ -12,6 +13,7 @@ import {
 import { z } from "zod";
 import { SubmitHandler, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useChainId } from "wagmi";
 import { LinkFormInputs, linkFormSchema } from "./LinkForm";
 import { useCallback, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../ui/dialog";
@@ -98,6 +100,7 @@ interface BlockEditorProps {
 
 export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
   const blockSchema = useMemo(() => createBlockSchema(block.type), [block.type]);
+  const chainId = useChainId();
 
   console.info("BlockEditor", block.type, block.config);
 
@@ -248,22 +251,19 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
 
           {block.type === "pool" && (
             <>
-              <Input
-                label="Pool Address"
-                type="text"
-                placeholder="0x..."
-                // @ts-ignore
-                error={errors.address?.message?.toString()}
-                {...register("address")}
+              <PoolSearchInput
+                onPoolSelect={(pool) => {
+                  setValue("address", pool.address);
+                  setValue("label", pool.name);
+                }}
+                currentAddress={watch("address")}
+                currentLabel={watch("label")}
+                chainId={chainId?.toString() || ""}
               />
-              <Input
-                label="Label"
-                type="text"
-                placeholder="Display label for the pool"
-                // @ts-ignore
-                error={errors.label?.message?.toString()}
-                {...register("label")}
-              />
+
+              {/* Hidden inputs to maintain form state */}
+              <input type="hidden" {...register("address")} />
+              <input type="hidden" {...register("label")} />
             </>
           )}
 

@@ -46,7 +46,7 @@ export function SortableItem({ id, block, onEdit, onRemove }: SortableItemProps)
               : block.type === "media"
                 ? getPlatformName(block.config.platform)
                 : block.type === "pool"
-                  ? "Creator Pool"
+                  ? block.config.label || "Creator Pool"
                   : "Text"}
           </p>
           <p className="text-sm text-gray-500 truncate">

@@ -63,6 +63,15 @@ export interface PoolTabRewardPool {
   apy?: number; // APY in basis points (e.g., 1250 = 12.5%)
 }
 
+// Interface for pool search results in block editor
+export interface PoolSearchResult {
+  id: number;
+  name: string;
+  address: string;
+  fans: number;
+  creatorHandle: string | null;
+}
+
 // Interface specifically for getPoolDetailsForModal return type
 export interface PoolDetailsForModal {
   id: number;
