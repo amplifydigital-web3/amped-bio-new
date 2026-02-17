@@ -1,6 +1,12 @@
 import { prisma } from "./DB";
 import { sendReferralRewards } from "./referralRewards";
 import { PROCESSING_TXID } from "@ampedbio/constants";
+import { env } from "../env";
+import { createWalletClient, createPublicClient, http } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { getChainConfig } from "@ampedbio/web3";
+import { AFFILIATES_CHAIN_ID, SITE_SETTINGS } from "@ampedbio/constants";
+import { rewardCache } from "../utils/cache";
 
 /**
  * Process referral reward immediately after a user links their wallet.
@@ -91,13 +97,127 @@ export async function processReferralRewardForUser(userId: number): Promise<void
 
         console.log(`[REFERRAL_PROCESSING_TXID_SET] referralId=${referral.id}`);
 
+        // Get chain configuration
+        const chain = getChainConfig(AFFILIATES_CHAIN_ID);
+        if (!chain) {
+          console.log(
+            `[CHAIN_CONFIG_NOT_FOUND] chainId=${AFFILIATES_CHAIN_ID}, referralId=${referral.id}`
+          );
+          await tx.referral.update({
+            where: { id: referral.id },
+            data: { txid: null },
+          });
+          return;
+        }
+
+        const contractAddress = chain.contracts?.SIMPLE_BATCH_SEND?.address;
+        if (!contractAddress || contractAddress === "0x0000000000000000000000000000000000000000") {
+          console.log(`[CONTRACT_ADDRESS_NOT_CONFIGURED] referralId=${referral.id}`);
+          await tx.referral.update({
+            where: { id: referral.id },
+            data: { txid: null },
+          });
+          return;
+        }
+
+        // Get reward amounts from cache or database
+        const REWARDS_CACHE_KEY = "referral_rewards";
+        const cachedRewards = rewardCache.get(REWARDS_CACHE_KEY);
+
+        let referrerReward: number | null;
+        let refereeReward: number | null;
+
+        if (cachedRewards) {
+          console.log(
+            `[REWARDS_CACHE_HIT] referrerReward=${cachedRewards.referrerReward}, refereeReward=${cachedRewards.refereeReward}`
+          );
+          referrerReward = cachedRewards.referrerReward;
+          refereeReward = cachedRewards.refereeReward;
+        } else {
+          // Query database
+          const rewardSettings = await prisma.siteSettings.findMany({
+            where: {
+              setting_key: {
+                in: [
+                  SITE_SETTINGS.AFFILIATE_REFERRER_REWARD,
+                  SITE_SETTINGS.AFFILIATE_REFEREE_REWARD,
+                ],
+              },
+            },
+          });
+
+          const referrerRewardSetting = rewardSettings.find(
+            s => s.setting_key === SITE_SETTINGS.AFFILIATE_REFERRER_REWARD
+          );
+          const refereeRewardSetting = rewardSettings.find(
+            s => s.setting_key === SITE_SETTINGS.AFFILIATE_REFEREE_REWARD
+          );
+
+          referrerReward = referrerRewardSetting?.setting_value
+            ? Number(referrerRewardSetting.setting_value)
+            : null;
+          refereeReward = refereeRewardSetting?.setting_value
+            ? Number(refereeRewardSetting.setting_value)
+            : null;
+
+          // Save to cache
+          rewardCache.set(REWARDS_CACHE_KEY, { referrerReward, refereeReward });
+          console.log(`[REWARDS_CACHE_MISS] Cached rewards for 60000ms`);
+        }
+
+        if (
+          referrerReward === null ||
+          refereeReward === null ||
+          referrerReward <= 0 ||
+          refereeReward <= 0
+        ) {
+          console.log(
+            `[INVALID_REWARD_AMOUNTS] referralId=${referral.id}, referrerReward=${referrerReward}, refereeReward=${refereeReward}`
+          );
+          await tx.referral.update({
+            where: { id: referral.id },
+            data: { txid: null },
+          });
+          return;
+        }
+
+        // Create wallet client and public client
+        if (!env.AFFILIATES_PRIVATE_KEY) {
+          console.log(`[AFFILIATE_WALLET_NOT_CONFIGURED] referralId=${referral.id}`);
+          await tx.referral.update({
+            where: { id: referral.id },
+            data: { txid: null },
+          });
+          return;
+        }
+
+        const account = privateKeyToAccount(env.AFFILIATES_PRIVATE_KEY as `0x${string}`);
+
+        console.log(`[AFFILIATE_WALLET_ACCOUNT_CREATED] accountAddress=${account.address}`);
+
+        const walletClient = createWalletClient({
+          account,
+          chain,
+          transport: http(chain.rpcUrls.default.http[0]),
+        }) as any;
+
+        const publicClient = createPublicClient({
+          chain,
+          transport: http(chain.rpcUrls.default.http[0]),
+        }) as any;
+
         console.log(
           `[SENDING_REFERRAL_REWARDS] referralId=${referral.id}, referrerAddress=${referrerWallet.address}, refereeAddress=${refereeWallet.address}`
         );
 
         const result = await sendReferralRewards(
+          walletClient,
+          publicClient,
+          contractAddress,
           referrerWallet.address as `0x${string}`,
-          refereeWallet.address as `0x${string}`
+          refereeWallet.address as `0x${string}`,
+          referrerReward,
+          refereeReward
         );
 
         if (result.success && result.txid) {

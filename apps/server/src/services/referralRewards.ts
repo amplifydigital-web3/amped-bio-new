@@ -1,11 +1,11 @@
-import { env } from "../env";
-import { createWalletClient, createPublicClient, http, parseEther, Address } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
-import { getChainConfig } from "@ampedbio/web3";
+import { parseEther, Address, WalletClient, PublicClient } from "viem";
 import { SIMPLE_BATCH_SEND_ABI } from "@ampedbio/web3";
-import { prisma } from "./DB";
-import { AFFILIATES_CHAIN_ID, SITE_SETTINGS } from "@ampedbio/constants";
-import { rewardCache } from "../utils/cache";
+
+interface FindTransactionResult {
+  txid?: string;
+  blockNumber?: bigint;
+  timestamp?: number;
+}
 
 interface ReferralRewardResult {
   success: boolean;
@@ -14,14 +14,118 @@ interface ReferralRewardResult {
 }
 
 /**
+ * Check if a pair has already been sent rewards
+ * @param publicClient - Viem public client instance
+ * @param contractAddress - Contract address
+ * @param referrerAddress - Wallet address of the referrer
+ * @param refereeAddress - Wallet address of the referee
+ * @returns True if the pair has been sent, false otherwise
+ */
+async function checkPairAlreadySent(
+  publicClient: any,
+  contractAddress: Address,
+  referrerAddress: Address,
+  refereeAddress: Address
+): Promise<boolean> {
+  const alreadySent = await publicClient.readContract({
+    address: contractAddress,
+    abi: SIMPLE_BATCH_SEND_ABI,
+    functionName: "hasPairBeenSent",
+    args: [referrerAddress, refereeAddress],
+  });
+
+  return alreadySent as boolean;
+}
+
+/**
+ * Find the transaction hash for a referral pair by querying the revoscan.io API
+ * to get the first transaction of the referee's wallet (last page, last transaction)
+ * @param refereeAddress - Wallet address of the referee to search for
+ * @returns Transaction hash and block number if found
+ */
+async function findReferralTransaction(refereeAddress: Address): Promise<FindTransactionResult> {
+  try {
+    console.log(`[FIND_REFERRAL_TX_START] referee=${refereeAddress}`);
+
+    // Get current date for toDate parameter
+    const now = new Date();
+    const toDate = now.toISOString();
+
+    // First request to get total pages
+    const firstPageUrl = `https://api.libertas.revoscan.io/transactions?address=${refereeAddress}&limit=10&page=1&toDate=${encodeURIComponent(toDate)}`;
+
+    console.log(`[FIND_REFERRAL_TX_FIRST_PAGE_URL] url=${firstPageUrl}`);
+
+    const firstResponse = await fetch(firstPageUrl);
+    const firstData = await firstResponse.json();
+
+    if (!firstData.meta || !firstData.meta.totalPages || firstData.meta.totalPages === 0) {
+      console.log(
+        `[FIND_REFERRAL_TX_NOT_FOUND] No transactions found for referee=${refereeAddress}`
+      );
+      return {};
+    }
+
+    const totalPages = firstData.meta.totalPages;
+    console.log(
+      `[FIND_REFERRAL_TX_TOTAL_PAGES] totalPages=${totalPages}, referee=${refereeAddress}`
+    );
+
+    // Get the last page
+    const lastPageUrl = `https://api.libertas.revoscan.io/transactions?address=${refereeAddress}&limit=10&page=${totalPages}&toDate=${encodeURIComponent(toDate)}`;
+
+    console.log(`[FIND_REFERRAL_TX_LAST_PAGE_URL] url=${lastPageUrl}`);
+
+    const lastResponse = await fetch(lastPageUrl);
+    const lastData = await lastResponse.json();
+
+    if (!lastData.items || lastData.items.length === 0) {
+      console.log(
+        `[FIND_REFERRAL_TX_NOT_FOUND] No transactions found on last page for referee=${refereeAddress}`
+      );
+      return {};
+    }
+
+    // Get the last transaction from the last page (chronologically first transaction)
+    const items = lastData.items;
+    const firstTx = items[items.length - 1]; // Last item in the array is the oldest transaction
+
+    console.log(
+      `[FIND_REFERRAL_TX_FOUND] txid=${firstTx.hash}, blockNumber=${firstTx.blockNumber}, referee=${refereeAddress}`
+    );
+
+    return {
+      txid: firstTx.hash,
+      blockNumber: BigInt(firstTx.blockNumber),
+      timestamp: new Date(firstTx.receivedAt).getTime(),
+    };
+  } catch (error) {
+    console.error(
+      `[FIND_REFERRAL_TX_ERROR] referee=${refereeAddress}, error=${error instanceof Error ? error.message : "Unknown error"}`
+    );
+    return {};
+  }
+}
+
+/**
  * Send referral rewards to both referrer and referee using SimpleBatchSend contract
+ * @param walletClient - Viem wallet client for sending transactions
+ * @param publicClient - Viem public client for reading blockchain data
+ * @param contractAddress - Address of the SimpleBatchSend contract
  * @param referrerAddress - Wallet address of the referrer
  * @param refereeAddress - Wallet address of the newly referred user
+ * @param referrerReward - Amount to reward the referrer (in ETH)
+ * @param refereeReward - Amount to reward the referee (in ETH)
  * @returns Transaction hash or error details
  */
 export async function sendReferralRewards(
+  walletClient: WalletClient,
+  publicClient: PublicClient,
+  contractAddress: Address,
   referrerAddress: Address,
-  refereeAddress: Address
+  refereeAddress: Address,
+  referrerReward: number,
+  refereeReward: number
 ): Promise<ReferralRewardResult> {
   const startTime = Date.now();
 
@@ -30,133 +134,28 @@ export async function sendReferralRewards(
   );
 
   try {
-    if (!env.AFFILIATES_PRIVATE_KEY) {
-      console.log(
-        `[AFFILIATE_WALLET_NOT_CONFIGURED] referrer=${referrerAddress}, referee=${refereeAddress}`
-      );
+    if (!walletClient.account) {
       return {
         success: false,
-        error: "Affiliate wallet not configured",
+        error: "Wallet client account is not configured",
       };
     }
 
-    const chain = getChainConfig(AFFILIATES_CHAIN_ID);
-    if (!chain) {
-      console.log(
-        `[CHAIN_CONFIG_NOT_FOUND] chainId=${AFFILIATES_CHAIN_ID}, referrer=${referrerAddress}, referee=${refereeAddress}`
-      );
-      return {
-        success: false,
-        error: `Chain configuration not found for ID: ${AFFILIATES_CHAIN_ID}`,
-      };
-    }
-
-    const contractAddress = chain.contracts?.SIMPLE_BATCH_SEND?.address;
-    if (!contractAddress || contractAddress === "0x0000000000000000000000000000000000000000") {
-      console.warn(
-        `[CONTRACT_ADDRESS_NOT_CONFIGURED] SimpleBatchSend contract address is not configured (set to zero address). Referral rewards will not be sent. referrer=${referrerAddress}, referee=${refereeAddress}`
-      );
-      return {
-        success: false,
-      };
-    }
-
-    // Try to get from cache first
-    const REWARDS_CACHE_KEY = "referral_rewards";
-    const cachedRewards = rewardCache.get(REWARDS_CACHE_KEY);
-
-    let referrerReward: number | null;
-    let refereeReward: number | null;
-
-    if (cachedRewards) {
-      console.log(
-        `[REWARDS_CACHE_HIT] referrerReward=${cachedRewards.referrerReward}, refereeReward=${cachedRewards.refereeReward}`
-      );
-      referrerReward = cachedRewards.referrerReward;
-      refereeReward = cachedRewards.refereeReward;
-    } else {
-      // Query database
-      const rewardSettings = await prisma.siteSettings.findMany({
-        where: {
-          setting_key: {
-            in: [SITE_SETTINGS.AFFILIATE_REFERRER_REWARD, SITE_SETTINGS.AFFILIATE_REFEREE_REWARD],
-          },
-        },
-      });
-
-      const referrerRewardSetting = rewardSettings.find(
-        s => s.setting_key === SITE_SETTINGS.AFFILIATE_REFERRER_REWARD
-      );
-      const refereeRewardSetting = rewardSettings.find(
-        s => s.setting_key === SITE_SETTINGS.AFFILIATE_REFEREE_REWARD
-      );
-
-      referrerReward = referrerRewardSetting?.setting_value
-        ? Number(referrerRewardSetting.setting_value)
-        : null;
-      refereeReward = refereeRewardSetting?.setting_value
-        ? Number(refereeRewardSetting.setting_value)
-        : null;
-
-      // Save to cache
-      rewardCache.set(REWARDS_CACHE_KEY, { referrerReward, refereeReward });
-      console.log(`[REWARDS_CACHE_MISS] Cached rewards for 60000ms`);
-    }
-
-    console.log(
-      `[REWARD_AMOUNTS_FETCHED] referrerReward=${referrerReward}, refereeReward=${refereeReward}`
-    );
-
-    if (referrerReward === null || refereeReward === null) {
-      console.log(
-        `[REWARD_AMOUNTS_NOT_CONFIGURED] referrerReward=${referrerReward}, refereeReward=${refereeReward}`
-      );
-      return {
-        success: false,
-        error: "Reward amounts not configured in SiteSettings",
-      };
-    }
-
-    if (referrerReward <= 0 || refereeReward <= 0) {
-      console.log(
-        `[INVALID_REWARD_AMOUNTS] referrerReward=${referrerReward}, refereeReward=${refereeReward}`
-      );
-      return {
-        success: false,
-        error: "Invalid reward amounts: must be greater than 0",
-      };
-    }
-
-    const account = privateKeyToAccount(env.AFFILIATES_PRIVATE_KEY as `0x${string}`);
-
-    console.log(`[AFFILIATE_WALLET_ACCOUNT_CREATED] accountAddress=${account.address}`);
-
-    const walletClient = createWalletClient({
-      account,
-      chain,
-      transport: http(chain.rpcUrls.default.http[0]),
-    });
-
-    const publicClient = createPublicClient({
-      chain,
-      transport: http(chain.rpcUrls.default.http[0]),
-    });
-
-    const balance = await publicClient.getBalance({ address: account.address });
+    const balance = await publicClient.getBalance({ address: walletClient.account.address });
     const totalReward = referrerReward + refereeReward;
     const totalRewardInWei = parseEther(totalReward.toString());
 
     console.log(
-      `[AFFILIATE_WALLET_BALANCE_CHECKED] accountAddress=${account.address}, balance=${balance.toString()}, balanceInEther=${(Number(balance) / 1e18).toFixed(6)}, totalRewardRequired=${totalReward}`
+      `[AFFILIATE_WALLET_BALANCE_CHECKED] accountAddress=${walletClient.account.address}, balance=${balance.toString()}, balanceInEther=${(Number(balance) / 1e18).toFixed(6)}, totalRewardRequired=${totalReward}`
     );
 
     if (balance < totalRewardInWei) {
       console.log(
-        `[INSUFFICIENT_WALLET_BALANCE] accountAddress=${account.address}, balance=${balance.toString()}, required=${totalRewardInWei.toString()}`
+        `[INSUFFICIENT_WALLET_BALANCE] accountAddress=${walletClient.account.address}, balance=${balance.toString()}, required=${totalRewardInWei.toString()}`
       );
       return {
         success: false,
-        error: `Insufficient balance: required ${totalReward} ${chain.nativeCurrency.symbol}, have ${balance} wei`,
+        error: `Insufficient balance: required ${totalReward}, have ${balance} wei`,
       };
     }
 
@@ -167,11 +166,10 @@ export async function sendReferralRewards(
     const amounts: [bigint, bigint] = [referrerRewardInWei, refereeRewardInWei];
 
     console.log(
-      `[SENDING_REFERRAL_REWARDS] contractAddress=${contractAddress}, referrerReward=${referrerReward}, refereeReward=${refereeReward}, totalReward=${totalReward}, chainId=${chain.id}`
+      `[SENDING_REFERRAL_REWARDS] contractAddress=${contractAddress}, referrerReward=${referrerReward}, refereeReward=${refereeReward}, totalReward=${totalReward}`
     );
 
     const hash = await walletClient.writeContract({
-      account,
       address: contractAddress,
       abi: SIMPLE_BATCH_SEND_ABI,
       functionName: "send",
@@ -203,3 +201,5 @@ export async function sendReferralRewards(
     };
   }
 }
+
+export { findReferralTransaction, checkPairAlreadySent };
