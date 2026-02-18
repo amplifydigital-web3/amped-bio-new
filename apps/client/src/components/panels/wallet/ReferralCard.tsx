@@ -30,12 +30,6 @@ function ReferralCard() {
     enabled: !!authUser,
   });
 
-  const { data: affiliateBalance } = useQuery({
-    ...trpc.referral.getAffiliateWalletBalance.queryOptions(),
-    enabled: !!authUser,
-    refetchInterval: 60000, // Refetch every minute
-  });
-
   const claimMutation = useMutation({
     mutationFn: async (referralId: number) => {
       return trpcClient.referral.claimReferralReward.mutate({ referralId });
@@ -253,24 +247,16 @@ function ReferralCard() {
                                   Claimed
                                 </span>
                               )
-                            ) : affiliateBalance?.hasBalance === false ? (
+                            ) : referralsData.affiliateWalletBalance?.hasBalance === false ? (
                               // Insufficient balance - show info icon
                               <Tooltip
                                 content={
                                   <div className="max-w-xs">
                                     <p className="font-semibold mb-1">
-                                      Affiliate Wallet - Low Balance
-                                    </p>
-                                    <p>
-                                      Current balance: {affiliateBalance.balance}{" "}
-                                      {affiliateBalance.currency}
-                                    </p>
-                                    <p>
-                                      Required: {affiliateBalance.requiredAmount}{" "}
-                                      {affiliateBalance.currency}
+                                      Rewards Unavailable
                                     </p>
                                     <p className="mt-1 text-xs">
-                                      Please try again later when the wallet has been refilled.
+                                      Rewards are currently unavailable. Please try again later.
                                     </p>
                                   </div>
                                 }
