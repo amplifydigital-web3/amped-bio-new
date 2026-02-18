@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Loader2, Eye, EyeOff, Check, X as XIcon, AlertCircle } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Loader2, Eye, EyeOff, Check, X as XIcon, AlertCircle, Gift } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
@@ -17,6 +18,7 @@ import { CaptchaActions } from "@ampedbio/constants";
 import { authClient } from "@/lib/auth-client";
 import { normalizeHandle, cleanHandleInput, getHandlePublicUrl } from "@/utils/handle";
 import { trackGAEvent, trackTwitterEvent, loadTwitterPixel } from "@/utils/ga";
+import { trpc } from "@/utils/trpc/trpc";
 import {
   Dialog,
   DialogContent,
@@ -145,6 +147,14 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
 
   const [handleInput, setHandleInput] = useState("");
   const { urlStatus, isValid } = useHandleAvailability(handleInput);
+
+  // Fetch referrer info if user was referred
+  const referrerId = getReferrerId();
+  const { data: referrerInfo } = useQuery({
+    ...trpc.referral.getReferrerInfo.queryOptions({ userId: referrerId! }),
+    enabled: !!referrerId,
+    retry: false,
+  });
 
   // Handle handle input changes with proper cleaning
   const handleHandleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -547,6 +557,31 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
               className="space-y-4"
               data-testid="register-form"
             >
+              {referrerInfo && (
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-md flex items-start gap-2">
+                  <Gift className="h-5 w-5 text-purple-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-700">
+                      You have been referred by{" "}
+                      <a
+                        href={`/${referrerInfo.handle}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-700 font-medium"
+                      >
+                        @{referrerInfo.handle}
+                      </a>
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      After you sign up, you'll receive{" "}
+                      <span className="font-semibold text-purple-600">
+                        {referrerInfo.refereeReward} REVO
+                      </span>{" "}
+                      as a referral bonus!
+                    </p>
+                  </div>
+                </div>
+              )}
               {registerError && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
                   <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />

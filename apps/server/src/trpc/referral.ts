@@ -15,6 +15,45 @@ import { AFFILIATES_CHAIN_ID, SITE_SETTINGS, PROCESSING_TXID } from "@ampedbio/c
 import { rewardCache } from "../utils/cache";
 
 export const referralRouter = router({
+  getReferrerInfo: publicProcedure
+    .input(
+      z.object({
+        userId: z.number(),
+      })
+    )
+    .query(async ({ input }) => {
+      const referrer = await prisma.user.findUnique({
+        where: { id: input.userId },
+        select: {
+          id: true,
+          handle: true,
+          name: true,
+        },
+      });
+
+      if (!referrer) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Referrer not found",
+        });
+      }
+
+      // Get referee reward amount from site settings
+      const rewardSettings = await prisma.siteSettings.findMany({
+        where: {
+          setting_key: SITE_SETTINGS.AFFILIATE_REFEREE_REWARD,
+        },
+      });
+
+      const refereeReward = Number(rewardSettings[0]?.setting_value || 0);
+
+      return {
+        handle: referrer.handle,
+        name: referrer.name,
+        refereeReward,
+      };
+    }),
+
   myReferrals: privateProcedure
     .input(
       z.object({
