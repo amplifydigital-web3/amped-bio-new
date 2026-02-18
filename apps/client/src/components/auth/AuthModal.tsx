@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+  import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Eye, EyeOff, Check, X as XIcon, AlertCircle, Gift } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
@@ -458,7 +458,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
       }}
     >
       <DialogContent className="p-0 w-full max-w-md mx-4">
-        <DialogHeader className="p-6 pb-4 border-b border-gray-200">
+        <DialogHeader className="p-6 pb-2 border-b border-gray-200">
           <DialogTitle className="text-xl font-semibold">
             {form === "register" && "Sign Up for Free"}
             {form === "login" && "Sign In"}
@@ -577,7 +577,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
                       <span className="font-semibold text-purple-600">
                         {referrerInfo.refereeReward} REVO
                       </span>{" "}
-                      as a referral bonus!
+                      as a referral bonus in a few minutes!
                     </p>
                   </div>
                 </div>
