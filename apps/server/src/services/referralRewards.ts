@@ -39,7 +39,7 @@ async function checkPairAlreadySent(
 
 /**
  * Find the transaction hash for a referral pair by querying the revoscan.io API
- * to get the first transaction of the referee's wallet (last page, last transaction)
+ * to get the first transaction of the referee's wallet
  * @param refereeAddress - Wallet address of the referee to search for
  * @returns Transaction hash and block number if found
  */
@@ -51,53 +51,32 @@ async function findReferralTransaction(refereeAddress: Address): Promise<FindTra
     const now = new Date();
     const toDate = now.toISOString();
 
-    // First request to get total pages
-    const firstPageUrl = `https://api.libertas.revoscan.io/transactions?address=${refereeAddress}&limit=10&page=1&toDate=${encodeURIComponent(toDate)}`;
+    // Query the address transfers endpoint
+    const url = `https://api.libertas.revoscan.io/address/${refereeAddress}/transfers?toDate=${encodeURIComponent(toDate)}&limit=10&page=1`;
 
-    console.log(`[FIND_REFERRAL_TX_FIRST_PAGE_URL] url=${firstPageUrl}`);
+    console.log(`[FIND_REFERRAL_TX_URL] url=${url}`);
 
-    const firstResponse = await fetch(firstPageUrl);
-    const firstData = await firstResponse.json();
+    const response = await fetch(url);
+    const data = await response.json();
 
-    if (!firstData.meta || !firstData.meta.totalPages || firstData.meta.totalPages === 0) {
+    if (!data.items || data.items.length === 0) {
       console.log(
         `[FIND_REFERRAL_TX_NOT_FOUND] No transactions found for referee=${refereeAddress}`
       );
       return {};
     }
 
-    const totalPages = firstData.meta.totalPages;
-    console.log(
-      `[FIND_REFERRAL_TX_TOTAL_PAGES] totalPages=${totalPages}, referee=${refereeAddress}`
-    );
-
-    // Get the last page
-    const lastPageUrl = `https://api.libertas.revoscan.io/transactions?address=${refereeAddress}&limit=10&page=${totalPages}&toDate=${encodeURIComponent(toDate)}`;
-
-    console.log(`[FIND_REFERRAL_TX_LAST_PAGE_URL] url=${lastPageUrl}`);
-
-    const lastResponse = await fetch(lastPageUrl);
-    const lastData = await lastResponse.json();
-
-    if (!lastData.items || lastData.items.length === 0) {
-      console.log(
-        `[FIND_REFERRAL_TX_NOT_FOUND] No transactions found on last page for referee=${refereeAddress}`
-      );
-      return {};
-    }
-
-    // Get the last transaction from the last page (chronologically first transaction)
-    const items = lastData.items;
-    const firstTx = items[items.length - 1]; // Last item in the array is the oldest transaction
+    // Get the first transaction from the items array
+    const firstTx = data.items[0];
 
     console.log(
-      `[FIND_REFERRAL_TX_FOUND] txid=${firstTx.hash}, blockNumber=${firstTx.blockNumber}, referee=${refereeAddress}`
+      `[FIND_REFERRAL_TX_FOUND] txid=${firstTx.transactionHash}, blockNumber=${firstTx.blockNumber}, referee=${refereeAddress}`
     );
 
     return {
-      txid: firstTx.hash,
+      txid: firstTx.transactionHash,
       blockNumber: BigInt(firstTx.blockNumber),
-      timestamp: new Date(firstTx.receivedAt).getTime(),
+      timestamp: new Date(firstTx.timestamp).getTime(),
     };
   } catch (error) {
     console.error(
