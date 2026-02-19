@@ -15,16 +15,11 @@ export const handleBaseSchema = z
       .string()
       .min(HANDLE_MIN_LENGTH, `Name must be at least ${HANDLE_MIN_LENGTH} characters`)
       .regex(HANDLE_REGEX, "Name can only contain letters, numbers, underscores and hyphens")
-      .transform(value => value.toLowerCase()) // Normalize to lowercase for storage
   );
 
 // Use the base schema in specific contexts
 export const handleParamSchema = z.object({
   handle: handleBaseSchema,
-});
-
-export const redeemHandleSchema = z.object({
-  newHandle: handleBaseSchema,
 });
 
 const appRouter = router({
@@ -58,50 +53,68 @@ const appRouter = router({
   }),
 
   // Redeem/change a user's handle
-  redeem: privateProcedure.input(redeemHandleSchema).mutation(async ({ ctx, input }) => {
-    const { newHandle } = input;
-    const userId = ctx.user!.sub;
+  redeem: privateProcedure
+    .input(
+      z.object({
+        newHandle: z
+          .string()
+          .transform(value => (value.startsWith("@") ? value.substring(1) : value)) // Normalize by removing @ prefix if present
+          .pipe(
+            z
+              .string()
+              .min(HANDLE_MIN_LENGTH, `Name must be at least ${HANDLE_MIN_LENGTH} characters`)
+              .regex(
+                HANDLE_REGEX,
+                "Name can only contain letters, numbers, underscores and hyphens"
+              )
+              .transform(value => value.toLowerCase()) // Force lowercase for storage
+          ),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { newHandle } = input;
+      const userId = ctx.user!.sub;
 
-    try {
-      const existingHandle = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { handle: newHandle },
-            { handle: newHandle.toLowerCase() },
-            { handle: newHandle.toUpperCase() },
-          ],
-        },
-      });
+      try {
+        const existingHandle = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { handle: newHandle },
+              { handle: newHandle.toLowerCase() },
+              { handle: newHandle.toUpperCase() },
+            ],
+          },
+        });
 
-      if (existingHandle) {
+        if (existingHandle) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This handle is already taken",
+          });
+        }
+
+        await prisma.user.update({
+          where: {
+            id: userId,
+          },
+          data: {
+            handle: newHandle,
+          },
+        });
+
+        return {
+          success: true,
+          message: "Handle updated successfully",
+          handle: newHandle,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
         throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "This handle is already taken",
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Server error",
         });
       }
-
-      await prisma.user.update({
-        where: {
-          id: userId,
-        },
-        data: {
-          handle: newHandle,
-        },
-      });
-
-      return {
-        success: true,
-        message: "Handle updated successfully",
-        handle: newHandle,
-      };
-    } catch (error) {
-      if (error instanceof TRPCError) throw error;
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Server error",
-      });
-    }
-  }),
+    }),
 
   getHandle: publicProcedure.input(handleParamSchema).query(async opts => {
     const { handle } = opts.input;
