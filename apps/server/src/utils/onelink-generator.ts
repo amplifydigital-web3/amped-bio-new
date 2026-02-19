@@ -15,8 +15,14 @@ export function extractHandleFromEmail(email: string): string {
  */
 export async function isHandleAvailable(handle: string): Promise<boolean> {
   try {
-    const existingUser = await prisma.user.findUnique({
-      where: { handle },
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { handle: handle },
+          { handle: handle.toLowerCase() },
+          { handle: handle.toUpperCase() },
+        ],
+      },
       select: { id: true },
     });
     return !existingUser;

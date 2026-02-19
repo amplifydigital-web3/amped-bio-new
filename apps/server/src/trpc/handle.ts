@@ -15,6 +15,7 @@ export const handleBaseSchema = z
       .string()
       .min(HANDLE_MIN_LENGTH, `Name must be at least ${HANDLE_MIN_LENGTH} characters`)
       .regex(HANDLE_REGEX, "Name can only contain letters, numbers, underscores and hyphens")
+      .transform(value => value.toLowerCase()) // Normalize to lowercase for storage
   );
 
 // Use the base schema in specific contexts
@@ -34,7 +35,11 @@ const appRouter = router({
     try {
       const count = await prisma.user.count({
         where: {
-          handle: handle,
+          OR: [
+            { handle: handle },
+            { handle: handle.toLowerCase() },
+            { handle: handle.toUpperCase() },
+          ],
         },
       });
 
@@ -58,9 +63,13 @@ const appRouter = router({
     const userId = ctx.user!.sub;
 
     try {
-      const existingHandle = await prisma.user.findUnique({
+      const existingHandle = await prisma.user.findFirst({
         where: {
-          handle: newHandle,
+          OR: [
+            { handle: newHandle },
+            { handle: newHandle.toLowerCase() },
+            { handle: newHandle.toUpperCase() },
+          ],
         },
       });
 
@@ -98,9 +107,13 @@ const appRouter = router({
     const { handle } = opts.input;
 
     try {
-      const user = await prisma.user.findUnique({
+      const user = await prisma.user.findFirst({
         where: {
-          handle: handle,
+          OR: [
+            { handle: handle },
+            { handle: handle.toLowerCase() },
+            { handle: handle.toUpperCase() },
+          ],
         },
       });
 
