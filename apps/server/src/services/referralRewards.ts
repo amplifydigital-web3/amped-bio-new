@@ -170,9 +170,20 @@ export async function sendReferralRewards(
     const duration = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
+    // Check if error is related to nonce issues
+    const isNonceError = errorMessage.toLowerCase().includes("nonce");
+
     console.log(
       `[SEND_REFERRAL_REWARDS_ERROR] referrer=${referrerAddress}, referee=${refereeAddress}, error=${errorMessage}, durationMs=${duration}`
     );
+
+    // Return user-friendly message for nonce errors
+    if (isNonceError) {
+      return {
+        success: false,
+        error: "Transaction failed. Please try again in a few seconds.",
+      };
+    }
 
     return {
       success: false,
