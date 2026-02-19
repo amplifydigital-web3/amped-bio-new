@@ -308,6 +308,7 @@ export function UserManagement() {
       "Blocks",
       "Themes",
       "Date Joined",
+      "Referrer",
       "Wallet Address",
     ];
 
@@ -322,6 +323,11 @@ export function UserManagement() {
         user._count.blocks,
         user._count.themes,
         escapeCSV(formatDate(user.created_at)),
+        escapeCSV(
+          user.referralsReceived && user.referralsReceived.length > 0
+            ? user.referralsReceived[0].referrer.handle
+            : ""
+        ),
         escapeCSV(user.wallet?.address ?? null),
       ].join(",")
     );
@@ -522,6 +528,9 @@ export function UserManagement() {
                       </div>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Referrer
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Wallet Address
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -595,6 +604,20 @@ export function UserManagement() {
                         {formatDate(user.created_at)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {user.referralsReceived && user.referralsReceived.length > 0 ? (
+                          <a
+                            href={`/@${user.referralsReceived[0].referrer.handle}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-900"
+                          >
+                            {user.referralsReceived[0].referrer.handle}
+                          </a>
+                        ) : (
+                          "-"
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {user.wallet?.address ? (
                           <div className="flex items-center">
                             <Tooltip content={user.wallet.address}>
@@ -657,7 +680,7 @@ export function UserManagement() {
                   ))}
                   {userData?.users.length === 0 && (
                     <tr>
-                      <td colSpan={10} className="px-6 py-10 text-center text-gray-500">
+                      <td colSpan={11} className="px-6 py-10 text-center text-gray-500">
                         No users found
                       </td>
                     </tr>

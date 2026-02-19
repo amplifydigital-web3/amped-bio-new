@@ -2,6 +2,7 @@ import type { EditorState, UserProfile } from "../types/editor";
 import AmplifySVG from "../assets/AMPLIFY_FULL_K.svg";
 
 const defaultProfile: UserProfile = {
+  id: 0,
   name: "Amplify Digital",
   handle: "Amped.Bio",
   handleFormatted: "@Amped.Bio",

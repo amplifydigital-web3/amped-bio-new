@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Coins, TrendingUp, AlertCircle, Check } from "lucide-react";
+import { BsTelegram } from "react-icons/bs";
 import { useAccount, useBalance } from "wagmi";
 import { getChainConfig } from "@ampedbio/web3";
 import { useStakingManager } from "@/hooks/useStakingManager";
 import { formatNumberWithSeparators } from "@/utils/numberUtils";
 import { useWalletContext } from "@/contexts/WalletContext";
+import { TELEGRAM_LINK, TELEGRAM_COLOR } from "@ampedbio/constants";
 import Decimal from "decimal.js";
 import {
   Dialog,
@@ -46,7 +48,7 @@ export default function StakeModal({
   mode,
   onStakeSuccess,
 }: StakeModalProps) {
-  const { isWeb3Wallet } = useWalletContext();
+  const { isWeb3Wallet, balance } = useWalletContext();
   // Get the chain configuration once to avoid multiple calls
   const chainConfig = pool ? getChainConfig(parseInt(pool.chainId)) : null;
   const currencySymbol = chainConfig?.nativeCurrency.symbol || "REVO";
@@ -64,16 +66,6 @@ export default function StakeModal({
   const [step, setStep] = useState<"amount" | "confirm" | "staking" | "success">("amount");
   const [amount, setAmount] = useState("");
   const [animatingTokens, setAnimatingTokens] = useState<Array<{ id: number; delay: number }>>([]);
-
-  // Get user account and balance
-  const { address: userAddress } = useAccount();
-  const { data: balanceData, isLoading: isBalanceLoading } = useBalance({
-    address: userAddress,
-    token: undefined, // This will use the native token (REVO in this case)
-    query: {
-      refetchInterval: 10000, // Refresh every 10 seconds
-    },
-  });
 
   useEffect(() => {
     if (isOpen) {
@@ -99,11 +91,6 @@ export default function StakeModal({
 
       // If successful, proceed to success step
       setStep("success");
-
-      // Auto-close after showing success
-      setTimeout(() => {
-        onClose();
-      }, 2500);
     } catch (error) {
       console.error("Error during staking:", error);
       // In case of error, we should go back to the amount step or show an error
@@ -118,6 +105,9 @@ export default function StakeModal({
       onClose();
     }
   };
+
+  const balanceData = balance?.data;
+  const isBalanceLoading = balance?.isLoading;
 
   const numericAmount = amount ? new Decimal(amount).toNumber() : 0;
   const userBalance = new Decimal(balanceData?.formatted || 0);
@@ -508,8 +498,16 @@ export default function StakeModal({
           </div>
         </div>
 
-        {/* Auto-close notice */}
-        <p className="text-xs text-gray-500">This window will close automatically...</p>
+        {/* Telegram Link */}
+        <a
+          href={TELEGRAM_LINK}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center justify-center space-x-2 px-4 py-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors duration-200"
+        >
+          <BsTelegram className="w-5 h-5" style={{ color: TELEGRAM_COLOR }} />
+          <span className="font-medium">Join our community on Telegram!</span>
+        </a>
       </div>
     </>
   );

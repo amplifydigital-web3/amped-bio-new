@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from "react";
-import { Loader2, Eye, EyeOff, Check, X as XIcon, AlertCircle } from "lucide-react";
+  import { useState, useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Loader2, Eye, EyeOff, Check, X as XIcon, AlertCircle, Gift } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
@@ -12,10 +13,12 @@ import { useHandleAvailability } from "@/hooks/useHandleAvailability";
 import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
 import { GoogleLoginButton } from "./GoogleLoginButton";
 import { useCaptcha } from "@/hooks/useCaptcha";
+import { useReferralHandler } from "@/hooks/useReferralHandler";
 import { CaptchaActions } from "@ampedbio/constants";
 import { authClient } from "@/lib/auth-client";
 import { normalizeHandle, cleanHandleInput, getHandlePublicUrl } from "@/utils/handle";
-import { trackGAEvent } from "@/utils/ga";
+import { trackGAEvent, trackTwitterEvent, loadTwitterPixel } from "@/utils/ga";
+import { trpc } from "@/utils/trpc/trpc";
 import {
   Dialog,
   DialogContent,
@@ -53,8 +56,11 @@ const loginSchema = z.object({
 const registerSchema = z.object({
   handle: z
     .string()
-    .min(3, "Name must be at least 3 characters")
-    .regex(/^[a-zA-Z0-9_-]+$/, "Name can only contain letters, numbers, underscores and hyphens"),
+    .min(3, "Handle must be at least 3 characters")
+    .regex(
+      /^[a-z0-9_-]+$/,
+      "Handle can only contain lowercase letters, numbers, underscores and hyphens"
+    ),
   email: z.string().email("Please enter a valid email address"),
   password: z
     .string()
@@ -109,6 +115,7 @@ const PasswordStrengthIndicator = ({ password }: { password: string }) => {
 export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: AuthModalProps) {
   const { resetPassword } = useAuth();
   const { executeCaptcha } = useCaptcha();
+  const { getReferrerId, clearReferrerId } = useReferralHandler();
   const [loading, setLoading] = useState(false);
   const [sharedEmail, setSharedEmail] = useState("");
   const isUserTyping = useRef(false);
@@ -141,11 +148,20 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
   const [handleInput, setHandleInput] = useState("");
   const { urlStatus, isValid } = useHandleAvailability(handleInput);
 
+  // Fetch referrer info if user was referred
+  const referrerId = getReferrerId();
+  const { data: referrerInfo } = useQuery({
+    ...trpc.referral.getReferrerInfo.queryOptions({ userId: referrerId! }),
+    enabled: !!referrerId,
+    retry: false,
+  });
+
   // Handle handle input changes with proper cleaning
   const handleHandleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const cleanValue = cleanHandleInput(e.target.value);
     setHandleInput(cleanValue);
     setRegisterValue("handle", cleanValue);
+    e.target.value = cleanValue;
   };
 
   // Use react-hook-form with zod resolver based on current form type
@@ -229,6 +245,13 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     }
   }, [registerHandle]);
 
+  // Load Twitter Pixel only on register path
+  useEffect(() => {
+    if (location.pathname === "/register") {
+      loadTwitterPixel("tw-r4zrx");
+    }
+  }, [location.pathname]);
+
   // Custom form switcher that maintains email and clears errors
   const switchForm = (newForm: FormType) => {
     setLoginError(null);
@@ -309,11 +332,14 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setLoginError(null);
 
     try {
-      // Using better-auth's Google OAuth flow
-      // This will likely redirect the user to Google's authentication page
+      const referrerId = getReferrerId();
+
       const response = await authClient.signIn.social({
         provider: "google",
-        callbackURL: window.location.href, // Return to current page
+        callbackURL: window.location.href,
+        fetchOptions: {
+          query: referrerId ? { referrerId } : undefined,
+        },
       });
 
       if (response?.error) {
@@ -321,9 +347,6 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         setLoginError(response.error.message || "Google login failed");
         return;
       }
-
-      // Set up monitoring for session after redirect
-      // redirectAfterLogin();
     } catch (error) {
       setLoginError((error as Error).message || "Google login failed");
       setLoading(false);
@@ -355,16 +378,17 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setLoading(true);
     setRegisterError(null);
     try {
-      // Get reCAPTCHA token using the invisible captcha
       const recaptchaToken = await executeCaptcha(CaptchaActions.REGISTER);
+      const referrerId = getReferrerId();
 
-      // Using better-auth signup
       const response = await authClient.signUp.email({
         email: data.email,
         password: data.password,
-        name: data.handle, // Using handle as the name
+        name: data.handle,
+        handle: data.handle,
         callbackURL: window.location.href,
         fetchOptions: {
+          query: referrerId ? { referrerId } : undefined,
           headers: recaptchaToken
             ? {
                 "x-captcha-response": recaptchaToken!,
@@ -377,7 +401,15 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         throw new Error(response.error.message || "Registration failed");
       }
 
+      // Track Twitter signup conversion
+      trackTwitterEvent("tw-r4zrx-r4zss");
+
+      if (referrerId) {
+        clearReferrerId();
+      }
+
       const user = response.data.user as BetterAuthUser;
+
       onClose({
         id: parseInt(user.id),
         email: user.email,
@@ -426,7 +458,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
       }}
     >
       <DialogContent className="p-0 w-full max-w-md mx-4">
-        <DialogHeader className="p-6 pb-4 border-b border-gray-200">
+        <DialogHeader className="p-6 pb-2 border-b border-gray-200">
           <DialogTitle className="text-xl font-semibold">
             {form === "register" && "Sign Up for Free"}
             {form === "login" && "Sign In"}
@@ -525,6 +557,31 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
               className="space-y-4"
               data-testid="register-form"
             >
+              {referrerInfo && (
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-md flex items-start gap-2">
+                  <Gift className="h-5 w-5 text-purple-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-700">
+                      You have been referred by{" "}
+                      <a
+                        href={`/${referrerInfo.handle}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-700 font-medium"
+                      >
+                        @{referrerInfo.handle}
+                      </a>
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      After you sign up, you'll receive{" "}
+                      <span className="font-semibold text-purple-600">
+                        {referrerInfo.refereeReward} REVO
+                      </span>{" "}
+                      as a referral bonus in a few minutes!
+                    </p>
+                  </div>
+                </div>
+              )}
               {registerError && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
                   <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
@@ -533,23 +590,25 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
               )}
               <div className="relative">
                 <Input
-                  label="Claim your name"
+                  label="Claim your handle"
                   leftText="@"
                   error={registerErrors.handle?.message}
                   required
-                  aria-label="Claim your name"
+                  aria-label="Claim your handle"
                   data-testid="register-handle"
                   autoComplete="username"
                   placeholder="your-name"
-                  {...registerSignUp("handle")}
-                  onChange={e => {
-                    registerSignUp("handle").onChange(e);
-                    handleHandleChange(e);
-                  }}
-                  onBlur={e => {
-                    registerSignUp("handle").onBlur(e);
-                    trackGAEvent("Input", "AuthModal", "RegisterHandleInput");
-                  }}
+                  {...registerSignUp("handle", {
+                    onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+                      e.target.value = e.target.value.toLowerCase();
+                      registerSignUp("handle").onChange(e);
+                      handleHandleChange(e);
+                    },
+                    onBlur: (e: React.FocusEvent<HTMLInputElement>) => {
+                      registerSignUp("handle").onBlur(e);
+                      trackGAEvent("Input", "AuthModal", "RegisterHandleInput");
+                    },
+                  })}
                 />
                 <div className="absolute right-3 top-9">
                   <URLStatusIndicator status={urlStatus} isCurrentUrl={false} compact={true} />

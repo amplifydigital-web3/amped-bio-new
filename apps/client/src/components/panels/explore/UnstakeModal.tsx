@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Coins, TrendingUp, AlertCircle, Check } from "lucide-react";
+import { BsTelegram } from "react-icons/bs";
 import { useAccount, useBalance } from "wagmi";
 import { getChainConfig } from "@ampedbio/web3";
 import { useStakingManager } from "@/hooks/useStakingManager";
 import { formatNumberWithSeparators } from "@/utils/numberUtils";
 import { useWalletContext } from "@/contexts/WalletContext";
+import { TELEGRAM_LINK, TELEGRAM_COLOR } from "@ampedbio/constants";
 import {
   Dialog,
   DialogContent,
@@ -83,10 +85,6 @@ export default function UnstakeModal({ isOpen, onClose, pool, onStakeSuccess }: 
       await handleUnstake(amount);
 
       setStep("success");
-
-      setTimeout(() => {
-        onClose();
-      }, 2500);
     } catch (error) {
       console.error("Error during unstaking:", error);
       setStep("amount");
@@ -413,7 +411,16 @@ export default function UnstakeModal({ isOpen, onClose, pool, onStakeSuccess }: 
           </div>
         </div>
 
-        <p className="text-xs text-gray-500">This window will close automatically...</p>
+        {/* Telegram Link */}
+        <a
+          href={TELEGRAM_LINK}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center justify-center space-x-2 px-4 py-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors duration-200"
+        >
+          <BsTelegram className="w-5 h-5" style={{ color: TELEGRAM_COLOR }} />
+          <span className="font-medium">Join our community on Telegram!</span>
+        </a>
       </div>
     </>
   );

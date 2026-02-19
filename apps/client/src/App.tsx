@@ -5,6 +5,7 @@ import { View } from "./pages/View";
 import PoolsPage from "./pages/PoolsPage";
 import { PoolDetailsPage } from "./pages/PoolDetailsPage";
 import { PoolDebugPage } from "./pages/PoolDebugPage";
+import NetworkPage from "./pages/NetworkPage";
 import PublicLayout from "./components/layout/PublicLayout";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -14,6 +15,7 @@ import { EmailVerification, EmailVerificationResent, PasswordReset } from "./pag
 import { Toaster } from "react-hot-toast";
 import { EditorProvider } from "./contexts/EditorContext";
 import { useTokenExpiration } from "./hooks/useTokenExpiration";
+import { useReferralHandler } from "./hooks/useReferralHandler";
 
 // Lazy load admin components - they will only be loaded when needed
 const AdminLayout = lazy(() =>
@@ -108,6 +110,14 @@ function AppRouter() {
           </PublicLayout>
         }
       />
+      <Route
+        path="/i/network"
+        element={
+          <PublicLayout>
+            <NetworkPage />
+          </PublicLayout>
+        }
+      />
 
       {/* Admin Routes with nested routing - lazy loaded with Suspense */}
       <Route
@@ -179,6 +189,8 @@ function AppRouter() {
 }
 
 function App() {
+  useReferralHandler();
+
   useEffect(() => {
     initParticlesEngine(async engine => {
       await loadAll(engine);

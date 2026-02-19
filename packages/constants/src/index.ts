@@ -12,3 +12,7 @@ export * from "./blocks";
 export * from "./banner";
 export * from "./reward-pool";
 export * from "./captcha";
+export * from "./telegram";
+export * from "./chains";
+export * from "./site-settings";
+export * from "./referral";

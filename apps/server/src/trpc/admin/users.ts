@@ -87,6 +87,17 @@ export const usersRouter = router({
             image_file_id: true,
             reward_business_id: true,
             wallet: true,
+            referralsReceived: {
+              select: {
+                referrer: {
+                  select: {
+                    id: true,
+                    handle: true,
+                  },
+                },
+              },
+              take: 1,
+            },
             _count: {
               select: {
                 blocks: true,
@@ -126,6 +137,17 @@ export const usersRouter = router({
             image_file_id: true,
             reward_business_id: true,
             wallet: true,
+            referralsReceived: {
+              select: {
+                referrer: {
+                  select: {
+                    id: true,
+                    handle: true,
+                  },
+                },
+              },
+              take: 1,
+            },
             _count: {
               select: {
                 blocks: true,

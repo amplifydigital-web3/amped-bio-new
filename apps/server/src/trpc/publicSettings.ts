@@ -1,6 +1,7 @@
 import { publicProcedure, router } from "./trpc";
 import { prisma } from "../services/DB";
 import { z } from "zod";
+import { SITE_SETTINGS } from "@ampedbio/constants";
 
 export const publicSettingsRouter = router({
   getBanner: publicProcedure
@@ -32,7 +33,7 @@ export const publicSettingsRouter = router({
     .query(async () => {
       // Look for a dashboard banner setting in the database (using the consistent key)
       const banner = await prisma.siteSettings.findUnique({
-        where: { setting_key: "dashboard_banner" },
+        where: { setting_key: SITE_SETTINGS.DASHBOARD_BANNER },
       });
 
       if (!banner) {
@@ -71,7 +72,7 @@ export const publicSettingsRouter = router({
 
   getFaucetStatus: publicProcedure.query(async () => {
     const faucetStatus = await prisma.siteSettings.findUnique({
-      where: { setting_key: "faucet_enabled" },
+      where: { setting_key: SITE_SETTINGS.FAUCET_ENABLED },
     });
     return faucetStatus?.setting_value === "true";
   }),

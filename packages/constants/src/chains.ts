@@ -1,0 +1,1 @@
+export const AFFILIATES_CHAIN_ID = 73863;

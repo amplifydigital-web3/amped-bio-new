@@ -1,4 +1,6 @@
 import { useCollections } from "../../../hooks/useCollections";
+import { BsTelegram } from "react-icons/bs";
+import { TELEGRAM_LINK, TELEGRAM_COLOR } from "@ampedbio/constants";
 
 interface CollectionsOverviewProps {
   onCollectionSelect: (collectionId: string) => void;
@@ -103,56 +105,73 @@ export function CollectionsOverview({ onCollectionSelect }: CollectionsOverviewP
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
-      {collections.map(collection => {
-        const style = getCollectionStyle(collection);
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
+        {collections.map(collection => {
+          const style = getCollectionStyle(collection);
 
-        return (
-          <button
-            key={collection.id}
-            onClick={() => onCollectionSelect(collection.id)}
-            className="group relative bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow"
-          >
-            {/* Collection Banner */}
-            <div className={`h-48 relative overflow-hidden bg-gradient-to-r ${style.gradient}`}>
-              {/* Background Image */}
-              <img
-                src={style.image}
-                alt={collection.name}
-                className="absolute inset-0 w-full h-full object-cover object-center opacity-50"
-              />
+          return (
+            <button
+              key={collection.id}
+              onClick={() => onCollectionSelect(collection.id)}
+              className="group relative bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow"
+            >
+              {/* Collection Banner */}
+              <div className={`h-48 relative overflow-hidden bg-gradient-to-r ${style.gradient}`}>
+                {/* Background Image */}
+                <img
+                  src={style.image}
+                  alt={collection.name}
+                  className="absolute inset-0 w-full h-full object-cover object-center opacity-50"
+                />
 
-              {/* Pattern Overlay */}
-              <div
-                className="absolute inset-0 opacity-20"
-                style={{ backgroundImage: style.pattern }}
-              />
+                {/* Pattern Overlay */}
+                <div
+                  className="absolute inset-0 opacity-20"
+                  style={{ backgroundImage: style.pattern }}
+                />
 
-              {/* Gradient Overlay */}
-              <div
-                className={`absolute inset-0 bg-gradient-to-r ${style.gradient} mix-blend-overlay`}
-              />
+                {/* Gradient Overlay */}
+                <div
+                  className={`absolute inset-0 bg-gradient-to-r ${style.gradient} mix-blend-overlay`}
+                />
 
-              {/* Collection Title */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <h2 className="text-3xl font-bold text-white text-center px-6 drop-shadow-lg">
-                  {collection.name}
-                </h2>
+                {/* Collection Title */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <h2 className="text-3xl font-bold text-white text-center px-6 drop-shadow-lg">
+                    {collection.name}
+                  </h2>
+                </div>
               </div>
-            </div>
 
-            {/* Collection Info */}
-            <div className="p-6">
-              <p className="text-sm text-gray-600 mb-4">{collection.description}</p>
+              {/* Collection Info */}
+              <div className="p-6">
+                <p className="text-sm text-gray-600 mb-4">{collection.description}</p>
 
-              {/* Hover Overlay */}
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <span className="px-6 py-3 bg-white rounded-lg font-medium">View Collection</span>
+                {/* Hover Overlay */}
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <span className="px-6 py-3 bg-white rounded-lg font-medium">View Collection</span>
+                </div>
               </div>
-            </div>
-          </button>
-        );
-      })}
-    </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="p-6">
+        <a
+          href={TELEGRAM_LINK}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-800 transition-colors duration-200"
+        >
+          <BsTelegram className="w-4 h-4" style={{ color: TELEGRAM_COLOR }} />
+          <span>
+            Would like a theme category that doesn't exist? Contact us on Telegram and send your
+            suggestion!
+          </span>
+        </a>
+      </div>
+    </>
   );
 }

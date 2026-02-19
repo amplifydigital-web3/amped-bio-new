@@ -108,6 +108,43 @@ export const auth = betterAuth({
       // },
     },
   },
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (user: any, context: any) => {
+          if ((!user.handle || user.handle === "") && user.email) {
+            user.handle = await processEmailToUniqueHandle(user.email);
+          }
+
+          if (context?.provider === "google" && context?.profile?.name && !user.name) {
+            user.name = context.profile.name;
+          }
+        },
+        after: async (user: any, context: any) => {
+          const referrerId = context?.query?.referrerId;
+          if (referrerId) {
+            try {
+              // Create referral record
+              await prisma.referral.create({
+                data: {
+                  referrerId: parseInt(referrerId),
+                  referredId: parseInt(user.id),
+                },
+              });
+
+              console.log(
+                `Referral created: user ${user.id} referred by ${referrerId}. ` +
+                `Rewards will be sent automatically when both parties link their wallets.`
+              );
+            } catch (error) {
+              console.error("Error creating referral:", error);
+              // Don't throw - user registration should succeed even if referral creation fails
+            }
+          }
+        },
+      },
+    },
+  },
   user: {
     changeEmail: {
       enabled: true,
@@ -149,17 +186,6 @@ export const auth = betterAuth({
         required: false,
         defaultValue: null,
       },
-    },
-    beforeCreate: async (user: any, context: any) => {
-      // Generate unique handle for social auth users who don't have one
-      if ((!user.handle || user.handle === "") && user.email) {
-        user.handle = await processEmailToUniqueHandle(user.email);
-      }
-
-      // For social providers (like Google), use the name from the provider
-      if (context?.provider === "google" && context?.profile?.name && !user.name) {
-        user.name = context.profile.name;
-      }
     },
   },
   account: {

@@ -79,6 +79,12 @@ export const env = cleanEnv(process.env, {
     example: "true",
   }),
 
+  // Affiliate Rewards Configuration
+  AFFILIATES_PRIVATE_KEY: str({
+    desc: "Private key for the affiliate rewards wallet",
+    default: "",
+  }),
+
   // AWS S3 Configuration for profile picture uploads
   AWS_REGION: str({
     desc: "AWS Region",
