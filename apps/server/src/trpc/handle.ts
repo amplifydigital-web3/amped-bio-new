@@ -10,6 +10,7 @@ import { HANDLE_MIN_LENGTH, HANDLE_REGEX } from "@ampedbio/constants";
 export const handleBaseSchema = z
   .string()
   .transform(value => (value.startsWith("@") ? value.substring(1) : value)) // Normalize by removing @ prefix if present
+  .transform(value => value.toLowerCase()) // Normalize to lowercase for case-insensitive lookup
   .pipe(
     z
       .string()
