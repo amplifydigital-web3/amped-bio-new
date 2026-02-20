@@ -11,6 +11,7 @@ import {
   ClipboardCopy,
   Check,
   Download,
+  Loader2,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
@@ -40,6 +41,7 @@ export function UserManagement() {
   const [hasSearched, setHasSearched] = useState(false);
   const [showEmails, setShowEmails] = useState(false);
   const [copiedAddressId, setCopiedAddressId] = useState<number | null>(null);
+  const [isExportingAll, setIsExportingAll] = useState(false);
   const [sortDescriptor, setSortDescriptor] = useState<{
     column: string;
     direction: "asc" | "desc";
@@ -337,11 +339,88 @@ export function UserManagement() {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", "users.csv");
+    link.setAttribute("download", "users-current-page.csv");
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleExportAllCSV = async () => {
+    setIsExportingAll(true);
+
+    try {
+      const result = await trpcClient.admin.users.getAllUsersForExport.query({
+        role,
+        blocked,
+        search: searchQuery.length >= 2 ? searchQuery : undefined,
+        sortBy: sortDescriptor.column,
+        sortDirection: sortDescriptor.direction,
+      });
+
+      const escapeCSV = (str: string | number | null) => {
+        if (str === null || str === undefined) {
+          return "";
+        }
+        const string = String(str);
+        if (string.includes('"')) {
+          return `"${string.replace(/"/g, '""')}"`;
+        }
+        if (string.includes(",")) {
+          return `"${string}"`;
+        }
+        return string;
+      };
+
+      const headers = [
+        "ID",
+        "Name",
+        "Email",
+        "Handle",
+        "Role",
+        "Status",
+        "Blocks",
+        "Themes",
+        "Date Joined",
+        "Referrer",
+        "Wallet Address",
+      ];
+
+      const rows = result.users.map(user =>
+        [
+          user.id,
+          escapeCSV(user.name),
+          escapeCSV(user.email),
+          escapeCSV(user.handle),
+          escapeCSV(user.role),
+          escapeCSV(user.block === "yes" ? "Blocked" : "Active"),
+          user._count.blocks,
+          user._count.themes,
+          escapeCSV(formatDate(user.created_at)),
+          escapeCSV(
+            user.referralsReceived && user.referralsReceived.length > 0
+              ? user.referralsReceived[0].referrer.handle
+              : ""
+          ),
+          escapeCSV(user.wallet?.address ?? null),
+        ].join(",")
+      );
+
+      const csvContent = [headers.join(","), ...rows].join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", "all-users.csv");
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error("Error exporting all users:", error);
+    } finally {
+      setIsExportingAll(false);
+    }
   };
 
   return (
@@ -369,14 +448,30 @@ export function UserManagement() {
                 </>
               )}
             </button>
-            <button
-              onClick={handleExportCSV}
-              disabled={!userData || userData.users.length === 0}
-              className="flex items-center px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-            >
-              <Download className="h-4 w-4 mr-1.5" />
-              <span>Export as CSV</span>
-            </button>
+            <Tooltip content="Export only the users currently visible on this page">
+              <button
+                onClick={handleExportCSV}
+                disabled={!userData || userData.users.length === 0}
+                className="flex items-center px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                <Download className="h-4 w-4 mr-1.5" />
+                <span>Current Page (CSV)</span>
+              </button>
+            </Tooltip>
+            <Tooltip content="Export all filtered users respecting current search, role, and status filters">
+              <button
+                onClick={handleExportAllCSV}
+                disabled={isExportingAll || !userData || userData.pagination?.total === 0}
+                className="flex items-center px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                {isExportingAll ? (
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4 mr-1.5" />
+                )}
+                <span>{isExportingAll ? "Exporting..." : "All Users (CSV)"}</span>
+              </button>
+            </Tooltip>
           </div>
         </div>
 
