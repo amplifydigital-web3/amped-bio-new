@@ -252,7 +252,7 @@ export function BlockEditor({ block, onSave, onCancel }: BlockEditorProps) {
           {block.type === "pool" && (
             <>
               <PoolSearchInput
-                onPoolSelect={(pool) => {
+                onPoolSelect={pool => {
                   setValue("address", pool.address);
                   setValue("label", pool.name);
                 }}
