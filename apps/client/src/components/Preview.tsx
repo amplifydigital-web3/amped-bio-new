@@ -11,6 +11,7 @@ import { getPlatformIcon } from "../utils/platforms";
 import { MediaBlock } from "./blocks/MediaBlock";
 import { TextBlock } from "./blocks/text/TextBlock";
 import { CreatorPoolBlock } from "./blocks/CreatorPoolBlock";
+import { ReferralBlock } from "./blocks/ReferralBlock";
 import { isHTML } from "@/utils/htmlutils";
 import { type BlockType } from "@ampedbio/constants";
 import { Theme, UserProfile } from "@/types/editor";
@@ -36,9 +37,10 @@ interface PreviewProps {
   profile: UserProfile;
   blocks: BlockType[];
   theme: Theme;
+  userId?: number;
 }
 
-export function Preview({ profile, blocks, theme }: PreviewProps) {
+export function Preview({ profile, blocks, theme, userId }: PreviewProps) {
   const themeConfig = theme.config;
   const { setReferrerId } = useReferralHandler();
 
@@ -220,6 +222,16 @@ export function Preview({ profile, blocks, theme }: PreviewProps) {
                   }
                   if (block.type === "pool") {
                     return <CreatorPoolBlock key={block.id} block={block} theme={themeConfig} />;
+                  }
+                  if (block.type === "referral") {
+                    return (
+                      <ReferralBlock
+                        key={block.id}
+                        block={block}
+                        theme={themeConfig}
+                        pageOwnerId={userId ?? 0}
+                      />
+                    );
                   }
                   return <TextBlock key={block.id} block={block} theme={themeConfig} />;
                 })}
