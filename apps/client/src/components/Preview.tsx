@@ -15,7 +15,7 @@ import { isHTML } from "@/utils/htmlutils";
 import { type BlockType } from "@ampedbio/constants";
 import { Theme, UserProfile } from "@/types/editor";
 import { trpcClient } from "@/utils/trpc";
-import { setCookie } from "@/utils/cookies";
+import { useReferralHandler } from "@/hooks/useReferralHandler";
 
 // Helper function to extract the root domain from a URL
 const extractRootDomain = (url: string): string => {
@@ -40,6 +40,7 @@ interface PreviewProps {
 
 export function Preview({ profile, blocks, theme }: PreviewProps) {
   const themeConfig = theme.config;
+  const { setReferrerId } = useReferralHandler();
 
   const handleLinkClick = (block: BlockType) => {
     if (block.type === "link") {
@@ -234,9 +235,8 @@ export function Preview({ profile, blocks, theme }: PreviewProps) {
                     color: themeConfig?.fontColor,
                   }}
                   onClick={() => {
-                    // Save visited profile ID in cookie with 30-day expiration
                     if (profile.id) {
-                      setCookie("pendingProfileReferral", profile.id.toString(), 30);
+                      setReferrerId(profile.id, 30);
                     }
                   }}
                 >

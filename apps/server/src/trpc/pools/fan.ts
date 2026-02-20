@@ -48,9 +48,9 @@ export const poolsFanRouter = router({
                 },
               },
             },
-            _count: {
+            stakedPools: {
               select: {
-                stakedPools: true,
+                stakeAmount: true,
               },
             },
           },
@@ -162,7 +162,9 @@ export const poolsFanRouter = router({
           }
         }
 
-        const activeStakers = pool._count.stakedPools;
+        const activeStakers = pool.stakedPools.filter(
+          staked => BigInt(staked.stakeAmount) > 0n
+        ).length;
 
         return {
           id: pool.id,

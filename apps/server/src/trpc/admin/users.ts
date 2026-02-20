@@ -205,6 +205,169 @@ export const usersRouter = router({
       };
     }),
 
+  getAllUsersForExport: adminProcedure
+    .input(
+      z.object({
+        ...UserFilterSchema.shape,
+        sortBy: z.string().optional(),
+        sortDirection: z.enum(["asc", "desc"]).optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      const { search, role, blocked, sortBy, sortDirection } = input;
+
+      const where = {
+        ...(search
+          ? {
+              OR: [
+                { name: { contains: search } },
+                { email: { contains: search } },
+                { handle: { contains: search } },
+                { wallet: { address: { contains: search } } },
+              ],
+            }
+          : {}),
+        ...(role ? { role } : {}),
+        ...(blocked !== undefined ? { block: blocked ? "yes" : "no" } : {}),
+      };
+
+      let users;
+      let userIds;
+      let clicksMap: Map<number, number>;
+
+      if (sortBy === "totalClicks") {
+        const usersMatchingFilter = await prisma.user.findMany({
+          where,
+          select: { id: true },
+        });
+
+        userIds = usersMatchingFilter.map(u => u.id);
+
+        const blockAggregations = await prisma.block.groupBy({
+          by: ["user_id"],
+          where: { user_id: { in: userIds } },
+          _sum: { clicks: true },
+        });
+
+        userIds = usersMatchingFilter.map(u => u.id);
+
+        clicksMap = new Map(blockAggregations.map(agg => [agg.user_id, agg._sum.clicks || 0]));
+
+        userIds.forEach(id => {
+          if (!clicksMap.has(id)) {
+            clicksMap.set(id, 0);
+          }
+        });
+
+        const sortedUserIds = userIds.sort((a, b) => {
+          const clicksA = clicksMap.get(a) || 0;
+          const clicksB = clicksMap.get(b) || 0;
+          if (sortDirection === "asc") {
+            return clicksA - clicksB;
+          }
+          return clicksB - clicksA;
+        });
+
+        users = await prisma.user.findMany({
+          where: { id: { in: sortedUserIds } },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            handle: true,
+            role: true,
+            block: true,
+            created_at: true,
+            wallet: true,
+            referralsReceived: {
+              select: {
+                referrer: {
+                  select: {
+                    handle: true,
+                  },
+                },
+              },
+              take: 1,
+            },
+            _count: {
+              select: {
+                blocks: true,
+                themes: true,
+              },
+            },
+          },
+        });
+
+        users.sort((a, b) => sortedUserIds.indexOf(a.id) - sortedUserIds.indexOf(b.id));
+      } else {
+        const orderBy = sortBy
+          ? sortBy === "blocks" || sortBy === "themes"
+            ? {
+                [sortBy]: {
+                  _count: sortDirection || "desc",
+                },
+              }
+            : { [sortBy]: sortDirection || "desc" }
+          : { created_at: "desc" };
+
+        users = await prisma.user.findMany({
+          where,
+          orderBy: orderBy as any,
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            handle: true,
+            role: true,
+            block: true,
+            created_at: true,
+            wallet: true,
+            referralsReceived: {
+              select: {
+                referrer: {
+                  select: {
+                    handle: true,
+                  },
+                },
+              },
+              take: 1,
+            },
+            _count: {
+              select: {
+                blocks: true,
+                themes: true,
+              },
+            },
+          },
+        });
+
+        userIds = users.map(user => user.id);
+
+        const clickCounts = await prisma.block.groupBy({
+          by: ["user_id"],
+          where: {
+            user_id: {
+              in: userIds,
+            },
+          },
+          _sum: {
+            clicks: true,
+          },
+        });
+
+        clicksMap = new Map(clickCounts.map(count => [count.user_id, count._sum.clicks || 0]));
+      }
+
+      const usersWithClicks = users.map(user => ({
+        ...user,
+        totalClicks: clicksMap.get(user.id) || 0,
+      }));
+
+      return {
+        users: usersWithClicks,
+      };
+    }),
+
   getUserDetails: adminProcedure
     .input(
       z.object({
