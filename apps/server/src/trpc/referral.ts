@@ -94,6 +94,25 @@ async function getAffiliateWalletStatus() {
 }
 
 export const referralRouter = router({
+  getRefereeReward: publicProcedure.query(async () => {
+    try {
+      const rewardSettings = await prisma.siteSettings.findUnique({
+        where: {
+          setting_key: SITE_SETTINGS.AFFILIATE_REFEREE_REWARD,
+        },
+      });
+
+      const amount = rewardSettings?.setting_value || "0";
+
+      return { amount };
+    } catch (error) {
+      console.error("error getting referee reward", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Server error",
+      });
+    }
+  }),
   getReferrerInfo: publicProcedure
     .input(
       z.object({

@@ -237,6 +237,7 @@ export function View() {
         profile={profile}
         blocks={blocks}
         theme={theme ?? initialState.theme}
+        userId={profile.id}
       />
 
       <div className="fixed bottom-4 right-4 z-50 flex space-x-4">

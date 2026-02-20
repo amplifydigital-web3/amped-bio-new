@@ -5,14 +5,16 @@ import {
   MediaBlockPlatform,
   TextBlock,
   PoolBlock,
+  ReferralBlock,
 } from "@ampedbio/constants";
 import { getPlatformIcon } from "@/utils/platforms";
-import { FileText, LucideIcon, Coins, Lock } from "lucide-react";
+import { FileText, LucideIcon, Coins, Lock, Link2 } from "lucide-react";
 import { IconType } from "react-icons/lib";
 import { useState } from "react";
 import { BlockEditor } from "./BlockEditor";
 import { TextBlockEditor } from "./TextBlockEditor";
 import { useEditor } from "@/contexts/EditorContext";
+import toast from "react-hot-toast";
 
 interface BlockPickerProps {
   onAdd: (block: BlockType) => void;
@@ -42,6 +44,13 @@ const blockTypes: {
         type: "pool";
         disabled?: boolean;
       }
+    | {
+        id: "referral";
+        name: string;
+        icon: LucideIcon | IconType;
+        type: "referral";
+        disabled?: boolean;
+      }
   )[];
 }[] = [
   {
@@ -63,7 +72,10 @@ const blockTypes: {
   },
   {
     category: "Utility",
-    blocks: [{ id: "text", name: "Text Block", icon: FileText, type: "text" }],
+    blocks: [
+      { id: "text", name: "Text Block", icon: FileText, type: "text" },
+      { id: "referral", name: "My Referral Link", icon: Link2, type: "referral" },
+    ],
   },
   {
     category: "Web3",
@@ -73,7 +85,7 @@ const blockTypes: {
 
 export function BlockPicker({ onAdd }: BlockPickerProps) {
   const [editingBlock, setEditingBlock] = useState<BlockType | null>(null);
-  const { hasCreatorPool } = useEditor();
+  const { blocks } = useEditor();
 
   const createBlock = (blockType: string, platform: MediaBlockPlatform): BlockType => {
     if (blockType === "media") {
@@ -108,6 +120,13 @@ export function BlockPicker({ onAdd }: BlockPickerProps) {
           label: "",
         },
       } as PoolBlock;
+    } else if (blockType === "referral") {
+      return {
+        id: 0,
+        type: "referral",
+        order: 0,
+        config: {},
+      } as ReferralBlock;
     } else {
       return {
         id: 0,
@@ -122,14 +141,22 @@ export function BlockPicker({ onAdd }: BlockPickerProps) {
   };
 
   const handleBlockSelection = (blockType: string, platform: MediaBlockPlatform) => {
+    const hasReferralBlock = blocks.some(b => b.type === "referral");
+    if (blockType === "referral" && hasReferralBlock) {
+      toast.error("You can only have one Referral Link block per profile");
+      return;
+    }
     const newBlock = createBlock(blockType, platform);
-    setEditingBlock(newBlock);
+    if (blockType === "referral") {
+      onAdd(newBlock);
+    } else {
+      setEditingBlock(newBlock);
+    }
   };
 
   const handleSave = (config: BlockType["config"]) => {
     console.info("Saving block:", config);
     if (editingBlock) {
-      // Mantenha o mesmo tipo do bloco que estamos editando
       if (editingBlock.type === "media") {
         onAdd({
           ...editingBlock,
@@ -145,6 +172,11 @@ export function BlockPicker({ onAdd }: BlockPickerProps) {
           ...editingBlock,
           config: config as PoolBlock["config"],
         } as PoolBlock);
+      } else if (editingBlock.type === "referral") {
+        onAdd({
+          ...editingBlock,
+          config: config as ReferralBlock["config"],
+        } as ReferralBlock);
       } else {
         onAdd({
           ...editingBlock,
@@ -201,6 +233,9 @@ export function BlockPicker({ onAdd }: BlockPickerProps) {
                 onCancel={handleCancel}
               />
             );
+          }
+          if (editingBlock.type === "referral") {
+            return null;
           }
 
           return <BlockEditor block={editingBlock} onSave={handleSave} onCancel={handleCancel} />;
