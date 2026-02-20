@@ -34,5 +34,11 @@ export const useReferralHandler = () => {
     eraseCookie("pendingReferrerId");
   };
 
-  return { getReferrerId, clearReferrerId };
+  const setReferrerId = (userId: number, days: number = 30): void => {
+    if (!getCookie("pendingReferrerId")) {
+      setCookie("pendingReferrerId", userId.toString(), days);
+    }
+  };
+
+  return { getReferrerId, clearReferrerId, setReferrerId };
 };
