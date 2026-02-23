@@ -73,6 +73,10 @@ blocksSchemasRouter.get("/", (req, res) => {
         },
       },
     },
+    {
+      type: "referral",
+      schema: {},
+    },
   ];
 
   res.json(blockSchemas);

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Trash2, Settings, ExternalLink, Coins } from "lucide-react";
+import { GripVertical, Trash2, Settings, ExternalLink, Coins, Gift } from "lucide-react";
 import type { BlockType } from "@ampedbio/constants";
 import { getPlatformIcon, getPlatformName } from "../../../utils/platforms";
 
@@ -23,7 +23,12 @@ export function SortableItem({ id, block, onEdit, onRemove }: SortableItemProps)
     zIndex: isDragging ? 1 : undefined,
   };
 
-  const Icon = block.type === "pool" ? Coins : getPlatformIcon(block.config.platform);
+  const Icon =
+    block.type === "pool"
+      ? Coins
+      : block.type === "referral"
+        ? Gift
+        : getPlatformIcon(block.config.platform);
 
   return (
     <div
@@ -47,13 +52,17 @@ export function SortableItem({ id, block, onEdit, onRemove }: SortableItemProps)
                 ? getPlatformName(block.config.platform)
                 : block.type === "pool"
                   ? block.config.label || "Creator Pool"
-                  : "Text"}
+                  : block.type === "referral"
+                    ? "My Referral Link"
+                    : "Text"}
           </p>
           <p className="text-sm text-gray-500 truncate">
             {block.type === "link"
               ? block.config.url
-              : // @ts-ignore
-                (block.config.content ?? block.config.url)}
+              : block.type === "referral"
+                ? "Invite users and earn rewards"
+                : // @ts-ignore
+                  (block.config.content ?? block.config.url)}
           </p>
         </div>
       </div>
@@ -78,7 +87,7 @@ export function SortableItem({ id, block, onEdit, onRemove }: SortableItemProps)
             </a>
           </>
         )}
-        {block.type !== "link" && (
+        {block.type !== "link" && block.type !== "referral" && (
           <button onClick={onEdit} className="p-1 text-gray-500 hover:text-gray-700">
             <Settings className="w-4 h-4" />
           </button>

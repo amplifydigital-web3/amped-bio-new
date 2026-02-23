@@ -2,7 +2,16 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc/trpc";
 import { trpcClient } from "@/utils/trpc/trpc";
-import { Copy, Check, Users, Link2, ChevronDown, ChevronUp, Info, ExternalLink } from "lucide-react";
+import {
+  Copy,
+  Check,
+  Users,
+  Link2,
+  ChevronDown,
+  ChevronUp,
+  Info,
+  ExternalLink,
+} from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tooltip } from "@/components/ui/Tooltip";
@@ -252,9 +261,7 @@ function ReferralCard() {
                               <Tooltip
                                 content={
                                   <div className="max-w-xs">
-                                    <p className="font-semibold mb-1">
-                                      Rewards Unavailable
-                                    </p>
+                                    <p className="font-semibold mb-1">Rewards Unavailable</p>
                                     <p className="mt-1 text-xs">
                                       Rewards are currently unavailable. Please try again later.
                                     </p>

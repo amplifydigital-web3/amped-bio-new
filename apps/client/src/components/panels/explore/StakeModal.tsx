@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Coins, TrendingUp, AlertCircle, Check } from "lucide-react";
 import { BsTelegram } from "react-icons/bs";
-import { useAccount, useBalance } from "wagmi";
 import { getChainConfig } from "@ampedbio/web3";
 import { useStakingManager } from "@/hooks/useStakingManager";
 import { formatNumberWithSeparators } from "@/utils/numberUtils";

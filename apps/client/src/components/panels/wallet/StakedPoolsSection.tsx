@@ -1,5 +1,5 @@
 import React from "react";
-import { Trophy, ChevronLeft, ChevronRight, Coins } from "lucide-react";
+import { Trophy, ChevronLeft, ChevronRight } from "lucide-react";
 import ExplorePoolDetailsModal from "../explore/ExplorePoolDetailsModal";
 import { useAccount } from "wagmi";
 import StakedPoolRow from "./StakedPoolRow";
