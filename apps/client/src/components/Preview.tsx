@@ -42,7 +42,7 @@ interface PreviewProps {
 
 export function Preview({ profile, blocks, theme, userId }: PreviewProps) {
   const themeConfig = theme.config;
-  const { setReferrerId } = useReferralHandler();
+  const { handleReferrerClick } = useReferralHandler();
 
   const handleLinkClick = (block: BlockType) => {
     if (block.type === "link") {
@@ -239,21 +239,24 @@ export function Preview({ profile, blocks, theme, userId }: PreviewProps) {
 
               {/* Powered by footer */}
               <div className="pt-4 text-center">
-                <Link
-                  to="/register"
-                  className="text-sm opacity-70 hover:opacity-100 transition-opacity"
+                <button
+                  onClick={() => {
+                    if (profile.id) {
+                      handleReferrerClick(profile.id);
+                    }
+                  }}
+                  className="text-sm opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
                   style={{
                     fontFamily: themeConfig?.fontFamily,
                     color: themeConfig?.fontColor,
-                  }}
-                  onClick={() => {
-                    if (profile.id) {
-                      setReferrerId(profile.id, 30);
-                    }
+                    border: "none",
+                    outline: "none",
+                    background: "none",
+                    padding: 0,
                   }}
                 >
                   Claim your own Amped.Bio
-                </Link>
+                </button>
               </div>
             </div>
           </div>

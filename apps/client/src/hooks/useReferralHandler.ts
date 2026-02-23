@@ -34,11 +34,20 @@ export const useReferralHandler = () => {
     eraseCookie("pendingReferrerId");
   };
 
-  const setReferrerId = (userId: number, days: number = 30): void => {
-    if (!getCookie("pendingReferrerId")) {
-      setCookie("pendingReferrerId", userId.toString(), days);
-    }
+  const overwriteReferrerId = (userId: number, days: number = 30): void => {
+    clearReferrerId();
+    setCookie("pendingReferrerId", userId.toString(), days);
   };
 
-  return { getReferrerId, clearReferrerId, setReferrerId };
+  const handleReferrerClick = (userId: number): void => {
+    const userIdHex = `0x${userId.toString(16)}`;
+    overwriteReferrerId(userId, 30);
+    window.location.href = `/register?r=${userIdHex}`;
+  };
+
+  return {
+    getReferrerId,
+    clearReferrerId,
+    handleReferrerClick,
+  };
 };

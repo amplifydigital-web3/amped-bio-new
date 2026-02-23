@@ -1,8 +1,8 @@
-import { Link } from "react-router";
 import { Gift } from "lucide-react";
 import { trpc } from "@/utils/trpc";
 import { useQuery } from "@tanstack/react-query";
 import type { ReferralBlock, ThemeConfig } from "@ampedbio/constants";
+import { useReferralHandler } from "@/hooks/useReferralHandler";
 
 interface ReferralBlockProps {
   block: ReferralBlock;
@@ -16,6 +16,7 @@ export function ReferralBlock({ theme, pageOwnerId }: ReferralBlockProps) {
       retry: 1,
     })
   );
+  const { handleReferrerClick } = useReferralHandler();
 
   if (isLoading) {
     return (
@@ -36,22 +37,22 @@ export function ReferralBlock({ theme, pageOwnerId }: ReferralBlockProps) {
     return null;
   }
 
-  const userIdHex = `0x${pageOwnerId.toString(16)}`;
-
   return (
-    <Link
-      to={`/register?r=${userIdHex}`}
-      className="w-full px-4 py-3 flex items-center justify-center space-x-2 rounded-lg transition-all hover:scale-[1.02] active:scale-[0.98]"
+    <button
+      onClick={() => handleReferrerClick(pageOwnerId)}
+      className="w-full px-4 py-3 flex items-center justify-center space-x-2 rounded-lg transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
       style={{
         backgroundColor: theme.buttonColor,
         fontFamily: theme.fontFamily,
         color: theme.fontColor,
+        border: "none",
+        outline: "none",
       }}
     >
       <Gift className="w-5 h-5 flex-shrink-0" />
       <span className="text-sm font-medium">
         Create your profile and earn {refereeRewardData.amount || 0} REVO
       </span>
-    </Link>
+    </button>
   );
 }
