@@ -6,7 +6,7 @@ import { createWalletClient, createPublicClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { getChainConfig } from "@ampedbio/web3";
 import { AFFILIATES_CHAIN_ID, SITE_SETTINGS } from "@ampedbio/constants";
-import { rewardCache } from "../utils/cache";
+import { rewardCache, CacheKeys } from "../utils/cache";
 
 /**
  * Process referral reward immediately after a user links their wallet.
@@ -121,8 +121,7 @@ export async function processReferralRewardForUser(userId: number): Promise<void
         }
 
         // Get reward amounts from cache or database
-        const REWARDS_CACHE_KEY = "referral_rewards";
-        const cachedRewards = rewardCache.get(REWARDS_CACHE_KEY);
+        const cachedRewards = rewardCache.get(CacheKeys.REFERRAL_REWARDS);
 
         let referrerReward: number | null;
         let refereeReward: number | null;
@@ -161,7 +160,7 @@ export async function processReferralRewardForUser(userId: number): Promise<void
             : null;
 
           // Save to cache
-          rewardCache.set(REWARDS_CACHE_KEY, { referrerReward, refereeReward });
+          rewardCache.set(CacheKeys.REFERRAL_REWARDS, { referrerReward, refereeReward });
           console.log(`[REWARDS_CACHE_MISS] Cached rewards for 60000ms`);
         }
 
