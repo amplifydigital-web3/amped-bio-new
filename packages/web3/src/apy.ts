@@ -18,25 +18,41 @@ const CONFIG = {
  * @returns APY in basis points, or null if calculation fails
  */
 export async function calculatePoolAPY(
-  poolAddress: Address,
+  poolAddresses: Address[],
   chainId: number,
   publicClient: PublicClient
-): Promise<number | null> {
-  console.log(`[APY DEBUG] calculatePoolAPY START - pool: ${poolAddress}, chainId: ${chainId}`);
+): Promise<Record<Address, number | null>> {
+  console.log(
+    `[APY DEBUG] calculatePoolAPY START - pools: ${poolAddresses.length}, chainId: ${chainId}`
+  );
 
   const chain = getChainConfig(chainId);
   if (!chain?.contracts?.NODE_MANAGER) {
-    console.log(`[APY DEBUG] calculatePoolAPY END - No chain config found, returning null`);
-    return null;
+    console.log(
+      `[APY DEBUG] calculatePoolAPYBatch END - No chain config found, returning null for all pools`
+    );
+    return poolAddresses.reduce(
+      (acc, addr) => ({ ...acc, [addr]: null }),
+      {} as Record<Address, number | null>
+    );
+  }
+
+  const result: Record<Address, number | null> = {};
+  for (const poolAddress of poolAddresses) {
+    result[poolAddress] = null;
   }
 
   try {
-    // 1. Get pool data (pool contract calls)
+    if (poolAddresses.length === 0) {
+      return result;
+    }
+
+    // 1. Get all pool data in a single multicall
     console.log(
-      `[APY DEBUG] STEP 1: Fetching pool data from contract ${poolAddress} using multicall...`
+      `[APY DEBUG] STEP 1: Fetching pool data for ${poolAddresses.length} pools using multicall...`
     );
 
-    const poolCalls = [
+    const poolCalls = poolAddresses.flatMap(poolAddress => [
       {
         address: poolAddress,
         abi: CREATOR_POOL_ABI,
@@ -57,46 +73,52 @@ export async function calculatePoolAPY(
         abi: CREATOR_POOL_ABI,
         functionName: "totalFanStaked" as const,
       },
-    ];
+    ]);
 
-    console.log(`[APY DEBUG] Executing multicall for pool data...`);
     const poolResults = await publicClient.multicall({
       contracts: poolCalls,
       allowFailure: false,
     });
 
-    const [nodeAddr, creatorCutBps, creatorStakedWei, totalFanStakedWei] = poolResults as [
+    const poolDataMap = new Map<
       Address,
-      bigint,
-      bigint,
-      bigint,
-    ];
-    console.log(`[APY DEBUG] ✓ SUCCESS: Multicall completed for pool data`);
-    console.log(`  - pool.NODE(): ${nodeAddr}`);
-    console.log(`  - pool.creatorCut(): ${Number(creatorCutBps)} bps`);
-    console.log(`  - pool.creatorStaked(): ${creatorStakedWei} wei`);
-    console.log(`  - pool.totalFanStaked(): ${totalFanStakedWei} wei`);
+      {
+        nodeAddr: Address;
+        creatorCutBps: bigint;
+        creatorStaked: number;
+        totalFanStaked: number;
+        poolEffectiveStake: number;
+      }
+    >();
 
-    const creatorStaked = Number(formatUnits(creatorStakedWei, CONFIG.tokenDecimals));
-    const totalFanStaked = Number(formatUnits(totalFanStakedWei, CONFIG.tokenDecimals));
-    const poolEffectiveStake = creatorStaked + totalFanStaked;
+    for (let i = 0; i < poolAddresses.length; i++) {
+      const poolAddress = poolAddresses[i]!;
+      const baseIndex = i * 4;
+      const nodeAddr = poolResults[baseIndex] as Address;
+      const creatorCutBps = poolResults[baseIndex + 1] as bigint;
+      const creatorStakedWei = poolResults[baseIndex + 2] as bigint;
+      const totalFanStakedWei = poolResults[baseIndex + 3] as bigint;
 
-    console.log(`[APY DEBUG] Pool data summary:`);
-    console.log(`  - Node address: ${nodeAddr}`);
-    console.log(`  - Creator cut (bps): ${Number(creatorCutBps)}`);
-    console.log(`  - Creator staked: ${creatorStaked} tokens`);
-    console.log(`  - Total fan staked: ${totalFanStaked} tokens`);
-    console.log(`  - Pool effective stake: ${poolEffectiveStake} tokens`);
+      const creatorStaked = Number(formatUnits(creatorStakedWei, CONFIG.tokenDecimals));
+      const totalFanStaked = Number(formatUnits(totalFanStakedWei, CONFIG.tokenDecimals));
+      const poolEffectiveStake = creatorStaked + totalFanStaked;
 
-    // Edge case: no fan stake means no APY to calculate
-    if (totalFanStaked === 0) {
-      console.log(`[APY DEBUG] calculatePoolAPY END - No fan stake, returning null`);
-      return null;
+      poolDataMap.set(poolAddress, {
+        nodeAddr,
+        creatorCutBps,
+        creatorStaked,
+        totalFanStaked,
+        poolEffectiveStake,
+      });
+
+      console.log(`[APY DEBUG] Pool ${poolAddress}: NODE=${nodeAddr}, fanStaked=${totalFanStaked}`);
     }
 
-    // 2. Get global system data (NODE contract calls)
+    console.log(`[APY DEBUG] ✓ SUCCESS: Fetched data for ${poolDataMap.size} pools`);
+
+    // 2. Get global system data (shared across all pools)
     console.log(
-      `[APY DEBUG] STEP 2: Fetching global system data from NODE contract ${chain.contracts.NODE.address}...`
+      `[APY DEBUG] STEP 2: Fetching global system data from NODE contract ${chain.contracts.NODE_MANAGER.address}...`
     );
 
     console.log(`[APY DEBUG] Calling NODE_MANAGER.getNodes()...`);
@@ -119,12 +141,9 @@ export async function calculatePoolAPY(
         address: chain.contracts.NODE_MANAGER.address,
         abi: NODE_MANAGER_ABI,
         functionName: "nodeTotalDelegation" as const,
-        args: [node] as const,
+        args: [node as Address] as const,
       }));
 
-      console.log(
-        `[APY DEBUG] Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(nodes.length / batchSize)} with ${batch.length} nodes...`
-      );
       const batchResults = await publicClient.multicall({
         contracts: batchCalls,
         allowFailure: false,
@@ -134,25 +153,19 @@ export async function calculatePoolAPY(
       for (const delegation of delegations) {
         totalSystemStake += delegation;
       }
-
-      console.log(
-        `[APY DEBUG] ✓ Batch ${Math.floor(i / batchSize) + 1} completed, running total stake: ${totalSystemStake} wei`
-      );
     }
 
     console.log(`[APY DEBUG] ✓ Total system stake calculated: ${totalSystemStake} wei`);
 
     console.log(`[APY DEBUG] Fetching batch count and reward per batch using multicall...`);
-    const globalCalls = [
-      {
-        address: chain.contracts.NODE_MANAGER.address,
-        abi: NODE_MANAGER_ABI,
-        functionName: "batchCount" as const,
-      },
-    ];
-
     const [batchCount] = (await publicClient.multicall({
-      contracts: globalCalls,
+      contracts: [
+        {
+          address: chain.contracts.NODE_MANAGER.address,
+          abi: NODE_MANAGER_ABI,
+          functionName: "batchCount" as const,
+        },
+      ],
       allowFailure: false,
     })) as [bigint];
 
@@ -165,9 +178,6 @@ export async function calculatePoolAPY(
       functionName: "rewardPerBlock",
       args: [batchCount],
     });
-    console.log(
-      `[APY DEBUG] ✓ SUCCESS: NODE_MANAGER.rewardPerBlock(${batchCount}) returned: ${rewardPerBatchWei} wei`
-    );
 
     const rewardPerBatch = Number(formatUnits(rewardPerBatchWei, CONFIG.tokenDecimals));
     const annualSystemRewards = rewardPerBatch * CONFIG.batchesPerYear;
@@ -181,12 +191,13 @@ export async function calculatePoolAPY(
     console.log(`  - Reward per batch: ${rewardPerBatch} tokens`);
     console.log(`  - Annual system rewards: ${annualSystemRewards} tokens`);
 
-    // 3. Get node-specific data
+    // 3. Get node data for unique nodes
+    const uniqueNodes = [...new Set(Array.from(poolDataMap.values()).map(p => p.nodeAddr))];
     console.log(
-      `[APY DEBUG] STEP 3: Fetching node-specific data for node ${nodeAddr} using multicall...`
+      `[APY DEBUG] STEP 3: Fetching node-specific data for ${uniqueNodes.length} unique nodes using multicall...`
     );
 
-    const nodeCalls = [
+    const nodeCalls = uniqueNodes.flatMap(nodeAddr => [
       {
         address: chain.contracts.NODE_MANAGER.address,
         abi: NODE_MANAGER_ABI,
@@ -199,82 +210,87 @@ export async function calculatePoolAPY(
         functionName: "nodeCutBps" as const,
         args: [nodeAddr as Address] as const,
       },
-    ];
+    ]);
 
-    const [nodeTotalStakeWei, initialNodeCutBps] = (await publicClient.multicall({
+    const nodeResults = await publicClient.multicall({
       contracts: nodeCalls,
       allowFailure: false,
-    })) as [bigint, bigint];
+    });
 
-    let nodeCutBps = initialNodeCutBps;
+    const nodeDataMap = new Map<Address, { nodeTotalStake: number; nodeCutBps: bigint }>();
 
-    const nodeTotalStake = Number(formatUnits(nodeTotalStakeWei, CONFIG.tokenDecimals));
+    for (let i = 0; i < uniqueNodes.length; i++) {
+      const nodeAddr = uniqueNodes[i]!;
+      const baseIndex = i * 2;
+      const nodeTotalStakeWei = nodeResults[baseIndex] as bigint;
+      const initialNodeCutBps = nodeResults[baseIndex + 1] as bigint;
 
-    console.log(`[APY DEBUG] ✓ SUCCESS: Multicall completed for node ${nodeAddr}`);
-    console.log(`  - NODE_MANAGER.nodeTotalDelegation(${nodeAddr}): ${nodeTotalStakeWei} wei`);
-    console.log(`  - NODE_MANAGER.nodeCutBps(${nodeAddr}): ${Number(nodeCutBps)} bps`);
+      const nodeTotalStake = Number(formatUnits(nodeTotalStakeWei, CONFIG.tokenDecimals));
+      let nodeCutBps = initialNodeCutBps;
 
-    if (nodeCutBps === 0n) {
-      console.log(`[APY DEBUG] Node cut is 0, using default: ${CONFIG.defaultNodeCutBps} bps`);
-      nodeCutBps = BigInt(CONFIG.defaultNodeCutBps);
+      if (nodeCutBps === 0n) {
+        nodeCutBps = BigInt(CONFIG.defaultNodeCutBps);
+      }
+
+      nodeDataMap.set(nodeAddr, { nodeTotalStake, nodeCutBps });
+      console.log(
+        `[APY DEBUG] Node ${nodeAddr}: totalStake=${nodeTotalStake}, cut=${Number(nodeCutBps)} bps`
+      );
     }
 
-    console.log(`[APY DEBUG] Node-specific data summary:`);
-    console.log(`  - Node total stake: ${nodeTotalStake} tokens`);
-    console.log(`  - Node cut (bps): ${Number(nodeCutBps)}`);
+    console.log(`[APY DEBUG] ✓ SUCCESS: Fetched data for ${nodeDataMap.size} unique nodes`);
 
-    // 4. Calculate APY
-    console.log(`[APY DEBUG] STEP 4: Calculating APY...`);
+    // 4. Calculate APY for each pool
+    console.log(`[APY DEBUG] STEP 4: Calculating APY for ${poolAddresses.length} pools...`);
 
-    if (totalSystemStake === 0n || nodeTotalStake === 0 || poolEffectiveStake === 0) {
-      console.log(`[APY DEBUG] calculatePoolAPY END - Zero stakes detected, returning null`);
-      return null;
+    for (const poolAddress of poolAddresses) {
+      const poolData = poolDataMap.get(poolAddress);
+      if (!poolData) continue;
+
+      const { nodeAddr, creatorCutBps, totalFanStaked, poolEffectiveStake } = poolData;
+
+      if (totalFanStaked === 0) {
+        console.log(`[APY DEBUG] Pool ${poolAddress}: No fan stake, returning null`);
+        continue;
+      }
+
+      const nodeData = nodeDataMap.get(nodeAddr);
+      if (!nodeData) continue;
+
+      const { nodeTotalStake, nodeCutBps } = nodeData;
+
+      if (totalSystemStake === 0n || nodeTotalStake === 0 || poolEffectiveStake === 0) {
+        console.log(`[APY DEBUG] Pool ${poolAddress}: Zero stakes detected, returning null`);
+        continue;
+      }
+
+      const totalSystemStakeTokens = Number(formatUnits(totalSystemStake, CONFIG.tokenDecimals));
+      const nodeWinProb = nodeTotalStake / totalSystemStakeTokens;
+
+      const nodeAnnualGross = annualSystemRewards * nodeWinProb;
+      const nodeAnnualNet = (nodeAnnualGross * (10000 - Number(nodeCutBps))) / 10000;
+
+      const poolShare = poolEffectiveStake / nodeTotalStake;
+      const poolAnnualRewards = nodeAnnualNet * poolShare;
+
+      const fanAnnualToPool = (poolAnnualRewards * (10000 - Number(creatorCutBps))) / 10000;
+
+      const apy = (fanAnnualToPool / totalFanStaked) * 100;
+      const finalApy = Math.round(apy * 100);
+
+      result[poolAddress] = finalApy;
+
+      console.log(
+        `[APY DEBUG] Pool ${poolAddress}: APY=${finalApy} bps (${(finalApy / 100).toFixed(2)}%)`
+      );
     }
 
-    const nodeWinProb =
-      nodeTotalStake / Number(formatUnits(totalSystemStake, CONFIG.tokenDecimals));
-    console.log(`[APY DEBUG] ✓ Calculated node win probability: ${nodeWinProb}`);
-
-    const nodeAnnualGross = annualSystemRewards * nodeWinProb;
-    console.log(`[APY DEBUG] ✓ Calculated node annual gross rewards: ${nodeAnnualGross} tokens`);
-
-    const nodeAnnualNet = (nodeAnnualGross * (10000 - Number(nodeCutBps))) / 10000;
     console.log(
-      `[APY DEBUG] ✓ Calculated node annual net rewards (after node cut): ${nodeAnnualNet} tokens`
+      `[APY DEBUG] ✓ calculatePoolAPYBatch SUCCESS - Calculated APY for ${poolAddresses.length} pools`
     );
-
-    const poolShare = poolEffectiveStake / nodeTotalStake;
-    console.log(`[APY DEBUG] ✓ Calculated pool share of node rewards: ${poolShare}`);
-
-    const poolAnnualRewards = nodeAnnualNet * poolShare;
-    console.log(`[APY DEBUG] ✓ Calculated pool annual rewards: ${poolAnnualRewards} tokens`);
-
-    const fanAnnualToPool = (poolAnnualRewards * (10000 - Number(creatorCutBps))) / 10000;
-    console.log(
-      `[APY DEBUG] ✓ Calculated fan annual to pool (after creator cut): ${fanAnnualToPool} tokens`
-    );
-
-    const apy = (fanAnnualToPool / totalFanStaked) * 100;
-    console.log(`[APY DEBUG] ✓ Calculated final APY: ${apy}%`);
-
-    console.log(`[APY DEBUG] APY calculation summary:`);
-    console.log(`  - Node win probability: ${(nodeWinProb * 100).toFixed(2)}%`);
-    console.log(`  - Node annual gross rewards: ${nodeAnnualGross.toFixed(2)} tokens`);
-    console.log(`  - Node annual net rewards: ${nodeAnnualNet.toFixed(2)} tokens`);
-    console.log(`  - Pool share: ${(poolShare * 100).toFixed(2)}%`);
-    console.log(`  - Pool annual rewards: ${poolAnnualRewards.toFixed(2)} tokens`);
-    console.log(`  - Fan annual to pool: ${fanAnnualToPool.toFixed(2)} tokens`);
-    console.log(`  - Final APY: ${apy.toFixed(2)}% (${Math.round(apy * 100)} bps)`);
-
-    const finalApy = Math.round(apy * 100);
-    console.log(
-      `[APY DEBUG] ✓ calculatePoolAPY SUCCESS - Returning APY: ${finalApy} bps (${(finalApy / 100).toFixed(2)}%)`
-    );
-
-    // Return as basis points
-    return finalApy;
+    return result;
   } catch (error) {
-    console.error(`[APY DEBUG] calculatePoolAPY END - Error caught:`, error);
-    return null;
+    console.error(`[APY DEBUG] calculatePoolAPYBatch END - Error caught:`, error);
+    return result;
   }
 }

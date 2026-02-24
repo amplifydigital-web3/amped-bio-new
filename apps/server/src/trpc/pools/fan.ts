@@ -149,11 +149,12 @@ export const poolsFanRouter = router({
         let apy: number | undefined = undefined;
         if (pool.poolAddress && totalStake > 0n) {
           try {
-            const calculatedAPY = await calculatePoolAPY(
-              pool.poolAddress as Address,
+            const apyResults = await calculatePoolAPY(
+              [pool.poolAddress as Address],
               parseInt(pool.chainId),
               publicClient as PublicClient
             );
+            const calculatedAPY = apyResults[pool.poolAddress as Address];
             if (calculatedAPY !== null) {
               apy = calculatedAPY;
             }
@@ -510,31 +511,32 @@ export const poolsFanRouter = router({
           })
           .map(result => result.value);
 
-        // Calculate APY for each pool (in parallel)
-        const apyPromises = processedPools.map(async pool => {
-          if (!pool.address || pool.stakedAmount === 0n) return { poolId: pool.id, apy: null };
+        // Calculate APY for all pools in batch
+        const poolAddresses = processedPools
+          .map(pool => pool.address as Address)
+          .filter(addr => addr !== undefined);
+
+        const apyMap = new Map<number, number | undefined>();
+        if (poolAddresses.length > 0) {
           try {
-            const apy = await calculatePoolAPY(
-              pool.address as Address,
+            const apyResults = await calculatePoolAPY(
+              poolAddresses,
               parseInt(input.chainId),
               publicClient as PublicClient
             );
-            return { poolId: pool.id, apy };
-          } catch (error) {
-            console.error(`Error calculating APY for pool ${pool.id}:`, error);
-            return { poolId: pool.id, apy: null };
-          }
-        });
 
-        const apyResults = await Promise.allSettled(apyPromises);
-        const apyMap = new Map<number, number | undefined>(
-          apyResults
-            .filter(
-              (r): r is PromiseFulfilledResult<{ poolId: number; apy: number | null }> =>
-                r.status === "fulfilled" && r.value.apy !== null
-            )
-            .map(r => [r.value.poolId, r.value.apy!])
-        );
+            for (const pool of processedPools) {
+              if (pool.address) {
+                const apy = apyResults[pool.address as Address];
+                if (apy !== null && apy !== undefined) {
+                  apyMap.set(pool.id, apy);
+                }
+              }
+            }
+          } catch (error) {
+            console.error("Error calculating batch APY:", error);
+          }
+        }
 
         // Add APY to processed pools
         const poolsWithAPY = processedPools.map(pool => ({
@@ -1699,11 +1701,12 @@ export const poolsFanRouter = router({
         let apy: number | undefined = undefined;
         if (pool.poolAddress && totalStake > 0n) {
           try {
-            const calculatedAPY = await calculatePoolAPY(
-              pool.poolAddress as Address,
+            const apyResults = await calculatePoolAPY(
+              [pool.poolAddress as Address],
               parseInt(pool.chainId),
               publicClient as PublicClient
             );
+            const calculatedAPY = apyResults[pool.poolAddress as Address];
             if (calculatedAPY !== null) {
               apy = calculatedAPY;
             }
