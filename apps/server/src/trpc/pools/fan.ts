@@ -11,6 +11,7 @@ import {
   calculatePoolAPY,
 } from "@ampedbio/web3";
 import { s3Service } from "../../services/S3Service";
+import { apyCache, getAPYCacheKey } from "../../utils/cache";
 import {
   UserStakedPool,
   PoolTabRewardPool,
@@ -149,14 +150,22 @@ export const poolsFanRouter = router({
         let apy: number | undefined = undefined;
         if (pool.poolAddress && totalStake > 0n) {
           try {
-            const apyResults = await calculatePoolAPY(
-              [pool.poolAddress as Address],
-              parseInt(pool.chainId),
-              publicClient as PublicClient
-            );
-            const calculatedAPY = apyResults[pool.poolAddress as Address];
-            if (calculatedAPY !== null) {
-              apy = calculatedAPY;
+            const cacheKey = getAPYCacheKey(parseInt(pool.chainId), pool.poolAddress as Address);
+            const cachedAPY = apyCache.get(cacheKey);
+
+            if (cachedAPY !== null) {
+              apy = cachedAPY;
+            } else {
+              const apyResults = await calculatePoolAPY(
+                [pool.poolAddress as Address],
+                parseInt(pool.chainId),
+                publicClient as PublicClient
+              );
+              const calculatedAPY = apyResults[pool.poolAddress as Address];
+              if (calculatedAPY !== null) {
+                apyCache.set(cacheKey, calculatedAPY);
+                apy = calculatedAPY;
+              }
             }
           } catch (error) {
             console.error(`Error calculating APY for pool ${pool.id}:`, error);
@@ -519,16 +528,40 @@ export const poolsFanRouter = router({
         const apyMap = new Map<number, number | undefined>();
         if (poolAddresses.length > 0) {
           try {
-            const apyResults = await calculatePoolAPY(
-              poolAddresses,
-              parseInt(input.chainId),
-              publicClient as PublicClient
-            );
+            const cachedPools = new Map<Address, number>();
+            const addressesToFetch: Address[] = [];
+
+            for (const poolAddress of poolAddresses) {
+              const cacheKey = getAPYCacheKey(parseInt(input.chainId), poolAddress);
+              const cachedAPY = apyCache.get(cacheKey);
+
+              if (cachedAPY !== null) {
+                cachedPools.set(poolAddress, cachedAPY);
+              } else {
+                addressesToFetch.push(poolAddress);
+              }
+            }
+
+            if (addressesToFetch.length > 0) {
+              const freshAPYResults = await calculatePoolAPY(
+                addressesToFetch,
+                parseInt(input.chainId),
+                publicClient as PublicClient
+              );
+
+              for (const [poolAddress, apy] of Object.entries(freshAPYResults)) {
+                if (apy !== null) {
+                  const cacheKey = getAPYCacheKey(parseInt(input.chainId), poolAddress as Address);
+                  apyCache.set(cacheKey, apy);
+                  cachedPools.set(poolAddress as Address, apy);
+                }
+              }
+            }
 
             for (const pool of processedPools) {
               if (pool.address) {
-                const apy = apyResults[pool.address as Address];
-                if (apy !== null && apy !== undefined) {
+                const apy = cachedPools.get(pool.address);
+                if (apy !== undefined) {
                   apyMap.set(pool.id, apy);
                 }
               }
@@ -1701,21 +1734,28 @@ export const poolsFanRouter = router({
         let apy: number | undefined = undefined;
         if (pool.poolAddress && totalStake > 0n) {
           try {
-            const apyResults = await calculatePoolAPY(
-              [pool.poolAddress as Address],
-              parseInt(pool.chainId),
-              publicClient as PublicClient
-            );
-            const calculatedAPY = apyResults[pool.poolAddress as Address];
-            if (calculatedAPY !== null) {
-              apy = calculatedAPY;
+            const cacheKey = getAPYCacheKey(parseInt(pool.chainId), pool.poolAddress as Address);
+            const cachedAPY = apyCache.get(cacheKey);
+
+            if (cachedAPY !== null) {
+              apy = cachedAPY;
+            } else {
+              const apyResults = await calculatePoolAPY(
+                [pool.poolAddress as Address],
+                parseInt(pool.chainId),
+                publicClient as PublicClient
+              );
+              const calculatedAPY = apyResults[pool.poolAddress as Address];
+              if (calculatedAPY !== null) {
+                apyCache.set(cacheKey, calculatedAPY);
+                apy = calculatedAPY;
+              }
             }
           } catch (error) {
             console.error(`Error calculating APY for pool ${pool.id}:`, error);
           }
         }
 
-        // Return only the data that is actually displayed in the modal
         return {
           id: pool.id,
           name: poolName ?? `Pool ${pool.id}`,
@@ -1744,11 +1784,10 @@ export const poolsFanRouter = router({
           },
         };
       } catch (error) {
-        console.error("Error fetching pool details for modal:", error);
-        if (error instanceof TRPCError) throw error;
+        console.error("Error getting pool details for modal:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to fetch pool details for modal",
+          message: "Failed to get pool details",
         });
       }
     }),

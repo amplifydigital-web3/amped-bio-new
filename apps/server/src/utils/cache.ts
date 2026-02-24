@@ -4,6 +4,8 @@
  * @property {T} value - The cached value of type T.
  * @property {number} expiresAt - The expiration timestamp in milliseconds since the Unix epoch.
  */
+import type { Address } from "viem";
+
 interface CacheEntry<T> {
   value: T;
   expiresAt: number;
@@ -20,6 +22,11 @@ export enum CacheKeys {
    * This cache stores reward amounts for both referrers and referees.
    */
   REFERRAL_REWARDS = "referral_rewards",
+  /**
+   * Cache key prefix for storing pool APY values.
+   * Format: `apy:${chainId}:${poolAddress}`
+   */
+  APY_PREFIX = "apy",
 }
 
 /**
@@ -255,3 +262,9 @@ export const rewardCache = new SimpleCache<{
   referrerReward: number | null;
   refereeReward: number | null;
 }>(60000); // 1 minute
+
+export const apyCache = new SimpleCache<number>(300000); // 5 minutes
+
+export function getAPYCacheKey(chainId: number, poolAddress: Address): string {
+  return `${CacheKeys.APY_PREFIX}:${chainId}:${poolAddress}`;
+}
