@@ -1,6 +1,6 @@
-import type { Address } from "viem";
+import type { Address, PublicClient } from "viem";
 import { formatUnits } from "viem";
-import { NODE_ABI, CREATOR_POOL_ABI, getChainConfig } from "./index";
+import { NODE_ABI, NODE_MANAGER_ABI, CREATOR_POOL_ABI, getChainConfig } from "./index";
 
 const CONFIG = {
   batchesPerYear: 525600, // 60 batches/hour × 24 × 365
@@ -20,7 +20,7 @@ const CONFIG = {
 export async function calculatePoolAPY(
   poolAddress: Address,
   chainId: number,
-  publicClient: { readContract: (params: any) => Promise<any> }
+  publicClient: PublicClient
 ): Promise<number | null> {
   console.log(`[APY DEBUG] calculatePoolAPY START - pool: ${poolAddress}, chainId: ${chainId}`);
 
@@ -32,44 +32,53 @@ export async function calculatePoolAPY(
 
   try {
     // 1. Get pool data (pool contract calls)
-    console.log(`[APY DEBUG] STEP 1: Fetching pool data from contract ${poolAddress}...`);
+    console.log(
+      `[APY DEBUG] STEP 1: Fetching pool data from contract ${poolAddress} using multicall...`
+    );
 
-    console.log(`[APY DEBUG] Calling pool.NODE()...`);
-    const nodeAddr = await publicClient.readContract({
-      address: poolAddress,
-      abi: CREATOR_POOL_ABI,
-      functionName: "NODE",
+    const poolCalls = [
+      {
+        address: poolAddress,
+        abi: CREATOR_POOL_ABI,
+        functionName: "NODE" as const,
+      },
+      {
+        address: poolAddress,
+        abi: CREATOR_POOL_ABI,
+        functionName: "creatorCut" as const,
+      },
+      {
+        address: poolAddress,
+        abi: CREATOR_POOL_ABI,
+        functionName: "creatorStaked" as const,
+      },
+      {
+        address: poolAddress,
+        abi: CREATOR_POOL_ABI,
+        functionName: "totalFanStaked" as const,
+      },
+    ];
+
+    console.log(`[APY DEBUG] Executing multicall for pool data...`);
+    const poolResults = await publicClient.multicall({
+      contracts: poolCalls,
+      allowFailure: false,
     });
-    console.log(`[APY DEBUG] ✓ SUCCESS: pool.NODE() returned: ${nodeAddr}`);
 
-    console.log(`[APY DEBUG] Calling pool.creatorCut()...`);
-    const creatorCutBps = await publicClient.readContract({
-      address: poolAddress,
-      abi: CREATOR_POOL_ABI,
-      functionName: "creatorCut",
-    });
-    console.log(`[APY DEBUG] ✓ SUCCESS: pool.creatorCut() returned: ${Number(creatorCutBps)} bps`);
+    const [nodeAddr, creatorCutBps, creatorStakedWei, totalFanStakedWei] = poolResults as [
+      Address,
+      bigint,
+      bigint,
+      bigint,
+    ];
+    console.log(`[APY DEBUG] ✓ SUCCESS: Multicall completed for pool data`);
+    console.log(`  - pool.NODE(): ${nodeAddr}`);
+    console.log(`  - pool.creatorCut(): ${Number(creatorCutBps)} bps`);
+    console.log(`  - pool.creatorStaked(): ${creatorStakedWei} wei`);
+    console.log(`  - pool.totalFanStaked(): ${totalFanStakedWei} wei`);
 
-    console.log(`[APY DEBUG] Calling pool.creatorStaked()...`);
-    const creatorStakedWei = await publicClient.readContract({
-      address: poolAddress,
-      abi: CREATOR_POOL_ABI,
-      functionName: "creatorStaked",
-    });
-    console.log(`[APY DEBUG] ✓ SUCCESS: pool.creatorStaked() returned: ${creatorStakedWei} wei`);
-
-    console.log(`[APY DEBUG] Calling pool.totalFanStaked()...`);
-    const totalFanStakedWei = await publicClient.readContract({
-      address: poolAddress,
-      abi: CREATOR_POOL_ABI,
-      functionName: "totalFanStaked",
-    });
-    console.log(`[APY DEBUG] ✓ SUCCESS: pool.totalFanStaked() returned: ${totalFanStakedWei} wei`);
-
-    console.log(`[APY DEBUG] ✓ All pool contract calls completed successfully`);
-
-    const creatorStaked = Number(formatUnits(creatorStakedWei as bigint, CONFIG.tokenDecimals));
-    const totalFanStaked = Number(formatUnits(totalFanStakedWei as bigint, CONFIG.tokenDecimals));
+    const creatorStaked = Number(formatUnits(creatorStakedWei, CONFIG.tokenDecimals));
+    const totalFanStaked = Number(formatUnits(totalFanStakedWei, CONFIG.tokenDecimals));
     const poolEffectiveStake = creatorStaked + totalFanStaked;
 
     console.log(`[APY DEBUG] Pool data summary:`);
@@ -90,52 +99,72 @@ export async function calculatePoolAPY(
       `[APY DEBUG] STEP 2: Fetching global system data from NODE contract ${chain.contracts.NODE.address}...`
     );
 
-    console.log(`[APY DEBUG] Calling NODE.getNodes()...`);
+    console.log(`[APY DEBUG] Calling NODE_MANAGER.getNodes()...`);
     const nodes = (await publicClient.readContract({
-      address: chain.contracts.NODE.address,
-      abi: NODE_ABI,
+      address: chain.contracts.NODE_MANAGER.address,
+      abi: NODE_MANAGER_ABI,
       functionName: "getNodes",
     })) as Address[];
-    console.log(`[APY DEBUG] ✓ SUCCESS: NODE.getNodes() returned ${nodes.length} nodes`);
+    console.log(`[APY DEBUG] ✓ SUCCESS: NODE_MANAGER.getNodes() returned ${nodes.length} nodes`);
 
-    console.log(`[APY DEBUG] Fetching delegation for ${nodes.length} nodes...`);
+    console.log(
+      `[APY DEBUG] Fetching delegation for ${nodes.length} nodes using multicall with batches of 5...`
+    );
     let totalSystemStake = 0n;
-    let nodeIndex = 0;
-    for (const node of nodes) {
-      console.log(`[APY DEBUG] Calling NODE.nodeTotalDelegation(${node})...`);
-      const delegation = (await publicClient.readContract({
+    const batchSize = 5;
+
+    for (let i = 0; i < nodes.length; i += batchSize) {
+      const batch = nodes.slice(i, i + batchSize);
+      const batchCalls = batch.map(node => ({
         address: chain.contracts.NODE.address,
         abi: NODE_ABI,
-        functionName: "nodeTotalDelegation",
-        args: [node],
-      })) as bigint;
+        functionName: "nodeTotalDelegation" as const,
+        args: [node] as const,
+      }));
+
       console.log(
-        `[APY DEBUG] ✓ SUCCESS: NODE.nodeTotalDelegation(${node}) returned: ${delegation} wei`
+        `[APY DEBUG] Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(nodes.length / batchSize)} with ${batch.length} nodes...`
       );
-      totalSystemStake += delegation;
-      nodeIndex++;
+      const batchResults = await publicClient.multicall({
+        contracts: batchCalls,
+        allowFailure: false,
+      });
+
+      const delegations = batchResults as bigint[];
+      for (const delegation of delegations) {
+        totalSystemStake += delegation;
+      }
+
       console.log(
-        `[APY DEBUG] Progress: ${nodeIndex}/${nodes.length} nodes processed, running total stake: ${totalSystemStake} wei`
+        `[APY DEBUG] ✓ Batch ${Math.floor(i / batchSize) + 1} completed, running total stake: ${totalSystemStake} wei`
       );
     }
 
     console.log(`[APY DEBUG] ✓ Total system stake calculated: ${totalSystemStake} wei`);
 
-    console.log(`[APY DEBUG] Calling NODE.batchCount()...`);
-    const batchCount = (await publicClient.readContract({
-      address: chain.contracts.NODE.address,
-      abi: NODE_ABI,
-      functionName: "batchCount",
-    })) as bigint;
+    console.log(`[APY DEBUG] Fetching batch count and reward per batch using multicall...`);
+    const globalCalls = [
+      {
+        address: chain.contracts.NODE.address,
+        abi: NODE_ABI,
+        functionName: "batchCount" as const,
+      },
+    ];
+
+    const [batchCount] = (await publicClient.multicall({
+      contracts: globalCalls,
+      allowFailure: false,
+    })) as [bigint];
+
     console.log(`[APY DEBUG] ✓ SUCCESS: NODE.batchCount() returned: ${batchCount}`);
 
     console.log(`[APY DEBUG] Calling NODE.rewardPerBlock(${batchCount})...`);
-    const rewardPerBatchWei = (await publicClient.readContract({
+    const rewardPerBatchWei = await publicClient.readContract({
       address: chain.contracts.NODE.address,
       abi: NODE_ABI,
       functionName: "rewardPerBlock",
       args: [batchCount],
-    })) as bigint;
+    });
     console.log(
       `[APY DEBUG] ✓ SUCCESS: NODE.rewardPerBlock(${batchCount}) returned: ${rewardPerBatchWei} wei`
     );
@@ -153,31 +182,37 @@ export async function calculatePoolAPY(
     console.log(`  - Annual system rewards: ${annualSystemRewards} tokens`);
 
     // 3. Get node-specific data
-    console.log(`[APY DEBUG] STEP 3: Fetching node-specific data for node ${nodeAddr}...`);
-
-    console.log(`[APY DEBUG] Calling NODE.nodeTotalDelegation(${nodeAddr})...`);
-    const nodeTotalStakeWei = (await publicClient.readContract({
-      address: chain.contracts.NODE.address,
-      abi: NODE_ABI,
-      functionName: "nodeTotalDelegation",
-      args: [nodeAddr as Address],
-    })) as bigint;
     console.log(
-      `[APY DEBUG] ✓ SUCCESS: NODE.nodeTotalDelegation(${nodeAddr}) returned: ${nodeTotalStakeWei} wei`
+      `[APY DEBUG] STEP 3: Fetching node-specific data for node ${nodeAddr} using multicall...`
     );
+
+    const nodeCalls = [
+      {
+        address: chain.contracts.NODE.address,
+        abi: NODE_ABI,
+        functionName: "nodeTotalDelegation" as const,
+        args: [nodeAddr as Address] as const,
+      },
+      {
+        address: chain.contracts.NODE.address,
+        abi: NODE_ABI,
+        functionName: "nodeCutBps" as const,
+        args: [nodeAddr as Address] as const,
+      },
+    ];
+
+    const [nodeTotalStakeWei, initialNodeCutBps] = (await publicClient.multicall({
+      contracts: nodeCalls,
+      allowFailure: false,
+    })) as [bigint, bigint];
+
+    let nodeCutBps = initialNodeCutBps;
 
     const nodeTotalStake = Number(formatUnits(nodeTotalStakeWei, CONFIG.tokenDecimals));
 
-    console.log(`[APY DEBUG] Calling NODE.nodeCutBps(${nodeAddr})...`);
-    let nodeCutBps = (await publicClient.readContract({
-      address: chain.contracts.NODE.address,
-      abi: NODE_ABI,
-      functionName: "nodeCutBps",
-      args: [nodeAddr as Address],
-    })) as bigint;
-    console.log(
-      `[APY DEBUG] ✓ SUCCESS: NODE.nodeCutBps(${nodeAddr}) returned: ${Number(nodeCutBps)} bps`
-    );
+    console.log(`[APY DEBUG] ✓ SUCCESS: Multicall completed for node ${nodeAddr}`);
+    console.log(`  - NODE.nodeTotalDelegation(${nodeAddr}): ${nodeTotalStakeWei} wei`);
+    console.log(`  - NODE.nodeCutBps(${nodeAddr}): ${Number(nodeCutBps)} bps`);
 
     if (nodeCutBps === 0n) {
       console.log(`[APY DEBUG] Node cut is 0, using default: ${CONFIG.defaultNodeCutBps} bps`);
