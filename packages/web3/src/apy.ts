@@ -1,6 +1,6 @@
 import type { Address, PublicClient } from "viem";
 import { formatUnits } from "viem";
-import { NODE_ABI, NODE_MANAGER_ABI, CREATOR_POOL_ABI, getChainConfig } from "./index";
+import { NODE_MANAGER_ABI, CREATOR_POOL_ABI, getChainConfig } from "./index";
 
 const CONFIG = {
   batchesPerYear: 525600, // 60 batches/hour × 24 × 365
@@ -25,7 +25,7 @@ export async function calculatePoolAPY(
   console.log(`[APY DEBUG] calculatePoolAPY START - pool: ${poolAddress}, chainId: ${chainId}`);
 
   const chain = getChainConfig(chainId);
-  if (!chain?.contracts?.NODE) {
+  if (!chain?.contracts?.NODE_MANAGER) {
     console.log(`[APY DEBUG] calculatePoolAPY END - No chain config found, returning null`);
     return null;
   }
@@ -116,8 +116,8 @@ export async function calculatePoolAPY(
     for (let i = 0; i < nodes.length; i += batchSize) {
       const batch = nodes.slice(i, i + batchSize);
       const batchCalls = batch.map(node => ({
-        address: chain.contracts.NODE.address,
-        abi: NODE_ABI,
+        address: chain.contracts.NODE_MANAGER.address,
+        abi: NODE_MANAGER_ABI,
         functionName: "nodeTotalDelegation" as const,
         args: [node] as const,
       }));
@@ -145,8 +145,8 @@ export async function calculatePoolAPY(
     console.log(`[APY DEBUG] Fetching batch count and reward per batch using multicall...`);
     const globalCalls = [
       {
-        address: chain.contracts.NODE.address,
-        abi: NODE_ABI,
+        address: chain.contracts.NODE_MANAGER.address,
+        abi: NODE_MANAGER_ABI,
         functionName: "batchCount" as const,
       },
     ];
@@ -156,17 +156,17 @@ export async function calculatePoolAPY(
       allowFailure: false,
     })) as [bigint];
 
-    console.log(`[APY DEBUG] ✓ SUCCESS: NODE.batchCount() returned: ${batchCount}`);
+    console.log(`[APY DEBUG] ✓ SUCCESS: NODE_MANAGER.batchCount() returned: ${batchCount}`);
 
-    console.log(`[APY DEBUG] Calling NODE.rewardPerBlock(${batchCount})...`);
+    console.log(`[APY DEBUG] Calling NODE_MANAGER.rewardPerBlock(${batchCount})...`);
     const rewardPerBatchWei = await publicClient.readContract({
-      address: chain.contracts.NODE.address,
-      abi: NODE_ABI,
+      address: chain.contracts.NODE_MANAGER.address,
+      abi: NODE_MANAGER_ABI,
       functionName: "rewardPerBlock",
       args: [batchCount],
     });
     console.log(
-      `[APY DEBUG] ✓ SUCCESS: NODE.rewardPerBlock(${batchCount}) returned: ${rewardPerBatchWei} wei`
+      `[APY DEBUG] ✓ SUCCESS: NODE_MANAGER.rewardPerBlock(${batchCount}) returned: ${rewardPerBatchWei} wei`
     );
 
     const rewardPerBatch = Number(formatUnits(rewardPerBatchWei, CONFIG.tokenDecimals));
@@ -188,14 +188,14 @@ export async function calculatePoolAPY(
 
     const nodeCalls = [
       {
-        address: chain.contracts.NODE.address,
-        abi: NODE_ABI,
+        address: chain.contracts.NODE_MANAGER.address,
+        abi: NODE_MANAGER_ABI,
         functionName: "nodeTotalDelegation" as const,
         args: [nodeAddr as Address] as const,
       },
       {
-        address: chain.contracts.NODE.address,
-        abi: NODE_ABI,
+        address: chain.contracts.NODE_MANAGER.address,
+        abi: NODE_MANAGER_ABI,
         functionName: "nodeCutBps" as const,
         args: [nodeAddr as Address] as const,
       },
@@ -211,8 +211,8 @@ export async function calculatePoolAPY(
     const nodeTotalStake = Number(formatUnits(nodeTotalStakeWei, CONFIG.tokenDecimals));
 
     console.log(`[APY DEBUG] ✓ SUCCESS: Multicall completed for node ${nodeAddr}`);
-    console.log(`  - NODE.nodeTotalDelegation(${nodeAddr}): ${nodeTotalStakeWei} wei`);
-    console.log(`  - NODE.nodeCutBps(${nodeAddr}): ${Number(nodeCutBps)} bps`);
+    console.log(`  - NODE_MANAGER.nodeTotalDelegation(${nodeAddr}): ${nodeTotalStakeWei} wei`);
+    console.log(`  - NODE_MANAGER.nodeCutBps(${nodeAddr}): ${Number(nodeCutBps)} bps`);
 
     if (nodeCutBps === 0n) {
       console.log(`[APY DEBUG] Node cut is 0, using default: ${CONFIG.defaultNodeCutBps} bps`);

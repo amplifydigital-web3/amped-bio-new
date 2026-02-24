@@ -635,9 +635,71 @@ export const NODE_MANAGER_ABI = [
     inputs: [],
     outputs: [
       {
-        internalType: "address[]",
         name: "",
         type: "address[]",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "nodeTotalDelegation",
+    inputs: [
+      {
+        name: "_node",
+        type: "address",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "nodeCutBps",
+    inputs: [
+      {
+        name: "_node",
+        type: "address",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "batchCount",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "rewardPerBlock",
+    inputs: [
+      {
+        name: "batchNum",
+        type: "uint256",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
       },
     ],
     stateMutability: "view",
