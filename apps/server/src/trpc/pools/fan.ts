@@ -2,7 +2,7 @@ import { privateProcedure, publicProcedure, router } from "../trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { prisma } from "../../services/DB";
-import { Address, createPublicClient, http, decodeEventLog } from "viem";
+import { Address, createPublicClient, http, decodeEventLog, type PublicClient } from "viem";
 import {
   getChainConfig,
   L2_BASE_TOKEN_ABI,
@@ -152,7 +152,7 @@ export const poolsFanRouter = router({
             const calculatedAPY = await calculatePoolAPY(
               pool.poolAddress as Address,
               parseInt(pool.chainId),
-              publicClient
+              publicClient as PublicClient
             );
             if (calculatedAPY !== null) {
               apy = calculatedAPY;
@@ -517,7 +517,7 @@ export const poolsFanRouter = router({
             const apy = await calculatePoolAPY(
               pool.address as Address,
               parseInt(input.chainId),
-              publicClient
+              publicClient as PublicClient
             );
             return { poolId: pool.id, apy };
           } catch (error) {
@@ -1702,7 +1702,7 @@ export const poolsFanRouter = router({
             const calculatedAPY = await calculatePoolAPY(
               pool.poolAddress as Address,
               parseInt(pool.chainId),
-              publicClient
+              publicClient as PublicClient
             );
             if (calculatedAPY !== null) {
               apy = calculatedAPY;
