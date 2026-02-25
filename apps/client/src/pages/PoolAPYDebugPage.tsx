@@ -29,13 +29,17 @@ export function PoolAPYDebugPage() {
 
         const { CREATOR_POOL_ABI } = await import("@ampedbio/web3");
 
-        const poolNameResult = await publicClient.readContract({
-          address: poolAddress as `0x${string}`,
-          abi: CREATOR_POOL_ABI,
-          functionName: "poolName",
-        });
-
-        setPoolName(poolNameResult as string);
+        try {
+          const poolNameResult = await publicClient.readContract({
+            address: poolAddress as `0x${string}`,
+            abi: CREATOR_POOL_ABI,
+            functionName: "poolName",
+          });
+          setPoolName(poolNameResult as string);
+        } catch (poolNameError) {
+          console.warn("Failed to fetch pool name:", poolNameError);
+          setPoolName("Unknown Pool");
+        }
 
         const result = await calculatePoolAPYDebug(
           poolAddress as `0x${string}`,

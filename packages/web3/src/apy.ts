@@ -115,38 +115,8 @@ export async function calculatePoolAPY(
       return result;
     }
 
-    // 1. Get all pool data in a single multicall
-    console.log(
-      `[APY DEBUG] STEP 1: Fetching pool data for ${poolAddresses.length} pools using multicall...`
-    );
-
-    const poolCalls = poolAddresses.flatMap(poolAddress => [
-      {
-        address: poolAddress,
-        abi: CREATOR_POOL_ABI,
-        functionName: "NODE" as const,
-      },
-      {
-        address: poolAddress,
-        abi: CREATOR_POOL_ABI,
-        functionName: "creatorCut" as const,
-      },
-      {
-        address: poolAddress,
-        abi: CREATOR_POOL_ABI,
-        functionName: "creatorStaked" as const,
-      },
-      {
-        address: poolAddress,
-        abi: CREATOR_POOL_ABI,
-        functionName: "totalFanStaked" as const,
-      },
-    ]);
-
-    const poolResults = await publicClient.multicall({
-      contracts: poolCalls,
-      allowFailure: false,
-    });
+    // 1. Get all pool data
+    console.log(`[APY DEBUG] STEP 1: Fetching pool data for ${poolAddresses.length} pools...`);
 
     const poolDataMap = new Map<
       Address,
@@ -159,13 +129,27 @@ export async function calculatePoolAPY(
       }
     >();
 
-    for (let i = 0; i < poolAddresses.length; i++) {
-      const poolAddress = poolAddresses[i]!;
-      const baseIndex = i * 4;
-      const nodeAddr = poolResults[baseIndex] as Address;
-      const creatorCutBps = poolResults[baseIndex + 1] as bigint;
-      const creatorStakedWei = poolResults[baseIndex + 2] as bigint;
-      const totalFanStakedWei = poolResults[baseIndex + 3] as bigint;
+    for (const poolAddress of poolAddresses) {
+      const nodeAddr = (await publicClient.readContract({
+        address: poolAddress,
+        abi: CREATOR_POOL_ABI,
+        functionName: "NODE",
+      })) as Address;
+      const creatorCutBps = (await publicClient.readContract({
+        address: poolAddress,
+        abi: CREATOR_POOL_ABI,
+        functionName: "creatorCut",
+      })) as bigint;
+      const creatorStakedWei = (await publicClient.readContract({
+        address: poolAddress,
+        abi: CREATOR_POOL_ABI,
+        functionName: "creatorStaked",
+      })) as bigint;
+      const totalFanStakedWei = (await publicClient.readContract({
+        address: poolAddress,
+        abi: CREATOR_POOL_ABI,
+        functionName: "totalFanStaked",
+      })) as bigint;
 
       const creatorStaked = Number(formatUnits(creatorStakedWei, CONFIG.tokenDecimals));
       const totalFanStaked = Number(formatUnits(totalFanStakedWei, CONFIG.tokenDecimals));
@@ -197,45 +181,27 @@ export async function calculatePoolAPY(
     })) as Address[];
     console.log(`[APY DEBUG] ✓ SUCCESS: NODE_MANAGER.getNodes() returned ${nodes.length} nodes`);
 
-    console.log(
-      `[APY DEBUG] Fetching delegation for ${nodes.length} nodes using multicall with batches of 5...`
-    );
+    console.log(`[APY DEBUG] Fetching delegation for ${nodes.length} nodes...`);
     let totalSystemStake = 0n;
-    const batchSize = 5;
 
-    for (let i = 0; i < nodes.length; i += batchSize) {
-      const batch = nodes.slice(i, i + batchSize);
-      const batchCalls = batch.map(node => ({
+    for (const node of nodes) {
+      const delegation = (await publicClient.readContract({
         address: chain.contracts.NODE_MANAGER.address,
         abi: NODE_MANAGER_ABI,
-        functionName: "nodeTotalDelegation" as const,
-        args: [node as Address] as const,
-      }));
-
-      const batchResults = await publicClient.multicall({
-        contracts: batchCalls,
-        allowFailure: false,
-      });
-
-      const delegations = batchResults as bigint[];
-      for (const delegation of delegations) {
-        totalSystemStake += delegation;
-      }
+        functionName: "nodeTotalDelegation",
+        args: [node as Address],
+      })) as bigint;
+      totalSystemStake += delegation;
     }
 
     console.log(`[APY DEBUG] ✓ Total system stake calculated: ${totalSystemStake} wei`);
 
-    console.log(`[APY DEBUG] Fetching batch count and reward per batch using multicall...`);
-    const [batchCount] = (await publicClient.multicall({
-      contracts: [
-        {
-          address: chain.contracts.NODE_MANAGER.address,
-          abi: NODE_MANAGER_ABI,
-          functionName: "batchCount" as const,
-        },
-      ],
-      allowFailure: false,
-    })) as [bigint];
+    console.log(`[APY DEBUG] Fetching batch count and reward per batch...`);
+    const batchCount = (await publicClient.readContract({
+      address: chain.contracts.NODE_MANAGER.address,
+      abi: NODE_MANAGER_ABI,
+      functionName: "batchCount",
+    })) as bigint;
 
     console.log(`[APY DEBUG] ✓ SUCCESS: NODE_MANAGER.batchCount() returned: ${batchCount}`);
 
@@ -261,37 +227,23 @@ export async function calculatePoolAPY(
 
     // 3. Get node data for unique nodes
     const uniqueNodes = [...new Set(Array.from(poolDataMap.values()).map(p => p.nodeAddr))];
-    console.log(
-      `[APY DEBUG] STEP 3: Fetching node-specific data for ${uniqueNodes.length} unique nodes using multicall...`
-    );
-
-    const nodeCalls = uniqueNodes.flatMap(nodeAddr => [
-      {
-        address: chain.contracts.NODE_MANAGER.address,
-        abi: NODE_MANAGER_ABI,
-        functionName: "nodeTotalDelegation" as const,
-        args: [nodeAddr as Address] as const,
-      },
-      {
-        address: chain.contracts.NODE_MANAGER.address,
-        abi: NODE_MANAGER_ABI,
-        functionName: "nodeCutBps" as const,
-        args: [nodeAddr as Address] as const,
-      },
-    ]);
-
-    const nodeResults = await publicClient.multicall({
-      contracts: nodeCalls,
-      allowFailure: false,
-    });
+    console.log(`[APY DEBUG] Fetching delegation for ${nodes.length} nodes...`);
 
     const nodeDataMap = new Map<Address, { nodeTotalStake: number; nodeCutBps: bigint }>();
 
-    for (let i = 0; i < uniqueNodes.length; i++) {
-      const nodeAddr = uniqueNodes[i]!;
-      const baseIndex = i * 2;
-      const nodeTotalStakeWei = nodeResults[baseIndex] as bigint;
-      const initialNodeCutBps = nodeResults[baseIndex + 1] as bigint;
+    for (const nodeAddr of uniqueNodes) {
+      const nodeTotalStakeWei = (await publicClient.readContract({
+        address: chain.contracts.NODE_MANAGER.address,
+        abi: NODE_MANAGER_ABI,
+        functionName: "nodeTotalDelegation",
+        args: [nodeAddr as Address],
+      })) as bigint;
+      const initialNodeCutBps = (await publicClient.readContract({
+        address: chain.contracts.NODE_MANAGER.address,
+        abi: NODE_MANAGER_ABI,
+        functionName: "nodeCutBps",
+        args: [nodeAddr as Address],
+      })) as bigint;
 
       const nodeTotalStake = Number(formatUnits(nodeTotalStakeWei, CONFIG.tokenDecimals));
       let nodeCutBps = initialNodeCutBps;
@@ -382,38 +334,26 @@ export async function calculatePoolAPYDebug(
     const tokenDecimals = CONFIG.tokenDecimals;
     const batchesPerYear = CONFIG.batchesPerYear;
 
-    const poolCalls = [
-      {
-        address: poolAddress,
-        abi: CREATOR_POOL_ABI,
-        functionName: "NODE" as const,
-      },
-      {
-        address: poolAddress,
-        abi: CREATOR_POOL_ABI,
-        functionName: "creatorCut" as const,
-      },
-      {
-        address: poolAddress,
-        abi: CREATOR_POOL_ABI,
-        functionName: "creatorStaked" as const,
-      },
-      {
-        address: poolAddress,
-        abi: CREATOR_POOL_ABI,
-        functionName: "totalFanStaked" as const,
-      },
-    ];
-
-    const poolResults = await publicClient.multicall({
-      contracts: poolCalls,
-      allowFailure: false,
-    });
-
-    const nodeAddr = poolResults[0] as Address;
-    const creatorCutBps = poolResults[1] as bigint;
-    const creatorStakedWei = poolResults[2] as bigint;
-    const totalFanStakedWei = poolResults[3] as bigint;
+    const nodeAddr = (await publicClient.readContract({
+      address: poolAddress,
+      abi: CREATOR_POOL_ABI,
+      functionName: "NODE",
+    })) as Address;
+    const creatorCutBps = (await publicClient.readContract({
+      address: poolAddress,
+      abi: CREATOR_POOL_ABI,
+      functionName: "creatorCut",
+    })) as bigint;
+    const creatorStakedWei = (await publicClient.readContract({
+      address: poolAddress,
+      abi: CREATOR_POOL_ABI,
+      functionName: "creatorStaked",
+    })) as bigint;
+    const totalFanStakedWei = (await publicClient.readContract({
+      address: poolAddress,
+      abi: CREATOR_POOL_ABI,
+      functionName: "totalFanStaked",
+    })) as bigint;
 
     const creatorStaked = Number(formatUnits(creatorStakedWei, tokenDecimals));
     const totalFanStaked = Number(formatUnits(totalFanStakedWei, tokenDecimals));
@@ -436,38 +376,22 @@ export async function calculatePoolAPYDebug(
     })) as Address[];
 
     let totalSystemStake = 0n;
-    const batchSize = 5;
 
-    for (let i = 0; i < nodes.length; i += batchSize) {
-      const batch = nodes.slice(i, i + batchSize);
-      const batchCalls = batch.map(node => ({
+    for (const node of nodes) {
+      const delegation = (await publicClient.readContract({
         address: chain.contracts.NODE_MANAGER.address,
         abi: NODE_MANAGER_ABI,
-        functionName: "nodeTotalDelegation" as const,
-        args: [node as Address] as const,
-      }));
-
-      const batchResults = await publicClient.multicall({
-        contracts: batchCalls,
-        allowFailure: false,
-      });
-
-      const delegations = batchResults as bigint[];
-      for (const delegation of delegations) {
-        totalSystemStake += delegation;
-      }
+        functionName: "nodeTotalDelegation",
+        args: [node as Address],
+      })) as bigint;
+      totalSystemStake += delegation;
     }
 
-    const [batchCount] = (await publicClient.multicall({
-      contracts: [
-        {
-          address: chain.contracts.NODE_MANAGER.address,
-          abi: NODE_MANAGER_ABI,
-          functionName: "batchCount" as const,
-        },
-      ],
-      allowFailure: false,
-    })) as [bigint];
+    const batchCount = (await publicClient.readContract({
+      address: chain.contracts.NODE_MANAGER.address,
+      abi: NODE_MANAGER_ABI,
+      functionName: "batchCount",
+    })) as bigint;
 
     const rewardPerBatchWei = await publicClient.readContract({
       address: chain.contracts.NODE_MANAGER.address,
@@ -487,28 +411,18 @@ export async function calculatePoolAPYDebug(
       annualSystemRewards,
     };
 
-    const nodeCalls = [
-      {
-        address: chain.contracts.NODE_MANAGER.address,
-        abi: NODE_MANAGER_ABI,
-        functionName: "nodeTotalDelegation" as const,
-        args: [nodeAddr as Address] as const,
-      },
-      {
-        address: chain.contracts.NODE_MANAGER.address,
-        abi: NODE_MANAGER_ABI,
-        functionName: "nodeCutBps" as const,
-        args: [nodeAddr as Address] as const,
-      },
-    ];
-
-    const nodeResults = await publicClient.multicall({
-      contracts: nodeCalls,
-      allowFailure: false,
-    });
-
-    const nodeTotalStakeWei = nodeResults[0] as bigint;
-    const initialNodeCutBps = nodeResults[1] as bigint;
+    const nodeTotalStakeWei = (await publicClient.readContract({
+      address: chain.contracts.NODE_MANAGER.address,
+      abi: NODE_MANAGER_ABI,
+      functionName: "nodeTotalDelegation",
+      args: [nodeAddr as Address],
+    })) as bigint;
+    const initialNodeCutBps = (await publicClient.readContract({
+      address: chain.contracts.NODE_MANAGER.address,
+      abi: NODE_MANAGER_ABI,
+      functionName: "nodeCutBps",
+      args: [nodeAddr as Address],
+    })) as bigint;
 
     const nodeTotalStake = Number(formatUnits(nodeTotalStakeWei, tokenDecimals));
     let nodeCutBps = initialNodeCutBps;
