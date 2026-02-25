@@ -11,7 +11,12 @@ import {
   calculatePoolAPY,
 } from "@ampedbio/web3";
 import { s3Service } from "../../services/S3Service";
-import { apyCache, getAPYCacheKey } from "../../utils/cache";
+import {
+  apyCache,
+  getAPYCacheKey,
+  poolsPublicDataCache,
+  getPoolsCacheKey,
+} from "../../utils/cache";
 import {
   UserStakedPool,
   PoolTabRewardPool,
@@ -306,16 +311,43 @@ export const poolsFanRouter = router({
           { creatorStaked: bigint; totalFanStaked: bigint }
         >();
 
+        // Create a map to track which pools need blockchain data (cache miss)
+        const poolsNeedingBlockchain = new Map<number, any>();
+
+        // Check cache for each pool before making blockchain calls
+        pools.forEach(pool => {
+          if (pool.poolAddress) {
+            const cacheKey = getPoolsCacheKey(
+              parseInt(pool.chainId),
+              pool.poolAddress as Address,
+              input.search
+            );
+            const cachedData = poolsPublicDataCache.get(cacheKey);
+
+            if (cachedData) {
+              // Cache hit: store cached data directly
+              blockchainStakeData.set(pool.id, {
+                creatorStaked: BigInt(0),
+                totalFanStaked: cachedData.totalStake,
+              });
+              console.log(`Cache hit for pool ${pool.id}: using cached totalStake and fans`);
+            } else {
+              // Cache miss: mark pool for blockchain query
+              poolsNeedingBlockchain.set(pool.id, pool);
+            }
+          }
+        });
+
         type MulticallRequest = {
           address: Address;
           abi: typeof CREATOR_POOL_ABI;
           functionName: "creatorStaked" | "totalFanStaked";
         };
 
-        // Create multicall requests for all pools
+        // Create multicall requests only for pools that need blockchain data
         const multicallRequests: MulticallRequest[] = [];
 
-        pools.forEach(pool => {
+        poolsNeedingBlockchain.forEach(pool => {
           if (pool.poolAddress) {
             // Add creatorStaked request
             multicallRequests.push({
@@ -386,54 +418,93 @@ export const poolsFanRouter = router({
         // Apply filtering logic after getting pool data from blockchain
         const results = await Promise.allSettled(
           pools.map(async pool => {
-            // Initialize totalStake to the current db value
+            // Initialize totalStake to current db value
             let totalStake: bigint = BigInt(pool.revoStaked);
 
-            // Query the totalStaked from the pool contract if we have the necessary data
-            if (pool.poolAddress && chain) {
-              try {
-                console.log(
-                  `Attempting to fetch creatorStaked and totalFanStaked from contract for pool ${pool.id} at address ${pool.poolAddress}`
-                );
+            // Check if this pool was cached (creatorStaked would be 0)
+            const isCached =
+              blockchainStakeData.has(pool.id) &&
+              blockchainStakeData.get(pool.id)?.creatorStaked === BigInt(0);
 
-                // Get the values from our batch results
-                const stakeData = blockchainStakeData.get(pool.id);
+            // Count only users with positive stake amounts for fans count
+            let activeStakers = pool.stakedPools.filter(
+              staked => BigInt(staked.stakeAmount) > 0n
+            ).length;
 
-                if (stakeData) {
-                  console.log(
-                    `Successfully fetched creatorStaked from contract for pool ${pool.id}: ${stakeData.creatorStaked.toString()}`
-                  );
-                  console.log(
-                    `Successfully fetched totalFanStaked from contract for pool ${pool.id}: ${stakeData.totalFanStaked.toString()}`
-                  );
-
-                  // Calculate the total stake as sum of creatorStaked and totalFanStaked as instructed by colleague
-                  const totalStakeValue = (stakeData.creatorStaked +
-                    stakeData.totalFanStaked) as bigint;
-
-                  // Collect the update for batch processing later
-                  poolsToUpdate.push({
-                    id: pool.id,
-                    revoStaked: totalStakeValue.toString(),
-                  });
-
-                  totalStake = totalStakeValue;
-                } else {
-                  console.log(
-                    `Could not fetch stake data from contract for pool ${pool.id}, using DB value`
-                  );
-                }
-              } catch (error) {
-                console.error(
-                  `Error fetching totalStaked from contract for pool ${pool.id}:`,
-                  error
-                );
-                // If contract query fails, we'll keep the db value
+            // If pool was cached, use cached fans count
+            if (isCached && pool.poolAddress) {
+              const cacheKey = getPoolsCacheKey(
+                parseInt(pool.chainId),
+                pool.poolAddress as Address,
+                input.search
+              );
+              const cachedData = poolsPublicDataCache.get(cacheKey);
+              if (cachedData) {
+                activeStakers = cachedData.fans;
+                totalStake = cachedData.totalStake;
+                console.log(`Using cached fans count for pool ${pool.id}: ${activeStakers}`);
               }
             } else {
-              console.log(
-                `Skipping contract query for pool ${pool.id} - missing poolAddress (${pool.poolAddress}) or chain (${chain})`
-              );
+              // Query the totalStaked from the pool contract if we have the necessary data
+              if (pool.poolAddress && chain) {
+                try {
+                  console.log(
+                    `Attempting to fetch creatorStaked and totalFanStaked from contract for pool ${pool.id} at address ${pool.poolAddress}`
+                  );
+
+                  // Get the values from our batch results
+                  const stakeData = blockchainStakeData.get(pool.id);
+
+                  if (stakeData) {
+                    console.log(
+                      `Successfully fetched creatorStaked from contract for pool ${pool.id}: ${stakeData.creatorStaked.toString()}`
+                    );
+                    console.log(
+                      `Successfully fetched totalFanStaked from contract for pool ${pool.id}: ${stakeData.totalFanStaked.toString()}`
+                    );
+
+                    // Calculate the total stake as sum of creatorStaked and totalFanStaked as instructed by colleague
+                    const totalStakeValue = (stakeData.creatorStaked +
+                      stakeData.totalFanStaked) as bigint;
+
+                    // Collect the update for batch processing later
+                    poolsToUpdate.push({
+                      id: pool.id,
+                      revoStaked: totalStakeValue.toString(),
+                    });
+
+                    totalStake = totalStakeValue;
+
+                    // Store in cache
+                    const cacheKey = getPoolsCacheKey(
+                      parseInt(pool.chainId),
+                      pool.poolAddress as Address,
+                      input.search
+                    );
+                    poolsPublicDataCache.set(cacheKey, {
+                      totalStake,
+                      fans: activeStakers,
+                    });
+                    console.log(
+                      `Cached data for pool ${pool.id}: totalStake=${totalStake}, fans=${activeStakers}`
+                    );
+                  } else {
+                    console.log(
+                      `Could not fetch stake data from contract for pool ${pool.id}, using DB value`
+                    );
+                  }
+                } catch (error) {
+                  console.error(
+                    `Error fetching totalStaked from contract for pool ${pool.id}:`,
+                    error
+                  );
+                  // If contract query fails, we'll keep the db value
+                }
+              } else {
+                console.log(
+                  `Skipping contract query for pool ${pool.id} - missing poolAddress (${pool.poolAddress}) or chain (${chain})`
+                );
+              }
             }
 
             // Get pool name from database, fallback to blockchain or ID if not available
@@ -458,11 +529,6 @@ export const poolsFanRouter = router({
                 );
               }
             }
-
-            // Count only users with positive stake amounts
-            const activeStakers = pool.stakedPools.filter(
-              staked => BigInt(staked.stakeAmount) > 0n
-            ).length;
 
             const rewardPool: PoolTabRewardPool = {
               id: pool.id,

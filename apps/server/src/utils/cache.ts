@@ -27,6 +27,11 @@ export enum CacheKeys {
    * Format: `apy:${chainId}:${poolAddress}`
    */
   APY_PREFIX = "apy",
+  /**
+   * Cache key prefix for storing pools public data (totalStake, fans count).
+   * Format: `pools_public_data:${chainId}:${poolAddress}:${searchTerm}`
+   */
+  POOLS_PUBLIC_DATA_PREFIX = "pools_public_data",
 }
 
 /**
@@ -265,6 +270,16 @@ export const rewardCache = new SimpleCache<{
 
 export const apyCache = new SimpleCache<number>(300000); // 5 minutes
 
+export const poolsPublicDataCache = new SimpleCache<{ totalStake: bigint; fans: number }>(300000); // 5 minutes
+
 export function getAPYCacheKey(chainId: number, poolAddress: Address): string {
   return `${CacheKeys.APY_PREFIX}:${chainId}:${poolAddress}`;
+}
+
+export function getPoolsCacheKey(
+  chainId: number,
+  poolAddress: Address,
+  search: string = ""
+): string {
+  return `${CacheKeys.POOLS_PUBLIC_DATA_PREFIX}:${chainId}:${poolAddress}:${search.toLowerCase()}`;
 }
