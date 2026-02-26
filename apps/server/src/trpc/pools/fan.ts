@@ -2,7 +2,7 @@ import { privateProcedure, publicProcedure, router } from "../trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { prisma } from "../../services/DB";
-import { Address, createPublicClient, http, decodeEventLog } from "viem";
+import { Address, createPublicClient, http, decodeEventLog, type PublicClient } from "viem";
 import {
   getChainConfig,
   L2_BASE_TOKEN_ABI,
@@ -11,6 +11,12 @@ import {
   calculatePoolAPY,
 } from "@ampedbio/web3";
 import { s3Service } from "../../services/S3Service";
+import {
+  apyCache,
+  getAPYCacheKey,
+  poolsPublicDataCache,
+  getPoolsCacheKey,
+} from "../../utils/cache";
 import {
   UserStakedPool,
   PoolTabRewardPool,
@@ -149,13 +155,22 @@ export const poolsFanRouter = router({
         let apy: number | undefined = undefined;
         if (pool.poolAddress && totalStake > 0n) {
           try {
-            const calculatedAPY = await calculatePoolAPY(
-              pool.poolAddress as Address,
-              parseInt(pool.chainId),
-              publicClient
-            );
-            if (calculatedAPY !== null) {
-              apy = calculatedAPY;
+            const cacheKey = getAPYCacheKey(parseInt(pool.chainId), pool.poolAddress as Address);
+            const cachedAPY = apyCache.get(cacheKey);
+
+            if (cachedAPY !== null) {
+              apy = cachedAPY;
+            } else {
+              const apyResults = await calculatePoolAPY(
+                [pool.poolAddress as Address],
+                parseInt(pool.chainId),
+                publicClient as PublicClient
+              );
+              const calculatedAPY = apyResults[pool.poolAddress as Address];
+              if (calculatedAPY !== null) {
+                apyCache.set(cacheKey, calculatedAPY);
+                apy = calculatedAPY;
+              }
             }
           } catch (error) {
             console.error(`Error calculating APY for pool ${pool.id}:`, error);
@@ -293,8 +308,36 @@ export const poolsFanRouter = router({
         // Create a map to store contract data
         const blockchainStakeData = new Map<
           number,
-          { creatorStaked: bigint; totalFanStaked: bigint }
+          { creatorStaked: bigint; totalFanStaked: bigint; isCached: boolean }
         >();
+
+        // Create a map to track which pools need blockchain data (cache miss)
+        const poolsNeedingBlockchain = new Map<number, any>();
+
+        // Check cache for each pool before making blockchain calls
+        pools.forEach(pool => {
+          if (pool.poolAddress) {
+            const cacheKey = getPoolsCacheKey(
+              parseInt(pool.chainId),
+              pool.poolAddress as Address,
+              input.search
+            );
+            const cachedData = poolsPublicDataCache.get(cacheKey);
+
+            if (cachedData) {
+              // Cache hit: store cached data with explicit isCached flag
+              blockchainStakeData.set(pool.id, {
+                creatorStaked: cachedData.creatorStaked ?? BigInt(0),
+                totalFanStaked: cachedData.totalStake,
+                isCached: true,
+              });
+              console.log(`Cache hit for pool ${pool.id}: using cached totalStake and fans`);
+            } else {
+              // Cache miss: mark pool for blockchain query
+              poolsNeedingBlockchain.set(pool.id, pool);
+            }
+          }
+        });
 
         type MulticallRequest = {
           address: Address;
@@ -302,10 +345,10 @@ export const poolsFanRouter = router({
           functionName: "creatorStaked" | "totalFanStaked";
         };
 
-        // Create multicall requests for all pools
+        // Create multicall requests only for pools that need blockchain data
         const multicallRequests: MulticallRequest[] = [];
 
-        pools.forEach(pool => {
+        poolsNeedingBlockchain.forEach(pool => {
           if (pool.poolAddress) {
             // Add creatorStaked request
             multicallRequests.push({
@@ -356,6 +399,7 @@ export const poolsFanRouter = router({
                 blockchainStakeData.set(pool.id, {
                   creatorStaked,
                   totalFanStaked,
+                  isCached: false,
                 });
               } else {
                 console.error(
@@ -376,54 +420,94 @@ export const poolsFanRouter = router({
         // Apply filtering logic after getting pool data from blockchain
         const results = await Promise.allSettled(
           pools.map(async pool => {
-            // Initialize totalStake to the current db value
+            // Initialize totalStake to current db value
             let totalStake: bigint = BigInt(pool.revoStaked);
 
-            // Query the totalStaked from the pool contract if we have the necessary data
-            if (pool.poolAddress && chain) {
-              try {
-                console.log(
-                  `Attempting to fetch creatorStaked and totalFanStaked from contract for pool ${pool.id} at address ${pool.poolAddress}`
-                );
+            // Check if this pool was cached using explicit isCached flag
+            const isCached =
+              blockchainStakeData.has(pool.id) &&
+              blockchainStakeData.get(pool.id)?.isCached === true;
 
-                // Get the values from our batch results
-                const stakeData = blockchainStakeData.get(pool.id);
+            // Count only users with positive stake amounts for fans count
+            let activeStakers = pool.stakedPools.filter(
+              staked => BigInt(staked.stakeAmount) > 0n
+            ).length;
 
-                if (stakeData) {
-                  console.log(
-                    `Successfully fetched creatorStaked from contract for pool ${pool.id}: ${stakeData.creatorStaked.toString()}`
-                  );
-                  console.log(
-                    `Successfully fetched totalFanStaked from contract for pool ${pool.id}: ${stakeData.totalFanStaked.toString()}`
-                  );
-
-                  // Calculate the total stake as sum of creatorStaked and totalFanStaked as instructed by colleague
-                  const totalStakeValue = (stakeData.creatorStaked +
-                    stakeData.totalFanStaked) as bigint;
-
-                  // Collect the update for batch processing later
-                  poolsToUpdate.push({
-                    id: pool.id,
-                    revoStaked: totalStakeValue.toString(),
-                  });
-
-                  totalStake = totalStakeValue;
-                } else {
-                  console.log(
-                    `Could not fetch stake data from contract for pool ${pool.id}, using DB value`
-                  );
-                }
-              } catch (error) {
-                console.error(
-                  `Error fetching totalStaked from contract for pool ${pool.id}:`,
-                  error
-                );
-                // If contract query fails, we'll keep the db value
+            // If pool was cached, use cached fans count
+            if (isCached && pool.poolAddress) {
+              const cacheKey = getPoolsCacheKey(
+                parseInt(pool.chainId),
+                pool.poolAddress as Address,
+                input.search
+              );
+              const cachedData = poolsPublicDataCache.get(cacheKey);
+              if (cachedData) {
+                activeStakers = cachedData.fans;
+                totalStake = cachedData.totalStake;
+                console.log(`Using cached fans count for pool ${pool.id}: ${activeStakers}`);
               }
             } else {
-              console.log(
-                `Skipping contract query for pool ${pool.id} - missing poolAddress (${pool.poolAddress}) or chain (${chain})`
-              );
+              // Query the totalStaked from the pool contract if we have the necessary data
+              if (pool.poolAddress && chain) {
+                try {
+                  console.log(
+                    `Attempting to fetch creatorStaked and totalFanStaked from contract for pool ${pool.id} at address ${pool.poolAddress}`
+                  );
+
+                  // Get the values from our batch results
+                  const stakeData = blockchainStakeData.get(pool.id);
+
+                  if (stakeData) {
+                    console.log(
+                      `Successfully fetched creatorStaked from contract for pool ${pool.id}: ${stakeData.creatorStaked.toString()}`
+                    );
+                    console.log(
+                      `Successfully fetched totalFanStaked from contract for pool ${pool.id}: ${stakeData.totalFanStaked.toString()}`
+                    );
+
+                    // Calculate the total stake as sum of creatorStaked and totalFanStaked as instructed by colleague
+                    const totalStakeValue = (stakeData.creatorStaked +
+                      stakeData.totalFanStaked) as bigint;
+
+                    // Collect the update for batch processing later
+                    poolsToUpdate.push({
+                      id: pool.id,
+                      revoStaked: totalStakeValue.toString(),
+                    });
+
+                    totalStake = totalStakeValue;
+
+                    // Store in cache
+                    const cacheKey = getPoolsCacheKey(
+                      parseInt(pool.chainId),
+                      pool.poolAddress as Address,
+                      input.search
+                    );
+                    poolsPublicDataCache.set(cacheKey, {
+                      creatorStaked: stakeData.creatorStaked,
+                      totalStake,
+                      fans: activeStakers,
+                    });
+                    console.log(
+                      `Cached data for pool ${pool.id}: totalStake=${totalStake}, fans=${activeStakers}`
+                    );
+                  } else {
+                    console.log(
+                      `Could not fetch stake data from contract for pool ${pool.id}, using DB value`
+                    );
+                  }
+                } catch (error) {
+                  console.error(
+                    `Error fetching totalStaked from contract for pool ${pool.id}:`,
+                    error
+                  );
+                  // If contract query fails, we'll keep the db value
+                }
+              } else {
+                console.log(
+                  `Skipping contract query for pool ${pool.id} - missing poolAddress (${pool.poolAddress}) or chain (${chain})`
+                );
+              }
             }
 
             // Get pool name from database, fallback to blockchain or ID if not available
@@ -448,11 +532,6 @@ export const poolsFanRouter = router({
                 );
               }
             }
-
-            // Count only users with positive stake amounts
-            const activeStakers = pool.stakedPools.filter(
-              staked => BigInt(staked.stakeAmount) > 0n
-            ).length;
 
             const rewardPool: PoolTabRewardPool = {
               id: pool.id,
@@ -510,31 +589,56 @@ export const poolsFanRouter = router({
           })
           .map(result => result.value);
 
-        // Calculate APY for each pool (in parallel)
-        const apyPromises = processedPools.map(async pool => {
-          if (!pool.address || pool.stakedAmount === 0n) return { poolId: pool.id, apy: null };
-          try {
-            const apy = await calculatePoolAPY(
-              pool.address as Address,
-              parseInt(input.chainId),
-              publicClient
-            );
-            return { poolId: pool.id, apy };
-          } catch (error) {
-            console.error(`Error calculating APY for pool ${pool.id}:`, error);
-            return { poolId: pool.id, apy: null };
-          }
-        });
+        // Calculate APY for all pools in batch
+        const poolAddresses = processedPools
+          .map(pool => pool.address as Address)
+          .filter(addr => addr !== undefined);
 
-        const apyResults = await Promise.allSettled(apyPromises);
-        const apyMap = new Map<number, number | undefined>(
-          apyResults
-            .filter(
-              (r): r is PromiseFulfilledResult<{ poolId: number; apy: number | null }> =>
-                r.status === "fulfilled" && r.value.apy !== null
-            )
-            .map(r => [r.value.poolId, r.value.apy!])
-        );
+        const apyMap = new Map<number, number | undefined>();
+        if (poolAddresses.length > 0) {
+          try {
+            const cachedPools = new Map<Address, number>();
+            const addressesToFetch: Address[] = [];
+
+            for (const poolAddress of poolAddresses) {
+              const cacheKey = getAPYCacheKey(parseInt(input.chainId), poolAddress);
+              const cachedAPY = apyCache.get(cacheKey);
+
+              if (cachedAPY !== null) {
+                cachedPools.set(poolAddress, cachedAPY);
+              } else {
+                addressesToFetch.push(poolAddress);
+              }
+            }
+
+            if (addressesToFetch.length > 0) {
+              const freshAPYResults = await calculatePoolAPY(
+                addressesToFetch,
+                parseInt(input.chainId),
+                publicClient as PublicClient
+              );
+
+              for (const [poolAddress, apy] of Object.entries(freshAPYResults)) {
+                if (apy !== null) {
+                  const cacheKey = getAPYCacheKey(parseInt(input.chainId), poolAddress as Address);
+                  apyCache.set(cacheKey, apy);
+                  cachedPools.set(poolAddress as Address, apy);
+                }
+              }
+            }
+
+            for (const pool of processedPools) {
+              if (pool.address) {
+                const apy = cachedPools.get(pool.address);
+                if (apy !== undefined) {
+                  apyMap.set(pool.id, apy);
+                }
+              }
+            }
+          } catch (error) {
+            console.error("Error calculating batch APY:", error);
+          }
+        }
 
         // Add APY to processed pools
         const poolsWithAPY = processedPools.map(pool => ({
@@ -1699,20 +1803,28 @@ export const poolsFanRouter = router({
         let apy: number | undefined = undefined;
         if (pool.poolAddress && totalStake > 0n) {
           try {
-            const calculatedAPY = await calculatePoolAPY(
-              pool.poolAddress as Address,
-              parseInt(pool.chainId),
-              publicClient
-            );
-            if (calculatedAPY !== null) {
-              apy = calculatedAPY;
+            const cacheKey = getAPYCacheKey(parseInt(pool.chainId), pool.poolAddress as Address);
+            const cachedAPY = apyCache.get(cacheKey);
+
+            if (cachedAPY !== null) {
+              apy = cachedAPY;
+            } else {
+              const apyResults = await calculatePoolAPY(
+                [pool.poolAddress as Address],
+                parseInt(pool.chainId),
+                publicClient as PublicClient
+              );
+              const calculatedAPY = apyResults[pool.poolAddress as Address];
+              if (calculatedAPY !== null) {
+                apyCache.set(cacheKey, calculatedAPY);
+                apy = calculatedAPY;
+              }
             }
           } catch (error) {
             console.error(`Error calculating APY for pool ${pool.id}:`, error);
           }
         }
 
-        // Return only the data that is actually displayed in the modal
         return {
           id: pool.id,
           name: poolName ?? `Pool ${pool.id}`,
@@ -1741,11 +1853,10 @@ export const poolsFanRouter = router({
           },
         };
       } catch (error) {
-        console.error("Error fetching pool details for modal:", error);
-        if (error instanceof TRPCError) throw error;
+        console.error("Error getting pool details for modal:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to fetch pool details for modal",
+          message: "Failed to get pool details",
         });
       }
     }),
