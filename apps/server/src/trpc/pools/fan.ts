@@ -484,7 +484,7 @@ export const poolsFanRouter = router({
                       input.search
                     );
                     poolsPublicDataCache.set(cacheKey, {
-                      creatorStaked: totalStakeValue,
+                      creatorStaked: stakeData.creatorStaked,
                       totalStake,
                       fans: activeStakers,
                     });
