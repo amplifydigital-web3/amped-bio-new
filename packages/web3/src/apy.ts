@@ -513,12 +513,37 @@ export async function calculatePoolAPYDebug(
     };
 
     const totalSystemStakeTokens = Number(formatUnits(totalSystemStake, tokenDecimals));
+
+    if (totalSystemStakeTokens === 0) {
+      console.log(
+        `[APY DEBUG] Pool ${poolAddress}: totalSystemStakeTokens is zero, returning null`
+      );
+      return null;
+    }
+
     const nodeWinProb = nodeTotalStake / totalSystemStakeTokens;
     const nodeAnnualGross = annualSystemRewards * nodeWinProb;
-    const nodeAnnualNet = (nodeAnnualGross * (10000 - Number(nodeCutBps))) / 10000;
-    const poolShare = poolEffectiveStake / nodeTotalStake;
+
+    const nodeCutBpsNum = Number(nodeCutBps);
+    const nodeAnnualNet = (nodeAnnualGross * (10000 - nodeCutBpsNum)) / 10000;
+
+    if (nodeTotalStake === 0) {
+      console.log(`[APY DEBUG] Pool ${poolAddress}: nodeTotalStake is zero, returning null`);
+      return null;
+    }
+
+    let poolShare = poolEffectiveStake / nodeTotalStake;
+    poolShare = Math.max(0, Math.min(1, poolShare));
     const poolAnnualRewards = nodeAnnualNet * poolShare;
-    const fanAnnualToPool = (poolAnnualRewards * (10000 - Number(creatorCutBps))) / 10000;
+
+    const creatorCutBpsNum = Number(creatorCutBps);
+    const fanAnnualToPool = (poolAnnualRewards * (10000 - creatorCutBpsNum)) / 10000;
+
+    if (totalFanStaked === 0) {
+      console.log(`[APY DEBUG] Pool ${poolAddress}: totalFanStaked is zero, returning null`);
+      return null;
+    }
+
     const apy = (fanAnnualToPool / totalFanStaked) * 100;
     const finalApy = Math.round(apy * 100);
 

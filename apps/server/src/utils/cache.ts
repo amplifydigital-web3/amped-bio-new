@@ -270,7 +270,11 @@ export const rewardCache = new SimpleCache<{
 
 export const apyCache = new SimpleCache<number>(300000); // 5 minutes
 
-export const poolsPublicDataCache = new SimpleCache<{ totalStake: bigint; fans: number }>(300000); // 5 minutes
+export const poolsPublicDataCache = new SimpleCache<{
+  creatorStaked: bigint;
+  totalStake: bigint;
+  fans: number;
+}>(300000); // 5 minutes
 
 export function getAPYCacheKey(chainId: number, poolAddress: Address): string {
   return `${CacheKeys.APY_PREFIX}:${chainId}:${poolAddress}`;

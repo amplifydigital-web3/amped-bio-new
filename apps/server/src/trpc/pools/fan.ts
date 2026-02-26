@@ -308,7 +308,7 @@ export const poolsFanRouter = router({
         // Create a map to store contract data
         const blockchainStakeData = new Map<
           number,
-          { creatorStaked: bigint; totalFanStaked: bigint }
+          { creatorStaked: bigint; totalFanStaked: bigint; isCached: boolean }
         >();
 
         // Create a map to track which pools need blockchain data (cache miss)
@@ -325,10 +325,11 @@ export const poolsFanRouter = router({
             const cachedData = poolsPublicDataCache.get(cacheKey);
 
             if (cachedData) {
-              // Cache hit: store cached data directly
+              // Cache hit: store cached data with explicit isCached flag
               blockchainStakeData.set(pool.id, {
-                creatorStaked: BigInt(0),
+                creatorStaked: cachedData.creatorStaked ?? BigInt(0),
                 totalFanStaked: cachedData.totalStake,
+                isCached: true,
               });
               console.log(`Cache hit for pool ${pool.id}: using cached totalStake and fans`);
             } else {
@@ -398,6 +399,7 @@ export const poolsFanRouter = router({
                 blockchainStakeData.set(pool.id, {
                   creatorStaked,
                   totalFanStaked,
+                  isCached: false,
                 });
               } else {
                 console.error(
@@ -421,10 +423,10 @@ export const poolsFanRouter = router({
             // Initialize totalStake to current db value
             let totalStake: bigint = BigInt(pool.revoStaked);
 
-            // Check if this pool was cached (creatorStaked would be 0)
+            // Check if this pool was cached using explicit isCached flag
             const isCached =
               blockchainStakeData.has(pool.id) &&
-              blockchainStakeData.get(pool.id)?.creatorStaked === BigInt(0);
+              blockchainStakeData.get(pool.id)?.isCached === true;
 
             // Count only users with positive stake amounts for fans count
             let activeStakers = pool.stakedPools.filter(
@@ -482,6 +484,7 @@ export const poolsFanRouter = router({
                       input.search
                     );
                     poolsPublicDataCache.set(cacheKey, {
+                      creatorStaked: totalStakeValue,
                       totalStake,
                       fans: activeStakers,
                     });
