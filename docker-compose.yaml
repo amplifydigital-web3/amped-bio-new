@@ -4,7 +4,7 @@ services:
     ports:
       - "20250:1025"
       - "20800:1080"
-  
+
   mariadb:
     image: mariadb:10.5.28
     restart: always
@@ -38,14 +38,23 @@ services:
   s3mock:
     image: adobe/s3mock
     ports:
-      - "29090:9090"  # S3 API endpoint
-      - "29191:9191"  # Web UI
+      - "29090:9090" # S3 API endpoint
+      - "29191:9191" # Web UI
     environment:
       - initialBuckets=amped-bio
       - root=/data
     volumes:
       - s3mock_data:/data
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "26379:6379"
+    volumes:
+      - redis_data:/data
+    restart: always
+
 volumes:
   mariadb_data:
   s3mock_data:
+  redis_data:
