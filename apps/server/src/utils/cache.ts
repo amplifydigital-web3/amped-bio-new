@@ -100,10 +100,10 @@ function getFallbackCache(): FallbackCache {
  */
 export const CACHE_TTL = {
   /**
-   * 30 minutes - Used for pool APY caching.
+   * 4 hours - Used for pool APY caching.
    * APY calculation is extremely heavy (multiple contract calls + complex math).
    */
-  APY: 1800,
+  APY: 14400,
   /**
    * 15 minutes - Used for pool public data caching (totalStake, fans count).
    */
