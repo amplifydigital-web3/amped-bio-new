@@ -11,7 +11,7 @@ import {
   calculatePoolAPY,
 } from "@ampedbio/web3";
 import { s3Service } from "../../services/S3Service";
-import { cache, getAPYCacheKey, getPoolsCacheKey } from "../../utils/cache";
+import { cache, getAPYCacheKey, getPoolsCacheKey, CACHE_TTL } from "../../utils/cache";
 import {
   UserStakedPool,
   PoolTabRewardPool,
@@ -163,7 +163,7 @@ export const poolsFanRouter = router({
               );
               const calculatedAPY = apyResults[pool.poolAddress as Address];
               if (calculatedAPY !== null) {
-                await cache.set(cacheKey, calculatedAPY);
+                await cache.set(cacheKey, calculatedAPY, CACHE_TTL.APY);
                 apy = calculatedAPY;
               }
             }
@@ -369,6 +369,9 @@ export const poolsFanRouter = router({
 
         // Execute contract calls in batches of 5 pools (10 requests per batch)
         if (multicallRequests.length > 0) {
+          console.log(
+            `Fetching blockchain data for ${poolsNeedingBlockchain.size} uncached pools (skipping ${pools.length - poolsNeedingBlockchain.size} cached pools)`
+          );
           try {
             const BATCH_SIZE = 5 * 2; // 5 pools * 2 requests per pool
             const allResults: any[] = [];
@@ -382,8 +385,10 @@ export const poolsFanRouter = router({
             }
 
             // Process the results, mapping them back to the correct pools
-            for (let i = 0; i < pools.length; i++) {
-              const pool = pools[i];
+            // IMPORTANT: Only process pools that needed blockchain data (not cached)
+            const poolsNeedingBlockchainArray = Array.from(poolsNeedingBlockchain.values());
+            for (let i = 0; i < poolsNeedingBlockchainArray.length; i++) {
+              const pool = poolsNeedingBlockchainArray[i];
               const creatorStakedIndex = i * 2; // creatorStaked is at every 2nd index (0, 2, 4, ...)
               const totalFanStakedIndex = i * 2 + 1; // totalFanStaked is at every 2nd + 1 index (1, 3, 5, ...)
 
@@ -488,11 +493,15 @@ export const poolsFanRouter = router({
                       pool.poolAddress as Address,
                       input.search
                     );
-                    await cache.set(cacheKey, {
-                      creatorStaked: stakeData.creatorStaked.toString(),
-                      totalStake: totalStake.toString(),
-                      fans: activeStakers,
-                    });
+                    await cache.set(
+                      cacheKey,
+                      {
+                        creatorStaked: stakeData.creatorStaked.toString(),
+                        totalStake: totalStake.toString(),
+                        fans: activeStakers,
+                      },
+                      CACHE_TTL.POOL_DATA
+                    );
                     console.log(
                       `Cached data for pool ${pool.id}: totalStake=${totalStake}, fans=${activeStakers}`
                     );
@@ -617,6 +626,9 @@ export const poolsFanRouter = router({
             }
 
             if (addressesToFetch.length > 0) {
+              console.log(
+                `Fetching APY for ${addressesToFetch.length} uncached pools (skipping ${poolAddresses.length - addressesToFetch.length} cached pools)`
+              );
               const freshAPYResults = await calculatePoolAPY(
                 addressesToFetch,
                 parseInt(input.chainId),
@@ -626,7 +638,7 @@ export const poolsFanRouter = router({
               for (const [poolAddress, apy] of Object.entries(freshAPYResults)) {
                 if (apy !== null) {
                   const cacheKey = getAPYCacheKey(parseInt(input.chainId), poolAddress as Address);
-                  await cache.set(cacheKey, apy);
+                  await cache.set(cacheKey, apy, CACHE_TTL.APY);
                   cachedPools.set(poolAddress as Address, apy);
                 }
               }
@@ -1821,7 +1833,7 @@ export const poolsFanRouter = router({
               );
               const calculatedAPY = apyResults[pool.poolAddress as Address];
               if (calculatedAPY !== null) {
-                await cache.set(cacheKey, calculatedAPY);
+                await cache.set(cacheKey, calculatedAPY, CACHE_TTL.APY);
                 apy = calculatedAPY;
               }
             }

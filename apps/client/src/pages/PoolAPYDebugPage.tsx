@@ -15,6 +15,7 @@ export function PoolAPYDebugPage() {
   const [error, setError] = useState<string | null>(null);
   const [debugData, setDebugData] = useState<APYDebugInfo | null>(null);
   const [poolName, setPoolName] = useState<string>("Unknown");
+  const [timestamp, setTimestamp] = useState<Date | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -47,6 +48,7 @@ export function PoolAPYDebugPage() {
           publicClient
         );
         setDebugData(result);
+        setTimestamp(new Date());
         setError(null);
       } catch (err) {
         console.error("Error fetching APY debug data:", err);
@@ -61,6 +63,18 @@ export function PoolAPYDebugPage() {
 
   const handleBack = () => {
     navigate(`/i/pools/${poolAddress}`);
+  };
+
+  const formatTimestamp = (date: Date) => {
+    return new Intl.DateTimeFormat(undefined, {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      timeZoneName: "short",
+    }).format(date);
   };
 
   if (isLoading || !debugData) {
@@ -106,6 +120,11 @@ export function PoolAPYDebugPage() {
             <div>
               <h1 className="text-2xl font-bold">APY Debug: {poolName}</h1>
               <p className="text-gray-400 text-sm mt-1">{poolAddress}</p>
+              {timestamp && (
+                <p className="text-gray-500 text-xs mt-2">
+                  Last updated: {formatTimestamp(timestamp)}
+                </p>
+              )}
             </div>
             <Button onClick={handleBack} variant="outline">
               Back to Pool

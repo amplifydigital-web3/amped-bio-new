@@ -96,6 +96,21 @@ function getFallbackCache(): FallbackCache {
 }
 
 /**
+ * Cache TTL (Time-To-Live) constants in seconds.
+ */
+export const CACHE_TTL = {
+  /**
+   * 30 minutes - Used for pool APY caching.
+   * APY calculation is extremely heavy (multiple contract calls + complex math).
+   */
+  APY: 1800,
+  /**
+   * 15 minutes - Used for pool public data caching (totalStake, fans count).
+   */
+  POOL_DATA: 900,
+} as const;
+
+/**
  * Enumeration of cache keys used throughout the application.
  * Each key represents a specific cacheable data type or category.
  * @enum {string}
