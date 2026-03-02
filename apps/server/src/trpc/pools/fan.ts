@@ -318,16 +318,18 @@ export const poolsFanRouter = router({
               input.search
             );
             const cachedData = await cache.get<{
-              creatorStaked: bigint;
-              totalStake: bigint;
+              creatorStaked: string;
+              totalStake: string;
               fans: number;
             }>(cacheKey);
 
             if (cachedData) {
               // Cache hit: store cached data with explicit isCached flag
               blockchainStakeData.set(pool.id, {
-                creatorStaked: cachedData.creatorStaked ?? BigInt(0),
-                totalFanStaked: cachedData.totalStake,
+                creatorStaked: cachedData.creatorStaked
+                  ? BigInt(cachedData.creatorStaked)
+                  : BigInt(0),
+                totalFanStaked: cachedData.totalStake ? BigInt(cachedData.totalStake) : BigInt(0),
                 isCached: true,
               });
               console.log(`Cache hit for pool ${pool.id}: using cached totalStake and fans`);
@@ -440,13 +442,13 @@ export const poolsFanRouter = router({
                 input.search
               );
               const cachedData = await cache.get<{
-                creatorStaked: bigint;
-                totalStake: bigint;
+                creatorStaked: string;
+                totalStake: string;
                 fans: number;
               }>(cacheKey);
               if (cachedData) {
                 activeStakers = cachedData.fans;
-                totalStake = cachedData.totalStake;
+                totalStake = cachedData.totalStake ? BigInt(cachedData.totalStake) : BigInt(0);
                 console.log(`Using cached fans count for pool ${pool.id}: ${activeStakers}`);
               }
             } else {
@@ -487,8 +489,8 @@ export const poolsFanRouter = router({
                       input.search
                     );
                     await cache.set(cacheKey, {
-                      creatorStaked: stakeData.creatorStaked,
-                      totalStake,
+                      creatorStaked: stakeData.creatorStaked.toString(),
+                      totalStake: totalStake.toString(),
                       fans: activeStakers,
                     });
                     console.log(

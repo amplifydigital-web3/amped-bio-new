@@ -33,7 +33,6 @@
     "@react-email/render": "^1.0.6",
     "@trpc/server": "^11.1.2",
     "@types/decimal.js": "^7.4.3",
-    "@types/ioredis": "^5.0.0",
     "@vercel/related-projects": "^1.0.0",
     "aws-sdk": "^2.1693.0",
     "axios": "^1.9.0",
