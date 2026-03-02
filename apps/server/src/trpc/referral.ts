@@ -12,7 +12,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { createWalletClient, createPublicClient, http } from "viem";
 import { getChainConfig } from "@ampedbio/web3";
 import { AFFILIATES_CHAIN_ID, SITE_SETTINGS, PROCESSING_TXID } from "@ampedbio/constants";
-import { rewardCache, CacheKeys } from "../utils/cache";
+import { cache, CacheKeys } from "../utils/cache";
 
 // Helper function to check affiliate wallet balance
 async function getAffiliateWalletStatus() {
@@ -34,7 +34,7 @@ async function getAffiliateWalletStatus() {
     });
 
     // Get reward values from cache or database
-    const cachedRewards = rewardCache.get(CacheKeys.REFERRAL_REWARDS);
+    const cachedRewards = await cache.get<{ referrerReward: number | null; refereeReward: number | null; }>(CacheKeys.REFERRAL_REWARDS);
 
     let referrerReward: number | null;
     let refereeReward: number | null;
@@ -67,7 +67,7 @@ async function getAffiliateWalletStatus() {
         : null;
 
       // Save to cache
-      rewardCache.set(CacheKeys.REFERRAL_REWARDS, { referrerReward, refereeReward });
+      await cache.set(CacheKeys.REFERRAL_REWARDS, { referrerReward, refereeReward });
     }
 
     const requiredAmount = (referrerReward || 0) + (refereeReward || 0);
@@ -95,7 +95,7 @@ async function getAffiliateWalletStatus() {
 export const referralRouter = router({
   getRefereeReward: publicProcedure.query(async () => {
     try {
-      const cachedRewards = rewardCache.get(CacheKeys.REFERRAL_REWARDS);
+      const cachedRewards = await cache.get<{ referrerReward: number | null; refereeReward: number | null; }>(CacheKeys.REFERRAL_REWARDS);
 
       let refereeReward: number | null;
 
@@ -124,7 +124,7 @@ export const referralRouter = router({
           ? Number(refereeRewardSetting.setting_value)
           : null;
 
-        rewardCache.set(CacheKeys.REFERRAL_REWARDS, { referrerReward, refereeReward });
+        await cache.set(CacheKeys.REFERRAL_REWARDS, { referrerReward, refereeReward });
       }
 
       const amount = refereeReward ?? 0;
@@ -492,7 +492,7 @@ export const referralRouter = router({
             }
 
             // Get reward amounts from cache or database
-            const cachedRewards = rewardCache.get(CacheKeys.REFERRAL_REWARDS);
+            const cachedRewards = await cache.get<{ referrerReward: number | null; refereeReward: number | null; }>(CacheKeys.REFERRAL_REWARDS);
 
             let referrerReward: number | null;
             let refereeReward: number | null;
@@ -531,7 +531,7 @@ export const referralRouter = router({
                 : null;
 
               // Save to cache
-              rewardCache.set(CacheKeys.REFERRAL_REWARDS, { referrerReward, refereeReward });
+              await cache.set(CacheKeys.REFERRAL_REWARDS, { referrerReward, refereeReward });
               console.log(`[REWARDS_CACHE_MISS] Cached rewards for 60000ms`);
             }
 
@@ -666,7 +666,7 @@ export const referralRouter = router({
               });
             }
 
-            // Check that user is the REFEREE (was referred), not the referrer
+            // Check that user is the REFEREE (was referred), not that referrer
             if (referral.referredId !== userId) {
               console.log(
                 `[REFEREE_UNAUTHORIZED_CLAIM] userId=${userId}, referralId=${input.referralId}, referredId=${referral.referredId}`
@@ -820,7 +820,7 @@ export const referralRouter = router({
             }
 
             // Get reward amounts from cache or database
-            const cachedRewards = rewardCache.get(CacheKeys.REFERRAL_REWARDS);
+            const cachedRewards = await cache.get<{ referrerReward: number | null; refereeReward: number | null; }>(CacheKeys.REFERRAL_REWARDS);
 
             let referrerReward: number | null;
             let refereeReward: number | null;
@@ -859,7 +859,7 @@ export const referralRouter = router({
                 : null;
 
               // Save to cache
-              rewardCache.set(CacheKeys.REFERRAL_REWARDS, { referrerReward, refereeReward });
+              await cache.set(CacheKeys.REFERRAL_REWARDS, { referrerReward, refereeReward });
               console.log(`[REWARDS_CACHE_MISS] Cached rewards for 60000ms`);
             }
 

@@ -150,4 +150,24 @@ export const env = cleanEnv(process.env, {
   BETTER_AUTH_SECRET: str({
     desc: "Better Auth secret for authentication",
   }),
+
+  // Redis Configuration
+  REDIS_HOST: str({
+    desc: "Redis server host",
+    default: "localhost",
+    example: "localhost",
+  }),
+  REDIS_PORT: port({
+    desc: "Redis server port",
+    default: 26379,
+  }),
+  REDIS_PASSWORD: str({
+    desc: "Redis authentication password",
+    default: "",
+  }),
+  REDIS_DB: num({
+    desc: "Redis database number",
+    default: 0,
+    example: "0",
+  }),
 });

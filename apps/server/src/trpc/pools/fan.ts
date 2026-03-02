@@ -11,12 +11,7 @@ import {
   calculatePoolAPY,
 } from "@ampedbio/web3";
 import { s3Service } from "../../services/S3Service";
-import {
-  apyCache,
-  getAPYCacheKey,
-  poolsPublicDataCache,
-  getPoolsCacheKey,
-} from "../../utils/cache";
+import { cache, getAPYCacheKey, getPoolsCacheKey } from "../../utils/cache";
 import {
   UserStakedPool,
   PoolTabRewardPool,
@@ -156,7 +151,7 @@ export const poolsFanRouter = router({
         if (pool.poolAddress && totalStake > 0n) {
           try {
             const cacheKey = getAPYCacheKey(parseInt(pool.chainId), pool.poolAddress as Address);
-            const cachedAPY = apyCache.get(cacheKey);
+            const cachedAPY = await cache.get<number>(cacheKey);
 
             if (cachedAPY !== null) {
               apy = cachedAPY;
@@ -168,7 +163,7 @@ export const poolsFanRouter = router({
               );
               const calculatedAPY = apyResults[pool.poolAddress as Address];
               if (calculatedAPY !== null) {
-                apyCache.set(cacheKey, calculatedAPY);
+                await cache.set(cacheKey, calculatedAPY);
                 apy = calculatedAPY;
               }
             }
@@ -315,20 +310,26 @@ export const poolsFanRouter = router({
         const poolsNeedingBlockchain = new Map<number, any>();
 
         // Check cache for each pool before making blockchain calls
-        pools.forEach(pool => {
+        for (const pool of pools) {
           if (pool.poolAddress) {
             const cacheKey = getPoolsCacheKey(
               parseInt(pool.chainId),
               pool.poolAddress as Address,
               input.search
             );
-            const cachedData = poolsPublicDataCache.get(cacheKey);
+            const cachedData = await cache.get<{
+              creatorStaked: string;
+              totalStake: string;
+              fans: number;
+            }>(cacheKey);
 
             if (cachedData) {
               // Cache hit: store cached data with explicit isCached flag
               blockchainStakeData.set(pool.id, {
-                creatorStaked: cachedData.creatorStaked ?? BigInt(0),
-                totalFanStaked: cachedData.totalStake,
+                creatorStaked: cachedData.creatorStaked
+                  ? BigInt(cachedData.creatorStaked)
+                  : BigInt(0),
+                totalFanStaked: cachedData.totalStake ? BigInt(cachedData.totalStake) : BigInt(0),
                 isCached: true,
               });
               console.log(`Cache hit for pool ${pool.id}: using cached totalStake and fans`);
@@ -337,7 +338,7 @@ export const poolsFanRouter = router({
               poolsNeedingBlockchain.set(pool.id, pool);
             }
           }
-        });
+        }
 
         type MulticallRequest = {
           address: Address;
@@ -440,10 +441,14 @@ export const poolsFanRouter = router({
                 pool.poolAddress as Address,
                 input.search
               );
-              const cachedData = poolsPublicDataCache.get(cacheKey);
+              const cachedData = await cache.get<{
+                creatorStaked: string;
+                totalStake: string;
+                fans: number;
+              }>(cacheKey);
               if (cachedData) {
                 activeStakers = cachedData.fans;
-                totalStake = cachedData.totalStake;
+                totalStake = cachedData.totalStake ? BigInt(cachedData.totalStake) : BigInt(0);
                 console.log(`Using cached fans count for pool ${pool.id}: ${activeStakers}`);
               }
             } else {
@@ -483,9 +488,9 @@ export const poolsFanRouter = router({
                       pool.poolAddress as Address,
                       input.search
                     );
-                    poolsPublicDataCache.set(cacheKey, {
-                      creatorStaked: stakeData.creatorStaked,
-                      totalStake,
+                    await cache.set(cacheKey, {
+                      creatorStaked: stakeData.creatorStaked.toString(),
+                      totalStake: totalStake.toString(),
                       fans: activeStakers,
                     });
                     console.log(
@@ -602,7 +607,7 @@ export const poolsFanRouter = router({
 
             for (const poolAddress of poolAddresses) {
               const cacheKey = getAPYCacheKey(parseInt(input.chainId), poolAddress);
-              const cachedAPY = apyCache.get(cacheKey);
+              const cachedAPY = await cache.get<number>(cacheKey);
 
               if (cachedAPY !== null) {
                 cachedPools.set(poolAddress, cachedAPY);
@@ -621,7 +626,7 @@ export const poolsFanRouter = router({
               for (const [poolAddress, apy] of Object.entries(freshAPYResults)) {
                 if (apy !== null) {
                   const cacheKey = getAPYCacheKey(parseInt(input.chainId), poolAddress as Address);
-                  apyCache.set(cacheKey, apy);
+                  await cache.set(cacheKey, apy);
                   cachedPools.set(poolAddress as Address, apy);
                 }
               }
@@ -1804,7 +1809,7 @@ export const poolsFanRouter = router({
         if (pool.poolAddress && totalStake > 0n) {
           try {
             const cacheKey = getAPYCacheKey(parseInt(pool.chainId), pool.poolAddress as Address);
-            const cachedAPY = apyCache.get(cacheKey);
+            const cachedAPY = await cache.get<number>(cacheKey);
 
             if (cachedAPY !== null) {
               apy = cachedAPY;
@@ -1816,7 +1821,7 @@ export const poolsFanRouter = router({
               );
               const calculatedAPY = apyResults[pool.poolAddress as Address];
               if (calculatedAPY !== null) {
-                apyCache.set(cacheKey, calculatedAPY);
+                await cache.set(cacheKey, calculatedAPY);
                 apy = calculatedAPY;
               }
             }
