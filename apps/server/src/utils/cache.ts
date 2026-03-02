@@ -12,11 +12,10 @@ function getRedisClient(): Redis | null {
         port: env.REDIS_PORT,
         password: env.REDIS_PASSWORD || undefined,
         tls: env.REDIS_TLS ? {} : undefined,
-        maxRetriesPerRequest: 3,
-        retryStrategy: times => {
-          const delay = Math.min(times * 50, 2000);
-          return delay;
-        },
+        maxRetriesPerRequest: 1,
+        retryStrategy: () => null,
+        commandTimeout: 3000,
+        connectTimeout: 3000,
       });
       console.log("[CACHE] Redis client initialized");
     } catch (error) {
@@ -139,14 +138,14 @@ class Cache {
         const ttlInSeconds = ttl ?? 60;
         const serializedValue = JSON.stringify(value);
         await redis.set(key, serializedValue, "EX", ttlInSeconds);
+        return;
       } catch (error) {
-        console.error(`[CACHE] Failed to set key "${key}" in Redis:`, error);
+        console.warn(`[CACHE] Redis set failed for key "${key}", using fallback`);
       }
-    } else {
-      const fallback = getFallbackCache();
-      const ttlMs = (ttl ?? 60) * 1000;
-      await fallback.set(key, value, ttlMs);
     }
+    const fallback = getFallbackCache();
+    const ttlMs = (ttl ?? 60) * 1000;
+    await fallback.set(key, value, ttlMs);
   }
 
   /**
@@ -168,7 +167,7 @@ class Cache {
           return null;
         }
       } catch (error) {
-        console.error(`[CACHE] Failed to get key "${key}" from Redis:`, error);
+        console.warn(`[CACHE] Redis get failed for key "${key}", using fallback`);
       }
     }
 
@@ -189,7 +188,7 @@ class Cache {
         const exists = await redis.exists(key);
         return exists === 1;
       } catch (error) {
-        console.error(`[CACHE] Failed to check key "${key}" in Redis:`, error);
+        console.warn(`[CACHE] Redis has failed for key "${key}", using fallback`);
       }
     }
 
@@ -197,12 +196,6 @@ class Cache {
     return await fallback.has(key);
   }
 
-  /**
-   * Removes a specific entry from Redis or fallback cache by key.
-   *
-   * @param {string} key - The key of the entry to remove.
-   * @returns {Promise<boolean>} `true` if an entry was found and removed, `false` if the key didn't exist.
-   */
   async delete(key: string): Promise<boolean> {
     const redis = getRedisClient();
     let deleted = false;
@@ -212,7 +205,7 @@ class Cache {
         const result = await redis.del(key);
         deleted = result === 1;
       } catch (error) {
-        console.error(`[CACHE] Failed to delete key "${key}" from Redis:`, error);
+        console.warn(`[CACHE] Redis delete failed for key "${key}", using fallback`);
       }
     }
 
@@ -220,16 +213,13 @@ class Cache {
     return (await fallback.delete(key)) || deleted;
   }
 
-  /**
-   * Removes all entries from Redis or fallback cache.
-   */
   async clear(): Promise<void> {
     const redis = getRedisClient();
     if (redis) {
       try {
         await redis.flushdb();
       } catch (error) {
-        console.error("[CACHE] Failed to clear Redis:", error);
+        console.warn("[CACHE] Redis clear failed, using fallback");
       }
     }
 
