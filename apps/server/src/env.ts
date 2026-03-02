@@ -165,9 +165,4 @@ export const env = cleanEnv(process.env, {
     desc: "Redis authentication password",
     default: "",
   }),
-  REDIS_DB: num({
-    desc: "Redis database number",
-    default: 0,
-    example: "0",
-  }),
 });
