@@ -165,4 +165,8 @@ export const env = cleanEnv(process.env, {
     desc: "Redis authentication password",
     default: "",
   }),
+  REDIS_TLS: bool({
+    desc: "Enable TLS connection for Redis (required for Upstash)",
+    default: false,
+  }),
 });

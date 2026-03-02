@@ -11,6 +11,7 @@ function getRedisClient(): Redis | null {
         host: env.REDIS_HOST,
         port: env.REDIS_PORT,
         password: env.REDIS_PASSWORD || undefined,
+        tls: env.REDIS_TLS ? {} : undefined,
         maxRetriesPerRequest: 3,
         retryStrategy: times => {
           const delay = Math.min(times * 50, 2000);
