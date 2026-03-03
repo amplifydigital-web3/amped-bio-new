@@ -481,7 +481,7 @@ export default function StakeModal({
         {/* New Stake Info */}
         <div className="border border-green-200 rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-green-700">Your Total Stake</span>
+            <span className="text-sm font-medium text-green-700">Pool Total Stake</span>
             <span className="text-lg font-bold text-green-900">
               {new Decimal(pool.currentStake?.toString() ?? "0")
                 .div(new Decimal(10).pow(18))
