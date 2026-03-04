@@ -1,5 +1,5 @@
-import { DateTime } from "luxon";
 import { bytesToHex, Hex, numberToBytes } from "viem";
+import { format, formatDistanceToNow, addDays, fromUnixTime, isValid } from "date-fns";
 import { DOMAIN_SUFFIX, NAME_REQUIREMENTS } from "@/config/rns/constants";
 
 export interface FormattedDateTime {
@@ -21,23 +21,22 @@ export const trimmedDomainName = (name: string): string => {
 };
 
 export const formatDateTime = (timestamp: number): FormattedDateTime => {
-  const date = DateTime.fromSeconds(timestamp);
-  const dt = date.isValid ? date : DateTime.now();
+  const date = fromUnixTime(timestamp);
+  const dt = isValid(date) ? date : new Date();
 
   return {
-    date: dt.toLocaleString({ month: "short", day: "numeric", year: "numeric" }),
-    time: dt.toLocaleString(DateTime.TIME_WITH_SHORT_OFFSET),
+    date: format(dt, "MMM d, yyyy"),
+    time: format(dt, "HH:mm:ss xxx"),
     timestamp,
-    relative: dt.toRelative() || "",
+    relative: formatDistanceToNow(dt, { addSuffix: true }),
   };
 };
 
 export const calculateNewExpiryDate = (duration: bigint, expiry: bigint | undefined): string => {
   const durationInDays = Number(duration) / (24 * 60 * 60);
-  const expiryDate =
-    expiry && expiry !== BigInt(0) ? DateTime.fromSeconds(Number(expiry)) : DateTime.now();
+  const expiryDate = expiry && expiry !== BigInt(0) ? fromUnixTime(Number(expiry)) : new Date();
 
-  return expiryDate.plus({ days: durationInDays }).toLocaleString(DateTime.DATE_FULL);
+  return format(addDays(expiryDate, durationInDays), "MMMM d, yyyy");
 };
 
 export const scannerURL = (type: scannerType, hash: string, blockExplorerUrl?: string): string => {

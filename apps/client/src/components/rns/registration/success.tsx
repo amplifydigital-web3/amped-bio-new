@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Confetti from "react-confetti";
-import { DateTime } from "luxon";
+import { format, addSeconds } from "date-fns";
 import { scannerURL, trimmedDomainName } from "@/utils/rns";
 import { formatDuration } from "@/utils/rns/timeUtils";
 
@@ -42,8 +42,7 @@ const RegistrationSuccess: React.FC<RegistrationSuccessProps> = ({
   const [showConfetti, setShowConfetti] = useState(true);
   const [showNotification, setShowNotification] = useState(true);
 
-  // Calculate expiry date using Luxon
-  const expiryDate = DateTime.now().plus({ seconds: duration }).toFormat("MMMM dd yyyy");
+  const expiryDate = format(addSeconds(new Date(), duration), "MMMM dd yyyy");
 
   useEffect(() => {
     const timer = setTimeout(() => setShowConfetti(false), 5000);

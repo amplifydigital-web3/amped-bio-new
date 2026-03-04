@@ -1,12 +1,18 @@
 import { useEffect } from "react";
 import { X, Wallet, Loader2 } from "lucide-react";
-import { Duration } from "luxon";
 import { trimmedDomainName } from "@/utils/rns";
 import { useRegistration } from "@/hooks/rns/useRegistration";
 import { useAccount } from "wagmi";
 import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
 import { toast } from "react-hot-toast";
 import { useNameDetails } from "@/hooks/rns/useNameDetails";
+
+const SECONDS_IN_MINUTE = 60;
+const SECONDS_IN_HOUR = 3600;
+const SECONDS_IN_DAY = 86400;
+const SECONDS_IN_WEEK = SECONDS_IN_DAY * 7;
+const SECONDS_IN_MONTH = SECONDS_IN_DAY * 30;
+const SECONDS_IN_YEAR = SECONDS_IN_DAY * 365;
 
 interface ConfirmRegistrationModalProps {
   isOpen: boolean;
@@ -72,13 +78,30 @@ const ConfirmRegistrationModal = ({
   const formatDuration = (seconds: number) => {
     if (!seconds) return "0 hours";
 
-    const d = Duration.fromObject({ seconds });
+    const years = seconds / SECONDS_IN_YEAR;
+    const months = seconds / SECONDS_IN_MONTH;
+    const weeks = seconds / SECONDS_IN_WEEK;
+    const days = seconds / SECONDS_IN_DAY;
+    const hours = seconds / SECONDS_IN_HOUR;
 
-    if (d.as("days") < 1) return d.shiftTo("hours").toHuman();
-    if (d.as("weeks") < 1) return d.shiftTo("days").toHuman();
-    if (d.as("months") < 1) return d.shiftTo("weeks").toHuman();
-    if (d.as("years") < 1) return d.shiftTo("months").toHuman();
-    return d.shiftTo("years").toHuman();
+    if (days < 1) {
+      const h = Math.floor(hours);
+      return `${h} hour${h !== 1 ? "s" : ""}`;
+    }
+    if (weeks < 1) {
+      const d = Math.floor(days);
+      return `${d} day${d !== 1 ? "s" : ""}`;
+    }
+    if (months < 1) {
+      const w = Math.floor(weeks);
+      return `${w} week${w !== 1 ? "s" : ""}`;
+    }
+    if (years < 1) {
+      const m = Math.floor(months);
+      return `${m} month${m !== 1 ? "s" : ""}`;
+    }
+    const y = Math.floor(years);
+    return `${y} year${y !== 1 ? "s" : ""}`;
   };
 
   if (!isOpen) return null;

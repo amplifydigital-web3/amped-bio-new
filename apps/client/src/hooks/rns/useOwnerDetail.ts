@@ -1,7 +1,7 @@
 import { useAccount } from "wagmi";
 
 import { keccak256, toBytes } from "viem";
-import { DateTime } from "luxon";
+import { format, addHours, fromUnixTime } from "date-fns";
 import { useEffect, useState } from "react";
 
 import { NameDetail } from "@/types/rns/name";
@@ -26,15 +26,15 @@ const formatDateTime = (timestamp: bigint | undefined) => {
     };
   }
 
-  const expiryDate = DateTime.fromSeconds(Number(timestamp));
-  const graceEndDate = expiryDate.plus({ hour: GRACE_PERIOD_HOUR });
-  const now = DateTime.now();
+  const expiryDate = fromUnixTime(Number(timestamp));
+  const graceEndDate = addHours(expiryDate, GRACE_PERIOD_HOUR);
+  const now = new Date();
 
   return {
-    date: expiryDate.toFormat("MMMM dd, yyyy"),
-    time: expiryDate.toFormat("HH:mm:ss ZZZZ"),
-    graceDate: graceEndDate.toFormat("MMMM dd, yyyy"),
-    graceTime: graceEndDate.toFormat("HH:mm:ss ZZZZ"),
+    date: format(expiryDate, "MMMM dd, yyyy"),
+    time: format(expiryDate, "HH:mm:ss xxx"),
+    graceDate: format(graceEndDate, "MMMM dd, yyyy"),
+    graceTime: format(graceEndDate, "HH:mm:ss xxx"),
     isExpired: now > expiryDate,
   };
 };
