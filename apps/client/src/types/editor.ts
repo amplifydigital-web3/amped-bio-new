@@ -11,6 +11,7 @@ export type UserProfile = {
   name: string;
   handle: string; // Without @ symbol
   handleFormatted: string; // With @ symbol
+  revoName?: string;
   email: string;
   bio: string;
   photoUrl?: string;

@@ -140,7 +140,16 @@ const appRouter = router({
 
       const hasCreatorPool = false; // Placeholder - we need to determine this differently since pools are now related to wallet
 
-      const { theme: theme_id, id: user_id, name, email, description, image, image_file_id } = user;
+      const {
+        theme: theme_id,
+        id: user_id,
+        name,
+        revo_name,
+        email,
+        description,
+        image,
+        image_file_id,
+      } = user;
 
       const theme = await prisma.theme.findUnique({
         where: {
@@ -171,7 +180,14 @@ const appRouter = router({
       });
 
       const result = {
-        user: { id: user_id, name, email, description, image: resolvedImageUrl },
+        user: {
+          id: user_id,
+          name,
+          email,
+          revoName: revo_name,
+          description,
+          image: resolvedImageUrl,
+        },
         theme,
         blocks,
         hasCreatorPool,

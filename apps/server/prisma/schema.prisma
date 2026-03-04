@@ -11,6 +11,7 @@ datasource db {
 model User {
   id             Int       @id @default(autoincrement())
   name           String
+  revo_name      String?   @unique
   email          String
   email_verified Boolean   @default(false) @map("email_verified")
   password       String?
@@ -34,9 +35,9 @@ model User {
   uploadedFiles     UploadedFile[]
   profileImage      UploadedFile?      @relation("UserProfileImage", fields: [image_file_id], references: [id], onDelete: SetNull)
 
-  wallet          UserWallet?
-  referralsMade   Referral[]         @relation("ReferrerReferrals")
-  referralsReceived Referral[]       @relation("ReferredReferrals")
+  wallet            UserWallet?
+  referralsMade     Referral[]  @relation("ReferrerReferrals")
+  referralsReceived Referral[]  @relation("ReferredReferrals")
 
   @@unique([email])
   @@map("users")
@@ -211,7 +212,7 @@ model CreatorPool {
   walletId Int
   chainId  String
 
-  name           String?       @db.VarChar(255)
+  name          String?       @db.VarChar(255)
   image_file_id Int?
   description   String?       @db.LongText
   fans          Int           @default(0)
