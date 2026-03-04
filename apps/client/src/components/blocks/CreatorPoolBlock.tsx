@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { CoinsIcon, Users, DollarSign, ExternalLink, Loader2 } from "lucide-react";
 import type { ThemeConfig } from "../../types/editor";
 import { PoolBlock } from "@ampedbio/constants";
-import { formatNumberWithSeparators } from "@/utils/numberUtils";
 import { trpc } from "@/utils/trpc";
 import { useQuery } from "@tanstack/react-query";
 

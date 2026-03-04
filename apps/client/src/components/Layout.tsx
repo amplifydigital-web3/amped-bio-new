@@ -159,6 +159,7 @@ export function Layout({ handle, bannerData, bannerLoading }: LayoutProps) {
                   profile={profile}
                   blocks={blocks}
                   theme={theme}
+                  userId={profile.id}
                 />
               </div>
             )}

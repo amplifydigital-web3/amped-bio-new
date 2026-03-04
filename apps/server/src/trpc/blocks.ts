@@ -162,17 +162,38 @@ export const blocksRouter = router({
     const { type, config } = input;
 
     try {
-      const result = await prisma.block.create({
-        data: {
-          user_id: userId,
-          type,
-          order: 0, // Order will be updated on the client
-          config: config as any,
-        },
+      const result = await prisma.$transaction(async tx => {
+        if (type === "referral") {
+          const existingReferralBlock = await tx.block.findFirst({
+            where: {
+              user_id: userId,
+              type: "referral",
+            },
+          });
+
+          if (existingReferralBlock) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "You can only have one Referral Link block per profile",
+            });
+          }
+        }
+
+        return await tx.block.create({
+          data: {
+            user_id: userId,
+            type,
+            order: 0,
+            config: config as any,
+          },
+        });
       });
       return { message: "Block added successfully", result };
     } catch (error) {
       console.error("error adding block", error);
+      if (error instanceof TRPCError) {
+        throw error;
+      }
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: "Server error",

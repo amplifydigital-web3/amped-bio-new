@@ -7,7 +7,9 @@ import { Download, Upload, AlertTriangle } from "lucide-react";
 
 export function ProfilePanel() {
   const { theme, exportTheme, importTheme } = useEditor();
-  const [activeTab, setActiveTab] = useState<"general" | "appearance" | "effects" | "theme">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "appearance" | "effects" | "theme">(
+    "general"
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Check if theme is from server (user_id = null)

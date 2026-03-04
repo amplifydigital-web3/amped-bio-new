@@ -9,6 +9,7 @@ import { prisma } from "../services/DB";
 import { getChainConfig } from "@ampedbio/web3";
 import * as jose from "jose";
 import Decimal from "decimal.js";
+import { SITE_SETTINGS } from "@ampedbio/constants";
 
 // Schema for requesting faucet tokens
 const faucetRequestSchema = z.object({
@@ -166,6 +167,17 @@ export const walletRouter = router({
           },
         });
 
+        // Process referral reward if applicable (non-blocking)
+        setImmediate(async () => {
+          try {
+            const { processReferralRewardForUser } = await import("../services/referralPayout");
+            await processReferralRewardForUser(userId);
+          } catch (error) {
+            console.error("Error in referral reward background task:", error);
+            // Don't throw - wallet linking should succeed even if payout fails
+          }
+        });
+
         return {
           success: true,
           message: "Wallet address successfully linked to your account",
@@ -206,7 +218,7 @@ export const walletRouter = router({
 
         // Retrieve the faucet enabled status
         const faucetStatus = await prisma.siteSettings.findUnique({
-          where: { setting_key: "faucet_enabled" },
+          where: { setting_key: SITE_SETTINGS.FAUCET_ENABLED },
         });
         const faucetEnabled = faucetStatus?.setting_value === "true";
 

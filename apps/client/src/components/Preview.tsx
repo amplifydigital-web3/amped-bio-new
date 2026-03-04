@@ -11,6 +11,7 @@ import { getPlatformIcon } from "../utils/platforms";
 import { MediaBlock } from "./blocks/MediaBlock";
 import { TextBlock } from "./blocks/text/TextBlock";
 import { CreatorPoolBlock } from "./blocks/CreatorPoolBlock";
+import { ReferralBlock } from "./blocks/ReferralBlock";
 import { isHTML } from "@/utils/htmlutils";
 import { type BlockType } from "@ampedbio/constants";
 import { Theme, UserProfile } from "@/types/editor";
@@ -18,6 +19,7 @@ import { trpcClient } from "@/utils/trpc";
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { setCookie } from "@/utils/cookies";
+import { useReferralHandler } from "@/hooks/useReferralHandler";
 
 // Helper function to extract the root domain from a URL
 const extractRootDomain = (url: string): string => {
@@ -38,12 +40,14 @@ interface PreviewProps {
   profile: UserProfile;
   blocks: BlockType[];
   theme: Theme;
+  userId?: number;
 }
 
-export function Preview({ profile, blocks, theme }: PreviewProps) {
+export function Preview({ profile, blocks, theme, userId }: PreviewProps) {
   const [copied, setCopied] = useState(false);
   const themeConfig = theme.config;
   const navigate = useNavigate();
+  const { handleReferrerClick } = useReferralHandler();
 
   const handleLinkClick = (block: BlockType) => {
     if (block.type === "link") {
@@ -272,28 +276,40 @@ export function Preview({ profile, blocks, theme }: PreviewProps) {
                   if (block.type === "pool") {
                     return <CreatorPoolBlock key={block.id} block={block} theme={themeConfig} />;
                   }
+                  if (block.type === "referral") {
+                    return (
+                      <ReferralBlock
+                        key={block.id}
+                        block={block}
+                        theme={themeConfig}
+                        pageOwnerId={userId ?? 0}
+                      />
+                    );
+                  }
                   return <TextBlock key={block.id} block={block} theme={themeConfig} />;
                 })}
               </div>
 
               {/* Powered by footer */}
               <div className="pt-4 text-center">
-                <Link
-                  to="/register"
-                  className="text-sm opacity-70 hover:opacity-100 transition-opacity"
+                <button
+                  onClick={() => {
+                    if (profile.id) {
+                      handleReferrerClick(profile.id);
+                    }
+                  }}
+                  className="text-sm opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
                   style={{
                     fontFamily: themeConfig?.fontFamily,
                     color: themeConfig?.fontColor,
-                  }}
-                  onClick={() => {
-                    // Save visited profile ID in cookie with 30-day expiration
-                    if (profile.id) {
-                      setCookie("pendingProfileReferral", profile.id.toString(), 30);
-                    }
+                    border: "none",
+                    outline: "none",
+                    background: "none",
+                    padding: 0,
                   }}
                 >
                   Claim your own Amped.Bio
-                </Link>
+                </button>
               </div>
             </div>
           </div>

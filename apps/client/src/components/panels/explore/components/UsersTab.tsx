@@ -3,12 +3,10 @@ import { User, ChevronLeft, ChevronRight } from "lucide-react";
 import UserSkeleton from "./UserSkeleton";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "../../../../utils/trpc";
-import { formatEther } from "viem";
-import Decimal from "decimal.js";
 
 // Define filter and sort types
-type UserFilter = "all" | "active-7-days" | "has-creator-pool" | "has-stake-in-pool";
-type UserSort = "newest" | "name-asc" | "name-desc" | "stake-desc";
+type UserFilter = "all" | "active-7-days" | "has-creator-pool";
+type UserSort = "newest" | "name-asc" | "name-desc";
 
 interface User {
   id: string;
@@ -17,13 +15,7 @@ interface User {
   avatar: string | null;
   banner: string | null;
   bio: string;
-  poolStake: number;
   category: string;
-}
-
-interface PaginatedUsersResponse {
-  users: User[];
-  total: number;
 }
 
 interface UsersTabProps {
@@ -134,24 +126,8 @@ const UsersTab: React.FC<UsersTabProps> = ({
                 </div>
 
                 <div className="mt-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center space-x-2">
-                      <h3 className="font-semibold text-gray-900">{user.displayName}</h3>
-                    </div>
-                    <div className="relative group">
-                      <span className="px-2 py-1 rounded-full text-xs font-medium cursor-help bg-gray-100 text-gray-700">
-                        {new Decimal(formatEther(BigInt(user.poolStake)))
-                          .toDecimalPlaces(4, Decimal.ROUND_DOWN)
-                          .toString()}{" "}
-                        Pool Stake
-                      </span>
-                      <div className="absolute bottom-full right-0 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
-                        <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap shadow-lg">
-                          Amount staked to users pool by others
-                          <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
-                        </div>
-                      </div>
-                    </div>
+                  <div className="flex items-center mb-2">
+                    <h3 className="font-semibold text-gray-900">{user.displayName}</h3>
                   </div>
 
                   <p className="text-sm text-gray-500 mb-2">@{user.username}</p>

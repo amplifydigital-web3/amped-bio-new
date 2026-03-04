@@ -14,6 +14,7 @@ import {
   AdminFaucetWalletStats,
   AdminClickStats,
   AdminBannerSettings,
+  AdminAffiliateRewards,
 } from "../../components/admin";
 import { AdminQuickActions } from "../../components/admin";
 
@@ -142,6 +143,9 @@ export function AdminDashboard() {
 
         {/* Faucet Wallet Stats */}
         <AdminFaucetWalletStats />
+
+        {/* Affiliate Rewards */}
+        <AdminAffiliateRewards />
       </div>
       {/* Block Distribution */}
       <AdminBlockDistribution

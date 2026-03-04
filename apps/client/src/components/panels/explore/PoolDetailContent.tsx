@@ -1,5 +1,17 @@
 import React, { useState, useCallback } from "react";
-import { Trophy, Users, Coins, ExternalLink, Plus, Minus, Share2, Gift, Edit3 } from "lucide-react";
+import {
+  Trophy,
+  Users,
+  Coins,
+  ExternalLink,
+  Plus,
+  Minus,
+  Share2,
+  Gift,
+  Edit3,
+  Percent,
+  Info,
+} from "lucide-react";
 import { toast } from "react-hot-toast";
 import StakeModal from "./StakeModal";
 import UnstakeModal from "./UnstakeModal";
@@ -270,7 +282,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
             {/* Hero Section - Image and Stats Side by Side */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
               {/* Pool Image */}
-              <div className="relative h-64 group">
+              <div className="relative min-h-64 group">
                 <div className="h-full rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
                   {pool.image ? (
                     <img
@@ -295,9 +307,9 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                 )}
               </div>
 
-              {/* Stats Grid - 2x2 with matching height */}
-              <div className="h-64">
-                <div className="grid grid-cols-2 gap-4 h-full">
+              {/* Stats Grid - 2x2 with auto height */}
+              <div className="min-h-64">
+                <div className="grid grid-cols-2 gap-4">
                   {/* Conditionally render Your Stake card if not null */}
                   {pool?.stakedByYou !== null && pool.stakedByYou !== undefined && (
                     <div className="rounded-xl p-4 border border-blue-100 flex flex-col justify-center">
@@ -309,6 +321,29 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                         {formatNumberWithSeparators(formatEther(pool.stakedByYou))}
                       </div>
                       <div className="text-xs text-blue-600">{currencySymbol}</div>
+                    </div>
+                  )}
+
+                  {/* APY card */}
+                  {pool?.apy !== undefined && pool.apy !== null && (
+                    <div className="rounded-xl p-4 border border-green-100 flex flex-col justify-center">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Percent className="w-4 h-4 text-green-600" />
+                        <span className="text-sm font-medium text-green-700">APY</span>
+                      </div>
+                      <div className="text-xl font-bold text-green-900">
+                        {(pool.apy / 100).toFixed(2)}%
+                      </div>
+                      <div className="text-xs text-green-600">Annual Percentage Yield</div>
+                      <a
+                        href={`/i/pools/${pool.address}/debug-apy`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center space-x-1 text-xs text-green-700 hover:text-green-800 mt-1 transition-colors duration-200"
+                      >
+                        <Info className="w-3 h-3" />
+                        <span>View APY details</span>
+                      </a>
                     </div>
                   )}
 
@@ -412,6 +447,19 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                     <p className="text-xs text-gray-500 mt-1">
                       Percentage of rewards taken by the pool creator
                     </p>
+                  </div>
+
+                  {/* Knowledgebase Link */}
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <a
+                      href="https://amplifydigital.freshdesk.com/support/solutions/articles/154000250365-how-is-reward-pool-apy-calculated"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-700 hover:underline transition-colors duration-200"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      <span>How are Staking Rewards and Pool APY Calculated?</span>
+                    </a>
                   </div>
                 </div>
               </div>

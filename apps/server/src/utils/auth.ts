@@ -124,14 +124,21 @@ export const auth = betterAuth({
           const referrerId = context?.query?.referrerId;
           if (referrerId) {
             try {
+              // Create referral record
               await prisma.referral.create({
                 data: {
                   referrerId: parseInt(referrerId),
                   referredId: parseInt(user.id),
                 },
               });
+
+              console.log(
+                `Referral created: user ${user.id} referred by ${referrerId}. ` +
+                `Rewards will be sent automatically when both parties link their wallets.`
+              );
             } catch (error) {
               console.error("Error creating referral:", error);
+              // Don't throw - user registration should succeed even if referral creation fails
             }
           }
         },

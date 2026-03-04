@@ -2,7 +2,7 @@ import { z } from "zod";
 import { allowedPlatforms, mediaPlataforms, PlatformId } from "./platforms";
 
 // TypeScript type definitions for block types
-type BaseBlockType = "link" | "media" | "text" | "pool";
+type BaseBlockType = "link" | "media" | "text" | "pool" | "referral";
 
 export type BaseBlock<type extends BaseBlockType = any, T = any> = {
   id: number;
@@ -44,23 +44,25 @@ export type PoolBlock = BaseBlock<
   }
 >;
 
-export type BlockType = LinkBlock | MediaBlock | TextBlock | PoolBlock;
+export type ReferralBlock = BaseBlock<"referral", {}>;
+
+export type BlockType = LinkBlock | MediaBlock | TextBlock | PoolBlock | ReferralBlock;
 
 // Define configuration schemas for each block type
-const linkConfigSchema = z.object({
+export const linkConfigSchema = z.object({
   platform: z.enum(allowedPlatforms),
   url: z.string().url("Must be a valid URL"),
   label: z.string().min(1, "Label is required"),
 });
 
-const mediaConfigSchema = z.object({
+export const mediaConfigSchema = z.object({
   platform: z.enum(mediaPlataforms),
   url: z.string().url("Must be a valid URL"),
   label: z.string(),
   content: z.string().optional(),
 });
 
-const poolConfigSchema = z.object({
+export const poolConfigSchema = z.object({
   address: z
     .string()
     .regex(/^0x[a-fA-F0-9]+$/, "Must be a valid blockchain address starting with 0x"),
@@ -70,7 +72,7 @@ const poolConfigSchema = z.object({
 // Define allowed HTML tags
 const allowedHtmlTags = ["p", "a", "span", "strong", "em", "u", "b", "i", "s"] as const;
 
-const textConfigSchema = z.object({
+export const textConfigSchema = z.object({
   content: z
     .string()
     .min(0, "Content is required")
@@ -114,13 +116,21 @@ const textConfigSchema = z.object({
     ),
 });
 
+export const referralConfigSchema = z.object({});
+
 // Schema for a single block
 export const blockSchema = z.object({
   id: z.number(),
   type: z.string().min(1, "Block type is required"),
   order: z.number().default(0),
   // Config is validated separately based on type
-  config: z.union([linkConfigSchema, mediaConfigSchema, textConfigSchema, poolConfigSchema]),
+  config: z.union([
+    linkConfigSchema,
+    mediaConfigSchema,
+    textConfigSchema,
+    poolConfigSchema,
+    referralConfigSchema,
+  ]),
 });
 
 // Schema for editing multiple blocks
@@ -132,7 +142,13 @@ export const editBlocksSchema = z.object({
 export const addBlockSchema = z.object({
   type: z.string().min(1, "Block type is required"),
   order: z.number().default(0),
-  config: z.union([linkConfigSchema, mediaConfigSchema, textConfigSchema, poolConfigSchema]),
+  config: z.union([
+    linkConfigSchema,
+    mediaConfigSchema,
+    textConfigSchema,
+    poolConfigSchema,
+    referralConfigSchema,
+  ]),
 });
 
 // Schema for block id parameter

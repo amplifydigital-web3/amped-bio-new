@@ -1,16 +1,30 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc/trpc";
-import { Copy, Check, Users, Link2, ChevronDown, ChevronUp } from "lucide-react";
+import { trpcClient } from "@/utils/trpc/trpc";
+import {
+  Copy,
+  Check,
+  Users,
+  Link2,
+  ChevronDown,
+  ChevronUp,
+  Info,
+  ExternalLink,
+} from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { Tooltip } from "@/components/ui/Tooltip";
+import { PROCESSING_TXID } from "@ampedbio/constants";
 
 function ReferralCard() {
   const { authUser } = useAuth();
   const [copied, setCopied] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [claimingReferralId, setClaimingReferralId] = useState<number | null>(null);
   const referralsPerPage = 10;
+  const queryClient = useQueryClient();
 
   const { data: referralsData, isLoading: loadingReferrals } = useQuery({
     ...trpc.referral.myReferrals.queryOptions({
@@ -25,8 +39,31 @@ function ReferralCard() {
     enabled: !!authUser,
   });
 
+  const claimMutation = useMutation({
+    mutationFn: async (referralId: number) => {
+      return trpcClient.referral.claimReferralReward.mutate({ referralId });
+    },
+    onSuccess: async data => {
+      toast.success(`Reward claimed! TXID: ${data.txid.slice(0, 10)}...`);
+
+      // Invalidate myReferrals query to fetch updated data with txid
+      await queryClient.invalidateQueries({
+        queryKey: trpc.referral.myReferrals.queryKey(),
+      });
+
+      setClaimingReferralId(null);
+    },
+    onError: error => {
+      toast.error(error.message || "Failed to claim reward");
+      setClaimingReferralId(null);
+    },
+    onMutate: referralId => {
+      setClaimingReferralId(referralId);
+    },
+  });
+
   const userIdHex = authUser ? `0x${authUser.id.toString(16)}` : "";
-  const referralLink = userIdHex ? `${window.location.origin}?r=${userIdHex}` : "";
+  const referralLink = userIdHex ? `${window.location.origin}/register?r=${userIdHex}` : "";
 
   const copyToClipboard = async () => {
     try {
@@ -49,6 +86,10 @@ function ReferralCard() {
     }
   };
 
+  const handleClaimReward = (referralId: number) => {
+    claimMutation.mutate(referralId);
+  };
+
   if (!authUser) {
     return null;
   }
@@ -69,6 +110,15 @@ function ReferralCard() {
               <p className="text-sm text-gray-500">
                 {stats?.totalReferrals || 0} total referral{stats?.totalReferrals !== 1 ? "s" : ""}
               </p>
+              <a
+                href="https://amplifydigital.freshdesk.com/a/solutions/articles/154000249731"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 mt-1"
+              >
+                How does the Referral Program work?
+                <ExternalLink className="h-3 w-3" />
+              </a>
             </div>
           </div>
           {isExpanded ? (
@@ -125,13 +175,6 @@ function ReferralCard() {
               </div>
             </div>
 
-            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-              <p className="text-sm text-blue-800">
-                <strong>Coming soon:</strong> Earn tokens for every successful referral! Stay tuned for
-                our rewards program.
-              </p>
-            </div>
-
             <div className="bg-gray-50 rounded-lg border border-gray-200">
               <div className="p-4 border-b border-gray-200">
                 <h4 className="text-sm font-semibold text-gray-900">Your Referrals</h4>
@@ -162,8 +205,8 @@ function ReferralCard() {
                   <div className="divide-y divide-gray-100">
                     {referralsData?.referrals.map(referral => (
                       <div key={referral.id} className="p-3 hover:bg-white transition-colors">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center space-x-3 flex-1 min-w-0">
                             <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
                               <span className="text-xs font-medium text-blue-600">
                                 {referral.name.charAt(0).toUpperCase()}
@@ -184,10 +227,67 @@ function ReferralCard() {
                               </a>
                             </div>
                           </div>
-                          <div className="text-right flex-shrink-0 ml-2">
+
+                          {referral.txid && referral.txid !== PROCESSING_TXID && (
+                            <a
+                              href={`https://libertas.revoscan.io/tx/${referral.txid}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-mono text-blue-600 hover:text-blue-800 hover:underline flex-shrink-0"
+                              title={referral.txid}
+                              onClick={e => e.stopPropagation()}
+                            >
+                              {referral.txid.slice(0, 6)}...{referral.txid.slice(-4)}
+                            </a>
+                          )}
+
+                          <div className="flex items-center gap-2 flex-shrink-0">
                             <p className="text-xs text-gray-500">
                               {new Date(referral.created_at).toLocaleDateString()}
                             </p>
+                            {referral.txid ? (
+                              // Already claimed
+                              referral.txid === PROCESSING_TXID ? (
+                                <span className="text-xs text-yellow-600 font-medium bg-yellow-50 px-2 py-1 rounded">
+                                  Processing...
+                                </span>
+                              ) : (
+                                <span className="text-xs text-green-600 font-medium bg-green-50 px-2 py-1 rounded">
+                                  Claimed
+                                </span>
+                              )
+                            ) : referralsData.affiliateWalletBalance?.hasBalance === false ? (
+                              // Insufficient balance - show info icon
+                              <Tooltip
+                                content={
+                                  <div className="max-w-xs">
+                                    <p className="font-semibold mb-1">Rewards Unavailable</p>
+                                    <p className="mt-1 text-xs">
+                                      Rewards are currently unavailable. Please try again later.
+                                    </p>
+                                  </div>
+                                }
+                                side="left"
+                              >
+                                <div className="flex items-center justify-center w-6 h-6 bg-yellow-100 rounded-full cursor-help">
+                                  <Info className="h-3.5 w-3.5 text-yellow-600" />
+                                </div>
+                              </Tooltip>
+                            ) : (
+                              // Can claim - show button
+                              <button
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  handleClaimReward(referral.referralId);
+                                }}
+                                disabled={claimingReferralId === referral.referralId}
+                                className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              >
+                                {claimingReferralId === referral.referralId
+                                  ? "Claiming..."
+                                  : "Claim"}
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>

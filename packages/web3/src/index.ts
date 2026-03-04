@@ -31,6 +31,7 @@ export const revolutionDevnet = {
   testnet: true,
   contracts: {
     L2_BASE_TOKEN: { address: "0x000000000000000000000000000000000000800A" as Address },
+    NODE_MANAGER: { address: "0x00000000000000000000000000000000000080fe" as Address },
     NODE: { address: "0x0000000000000000000000000000000000000000" as Address },
     CREATOR_POOL_FACTORY: { address: "0x0000000000000000000000000000000000000000" as Address },
     multicall3: { address: "0x0000000000000000000000000000000000000000" as Address },
@@ -38,6 +39,7 @@ export const revolutionDevnet = {
     L2_RESOLVER: { address: "0x0000000000000000000000000000000000000000" as Address },
     BASE_REGISTRAR: { address: "0x0000000000000000000000000000000000000000" as Address },
     REVERSE_REGISTRAR: { address: "0x0000000000000000000000000000000000000000" as Address },
+    SIMPLE_BATCH_SEND: { address: "0x0000000000000000000000000000000000000000" as Address },
   },
   subgraphUrl: "",
   gas: 5_000_000,
@@ -68,6 +70,7 @@ export const libertasTestnet = {
   testnet: true,
   contracts: {
     L2_BASE_TOKEN: { address: "0x000000000000000000000000000000000000800A" as Address },
+    NODE_MANAGER: { address: "0x00000000000000000000000000000000000080fe" as Address },
     NODE: { address: "0x019bbe745b5c9b70060408Bf720B1E5172EEa5A3" as Address },
     CREATOR_POOL_FACTORY: { address: "0x38df3c6acEe3511c088c84d0191f550b24726f0f" as Address },
     multicall3: { address: "0x97cb78d5be963e2534a2156c88093a49f15315c8" as Address },
@@ -75,6 +78,7 @@ export const libertasTestnet = {
     L2_RESOLVER: { address: "0xeFC372f73Ee92fDb1Fe8A34E294A4aD28cF506C6" as Address },
     BASE_REGISTRAR: { address: "0x203cf3B1e39F2003453C89f26756d41264BA67e4" as Address },
     REVERSE_REGISTRAR: { address: "0x025b5154733E93a95F9e196c7fdAffF4584cdb5C" as Address },
+    SIMPLE_BATCH_SEND: { address: "0x8309858De3fc6B0A2bF5f63Fe3E793F90d4A14f9" as Address },
   },
   subgraphUrl: "https://graph.libertas.revolutionchain.io/subgraphs/name/subgraph/rns",
   gas: 5_000_000,
@@ -636,6 +640,84 @@ export const CREATOR_POOL_ABI = [
   },
 ] as const;
 
+export const NODE_MANAGER_ABI = [
+  {
+    type: "function",
+    name: "getNodes",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "address[]",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "nodeTotalDelegation",
+    inputs: [
+      {
+        name: "_node",
+        type: "address",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "nodeCutBps",
+    inputs: [
+      {
+        name: "_node",
+        type: "address",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "batchCount",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "rewardPerBlock",
+    inputs: [
+      {
+        name: "batchNum",
+        type: "uint256",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "view",
+  },
+] as const;
+
 export const NODE_ABI = [
   {
     type: "function",
@@ -784,19 +866,6 @@ export const NODE_ABI = [
         type: "string",
       },
     ],
-  },
-  {
-    type: "function",
-    name: "getNodes",
-    inputs: [],
-    outputs: [
-      {
-        internalType: "address[]",
-        name: "",
-        type: "address[]",
-      },
-    ],
-    stateMutability: "view",
   },
   {
     type: "function",
@@ -1555,5 +1624,184 @@ export const L2_BASE_TOKEN_ABI = [
     type: "error",
     name: "ZeroAmountError",
     inputs: [],
+  },
+] as const;
+
+export const SIMPLE_BATCH_SEND_ABI = [
+  {
+    type: "function",
+    name: "initialize",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "initialSenders", type: "address[]" }],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "send",
+    stateMutability: "payable",
+    inputs: [
+      { name: "recipients", type: "address[]" },
+      { name: "amounts", type: "uint256[]" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "hasPairBeenSent",
+    stateMutability: "view",
+    inputs: [
+      { name: "referral", type: "address" },
+      { name: "referee", type: "address" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+  {
+    type: "function",
+    name: "getAmountSent",
+    stateMutability: "view",
+    inputs: [{ name: "affiliate", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "isSender",
+    stateMutability: "view",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ name: "", type: "bool" }],
+  },
+  {
+    type: "function",
+    name: "addSender",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "sender", type: "address" }],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "removeSender",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "sender", type: "address" }],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "resetPair",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "referral", type: "address" },
+      { name: "referee", type: "address" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "sentPairs",
+    stateMutability: "view",
+    inputs: [
+      { name: "", type: "address" },
+      { name: "", type: "address" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+  {
+    type: "function",
+    name: "totalSent",
+    stateMutability: "view",
+    inputs: [{ name: "", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "event",
+    name: "BatchSent",
+    inputs: [
+      { name: "sender", type: "address", indexed: true },
+      { name: "total", type: "uint256", indexed: false },
+      { name: "count", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "AffiliatePairSent",
+    inputs: [
+      { name: "referral", type: "address", indexed: true },
+      { name: "referee", type: "address", indexed: true },
+      { name: "referralAmount", type: "uint256", indexed: false },
+      { name: "refereeAmount", type: "uint256", indexed: false },
+      { name: "sender", type: "address", indexed: true },
+    ],
+  },
+  {
+    type: "event",
+    name: "AffiliateRewardSent",
+    inputs: [
+      { name: "affiliate", type: "address", indexed: true },
+      { name: "amount", type: "uint256", indexed: false },
+      { name: "sender", type: "address", indexed: true },
+    ],
+  },
+  {
+    type: "event",
+    name: "SenderAdded",
+    inputs: [
+      { name: "sender", type: "address", indexed: true },
+      { name: "admin", type: "address", indexed: true },
+    ],
+  },
+  {
+    type: "event",
+    name: "SenderRemoved",
+    inputs: [
+      { name: "sender", type: "address", indexed: true },
+      { name: "admin", type: "address", indexed: true },
+    ],
+  },
+  {
+    type: "event",
+    name: "AffiliateReset",
+    inputs: [
+      { name: "referral", type: "address", indexed: true },
+      { name: "referee", type: "address", indexed: true },
+      { name: "admin", type: "address", indexed: true },
+    ],
+  },
+  {
+    type: "error",
+    name: "TooManySenders",
+  },
+  {
+    type: "error",
+    name: "InvalidLength",
+  },
+  {
+    type: "error",
+    name: "InvalidTotal",
+  },
+  {
+    type: "error",
+    name: "ZeroAddress",
+  },
+  {
+    type: "error",
+    name: "ZeroAmount",
+  },
+  {
+    type: "error",
+    name: "TransferFailed",
+  },
+  {
+    type: "error",
+    name: "PairAlreadySent",
+  },
+  {
+    type: "error",
+    name: "UnauthorizedSender",
+  },
+  {
+    type: "error",
+    name: "NotAPair",
+  },
+  {
+    type: "error",
+    name: "UnauthorizedUpgrade",
   },
 ] as const;
