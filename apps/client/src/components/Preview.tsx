@@ -49,6 +49,8 @@ export function Preview({ profile, blocks, theme, userId }: PreviewProps) {
   const navigate = useNavigate();
   const { handleReferrerClick } = useReferralHandler();
 
+  const showRns = import.meta.env.VITE_SHOW_RNS === "true";
+
   const handleLinkClick = (block: BlockType) => {
     if (block.type === "link") {
       trpcClient.blocks.registerClick.mutate({ id: block.id });
@@ -174,7 +176,7 @@ export function Preview({ profile, blocks, theme, userId }: PreviewProps) {
                     >
                       {profile.name}
                     </h1>
-                    {profile.revoName && (
+                    {profile.revoName && showRns && (
                       <div
                         className={cn(
                           "font-bold tracking-tight flex items-center justify-center space-x-2",

@@ -70,6 +70,7 @@ export function ProfileSection({
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const { navigateToProfile } = useRNSNavigation();
+  const showRNS = import.meta.env.VITE_SHOW_RNS === "true";
 
   useEffect(() => {
     if (chainId) {
@@ -201,7 +202,7 @@ export function ProfileSection({
             >
               @{authUser?.handle || "User"}
             </h1>
-            {!profile.revoName ? (
+            {!profile.revoName || !showRNS ? (
               <div className="flex items-center space-x-2 min-w-0">
                 <span
                   className="text-xs sm:text-sm font-mono text-gray-600 bg-white px-2 sm:px-3 py-1 rounded-full border border-gray-200 truncate"
