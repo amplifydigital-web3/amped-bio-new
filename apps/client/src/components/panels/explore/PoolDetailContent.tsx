@@ -68,7 +68,6 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
   const [isStakeModalOpen, setIsStakeModalOpen] = useState(false);
   const [isUnstakeModalOpen, setIsUnstakeModalOpen] = useState(false);
   const [isImageUploadModalOpen, setIsImageUploadModalOpen] = useState(false);
-  const [stakingMode, setStakingMode] = useState<"stake" | "add-stake">("stake");
   const [isClaiming, setIsClaiming] = useState(false);
 
   const {
@@ -210,7 +209,6 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
   };
 
   const handleAddStake = () => {
-    setStakingMode("add-stake");
     setIsStakeModalOpen(true);
   };
 
@@ -545,11 +543,11 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                 chainId: pool.chainId,
                 address: pool.address,
                 image: pool.image,
-                currentStake: parseFloat(formatEther(pool.stakedByYou)),
+                stakedByYou: parseFloat(formatEther(pool.stakedByYou)),
+                stakedAmount: parseFloat(formatEther(pool.stakedAmount)),
               }
             : null
         }
-        mode={stakingMode}
         onStakeSuccess={async () => {
           // When stake operations complete, refetch blockchain data using multicall
           await fetchAllData();
