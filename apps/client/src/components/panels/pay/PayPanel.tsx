@@ -11,6 +11,7 @@ import {
   X,
   Loader,
   AlertCircle,
+  CheckCircle,
 } from "lucide-react";
 import { trpc } from "@/utils/trpc/trpc";
 import { useQuery } from "@tanstack/react-query";
@@ -18,9 +19,11 @@ import ReceiveDialog from "../wallet/dialogs/ReceiveDialog";
 import PayModal from "./dialogs/PayDialog";
 import usePayDialog from "@/hooks/usePayDialog";
 import { Scanner as QRScanner } from "@yudiel/react-qr-scanner";
-import { Address, isAddress } from "viem";
+import { Address, isAddress, zeroAddress } from "viem";
 import { useChainId, useAccount } from "wagmi";
 import { getChainConfig } from "@ampedbio/web3";
+import { useResolveRevoName } from "@/hooks/rns/useResolveRevoName";
+import { DOMAIN_SUFFIX } from "@/config/rns/constants";
 
 interface Transaction {
   from: string;
@@ -72,6 +75,34 @@ export default function PayPanel() {
 
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showQrScanner, setShowQrScanner] = useState(false);
+  const [debouncedRnsName, setDebouncedRnsName] = useState("");
+  const [showRnsResult, setShowRnsResult] = useState(false);
+
+  // Debounce for RNS name
+  useEffect(() => {
+    // Only trigger if input ends with the full domain suffix
+    if (searchQuery && !isAddress(searchQuery) && searchQuery.endsWith(DOMAIN_SUFFIX)) {
+      const timer = setTimeout(() => setDebouncedRnsName(searchQuery), 700);
+      return () => clearTimeout(timer);
+    } else {
+      setDebouncedRnsName("");
+      setShowRnsResult(false);
+    }
+  }, [searchQuery]);
+
+  // Only resolve if debouncedRnsName is valid
+  const {
+    address: resolvedRnsAddress,
+    isLoading: isResolvingRns,
+    error: rnsError,
+  } = useResolveRevoName(debouncedRnsName);
+
+  // Show RNS result if resolved or error
+  useEffect(() => {
+    if (debouncedRnsName && (resolvedRnsAddress || rnsError)) {
+      setShowRnsResult(true);
+    }
+  }, [debouncedRnsName, resolvedRnsAddress, rnsError]);
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
@@ -316,12 +347,52 @@ export default function PayPanel() {
         <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
         <input
           type="text"
-          placeholder="Search people or paste address..."
+          placeholder="Search people or paste address or Revoname..."
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           className="w-full pl-12 pr-4 py-4 bg-gray-50 border-0 rounded-xl text-lg focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
         />
       </div>
+      {/* RNS Resolution Feedback */}
+      {isResolvingRns && (
+        <div className="flex items-center gap-2 text-blue-500 mb-2">
+          <AlertCircle className="w-4 h-4 animate-spin" />
+          <span className="text-base sm:text-lg">Resolving name...</span>
+        </div>
+      )}
+      {showRnsResult && resolvedRnsAddress && resolvedRnsAddress === zeroAddress && (
+        <div className="flex items-center gap-2 text-red-600 mb-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+          <AlertCircle className="w-4 h-4" />
+          <span className="text-base sm:text-lg">Revoname is not linked to any address</span>
+        </div>
+      )}
+      {showRnsResult && resolvedRnsAddress && resolvedRnsAddress !== zeroAddress && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-2">
+          <div className="flex gap-2 items-center">
+            <CheckCircle className="w-5 h-5 text-green-600" />
+            <span className="text-green-800 font-semibold text-sm sm:text-base">Address</span>
+            <span className="font-mono text-xs sm:text-base break-all text-green-900 select-all">
+              {resolvedRnsAddress}
+            </span>
+          </div>
+          <button
+            className="ml-0 sm:ml-2 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs sm:text-sm whitespace-nowrap"
+            onClick={() => {
+              payDialog.openPayDialog(resolvedRnsAddress);
+              setSearchQuery("");
+              setShowRnsResult(false);
+            }}
+          >
+            Pay
+          </button>
+        </div>
+      )}
+      {showRnsResult && !resolvedRnsAddress && rnsError && (
+        <div className="flex items-center gap-2 text-red-600 mb-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+          <AlertCircle className="w-4 h-4" />
+          <span className="text-base sm:text-lg">Name not found</span>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
