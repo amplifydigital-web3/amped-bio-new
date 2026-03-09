@@ -44,6 +44,31 @@ export const queryRegistrationDetailForName = gql`
   }
 `;
 
+// Optimized query: fetch only ownership details (after transfer)
+export const queryOwnershipDetails = gql`
+  query getOwnershipDetails($labelHash: String!) {
+    revoNames(where: { labelHash: $labelHash }) {
+      owner
+      resolver {
+        address
+      }
+    }
+  }
+`;
+
+// Optimized query: fetch only dates details (after renewal)
+export const queryDateDetails = gql`
+  query getDateDetails($labelHash: String!) {
+    revoNames(where: { labelHash: $labelHash }) {
+      expiryDateWithGrace
+    }
+    registration(id: $labelHash) {
+      registrationDate
+      expiryDate
+    }
+  }
+`;
+
 export const queryGetNameDetails = gql`
   query getNameDetails($labelName: String!) {
     revoNames(where: { labelName: $labelName }) {
@@ -114,6 +139,49 @@ export async function fetchRegistrationData(
   } catch (err) {
     console.error("Error Fetching details", err);
     return { data: null, error: "Failed to get Registration Data" };
+  }
+}
+
+// Fetch only ownership details - optimized for transfer refresh
+export async function fetchOwnershipDetails(
+  labelHash: string,
+  graphClient?: GraphQLClient | null
+): Promise<SubgraphResult<Partial<RegistrationData>>> {
+  try {
+    if (!graphClient) {
+      return { data: null, error: "Subgraph client not available for current network" };
+    }
+
+    const variables = { labelHash };
+    const data = await graphClient.request<Partial<RegistrationData>>(
+      queryOwnershipDetails,
+      variables
+    );
+
+    return { data: data, error: null };
+  } catch (err) {
+    console.error("Error Fetching ownership details", err);
+    return { data: null, error: "Failed to get Ownership Data" };
+  }
+}
+
+// Fetch only dates details - optimized for renewal refresh
+export async function fetchDateDetails(
+  labelHash: string,
+  graphClient?: GraphQLClient | null
+): Promise<SubgraphResult<Partial<RegistrationData>>> {
+  try {
+    if (!graphClient) {
+      return { data: null, error: "Subgraph client not available for current network" };
+    }
+
+    const variables = { labelHash };
+    const data = await graphClient.request<Partial<RegistrationData>>(queryDateDetails, variables);
+
+    return { data: data, error: null };
+  } catch (err) {
+    console.error("Error Fetching date details", err);
+    return { data: null, error: "Failed to get Date Data" };
   }
 }
 
