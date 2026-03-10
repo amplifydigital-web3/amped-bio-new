@@ -71,7 +71,7 @@ export function Preview({ isEditing, handle, profile, blocks, theme, userId }: P
       return;
     }
     // Redirect to the new URL-based RNS route
-    const redirectURL = `/${handle}/rns/${revoName}`;
+    const redirectURL = `/${handle}/rns/${revoName}?ref=${profile.id}`;
     window.open(redirectURL, "_blank", "noopener,noreferrer");
   };
 

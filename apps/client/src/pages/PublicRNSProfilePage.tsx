@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 import { domainName, scannerURL, trimmedDomainName } from "@/utils/rns";
 import { Copy, ExternalLink } from "lucide-react";
 import { ProfileCard } from "@/components/rns/profile/ProfileCard";
@@ -7,6 +7,7 @@ import { ProfileNav } from "@/components/rns/profile/ProfileNav";
 import MoreDetails from "@/components/rns/profile/MoreDetail";
 import OwnershipDetail from "@/components/rns/profile/ProfileOwnership";
 import { useNameDetails } from "@/hooks/rns/useNameDetails";
+import { useReferralHandler } from "@/hooks/useReferralHandler";
 
 export function PublicRNSProfilePage() {
   const { rnsName } = useParams();
@@ -15,6 +16,10 @@ export function PublicRNSProfilePage() {
   const handleTabChange = (tab: "details" | "ownership" | "more") => {
     setActiveTab(tab);
   };
+
+  const [searchParams] = useSearchParams();
+  const referrerId = searchParams.get("ref");
+  const { handleReferrerClick } = useReferralHandler();
 
   const {
     displayAddress,
@@ -104,6 +109,25 @@ export function PublicRNSProfilePage() {
         />
       )}
       {activeTab === "more" && <MoreDetails name={rnsName} nftId={nftId} resolver={resolver} />}
+
+      <div className="pt-4 text-center">
+        <button
+          onClick={() => {
+            if (referrerId) {
+              handleReferrerClick(Number(referrerId));
+            }
+          }}
+          className="text-sm opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+          style={{
+            border: "none",
+            outline: "none",
+            background: "none",
+            padding: 0,
+          }}
+        >
+          Claim your own Amped.Bio
+        </button>
+      </div>
     </div>
   );
 }
