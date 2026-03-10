@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useLocation } from "react-router";
 import { ParticlesBackground } from "./particles/ParticlesBackground";
 import { cn } from "../utils/cn";
 import {
@@ -17,7 +17,7 @@ import { type BlockType } from "@ampedbio/constants";
 import { Theme, UserProfile } from "@/types/editor";
 import { trpcClient } from "@/utils/trpc";
 import { useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, ExternalLink } from "lucide-react";
 import { setCookie } from "@/utils/cookies";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
 
@@ -43,11 +43,13 @@ interface PreviewProps {
   userId?: number;
 }
 
-export function Preview({ profile, blocks, theme, userId }: PreviewProps) {
+export function Preview({ isEditing, handle, profile, blocks, theme, userId }: PreviewProps) {
   const [copied, setCopied] = useState(false);
   const themeConfig = theme.config;
   const navigate = useNavigate();
+  const location = useLocation();
   const { handleReferrerClick } = useReferralHandler();
+  const rnsName = new URLSearchParams(location.search).get("rns");
 
   const showRns = import.meta.env.VITE_SHOW_RNS === "true";
 
@@ -64,14 +66,13 @@ export function Preview({ profile, blocks, theme, userId }: PreviewProps) {
   };
 
   const handleRevoNameRedirection = (revoName: string) => {
-    const pathname = location.pathname.includes("/edit")
-      ? location.pathname
-      : `${location.pathname.replace(/\/$/, "")}/edit`;
-
-    const searchParams = new URLSearchParams(location.search);
-    searchParams.set("p", "rns");
-    searchParams.set("t", `profile:${encodeURIComponent(revoName)}:details`);
-    navigate(`${pathname}?${searchParams.toString()}`, { replace: true });
+    if (isEditing) {
+      console.warn("Redirection blocked in edit mode");
+      return;
+    }
+    // Redirect to the new URL-based RNS route
+    const redirectURL = `/${handle}/rns/${revoName}`;
+    window.open(redirectURL, "_blank", "noopener,noreferrer");
   };
 
   // console.info("blocks preview", blocks);
@@ -198,10 +199,11 @@ export function Preview({ profile, blocks, theme, userId }: PreviewProps) {
                           )}
                         </button>
                         <span
-                          className="font-medium cursor-pointer"
+                          className="font-medium cursor-pointer flex items-center gap-2 hover:underline"
                           onClick={() => handleRevoNameRedirection(profile.revoName!.split(".")[0])}
                         >
                           {profile.revoName}
+                          <ExternalLink className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </span>
                       </div>
                     )}
