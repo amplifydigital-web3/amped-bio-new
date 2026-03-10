@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { HelpCircle, Send, FastForward, RefreshCcw, Copy, Info, Loader } from "lucide-react";
+import { HelpCircle, Send, FastForward, RefreshCcw, Copy, Loader } from "lucide-react";
 import TransferNameModal from "@/components/rns/modal/TransferNameModal";
 import ExtendRegistrationModal from "@/components/rns/modal/ExtendRegistrationModal";
 import { formatDateTime, scannerURL } from "@/utils/rns";
@@ -14,8 +14,10 @@ interface OwnershipDetailsProps {
   transactionHash: `0x${string}`;
   dates: NameDates;
   isCurrentOwner: boolean;
-  isNameDetailsLoading: boolean;
-  refetchNameDetails: () => void;
+  allowWalletActions?: boolean;
+  datesLoading?: boolean;
+  refetchOwnership?: () => Promise<void>;
+  refetchDates?: () => Promise<void>;
 }
 
 const OwnershipDetail = ({
@@ -25,16 +27,21 @@ const OwnershipDetail = ({
   transactionHash,
   dates,
   isCurrentOwner,
-  isNameDetailsLoading,
-  refetchNameDetails,
+  allowWalletActions = true,
+  datesLoading = false,
+  refetchOwnership,
+  refetchDates,
 }: OwnershipDetailsProps) => {
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isExtRegModalOpen, setIsExtRegModalOpen] = useState(false);
+  const canRefresh = allowWalletActions && (Boolean(refetchDates) || Boolean(refetchOwnership));
 
   const { overallStatus, steps, transferOwnership, isConnected } = useTransferOwnership();
 
-  const handleRefetch = async () => {
-    refetchNameDetails();
+  const handleRefresh = async () => {
+    if (!canRefresh) return;
+
+    await Promise.allSettled([refetchOwnership?.(), refetchDates?.()]);
   };
 
   return (
@@ -91,7 +98,7 @@ const OwnershipDetail = ({
           </div>
 
           <div className="flex flex-col sm:flex-row sm:justify-end gap-3 mt-6">
-            {isCurrentOwner && (
+            {allowWalletActions && isCurrentOwner && (
               <button
                 disabled={overallStatus === "pending"}
                 className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-50 text-blue-500 hover:bg-blue-100 w-full sm:w-auto min-w-10 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -117,9 +124,27 @@ const OwnershipDetail = ({
       {/* Dates Section */}
       <div className="bg-white rounded-xl shadow-sm border mt-4 border-[#e2e3e3] relative">
         <div className="p-5 sm:p-6 space-y-4">
-          <div className="absolute right-5 cursor-pointer" onClick={handleRefetch}>
-            <RefreshCcw className={`w-4 h-4 mr-2 ${isNameDetailsLoading ? "animate-spin" : ""}`} />
-          </div>
+          {/* Refresh Button with Scoped Loading */}
+          {canRefresh && (
+            <button
+              type="button"
+              className="absolute right-5 top-5 cursor-pointer hover:opacity-70 transition-opacity"
+              onClick={handleRefresh}
+              title="Refresh details"
+            >
+              <RefreshCcw className={`w-4 h-4 ${datesLoading ? "animate-spin" : ""}`} />
+            </button>
+          )}
+
+          {/* Loading Overlay for Scoped Dates Refresh */}
+          {canRefresh && datesLoading && (
+            <div className="absolute inset-0 bg-white/40 rounded-xl flex items-center justify-center z-10">
+              <div className="flex flex-col items-center gap-2">
+                <div className="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full" />
+                <span className="text-xs text-gray-600">Updating...</span>
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 md:pb-2 md:border-b-2 md:border-gray-100">
             <div className="md:border-r-2 md:border-gray-100 md:p-2 ">
               <h3 className="text-base font-bold mb-1">Name expires</h3>
@@ -161,7 +186,7 @@ const OwnershipDetail = ({
           </div>
 
           <div className="flex flex-col sm:flex-row sm:justify-end gap-3 mt-6 pb-6">
-            {isCurrentOwner && (
+            {allowWalletActions && isCurrentOwner && (
               <button
                 className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 text-sm"
                 onClick={() => setIsExtRegModalOpen(true)}
@@ -189,6 +214,9 @@ const OwnershipDetail = ({
           overallStatus={overallStatus}
           steps={steps}
           transferOwnership={transferOwnership}
+          onSuccess={async () => {
+            await refetchOwnership?.();
+          }}
         />
       )}
 
@@ -198,10 +226,7 @@ const OwnershipDetail = ({
           onClose={() => {
             setIsExtRegModalOpen(false);
           }}
-          onSuccess={async () => {
-            setIsExtRegModalOpen(false);
-            handleRefetch();
-          }}
+          onSuccess={refetchDates || (() => {})}
           ensName={name}
           currentExpiryDate={dates.expiry.timestamp}
         />

@@ -11,10 +11,14 @@ import { useNameDetails } from "@/hooks/rns/useNameDetails";
 
 interface ProfilePageProps {
   name: string;
-  activeTab?: "details" | "ownership" | "more";
 }
 
-export default function ProfilePage({ name, activeTab = "details" }: ProfilePageProps) {
+export default function ProfilePage({ name }: ProfilePageProps) {
+  const [activeTab, setActiveTab] = useState<"details" | "ownership" | "more">("details");
+
+  const handleTabChange = (tab: "details" | "ownership" | "more") => {
+    setActiveTab(tab);
+  };
   const {
     displayAddress,
     ownerAddress,
@@ -23,8 +27,10 @@ export default function ProfilePage({ name, activeTab = "details" }: ProfilePage
     isCurrentOwner,
     nftId,
     resolver,
-    refetchNameDetails,
+    refetchOwnership,
+    refetchDates,
     isLoading,
+    datesLoading,
     isNameAvailable,
   } = useNameDetails(name);
   const { address: connectedWallet } = useAccount();
@@ -80,12 +86,7 @@ export default function ProfilePage({ name, activeTab = "details" }: ProfilePage
       </div>
 
       <div className="flex flex-col-reverse sm:flex-row sm:justify-between px-5 gap-1">
-        <ProfileNav
-          name={name}
-          activeTab={activeTab}
-          connectedWallet={connectedWallet}
-          addressFull={ownerAddress}
-        />
+        <ProfileNav name={name} activeTab={activeTab} onTabChange={handleTabChange} />
 
         {ownerAddress && (
           <a
@@ -107,6 +108,7 @@ export default function ProfilePage({ name, activeTab = "details" }: ProfilePage
           addressFormatted={displayAddress}
           expiry={dates.expiry.date}
           registrant={ownerAddress}
+          onTabChange={handleTabChange}
         />
       )}
       {activeTab === "ownership" && (
@@ -117,8 +119,9 @@ export default function ProfilePage({ name, activeTab = "details" }: ProfilePage
           ownerAddress={ownerAddress}
           transactionHash={transactionHash}
           isCurrentOwner={isCurrentOwner}
-          isNameDetailsLoading={isLoading}
-          refetchNameDetails={refetchNameDetails}
+          datesLoading={datesLoading}
+          refetchOwnership={refetchOwnership}
+          refetchDates={refetchDates}
         />
       )}
       {activeTab === "more" && <MoreDetails name={name} nftId={nftId} resolver={resolver} />}

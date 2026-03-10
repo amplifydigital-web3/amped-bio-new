@@ -18,11 +18,7 @@ export function RNSPanel() {
       case "my-names":
         return <MyNamesPage />;
       case "profile":
-        return <ProfilePage name={currentView.name} activeTab="details" />;
-      case "profile-ownership":
-        return <ProfilePage name={currentView.name} activeTab="ownership" />;
-      case "profile-more":
-        return <ProfilePage name={currentView.name} activeTab="more" />;
+        return <ProfilePage name={currentView.name} />;
       case "address":
         return <AddressPage address={currentView.address} />;
       case "success":

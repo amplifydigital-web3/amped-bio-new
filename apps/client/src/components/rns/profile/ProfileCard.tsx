@@ -1,5 +1,4 @@
 import { trimmedDomainName } from "@/utils/rns";
-import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
 import { Copy } from "lucide-react";
 
 interface ProfileCardProps {
@@ -8,6 +7,7 @@ interface ProfileCardProps {
   addressFormatted: string;
   expiry: string;
   registrant?: string;
+  onTabChange?: (tab: "details" | "ownership" | "more") => void;
 }
 
 const TagBox = ({ label, value }: { label: string; value: string }) => (
@@ -17,9 +17,13 @@ const TagBox = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
-export const ProfileCard = ({ name, addressFull, addressFormatted, expiry }: ProfileCardProps) => {
-  const { navigateToProfileOwnership } = useRNSNavigation();
-
+export const ProfileCard = ({
+  name,
+  addressFull,
+  addressFormatted,
+  expiry,
+  onTabChange,
+}: ProfileCardProps) => {
   return (
     <main className="w-full max-w-4xl mx-auto sm:px-6 lg:px-8">
       {/* Profile Header Card */}
@@ -68,7 +72,7 @@ export const ProfileCard = ({ name, addressFull, addressFormatted, expiry }: Pro
           <h2 className="font-bold text-gray-400">Ownership</h2>
           <span className="text-blue-500 mx-2">→</span>
           <button
-            onClick={() => navigateToProfileOwnership(name)}
+            onClick={() => onTabChange?.("ownership")}
             className="text-blue-500 hover:text-blue-600 flex items-center gap-1 font-medium text-sm"
           >
             View

@@ -1,10 +1,14 @@
 import { useReadContract, useAccount } from "wagmi";
 import { keccak256, toBytes } from "viem";
 import { formatDateTime } from "@/utils/rns";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { RegistrationData } from "@/types/rns/registration";
 import { useSubgraphClient } from "@/services/subgraph/subgraphClient";
-import { fetchRegistrationData } from "@/services/subgraph/queries";
+import {
+  fetchRegistrationData,
+  fetchOwnershipDetails,
+  fetchDateDetails,
+} from "@/services/subgraph/queries";
 import { getChainConfig, REGISTRAR_CONTROLLER_ABI } from "@ampedbio/web3";
 
 export function useNameDetails(name: string) {
@@ -16,6 +20,10 @@ export function useNameDetails(name: string) {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // Scoped loading states for granular UI feedback
+  const [ownershipLoading, setOwnershipLoading] = useState(false);
+  const [datesLoading, setDatesLoading] = useState(false);
 
   useEffect(() => {
     const getNameDetails = async () => {
@@ -49,11 +57,9 @@ export function useNameDetails(name: string) {
     args: [name],
     query: {
       enabled: Boolean(name && networkConfig?.contracts.REGISTRAR_CONTROLLER.address),
-      staleTime: Infinity,
-      gcTime: Infinity,
-
-      // no automatic refetch
-      refetchOnMount: false,
+      staleTime: 30_000, // 30s — re-validate availability regularly so expired names aren't stale
+      gcTime: 5 * 60_000, // 5 min
+      refetchOnMount: true,
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
     },
@@ -63,9 +69,88 @@ export function useNameDetails(name: string) {
     return BigInt(keccak256(toBytes(name)));
   }, [name]);
 
-  const refetchNameDetails = () => {
+  // Internal fetch function - ownership only (optimized)
+  const fetchOwnershipData = useCallback(async () => {
+    try {
+      const labelHash = keccak256(toBytes(name));
+      const response = await fetchOwnershipDetails(labelHash, subgraphClient);
+
+      if (response.data?.revoNames) {
+        // Merge ownership data with existing names
+        setNames(prev => {
+          if (!prev?.revoNames || !response.data?.revoNames) return prev;
+
+          const mergedRevoName = {
+            ...prev.revoNames[0],
+            ...response.data.revoNames[0],
+            name: prev.revoNames[0].name,
+          };
+
+          return {
+            ...prev,
+            revoNames: [mergedRevoName],
+          } as unknown as RegistrationData;
+        });
+      }
+      setError(response.error);
+    } catch {
+      setError("Error While Fetching Ownership Data");
+    }
+  }, [name, subgraphClient]);
+
+  // Internal fetch function - dates only (optimized)
+  const fetchDatesData = useCallback(async () => {
+    try {
+      const labelHash = keccak256(toBytes(name));
+      const response = await fetchDateDetails(labelHash, subgraphClient);
+
+      if (response.data && (response.data.revoNames || response.data.registration)) {
+        // Merge dates data with existing names
+        setNames(prev => {
+          if (!prev) return prev;
+
+          const updatedRevoNames =
+            prev.revoNames && response.data?.revoNames
+              ? [{ ...prev.revoNames[0], ...response.data.revoNames[0] }]
+              : prev.revoNames;
+
+          return {
+            ...prev,
+            revoNames: updatedRevoNames,
+            registration: response.data?.registration ?? prev.registration,
+          } as unknown as RegistrationData;
+        });
+      }
+      setError(response.error);
+    } catch {
+      setError("Error While Fetching Date Data");
+    }
+  }, [name, subgraphClient]);
+
+  // Full refetch - updates all data
+  const refetchNameDetails = useCallback(() => {
     setRefreshKey(prev => prev + 1);
-  };
+  }, []);
+
+  // Scoped refresh for ownership data (after transfer)
+  const refetchOwnership = useCallback(async () => {
+    setOwnershipLoading(true);
+    try {
+      await fetchOwnershipData();
+    } finally {
+      setOwnershipLoading(false);
+    }
+  }, [fetchOwnershipData]);
+
+  // Scoped refresh for dates data (after renewal/extend)
+  const refetchDates = useCallback(async () => {
+    setDatesLoading(true);
+    try {
+      await fetchDatesData();
+    } finally {
+      setDatesLoading(false);
+    }
+  }, [fetchDatesData]);
 
   return {
     name,
@@ -85,12 +170,16 @@ export function useNameDetails(name: string) {
     },
     error,
 
-    // 🔁 explicit controls
-    refetchNameDetails,
+    // 🔁 Refresh controls
+    refetchNameDetails, // Full refresh
+    refetchOwnership, // Scoped: ownership data (after transfer)
+    refetchDates, // Scoped: dates data (after renewal)
     refetchAvailability,
 
-    // loading states
-    isLoading: isLoading || isAvailableLoading,
+    // Loading states
+    isLoading: isLoading || isAvailableLoading, // Full page loading
+    ownershipLoading, // Ownership section only
+    datesLoading, // Dates section only
 
     // raw availability (optional exposure)
     isNameAvailable: isFetched ? isAvailable : undefined,

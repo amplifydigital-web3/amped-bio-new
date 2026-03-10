@@ -1,44 +1,22 @@
-import { Button } from "@/components/ui/Button";
-import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
-
 interface ProfileNavProps {
   name: string;
   activeTab?: "details" | "ownership" | "more";
-  connectedWallet?: string;
-  addressFull?: string;
+  onTabChange: (tab: "details" | "ownership" | "more") => void;
 }
 
-export const ProfileNav = ({
-  name,
-  activeTab = "details",
-}: ProfileNavProps) => {
-  const { navigateToProfile, navigateToProfileOwnership, navigateToProfileMore } =
-    useRNSNavigation();
-
+export const ProfileNav = ({ activeTab = "details", onTabChange }: ProfileNavProps) => {
   const navItems = [
     {
       label: "Profile",
       tab: "details" as const,
-      onClick: () => {
-        console.log("Navigating to Profile tab for", name);
-        navigateToProfile(name);
-      },
     },
     {
       label: "Ownership",
       tab: "ownership" as const,
-      onClick: () => {
-        console.log("Navigating to Ownership tab for", name);
-        navigateToProfileOwnership(name);
-      },
     },
     {
       label: "More",
       tab: "more" as const,
-      onClick: () => {
-        console.log("Navigating to More tab for", name);
-        navigateToProfileMore(name);
-      },
     },
   ];
 
@@ -51,7 +29,7 @@ export const ProfileNav = ({
           return (
             <button
               key={item.label}
-              onClick={item.onClick}
+              onClick={() => onTabChange(item.tab)}
               className={`py-2 px-2 sm:px-2 text-lg font-bold whitespace-nowrap ${isActive ? "text-blue-500" : "text-gray-400 border-transparent hover:text-gray-600 hover:border-gray-300"}`}
             >
               {item.label}

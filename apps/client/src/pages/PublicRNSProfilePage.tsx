@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useParams } from "react-router";
 import { domainName, scannerURL, trimmedDomainName } from "@/utils/rns";
 import { Copy, ExternalLink } from "lucide-react";
-import { useAccount } from "wagmi";
 import { ProfileCard } from "@/components/rns/profile/ProfileCard";
 import { ProfileNav } from "@/components/rns/profile/ProfileNav";
 import MoreDetails from "@/components/rns/profile/MoreDetail";
@@ -30,7 +29,6 @@ export function PublicRNSProfilePage() {
     refetchOwnership,
     datesLoading,
   } = useNameDetails(rnsName || "");
-  const { address: connectedWallet } = useAccount();
 
   if (!rnsName) {
     return (
@@ -66,13 +64,7 @@ export function PublicRNSProfilePage() {
       </div>
 
       <div className="flex flex-col-reverse sm:flex-row sm:justify-between px-5 gap-1">
-        <ProfileNav
-          name={rnsName}
-          activeTab={activeTab}
-          connectedWallet={connectedWallet}
-          addressFull={ownerAddress}
-          onTabChange={handleTabChange}
-        />
+        <ProfileNav name={rnsName} activeTab={activeTab} onTabChange={handleTabChange} />
 
         {ownerAddress && (
           <a

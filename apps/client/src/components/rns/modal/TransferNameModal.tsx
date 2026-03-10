@@ -18,7 +18,8 @@ interface TransferNameModalProps {
   isConnected: boolean;
   overallStatus: TxStatus;
   steps: Record<TxStep, StepState>;
-  transferOwnership;
+  transferOwnership: (name: string, receiverAddress: `0x${string}`) => Promise<unknown>;
+  onSuccess?: () => Promise<void> | void;
 }
 
 type ModalStep = "search" | "form" | "warning" | "confirm" | "final";
@@ -30,6 +31,7 @@ const TransferNameModal: React.FC<TransferNameModalProps> = ({
   overallStatus,
   steps,
   transferOwnership,
+  onSuccess,
 }) => {
   const [step, setStep] = useState<ModalStep>("search");
   const [recipient, setRecipient] = useState("");
@@ -45,8 +47,10 @@ const TransferNameModal: React.FC<TransferNameModalProps> = ({
     if (step === "confirm" && overallStatus === "success") {
       setStep("final");
       toast.success("Name Successfully Transferred.");
+      // Refetch ownership data after successful transfer
+      onSuccess?.();
     }
-  }, [overallStatus, step]);
+  }, [overallStatus, step, onSuccess]);
 
   const handleContinue = () => {
     if (!selectedAddress) return;

@@ -17,7 +17,7 @@ import {
 interface ExtendRegistrationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: () => Promise<void> | void;
   ensName: string;
   currentExpiryDate: number;
 }
@@ -92,6 +92,7 @@ const ExtendRegistrationModal = ({
   };
 
   const handleRenewal = async () => {
+    if (isProcessing) return;
     try {
       setIsProcessing(true);
       const transactionHash = await renew();
@@ -100,7 +101,8 @@ const ExtendRegistrationModal = ({
 
       if (receipt?.status === "success") {
         toast.success("Registration extended successfully");
-        onSuccess();
+        // Await onSuccess if it's async
+        await Promise.resolve(onSuccess());
       }
 
       onClose();
