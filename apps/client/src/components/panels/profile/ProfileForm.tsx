@@ -43,54 +43,56 @@ export function ProfileForm({
         onChange={e => onUpdate("name", e.target.value)}
         placeholder="Enter your name"
       />
-      <div className="space-y-2">
-        <h3 className="text-sm font-medium text-foreground">Revolution Name</h3>
-        <p className="text-sm text-muted-foreground">Select your Revolution Name</p>
-        <Select
-          value={profile.revoName ?? "none"}
-          onValueChange={value => onUpdate("revoName", value === "none" ? "" : value)}
-          disabled={isRevoNameFetching}
-          defaultValue={profile.revoName ?? "none"}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder={isRevoNameFetching ? "Loading names..." : "None"} />
-          </SelectTrigger>
+      {import.meta.env.VITE_SHOW_RNS === "true" && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium text-foreground">Revolution Name</h3>
+          <p className="text-sm text-muted-foreground">Select your Revolution Name</p>
+          <Select
+            value={profile.revoName ?? "none"}
+            onValueChange={value => onUpdate("revoName", value === "none" ? "" : value)}
+            disabled={isRevoNameFetching}
+            defaultValue={profile.revoName ?? "none"}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder={isRevoNameFetching ? "Loading names..." : "None"} />
+            </SelectTrigger>
 
-          <SelectContent className="max-h-60">
-            <SelectItem value="none" className="cursor-pointer">
-              None
-            </SelectItem>
-            {profile.revoName && !revoNames?.some(n => n.name === profile.revoName) && (
-              <SelectItem value={profile.revoName}>{profile.revoName}</SelectItem>
-            )}
+            <SelectContent className="max-h-60">
+              <SelectItem value="none" className="cursor-pointer">
+                None
+              </SelectItem>
+              {profile.revoName && !revoNames?.some(n => n.name === profile.revoName) && (
+                <SelectItem value={profile.revoName}>{profile.revoName}</SelectItem>
+              )}
 
-            {revoNames &&
-              revoNames.length > 0 &&
-              !isRevoNameFetching &&
-              revoNames.map(name => (
-                <SelectItem
-                  key={name.name}
-                  value={name.name}
-                  disabled={isRevoNameExpired(name.expiryDateWithGrace)}
-                  className="cursor-pointer data-[disabled]:cursor-not-allowed"
-                >
-                  <span>{name.name}</span>
-                  {isRevoNameExpired(name.expiryDateWithGrace) && (
-                    <Badge variant="secondary" className="mx-2">
-                      Expired
-                    </Badge>
-                  )}
-                </SelectItem>
-              ))}
-          </SelectContent>
-        </Select>
-        <Link
-          to={`?p=rns`}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-[#6366f1] hover:underline"
-        >
-          Manage names → RNS
-        </Link>
-      </div>
+              {revoNames &&
+                revoNames.length > 0 &&
+                !isRevoNameFetching &&
+                revoNames.map(name => (
+                  <SelectItem
+                    key={name.name}
+                    value={name.name}
+                    disabled={isRevoNameExpired(name.expiryDateWithGrace)}
+                    className="cursor-pointer data-[disabled]:cursor-not-allowed"
+                  >
+                    <span>{name.name}</span>
+                    {isRevoNameExpired(name.expiryDateWithGrace) && (
+                      <Badge variant="secondary" className="mx-2">
+                        Expired
+                      </Badge>
+                    )}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+          <Link
+            to={`?p=rns`}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-[#6366f1] hover:underline"
+          >
+            Manage names → RNS
+          </Link>
+        </div>
+      )}
 
       {/* <Input
         label="Title"

@@ -113,7 +113,7 @@ export function Layout({ handle, bannerData, bannerLoading }: LayoutProps) {
                 <Eye className="w-3 h-3 md:w-4 md:h-4" />
                 <span className="text-xs md:text-sm font-medium">View Page</span>
               </Link>
-              {activePanel === "rns" && <RNSHeader />}
+              {activePanel === "rns" && import.meta.env.VITE_SHOW_RNS === "true" && <RNSHeader />}
             </div>
 
             <div className="flex items-center justify-end flex-shrink-0 ml-2">
@@ -122,7 +122,7 @@ export function Layout({ handle, bannerData, bannerLoading }: LayoutProps) {
             </div>
           </div>
 
-          {activePanel === "rns" && (
+          {activePanel === "rns" && import.meta.env.VITE_SHOW_RNS === "true" && (
             <div className="sm:hidden h-10 bg-slate-100 px-6 flex items-center justify-center w-full">
               <RNSHeader mobile />
             </div>
@@ -147,7 +147,7 @@ export function Layout({ handle, bannerData, bannerLoading }: LayoutProps) {
               {/* {activePanel === "rewardPools" && <RewardsPage />} */}
               {activePanel === "createRewardPool" && <CreatorPoolPanel />}
               {activePanel === "leaderboard" && <LeaderboardPanel />}
-              {activePanel === "rns" && <RNSPanel />}
+              {activePanel === "rns" && import.meta.env.VITE_SHOW_RNS === "true" && <RNSPanel />}
             </div>
 
             {/* Preview Container - Only shown for two-column layouts */}
