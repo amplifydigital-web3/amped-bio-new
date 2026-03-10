@@ -156,11 +156,6 @@ export default function PayPanel() {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
-  const formatHash = (hash: string) => {
-    if (!hash) return "";
-    return `${hash.substring(0, 6)}...${hash.substring(hash.length - 4)}`;
-  };
-
   const timeAgo = (timestamp: string) => {
     const date = new Date(timestamp);
     const now = new Date();
@@ -188,7 +183,92 @@ export default function PayPanel() {
     }
   };
 
+  const rnsState = useMemo(() => {
+    if (!debouncedRnsName) return null;
+
+    if (isResolvingRns) {
+      return {
+        type: "loading",
+        icon: <Loader className="w-6 h-6 text-blue-600 animate-spin" />,
+        label: "Resolving...",
+        textColor: "text-blue-700",
+        badge: "bg-blue-100 text-blue-700",
+      };
+    }
+
+    if (showRnsResult && resolvedRnsAddress === zeroAddress) {
+      return {
+        type: "error",
+        icon: <AlertCircle className="w-6 h-6 text-red-600" />,
+        label: "Not found",
+        textColor: "text-red-700",
+        badge: "bg-red-100 text-red-700",
+        message: "Invalid Revoname",
+      };
+    }
+
+    if (showRnsResult && resolvedRnsAddress && resolvedRnsAddress !== zeroAddress) {
+      return {
+        type: "success",
+        icon: <CheckCircle className="w-6 h-6 text-green-600" />,
+        label: "Resolved",
+        textColor: "text-green-700",
+        badge: "bg-green-100 text-green-700",
+      };
+    }
+
+    return null;
+  }, [debouncedRnsName, isResolvingRns, showRnsResult, resolvedRnsAddress]);
+
   const renderPeopleTab = () => {
+    if (rnsState) {
+      return (
+        <div className="flex items-center justify-between rounded-xl hover:bg-gray-50 transition-colors">
+          <div className="flex items-center space-x-2">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center">
+              {rnsState.icon}
+            </div>
+
+            <div className="flex-1">
+              <div
+                className={`flex items-center space-x-2 text-sm font-semibold ${rnsState.textColor}`}
+              >
+                <span>{debouncedRnsName}</span>
+
+                <span className={`hidden sm:block text-xs rounded px-2 py-0.5 ${rnsState.badge}`}>
+                  {rnsState.label}
+                </span>
+              </div>
+
+              {rnsState.type === "error" && (
+                <div className="text-sm text-red-900 mt-1">{rnsState.message}</div>
+              )}
+
+              {rnsState.type === "success" && resolvedRnsAddress && (
+                <div className="text-sm text-green-900 font-mono mt-1">
+                  {resolvedRnsAddress.slice(0, 8)}...{resolvedRnsAddress.slice(-6)}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {rnsState.type === "success" && resolvedRnsAddress && (
+            <button
+              onClick={() => {
+                payDialog.openPayDialog(resolvedRnsAddress);
+                setSearchQuery("");
+                setShowRnsResult(false);
+              }}
+              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-full flex items-center space-x-2"
+            >
+              <Send className="w-4 h-4" />
+              <span>Pay</span>
+            </button>
+          )}
+        </div>
+      );
+    }
+
     if (isLoading) {
       return <div className="text-center text-gray-500 py-8">Searching for users...</div>;
     }
@@ -353,46 +433,6 @@ export default function PayPanel() {
           className="w-full pl-12 pr-4 py-4 bg-gray-50 border-0 rounded-xl text-lg focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
         />
       </div>
-      {/* RNS Resolution Feedback */}
-      {isResolvingRns && (
-        <div className="flex items-center gap-2 text-blue-500 mb-2">
-          <AlertCircle className="w-4 h-4 animate-spin" />
-          <span className="text-base sm:text-lg">Resolving name...</span>
-        </div>
-      )}
-      {showRnsResult && resolvedRnsAddress && resolvedRnsAddress === zeroAddress && (
-        <div className="flex items-center gap-2 text-red-600 mb-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-          <AlertCircle className="w-4 h-4" />
-          <span className="text-base sm:text-lg">Revoname is not linked to any address</span>
-        </div>
-      )}
-      {showRnsResult && resolvedRnsAddress && resolvedRnsAddress !== zeroAddress && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-2">
-          <div className="flex gap-2 items-center">
-            <CheckCircle className="w-5 h-5 text-green-600" />
-            <span className="text-green-800 font-semibold text-sm sm:text-base">Address</span>
-            <span className="font-mono text-xs sm:text-base break-all text-green-900 select-all">
-              {resolvedRnsAddress}
-            </span>
-          </div>
-          <button
-            className="ml-0 sm:ml-2 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs sm:text-sm whitespace-nowrap"
-            onClick={() => {
-              payDialog.openPayDialog(resolvedRnsAddress);
-              setSearchQuery("");
-              setShowRnsResult(false);
-            }}
-          >
-            Pay
-          </button>
-        </div>
-      )}
-      {showRnsResult && !resolvedRnsAddress && rnsError && (
-        <div className="flex items-center gap-2 text-red-600 mb-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-          <AlertCircle className="w-4 h-4" />
-          <span className="text-base sm:text-lg">Name not found</span>
-        </div>
-      )}
 
       {/* Tabs */}
       <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
