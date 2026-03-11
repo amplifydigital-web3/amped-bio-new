@@ -103,9 +103,6 @@ export function PublicRNSProfilePage() {
           transactionHash={transactionHash}
           isCurrentOwner={isCurrentOwner}
           allowWalletActions={false}
-          datesLoading={datesLoading}
-          refetchDates={refetchDates}
-          refetchOwnership={refetchOwnership}
         />
       )}
       {activeTab === "more" && <MoreDetails name={rnsName} nftId={nftId} resolver={resolver} />}
