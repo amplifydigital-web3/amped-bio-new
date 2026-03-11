@@ -17,7 +17,7 @@ import {
 interface ExtendRegistrationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => Promise<void> | void;
+  onSuccess: (addedDurationSeconds: bigint) => Promise<void> | void;
   ensName: string;
   currentExpiryDate: number;
 }
@@ -101,8 +101,8 @@ const ExtendRegistrationModal = ({
 
       if (receipt?.status === "success") {
         toast.success("Registration extended successfully");
-        // Await onSuccess if it's async
-        await Promise.resolve(onSuccess());
+        // Optimistically update expiry with the added duration
+        await Promise.resolve(onSuccess(duration));
       }
 
       onClose();

@@ -152,6 +152,41 @@ export function useNameDetails(name: string) {
     }
   }, [fetchDatesData]);
 
+  // Optimistic update: immediately set the new owner after a confirmed transfer
+  const optimisticSetOwner = useCallback((newOwner: `0x${string}`) => {
+    setNames(prev => {
+      if (!prev?.revoNames?.[0]) return prev;
+      return {
+        ...prev,
+        revoNames: [{ ...prev.revoNames[0], owner: newOwner }],
+      } as unknown as RegistrationData;
+    });
+  }, []);
+
+  // Optimistic update: immediately set the new expiry after a confirmed extension
+  const optimisticExtendExpiry = useCallback((addedDurationSeconds: bigint) => {
+    setNames(prev => {
+      if (!prev) return prev;
+
+      const currentExpiry = BigInt(prev.registration?.expiryDate ?? 0);
+      const newExpiry = currentExpiry + addedDurationSeconds;
+
+      const currentGrace = BigInt(prev.revoNames?.[0]?.expiryDateWithGrace ?? 0);
+      const newGrace = currentGrace + addedDurationSeconds;
+
+      return {
+        ...prev,
+        registration: {
+          ...prev.registration,
+          expiryDate: String(newExpiry),
+        },
+        revoNames: prev.revoNames
+          ? [{ ...prev.revoNames[0], expiryDateWithGrace: String(newGrace) }]
+          : prev.revoNames,
+      } as unknown as RegistrationData;
+    });
+  }, []);
+
   return {
     name,
     ownerAddress: nameOwnerAddress as `0x${string}`,
@@ -175,6 +210,10 @@ export function useNameDetails(name: string) {
     refetchOwnership, // Scoped: ownership data (after transfer)
     refetchDates, // Scoped: dates data (after renewal)
     refetchAvailability,
+
+    // ✅ Optimistic updates (instant UI after confirmed tx)
+    optimisticSetOwner,
+    optimisticExtendExpiry,
 
     // Loading states
     isLoading: isLoading || isAvailableLoading, // Full page loading

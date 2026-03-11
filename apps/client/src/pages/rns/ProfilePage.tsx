@@ -32,6 +32,8 @@ export default function ProfilePage({ name }: ProfilePageProps) {
     isLoading,
     datesLoading,
     isNameAvailable,
+    optimisticSetOwner,
+    optimisticExtendExpiry,
   } = useNameDetails(name);
   const { address: connectedWallet } = useAccount();
   const { navigateToHome, navigateToRegister } = useRNSNavigation();
@@ -122,6 +124,8 @@ export default function ProfilePage({ name }: ProfilePageProps) {
           datesLoading={datesLoading}
           refetchOwnership={refetchOwnership}
           refetchDates={refetchDates}
+          optimisticSetOwner={optimisticSetOwner}
+          optimisticExtendExpiry={optimisticExtendExpiry}
         />
       )}
       {activeTab === "more" && <MoreDetails name={name} nftId={nftId} resolver={resolver} />}

@@ -18,6 +18,8 @@ interface OwnershipDetailsProps {
   datesLoading?: boolean;
   refetchOwnership?: () => Promise<void>;
   refetchDates?: () => Promise<void>;
+  optimisticSetOwner?: (newOwner: `0x${string}`) => void;
+  optimisticExtendExpiry?: (addedDurationSeconds: bigint) => void;
 }
 
 const OwnershipDetail = ({
@@ -31,6 +33,8 @@ const OwnershipDetail = ({
   datesLoading = false,
   refetchOwnership,
   refetchDates,
+  optimisticSetOwner,
+  optimisticExtendExpiry,
 }: OwnershipDetailsProps) => {
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isExtRegModalOpen, setIsExtRegModalOpen] = useState(false);
@@ -214,8 +218,8 @@ const OwnershipDetail = ({
           overallStatus={overallStatus}
           steps={steps}
           transferOwnership={transferOwnership}
-          onSuccess={async () => {
-            await refetchOwnership?.();
+          onSuccess={async (recipientAddress: `0x${string}`) => {
+            optimisticSetOwner?.(recipientAddress);
           }}
         />
       )}
@@ -226,7 +230,9 @@ const OwnershipDetail = ({
           onClose={() => {
             setIsExtRegModalOpen(false);
           }}
-          onSuccess={refetchDates || (() => {})}
+          onSuccess={(addedDurationSeconds: bigint) => {
+            optimisticExtendExpiry?.(addedDurationSeconds);
+          }}
           ensName={name}
           currentExpiryDate={dates.expiry.timestamp}
         />
