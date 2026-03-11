@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useAccount } from "wagmi";
+import { keccak256, toBytes } from "viem";
 
 import { StepState } from "@/hooks/rns/useTransferOwnership";
-import { useNameDetails } from "@/hooks/rns/useNameDetails";
 import SearchStep from "./TransferSteps/SearchStep";
 import FormStep from "./TransferSteps/FormStep";
 import { WarningModal } from "./TransferSteps/WarningModal";
@@ -15,6 +15,8 @@ interface TransferNameModalProps {
   onClose: () => void;
   ensName?: string;
   expiryDate?: string;
+  ownerAddress: `0x${string}`;
+  displayAddress: string;
   isConnected: boolean;
   overallStatus: TxStatus;
   steps: Record<TxStep, StepState>;
@@ -27,6 +29,8 @@ type ModalStep = "search" | "form" | "warning" | "confirm" | "final";
 const TransferNameModal: React.FC<TransferNameModalProps> = ({
   onClose,
   ensName = "",
+  ownerAddress,
+  displayAddress,
   isConnected,
   overallStatus,
   steps,
@@ -41,7 +45,8 @@ const TransferNameModal: React.FC<TransferNameModalProps> = ({
   const { address } = useAccount();
 
   const domain = ensName?.split(".")[0] || "";
-  const { ownerAddress, displayAddress, nftId } = useNameDetails(domain);
+  // Compute nftId directly from domain — no need for a separate useNameDetails call
+  const nftId = useMemo(() => (domain ? BigInt(keccak256(toBytes(domain))) : 0n), [domain]);
 
   useEffect(() => {
     if (step === "confirm" && overallStatus === "success") {

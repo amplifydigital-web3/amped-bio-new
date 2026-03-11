@@ -216,7 +216,7 @@ export function useNameDetails(name: string) {
     optimisticExtendExpiry,
 
     // Loading states
-    isLoading: isLoading || isAvailableLoading, // Full page loading
+    isLoading, // Full page loading — only tracks initial registration data fetch, NOT background availability refetches
     ownershipLoading, // Ownership section only
     datesLoading, // Dates section only
 

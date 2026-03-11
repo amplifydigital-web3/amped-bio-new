@@ -214,6 +214,8 @@ const OwnershipDetail = ({
           }}
           ensName={name}
           expiryDate={dates.expiry.date}
+          ownerAddress={ownerAddress}
+          displayAddress={displayAddress}
           isConnected={isConnected}
           overallStatus={overallStatus}
           steps={steps}
