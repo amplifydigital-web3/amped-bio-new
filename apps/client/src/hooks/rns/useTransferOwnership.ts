@@ -29,7 +29,7 @@ export function useTransferOwnership() {
   const { address, chainId } = useAccount();
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
-  const { profile, setProfile, saveChanges } = useEditor();
+  const { profile, clearRevoName } = useEditor();
 
   const networkConfig = getChainConfig(chainId ?? 0);
 
@@ -106,12 +106,8 @@ export function useTransferOwnership() {
         }
         if (name === profile.revoName?.split(".")[0]) {
           console.log("Updating profile");
-          setProfile({
-            ...profile,
-            revoName: "",
-          });
 
-          saveChanges();
+          await clearRevoName();
         }
         return {
           success: true,

@@ -33,6 +33,7 @@ interface EditorContextType extends EditorState {
   setBackground: (background: Background) => void;
   setBackgroundForUpload: (background: Background) => void;
   saveChanges: () => Promise<void>;
+  clearRevoName: () => Promise<void>;
   setDefault: () => void;
   addToGallery: (image: GalleryImage) => void;
   removeFromGallery: (url: string) => void;
@@ -459,6 +460,27 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [state, authUser, themeChanges]);
 
+  const clearRevoName = useCallback(async () => {
+    const { profile, theme } = state;
+    try {
+      await trpcClient.user.edit.mutate({
+        name: profile.name,
+        description: profile.bio,
+        revo_name: "",
+        image: profile.photoUrl || "",
+        reward_business_id: "",
+        theme: theme.id,
+      });
+      setState(prevState => ({
+        ...prevState,
+        profile: { ...prevState.profile, revoName: "" },
+      }));
+    } catch (error) {
+      console.error("❌ Failed to clear revoName:", error);
+      toast.error("Failed to update profile");
+    }
+  }, [state]);
+
   const setDefault = useCallback(() => {
     console.group("🔄 Resetting to Default");
     setState(initialState);
@@ -556,6 +578,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     setBackground,
     setBackgroundForUpload,
     saveChanges,
+    clearRevoName,
     setDefault,
     addToGallery,
     removeFromGallery,
