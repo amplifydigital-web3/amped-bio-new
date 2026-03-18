@@ -146,7 +146,7 @@ export function View() {
 
           if (onlinkData) {
             const { user, theme, blocks: blocks_raw, hasCreatorPool } = onlinkData;
-            const { id, name, email, description, image } = user;
+            const { id, name, email, description, image, revoName } = user;
             const formattedHandle = formatHandle(normalizedHandle);
 
             setProfile({
@@ -155,6 +155,7 @@ export function View() {
               handle: normalizedHandle,
               handleFormatted: formattedHandle,
               email,
+              revoName: revoName ?? "",
               bio: description ?? "",
               photoUrl: image ?? "",
               photoCmp: "",
@@ -237,6 +238,7 @@ export function View() {
         profile={profile}
         blocks={blocks}
         theme={theme ?? initialState.theme}
+        userId={profile.id}
       />
 
       <div className="fixed bottom-4 right-4 z-50 flex space-x-4">

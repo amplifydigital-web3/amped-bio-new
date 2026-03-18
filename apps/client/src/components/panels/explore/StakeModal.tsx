@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Coins, TrendingUp, AlertCircle, Check } from "lucide-react";
 import { BsTelegram } from "react-icons/bs";
-import { useAccount, useBalance } from "wagmi";
 import { getChainConfig } from "@ampedbio/web3";
 import { useStakingManager } from "@/hooks/useStakingManager";
 import { formatNumberWithSeparators } from "@/utils/numberUtils";
@@ -35,19 +34,13 @@ interface StakeModalProps {
       id: number;
       url: string;
     } | null;
-    currentStake?: number;
+    stakedByYou?: number; // User's personal stake in the pool
+    stakedAmount?: number; // Total amount staked in the pool (all users)
   } | null;
-  mode: "stake" | "add-stake";
   onStakeSuccess?: () => void; // Callback for when stake completes to trigger refresh
 }
 
-export default function StakeModal({
-  isOpen,
-  onClose,
-  pool,
-  mode,
-  onStakeSuccess,
-}: StakeModalProps) {
+export default function StakeModal({ isOpen, onClose, pool, onStakeSuccess }: StakeModalProps) {
   const { isWeb3Wallet, balance } = useWalletContext();
   // Get the chain configuration once to avoid multiple calls
   const chainConfig = pool ? getChainConfig(parseInt(pool.chainId)) : null;
@@ -119,9 +112,7 @@ export default function StakeModal({
   const renderAmountStep = () => (
     <>
       <DialogHeader className="p-6 pb-4 border-b border-gray-200">
-        <DialogTitle className="text-xl font-bold text-gray-900">
-          {mode === "stake" ? "Stake to Pool" : "Add to Stake"}
-        </DialogTitle>
+        <DialogTitle className="text-xl font-bold text-gray-900">Add to Stake</DialogTitle>
       </DialogHeader>
 
       <div className="p-6 space-y-6">
@@ -161,11 +152,23 @@ export default function StakeModal({
           </div>
         </div>
 
+        {/* Currently Staked Display */}
+        {pool.stakedByYou !== undefined && pool.stakedByYou > 0 && (
+          <div className="border border-blue-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <TrendingUp className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-medium text-blue-800">Currently Staked</span>
+              </div>
+              <span className="text-lg font-bold text-blue-900">
+                {formatNumberWithSeparators(pool.stakedByYou)} {currencySymbol}
+              </span>
+            </div>
+          </div>
+        )}
         {/* Amount Input */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Amount to {mode === "stake" ? "Stake" : "Add"}
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Amount to Add</label>
           <div className="relative">
             <input
               type="number"
@@ -358,9 +361,7 @@ export default function StakeModal({
           <h3 className="text-2xl font-bold text-gray-900 mb-1">
             {amount ? formatNumberWithSeparators(amount) : "0"} {currencySymbol}
           </h3>
-          <p className="text-gray-600">
-            {mode === "stake" ? "Initial stake amount" : "Additional stake amount"}
-          </p>
+          <p className="text-gray-600">Additional stake amount</p>
         </div>
 
         {/* Transaction Summary */}
@@ -374,15 +375,11 @@ export default function StakeModal({
             </span>
           </div>
 
-          {pool.currentStake !== undefined && (
+          {pool.stakedByYou !== undefined && (
             <div className="flex justify-between text-sm">
               <span className="text-blue-700">Current Stake:</span>
               <span className="font-medium text-blue-900">
-                {new Decimal(pool.currentStake.toString())
-                  .div(new Decimal(10).pow(18))
-                  .toFixed(4)
-                  .replace(/\.?0+$/, "")}{" "}
-                {currencySymbol}
+                {formatNumberWithSeparators(pool.stakedByYou)} {currencySymbol}
               </span>
             </div>
           )}
@@ -390,11 +387,9 @@ export default function StakeModal({
           <div className="flex justify-between text-sm border-t border-blue-200 pt-1">
             <span className="text-blue-700">New Total Stake:</span>
             <span className="font-bold text-blue-900">
-              {new Decimal(pool.currentStake?.toString() ?? "0")
-                .div(new Decimal(10).pow(18))
-                .plus(amount ? new Decimal(amount) : new Decimal(0))
-                .toFixed(4)
-                .replace(/\.?0+$/, "")}{" "}
+              {formatNumberWithSeparators(
+                (pool.stakedByYou || 0) + (amount ? parseFloat(amount) : 0)
+              )}{" "}
               {currencySymbol}
             </span>
           </div>
@@ -409,6 +404,20 @@ export default function StakeModal({
           </div>
           <div className="text-xs text-gray-500 mt-1">
             Estimated network fee for this transaction
+          </div>
+        </div>
+
+        {/* Important Notice */}
+        <div className="border border-yellow-200 bg-yellow-50 rounded-lg p-3">
+          <div className="flex items-start space-x-2">
+            <AlertCircle className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <h4 className="font-medium text-yellow-800 text-sm">Important Notice</h4>
+              <p className="text-yellow-700 text-xs mt-1">
+                Staking any amount will also automatically claim whatever rewards you are currently
+                owed in this pool.
+              </p>
+            </div>
           </div>
         </div>
 
@@ -484,11 +493,9 @@ export default function StakeModal({
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-green-700">Your Total Stake</span>
             <span className="text-lg font-bold text-green-900">
-              {new Decimal(pool.currentStake?.toString() ?? "0")
-                .div(new Decimal(10).pow(18))
-                .plus(amount ? new Decimal(amount) : new Decimal(0))
-                .toFixed(4)
-                .replace(/\.?0+$/, "")}{" "}
+              {formatNumberWithSeparators(
+                (pool.stakedByYou || 0) + (amount ? parseFloat(amount) : 0)
+              )}{" "}
               {currencySymbol}
             </span>
           </div>

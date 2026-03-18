@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { ParticlesBackground } from "./particles/ParticlesBackground";
 import { cn } from "../utils/cn";
 import {
@@ -11,11 +11,15 @@ import { getPlatformIcon } from "../utils/platforms";
 import { MediaBlock } from "./blocks/MediaBlock";
 import { TextBlock } from "./blocks/text/TextBlock";
 import { CreatorPoolBlock } from "./blocks/CreatorPoolBlock";
+import { ReferralBlock } from "./blocks/ReferralBlock";
 import { isHTML } from "@/utils/htmlutils";
 import { type BlockType } from "@ampedbio/constants";
 import { Theme, UserProfile } from "@/types/editor";
 import { trpcClient } from "@/utils/trpc";
+import { useState } from "react";
+import { Check, Copy } from "lucide-react";
 import { setCookie } from "@/utils/cookies";
+import { useReferralHandler } from "@/hooks/useReferralHandler";
 
 // Helper function to extract the root domain from a URL
 const extractRootDomain = (url: string): string => {
@@ -36,15 +40,36 @@ interface PreviewProps {
   profile: UserProfile;
   blocks: BlockType[];
   theme: Theme;
+  userId?: number;
 }
 
-export function Preview({ profile, blocks, theme }: PreviewProps) {
+export function Preview({ profile, blocks, theme, userId }: PreviewProps) {
+  const [copied, setCopied] = useState(false);
   const themeConfig = theme.config;
+  const navigate = useNavigate();
+  const { handleReferrerClick } = useReferralHandler();
 
   const handleLinkClick = (block: BlockType) => {
     if (block.type === "link") {
       trpcClient.blocks.registerClick.mutate({ id: block.id });
     }
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(profile.revoName ?? "");
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleRevoNameRedirection = (revoName: string) => {
+    const pathname = location.pathname.includes("/edit")
+      ? location.pathname
+      : `${location.pathname.replace(/\/$/, "")}/edit`;
+
+    const searchParams = new URLSearchParams(location.search);
+    searchParams.set("p", "rns");
+    searchParams.set("t", `profile:${encodeURIComponent(revoName)}:details`);
+    navigate(`${pathname}?${searchParams.toString()}`, { replace: true });
   };
 
   // console.info("blocks preview", blocks);
@@ -136,18 +161,49 @@ export function Preview({ profile, blocks, theme }: PreviewProps) {
                   </div>
                 )}
                 <div className="space-y-4">
-                  <h1
-                    className={cn(
-                      "text-4xl font-bold tracking-tight",
-                      getHeroEffectStyle(themeConfig?.heroEffect)
+                  <div>
+                    <h1
+                      className={cn(
+                        "text-4xl font-bold tracking-tight",
+                        getHeroEffectStyle(themeConfig?.heroEffect)
+                      )}
+                      style={{
+                        fontFamily: themeConfig?.fontFamily,
+                        color: themeConfig?.fontColor,
+                      }}
+                    >
+                      {profile.name}
+                    </h1>
+                    {profile.revoName && (
+                      <div
+                        className={cn(
+                          "font-bold tracking-tight flex items-center justify-center space-x-2",
+                          getHeroEffectStyle(themeConfig?.heroEffect)
+                        )}
+                        style={{
+                          fontFamily: themeConfig?.fontFamily,
+                          color: themeConfig?.fontColor,
+                        }}
+                      >
+                        <button
+                          onClick={handleCopy}
+                          className="text-sm font-bold transition-all duration-300"
+                        >
+                          {!copied ? (
+                            <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                          ) : (
+                            <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" />
+                          )}
+                        </button>
+                        <span
+                          className="font-medium cursor-pointer"
+                          onClick={() => handleRevoNameRedirection(profile.revoName!.split(".")[0])}
+                        >
+                          {profile.revoName}
+                        </span>
+                      </div>
                     )}
-                    style={{
-                      fontFamily: themeConfig?.fontFamily,
-                      color: themeConfig?.fontColor,
-                    }}
-                  >
-                    {profile.name}
-                  </h1>
+                  </div>
                   {profile.bio &&
                     (isHTML(profile.bio) ? (
                       <p
@@ -220,28 +276,40 @@ export function Preview({ profile, blocks, theme }: PreviewProps) {
                   if (block.type === "pool") {
                     return <CreatorPoolBlock key={block.id} block={block} theme={themeConfig} />;
                   }
+                  if (block.type === "referral") {
+                    return (
+                      <ReferralBlock
+                        key={block.id}
+                        block={block}
+                        theme={themeConfig}
+                        pageOwnerId={userId ?? 0}
+                      />
+                    );
+                  }
                   return <TextBlock key={block.id} block={block} theme={themeConfig} />;
                 })}
               </div>
 
               {/* Powered by footer */}
               <div className="pt-4 text-center">
-                <Link
-                  to="/register"
-                  className="text-sm opacity-70 hover:opacity-100 transition-opacity"
+                <button
+                  onClick={() => {
+                    if (profile.id) {
+                      handleReferrerClick(profile.id);
+                    }
+                  }}
+                  className="text-sm opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
                   style={{
                     fontFamily: themeConfig?.fontFamily,
                     color: themeConfig?.fontColor,
-                  }}
-                  onClick={() => {
-                    // Save visited profile ID in cookie with 30-day expiration
-                    if (profile.id) {
-                      setCookie("pendingProfileReferral", profile.id.toString(), 30);
-                    }
+                    border: "none",
+                    outline: "none",
+                    background: "none",
+                    padding: 0,
                   }}
                 >
                   Claim your own Amped.Bio
-                </Link>
+                </button>
               </div>
             </div>
           </div>

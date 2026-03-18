@@ -2,7 +2,16 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc/trpc";
 import { trpcClient } from "@/utils/trpc/trpc";
-import { Copy, Check, Users, Link2, ChevronDown, ChevronUp, Info } from "lucide-react";
+import {
+  Copy,
+  Check,
+  Users,
+  Link2,
+  ChevronDown,
+  ChevronUp,
+  Info,
+  ExternalLink,
+} from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tooltip } from "@/components/ui/Tooltip";
@@ -28,12 +37,6 @@ function ReferralCard() {
   const { data: stats } = useQuery({
     ...trpc.referral.referralStats.queryOptions(),
     enabled: !!authUser,
-  });
-
-  const { data: affiliateBalance } = useQuery({
-    ...trpc.referral.getAffiliateWalletBalance.queryOptions(),
-    enabled: !!authUser,
-    refetchInterval: 60000, // Refetch every minute
   });
 
   const claimMutation = useMutation({
@@ -107,6 +110,15 @@ function ReferralCard() {
               <p className="text-sm text-gray-500">
                 {stats?.totalReferrals || 0} total referral{stats?.totalReferrals !== 1 ? "s" : ""}
               </p>
+              <a
+                href="https://amplifydigital.freshdesk.com/a/solutions/articles/154000249731"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 mt-1"
+              >
+                How does the Referral Program work?
+                <ExternalLink className="h-3 w-3" />
+              </a>
             </div>
           </div>
           {isExpanded ? (
@@ -244,24 +256,14 @@ function ReferralCard() {
                                   Claimed
                                 </span>
                               )
-                            ) : affiliateBalance?.hasBalance === false ? (
+                            ) : referralsData.affiliateWalletBalance?.hasBalance === false ? (
                               // Insufficient balance - show info icon
                               <Tooltip
                                 content={
                                   <div className="max-w-xs">
-                                    <p className="font-semibold mb-1">
-                                      Affiliate Wallet - Low Balance
-                                    </p>
-                                    <p>
-                                      Current balance: {affiliateBalance.balance}{" "}
-                                      {affiliateBalance.currency}
-                                    </p>
-                                    <p>
-                                      Required: {affiliateBalance.requiredAmount}{" "}
-                                      {affiliateBalance.currency}
-                                    </p>
+                                    <p className="font-semibold mb-1">Rewards Unavailable</p>
                                     <p className="mt-1 text-xs">
-                                      Please try again later when the wallet has been refilled.
+                                      Rewards are currently unavailable. Please try again later.
                                     </p>
                                   </div>
                                 }

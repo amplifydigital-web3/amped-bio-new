@@ -24,7 +24,11 @@ export function PoolSearchInput({
 
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
 
-  const { data: pools, isLoading, error } = useQuery({
+  const {
+    data: pools,
+    isLoading,
+    error,
+  } = useQuery({
     ...trpc.pools.fan.searchPoolsForBlockEditor.queryOptions({
       chainId,
       search: debouncedSearchQuery.length >= 2 ? debouncedSearchQuery : "",
@@ -80,12 +84,8 @@ export function PoolSearchInput({
       {/* Current Selection Display */}
       {hasSelection && (
         <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <p className="text-sm font-medium text-blue-900">
-            Selected: {currentLabel}
-          </p>
-          <p className="text-xs text-blue-700 mt-1">
-            Address: {currentAddress}
-          </p>
+          <p className="text-sm font-medium text-blue-900">Selected: {currentLabel}</p>
+          <p className="text-xs text-blue-700 mt-1">Address: {currentAddress}</p>
         </div>
       )}
 
@@ -123,9 +123,7 @@ export function PoolSearchInput({
                 </div>
 
                 {/* Pool name */}
-                <p className="text-sm font-medium text-gray-800">
-                  {pool.name}
-                </p>
+                <p className="text-sm font-medium text-gray-800">{pool.name}</p>
 
                 {/* Pool address */}
                 <p className="text-xs text-gray-500 mt-1 font-mono">
