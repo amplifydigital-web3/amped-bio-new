@@ -32,13 +32,55 @@ interface NFT {
 }
 
 interface Transaction {
-  from: string;
-  to: string;
   hash: string;
+  to: string;
+  from: string;
+  data: string;
   value: string;
+  isL1Originated: boolean;
+  fee: string;
+  nonce: number;
+  gasLimit: string;
   gasPrice: string;
-  method: string;
-  receivedAt: string; // 2025-07-23T19:27:58.807Z
+  gasPerPubdata: string;
+  maxFeePerGas: string;
+  maxPriorityFeePerGas: string;
+  blockNumber: number;
+  l1BatchNumber: number;
+  blockHash: string;
+  type: number;
+  transactionIndex: number;
+  receivedAt: string;
+  error: string | null;
+  revertReason: string | null;
+  status: "included" | "pending" | "failed";
+  commitTxHash: string | null;
+  executeTxHash: string | null;
+  proveTxHash: string | null;
+  isL1BatchSealed: boolean;
+  gasUsed: string;
+  contractAddress: string | null;
+}
+
+interface TransactionsMeta {
+  totalItems: number;
+  itemCount: number;
+  itemsPerPage: number;
+  totalPages: number;
+  currentPage: number;
+}
+
+interface TransactionsLinks {
+  first: string;
+  previous: string;
+  next: string;
+  last: string;
+}
+
+interface TransactionsResponse {
+  items: Transaction[];
+  meta: TransactionsMeta;
+  links: TransactionsLinks;
 }
 
 const RenderAddressProfile: React.FC<{ address: Address; explorerUrl: string }> = ({
@@ -97,6 +139,10 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [transactionsError, setTransactionsError] = useState<string | null>(null);
+  const [transactionPage, setTransactionPage] = useState(1);
+  const [hasMoreTransactions, setHasMoreTransactions] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [methodSignatures, setMethodSignatures] = useState<Record<string, string>>({});
   const tokensPerPage = 3;
   const nftsPerPage = 4;
 
@@ -115,35 +161,98 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
 
   useEffect(() => {
     if (activeTab === "history" && address && chain && !loading) {
-      fetchTransactions(address);
+      setTransactionPage(1);
+      setTransactions([]);
+      fetchTransactions(address, 1, false);
     }
   }, [activeTab, address, revoBalance, chain, loading]);
 
-  const fetchTransactions = async (walletAddress: string) => {
-    setTransactionsLoading(true);
+  const fetchTransactions = async (
+    walletAddress: string,
+    page: number = 1,
+    append: boolean = false
+  ) => {
+    if (append) {
+      setLoadingMore(true);
+    } else {
+      setTransactionsLoading(true);
+    }
     setTransactionsError(null);
     try {
       const now = new Date();
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(now.getDate() - 7);
-
       const toDate = now.toISOString();
-      const fromDate = sevenDaysAgo.toISOString();
 
       const response = await fetch(
-        `${explorerApiUrl}/transactions?address=${walletAddress}&limit=10&page=1&toDate=${toDate}&fromDate=${fromDate}`
+        `${explorerApiUrl}/transactions?address=${walletAddress}&limit=10&page=${page}&toDate=${toDate}`
       );
       if (!response.ok) {
         throw new Error("Failed to fetch transactions");
       }
-      const data = await response.json();
-      setTransactions(data.items);
+      const data: TransactionsResponse = await response.json();
+
+      if (append) {
+        setTransactions(prev => [...prev, ...data.items]);
+      } else {
+        setTransactions(data.items);
+      }
+
+      const selectors = data.items
+        .map(tx => getMethodSelector(tx.data))
+        .filter((s): s is string => s !== null);
+      fetchMethodSignatures(selectors);
+
+      setHasMoreTransactions(data.meta.currentPage < data.meta.totalPages);
+      setTransactionPage(page);
     } catch (error) {
       setTransactionsError("Could not load transaction history.");
       console.error(error);
     } finally {
       setTransactionsLoading(false);
+      setLoadingMore(false);
     }
+  };
+
+  const loadMoreTransactions = () => {
+    if (address && !loadingMore && hasMoreTransactions) {
+      fetchTransactions(address, transactionPage + 1, true);
+    }
+  };
+
+  const getMethodSelector = (data: string): string | null => {
+    if (!data || data === "0x" || data.length < 10) return null;
+    return data.substring(0, 10);
+  };
+
+  const fetchMethodSignatures = async (selectors: string[]) => {
+    const uncachedSelectors = selectors.filter(s => s && !methodSignatures[s]);
+    if (uncachedSelectors.length === 0) return;
+
+    try {
+      const response = await fetch(
+        `https://api.openchain.xyz/signature-database/v1/lookup?function=${uncachedSelectors.join(",")}&filter=true`
+      );
+      if (!response.ok) return;
+
+      const data = await response.json();
+      if (data.ok && data.result?.function) {
+        const newSignatures: Record<string, string> = {};
+        for (const [selector, signatures] of Object.entries(data.result.function)) {
+          if (Array.isArray(signatures) && signatures.length > 0) {
+            const sig = signatures[0] as { name: string };
+            newSignatures[selector] = sig.name;
+          }
+        }
+        setMethodSignatures(prev => ({ ...prev, ...newSignatures }));
+      }
+    } catch (error) {
+      console.error("Failed to fetch method signatures:", error);
+    }
+  };
+
+  const getMethodName = (data: string): string => {
+    const selector = getMethodSelector(data);
+    if (!selector) return "Transfer";
+    return methodSignatures[selector] || selector;
   };
 
   const formatHash = (hash: string) => {
@@ -178,11 +287,11 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
     }
   };
 
-  const formatFee = (gasPrice: string) => {
+  const formatFee = (fee: string) => {
     try {
-      // Assuming gasPrice is in wei and we want to display it in Gwei or similar
-      const gweiPrice = parseFloat(gasPrice) / Math.pow(10, 9);
-      return `${gweiPrice.toFixed(4)} GweiR`;
+      const feeValue = fee.startsWith("0x") ? parseInt(fee, 16) : parseFloat(fee);
+      const ethValue = feeValue / Math.pow(10, 18);
+      return `${ethValue.toFixed(6)} ${revoBalance?.symbol || "REVO"}`;
     } catch (e) {
       return "N/A";
     }
@@ -258,6 +367,9 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
                       To
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Method
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Value
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -279,6 +391,9 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="h-5 bg-gray-200 rounded-full w-8 animate-pulse"></div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="h-4 bg-gray-200 rounded w-20 animate-pulse"></div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="h-4 bg-gray-200 rounded w-20 animate-pulse"></div>
@@ -457,6 +572,12 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
                   scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                 >
+                  Method
+                </th>
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
                   Value
                 </th>
                 <th
@@ -509,10 +630,15 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
                       />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-medium">
+                        {getMethodName(transaction.data)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatValue(transaction.value)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatFee(transaction.gasPrice)}
+                      {formatFee(transaction.fee)}
                     </td>
                   </tr>
                 );
@@ -520,6 +646,24 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
             </tbody>
           </table>
         </div>
+        {hasMoreTransactions && (
+          <div className="flex justify-center mt-6">
+            <button
+              onClick={loadMoreTransactions}
+              disabled={loadingMore}
+              className="inline-flex items-center px-6 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {loadingMore ? (
+                <>
+                  <Loader className="w-4 h-4 mr-2 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                "Load More"
+              )}
+            </button>
+          </div>
+        )}
       </div>
     );
   };
