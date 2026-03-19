@@ -9,7 +9,7 @@ import { Transaction, TransactionsResponse } from "../types";
 import { formatHash, timeAgo, formatValue, formatFee, getMethodSelector } from "../utils";
 import { trpcClient } from "@/utils/trpc";
 
-const HistoryTab: React.FC = () => {
+const TransactionsTab: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [transactionsError, setTransactionsError] = useState<string | null>(null);
@@ -251,4 +251,4 @@ const HistoryTab: React.FC = () => {
   );
 };
 
-export default HistoryTab;
+export default TransactionsTab;

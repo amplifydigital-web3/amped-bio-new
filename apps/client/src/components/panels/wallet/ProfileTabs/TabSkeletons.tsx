@@ -43,7 +43,7 @@ const TabSkeletons: React.FC<TabSkeletonsProps> = ({ activeTab }) => {
         </div>
       );
 
-    case "history":
+    case "transactions":
       return (
         <div className="space-y-4">
           <div className="flex items-center justify-between mb-4">
@@ -105,6 +105,74 @@ const TabSkeletons: React.FC<TabSkeletonsProps> = ({ activeTab }) => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="h-4 bg-gray-200 rounded w-16 animate-pulse"></div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+
+    case "transfers":
+      return (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="h-6 bg-gray-200 rounded w-40 animate-pulse"></div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Transaction Hash
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Age
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    From
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    In/Out
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    To
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Amount
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Token
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <tr key={index}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="h-4 bg-gray-200 rounded w-20 animate-pulse"></div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="h-4 bg-gray-200 rounded w-16 animate-pulse"></div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="h-4 bg-gray-200 rounded w-20 animate-pulse"></div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="h-5 bg-gray-200 rounded-full w-8 animate-pulse"></div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="h-4 bg-gray-200 rounded w-20 animate-pulse"></div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="h-4 bg-gray-200 rounded w-24 animate-pulse"></div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-5 h-5 bg-gray-200 rounded-full animate-pulse"></div>
+                        <div className="h-4 bg-gray-200 rounded w-12 animate-pulse"></div>
+                      </div>
                     </td>
                   </tr>
                 ))}

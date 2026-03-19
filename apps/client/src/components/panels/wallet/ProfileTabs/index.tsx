@@ -1,16 +1,18 @@
 import React, { useState } from "react";
-import { Coins, Image, Clock } from "lucide-react";
+import { Coins, Image, Clock, ArrowLeftRight } from "lucide-react";
 import NFTModal from "../NFTModal";
 import { TabType, ProfileTabsProps, NFT } from "./types";
 import TokensTab from "./components/TokensTab";
 import NFTsTab from "./components/NFTsTab";
-import HistoryTab from "./components/HistoryTab";
+import TransactionsTab from "./components/TransactionsTab";
+import TransfersTab from "./components/TransfersTab";
 import TabSkeletons, { EmptyState } from "./TabSkeletons";
 
 const tabs = [
   { id: "tokens" as TabType, label: "Tokens", icon: Coins },
   { id: "nfts" as TabType, label: "NFTs", icon: Image, disabled: true },
-  { id: "history" as TabType, label: "Transaction History", icon: Clock },
+  { id: "transactions" as TabType, label: "Transactions", icon: Clock },
+  { id: "transfers" as TabType, label: "Transfers", icon: ArrowLeftRight },
 ];
 
 export default function ProfileTabs({ isEmpty = false, loading = false }: ProfileTabsProps) {
@@ -32,8 +34,10 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
         return <TokensTab />;
       case "nfts":
         return <NFTsTab />;
-      case "history":
-        return <HistoryTab />;
+      case "transactions":
+        return <TransactionsTab />;
+      case "transfers":
+        return <TransfersTab />;
       default:
         return null;
     }

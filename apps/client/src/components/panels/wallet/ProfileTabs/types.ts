@@ -1,4 +1,4 @@
-export type TabType = "tokens" | "nfts" | "history";
+export type TabType = "tokens" | "nfts" | "transactions" | "transfers";
 
 export interface NFT {
   id: string;
@@ -66,4 +66,50 @@ export interface ProfileTabsProps {
   isEmpty?: boolean;
   loading?: boolean;
   onNavigateToExplore?: (tab?: "creators" | "pools" | "nfts") => void;
+}
+
+export interface TransferToken {
+  name: string;
+  symbol: string;
+  decimals: number;
+  l1Address: string;
+  l2Address: string;
+  liquidity: number;
+  iconURL: string;
+}
+
+export interface Transfer {
+  from: string;
+  to: string;
+  blockNumber: number;
+  transactionHash: string;
+  timestamp: string;
+  amount: string;
+  token: TransferToken;
+  tokenAddress: string;
+  type: string;
+  tokenType: string;
+  fields: string | null;
+  isInternal: boolean;
+}
+
+export interface TransfersMeta {
+  totalItems: number;
+  itemCount: number;
+  itemsPerPage: number;
+  totalPages: number;
+  currentPage: number;
+}
+
+export interface TransfersLinks {
+  first: string;
+  previous: string;
+  next: string;
+  last: string;
+}
+
+export interface TransfersResponse {
+  items: Transfer[];
+  meta: TransfersMeta;
+  links: TransfersLinks;
 }
