@@ -10,6 +10,7 @@ import { getChainConfig } from "@ampedbio/web3";
 import * as jose from "jose";
 import Decimal from "decimal.js";
 import { SITE_SETTINGS } from "@ampedbio/constants";
+import { cache, CACHE_TTL, getMethodSignatureCacheKey } from "../utils/cache";
 
 // Schema for requesting faucet tokens
 const faucetRequestSchema = z.object({
@@ -763,6 +764,69 @@ export const walletRouter = router({
       });
     }
   }),
+
+  getMethodSignatures: privateProcedure
+    .input(
+      z.object({
+        selectors: z.array(z.string().regex(/^0x[a-fA-F0-9]{8}$/)),
+      })
+    )
+    .query(async ({ input }) => {
+      const { selectors } = input;
+      const result: Record<string, string> = {};
+
+      if (selectors.length === 0) {
+        return result;
+      }
+
+      const uncachedSelectors: string[] = [];
+
+      for (const selector of selectors) {
+        const cacheKey = getMethodSignatureCacheKey(selector);
+        const cachedSignature = await cache.get<string>(cacheKey);
+
+        if (cachedSignature !== null) {
+          result[selector] = cachedSignature;
+        } else {
+          uncachedSelectors.push(selector);
+        }
+      }
+
+      if (uncachedSelectors.length === 0) {
+        return result;
+      }
+
+      try {
+        const response = await fetch(
+          `https://api.openchain.xyz/signature-database/v1/lookup?function=${uncachedSelectors.join(",")}&filter=true`
+        );
+
+        if (!response.ok) {
+          console.error(`Openchain API returned ${response.status}`);
+          return result;
+        }
+
+        const data = await response.json();
+
+        if (data.ok && data.result?.function) {
+          for (const [selector, signatures] of Object.entries(data.result.function)) {
+            if (Array.isArray(signatures) && signatures.length > 0) {
+              const sig = signatures[0] as { name: string };
+              const signatureName = sig.name;
+
+              result[selector] = signatureName;
+
+              const cacheKey = getMethodSignatureCacheKey(selector);
+              await cache.set(cacheKey, signatureName, CACHE_TTL.METHOD_SIGNATURE);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch method signatures from Openchain:", error);
+      }
+
+      return result;
+    }),
 });
 
 // viem's publicKeyToAddress assumes the public key is uncompressed, but Web3Auth provides a compressed key.

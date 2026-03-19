@@ -7,6 +7,7 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import RenderAddressProfile from "./RenderAddressProfile";
 import { Transaction, TransactionsResponse } from "../types";
 import { formatHash, timeAgo, formatValue, formatFee, getMethodSelector } from "../utils";
+import { trpcClient } from "@/utils/trpc";
 
 const HistoryTab: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -33,22 +34,10 @@ const HistoryTab: React.FC = () => {
       if (uncachedSelectors.length === 0) return;
 
       try {
-        const response = await fetch(
-          `https://api.openchain.xyz/signature-database/v1/lookup?function=${uncachedSelectors.join(",")}&filter=true`
-        );
-        if (!response.ok) return;
-
-        const data = await response.json();
-        if (data.ok && data.result?.function) {
-          const newSignatures: Record<string, string> = {};
-          for (const [selector, signatures] of Object.entries(data.result.function)) {
-            if (Array.isArray(signatures) && signatures.length > 0) {
-              const sig = signatures[0] as { name: string };
-              newSignatures[selector] = sig.name;
-            }
-          }
-          setMethodSignatures(prev => ({ ...prev, ...newSignatures }));
-        }
+        const result = await trpcClient.wallet.getMethodSignatures.query({
+          selectors: uncachedSelectors,
+        });
+        setMethodSignatures(prev => ({ ...prev, ...result }));
       } catch (error) {
         console.error("Failed to fetch method signatures:", error);
       }
