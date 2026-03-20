@@ -108,6 +108,11 @@ export const CACHE_TTL = {
    * 15 minutes - Used for pool public data caching (totalStake, fans count).
    */
   POOL_DATA: 900,
+  /**
+   * 7 days - Used for method signature caching from Openchain.
+   * Function signatures rarely change once deployed.
+   */
+  METHOD_SIGNATURE: 604800,
 } as const;
 
 /**
@@ -131,6 +136,11 @@ export enum CacheKeys {
    * Format: `pools_public_data:${chainId}:${poolAddress}:${searchTerm}`
    */
   POOLS_PUBLIC_DATA_PREFIX = "pools_public_data",
+  /**
+   * Cache key prefix for storing method signatures from Openchain.
+   * Format: `method_signature:${selector}`
+   */
+  METHOD_SIGNATURE_PREFIX = "method_signature",
 }
 
 /**
@@ -271,4 +281,8 @@ export function getPoolsCacheKey(
   search: string = ""
 ): string {
   return `${CacheKeys.POOLS_PUBLIC_DATA_PREFIX}:${chainId}:${poolAddress}:${search.toLowerCase()}`;
+}
+
+export function getMethodSignatureCacheKey(selector: string): string {
+  return `${CacheKeys.METHOD_SIGNATURE_PREFIX}:${selector}`;
 }
