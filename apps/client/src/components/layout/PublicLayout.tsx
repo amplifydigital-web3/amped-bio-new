@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { Outlet, Link, useLocation, useParams } from "react-router";
 import AMPLIFY_FULL_K from "@/assets/AMPLIFY_FULL_K.svg";
 import { UserMenu } from "../auth/UserMenu";
-// import { oneTapCall } from "@/lib/auth-client";
+import { SystemStatsBadge } from "./SystemStatsBadge";
 import { normalizeHandle } from "@/utils/handle";
 
 // Default handle username to show when accessing root URL
@@ -50,7 +50,6 @@ const PublicLayout: React.FC<PublicLayoutProps> = ({ children }) => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Navbar - visível nas rotas definidas */}
       {shouldShowNavbar && (
         <header className="sticky top-0 z-30 h-16 border-b bg-white px-6 flex items-center justify-between shrink-0 shadow-sm">
           <div className="flex items-center space-x-6">
@@ -61,7 +60,10 @@ const PublicLayout: React.FC<PublicLayoutProps> = ({ children }) => {
               Pools
             </Link>
           </div>
-          <UserMenu />
+          <div className="flex items-center space-x-4">
+            {normalizedHandle === DEFAULT_ONELINK && <SystemStatsBadge />}
+            <UserMenu />
+          </div>
         </header>
       )}
 

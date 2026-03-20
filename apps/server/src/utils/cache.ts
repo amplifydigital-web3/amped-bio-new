@@ -109,6 +109,10 @@ export const CACHE_TTL = {
    */
   POOL_DATA: 900,
   /**
+   * 15 minutes - Used for system-wide stats caching (total REVO staked/minted).
+   */
+  SYSTEM_STATS: 900,
+  /**
    * 7 days - Used for method signature caching from Openchain.
    * Function signatures rarely change once deployed.
    */
@@ -141,6 +145,11 @@ export enum CacheKeys {
    * Format: `method_signature:${selector}`
    */
   METHOD_SIGNATURE_PREFIX = "method_signature",
+  /**
+   * Cache key prefix for storing system-wide statistics.
+   * Format: `system_stats:${chainId}`
+   */
+  SYSTEM_STATS_PREFIX = "system_stats",
 }
 
 /**
@@ -285,4 +294,8 @@ export function getPoolsCacheKey(
 
 export function getMethodSignatureCacheKey(selector: string): string {
   return `${CacheKeys.METHOD_SIGNATURE_PREFIX}:${selector}`;
+}
+
+export function getSystemStatsCacheKey(chainId: number): string {
+  return `${CacheKeys.SYSTEM_STATS_PREFIX}:${chainId}`;
 }

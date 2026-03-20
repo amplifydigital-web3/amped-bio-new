@@ -24,8 +24,18 @@ app.use(
         allowedOrigins.push(
           "http://localhost:5173",
           "http://localhost:5174",
-          "http://localhost:3000"
+          "http://localhost:3000",
+          "http://[::1]:5173",
+          "http://[::1]:5174",
+          "http://[::1]:3000"
         );
+        if (
+          origin.includes("localhost") ||
+          origin.includes("127.0.0.1") ||
+          origin.includes("::1")
+        ) {
+          return callback(null, true);
+        }
       }
 
       if (allowedOrigins.includes(origin)) {

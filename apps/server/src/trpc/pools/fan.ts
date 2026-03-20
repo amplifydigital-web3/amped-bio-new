@@ -7,11 +7,18 @@ import {
   getChainConfig,
   L2_BASE_TOKEN_ABI,
   CREATOR_POOL_ABI,
+  NODE_MANAGER_ABI,
   getPoolName,
   calculatePoolAPY,
 } from "@ampedbio/web3";
 import { s3Service } from "../../services/S3Service";
-import { cache, getAPYCacheKey, getPoolsCacheKey, CACHE_TTL } from "../../utils/cache";
+import {
+  cache,
+  getAPYCacheKey,
+  getPoolsCacheKey,
+  getSystemStatsCacheKey,
+  CACHE_TTL,
+} from "../../utils/cache";
 import {
   UserStakedPool,
   PoolTabRewardPool,
@@ -2004,6 +2011,76 @@ export const poolsFanRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to search pools",
+        });
+      }
+    }),
+
+  getSystemStats: publicProcedure
+    .input(
+      z.object({
+        chainId: z.string(),
+      })
+    )
+    .query(async ({ input }) => {
+      try {
+        const chainId = parseInt(input.chainId);
+
+        const cacheKey = getSystemStatsCacheKey(chainId);
+        const cached = await cache.get<{ totalStaked: string; totalMinted: string }>(cacheKey);
+        if (cached) {
+          return cached;
+        }
+
+        const chain = getChainConfig(chainId);
+        if (!chain) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Unsupported chain ID",
+          });
+        }
+
+        const publicClient = createPublicClient({
+          chain: chain,
+          transport: http(),
+        });
+
+        const totalSupply = await publicClient.readContract({
+          address: chain.contracts.L2_BASE_TOKEN.address,
+          abi: L2_BASE_TOKEN_ABI,
+          functionName: "totalSupply",
+        });
+
+        const nodes = (await publicClient.readContract({
+          address: chain.contracts.NODE_MANAGER.address,
+          abi: NODE_MANAGER_ABI,
+          functionName: "getNodes",
+        })) as Address[];
+
+        let totalSystemStake = 0n;
+        for (const node of nodes) {
+          const delegation = (await publicClient.readContract({
+            address: chain.contracts.NODE_MANAGER.address,
+            abi: NODE_MANAGER_ABI,
+            functionName: "nodeTotalDelegation",
+            args: [node as Address],
+          })) as bigint;
+          totalSystemStake += delegation;
+        }
+
+        const result = {
+          totalStaked: totalSystemStake.toString(),
+          totalMinted: (totalSupply as bigint).toString(),
+        };
+
+        await cache.set(cacheKey, result, CACHE_TTL.SYSTEM_STATS);
+
+        return result;
+      } catch (error) {
+        console.error("Error fetching system stats:", error);
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch system stats",
         });
       }
     }),
