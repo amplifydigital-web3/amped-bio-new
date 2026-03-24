@@ -28,5 +28,9 @@ export function RNSPanel() {
     }
   };
 
-  return <div className="h-full w-full overflow-y-auto bg-gray-50">{renderView()}</div>;
+  return (
+    <div id="rns-scroll-container" className="h-full w-full overflow-y-auto bg-gray-50">
+      {renderView()}
+    </div>
+  );
 }

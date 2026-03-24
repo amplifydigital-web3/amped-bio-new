@@ -19,7 +19,7 @@ export const FloatingPills: React.FC<FloatingPillsProps> = memo(({ names: propNa
     "nexus.revo.eth",
     "future.revo.eth",
     "builder.revo.eth",
-    "explorer.revo.eth",
+    // 'explorer.revo.eth',
     "revolution.revo.eth",
   ];
 
@@ -45,20 +45,20 @@ export const FloatingPills: React.FC<FloatingPillsProps> = memo(({ names: propNa
         animationDelay: 1.5,
       },
       "discovery.revo.eth": {
-        left: "5%",
+        left: "20%",
         top: "35%",
         animation: "subtle-fade",
         animationDelay: 2,
       },
       "innovator.revo.eth": {
-        left: "95%",
+        left: "80%",
         top: "35%",
         animation: "gentle-sway",
         animationDelay: 3,
       },
       "pioneer.revo.eth": {
         left: "10%",
-        top: "50%",
+        top: "56%",
         animation: "breath",
         animationDelay: 1,
       },
@@ -81,29 +81,29 @@ export const FloatingPills: React.FC<FloatingPillsProps> = memo(({ names: propNa
         animationDelay: 3.5,
       },
       "nexus.revo.eth": {
-        left: "50%",
-        top: "78%",
+        left: "57%",
+        top: "12%",
         animation: "breath",
         animationDelay: 2,
       },
       "future.revo.eth": {
-        left: "15%",
+        left: "19%",
         top: "84%",
         animation: "gentle-sway",
         animationDelay: 0.5,
       },
       "builder.revo.eth": {
         left: "38%",
-        top: "88%",
+        top: "12%",
         animation: "soft-glow",
         animationDelay: 2.8,
       },
-      "explorer.revo.eth": {
-        left: "62%",
-        top: "88%",
-        animation: "gentle-float",
-        animationDelay: 4,
-      },
+      // 'explorer.revo.eth': {
+      //   left: '57%',
+      //   top: '76%',
+      //   animation: 'gentle-float',
+      //   animationDelay: 4,
+      // },
       "revolution.revo.eth": {
         left: "85%",
         top: "84%",
