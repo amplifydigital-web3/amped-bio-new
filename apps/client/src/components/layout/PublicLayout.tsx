@@ -61,7 +61,11 @@ const PublicLayout: React.FC<PublicLayoutProps> = ({ children }) => {
             </Link>
           </div>
           <div className="flex items-center space-x-4">
-            {normalizedHandle === DEFAULT_ONELINK && <SystemStatsBadge />}
+            {normalizedHandle === DEFAULT_ONELINK && (
+              <div className="hidden md:block">
+                <SystemStatsBadge />
+              </div>
+            )}
             <UserMenu />
           </div>
         </header>

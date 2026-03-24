@@ -4,7 +4,8 @@ import { Loader2 } from "lucide-react";
 
 const CHAIN_ID = "73863";
 
-function formatREVO(wei: string): string {
+function formatREVO(wei: string | undefined): string {
+  if (!wei) return "0.00";
   const value = parseFloat(formatUnits(BigInt(wei), 18));
   if (value >= 1_000_000) {
     return `${(value / 1_000_000).toFixed(2)}M`;
