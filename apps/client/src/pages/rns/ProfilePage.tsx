@@ -5,18 +5,18 @@ import { useAccount } from "wagmi";
 import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
 import { ProfileCard } from "@/components/rns/profile/ProfileCard";
 import { ProfileNav } from "@/components/rns/profile/ProfileNav";
-import MoreDetails from "@/components/rns/profile/MoreDetail";
 import OwnershipDetail from "@/components/rns/profile/ProfileOwnership";
 import { useNameDetails } from "@/hooks/rns/useNameDetails";
+import VerificationDetail from "@/components/rns/verification/VerificationDetails";
 
 interface ProfilePageProps {
   name: string;
 }
 
 export default function ProfilePage({ name }: ProfilePageProps) {
-  const [activeTab, setActiveTab] = useState<"details" | "ownership" | "more">("details");
+  const [activeTab, setActiveTab] = useState<"details" | "ownership" | "identity">("details");
 
-  const handleTabChange = (tab: "details" | "ownership" | "more") => {
+  const handleTabChange = (tab: "details" | "ownership" | "identity") => {
     setActiveTab(tab);
   };
   const {
@@ -126,9 +126,11 @@ export default function ProfilePage({ name }: ProfilePageProps) {
           refetchDates={refetchDates}
           optimisticSetOwner={optimisticSetOwner}
           optimisticExtendExpiry={optimisticExtendExpiry}
+          nftId={nftId}
+          resolver={resolver}
         />
       )}
-      {activeTab === "more" && <MoreDetails name={name} nftId={nftId} resolver={resolver} />}
+      {activeTab === "identity" && <VerificationDetail />}
     </div>
   );
 }

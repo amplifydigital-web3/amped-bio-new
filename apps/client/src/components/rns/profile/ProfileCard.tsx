@@ -7,7 +7,7 @@ interface ProfileCardProps {
   addressFormatted: string;
   expiry: string;
   registrant?: string;
-  onTabChange?: (tab: "details" | "ownership" | "more") => void;
+  onTabChange?: (tab: "details" | "ownership" | "identity") => void;
 }
 
 const TagBox = ({ label, value }: { label: string; value: string }) => (
