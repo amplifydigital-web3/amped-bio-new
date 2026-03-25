@@ -1,12 +1,22 @@
 import { useState, useRef } from "react";
 import { useEditor } from "../../../contexts/EditorContext";
+import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
 import { EffectsTabContent } from "./EffectsTabContent";
 import { AppearanceTabContent } from "./AppearanceTabContent";
 import { GeneralTabContent } from "./GeneralTabContent";
 import { Download, Upload, AlertTriangle } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "../../ui/dialog";
+import { Button } from "../../ui/Button";
 
 export function ProfilePanel() {
-  const { theme, exportTheme, importTheme } = useEditor();
+  const { theme, exportTheme, importTheme, expiredRevoName, dismissExpiredRevoName } = useEditor();
+  const { navigateToMyNames } = useRNSNavigation();
   const [activeTab, setActiveTab] = useState<"general" | "appearance" | "effects" | "theme">(
     "general"
   );
@@ -185,6 +195,38 @@ export function ProfilePanel() {
           </>
         )}
       </div>
+
+      {/* RevoName Expired Dialog */}
+      <Dialog open={!!expiredRevoName} onOpenChange={open => !open && dismissExpiredRevoName()}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-amber-600" />
+              </div>
+              <DialogTitle className="text-lg font-semibold">RevoName Expired</DialogTitle>
+            </div>
+          </DialogHeader>
+          <DialogDescription className="text-sm text-gray-600 mt-2">
+            Your RevoName <span className="font-semibold text-gray-900">{expiredRevoName}</span> has
+            expired and is no longer displayed on your profile. Please register the name again to
+            continue using it or select any other reovname from profile.
+          </DialogDescription>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={dismissExpiredRevoName}>
+              Dismiss
+            </Button>
+            <Button
+              onClick={() => {
+                dismissExpiredRevoName();
+                navigateToMyNames();
+              }}
+            >
+              Manage
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

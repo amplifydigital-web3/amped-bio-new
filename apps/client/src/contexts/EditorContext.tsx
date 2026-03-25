@@ -17,6 +17,9 @@ import { trpcClient } from "@/utils/trpc";
 import { exportThemeConfigAsJson, importThemeConfigFromJson } from "@/utils/theme";
 import { mergeTheme } from "@/utils/mergeTheme";
 import { useNavigate, useLocation } from "react-router";
+import { fetchGetNameDetails } from "@/services/subgraph/queries";
+import { createSubgraphClient } from "@/services/subgraph/subgraphClient";
+import { libertasTestnet } from "@ampedbio/web3";
 
 interface EditorContextType extends EditorState {
   changes: boolean;
@@ -44,6 +47,8 @@ interface EditorContextType extends EditorState {
   setSelectedPoolId: (id: string | null) => void;
   exportTheme: (customFilename?: string) => void;
   importTheme: (file: File) => Promise<void>;
+  expiredRevoName: string;
+  dismissExpiredRevoName: () => void;
 }
 
 const EditorContext = createContext<EditorContextType | undefined>(undefined);
@@ -52,6 +57,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
   const [state, setState] = useState<EditorState>(initialState);
   const [changes, setChanges] = useState(false);
   const [themeChanges, setThemeChanges] = useState(false);
+  const [expiredRevoName, setExpiredRevoName] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -76,6 +82,26 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
 
       const blocks = blocks_raw.sort((a, b) => a.order - b.order);
 
+      // Check if the revoName has expired on-chain
+      let resolvedRevoName = revoName ?? "";
+      if (resolvedRevoName) {
+        try {
+          const labelName = resolvedRevoName.split(".")[0];
+          const subgraphClient = createSubgraphClient(libertasTestnet.subgraphUrl);
+          const { data: nameDetails } = await fetchGetNameDetails(labelName, subgraphClient);
+          if (nameDetails && nameDetails.length > 0) {
+            const expiryTimestamp = Number(nameDetails[0].expiryDateWithGrace);
+            const nowInSeconds = Math.floor(Date.now() / 1000);
+            if (expiryTimestamp > 0 && expiryTimestamp < nowInSeconds) {
+              setExpiredRevoName(resolvedRevoName);
+              resolvedRevoName = "";
+            }
+          }
+        } catch {
+          // Non-critical — if subgraph is unavailable, show the name as-is
+        }
+      }
+
       setState(prevState => ({
         ...prevState,
         profile: {
@@ -83,7 +109,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
           name,
           handle: normalizedHandle,
           handleFormatted: formattedHandle,
-          revoName: revoName ?? "",
+          revoName: resolvedRevoName,
           email,
           bio: description ?? "",
           photoUrl: image ?? "",
@@ -589,6 +615,11 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     setSelectedPoolId,
     exportTheme,
     importTheme,
+    expiredRevoName,
+    dismissExpiredRevoName: () => {
+      setExpiredRevoName("");
+      clearRevoName();
+    },
   };
 
   return <EditorContext.Provider value={value}>{children}</EditorContext.Provider>;
