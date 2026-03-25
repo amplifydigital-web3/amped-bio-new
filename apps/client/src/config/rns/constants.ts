@@ -1,8 +1,8 @@
 import { Duration } from "@/types/rns/common";
 
 export const NAME_REQUIREMENTS = {
-  minLength: 3,
-  maxLength: 64,
+  minLength: 6,
+  maxLength: 32,
   validCharacters: /^[a-z0-9-]+$/,
 };
 
