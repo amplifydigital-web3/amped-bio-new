@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { domainName, scannerURL, trimmedDomainName } from "@/utils/rns";
+import { domainName, scannerURL } from "@/utils/rns";
 import { Copy, ExternalLink } from "lucide-react";
 import { useAccount } from "wagmi";
 import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
@@ -67,19 +67,17 @@ export default function ProfilePage({ name }: ProfilePageProps) {
 
   return (
     <div className="my-2 sm:my-10 max-w-[840px] w-full mx-auto px-3 sm:px-6">
-      <div className="px-6 py-2 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h1 className="text-sm sm:text-3xl font-bold hidden sm:flex">
-            {trimmedDomainName(name)}
-          </h1>
+      <div className="px-6 py-2 flex flex-col gap-2">
+        <div className="flex items-start gap-2 min-w-0">
+          <h1 className="text-xl sm:text-3xl font-bold break-all min-w-0">{domainName(name)}</h1>
           <Copy
-            className="w-4 h-4 text-gray-400 cursor-pointer hidden sm:flex"
+            className="w-4 h-4 text-gray-400 cursor-pointer shrink-0 mt-1.5 sm:mt-2"
             onClick={() => navigator.clipboard.writeText(domainName(name))}
           />
         </div>
 
         {isDifferentOwner && (
-          <div className="cursor-pointer" onClick={navigateToHome}>
+          <div className="cursor-pointer self-end shrink-0" onClick={navigateToHome}>
             <span className="text-blue-600 font-bold hover:underline hover:text-blue-500">
               Register your own REVO Name
             </span>

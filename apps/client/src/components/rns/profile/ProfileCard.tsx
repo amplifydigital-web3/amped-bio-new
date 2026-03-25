@@ -1,4 +1,4 @@
-import { trimmedDomainName } from "@/utils/rns";
+import { domainName } from "@/utils/rns";
 import { Copy } from "lucide-react";
 
 interface ProfileCardProps {
@@ -28,7 +28,7 @@ export const ProfileCard = ({
     <main className="w-full max-w-4xl mx-auto sm:px-6 lg:px-8">
       {/* Profile Header Card */}
 
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-4">
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-4 border border-gray-200">
         <div className="h-28 sm:h-36 bg-gradient-to-r from-indigo-400 via-indigo-400 to-blue-400 relative"></div>
 
         <div className="px-6 pb-6 relative pt-16">
@@ -37,15 +37,15 @@ export const ProfileCard = ({
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mt-4">
-            <h2 className="text-xl sm:text-3xl font-bold text-gray-900 mb-1 truncate">
-              {trimmedDomainName(name)}
+            <h2 className="text-sm sm:text-xl font-bold text-gray-900 mb-1 break-all">
+              {domainName(name)}
             </h2>
           </div>
         </div>
       </div>
 
       {/* Content Card */}
-      <div className="bg-white rounded-2xl shadow-sm p-6">
+      <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-200">
         <h2 className="font-bold text-gray-400 mb-4">Addresses</h2>
 
         <div className="bg-gray-50 rounded-lg p-3 sm:p-4 mb-8 inline-flex items-center gap-2 w-auto">

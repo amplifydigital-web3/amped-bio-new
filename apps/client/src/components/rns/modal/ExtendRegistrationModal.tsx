@@ -4,7 +4,7 @@ import { useRenewal } from "@/hooks/rns/useRenewal";
 import { useNameAvailability } from "@/hooks/rns/useNameAvailability";
 import { useFeeData, usePublicClient } from "wagmi";
 import { toast } from "react-hot-toast";
-import { calculateNewExpiryDate, domainName, trimmedDomainName, formatDateTime } from "@/utils/rns";
+import { calculateNewExpiryDate, domainName, formatDateTime } from "@/utils/rns";
 import { formatEther } from "viem";
 import {
   getDurationUnitFromSeconds,
@@ -121,8 +121,9 @@ const ExtendRegistrationModal = ({
   const StepOne = () => (
     <div className="space-y-4 sm:space-y-6">
       <div className="flex justify-between items-center gap-2">
-        <h2 className="text-lg sm:text-2xl font-bold text-gray-900 overflow-x-hidden">
-          Extend <span className="font-semibold sm:font-bold">{trimmedDomainName(ensName)}</span>
+        <h2 className="text-lg sm:text-2xl text-gray-900 overflow-x-hidden">
+          <span className="font-bold">Extend</span> <br />{" "}
+          <span className="font-semibold sm:font-bold">{domainName(ensName)}</span>
         </h2>
         <button
           onClick={onClose}

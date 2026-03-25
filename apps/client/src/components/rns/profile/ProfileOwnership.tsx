@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import TransferNameModal from "@/components/rns/modal/TransferNameModal";
 import ExtendRegistrationModal from "@/components/rns/modal/ExtendRegistrationModal";
-import { formatDateTime, nftIdToBytes32, scannerURL, trimmedDomainName } from "@/utils/rns";
+import { formatDateTime, nftIdToBytes32, scannerURL, domainName } from "@/utils/rns";
 import { Address } from "viem";
 import { NameDates } from "@/types/rns/name";
 import { useTransferOwnership } from "@/hooks/rns/useTransferOwnership";
@@ -271,7 +271,7 @@ const OwnershipDetail = ({
             </div>
 
             {/* ENS Logo Box */}
-            <div className="w-full max-w-xs bg-blue-500 rounded-lg flex flex-col items-center justify-center text-white p-2 mx-0 sm:mx-auto sm:p-4">
+            <div className="w-full max-w-[12rem] bg-blue-500 rounded-lg flex flex-col items-center justify-center text-white p-2 mx-0 sm:mx-auto sm:p-4">
               <div className="mb-2">
                 <svg
                   viewBox="0 0 24 24"
@@ -287,7 +287,7 @@ const OwnershipDetail = ({
                   />
                 </svg>
               </div>
-              <span className="text-xs sm:text-sm">{trimmedDomainName(name)}</span>
+              <span className="text-xs sm:text-sm text-center break-all">{domainName(name)}</span>
             </div>
           </div>
         </div>

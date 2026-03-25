@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Confetti from "react-confetti";
 import { format, addSeconds } from "date-fns";
-import { scannerURL, trimmedDomainName } from "@/utils/rns";
+import { domainName, scannerURL } from "@/utils/rns";
 import { formatDuration } from "@/utils/rns/timeUtils";
 
 interface RegistrationSuccessProps {
@@ -94,7 +94,7 @@ const RegistrationSuccess: React.FC<RegistrationSuccessProps> = ({
           <h1 className="text-3xl font-bold mb-2">Congratulations!</h1>
           <p className="text-base text-gray-700">
             You are now the owner of{" "}
-            <span className="text-blue-500">{trimmedDomainName(name)}</span>
+            <span className="text-blue-500 break-all">{domainName(name)}</span>
           </p>
         </div>
 
@@ -108,7 +108,7 @@ const RegistrationSuccess: React.FC<RegistrationSuccessProps> = ({
               </svg>
             </div>
             <div className="text-lg font-medium text-center w-full px-4">
-              <span className="block truncate max-w-full">{trimmedDomainName(name)}</span>
+              <span className="block break-words max-w-full">{domainName(name)}</span>
             </div>
           </div>
 
