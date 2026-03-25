@@ -1,4 +1,3 @@
-import { Link, useNavigate, useLocation } from "react-router";
 import { ParticlesBackground } from "./particles/ParticlesBackground";
 import { cn } from "../utils/cn";
 import {
@@ -46,10 +45,7 @@ interface PreviewProps {
 export function Preview({ isEditing, handle, profile, blocks, theme, userId }: PreviewProps) {
   const [copied, setCopied] = useState(false);
   const themeConfig = theme.config;
-  const navigate = useNavigate();
-  const location = useLocation();
   const { handleReferrerClick } = useReferralHandler();
-  const rnsName = new URLSearchParams(location.search).get("rns");
 
   const showRns = import.meta.env.VITE_SHOW_RNS === "true";
 
@@ -70,8 +66,7 @@ export function Preview({ isEditing, handle, profile, blocks, theme, userId }: P
       console.warn("Redirection blocked in edit mode");
       return;
     }
-    // Redirect to the new URL-based RNS route
-    const redirectURL = `/${handle}/rns/${revoName}?ref=${profile.id}`;
+    const redirectURL = `${import.meta.env.VITE_RNS_URL}/#/profile/${revoName}`;
     window.open(redirectURL, "_blank", "noopener,noreferrer");
   };
 

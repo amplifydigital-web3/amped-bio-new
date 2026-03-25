@@ -17,7 +17,6 @@ import { Toaster } from "react-hot-toast";
 import { EditorProvider } from "./contexts/EditorContext";
 import { useTokenExpiration } from "./hooks/useTokenExpiration";
 import { useReferralHandler } from "./hooks/useReferralHandler";
-import { PublicRNSProfilePage } from "./pages/PublicRNSProfilePage";
 
 // Lazy load admin components - they will only be loaded when needed
 const AdminLayout = lazy(() =>
@@ -72,7 +71,6 @@ function AppRouter() {
           </PublicLayout>
         }
       />
-      <Route path=":handle/rns/:rnsName" element={<PublicRNSProfilePage />} />
       <Route
         path="/register"
         element={
