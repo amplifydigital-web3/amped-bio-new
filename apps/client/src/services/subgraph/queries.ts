@@ -26,6 +26,7 @@ export const queryRegistrationDetailForName = gql`
       owner
       expiryDateWithGrace
       resolver {
+        texts
         address
       }
     }

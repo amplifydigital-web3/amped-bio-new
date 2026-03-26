@@ -1,6 +1,6 @@
-import { useReadContract, useAccount } from "wagmi";
-import { keccak256, toBytes } from "viem";
-import { formatDateTime } from "@/utils/rns";
+import { useReadContract, useAccount, useReadContracts } from "wagmi";
+import { keccak256, namehash, toBytes } from "viem";
+import { domainName, formatDateTime } from "@/utils/rns";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { RegistrationData } from "@/types/rns/registration";
 import { useSubgraphClient } from "@/services/subgraph/subgraphClient";
@@ -9,7 +9,7 @@ import {
   fetchOwnershipDetails,
   fetchDateDetails,
 } from "@/services/subgraph/queries";
-import { getChainConfig, REGISTRAR_CONTROLLER_ABI } from "@ampedbio/web3";
+import { getChainConfig, REGISTRAR_CONTROLLER_ABI, RESOLVER_ABI } from "@ampedbio/web3";
 
 export function useNameDetails(name: string) {
   const { address: connectedWallet, chainId } = useAccount();
@@ -68,6 +68,38 @@ export function useNameDetails(name: string) {
   const tokenId = useMemo(() => {
     return BigInt(keccak256(toBytes(name)));
   }, [name]);
+
+  // Batch-resolve all text records declared by the resolver in the subgraph
+  const resolverAddress = names?.revoNames[0]?.resolver?.address;
+  const textKeys = names?.revoNames[0]?.resolver?.texts ?? [];
+  const nodeHash = useMemo(() => namehash(domainName(name)), [name]);
+
+  const {
+    data: textResults,
+    isLoading: textRecordsLoading,
+    refetch: refetchTextRecords,
+  } = useReadContracts({
+    contracts: textKeys.map(key => ({
+      address: resolverAddress as `0x${string}`,
+      abi: RESOLVER_ABI,
+      functionName: "text" as const,
+      args: [nodeHash, key] as [`0x${string}`, string],
+    })),
+    query: {
+      enabled: Boolean(resolverAddress && textKeys.length > 0),
+    },
+  });
+
+  const textRecords = useMemo(() => {
+    if (!textResults) return {} as Record<string, string>;
+    return textKeys.reduce<Record<string, string>>((acc, key, i) => {
+      const result = textResults[i];
+      if (result?.status === "success" && typeof result.result === "string") {
+        acc[key] = result.result;
+      }
+      return acc;
+    }, {});
+  }, [textKeys, textResults]);
 
   // Internal fetch function - ownership only (optimized)
   const fetchOwnershipData = useCallback(async () => {
@@ -215,10 +247,15 @@ export function useNameDetails(name: string) {
     optimisticSetOwner,
     optimisticExtendExpiry,
 
+    // Text records resolved from resolver.texts keys
+    textRecords,
+    refetchTextRecords,
+
     // Loading states
     isLoading, // Full page loading — only tracks initial registration data fetch, NOT background availability refetches
     ownershipLoading, // Ownership section only
     datesLoading, // Dates section only
+    textRecordsLoading,
 
     // raw availability (optional exposure)
     isNameAvailable: isFetched ? isAvailable : undefined,

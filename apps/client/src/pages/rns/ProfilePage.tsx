@@ -29,11 +29,14 @@ export default function ProfilePage({ name }: ProfilePageProps) {
     resolver,
     refetchOwnership,
     refetchDates,
+    refetchTextRecords,
     isLoading,
     datesLoading,
     isNameAvailable,
     optimisticSetOwner,
     optimisticExtendExpiry,
+    textRecords,
+    textRecordsLoading,
   } = useNameDetails(name);
   const { address: connectedWallet } = useAccount();
   const { navigateToHome, navigateToRegister } = useRNSNavigation();
@@ -43,9 +46,6 @@ export default function ProfilePage({ name }: ProfilePageProps) {
   const isDifferentOwner =
     connectedWallet && ownerAddress && connectedWallet.toLowerCase() !== ownerAddress.toLowerCase();
 
-  /**
-   * ✅ Redirect handled correctly
-   */
   useEffect(() => {
     if (!isLoading && isNameAvailable === true) {
       setRedirecting(true);
@@ -53,10 +53,6 @@ export default function ProfilePage({ name }: ProfilePageProps) {
     }
   }, [isLoading, isNameAvailable, navigateToRegister, name]);
 
-  /**
-   * ✅ Block render while redirecting
-   */
-  // Prevent initial content flash: block render until availability is known
   if (isLoading || redirecting || isNameAvailable === undefined) {
     return (
       <div className="h-screen flex items-center justify-center">
@@ -107,8 +103,11 @@ export default function ProfilePage({ name }: ProfilePageProps) {
           addressFull={ownerAddress}
           addressFormatted={displayAddress}
           expiry={dates.expiry.date}
-          registrant={ownerAddress}
+          isCurrentOwner={isCurrentOwner}
           onTabChange={handleTabChange}
+          textRecords={textRecords}
+          textRecordsLoading={textRecordsLoading}
+          onSaved={refetchTextRecords}
         />
       )}
       {activeTab === "ownership" && (
