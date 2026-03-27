@@ -1,5 +1,15 @@
 import { Outlet, useLocation, useNavigate } from "react-router";
-import { BarChart3, Users, Layers, LogOut, Home, Hexagon, Files, CoinsIcon } from "lucide-react";
+import {
+  BarChart3,
+  Users,
+  Layers,
+  LogOut,
+  Home,
+  Hexagon,
+  Files,
+  CoinsIcon,
+  ArrowRightLeft,
+} from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { AdminHeader } from "../../components/admin";
 import { AdminBreadcrumb } from "../../components/admin";
@@ -22,6 +32,13 @@ export function AdminLayout() {
     { id: "themes", icon: Hexagon, label: "Themes", path: "/i/admin/themes", shortcut: "⌘⌥T" },
     { id: "files", icon: Files, label: "Files", path: "/i/admin/files", shortcut: "⌘⌥F" },
     { id: "pools", icon: CoinsIcon, label: "Pools", path: "/i/admin/pools", shortcut: "⌘⌥P" },
+    {
+      id: "ndau-conversions",
+      icon: ArrowRightLeft,
+      label: "NDAU Conversions",
+      path: "/i/admin/ndau-conversions",
+      shortcut: "⌘⌥N",
+    },
   ];
 
   // Handle logout
@@ -50,6 +67,8 @@ export function AdminLayout() {
         return "File Management";
       case "/i/admin/pools":
         return "Pool Management";
+      case "/i/admin/ndau-conversions":
+        return "NDAU Conversions";
       default:
         return "Admin Dashboard";
     }

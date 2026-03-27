@@ -7,6 +7,7 @@ import { PoolDetailsPage } from "./pages/PoolDetailsPage";
 import { PoolDebugPage } from "./pages/PoolDebugPage";
 import { PoolAPYDebugPage } from "./pages/PoolAPYDebugPage";
 import NetworkPage from "./pages/NetworkPage";
+import NdauConversionPage from "./pages/NdauConversionPage";
 import PublicLayout from "./components/layout/PublicLayout";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -39,6 +40,9 @@ const AdminFiles = lazy(() =>
 );
 const AdminPools = lazy(() =>
   import("./pages/admin/AdminPools").then(module => ({ default: module.AdminPools }))
+);
+const AdminNdauConversions = lazy(() =>
+  import("./pages/admin/AdminNdauConversions").then(module => ({ default: module.AdminNdauConversions }))
 );
 
 function AppRouter() {
@@ -127,6 +131,14 @@ function AppRouter() {
           </PublicLayout>
         }
       />
+      <Route
+        path="/i/ndau-conversion"
+        element={
+          <PublicLayout>
+            <NdauConversionPage />
+          </PublicLayout>
+        }
+      />
 
       {/* Admin Routes with nested routing - lazy loaded with Suspense */}
       <Route
@@ -184,6 +196,14 @@ function AppRouter() {
           element={
             <Suspense fallback={<div>Loading pools...</div>}>
               <AdminPools />
+            </Suspense>
+          }
+        />
+        <Route
+          path="ndau-conversions"
+          element={
+            <Suspense fallback={<div>Loading conversions...</div>}>
+              <AdminNdauConversions />
             </Suspense>
           }
         />

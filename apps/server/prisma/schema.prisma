@@ -301,3 +301,19 @@ model Jwks {
 
   @@map("jwks")
 }
+
+model NdauConversion {
+  id              Int       @id @default(autoincrement())
+  ndau_address    String    @db.VarChar(255)
+  ndau_amount     String    @db.Text // Using Text to handle decimal amounts
+  revo_amount     String    @db.Text // Converted amount (1 NDAU = 6.872 REVO)
+  revo_address    String    @db.VarChar(255) // Connected REVO wallet address
+  txid            String?   @db.Text // Transaction hash after admin processes
+  status          String    @default("pending") // pending, processed, failed
+  created_at      DateTime  @default(now())
+  updated_at      DateTime? @updatedAt
+
+  @@index([status])
+  @@index([created_at])
+  @@map("ndau_conversions")
+}

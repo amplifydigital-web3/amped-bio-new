@@ -11,6 +11,7 @@ import { blocksRouter } from "./blocks";
 import { poolsRouter } from "./pools/index";
 import { publicSettingsRouter } from "./publicSettings";
 import { referralRouter } from "./referral";
+import { ndauConversionRouter } from "./ndauConversion";
 import { inferRouterOutputs } from "@trpc/server";
 
 // Merge all routers
@@ -27,6 +28,7 @@ const mergedRouter = router({
   blocks: blocksRouter,
   pools: poolsRouter,
   public: publicSettingsRouter,
+  ndauConversion: ndauConversionRouter,
 });
 
 export type AppRouter = typeof mergedRouter;
