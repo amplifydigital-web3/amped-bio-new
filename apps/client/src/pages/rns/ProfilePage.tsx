@@ -127,7 +127,7 @@ export default function ProfilePage({ name }: ProfilePageProps) {
           resolver={resolver}
         />
       )}
-      {activeTab === "identity" && <VerificationDetail />}
+      {activeTab === "identity" && <VerificationDetail isOwner={isCurrentOwner} />}
     </div>
   );
 }
