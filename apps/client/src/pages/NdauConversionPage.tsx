@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { trpc } from "@/utils/trpc/trpc";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -17,7 +16,6 @@ import { NDAU_TO_REVO_RATE, calculateRevoAmount } from "@ampedbio/constants";
 import { toast } from "sonner";
 import { useMutation } from "@tanstack/react-query";
 
-// Mock data for NDAU wallet
 const MOCK_NDAU_BALANCE = "150.5";
 const MOCK_NDAU_ADDRESS = "ndau1xvt4e6l8h9q2s3p4r5m6n7k8j9h0g1f2d3s4a5";
 
@@ -26,11 +24,9 @@ export default function NdauConversionPage() {
   const [isConnected, setIsConnected] = useState(false);
   const [ndauAddress, setNdauAddress] = useState("");
   const [ndauBalance, setNdauBalance] = useState("");
-  const [ndauAmount, setNdauAmount] = useState("");
   const [revoAmount, setRevoAmount] = useState("");
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
 
-  // Mock connect NDAU wallet
   const handleConnectNdauWallet = () => {
     setNdauAddress(MOCK_NDAU_ADDRESS);
     setNdauBalance(MOCK_NDAU_BALANCE);
@@ -38,25 +34,22 @@ export default function NdauConversionPage() {
     toast.success("NDAU wallet connected successfully!");
   };
 
-  // Calculate REVO amount when NDAU amount changes
   useEffect(() => {
-    if (ndauAmount) {
-      const calculated = calculateRevoAmount(ndauAmount);
+    if (ndauBalance) {
+      const calculated = calculateRevoAmount(ndauBalance);
       setRevoAmount(calculated);
     } else {
       setRevoAmount("");
     }
-  }, [ndauAmount]);
+  }, [ndauBalance]);
 
   const submitMutation = useMutation({
     mutationFn: trpc.ndauConversion.submitConversion.mutationOptions().mutationFn,
     onSuccess: () => {
       toast.success("Conversion request submitted successfully!");
       setIsConfirmDialogOpen(false);
-      setNdauAmount("");
-      setRevoAmount("");
     },
-    onError: (error) => {
+    onError: error => {
       toast.error(`Failed to submit conversion: ${error.message}`);
       setIsConfirmDialogOpen(false);
     },
@@ -68,8 +61,8 @@ export default function NdauConversionPage() {
       return;
     }
 
-    if (!ndauAmount || parseFloat(ndauAmount) <= 0) {
-      toast.error("Please enter a valid NDAU amount");
+    if (!ndauBalance || parseFloat(ndauBalance) <= 0) {
+      toast.error("No NDAU balance available to convert");
       return;
     }
 
@@ -78,7 +71,6 @@ export default function NdauConversionPage() {
       return;
     }
 
-    // Open confirmation dialog
     setIsConfirmDialogOpen(true);
   };
 
@@ -90,17 +82,16 @@ export default function NdauConversionPage() {
 
     submitMutation.mutate({
       ndauAddress,
-      ndauAmount,
+      ndauAmount: ndauBalance,
       revoAddress: authUser.wallet,
     });
   };
 
-  const isSubmitDisabled = !isConnected || !ndauAmount || parseFloat(ndauAmount) <= 0;
+  const isSubmitDisabled = !isConnected || !ndauBalance || parseFloat(ndauBalance) <= 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-12 px-4">
       <div className="max-w-3xl mx-auto">
-        {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
             NDAU to REVO Conversion
@@ -110,7 +101,6 @@ export default function NdauConversionPage() {
           </p>
         </div>
 
-        {/* Conversion Rate Card */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
@@ -127,9 +117,7 @@ export default function NdauConversionPage() {
           </div>
         </div>
 
-        {/* Main Conversion Card */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
-          {/* Connect NDAU Wallet */}
           <div className="mb-8">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
               Connect NDAU Wallet
@@ -166,28 +154,20 @@ export default function NdauConversionPage() {
             )}
           </div>
 
-          {/* Conversion Form */}
           <div className="space-y-6">
             <div>
-              <Label htmlFor="ndauAmount" className="text-gray-900 dark:text-white">
-                NDAU Amount
-              </Label>
-              <Input
-                id="ndauAmount"
-                type="number"
-                placeholder="Enter NDAU amount"
-                value={ndauAmount}
-                onChange={(e) => setNdauAmount(e.target.value)}
-                className="mt-1 h-12 text-lg"
-                disabled={!isConnected}
-                min="0"
-                step="0.001"
-              />
-              {isConnected && ndauBalance && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Available: {ndauBalance} NDAU
-                </p>
-              )}
+              <Label className="text-gray-900 dark:text-white">Amount to Convert</Label>
+              <div className="mt-1 h-12 text-lg bg-gray-100 dark:bg-gray-700 rounded-md px-3 py-2 flex items-center">
+                <span className="text-gray-900 dark:text-white font-medium">
+                  {ndauBalance || "0.000"} NDAU
+                </span>
+                <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                  (Full Balance)
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Your full wallet balance will be converted
+              </p>
             </div>
 
             <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
@@ -202,7 +182,6 @@ export default function NdauConversionPage() {
               </div>
             </div>
 
-            {/* Submit Button */}
             <Button
               onClick={handleSubmit}
               disabled={isSubmitDisabled || submitMutation.isPending}
@@ -235,11 +214,8 @@ export default function NdauConversionPage() {
           </div>
         </div>
 
-        {/* Information Section */}
         <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-6">
-          <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-            How it works:
-          </h3>
+          <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">How it works:</h3>
           <ul className="space-y-2 text-sm text-blue-800 dark:text-blue-200">
             <li className="flex items-start">
               <span className="mr-2">1.</span>
@@ -247,7 +223,7 @@ export default function NdauConversionPage() {
             </li>
             <li className="flex items-start">
               <span className="mr-2">2.</span>
-              <span>Enter the amount of NDAU you want to convert</span>
+              <span>Your full NDAU balance will be automatically converted to REVO</span>
             </li>
             <li className="flex items-start">
               <span className="mr-2">3.</span>
@@ -255,20 +231,19 @@ export default function NdauConversionPage() {
             </li>
             <li className="flex items-start">
               <span className="mr-2">4.</span>
-              <span>Admin will process your request and send REVO tokens to your connected wallet</span>
+              <span>
+                Admin will process your request and send REVO tokens to your connected wallet
+              </span>
             </li>
           </ul>
         </div>
       </div>
 
-      {/* Confirmation Dialog */}
       <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Confirm Conversion Request</DialogTitle>
-            <DialogDescription>
-              Please review your conversion details and confirm
-            </DialogDescription>
+            <DialogDescription>Please review your conversion details and confirm</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
@@ -276,7 +251,7 @@ export default function NdauConversionPage() {
               <div className="flex justify-between">
                 <span className="text-sm text-gray-500 dark:text-gray-400">NDAU Amount:</span>
                 <span className="font-semibold text-gray-900 dark:text-white">
-                  {ndauAmount} NDAU
+                  {ndauBalance} NDAU
                 </span>
               </div>
               <div className="flex justify-between">
