@@ -29,7 +29,7 @@ const VerificationDetail = ({ isOwner }: VerificationDetailProps) => {
             ? "This tab will show your verification status, verified identity attributes, and related NFT metadata once available."
             : "This tab will show public on-chain verification status and related NFT details once available."}
         </p>
-        <p className="mt-3 text-md text-black/60 inline-flex items-center gap-1">
+        <p className="mt-3 text-sm text-black/60 inline-flex items-center gap-1">
           Learn more about{" "}
           <Link
             to={import.meta.env.VITE_AUTHBASE_URL}
