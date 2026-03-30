@@ -17,6 +17,8 @@ interface ImportMetaEnv {
   // google
   readonly VITE_CAPTCHA_SITE_KEY: string;
   readonly VITE_GOOGLE_CLIENT_ID: string;
+  // ndau wallet
+  readonly VITE_NDAU_SOCKET_URL: string;
 }
 
 interface ImportMeta {

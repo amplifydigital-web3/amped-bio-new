@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNdauWallet } from "@/ndau-wallet/contexts/NdauWalletContext";
+import { NdauConnect } from "@/ndau-wallet/components/NdauConnect";
 import { trpc } from "@/utils/trpc/trpc";
 import { Button } from "@/components/ui/Button";
 import { Label } from "@/components/ui/label";
@@ -11,28 +13,19 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Wallet, ArrowRight, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { ArrowRight, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { NDAU_TO_REVO_RATE, calculateRevoAmount } from "@ampedbio/constants";
 import { toast } from "sonner";
 import { useMutation } from "@tanstack/react-query";
 
-const MOCK_NDAU_BALANCE = "150.5";
-const MOCK_NDAU_ADDRESS = "ndau1xvt4e6l8h9q2s3p4r5m6n7k8j9h0g1f2d3s4a5";
-
 export default function NdauConversionPage() {
-  const { authUser, isPending: authPending } = useAuth();
-  const [isConnected, setIsConnected] = useState(false);
-  const [ndauAddress, setNdauAddress] = useState("");
+  const { authUser } = useAuth();
+  const { walletAddress: ndauAddress } = useNdauWallet();
   const [ndauBalance, setNdauBalance] = useState("");
   const [revoAmount, setRevoAmount] = useState("");
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
 
-  const handleConnectNdauWallet = () => {
-    setNdauAddress(MOCK_NDAU_ADDRESS);
-    setNdauBalance(MOCK_NDAU_BALANCE);
-    setIsConnected(true);
-    toast.success("NDAU wallet connected successfully!");
-  };
+  const isConnected = !!ndauAddress;
 
   useEffect(() => {
     if (ndauBalance) {
@@ -123,33 +116,29 @@ export default function NdauConversionPage() {
               Connect NDAU Wallet
             </h2>
             {!isConnected ? (
-              <Button
-                onClick={handleConnectNdauWallet}
-                className="w-full h-12 text-lg"
-                variant="default"
-              >
-                <Wallet className="h-5 w-5 mr-2" />
-                Connect NDAU Wallet
-              </Button>
+              <NdauConnect buttonText="Connect NDAU Wallet" />
             ) : (
-              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
-                    <div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Wallet Connected</p>
-                      <p className="font-mono text-sm text-gray-900 dark:text-white break-all">
-                        {ndauAddress}
+              <div className="space-y-4">
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+                      <div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Wallet Connected</p>
+                        <p className="font-mono text-sm text-gray-900 dark:text-white break-all">
+                          {ndauAddress}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Balance</p>
+                      <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {ndauBalance || "0.000"} NDAU
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Balance</p>
-                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {ndauBalance} NDAU
-                    </p>
-                  </div>
                 </div>
+                <NdauConnect buttonText="Connect NDAU Wallet" />
               </div>
             )}
           </div>
