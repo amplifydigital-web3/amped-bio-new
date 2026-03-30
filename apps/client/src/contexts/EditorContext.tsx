@@ -601,6 +601,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     expiredRevoName,
     lostRevoName,
     dismissRevoName: () => {
+      setLostRevoName("");
       setExpiredRevoName("");
       clearRevoName();
     },
