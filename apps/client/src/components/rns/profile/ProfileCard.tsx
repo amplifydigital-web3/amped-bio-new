@@ -252,21 +252,20 @@ export const ProfileCard = ({
       {/* Profile Header Card */}
 
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-4">
-        <div
-          className="h-24 sm:h-32 md:h-36 relative overflow-hidden group"
-          style={bannerBgStyle(display)}
-        >
-          {display.bannerUrl && (
-            <img
-              src={display.bannerUrl}
-              alt=""
-              aria-hidden
-              className="sr-only"
-              onError={() => setBannerLoadFailed(true)}
-            />
-          )}
-          {(!display.bannerUrl || bannerLoadFailed) && (
-            <div className="w-full h-full bg-gradient-to-r from-indigo-400 via-indigo-400 to-blue-400" />
+        <div className="h-24 sm:h-32 md:h-36 relative overflow-hidden group">
+          {/* Gradient is always the base layer — shows during load and on error */}
+          <div className="absolute inset-0 bg-gradient-to-r from-indigo-400 via-indigo-400 to-blue-400" />
+          {display.bannerUrl && !bannerLoadFailed && (
+            <>
+              <div className="absolute inset-0" style={bannerBgStyle(display)} />
+              <img
+                src={display.bannerUrl}
+                alt=""
+                aria-hidden
+                className="sr-only"
+                onError={() => setBannerLoadFailed(true)}
+              />
+            </>
           )}
 
           {isEditing && (
@@ -299,16 +298,14 @@ export const ProfileCard = ({
         />
         <div className="px-4 sm:px-6 pb-6 rounded-2xl relative py-16 border border-gray-200">
           <div className="absolute left-6 sm:left-8 -top-16 group z-20">
-            <div className="relative w-32 h-32 rounded-full ring-8 ring-white overflow-hidden">
-              {display.avatarUrl && !avatarLoadFailed ? (
+            <div className="relative w-32 h-32 rounded-full ring-8 ring-white overflow-hidden bg-gradient-to-br from-green-300 to-green-100">
+              {display.avatarUrl && !avatarLoadFailed && (
                 <img
                   src={display.avatarUrl}
                   alt="Avatar"
-                  className="w-full h-full object-cover"
+                  className="absolute inset-0 w-full h-full object-cover"
                   onError={() => setAvatarLoadFailed(true)}
                 />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-green-300 to-green-100" />
               )}
               {isEditing && (
                 <ImageUploadButton
