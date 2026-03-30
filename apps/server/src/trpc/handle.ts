@@ -5,6 +5,7 @@ import { ThemeConfig } from "@ampedbio/constants";
 import { prisma } from "../services/DB";
 import { z } from "zod";
 import { HANDLE_MIN_LENGTH, HANDLE_REGEX } from "@ampedbio/constants";
+import { env } from "../env";
 
 // Create a base schema for handle validation
 export const handleBaseSchema = z
@@ -129,6 +130,7 @@ const appRouter = router({
             { handle: handle.toUpperCase() },
           ],
         },
+        include: { wallet: true },
       });
 
       if (user === null) {
@@ -179,12 +181,64 @@ const appRouter = router({
         imageFileId: image_file_id,
       });
 
+      // Validate revoName on-chain: check expiry and ownership
+      const walletAddress = user.wallet?.address ?? null;
+      let resolvedRevoName: string | null = revo_name ?? null;
+      let revoNameStatus: "active" | "expired" | "taken" | null = resolvedRevoName
+        ? "active"
+        : null;
+
+      if (resolvedRevoName) {
+        try {
+          const SUBGRAPH_URL = env.SUBGRAPH_URL;
+          if (SUBGRAPH_URL) {
+            const labelName = resolvedRevoName.split(".")[0];
+            const res = await fetch(SUBGRAPH_URL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                query: `query ($l: String!) { revoNames(where: { labelName: $l }) { expiryDateWithGrace owner } }`,
+                variables: { l: labelName },
+              }),
+            });
+
+            if (!res.ok) {
+              throw new Error(`Subgraph responded with status ${res.status}`);
+            }
+
+            const json = await res.json();
+            const details = json?.data?.revoNames?.[0];
+            if (details) {
+              const expiryTimestamp = Number(details.expiryDateWithGrace);
+              const nowInSeconds = Math.floor(Date.now() / 1000);
+              if (expiryTimestamp > 0 && expiryTimestamp < nowInSeconds) {
+                resolvedRevoName = null;
+                revoNameStatus = "expired";
+              } else if (
+                walletAddress &&
+                details.owner &&
+                details.owner.toLowerCase() !== walletAddress.toLowerCase()
+              ) {
+                resolvedRevoName = null;
+                revoNameStatus = "taken";
+              }
+            }
+          }
+        } catch (err) {
+          // Fail-open: subgraph unavailable or timed out — keep the name as-is rather than
+          // incorrectly clearing a valid name. Log so this is visible in production monitoring.
+          console.warn("[revoName] Subgraph validation failed, keeping name as-is:", err);
+        }
+      }
+
       const result = {
         user: {
           id: user_id,
           name,
           email,
-          revoName: revo_name,
+          revoName: resolvedRevoName,
+          revoNameStatus,
+          originalRevoName: revo_name ?? null,
           description,
           image: resolvedImageUrl,
         },

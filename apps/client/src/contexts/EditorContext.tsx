@@ -17,9 +17,6 @@ import { trpcClient } from "@/utils/trpc";
 import { exportThemeConfigAsJson, importThemeConfigFromJson } from "@/utils/theme";
 import { mergeTheme } from "@/utils/mergeTheme";
 import { useNavigate, useLocation } from "react-router";
-import { fetchGetNameDetails } from "@/services/subgraph/queries";
-import { createSubgraphClient } from "@/services/subgraph/subgraphClient";
-import { libertasTestnet } from "@ampedbio/web3";
 
 interface EditorContextType extends EditorState {
   changes: boolean;
@@ -48,7 +45,8 @@ interface EditorContextType extends EditorState {
   exportTheme: (customFilename?: string) => void;
   importTheme: (file: File) => Promise<void>;
   expiredRevoName: string;
-  dismissExpiredRevoName: () => void;
+  dismissRevoName: () => void;
+  lostRevoName: string;
 }
 
 const EditorContext = createContext<EditorContextType | undefined>(undefined);
@@ -58,6 +56,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
   const [changes, setChanges] = useState(false);
   const [themeChanges, setThemeChanges] = useState(false);
   const [expiredRevoName, setExpiredRevoName] = useState("");
+  const [lostRevoName, setLostRevoName] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -75,32 +74,16 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       const { user, theme, blocks: blocks_raw, hasCreatorPool } = onlinkData;
-      const { id, name, email, revoName, description, image } = user;
+      const { id, name, email, revoName, revoNameStatus, originalRevoName, description, image } =
+        user;
       const normalizedHandle = normalizeHandle(handle);
       const formattedHandle = formatHandle(handle);
-      // console.info("👤 User data loaded:", { name, email, blocks: blocks_raw, theme });
 
       const blocks = blocks_raw.sort((a, b) => a.order - b.order);
 
-      // Check if the revoName has expired on-chain
-      let resolvedRevoName = revoName ?? "";
-      if (resolvedRevoName) {
-        try {
-          const labelName = resolvedRevoName.split(".")[0];
-          const subgraphClient = createSubgraphClient(libertasTestnet.subgraphUrl);
-          const { data: nameDetails } = await fetchGetNameDetails(labelName, subgraphClient);
-          if (nameDetails && nameDetails.length > 0) {
-            const expiryTimestamp = Number(nameDetails[0].expiryDateWithGrace);
-            const nowInSeconds = Math.floor(Date.now() / 1000);
-            if (expiryTimestamp > 0 && expiryTimestamp < nowInSeconds) {
-              setExpiredRevoName(resolvedRevoName);
-              resolvedRevoName = "";
-            }
-          }
-        } catch {
-          // Non-critical — if subgraph is unavailable, show the name as-is
-        }
-      }
+      // Server already validated ownership and expiry; just read the status
+      if (revoNameStatus === "expired") setExpiredRevoName(originalRevoName ?? "");
+      else if (revoNameStatus === "taken") setLostRevoName(originalRevoName ?? "");
 
       setState(prevState => ({
         ...prevState,
@@ -109,7 +92,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
           name,
           handle: normalizedHandle,
           handleFormatted: formattedHandle,
-          revoName: resolvedRevoName,
+          revoName: revoName ?? "",
           email,
           bio: description ?? "",
           photoUrl: image ?? "",
@@ -616,7 +599,8 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     exportTheme,
     importTheme,
     expiredRevoName,
-    dismissExpiredRevoName: () => {
+    lostRevoName,
+    dismissRevoName: () => {
       setExpiredRevoName("");
       clearRevoName();
     },

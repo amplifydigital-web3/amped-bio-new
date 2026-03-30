@@ -12,9 +12,6 @@ import { BlockType } from "@ampedbio/constants";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { AuthUser } from "@/types/auth";
-import { fetchGetNameDetails } from "@/services/subgraph/queries";
-import { createSubgraphClient } from "@/services/subgraph/subgraphClient";
-import { libertasTestnet } from "@ampedbio/web3";
 
 // Default handle username to show when accessing root URL
 const DEFAULT_ONELINK = "landingpage";
@@ -152,24 +149,7 @@ export function View() {
             const { id, name, email, description, image, revoName } = user;
             const formattedHandle = formatHandle(normalizedHandle);
 
-            // Check if the revoName has expired on-chain; hide it silently from public view
-            let resolvedRevoName = revoName ?? "";
-            if (resolvedRevoName) {
-              try {
-                const labelName = resolvedRevoName.split(".")[0];
-                const subgraphClient = createSubgraphClient(libertasTestnet.subgraphUrl);
-                const { data: nameDetails } = await fetchGetNameDetails(labelName, subgraphClient);
-                if (nameDetails && nameDetails.length > 0) {
-                  const expiryTimestamp = Number(nameDetails[0].expiryDateWithGrace);
-                  const nowInSeconds = Math.floor(Date.now() / 1000);
-                  if (expiryTimestamp > 0 && expiryTimestamp < nowInSeconds) {
-                    resolvedRevoName = "";
-                  }
-                }
-              } catch {
-                // Non-critical — if subgraph is unavailable, show the name as-is
-              }
-            }
+            // Server already validated ownership and expiry; revoName is null if invalid
 
             setProfile({
               id,
@@ -177,7 +157,7 @@ export function View() {
               handle: normalizedHandle,
               handleFormatted: formattedHandle,
               email,
-              revoName: resolvedRevoName,
+              revoName: revoName ?? "",
               bio: description ?? "",
               photoUrl: image ?? "",
               photoCmp: "",
