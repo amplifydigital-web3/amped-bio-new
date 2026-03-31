@@ -19,6 +19,20 @@ export const queryGetAllRegisteredNamesOfOwner = gql`
   }
 `;
 
+export const queryGetAllRegisteredNamesOfOwnerWithoutExpiredName = gql`
+  query getAllNames($owner: String!, $currentTimestamp: BigInt!) {
+    revoNames(
+      orderBy: expiryDateWithGrace
+      orderDirection: desc
+      where: { owner: $owner, name_not: null, expiryDateWithGrace_gt: $currentTimestamp }
+    ) {
+      name
+      labelName
+      expiryDateWithGrace
+    }
+  }
+`;
+
 export const queryRegistrationDetailForName = gql`
   query getRegistrationData($labelHash: String!) {
     revoNames(where: { labelHash: $labelHash }) {
@@ -101,11 +115,24 @@ export const queryGetRecords = gql`
 
 export async function fetchAllRegisteredNamesOfOwner(
   owner: Address,
-  graphClient?: GraphQLClient | null
+  graphClient?: GraphQLClient | null,
+  unexpiredOnly: boolean = false
 ): Promise<SubgraphResult<RevoName[]>> {
   try {
     if (!graphClient) {
       return { data: null, error: "Subgraph client not available for current network" };
+    }
+
+    if (unexpiredOnly) {
+      const currentTimestamp = Math.floor(Date.now() / 1000).toString();
+      const data = await graphClient.request<GetAllNamesResult>(
+        queryGetAllRegisteredNamesOfOwnerWithoutExpiredName,
+        {
+          owner,
+          currentTimestamp,
+        }
+      );
+      return { data: data.revoNames, error: null };
     }
 
     const variables = { owner };

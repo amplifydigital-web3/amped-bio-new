@@ -14,7 +14,8 @@ export function GeneralTabContent() {
   const { address: accountAddress, isConnected } = useAccount();
   const { revoNames: revolutionNames, isFetching } = useGetAllRegisteredNames(
     accountAddress,
-    isConnected
+    isConnected,
+    true
   );
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
 
