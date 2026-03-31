@@ -158,8 +158,8 @@ export function Preview({ isEditing, handle, profile, blocks, theme, userId }: P
                     <img src={profile.photoCmp} alt={profile.name} className="w-32 h-auto" />
                   </div>
                 )}
-                <div className="space-y-4">
-                  <div>
+                <div className="space-y-4 w-full">
+                  <div className="w-full">
                     <h1
                       className={cn(
                         "text-4xl font-bold tracking-tight",
@@ -175,7 +175,7 @@ export function Preview({ isEditing, handle, profile, blocks, theme, userId }: P
                     {profile.revoName && showRns && (
                       <div
                         className={cn(
-                          "font-bold tracking-tight flex items-center justify-center space-x-2",
+                          "font-bold tracking-tight flex items-center justify-center gap-1 w-full overflow-hidden",
                           getHeroEffectStyle(themeConfig?.heroEffect)
                         )}
                         style={{
@@ -185,7 +185,7 @@ export function Preview({ isEditing, handle, profile, blocks, theme, userId }: P
                       >
                         <button
                           onClick={handleCopy}
-                          className="text-sm font-bold transition-all duration-300"
+                          className="text-sm font-bold transition-all duration-300 shrink-0"
                         >
                           {!copied ? (
                             <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -194,11 +194,11 @@ export function Preview({ isEditing, handle, profile, blocks, theme, userId }: P
                           )}
                         </button>
                         <span
-                          className="font-medium cursor-pointer flex items-center gap-2 hover:underline"
+                          className="font-medium cursor-pointer flex items-center gap-1 hover:underline min-w-0"
                           onClick={() => handleRevoNameRedirection(profile.revoName!.split(".")[0])}
                         >
-                          {profile.revoName}
-                          <ExternalLink className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                          <span className="break-all">{profile.revoName}</span>
+                          <ExternalLink className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                         </span>
                       </div>
                     )}
