@@ -60,7 +60,7 @@ export default function NdauConversionPage() {
     }
 
     if (!ndauAddress) {
-      toast.error("Please connect your NDAU wallet first");
+      toast.error("Please connect your NDAU account first");
       return;
     }
 
@@ -90,7 +90,8 @@ export default function NdauConversionPage() {
             NDAU to REVO Conversion
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-300">
-            Convert your NDAU tokens to REVO tokens at a fixed rate
+            Convert your NDAU tokens to REVO tokens at a fixed rate. Connect each NDAU account
+            separately to convert multiple accounts.
           </p>
         </div>
 
@@ -113,10 +114,10 @@ export default function NdauConversionPage() {
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
           <div className="mb-8">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-              Connect NDAU Wallet
+              Connect NDAU Account
             </h2>
             {!isConnected ? (
-              <NdauConnect buttonText="Connect NDAU Wallet" />
+              <NdauConnect buttonText="Connect NDAU Account" />
             ) : (
               <div className="space-y-4">
                 <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
@@ -124,7 +125,9 @@ export default function NdauConversionPage() {
                     <div className="flex items-center space-x-3">
                       <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
                       <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Wallet Connected</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          Account Connected
+                        </p>
                         <p className="font-mono text-sm text-gray-900 dark:text-white break-all">
                           {ndauAddress}
                         </p>
@@ -138,7 +141,7 @@ export default function NdauConversionPage() {
                     </div>
                   </div>
                 </div>
-                <NdauConnect buttonText="Connect NDAU Wallet" />
+                <NdauConnect buttonText="Connect Different Account" />
               </div>
             )}
           </div>
@@ -155,7 +158,7 @@ export default function NdauConversionPage() {
                 </span>
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Your full wallet balance will be converted
+                Your full account balance will be converted
               </p>
             </div>
 
@@ -208,18 +211,24 @@ export default function NdauConversionPage() {
           <ul className="space-y-2 text-sm text-blue-800 dark:text-blue-200">
             <li className="flex items-start">
               <span className="mr-2">1.</span>
-              <span>Connect your NDAU wallet to view your balance</span>
+              <span>Connect your NDAU account to view your balance</span>
             </li>
             <li className="flex items-start">
               <span className="mr-2">2.</span>
-              <span>Your full NDAU balance will be automatically converted to REVO</span>
+              <span>
+                If you have multiple NDAU accounts, connect and submit each one separately
+              </span>
             </li>
             <li className="flex items-start">
               <span className="mr-2">3.</span>
-              <span>Submit the conversion request (login required)</span>
+              <span>Your full NDAU balance will be automatically converted to REVO</span>
             </li>
             <li className="flex items-start">
               <span className="mr-2">4.</span>
+              <span>Submit the conversion request (login required)</span>
+            </li>
+            <li className="flex items-start">
+              <span className="mr-2">5.</span>
               <span>
                 Admin will process your request and send REVO tokens to your connected wallet
               </span>
