@@ -123,7 +123,7 @@ const ExtendRegistrationModal = ({
       <div className="flex justify-between items-center gap-2">
         <h2 className="text-lg sm:text-2xl text-gray-900 overflow-x-hidden">
           <span className="font-bold">Extend</span> <br />{" "}
-          <span className="font-semibold sm:font-bold">{domainName(ensName)}</span>
+          <span className="font-semibold sm:font-bold break-all">{domainName(ensName)}</span>
         </h2>
         <button
           onClick={onClose}
