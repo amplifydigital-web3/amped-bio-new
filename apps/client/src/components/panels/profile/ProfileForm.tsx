@@ -87,7 +87,7 @@ export function ProfileForm({
             </SelectContent>
           </Select>
           <Link
-            to={`?p=rns`}
+            to={`?p=rns&t=my-names`}
             className="inline-flex items-center gap-1.5 text-sm font-medium text-[#6366f1] hover:underline"
           >
             Manage names → RNS
