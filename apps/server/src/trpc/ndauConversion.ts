@@ -3,31 +3,63 @@ import { router, privateProcedure, adminProcedure } from "../trpc/trpc";
 import { calculateRevoAmount } from "@ampedbio/constants";
 import { prisma } from "../services/DB";
 import { env } from "../env";
-import { createPublicClient, createWalletClient, http, parseEther, formatEther, type Address } from "viem";
+import {
+  createPublicClient,
+  createWalletClient,
+  http,
+  parseEther,
+  formatEther,
+  type Address,
+} from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { revolutionDevnet } from "@ampedbio/web3";
 
 export const ndauConversionRouter = router({
-  /**
-   * Submit a new NDAU to REVO conversion request
-   * Only available to authenticated users
-   */
+  checkExistingConversion: privateProcedure
+    .input(
+      z.object({
+        ndauAddress: z.string().min(1, "NDAU address is required"),
+      })
+    )
+    .query(async ({ input }) => {
+      const existing = await prisma.ndauConversion.findFirst({
+        where: { ndau_address: input.ndauAddress },
+        select: { id: true, status: true },
+      });
+
+      return {
+        exists: !!existing,
+        status: existing?.status ?? null,
+      };
+    }),
+
   submitConversion: privateProcedure
     .input(
       z.object({
         ndauAddress: z.string().min(1, "NDAU address is required"),
         ndauAmount: z.string().refine(
-          (val) => {
+          val => {
             const num = parseFloat(val);
             return !isNaN(num) && num > 0;
           },
           { message: "NDAU amount must be greater than 0" }
         ),
         revoAddress: z.string().min(1, "REVO address is required"),
+        ampedbioSignature: z.string().min(1, "AmpedBio signature is required"),
+        ndauSignature: z.string().min(1, "NDAU signature is required"),
       })
     )
     .mutation(async ({ input }) => {
-      const { ndauAddress, ndauAmount, revoAddress } = input;
+      const { ndauAddress, ndauAmount, revoAddress, ampedbioSignature, ndauSignature } = input;
+
+      const existing = await prisma.ndauConversion.findFirst({
+        where: { ndau_address: ndauAddress },
+      });
+
+      if (existing) {
+        throw new Error("A conversion request already exists for this NDAU address");
+      }
+
       const revoAmount = calculateRevoAmount(ndauAmount);
 
       const conversion = await prisma.ndauConversion.create({
@@ -36,6 +68,8 @@ export const ndauConversionRouter = router({
           ndau_amount: ndauAmount,
           revo_amount: revoAmount,
           revo_address: revoAddress,
+          ampedbio_signature: ampedbioSignature,
+          ndau_signature: ndauSignature,
           status: "pending",
         },
       });
@@ -49,6 +83,8 @@ export const ndauConversionRouter = router({
           ndauAmount: conversion.ndau_amount,
           revoAmount: conversion.revo_amount,
           revoAddress: conversion.revo_address,
+          ampedbioSignature: conversion.ampedbio_signature,
+          ndauSignature: conversion.ndau_signature,
           status: conversion.status,
           createdAt: conversion.created_at.toISOString(),
         },
@@ -69,6 +105,8 @@ export const ndauConversionRouter = router({
       ndauAmount: c.ndau_amount,
       revoAmount: c.revo_amount,
       revoAddress: c.revo_address,
+      ampedbioSignature: c.ampedbio_signature,
+      ndauSignature: c.ndau_signature,
       txid: c.txid,
       status: c.status,
       createdAt: c.created_at.toISOString(),
@@ -105,7 +143,9 @@ export const ndauConversionRouter = router({
       const mockMode = env.NDAU_CONVERSION_MOCK_MODE === "true";
 
       if (!privateKey && !mockMode) {
-        throw new Error("NDAU conversion wallet not configured. Please set NDAU_CONVERSION_PRIVATE_KEY environment variable.");
+        throw new Error(
+          "NDAU conversion wallet not configured. Please set NDAU_CONVERSION_PRIVATE_KEY environment variable."
+        );
       }
 
       let txid: string | null = null;
@@ -117,7 +157,7 @@ export const ndauConversionRouter = router({
         // Real mode: send REVO tokens
         try {
           const account = privateKeyToAccount(privateKey as `0x${string}`);
-          
+
           const chain = revolutionDevnet;
           const publicClient = createPublicClient({
             chain,
@@ -134,7 +174,9 @@ export const ndauConversionRouter = router({
           const amountWei = parseEther(conversion.revo_amount);
 
           if (balance < amountWei) {
-            throw new Error(`Insufficient balance. Required: ${conversion.revo_amount} REVO, Available: ${formatEther(balance)} REVO`);
+            throw new Error(
+              `Insufficient balance. Required: ${conversion.revo_amount} REVO, Available: ${formatEther(balance)} REVO`
+            );
           }
 
           // Send transaction

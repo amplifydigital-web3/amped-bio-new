@@ -23,7 +23,9 @@ export const AdminNdauConversions: FC = () => {
     refetch,
   } = useQuery(trpc.ndauConversion.getAllConversions.queryOptions());
 
-  const [selectedConversion, setSelectedConversion] = useState<RouterOutputs["ndauConversion"]["getAllConversions"][number] | null>(null);
+  const [selectedConversion, setSelectedConversion] = useState<
+    RouterOutputs["ndauConversion"]["getAllConversions"][number] | null
+  >(null);
   const [isProcessDialogOpen, setIsProcessDialogOpen] = useState(false);
 
   const processMutation = useMutation({
@@ -34,18 +36,22 @@ export const AdminNdauConversions: FC = () => {
       setSelectedConversion(null);
       refetch();
     },
-    onError: (err) => {
+    onError: err => {
       toast.error(`Failed to process conversion: ${err.message}`);
     },
   });
 
-  const handleProcessClick = (conversion: RouterOutputs["ndauConversion"]["getAllConversions"][number]) => {
+  const handleProcessClick = (
+    conversion: RouterOutputs["ndauConversion"]["getAllConversions"][number]
+  ) => {
     setSelectedConversion({
       id: conversion.id,
       ndauAddress: conversion.ndauAddress,
       ndauAmount: conversion.ndauAmount,
       revoAmount: conversion.revoAmount,
       revoAddress: conversion.revoAddress,
+      ampedbioSignature: conversion.ampedbioSignature,
+      ndauSignature: conversion.ndauSignature,
     });
     setIsProcessDialogOpen(true);
   };
@@ -152,6 +158,18 @@ export const AdminNdauConversions: FC = () => {
                   scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
                 >
+                  AmpedBio Signature
+                </th>
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
+                >
+                  NDAU Signature
+                </th>
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
+                >
                   Status
                 </th>
                 <th
@@ -175,7 +193,7 @@ export const AdminNdauConversions: FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-900 dark:divide-gray-700">
-              {conversions.map((conversion) => (
+              {conversions.map(conversion => (
                 <tr key={conversion.id}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                     {conversion.id}
@@ -191,6 +209,20 @@ export const AdminNdauConversions: FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono text-xs max-w-[150px] truncate">
                     {conversion.revoAddress}
+                  </td>
+                  <td
+                    className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono text-xs max-w-[120px] truncate"
+                    title={conversion.ampedbioSignature}
+                  >
+                    {conversion.ampedbioSignature
+                      ? `${conversion.ampedbioSignature.slice(0, 10)}...`
+                      : "-"}
+                  </td>
+                  <td
+                    className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono text-xs max-w-[120px] truncate"
+                    title={conversion.ndauSignature}
+                  >
+                    {conversion.ndauSignature ? `${conversion.ndauSignature.slice(0, 10)}...` : "-"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {getStatusBadge(conversion.status)}
@@ -248,25 +280,19 @@ export const AdminNdauConversions: FC = () => {
 
                 <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      NDAU Amount:
-                    </span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">NDAU Amount:</span>
                     <span className="font-semibold text-gray-900 dark:text-white">
                       {selectedConversion.ndauAmount} NDAU
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      REVO to send:
-                    </span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">REVO to send:</span>
                     <span className="font-semibold text-blue-600 dark:text-blue-400">
                       {selectedConversion.revoAmount} REVO
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      REVO Address:
-                    </span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">REVO Address:</span>
                     <span className="font-mono text-xs text-gray-900 dark:text-white break-all max-w-[200px]">
                       {selectedConversion.revoAddress}
                     </span>

@@ -1,31 +1,105 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNdauWallet } from "@/ndau-wallet/contexts/NdauWalletContext";
+import { useNdauSigner } from "@/ndau-wallet/hooks/useNdauSigner";
 import { NdauConnect } from "@/ndau-wallet/components/NdauConnect";
 import { trpc } from "@/utils/trpc/trpc";
 import { Button } from "@/components/ui/Button";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { ArrowRight, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { NDAU_TO_REVO_RATE, calculateRevoAmount } from "@ampedbio/constants";
 import { toast } from "sonner";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useSignMessage } from "wagmi";
+import {
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  ArrowRight,
+  Wallet,
+  PenTool,
+  Send,
+} from "lucide-react";
+
+const SIGNATURE_MESSAGE = "I agreed to the conversion to Revo";
+
+type Step = 1 | 2 | 3 | 4 | 5;
+
+const StepIndicator = ({
+  currentStep,
+  completedSteps,
+}: {
+  currentStep: Step;
+  completedSteps: Set<Step>;
+}) => {
+  const steps = [
+    { num: 1, label: "Connect AmpedBio" },
+    { num: 2, label: "Connect NDAU" },
+    { num: 3, label: "Sign AmpedBio" },
+    { num: 4, label: "Sign NDAU" },
+    { num: 5, label: "Submit" },
+  ];
+
+  return (
+    <div className="flex items-center justify-center mb-8">
+      {steps.map((step, index) => (
+        <div key={step.num} className="flex items-center">
+          <div className="flex flex-col items-center">
+            <div
+              className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
+                completedSteps.has(step.num as Step)
+                  ? "bg-green-500 text-white"
+                  : currentStep === step.num
+                    ? "bg-blue-500 text-white"
+                    : "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+              }`}
+            >
+              {completedSteps.has(step.num as Step) ? (
+                <CheckCircle2 className="h-5 w-5" />
+              ) : (
+                step.num
+              )}
+            </div>
+            <span className="text-xs mt-1 text-gray-500 dark:text-gray-400 hidden sm:block">
+              {step.label}
+            </span>
+          </div>
+          {index < steps.length - 1 && (
+            <div
+              className={`w-8 sm:w-12 h-1 mx-1 rounded ${
+                completedSteps.has(step.num as Step)
+                  ? "bg-green-500"
+                  : "bg-gray-200 dark:bg-gray-700"
+              }`}
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
 
 export default function NdauConversionPage() {
   const { authUser } = useAuth();
   const { walletAddress: ndauAddress } = useNdauWallet();
+  const { signData: signNdauData, isSigning: isNdauSigning } = useNdauSigner();
+  const { signMessageAsync, isPending: isAmpedbioSigning } = useSignMessage();
+
+  const [currentStep, setCurrentStep] = useState<Step>(1);
+  const [completedSteps, setCompletedSteps] = useState<Set<Step>>(new Set());
   const [ndauBalance, setNdauBalance] = useState("");
   const [revoAmount, setRevoAmount] = useState("");
-  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const [ampedbioSignature, setAmpedbioSignature] = useState<string | null>(null);
+  const [ndauSignature, setNdauSignature] = useState<string | null>(null);
+  const [alreadySubmitted, setAlreadySubmitted] = useState(false);
 
-  const isConnected = !!ndauAddress;
+  const isAmpedbioConnected = !!authUser?.wallet;
+  const isNdauConnected = !!ndauAddress;
+
+  const { data: existingConversion, refetch: checkExisting } = useQuery(
+    trpc.ndauConversion.checkExistingConversion.queryOptions(
+      { ndauAddress: ndauAddress || "" },
+      { enabled: false }
+    )
+  );
 
   useEffect(() => {
     if (ndauBalance) {
@@ -36,51 +110,96 @@ export default function NdauConversionPage() {
     }
   }, [ndauBalance]);
 
+  useEffect(() => {
+    if (isAmpedbioConnected && !completedSteps.has(1)) {
+      setCompletedSteps(prev => new Set(prev).add(1));
+      if (currentStep === 1) setCurrentStep(2);
+    }
+  }, [isAmpedbioConnected, completedSteps, currentStep]);
+
+  useEffect(() => {
+    if (isNdauConnected && ndauAddress) {
+      checkExisting().then(result => {
+        if (result.data?.exists) {
+          setAlreadySubmitted(true);
+          toast.error("This NDAU wallet has already submitted a conversion request");
+        } else if (!completedSteps.has(2)) {
+          setCompletedSteps(prev => new Set(prev).add(2));
+          if (currentStep === 2) setCurrentStep(3);
+        }
+      });
+    }
+  }, [isNdauConnected, ndauAddress, checkExisting, completedSteps, currentStep]);
+
+  const handleSignAmpedbio = async () => {
+    try {
+      const signature = await signMessageAsync({ message: SIGNATURE_MESSAGE });
+      setAmpedbioSignature(signature);
+      setCompletedSteps(prev => new Set(prev).add(3));
+      setCurrentStep(4);
+      toast.success("AmpedBio wallet signed successfully");
+    } catch (error) {
+      toast.error("Failed to sign with AmpedBio wallet");
+    }
+  };
+
+  const handleSignNdau = async () => {
+    if (!ndauAddress) return;
+
+    try {
+      const result = await signNdauData({ message: SIGNATURE_MESSAGE }, SIGNATURE_MESSAGE);
+      if (result?.signature) {
+        setNdauSignature(result.signature);
+        setCompletedSteps(prev => new Set(prev).add(4));
+        setCurrentStep(5);
+        toast.success("NDAU wallet signed successfully");
+      } else {
+        toast.error("Failed to sign with NDAU wallet");
+      }
+    } catch (error) {
+      toast.error("Failed to sign with NDAU wallet");
+    }
+  };
+
   const submitMutation = useMutation({
     mutationFn: trpc.ndauConversion.submitConversion.mutationOptions().mutationFn,
     onSuccess: () => {
       toast.success("Conversion request submitted successfully!");
-      setIsConfirmDialogOpen(false);
+      setCompletedSteps(prev => new Set(prev).add(5));
     },
     onError: error => {
       toast.error(`Failed to submit conversion: ${error.message}`);
-      setIsConfirmDialogOpen(false);
     },
   });
 
   const handleSubmit = () => {
-    if (!authUser) {
-      toast.error("Please log in to submit a conversion request");
-      return;
-    }
-
-    if (!ndauBalance || parseFloat(ndauBalance) <= 0) {
-      toast.error("No NDAU balance available to convert");
-      return;
-    }
-
-    if (!ndauAddress) {
-      toast.error("Please connect your NDAU account first");
-      return;
-    }
-
-    setIsConfirmDialogOpen(true);
-  };
-
-  const handleConfirmSubmit = () => {
-    if (!authUser?.wallet) {
-      toast.error("Please connect your REVO wallet first");
+    if (!authUser?.wallet || !ndauAddress || !ampedbioSignature || !ndauSignature) {
+      toast.error("Please complete all steps before submitting");
       return;
     }
 
     submitMutation.mutate({
       ndauAddress,
-      ndauAmount: ndauBalance,
+      ndauAmount: ndauBalance || "0",
       revoAddress: authUser.wallet,
+      ampedbioSignature,
+      ndauSignature,
     });
   };
 
-  const isSubmitDisabled = !isConnected || !ndauBalance || parseFloat(ndauBalance) <= 0;
+  const truncateSignature = (sig: string) => {
+    return `${sig.slice(0, 10)}...${sig.slice(-8)}`;
+  };
+
+  const isStepDisabled = (step: Step) => {
+    if (alreadySubmitted) return true;
+    if (step === 1) return false;
+    if (step === 2) return !completedSteps.has(1);
+    if (step === 3) return !completedSteps.has(2);
+    if (step === 4) return !completedSteps.has(3);
+    if (step === 5) return !completedSteps.has(4);
+    return false;
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-12 px-4">
@@ -90,8 +209,8 @@ export default function NdauConversionPage() {
             NDAU to REVO Conversion
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-300">
-            Convert your NDAU tokens to REVO tokens at a fixed rate. Connect each NDAU account
-            separately to convert multiple accounts.
+            Convert your NDAU tokens to REVO tokens at a fixed rate. Complete all steps to submit
+            your conversion request.
           </p>
         </div>
 
@@ -111,97 +230,289 @@ export default function NdauConversionPage() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-              Connect NDAU Account
-            </h2>
-            {!isConnected ? (
-              <NdauConnect buttonText="Connect NDAU Account" />
-            ) : (
-              <div className="space-y-4">
-                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
-                      <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          Account Connected
-                        </p>
-                        <p className="font-mono text-sm text-gray-900 dark:text-white break-all">
-                          {ndauAddress}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Balance</p>
-                      <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {ndauBalance || "0.000"} NDAU
-                      </p>
-                    </div>
-                  </div>
+        <StepIndicator currentStep={currentStep} completedSteps={completedSteps} />
+
+        {alreadySubmitted && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-6">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+              <p className="text-red-800 dark:text-red-200 font-medium">
+                This NDAU wallet has already submitted a conversion request. You cannot submit
+                again.
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 space-y-6">
+          {/* Step 1: Connect AmpedBio */}
+          <div
+            className={`p-4 rounded-lg border-2 transition-colors ${
+              currentStep === 1
+                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                : completedSteps.has(1)
+                  ? "border-green-500 bg-green-50 dark:bg-green-900/20"
+                  : "border-gray-200 dark:border-gray-700"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Wallet className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                <div>
+                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                    Step 1: Connect AmpedBio Wallet
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {isAmpedbioConnected
+                      ? `Connected: ${authUser?.wallet?.slice(0, 8)}...${authUser?.wallet?.slice(-6)}`
+                      : "Connect your AmpedBio wallet to proceed"}
+                  </p>
                 </div>
-                <NdauConnect buttonText="Connect Different Account" />
+              </div>
+              {completedSteps.has(1) && <CheckCircle2 className="h-6 w-6 text-green-500" />}
+            </div>
+            {!isAmpedbioConnected && (
+              <p className="mt-3 text-sm text-amber-600 dark:text-amber-400">
+                Please log in and connect your wallet from the header.
+              </p>
+            )}
+          </div>
+
+          {/* Step 2: Connect NDAU */}
+          <div
+            className={`p-4 rounded-lg border-2 transition-colors ${
+              currentStep === 2
+                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                : completedSteps.has(2)
+                  ? "border-green-500 bg-green-50 dark:bg-green-900/20"
+                  : "border-gray-200 dark:border-gray-700"
+            } ${isStepDisabled(2) ? "opacity-50" : ""}`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Wallet className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                <div>
+                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                    Step 2: Connect NDAU Wallet
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {isNdauConnected
+                      ? `Connected: ${ndauAddress?.slice(0, 8)}...${ndauAddress?.slice(-6)}`
+                      : "Scan QR code with your NDAU wallet app"}
+                  </p>
+                </div>
+              </div>
+              {completedSteps.has(2) && <CheckCircle2 className="h-6 w-6 text-green-500" />}
+            </div>
+            {!isNdauConnected && !isStepDisabled(2) && (
+              <div className="mt-3">
+                <NdauConnect buttonText="Connect NDAU Wallet" />
               </div>
             )}
           </div>
 
-          <div className="space-y-6">
-            <div>
-              <Label className="text-gray-900 dark:text-white">Amount to Convert</Label>
-              <div className="mt-1 h-12 text-lg bg-gray-100 dark:bg-gray-700 rounded-md px-3 py-2 flex items-center">
-                <span className="text-gray-900 dark:text-white font-medium">
-                  {ndauBalance || "0.000"} NDAU
-                </span>
-                <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                  (Full Balance)
-                </span>
-              </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Your full account balance will be converted
-              </p>
-            </div>
-
-            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-              <div className="flex items-center justify-between">
+          {/* Step 3: Sign with AmpedBio */}
+          <div
+            className={`p-4 rounded-lg border-2 transition-colors ${
+              currentStep === 3
+                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                : completedSteps.has(3)
+                  ? "border-green-500 bg-green-50 dark:bg-green-900/20"
+                  : "border-gray-200 dark:border-gray-700"
+            } ${isStepDisabled(3) ? "opacity-50" : ""}`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <PenTool className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">You will receive</p>
-                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                    {revoAmount || "0.000"} REVO
+                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                    Step 3: Sign with AmpedBio Wallet
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {ampedbioSignature
+                      ? `Signed: ${truncateSignature(ampedbioSignature)}`
+                      : `Sign the message: "${SIGNATURE_MESSAGE}"`}
                   </p>
                 </div>
-                <ArrowRight className="h-6 w-6 text-gray-400" />
               </div>
+              {completedSteps.has(3) && <CheckCircle2 className="h-6 w-6 text-green-500" />}
+            </div>
+            {!ampedbioSignature && !isStepDisabled(3) && (
+              <Button
+                onClick={handleSignAmpedbio}
+                disabled={isAmpedbioSigning || alreadySubmitted}
+                className="mt-3"
+              >
+                {isAmpedbioSigning ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Signing...
+                  </>
+                ) : (
+                  <>
+                    <PenTool className="h-4 w-4 mr-2" />
+                    Sign with AmpedBio Wallet
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+
+          {/* Step 4: Sign with NDAU */}
+          <div
+            className={`p-4 rounded-lg border-2 transition-colors ${
+              currentStep === 4
+                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                : completedSteps.has(4)
+                  ? "border-green-500 bg-green-50 dark:bg-green-900/20"
+                  : "border-gray-200 dark:border-gray-700"
+            } ${isStepDisabled(4) ? "opacity-50" : ""}`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <PenTool className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                <div>
+                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                    Step 4: Sign with NDAU Wallet
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {ndauSignature
+                      ? `Signed: ${truncateSignature(ndauSignature)}`
+                      : `Sign the message: "${SIGNATURE_MESSAGE}"`}
+                  </p>
+                </div>
+              </div>
+              {completedSteps.has(4) && <CheckCircle2 className="h-6 w-6 text-green-500" />}
+            </div>
+            {!ndauSignature && !isStepDisabled(4) && (
+              <Button
+                onClick={handleSignNdau}
+                disabled={isNdauSigning || alreadySubmitted}
+                className="mt-3"
+              >
+                {isNdauSigning ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Signing...
+                  </>
+                ) : (
+                  <>
+                    <PenTool className="h-4 w-4 mr-2" />
+                    Sign with NDAU Wallet
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+
+          {/* Step 5: Submit */}
+          <div
+            className={`p-4 rounded-lg border-2 transition-colors ${
+              currentStep === 5
+                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                : completedSteps.has(5)
+                  ? "border-green-500 bg-green-50 dark:bg-green-900/20"
+                  : "border-gray-200 dark:border-gray-700"
+            } ${isStepDisabled(5) ? "opacity-50" : ""}`}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <Send className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                <div>
+                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                    Step 5: Submit Conversion Request
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Review and submit your conversion request
+                  </p>
+                </div>
+              </div>
+              {completedSteps.has(5) && <CheckCircle2 className="h-6 w-6 text-green-500" />}
             </div>
 
-            <Button
-              onClick={handleSubmit}
-              disabled={isSubmitDisabled || submitMutation.isPending}
-              className="w-full h-12 text-lg"
-              variant="confirm"
-            >
-              {submitMutation.isPending ? (
-                <>
-                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                  Submitting...
-                </>
-              ) : !authUser ? (
-                <>
-                  <AlertCircle className="h-5 w-5 mr-2" />
-                  Login Required to Submit
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="h-5 w-5 mr-2" />
-                  Submit Conversion Request
-                </>
-              )}
-            </Button>
+            {completedSteps.has(4) && !completedSteps.has(5) && (
+              <div className="space-y-4">
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">NDAU Address:</span>
+                    <span className="font-mono text-xs text-gray-900 dark:text-white break-all max-w-[200px]">
+                      {ndauAddress}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">REVO Address:</span>
+                    <span className="font-mono text-xs text-gray-900 dark:text-white break-all max-w-[200px]">
+                      {authUser?.wallet}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">NDAU Amount:</span>
+                    <span className="font-semibold text-gray-900 dark:text-white">
+                      {ndauBalance || "0.000"} NDAU
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      You will receive:
+                    </span>
+                    <span className="font-semibold text-blue-600 dark:text-blue-400">
+                      {revoAmount || "0.000"} REVO
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      AmpedBio Signature:
+                    </span>
+                    <span
+                      className="font-mono text-xs text-gray-900 dark:text-white"
+                      title={ampedbioSignature || ""}
+                    >
+                      {ampedbioSignature ? truncateSignature(ampedbioSignature) : "-"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      NDAU Signature:
+                    </span>
+                    <span
+                      className="font-mono text-xs text-gray-900 dark:text-white"
+                      title={ndauSignature || ""}
+                    >
+                      {ndauSignature ? truncateSignature(ndauSignature) : "-"}
+                    </span>
+                  </div>
+                </div>
 
-            {!authUser && (
-              <p className="text-sm text-center text-gray-500 dark:text-gray-400">
-                You need to be logged in to submit a conversion request
-              </p>
+                <Button
+                  onClick={handleSubmit}
+                  disabled={submitMutation.isPending || alreadySubmitted}
+                  variant="confirm"
+                  className="w-full h-12 text-lg"
+                >
+                  {submitMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-5 w-5 mr-2" />
+                      Submit Conversion Request
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+
+            {completedSteps.has(5) && (
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  <p className="text-green-800 dark:text-green-200 font-medium">
+                    Conversion request submitted successfully! An admin will process your request.
+                  </p>
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -211,103 +522,27 @@ export default function NdauConversionPage() {
           <ul className="space-y-2 text-sm text-blue-800 dark:text-blue-200">
             <li className="flex items-start">
               <span className="mr-2">1.</span>
-              <span>Connect your NDAU account to view your balance</span>
+              <span>Connect your AmpedBio (REVO) wallet</span>
             </li>
             <li className="flex items-start">
               <span className="mr-2">2.</span>
-              <span>
-                If you have multiple NDAU accounts, connect and submit each one separately
-              </span>
+              <span>Connect your NDAU wallet via QR code</span>
             </li>
             <li className="flex items-start">
               <span className="mr-2">3.</span>
-              <span>Your full NDAU balance will be automatically converted to REVO</span>
+              <span>Sign the agreement message with your AmpedBio wallet</span>
             </li>
             <li className="flex items-start">
               <span className="mr-2">4.</span>
-              <span>Submit the conversion request (login required)</span>
+              <span>Sign the agreement message with your NDAU wallet</span>
             </li>
             <li className="flex items-start">
               <span className="mr-2">5.</span>
-              <span>
-                Admin will process your request and send REVO tokens to your connected wallet
-              </span>
+              <span>Submit your conversion request for admin review</span>
             </li>
           </ul>
         </div>
       </div>
-
-      <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Confirm Conversion Request</DialogTitle>
-            <DialogDescription>Please review your conversion details and confirm</DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500 dark:text-gray-400">NDAU Amount:</span>
-                <span className="font-semibold text-gray-900 dark:text-white">
-                  {ndauBalance} NDAU
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500 dark:text-gray-400">You will receive:</span>
-                <span className="font-semibold text-blue-600 dark:text-blue-400">
-                  {revoAmount} REVO
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500 dark:text-gray-400">NDAU Address:</span>
-                <span className="font-mono text-xs text-gray-900 dark:text-white break-all max-w-[200px]">
-                  {ndauAddress}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500 dark:text-gray-400">REVO Address:</span>
-                <span className="font-mono text-xs text-gray-900 dark:text-white break-all max-w-[200px]">
-                  {authUser?.wallet || "Not connected"}
-                </span>
-              </div>
-            </div>
-
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
-              <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                <strong>Terms Agreement:</strong> By confirming, you agree to the conversion terms
-                and understand that the admin will process your request manually. The REVO tokens
-                will be sent to your connected wallet address.
-              </p>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsConfirmDialogOpen(false)}
-              disabled={submitMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="confirm"
-              onClick={handleConfirmSubmit}
-              disabled={submitMutation.isPending || !authUser?.wallet}
-            >
-              {submitMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                "Confirm Conversion"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
