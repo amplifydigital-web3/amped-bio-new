@@ -95,9 +95,6 @@ export default function Home() {
 
           <NameSearchForm />
           <div className="absolute bottom-6 left-0 right-0 flex flex-col items-center gap-2 z-10">
-            <span className="text-xs font-semibold tracking-widest uppercase text-blue-500/70 animate-pulse">
-              Explore
-            </span>
             <button
               onClick={scrollToFeatures}
               aria-label="Scroll to features"
@@ -120,6 +117,9 @@ export default function Home() {
                 </div>
               </div>
             </button>
+            <span className="text-xs font-semibold tracking-widest uppercase text-blue-500/70 animate-pulse">
+              Explore
+            </span>
           </div>
         </section>
 

@@ -7,6 +7,7 @@ import { isValidRevolutionName, domainName } from "@/utils/rns";
 import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
 import { SkeletonSearchResult } from "../ui/SkeletonLoader";
 import { DOMAIN_SUFFIX } from "@/config/rns/constants";
+import NameCriteriaTooltip from "./NameCriteriaTooltip";
 
 export default function NameSearchForm() {
   const [value, setValue] = useState("");
@@ -137,7 +138,7 @@ export default function NameSearchForm() {
           )}
 
           {value && !isCheckingAvailability && (
-            <div className="absolute left-0 right-0 mt-2 bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-200">
+            <div className="absolute left-0 right-0 mt-2 bg-white rounded-2xl shadow-lg border border-gray-200">
               <div
                 onClick={handleSubmit}
                 className="px-5 py-4 hover:bg-gray-50 cursor-pointer flex justify-between items-center transition-all duration-200 group"
@@ -154,12 +155,15 @@ export default function NameSearchForm() {
                     )}
                   </>
                 ) : !isValidName ? (
-                  <>
-                    <span className="text-gray-800/50 font-medium truncate">
-                      {domainName(value)}
-                    </span>
-                    <span className="text-sm text-yellow-500 font-medium">Invalid name</span>
-                  </>
+                  <div className="flex flex-col w-full gap-1">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-800/50 font-medium truncate">
+                        {domainName(value)}
+                      </span>
+                      <span className="text-[#e42b2b] text-sm shrink-0 ml-2">Invalid name</span>
+                    </div>
+                    <NameCriteriaTooltip value={value} isValid={isValidName} />
+                  </div>
                 ) : (
                   <>
                     <span className="font-medium truncate">
