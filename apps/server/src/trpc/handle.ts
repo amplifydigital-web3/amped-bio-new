@@ -189,9 +189,14 @@ const appRouter = router({
         : null;
 
       if (resolvedRevoName) {
-        try {
-          const SUBGRAPH_URL = env.SUBGRAPH_URL;
-          if (SUBGRAPH_URL) {
+        const SUBGRAPH_URL = env.SUBGRAPH_URL;
+        if (!SUBGRAPH_URL) {
+          // No subgraph URL configured — cannot validate ownership/expiry, clear the name
+          console.warn("[revoName] SUBGRAPH_URL not configured, clearing revoName");
+          resolvedRevoName = null;
+          revoNameStatus = null;
+        } else {
+          try {
             const labelName = resolvedRevoName.split(".")[0];
             const res = await fetch(SUBGRAPH_URL, {
               method: "POST",
@@ -207,8 +212,17 @@ const appRouter = router({
             }
 
             const json = await res.json();
+
+            if (json?.errors?.length) {
+              console.warn("[revoName] Subgraph returned GraphQL errors:", json.errors);
+            }
+
             const details = json?.data?.revoNames?.[0];
-            if (details) {
+
+            if (!details) {
+              resolvedRevoName = null;
+              revoNameStatus = null;
+            } else {
               const expiryTimestamp = Number(details.expiryDateWithGrace);
               const nowInSeconds = Math.floor(Date.now() / 1000);
               if (expiryTimestamp > 0 && expiryTimestamp < nowInSeconds) {
@@ -223,11 +237,11 @@ const appRouter = router({
                 revoNameStatus = "taken";
               }
             }
+          } catch (err) {
+            console.warn("[revoName] Subgraph validation failed, clearing revoName:", err);
+            resolvedRevoName = null;
+            revoNameStatus = null;
           }
-        } catch (err) {
-          // Fail-open: subgraph unavailable or timed out — keep the name as-is rather than
-          // incorrectly clearing a valid name. Log so this is visible in production monitoring.
-          console.warn("[revoName] Subgraph validation failed, keeping name as-is:", err);
         }
       }
 

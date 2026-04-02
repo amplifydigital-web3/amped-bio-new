@@ -215,7 +215,8 @@ export function ProfilePanel() {
               </div>
             </DialogHeader>
             <DialogDescription className="text-sm text-gray-600 mt-2">
-              Your RevoName <span className="font-semibold text-gray-900">{affectedRevoName}</span>{" "}
+              Your RevoName{" "}
+              <span className="font-semibold text-gray-900 break-all">{affectedRevoName}</span>{" "}
               {isExpired
                 ? "has expired and is no longer displayed on your profile. Please register the name again to continue using it or select any other RevoName from your profile."
                 : "has been registered by another user and is no longer displayed on your profile. You can register a new name or select a different one from your names."}
