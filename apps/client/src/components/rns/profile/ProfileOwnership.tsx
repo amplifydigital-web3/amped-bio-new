@@ -182,13 +182,13 @@ const OwnershipDetail = ({
                 <div className="text-gray-500 text-sm">{dates.gracePeriod.time}</div>
               </div>
               <div className="md:border-r-2 md:border-transparent md:p-2">
-                <div className="flex items-center gap-1">
+                <div className="inline-flex items-center gap-1">
                   <h3 className="text-base font-bold mb-1">Registered</h3>
                   {transactionHash && (
                     <a
                       href={scannerURL("tx", `${transactionHash}`)}
                       target="_blank"
-                      className="text-blue-500 hover:text-blue-600 flex items-center gap-1"
+                      className="text-blue-500 hover:text-blue-600 font-semibold flex items-center gap-1 mb-1"
                     >
                       View
                     </a>

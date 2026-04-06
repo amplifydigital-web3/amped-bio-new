@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/Button";
 import { domainName } from "@/utils/rns";
-import { Camera, Copy, ExternalLink, Loader, Plus, Save, Trash2, X } from "lucide-react";
+import { Camera, Copy, ExternalLink, Loader, Plus, Save, Trash2, X, Edit2 } from "lucide-react";
 import ImageUploadButton from "../ui/ImageUploadButton";
 import { useSignedUpload } from "@/hooks/rns/useSignedUpload";
 import { ProfileUpdates, useProfileRecords } from "@/hooks/rns/useProfileRecords";
@@ -271,17 +271,11 @@ export const ProfileCard = ({
           {isEditing && (
             <button
               onClick={() => setIsBannerModalOpen(true)}
-              className="absolute inset-0 z-10 flex items-center justify-center
-                         bg-black/0 group-hover:bg-black/40 transition-colors duration-200"
+              className="absolute inset-0 z-10 flex items-center justify-center bg-black/20 hover:bg-black/40 transition-colors duration-200"
             >
-              <span
-                className="flex items-center gap-2
-                               opacity-0 group-hover:opacity-100 transition-opacity duration-200
-                               bg-white/20 backdrop-blur-sm text-white text-sm font-medium
-                               px-4 py-2 rounded-lg border border-white/30"
-              >
+              <span className="flex items-center gap-2 bg-white/20 backdrop-blur-sm text-white text-sm font-medium px-3 py-1.5 rounded-lg border border-white/30">
                 <Camera className="w-4 h-4" />
-                Edit banner
+                <span className="hidden sm:inline">Edit banner</span>
               </span>
             </button>
           )}
@@ -334,8 +328,52 @@ export const ProfileCard = ({
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3 mt-4">
-            <div className="block absolute right-2 sm:right-6 top-4">
-              {/* <VerificationBadge /> */}
+            <div className="absolute right-2 sm:right-6 top-4 flex gap-2">
+              {isCurrentOwner &&
+                (isEditing ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={cancelEdit}
+                      disabled={isUploadingImages || isPending || isConfirming}
+                      className="flex items-center rounded-full px-3 sm:px-4"
+                    >
+                      <X className="w-4 h-4 sm:mr-1.5" />
+                      <span className="hidden sm:inline">Cancel</span>
+                    </Button>
+                    <Button
+                      onClick={handleSave}
+                      disabled={isUploadingImages || isPending || isConfirming}
+                      className="flex items-center rounded-full px-3 sm:px-4"
+                    >
+                      {isUploadingImages ? (
+                        <>
+                          <Loader className="w-4 h-4 animate-spin sm:mr-1.5" />
+                          Uploading…
+                        </>
+                      ) : isPending || isConfirming ? (
+                        <>
+                          <Loader className="w-4 h-4 animate-spin sm:mr-1.5" />
+                          {isPending ? "Confirm…" : "Saving…"}
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4 sm:mr-1.5" />
+                          <span className="hidden sm:inline">Save</span>
+                        </>
+                      )}
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="flex items-center rounded-full"
+                    onClick={openEdit}
+                  >
+                    <Edit2 className="w-4 h-4 mr-1.5" />
+                    Edit
+                  </Button>
+                ))}
             </div>
 
             <div className="flex flex-col mt-4 w-full min-w-0">
@@ -389,38 +427,6 @@ export const ProfileCard = ({
                         Add website link
                       </button>
                     )}
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row gap-2 justify-end mt-2">
-                    <Button
-                      variant="outline"
-                      onClick={cancelEdit}
-                      disabled={isUploadingImages || isPending || isConfirming}
-                      className="flex items-center"
-                    >
-                      <X className="w-4 h-4 mr-1.5" /> Cancel
-                    </Button>
-                    <Button
-                      onClick={handleSave}
-                      disabled={isUploadingImages || isPending || isConfirming}
-                      className="flex items-center"
-                    >
-                      {isUploadingImages ? (
-                        <>
-                          <Loader className="w-4 h-4 mr-1.5 animate-spin" />
-                          Uploading images…
-                        </>
-                      ) : isPending || isConfirming ? (
-                        <>
-                          <Loader className="w-4 h-4 mr-1.5 animate-spin" />
-                          {isPending ? "Confirm in wallet…" : "Saving…"}
-                        </>
-                      ) : (
-                        <>
-                          <Save className="w-4 h-4 mr-1.5" /> Save Profile
-                        </>
-                      )}
-                    </Button>
                   </div>
                 </>
               ) : (
@@ -485,14 +491,6 @@ export const ProfileCard = ({
             <TagBox label="expiry" value={expiry} />
             <TagBox label="parent" value="eth" />
           </div>
-
-          {isCurrentOwner && (
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:justify-end">
-              <Button variant="default" onClick={openEdit} disabled={isEditing}>
-                Edit Profile
-              </Button>
-            </div>
-          )}
         </div>
       </div>
     </main>

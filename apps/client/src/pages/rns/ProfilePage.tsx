@@ -91,8 +91,8 @@ export default function ProfilePage({ name }: ProfilePageProps) {
             rel="noopener noreferrer"
             className="text-blue-500 flex items-center gap-1 font-bold"
           >
-            <ExternalLink className="w-3 h-3" />
             Explorer
+            <ExternalLink className="w-3.5 h-3.5" />
           </a>
         )}
       </div>

@@ -197,6 +197,34 @@
   }
 }
 
+@keyframes explore-ping {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  25% {
+    transform: scale(2);
+    opacity: 0;
+  }
+  33% {
+    transform: scale(2);
+    opacity: 0;
+  }
+  66% {
+    transform: scale(2);
+    opacity: 0;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+.animate-explore-ping {
+  animation: explore-ping 3s linear infinite;
+}
+
 @keyframes glitch {
   0% {
     text-shadow:

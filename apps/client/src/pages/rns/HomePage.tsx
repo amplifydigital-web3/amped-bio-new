@@ -94,7 +94,7 @@ export default function Home() {
           </div>
 
           <NameSearchForm />
-          <div className="absolute bottom-6 left-0 right-0 flex flex-col items-center gap-2 z-10">
+          <div className="absolute bottom-2 left-0 right-0 flex flex-col items-center gap-8 z-10">
             <button
               onClick={scrollToFeatures}
               aria-label="Scroll to features"
@@ -102,14 +102,14 @@ export default function Home() {
             >
               <div className="relative flex items-center justify-center">
                 {/* Outer glow rings */}
-                <span className="absolute inline-flex h-16 w-16 rounded-full bg-blue-400/20 animate-ping" />
+                <span className="absolute inline-flex h-16 w-16 rounded-full bg-blue-400/20 animate-explore-ping" />
                 <span
-                  className="absolute inline-flex h-16 w-16 rounded-full bg-indigo-400/15 animate-ping"
+                  className="absolute inline-flex h-16 w-16 rounded-full bg-indigo-400/15 animate-explore-ping"
                   style={{ animationDelay: "0.4s" }}
                 />
                 <span
-                  className="absolute inline-flex h-16 w-16 rounded-full bg-blue-300/10 animate-ping"
-                  style={{ animationDelay: "0.8s" }}
+                  className="absolute inline-flex h-16 w-16 rounded-full bg-blue-300/10 animate-explore-ping"
+                  style={{ animationDelay: "1s" }}
                 />
                 {/* Button */}
                 <div className="relative w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/40 flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl group-hover:shadow-blue-500/60">

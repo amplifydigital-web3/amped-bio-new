@@ -14,13 +14,10 @@ export const FloatingPills: React.FC<FloatingPillsProps> = memo(({ names: propNa
     "network.revo.eth",
     "innovator.revo.eth",
     "freedom.revo.eth",
-    "influencer.revo.eth",
-    "visionary.revo.eth",
     "nexus.revo.eth",
     "future.revo.eth",
     "builder.revo.eth",
-    // 'explorer.revo.eth',
-    "revolution.revo.eth",
+    "visionary.revo.eth",
   ];
 
   const getNameConfig = () => {
@@ -68,18 +65,6 @@ export const FloatingPills: React.FC<FloatingPillsProps> = memo(({ names: propNa
         animation: "gentle-float",
         animationDelay: 2.5,
       },
-      "influencer.revo.eth": {
-        left: "25%",
-        top: "70%",
-        animation: "zoom-text",
-        animationDelay: 1,
-      },
-      "visionary.revo.eth": {
-        left: "75%",
-        top: "70%",
-        animation: "subtle-fade",
-        animationDelay: 3.5,
-      },
       "nexus.revo.eth": {
         left: "57%",
         top: "12%",
@@ -98,13 +83,7 @@ export const FloatingPills: React.FC<FloatingPillsProps> = memo(({ names: propNa
         animation: "soft-glow",
         animationDelay: 2.8,
       },
-      // 'explorer.revo.eth': {
-      //   left: '57%',
-      //   top: '76%',
-      //   animation: 'gentle-float',
-      //   animationDelay: 4,
-      // },
-      "revolution.revo.eth": {
+      "visionary.revo.eth": {
         left: "85%",
         top: "84%",
         animation: "zoom-text",
