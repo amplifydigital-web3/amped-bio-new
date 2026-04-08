@@ -70,7 +70,6 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
   // State for modals and selected pool
   const [selectedStakingPool, setSelectedStakingPool] = useState<any>(null);
   const [isStakeModalOpen, setIsStakeModalOpen] = useState(false);
-  const [stakingMode, setStakingMode] = useState<"stake" | "add-stake">("stake");
 
   const handleJoinPool = (poolId: number) => {
     if (pools) {
@@ -85,11 +84,13 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
           chainId: pool.chainId,
           address: pool.address,
           image: pool.image,
-          currentStake: pool.stakedAmount || 0n, // Use the staked amount from the pool as bigint
+          stakedByYou: 0,
+          stakedAmount: pool.stakedAmount
+            ? parseFloat(formatEther(pool.stakedAmount as unknown as bigint))
+            : 0,
         };
 
         setSelectedStakingPool(poolForStaking);
-        setStakingMode("stake");
         setIsStakeModalOpen(true);
       }
     }
@@ -198,7 +199,6 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
       {isStakeModalOpen && selectedStakingPool && (
         <StakeModal
           pool={selectedStakingPool}
-          mode={stakingMode}
           isOpen={isStakeModalOpen}
           onClose={() => setIsStakeModalOpen(false)}
           onStakeSuccess={refetch}

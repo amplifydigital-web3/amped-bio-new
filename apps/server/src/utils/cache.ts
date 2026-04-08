@@ -108,6 +108,15 @@ export const CACHE_TTL = {
    * 15 minutes - Used for pool public data caching (totalStake, fans count).
    */
   POOL_DATA: 900,
+  /**
+   * 15 minutes - Used for system-wide stats caching (total REVO staked/minted).
+   */
+  SYSTEM_STATS: 900,
+  /**
+   * 7 days - Used for method signature caching from Openchain.
+   * Function signatures rarely change once deployed.
+   */
+  METHOD_SIGNATURE: 604800,
 } as const;
 
 /**
@@ -131,6 +140,16 @@ export enum CacheKeys {
    * Format: `pools_public_data:${chainId}:${poolAddress}:${searchTerm}`
    */
   POOLS_PUBLIC_DATA_PREFIX = "pools_public_data",
+  /**
+   * Cache key prefix for storing method signatures from Openchain.
+   * Format: `method_signature:${selector}`
+   */
+  METHOD_SIGNATURE_PREFIX = "method_signature",
+  /**
+   * Cache key prefix for storing system-wide statistics.
+   * Format: `system_stats:${chainId}`
+   */
+  SYSTEM_STATS_PREFIX = "system_stats",
 }
 
 /**
@@ -271,4 +290,12 @@ export function getPoolsCacheKey(
   search: string = ""
 ): string {
   return `${CacheKeys.POOLS_PUBLIC_DATA_PREFIX}:${chainId}:${poolAddress}:${search.toLowerCase()}`;
+}
+
+export function getMethodSignatureCacheKey(selector: string): string {
+  return `${CacheKeys.METHOD_SIGNATURE_PREFIX}:${selector}`;
+}
+
+export function getSystemStatsCacheKey(chainId: number): string {
+  return `${CacheKeys.SYSTEM_STATS_PREFIX}:${chainId}`;
 }

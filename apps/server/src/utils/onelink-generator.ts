@@ -1,13 +1,13 @@
 import { prisma } from "../services/DB";
 
 /**
- * Extracts handle from email: part before "@" and removes alias (before "+")
+ * Extracts handle from email: part before "@", removes alias (before "+"), and removes dots
  */
 export function extractHandleFromEmail(email: string): string {
   const localPart = email.split("@")[0]; // Get part before "@"
   if (!localPart) return "";
   const handleWithoutAlias = localPart.split("+")[0]; // Remove alias part after "+"
-  return handleWithoutAlias || "";
+  return handleWithoutAlias.replace(/\./g, "") || ""; // Remove all dots
 }
 
 /**
