@@ -45,7 +45,7 @@ interface EditorContextType extends EditorState {
   exportTheme: (customFilename?: string) => void;
   importTheme: (file: File) => Promise<void>;
   expiredRevoName: string;
-  dismissRevoName: () => void;
+  dismissRevoName: () => Promise<void>;
   lostRevoName: string;
 }
 
@@ -486,7 +486,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
       }));
     } catch (error) {
       console.error("❌ Failed to clear revoName:", error);
-      toast.error("Failed to update profile");
+      toast.error("Failed to clear revoName");
     }
   }, [state]);
 
@@ -600,10 +600,10 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     importTheme,
     expiredRevoName,
     lostRevoName,
-    dismissRevoName: () => {
+    dismissRevoName: async () => {
+      await clearRevoName();
       setLostRevoName("");
       setExpiredRevoName("");
-      clearRevoName();
     },
   };
 
