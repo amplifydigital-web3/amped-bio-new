@@ -115,6 +115,7 @@ export const ProfileCard = ({
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [bannerLoadFailed, setBannerLoadFailed] = useState(false);
   const [draft, setDraft] = useState<ProfileData>(INITIAL);
+  const [isSaving, setIsSaving] = useState(false);
 
   const draftRef = useRef(draft);
   draftRef.current = draft;
@@ -169,60 +170,64 @@ export const ProfileCard = ({
   const cancelEdit = () => setIsEditing(false);
 
   const handleSave = async () => {
-    const updates: ProfileUpdates = {};
+    if (isSaving || isPending || isConfirming) return;
+    setIsSaving(true);
 
-    let resolvedAvatarUrl: string | null = draft.avatarFile ? null : draft.avatarUrl;
-    let resolvedBannerUrl: string | null = draft.bannerFile ? null : draft.bannerUrl;
-
-    const hasImageUploads = draft.avatarFile || draft.bannerFile;
-    if (hasImageUploads) {
-      setIsUploadingImages(true);
-      try {
-        const uploads: { avatar?: File; banner?: File } = {};
-        if (draft.avatarFile) uploads.avatar = draft.avatarFile;
-        if (draft.bannerFile) uploads.banner = draft.bannerFile;
-        const uploadedUrls = await uploadAll(domainName(name), uploads);
-        if (uploadedUrls.avatar) resolvedAvatarUrl = uploadedUrls.avatar;
-        if (uploadedUrls.banner) resolvedBannerUrl = uploadedUrls.banner;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "Image upload failed";
-        toast.error(msg);
+    try {
+      const updates: ProfileUpdates = {};
+      let resolvedAvatarUrl: string | null = draft.avatarFile ? null : draft.avatarUrl;
+      let resolvedBannerUrl: string | null = draft.bannerFile ? null : draft.bannerUrl;
+      const hasImageUploads = draft.avatarFile || draft.bannerFile;
+      if (hasImageUploads) {
+        setIsUploadingImages(true);
+        try {
+          const uploads: { avatar?: File; banner?: File } = {};
+          if (draft.avatarFile) uploads.avatar = draft.avatarFile;
+          if (draft.bannerFile) uploads.banner = draft.bannerFile;
+          const uploadedUrls = await uploadAll(domainName(name), uploads);
+          if (uploadedUrls.avatar) resolvedAvatarUrl = uploadedUrls.avatar;
+          if (uploadedUrls.banner) resolvedBannerUrl = uploadedUrls.banner;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Image upload failed";
+          toast.error(msg);
+          setIsUploadingImages(false);
+          return;
+        }
         setIsUploadingImages(false);
+      }
+      resolvedUrlsRef.current = {};
+      if (draft.avatarFile || draft.avatarUrl !== saved.avatarUrl)
+        resolvedUrlsRef.current.avatar = resolvedAvatarUrl;
+      if (draft.bannerFile || draft.bannerUrl !== saved.bannerUrl)
+        resolvedUrlsRef.current.banner = resolvedBannerUrl;
+      if (resolvedAvatarUrl !== saved.avatarUrl) updates.avatar = resolvedAvatarUrl ?? "";
+      if (resolvedBannerUrl !== saved.bannerUrl) updates.banner = resolvedBannerUrl ?? "";
+      if (draft.bio.trim() !== saved.bio) updates.bio = draft.bio.trim();
+      const newWebsiteStr = draft.websites.filter(w => w.trim()).join(",");
+      const savedWebsiteStr = saved.websites.join(",");
+      if (newWebsiteStr !== savedWebsiteStr) updates.website = newWebsiteStr;
+      const bannerMetaChanged =
+        draft.bannerFit !== saved.bannerFit ||
+        draft.bannerFocusX !== saved.bannerFocusX ||
+        draft.bannerFocusY !== saved.bannerFocusY ||
+        draft.bannerScale !== saved.bannerScale;
+      if (bannerMetaChanged)
+        updates.bannerMeta = JSON.stringify({
+          fit: draft.bannerFit,
+          focusX: draft.bannerFocusX,
+          focusY: draft.bannerFocusY,
+          scale: draft.bannerScale,
+        });
+      if (Object.keys(updates).length === 0) {
+        setIsEditing(false);
         return;
       }
-      setIsUploadingImages(false);
+      await setRecords(updates);
+    } catch {
+      toast.error("Failed to update profile");
+    } finally {
+      setIsSaving(false);
     }
-
-    resolvedUrlsRef.current = {};
-    if (draft.avatarFile || draft.avatarUrl !== saved.avatarUrl)
-      resolvedUrlsRef.current.avatar = resolvedAvatarUrl;
-    if (draft.bannerFile || draft.bannerUrl !== saved.bannerUrl)
-      resolvedUrlsRef.current.banner = resolvedBannerUrl;
-
-    if (resolvedAvatarUrl !== saved.avatarUrl) updates.avatar = resolvedAvatarUrl ?? "";
-    if (resolvedBannerUrl !== saved.bannerUrl) updates.banner = resolvedBannerUrl ?? "";
-    if (draft.bio.trim() !== saved.bio) updates.bio = draft.bio.trim();
-    const newWebsiteStr = draft.websites.filter(w => w.trim()).join(",");
-    const savedWebsiteStr = saved.websites.join(",");
-    if (newWebsiteStr !== savedWebsiteStr) updates.website = newWebsiteStr;
-    const bannerMetaChanged =
-      draft.bannerFit !== saved.bannerFit ||
-      draft.bannerFocusX !== saved.bannerFocusX ||
-      draft.bannerFocusY !== saved.bannerFocusY ||
-      draft.bannerScale !== saved.bannerScale;
-    if (bannerMetaChanged)
-      updates.bannerMeta = JSON.stringify({
-        fit: draft.bannerFit,
-        focusX: draft.bannerFocusX,
-        focusY: draft.bannerFocusY,
-        scale: draft.bannerScale,
-      });
-
-    if (Object.keys(updates).length === 0) {
-      setIsEditing(false);
-      return;
-    }
-    await setRecords(updates);
   };
 
   const display = isEditing ? draft : saved;
@@ -343,7 +348,7 @@ export const ProfileCard = ({
                     <Button
                       variant="outline"
                       onClick={cancelEdit}
-                      disabled={isUploadingImages || isPending || isConfirming}
+                      disabled={isSaving || isPending || isConfirming}
                       className="flex items-center rounded-full px-3 sm:px-4"
                     >
                       <X className="w-4 h-4 sm:mr-1.5" />
@@ -351,7 +356,7 @@ export const ProfileCard = ({
                     </Button>
                     <Button
                       onClick={handleSave}
-                      disabled={isUploadingImages || isPending || isConfirming}
+                      disabled={isSaving || isPending || isConfirming}
                       className="flex items-center rounded-full px-3 sm:px-4"
                     >
                       {isUploadingImages ? (
