@@ -103,14 +103,8 @@ export default function Home() {
               <div className="relative flex items-center justify-center">
                 {/* Outer glow rings */}
                 <span className="absolute inline-flex h-16 w-16 rounded-full bg-blue-400/20 animate-explore-ping" />
-                <span
-                  className="absolute inline-flex h-16 w-16 rounded-full bg-indigo-400/15 animate-explore-ping"
-                  style={{ animationDelay: "0.4s" }}
-                />
-                <span
-                  className="absolute inline-flex h-16 w-16 rounded-full bg-blue-300/10 animate-explore-ping"
-                  style={{ animationDelay: "1s" }}
-                />
+                <span className="absolute inline-flex h-16 w-16 rounded-full bg-indigo-400/15 animate-explore-ping [animation-delay:0.4s]" />
+                <span className="absolute inline-flex h-16 w-16 rounded-full bg-blue-300/10 animate-explore-ping [animation-delay:1s]" />
                 {/* Button */}
                 <div className="relative w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/40 flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl group-hover:shadow-blue-500/60">
                   <ChevronDown className="w-6 h-6 text-white transition-transform duration-300 group-hover:translate-y-0.5" />
