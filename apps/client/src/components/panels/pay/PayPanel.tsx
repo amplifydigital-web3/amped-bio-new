@@ -196,6 +196,17 @@ export default function PayPanel() {
       };
     }
 
+    if (showRnsResult && rnsError) {
+      return {
+        type: "error",
+        icon: <AlertCircle className="w-6 h-6 text-red-600" />,
+        label: "Lookup failed",
+        textColor: "text-red-700",
+        badge: "bg-red-100 text-red-700",
+        message: "Could not resolve this Revoname. Please try again.",
+      };
+    }
+
     if (showRnsResult && resolvedRnsAddress === zeroAddress) {
       return {
         type: "error",
@@ -218,7 +229,7 @@ export default function PayPanel() {
     }
 
     return null;
-  }, [debouncedRnsName, isResolvingRns, showRnsResult, resolvedRnsAddress]);
+  }, [debouncedRnsName, isResolvingRns, showRnsResult, resolvedRnsAddress, rnsError]);
 
   const renderPeopleTab = () => {
     if (rnsState) {
