@@ -89,14 +89,7 @@ export default function NameSearchForm() {
       <div className="text-center relative">
         <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-tight mb-4 relative">
           <span className="block text-black">Secure your</span>
-          <span
-            className="block text-transparent bg-clip-text animate-gradient-shift"
-            style={{
-              backgroundSize: "200% 200%",
-              backgroundImage:
-                "linear-gradient(90deg, #2563eb 0%, #3b82f6 20%, #6366f1 40%, #4f46e5 60%, #7c3aed 80%, #9333ea 90%, #2563eb 100%)",
-            }}
-          >
+          <span className="block text-transparent bg-clip-text animate-gradient-shift bg-[length:200%_200%] bg-[linear-gradient(90deg,#2563eb_0%,#3b82f6_20%,#6366f1_40%,#4f46e5_60%,#7c3aed_80%,#9333ea_90%,#2563eb_100%)]">
             Revolution name
           </span>
         </h1>
