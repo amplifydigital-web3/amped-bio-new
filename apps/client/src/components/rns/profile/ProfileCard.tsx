@@ -7,6 +7,14 @@ import { ProfileUpdates, useProfileRecords } from "@/hooks/rns/useProfileRecords
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import BannerEditorModal, { BannerFit, BannerState } from "./BannerEditorModal";
+import { z } from "zod";
+
+const BannerMetaSchema = z.object({
+  fit: z.enum(["cover", "contain"]).default("cover"),
+  focusX: z.number().min(0).max(100).default(50),
+  focusY: z.number().min(0).max(100).default(50),
+  scale: z.number().min(1).max(2).default(1),
+});
 
 function parseBannerMeta(raw: string | undefined): {
   bannerFit: BannerFit;
@@ -16,12 +24,12 @@ function parseBannerMeta(raw: string | undefined): {
 } {
   try {
     if (raw) {
-      const parsed = JSON.parse(raw);
+      const parsed = BannerMetaSchema.parse(JSON.parse(raw));
       return {
-        bannerFit: parsed.fit === "contain" ? "contain" : "cover",
-        bannerFocusX: typeof parsed.focusX === "number" ? parsed.focusX : 50,
-        bannerFocusY: typeof parsed.focusY === "number" ? parsed.focusY : 50,
-        bannerScale: typeof parsed.scale === "number" ? parsed.scale : 1,
+        bannerFit: parsed.fit,
+        bannerFocusX: parsed.focusX,
+        bannerFocusY: parsed.focusY,
+        bannerScale: parsed.scale,
       };
     }
   } catch {
