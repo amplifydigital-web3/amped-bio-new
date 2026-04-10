@@ -468,10 +468,14 @@ export const ProfileCard = ({
           <h2 className="font-bold text-gray-400 mb-4">Addresses</h2>
           <div className="bg-gray-50 rounded-lg p-3 sm:p-4 mb-8 inline-flex items-center gap-2 w-auto">
             <span className="font-mono text-md mr-2">{addressFormatted}</span>
-            <Copy
-              className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-muted-foreground/60"
+            <Copy className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-muted-foreground/60" />
+            <button
+              type="button"
+              className="text-gray-400 hover:text-gray-600 ml-2 flex-shrink-0"
               onClick={() => navigator.clipboard.writeText(addressFull)}
-            />
+            >
+              <Copy className="h-4 w-4 " />
+            </button>
           </div>
 
           <div className="flex items-center mb-4">

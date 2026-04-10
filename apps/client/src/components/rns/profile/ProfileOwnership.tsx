@@ -88,10 +88,13 @@ const OwnershipDetail = ({
                       <span title={ownerAddress} className="font-bold">
                         {displayAddress}
                       </span>
-                      <Copy
-                        className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-pointer"
+                      <button
+                        type="button"
+                        className="text-gray-400 hover:text-gray-600 ml-2 flex-shrink-0"
                         onClick={() => navigator.clipboard.writeText(ownerAddress)}
-                      />
+                      >
+                        <Copy className="h-4 w-4 " />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -250,10 +253,13 @@ const OwnershipDetail = ({
                 <div className="flex items-center justify-between mb-4 break-all">
                   <span className="text-gray-500 font-semibold w-32 mb-2 sm:mb-0">hex</span>
                   <span className="text-sm pr-2 font-semibold">{hexData}</span>
-                  <Copy
+                  <button
+                    type="button"
+                    className="text-gray-400 hover:text-gray-600 ml-2 flex-shrink-0"
                     onClick={() => navigator.clipboard.writeText(hexData)}
-                    className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-pointer ml-2 flex-shrink-0"
-                  />
+                  >
+                    <Copy className="h-4 w-4 " />
+                  </button>
                 </div>
               </div>
 
@@ -262,10 +268,13 @@ const OwnershipDetail = ({
                 <div className="flex items-center justify-between mb-4 break-all">
                   <span className="text-gray-500 font-semibold w-40 mb-2 sm:mb-0">decimal</span>
                   <p className="text-sm pr-2 font-semibold">{nftId.toString()}</p>
-                  <Copy
+                  <button
+                    type="button"
+                    className="text-gray-400 hover:text-gray-600 ml-2 flex-shrink-0"
                     onClick={() => navigator.clipboard.writeText(String(nftId))}
-                    className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-pointer ml-2 flex-shrink-0"
-                  />
+                  >
+                    <Copy className="h-4 w-4 " />
+                  </button>
                 </div>
               </div>
             </div>
@@ -300,10 +309,13 @@ const OwnershipDetail = ({
           <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 sm:gap-0">
               <span className="break-all font-semibold">{resolver}</span>
-              <Copy
+              <button
+                type="button"
+                className="text-gray-400 hover:text-gray-600 ml-2 flex-shrink-0"
                 onClick={() => navigator.clipboard.writeText(resolver as string)}
-                className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-pointer"
-              />
+              >
+                <Copy className="h-4 w-4 " />
+              </button>
             </div>
           </div>
         </div>

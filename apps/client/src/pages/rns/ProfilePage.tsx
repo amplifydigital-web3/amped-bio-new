@@ -66,18 +66,22 @@ export default function ProfilePage({ name }: ProfilePageProps) {
       <div className="px-6 py-2 flex flex-col gap-2">
         <div className="flex items-start gap-2 min-w-0">
           <h1 className="text-xl sm:text-3xl font-bold break-all min-w-0">{domainName(name)}</h1>
-          <Copy
-            className="w-4 h-4 text-gray-400 cursor-pointer shrink-0 mt-1.5 sm:mt-2"
+          <button
+            type="button"
+            aria-label={`Copy ${domainName(name)}`}
             onClick={() => navigator.clipboard.writeText(domainName(name))}
-          />
+            className="shrink-0 mt-1.5 sm:mt-2 text-gray-400 hover:text-gray-600"
+          >
+            <Copy className="w-4 h-4" />
+          </button>
         </div>
 
         {isDifferentOwner && (
-          <div className="cursor-pointer self-end shrink-0" onClick={navigateToHome}>
+          <button type="button" className="self-end shrink-0" onClick={navigateToHome}>
             <span className="text-blue-600 font-bold hover:underline hover:text-blue-500">
               Register your own REVO Name
             </span>
-          </div>
+          </button>
         )}
       </div>
 
