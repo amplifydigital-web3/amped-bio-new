@@ -61,14 +61,10 @@ export function Preview({ isEditing, handle, profile, blocks, theme, userId }: P
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleRevoNameRedirection = (revoName: string) => {
-    if (isEditing) {
-      console.warn("Redirection blocked in edit mode");
-      return;
-    }
-    const redirectURL = `${import.meta.env.VITE_RNS_URL}/#/profile/${revoName}`;
-    window.open(redirectURL, "_blank", "noopener,noreferrer");
-  };
+  const revoNameUrl =
+    profile.revoName && !isEditing
+      ? `${import.meta.env.VITE_RNS_URL}/#/profile/${profile.revoName.split(".")[0]}`
+      : null;
 
   // console.info("blocks preview", blocks);
 
@@ -193,13 +189,21 @@ export function Preview({ isEditing, handle, profile, blocks, theme, userId }: P
                             <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" />
                           )}
                         </button>
-                        <span
-                          className="font-medium cursor-pointer flex items-center gap-1 hover:underline min-w-0"
-                          onClick={() => handleRevoNameRedirection(profile.revoName!.split(".")[0])}
-                        >
-                          <span className="break-all">{profile.revoName}</span>
-                          <ExternalLink className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                        </span>
+                        {revoNameUrl ? (
+                          <a
+                            href={revoNameUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium flex items-center gap-1 hover:underline min-w-0"
+                          >
+                            <span className="break-all">{profile.revoName}</span>
+                            <ExternalLink className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                          </a>
+                        ) : (
+                          <span className="font-medium min-w-0">
+                            <span className="break-all">{profile.revoName}</span>
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
