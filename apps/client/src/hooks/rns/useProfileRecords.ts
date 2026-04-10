@@ -29,6 +29,10 @@ export function useProfileRecords(name: string) {
     const entries = Object.entries(updates) as [ProfileKey, string][];
     if (entries.length === 0) return;
 
+    if (!resolverAddress) {
+      throw new Error("Resolver address not available.");
+    }
+
     if (entries.length === 1) {
       // Single record — skip multicall overhead
       const [key, value] = entries[0];
