@@ -1,4 +1,15 @@
 import { useSignMessage, useAccount } from "wagmi";
+import { z } from "zod";
+
+const PresignResponseSchema = z.object({
+  urls: z.array(
+    z.object({
+      field: z.enum(["avatar", "banner"]),
+      uploadUrl: z.string().url(),
+      fileUrl: z.string().url(),
+    })
+  ),
+});
 
 interface UploadUrls {
   avatar?: string;
@@ -49,25 +60,26 @@ export function useSignedUpload() {
       throw new Error(error ?? "Failed to get upload URLs");
     }
 
-    const { urls } = await res.json();
+    const json = await res.json();
+    const { urls } = PresignResponseSchema.parse(json);
 
     await Promise.all(
-      urls.map(({ field, uploadUrl }: { field: string; uploadUrl: string }) =>
-        fetch(uploadUrl, {
+      urls.map(({ field, uploadUrl }) => {
+        const file = fields[field];
+        if (!file) throw new Error(`Missing file for ${field}`);
+        return fetch(uploadUrl, {
           method: "PUT",
-          body: fields[field as "avatar" | "banner"],
+          body: file,
           headers: {
-            "Content-Type": fields[field as "avatar" | "banner"]!.type,
+            "Content-Type": file.type,
           },
         }).then(res => {
           if (!res.ok) throw new Error(`Failed to upload ${field}`);
-        })
-      )
+        });
+      })
     );
 
-    return Object.fromEntries(
-      urls.map(({ field, fileUrl }: { field: string; fileUrl: string }) => [field, fileUrl])
-    ) as UploadUrls;
+    return Object.fromEntries(urls.map(({ field, fileUrl }) => [field, fileUrl])) as UploadUrls;
   };
 
   return { uploadAll };
