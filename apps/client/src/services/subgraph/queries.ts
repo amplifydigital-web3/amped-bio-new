@@ -4,6 +4,33 @@ import { Address } from "viem";
 import { GetAllNamesResult, SubgraphResult } from "@/types/subgraph";
 import { NameDetail, RevoName } from "@/types/rns/name";
 import { RegistrationData } from "@/types/rns/registration";
+import { z } from "zod";
+
+const OwnershipDetailsSchema = z.object({
+  revoNames: z.array(
+    z.object({
+      owner: z.string(),
+      resolver: z.object({ address: z.string() }).nullable(),
+    })
+  ),
+});
+
+const DateDetailsSchema = z.object({
+  revoNames: z.array(
+    z.object({
+      expiryDateWithGrace: z.string(),
+    })
+  ),
+  registration: z
+    .object({
+      registrationDate: z.string(),
+      expiryDate: z.string(),
+    })
+    .nullable(),
+});
+
+export type OwnershipDetailsResult = z.infer<typeof OwnershipDetailsSchema>;
+export type DateDetailsResult = z.infer<typeof DateDetailsSchema>;
 
 export const queryGetAllRegisteredNamesOfOwner = gql`
   query getAllNames($owner: String!) {
@@ -174,17 +201,14 @@ export async function fetchRegistrationData(
 export async function fetchOwnershipDetails(
   labelHash: string,
   graphClient?: GraphQLClient | null
-): Promise<SubgraphResult<Partial<RegistrationData>>> {
+): Promise<SubgraphResult<OwnershipDetailsResult>> {
   try {
     if (!graphClient) {
       return { data: null, error: "Subgraph client not available for current network" };
     }
 
     const variables = { labelHash };
-    const data = await graphClient.request<Partial<RegistrationData>>(
-      queryOwnershipDetails,
-      variables
-    );
+    const data = await graphClient.request(queryOwnershipDetails, variables);
 
     return { data: data, error: null };
   } catch (err) {
@@ -197,14 +221,14 @@ export async function fetchOwnershipDetails(
 export async function fetchDateDetails(
   labelHash: string,
   graphClient?: GraphQLClient | null
-): Promise<SubgraphResult<Partial<RegistrationData>>> {
+): Promise<SubgraphResult<DateDetailsResult>> {
   try {
     if (!graphClient) {
       return { data: null, error: "Subgraph client not available for current network" };
     }
 
     const variables = { labelHash };
-    const data = await graphClient.request<Partial<RegistrationData>>(queryDateDetails, variables);
+    const data = await graphClient.request(queryDateDetails, variables);
 
     return { data: data, error: null };
   } catch (err) {
