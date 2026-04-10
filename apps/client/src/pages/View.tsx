@@ -12,6 +12,7 @@ import { BlockType } from "@ampedbio/constants";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { AuthUser } from "@/types/auth";
+import { SystemStatsBadge } from "@/components/layout/SystemStatsBadge";
 
 // Default handle username to show when accessing root URL
 const DEFAULT_ONELINK = "landingpage";
@@ -146,7 +147,7 @@ export function View() {
 
           if (onlinkData) {
             const { user, theme, blocks: blocks_raw, hasCreatorPool } = onlinkData;
-            const { id, name, email, description, image } = user;
+            const { id, name, email, description, image, revoName } = user;
             const formattedHandle = formatHandle(normalizedHandle);
 
             setProfile({
@@ -155,6 +156,7 @@ export function View() {
               handle: normalizedHandle,
               handleFormatted: formattedHandle,
               email,
+              revoName: revoName ?? "",
               bio: description ?? "",
               photoUrl: image ?? "",
               photoCmp: "",
@@ -231,6 +233,11 @@ export function View() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      {normalizedHandle === DEFAULT_ONELINK && (
+        <div className="md:hidden flex justify-center py-2 relative z-10">
+          <SystemStatsBadge />
+        </div>
+      )}
       <Preview
         isEditing={false}
         handle={normalizedHandle}

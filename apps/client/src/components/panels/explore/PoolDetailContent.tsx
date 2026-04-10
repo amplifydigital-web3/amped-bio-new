@@ -68,7 +68,6 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
   const [isStakeModalOpen, setIsStakeModalOpen] = useState(false);
   const [isUnstakeModalOpen, setIsUnstakeModalOpen] = useState(false);
   const [isImageUploadModalOpen, setIsImageUploadModalOpen] = useState(false);
-  const [stakingMode, setStakingMode] = useState<"stake" | "add-stake">("stake");
   const [isClaiming, setIsClaiming] = useState(false);
 
   const {
@@ -210,7 +209,6 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
   };
 
   const handleAddStake = () => {
-    setStakingMode("add-stake");
     setIsStakeModalOpen(true);
   };
 
@@ -282,7 +280,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
             {/* Hero Section - Image and Stats Side by Side */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
               {/* Pool Image */}
-              <div className="relative h-64 group">
+              <div className="relative min-h-64 group">
                 <div className="h-full rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
                   {pool.image ? (
                     <img
@@ -307,9 +305,9 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                 )}
               </div>
 
-              {/* Stats Grid - 2x2 with matching height */}
-              <div className="h-64">
-                <div className="grid grid-cols-2 gap-4 h-full">
+              {/* Stats Grid - 2x2 with auto height */}
+              <div className="min-h-64">
+                <div className="grid grid-cols-2 gap-4">
                   {/* Conditionally render Your Stake card if not null */}
                   {pool?.stakedByYou !== null && pool.stakedByYou !== undefined && (
                     <div className="rounded-xl p-4 border border-blue-100 flex flex-col justify-center">
@@ -448,6 +446,19 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                       Percentage of rewards taken by the pool creator
                     </p>
                   </div>
+
+                  {/* Knowledgebase Link */}
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <a
+                      href="https://amplifydigital.freshdesk.com/support/solutions/articles/154000250365-how-is-reward-pool-apy-calculated"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-700 hover:underline transition-colors duration-200"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      <span>How are Staking Rewards and Pool APY Calculated?</span>
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>
@@ -532,11 +543,11 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                 chainId: pool.chainId,
                 address: pool.address,
                 image: pool.image,
-                currentStake: parseFloat(formatEther(pool.stakedByYou)),
+                stakedByYou: parseFloat(formatEther(pool.stakedByYou)),
+                stakedAmount: parseFloat(formatEther(pool.stakedAmount)),
               }
             : null
         }
-        mode={stakingMode}
         onStakeSuccess={async () => {
           // When stake operations complete, refetch blockchain data using multicall
           await fetchAllData();

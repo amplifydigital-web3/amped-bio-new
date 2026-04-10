@@ -5,10 +5,17 @@ import { URLPicker } from "./URLPicker";
 import { useEditor } from "../../../contexts/EditorContext";
 import { useAuth } from "../../../contexts/AuthContext";
 import { EmailChangeDialog } from "../../dialogs/EmailChangeDialog";
+import useGetAllRegisteredNames from "@/hooks/rns/useGetAllRegisteredNames";
+import { useAccount } from "wagmi";
 
 export function GeneralTabContent() {
   const { profile, setProfile } = useEditor();
   const { authUser } = useAuth();
+  const { address: accountAddress, isConnected } = useAccount();
+  const showRNS = import.meta.env.VITE_SHOW_RNS === "true";
+  const { revoNames: revolutionNames, isFetching } = showRNS
+    ? useGetAllRegisteredNames(accountAddress, isConnected)
+    : { revoNames: null, isFetching: false };
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
 
   const handleProfileUpdate = (field: string, value: string) => {
@@ -29,7 +36,12 @@ export function GeneralTabContent() {
 
       <hr className="my-6 border-gray-200" />
 
-      <ProfileForm profile={profile} onUpdate={handleProfileUpdate} />
+      <ProfileForm
+        profile={profile}
+        onUpdate={handleProfileUpdate}
+        revoNames={revolutionNames}
+        isRevoNameFetching={isFetching}
+      />
 
       <hr className="my-6 border-gray-200" />
 

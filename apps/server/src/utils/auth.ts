@@ -1,7 +1,7 @@
 import { prisma } from "../services/DB";
 import { env } from "../env";
 import { processEmailToUniqueHandle } from "./onelink-generator";
-import { sendEmailVerification, sendPasswordResetEmail } from "./email/email";
+import { sendEmailVerification, sendPasswordResetEmail, sendWelcomeEmail } from "./email/email";
 import { hashPassword, verifyPassword } from "./password";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
@@ -134,12 +134,23 @@ export const auth = betterAuth({
 
               console.log(
                 `Referral created: user ${user.id} referred by ${referrerId}. ` +
-                `Rewards will be sent automatically when both parties link their wallets.`
+                  `Rewards will be sent automatically when both parties link their wallets.`
               );
             } catch (error) {
               console.error("Error creating referral:", error);
               // Don't throw - user registration should succeed even if referral creation fails
             }
+          }
+
+          // Send welcome email for Google signups (non-blocking, ignore errors)
+          if (context?.provider === "google") {
+            setImmediate(() => {
+              try {
+                sendWelcomeEmail(user.email, user.name);
+              } catch (error) {
+                console.error("Error sending welcome email (ignored):", error);
+              }
+            });
           }
         },
       },
