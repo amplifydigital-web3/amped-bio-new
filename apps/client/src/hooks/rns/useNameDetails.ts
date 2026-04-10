@@ -70,7 +70,7 @@ export function useNameDetails(name: string) {
   }, [name]);
 
   // Batch-resolve all text records declared by the resolver in the subgraph
-  const resolverAddress = names?.revoNames[0]?.resolver?.address;
+  const resolverAddress = names?.revoNames?.[0]?.resolver?.address;
   // const textKeys = names?.revoNames[0]?.resolver?.texts ?? [];
   const nodeHash = useMemo(() => namehash(domainName(name)), [name]);
 
@@ -78,7 +78,7 @@ export function useNameDetails(name: string) {
   // subgraph has indexed them (e.g. first-time avatar/banner save).
   const PROFILE_TEXT_KEYS = ["avatar", "banner", "description", "url", "banner.meta"];
   const textKeys = useMemo(() => {
-    const subgraphKeys = names?.revoNames[0]?.resolver?.texts ?? [];
+    const subgraphKeys = names?.revoNames?.[0]?.resolver?.texts ?? [];
     return [...new Set([...PROFILE_TEXT_KEYS, ...subgraphKeys])];
   }, [names]);
 
