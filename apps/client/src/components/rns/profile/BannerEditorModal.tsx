@@ -180,7 +180,12 @@ export default function BannerEditorModal({
           >
             {draft.bannerUrl && (
               <button
-                onClick={() => setDraft(p => ({ ...p, bannerUrl: null }))}
+                onClick={() =>
+                  setDraft(p => {
+                    if (p.bannerUrl?.startsWith("blob:")) URL.revokeObjectURL(p.bannerUrl);
+                    return { ...p, bannerUrl: null, bannerFile: null };
+                  })
+                }
                 className="h-7 w-7 rounded-full bg-black/50 backdrop-blur-sm text-white hover:bg-black/70 transition-colors flex items-center justify-center"
                 title="Remove banner"
               >
