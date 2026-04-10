@@ -41,6 +41,7 @@ const TransferNameModal: React.FC<TransferNameModalProps> = ({
   const [recipient, setRecipient] = useState("");
   const [selectedAddress, setSelectedAddress] = useState<AddressResult | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
+  const [transferStarted, setTransferStarted] = useState(false);
 
   const { address } = useAccount();
 
@@ -49,7 +50,7 @@ const TransferNameModal: React.FC<TransferNameModalProps> = ({
   const nftId = useMemo(() => (domain ? BigInt(keccak256(toBytes(domain))) : 0n), [domain]);
 
   useEffect(() => {
-    if (step === "confirm" && overallStatus === "success") {
+    if (transferStarted && step === "confirm" && overallStatus === "success") {
       setStep("final");
       toast.success("Name Successfully Transferred.");
       // Optimistically update ownership with the recipient address
@@ -57,7 +58,7 @@ const TransferNameModal: React.FC<TransferNameModalProps> = ({
         onSuccess?.(selectedAddress.address as `0x${string}`);
       }
     }
-  }, [overallStatus, step, onSuccess, selectedAddress]);
+  }, [overallStatus, step, onSuccess, selectedAddress, transferStarted]);
 
   const handleContinue = () => {
     if (!selectedAddress) return;
@@ -85,8 +86,10 @@ const TransferNameModal: React.FC<TransferNameModalProps> = ({
   const confirmTransfer = async () => {
     if (!selectedAddress || !address || !nftId) return;
     try {
+      setTransferStarted(true);
       await transferOwnership(domain, selectedAddress.address as `0x${string}`);
     } catch (error) {
+      setTransferStarted(false);
       console.error("Transfer error:", error);
       toast.error("Transfer failed. Please try again.");
     }
