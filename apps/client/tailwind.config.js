@@ -20,8 +20,14 @@ export default {
         "shimmer-slide": "shimmer-slide var(--speed) ease-in-out infinite alternate",
         "spin-around": "spin-around calc(var(--speed) * 2) infinite linear",
         "token-stake": "tokenStake 2s ease-out forwards",
+        fadeInUp: "fadeInUp 0.6s ease-out forwards",
+        "gradient-shift": "gradient 3s ease-in-out infinite",
       },
       keyframes: {
+        fadeInUp: {
+          "0%": { opacity: "0", transform: "translateY(24px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
         wiggle: {
           "0%, 100%": {
             transform: "rotate(-3deg)",

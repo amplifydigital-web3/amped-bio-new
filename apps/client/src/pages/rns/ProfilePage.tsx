@@ -1,20 +1,24 @@
 import { useEffect, useState } from "react";
-import { domainName, scannerURL, trimmedDomainName } from "@/utils/rns";
+import { domainName, scannerURL } from "@/utils/rns";
 import { Copy, ExternalLink } from "lucide-react";
 import { useAccount } from "wagmi";
 import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
 import { ProfileCard } from "@/components/rns/profile/ProfileCard";
 import { ProfileNav } from "@/components/rns/profile/ProfileNav";
-import MoreDetails from "@/components/rns/profile/MoreDetail";
 import OwnershipDetail from "@/components/rns/profile/ProfileOwnership";
 import { useNameDetails } from "@/hooks/rns/useNameDetails";
+import VerificationDetail from "@/components/rns/verification/VerificationDetails";
 
 interface ProfilePageProps {
   name: string;
-  activeTab?: "details" | "ownership" | "more";
 }
 
-export default function ProfilePage({ name, activeTab = "details" }: ProfilePageProps) {
+export default function ProfilePage({ name }: ProfilePageProps) {
+  const [activeTab, setActiveTab] = useState<"details" | "ownership" | "identity">("details");
+
+  const handleTabChange = (tab: "details" | "ownership" | "identity") => {
+    setActiveTab(tab);
+  };
   const {
     displayAddress,
     ownerAddress,
@@ -23,9 +27,16 @@ export default function ProfilePage({ name, activeTab = "details" }: ProfilePage
     isCurrentOwner,
     nftId,
     resolver,
-    refetchNameDetails,
+    refetchOwnership,
+    refetchDates,
+    refetchTextRecords,
     isLoading,
+    datesLoading,
     isNameAvailable,
+    optimisticSetOwner,
+    optimisticExtendExpiry,
+    textRecords,
+    textRecordsLoading,
   } = useNameDetails(name);
   const { address: connectedWallet } = useAccount();
   const { navigateToHome, navigateToRegister } = useRNSNavigation();
@@ -35,9 +46,6 @@ export default function ProfilePage({ name, activeTab = "details" }: ProfilePage
   const isDifferentOwner =
     connectedWallet && ownerAddress && connectedWallet.toLowerCase() !== ownerAddress.toLowerCase();
 
-  /**
-   * ✅ Redirect handled correctly
-   */
   useEffect(() => {
     if (!isLoading && isNameAvailable === true) {
       setRedirecting(true);
@@ -45,10 +53,6 @@ export default function ProfilePage({ name, activeTab = "details" }: ProfilePage
     }
   }, [isLoading, isNameAvailable, navigateToRegister, name]);
 
-  /**
-   * ✅ Block render while redirecting
-   */
-  // Prevent initial content flash: block render until availability is known
   if (isLoading || redirecting || isNameAvailable === undefined) {
     return (
       <div className="h-screen flex items-center justify-center">
@@ -59,33 +63,30 @@ export default function ProfilePage({ name, activeTab = "details" }: ProfilePage
 
   return (
     <div className="my-2 sm:my-10 max-w-[840px] w-full mx-auto px-3 sm:px-6">
-      <div className="px-6 py-2 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h1 className="text-sm sm:text-3xl font-bold hidden sm:flex">
-            {trimmedDomainName(name)}
-          </h1>
-          <Copy
-            className="w-4 h-4 text-gray-400 cursor-pointer hidden sm:flex"
+      <div className="px-6 py-2 flex flex-col gap-2">
+        <div className="flex items-start gap-2 min-w-0">
+          <h1 className="text-xl sm:text-3xl font-bold break-all min-w-0">{domainName(name)}</h1>
+          <button
+            type="button"
+            aria-label={`Copy ${domainName(name)}`}
             onClick={() => navigator.clipboard.writeText(domainName(name))}
-          />
+            className="shrink-0 mt-1.5 sm:mt-2 text-gray-400 hover:text-gray-600"
+          >
+            <Copy className="w-4 h-4" />
+          </button>
         </div>
 
         {isDifferentOwner && (
-          <div className="cursor-pointer" onClick={navigateToHome}>
+          <button type="button" className="self-end shrink-0" onClick={navigateToHome}>
             <span className="text-blue-600 font-bold hover:underline hover:text-blue-500">
               Register your own REVO Name
             </span>
-          </div>
+          </button>
         )}
       </div>
 
       <div className="flex flex-col-reverse sm:flex-row sm:justify-between px-5 gap-1">
-        <ProfileNav
-          name={name}
-          activeTab={activeTab}
-          connectedWallet={connectedWallet}
-          addressFull={ownerAddress}
-        />
+        <ProfileNav name={name} activeTab={activeTab} onTabChange={handleTabChange} />
 
         {ownerAddress && (
           <a
@@ -94,8 +95,8 @@ export default function ProfilePage({ name, activeTab = "details" }: ProfilePage
             rel="noopener noreferrer"
             className="text-blue-500 flex items-center gap-1 font-bold"
           >
-            <ExternalLink className="w-3 h-3" />
             Explorer
+            <ExternalLink className="w-3.5 h-3.5" />
           </a>
         )}
       </div>
@@ -106,7 +107,11 @@ export default function ProfilePage({ name, activeTab = "details" }: ProfilePage
           addressFull={ownerAddress}
           addressFormatted={displayAddress}
           expiry={dates.expiry.date}
-          registrant={ownerAddress}
+          isCurrentOwner={isCurrentOwner}
+          onTabChange={handleTabChange}
+          textRecords={textRecords}
+          textRecordsLoading={textRecordsLoading}
+          onSaved={refetchTextRecords}
         />
       )}
       {activeTab === "ownership" && (
@@ -117,11 +122,16 @@ export default function ProfilePage({ name, activeTab = "details" }: ProfilePage
           ownerAddress={ownerAddress}
           transactionHash={transactionHash}
           isCurrentOwner={isCurrentOwner}
-          isNameDetailsLoading={isLoading}
-          refetchNameDetails={refetchNameDetails}
+          datesLoading={datesLoading}
+          refetchOwnership={refetchOwnership}
+          refetchDates={refetchDates}
+          optimisticSetOwner={optimisticSetOwner}
+          optimisticExtendExpiry={optimisticExtendExpiry}
+          nftId={nftId}
+          resolver={resolver}
         />
       )}
-      {activeTab === "more" && <MoreDetails name={name} nftId={nftId} resolver={resolver} />}
+      {activeTab === "identity" && <VerificationDetail isOwner={isCurrentOwner} />}
     </div>
   );
 }

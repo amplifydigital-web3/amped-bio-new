@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useAccount } from "wagmi";
+import { keccak256, toBytes } from "viem";
 
 import { StepState } from "@/hooks/rns/useTransferOwnership";
-import { useNameDetails } from "@/hooks/rns/useNameDetails";
 import SearchStep from "./TransferSteps/SearchStep";
 import FormStep from "./TransferSteps/FormStep";
 import { WarningModal } from "./TransferSteps/WarningModal";
@@ -15,10 +15,13 @@ interface TransferNameModalProps {
   onClose: () => void;
   ensName?: string;
   expiryDate?: string;
+  ownerAddress: `0x${string}`;
+  displayAddress: string;
   isConnected: boolean;
   overallStatus: TxStatus;
   steps: Record<TxStep, StepState>;
-  transferOwnership;
+  transferOwnership: (name: string, receiverAddress: `0x${string}`) => Promise<unknown>;
+  onSuccess?: (recipientAddress: `0x${string}`) => Promise<void> | void;
 }
 
 type ModalStep = "search" | "form" | "warning" | "confirm" | "final";
@@ -26,27 +29,36 @@ type ModalStep = "search" | "form" | "warning" | "confirm" | "final";
 const TransferNameModal: React.FC<TransferNameModalProps> = ({
   onClose,
   ensName = "",
+  ownerAddress,
+  displayAddress,
   isConnected,
   overallStatus,
   steps,
   transferOwnership,
+  onSuccess,
 }) => {
   const [step, setStep] = useState<ModalStep>("search");
   const [recipient, setRecipient] = useState("");
   const [selectedAddress, setSelectedAddress] = useState<AddressResult | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
+  const [transferStarted, setTransferStarted] = useState(false);
 
   const { address } = useAccount();
 
   const domain = ensName?.split(".")[0] || "";
-  const { ownerAddress, displayAddress, nftId } = useNameDetails(domain);
+  // Compute nftId directly from domain — no need for a separate useNameDetails call
+  const nftId = useMemo(() => (domain ? BigInt(keccak256(toBytes(domain))) : 0n), [domain]);
 
   useEffect(() => {
-    if (step === "confirm" && overallStatus === "success") {
+    if (transferStarted && step === "confirm" && overallStatus === "success") {
       setStep("final");
       toast.success("Name Successfully Transferred.");
+      // Optimistically update ownership with the recipient address
+      if (selectedAddress?.address) {
+        onSuccess?.(selectedAddress.address as `0x${string}`);
+      }
     }
-  }, [overallStatus, step]);
+  }, [overallStatus, step, onSuccess, selectedAddress, transferStarted]);
 
   const handleContinue = () => {
     if (!selectedAddress) return;
@@ -74,8 +86,10 @@ const TransferNameModal: React.FC<TransferNameModalProps> = ({
   const confirmTransfer = async () => {
     if (!selectedAddress || !address || !nftId) return;
     try {
+      setTransferStarted(true);
       await transferOwnership(domain, selectedAddress.address as `0x${string}`);
     } catch (error) {
+      setTransferStarted(false);
       console.error("Transfer error:", error);
       toast.error("Transfer failed. Please try again.");
     }

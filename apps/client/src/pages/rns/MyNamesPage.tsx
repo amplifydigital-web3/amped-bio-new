@@ -164,9 +164,11 @@ const MyNamesPage = () => {
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-200 to-yellow-400" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1">
-                    <span className="font-medium truncate">{item.labelName}</span>
-                    <span className="text-gray-500 flex-shrink-0">
-                      {DOMAIN_SUFFIX || ".revotest.eth"}
+                    <span className="font-medium break-all">
+                      {item.labelName}
+                      <span className="text-gray-500 flex-shrink-0">
+                        {DOMAIN_SUFFIX || ".revotest.eth"}
+                      </span>
                     </span>
                   </div>
                   <div className="text-sm text-gray-500">

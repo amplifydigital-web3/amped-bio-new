@@ -11,6 +11,7 @@ import {
   X,
   Loader,
   AlertCircle,
+  CheckCircle,
 } from "lucide-react";
 import { trpc } from "@/utils/trpc/trpc";
 import { useQuery } from "@tanstack/react-query";
@@ -18,9 +19,11 @@ import ReceiveDialog from "../wallet/dialogs/ReceiveDialog";
 import PayModal from "./dialogs/PayDialog";
 import usePayDialog from "@/hooks/usePayDialog";
 import { Scanner as QRScanner } from "@yudiel/react-qr-scanner";
-import { Address, isAddress } from "viem";
+import { Address, isAddress, zeroAddress } from "viem";
 import { useChainId, useAccount } from "wagmi";
 import { getChainConfig } from "@ampedbio/web3";
+import { useResolveRevoName } from "@/hooks/rns/useResolveRevoName";
+import { DOMAIN_SUFFIX } from "@/config/rns/constants";
 
 interface Transaction {
   from: string;
@@ -72,6 +75,34 @@ export default function PayPanel() {
 
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showQrScanner, setShowQrScanner] = useState(false);
+  const [debouncedRnsName, setDebouncedRnsName] = useState("");
+  const [showRnsResult, setShowRnsResult] = useState(false);
+
+  // Debounce for RNS name
+  useEffect(() => {
+    // Only trigger if input ends with the full domain suffix
+    if (searchQuery && !isAddress(searchQuery) && searchQuery.endsWith(DOMAIN_SUFFIX)) {
+      const timer = setTimeout(() => setDebouncedRnsName(searchQuery), 700);
+      return () => clearTimeout(timer);
+    } else {
+      setDebouncedRnsName("");
+      setShowRnsResult(false);
+    }
+  }, [searchQuery]);
+
+  // Only resolve if debouncedRnsName is valid
+  const {
+    address: resolvedRnsAddress,
+    isLoading: isResolvingRns,
+    error: rnsError,
+  } = useResolveRevoName(debouncedRnsName);
+
+  // Show RNS result if resolved or error
+  useEffect(() => {
+    if (debouncedRnsName && (resolvedRnsAddress || rnsError)) {
+      setShowRnsResult(true);
+    }
+  }, [debouncedRnsName, resolvedRnsAddress, rnsError]);
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
@@ -125,11 +156,6 @@ export default function PayPanel() {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
-  const formatHash = (hash: string) => {
-    if (!hash) return "";
-    return `${hash.substring(0, 6)}...${hash.substring(hash.length - 4)}`;
-  };
-
   const timeAgo = (timestamp: string) => {
     const date = new Date(timestamp);
     const now = new Date();
@@ -157,7 +183,103 @@ export default function PayPanel() {
     }
   };
 
+  const rnsState = useMemo(() => {
+    if (!debouncedRnsName) return null;
+
+    if (isResolvingRns) {
+      return {
+        type: "loading",
+        icon: <Loader className="w-6 h-6 text-blue-600 animate-spin" />,
+        label: "Resolving...",
+        textColor: "text-blue-700",
+        badge: "bg-blue-100 text-blue-700",
+      };
+    }
+
+    if (showRnsResult && rnsError) {
+      return {
+        type: "error",
+        icon: <AlertCircle className="w-6 h-6 text-red-600" />,
+        label: "Lookup failed",
+        textColor: "text-red-700",
+        badge: "bg-red-100 text-red-700",
+        message: "Could not resolve this Revoname. Please try again.",
+      };
+    }
+
+    if (showRnsResult && resolvedRnsAddress === zeroAddress) {
+      return {
+        type: "error",
+        icon: <AlertCircle className="w-6 h-6 text-red-600" />,
+        label: "Not found",
+        textColor: "text-red-700",
+        badge: "bg-red-100 text-red-700",
+        message: "Invalid Revoname",
+      };
+    }
+
+    if (showRnsResult && resolvedRnsAddress && resolvedRnsAddress !== zeroAddress) {
+      return {
+        type: "success",
+        icon: <CheckCircle className="w-6 h-6 text-green-600" />,
+        label: "Resolved",
+        textColor: "text-green-700",
+        badge: "bg-green-100 text-green-700",
+      };
+    }
+
+    return null;
+  }, [debouncedRnsName, isResolvingRns, showRnsResult, resolvedRnsAddress, rnsError]);
+
   const renderPeopleTab = () => {
+    if (rnsState) {
+      return (
+        <div className="flex items-center justify-between rounded-xl hover:bg-gray-50 transition-colors">
+          <div className="flex items-center space-x-2">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center">
+              {rnsState.icon}
+            </div>
+
+            <div className="flex-1">
+              <div
+                className={`flex items-center space-x-2 text-sm font-semibold ${rnsState.textColor}`}
+              >
+                <span>{debouncedRnsName}</span>
+
+                <span className={`hidden sm:block text-xs rounded px-2 py-0.5 ${rnsState.badge}`}>
+                  {rnsState.label}
+                </span>
+              </div>
+
+              {rnsState.type === "error" && (
+                <div className="text-sm text-red-900 mt-1">{rnsState.message}</div>
+              )}
+
+              {rnsState.type === "success" && resolvedRnsAddress && (
+                <div className="text-sm text-green-900 font-mono mt-1">
+                  {resolvedRnsAddress.slice(0, 8)}...{resolvedRnsAddress.slice(-6)}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {rnsState.type === "success" && resolvedRnsAddress && (
+            <button
+              onClick={() => {
+                payDialog.openPayDialog(resolvedRnsAddress);
+                setSearchQuery("");
+                setShowRnsResult(false);
+              }}
+              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-full flex items-center space-x-2"
+            >
+              <Send className="w-4 h-4" />
+              <span>Pay</span>
+            </button>
+          )}
+        </div>
+      );
+    }
+
     if (isLoading) {
       return <div className="text-center text-gray-500 py-8">Searching for users...</div>;
     }
@@ -316,7 +438,7 @@ export default function PayPanel() {
         <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
         <input
           type="text"
-          placeholder="Search people or paste address..."
+          placeholder="Search people or paste address or Revoname..."
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           className="w-full pl-12 pr-4 py-4 bg-gray-50 border-0 rounded-xl text-lg focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"

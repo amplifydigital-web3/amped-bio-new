@@ -1,4 +1,3 @@
-import { Link, useNavigate } from "react-router";
 import { ParticlesBackground } from "./particles/ParticlesBackground";
 import { cn } from "../utils/cn";
 import {
@@ -17,7 +16,7 @@ import { type BlockType } from "@ampedbio/constants";
 import { Theme, UserProfile } from "@/types/editor";
 import { trpcClient } from "@/utils/trpc";
 import { useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, ExternalLink } from "lucide-react";
 import { setCookie } from "@/utils/cookies";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
 
@@ -43,11 +42,12 @@ interface PreviewProps {
   userId?: number;
 }
 
-export function Preview({ profile, blocks, theme, userId }: PreviewProps) {
+export function Preview({ isEditing, handle, profile, blocks, theme, userId }: PreviewProps) {
   const [copied, setCopied] = useState(false);
   const themeConfig = theme.config;
-  const navigate = useNavigate();
   const { handleReferrerClick } = useReferralHandler();
+
+  const showRns = import.meta.env.VITE_SHOW_RNS === "true";
 
   const handleLinkClick = (block: BlockType) => {
     if (block.type === "link") {
@@ -61,16 +61,10 @@ export function Preview({ profile, blocks, theme, userId }: PreviewProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleRevoNameRedirection = (revoName: string) => {
-    const pathname = location.pathname.includes("/edit")
-      ? location.pathname
-      : `${location.pathname.replace(/\/$/, "")}/edit`;
-
-    const searchParams = new URLSearchParams(location.search);
-    searchParams.set("p", "rns");
-    searchParams.set("t", `profile:${encodeURIComponent(revoName)}:details`);
-    navigate(`${pathname}?${searchParams.toString()}`, { replace: true });
-  };
+  const revoNameUrl =
+    profile.revoName && !isEditing
+      ? `${import.meta.env.VITE_RNS_URL}/#/profile/${profile.revoName.split(".")[0]}`
+      : null;
 
   // console.info("blocks preview", blocks);
 
@@ -160,8 +154,8 @@ export function Preview({ profile, blocks, theme, userId }: PreviewProps) {
                     <img src={profile.photoCmp} alt={profile.name} className="w-32 h-auto" />
                   </div>
                 )}
-                <div className="space-y-4">
-                  <div>
+                <div className="space-y-4 w-full">
+                  <div className="w-full">
                     <h1
                       className={cn(
                         "text-4xl font-bold tracking-tight",
@@ -174,10 +168,10 @@ export function Preview({ profile, blocks, theme, userId }: PreviewProps) {
                     >
                       {profile.name}
                     </h1>
-                    {profile.revoName && (
+                    {profile.revoName && showRns && (
                       <div
                         className={cn(
-                          "font-bold tracking-tight flex items-center justify-center space-x-2",
+                          "font-bold tracking-tight flex items-center justify-center gap-1 w-full overflow-hidden",
                           getHeroEffectStyle(themeConfig?.heroEffect)
                         )}
                         style={{
@@ -187,7 +181,7 @@ export function Preview({ profile, blocks, theme, userId }: PreviewProps) {
                       >
                         <button
                           onClick={handleCopy}
-                          className="text-sm font-bold transition-all duration-300"
+                          className="text-sm font-bold transition-all duration-300 shrink-0"
                         >
                           {!copied ? (
                             <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -195,12 +189,21 @@ export function Preview({ profile, blocks, theme, userId }: PreviewProps) {
                             <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" />
                           )}
                         </button>
-                        <span
-                          className="font-medium cursor-pointer"
-                          onClick={() => handleRevoNameRedirection(profile.revoName!.split(".")[0])}
-                        >
-                          {profile.revoName}
-                        </span>
+                        {revoNameUrl ? (
+                          <a
+                            href={revoNameUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium flex items-center gap-1 hover:underline min-w-0"
+                          >
+                            <span className="break-all">{profile.revoName}</span>
+                            <ExternalLink className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                          </a>
+                        ) : (
+                          <span className="font-medium min-w-0">
+                            <span className="break-all">{profile.revoName}</span>
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>

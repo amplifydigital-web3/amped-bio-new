@@ -35,6 +35,7 @@ export function ProfileForm({
   revoNames,
   isRevoNameFetching,
 }: ProfileFormProps) {
+  const showRNS = import.meta.env.VITE_SHOW_RNS === "true";
   return (
     <div className="space-y-6">
       <Input
@@ -43,7 +44,7 @@ export function ProfileForm({
         onChange={e => onUpdate("name", e.target.value)}
         placeholder="Enter your name"
       />
-      {import.meta.env.VITE_SHOW_RNS === "true" && (
+      {showRNS && (
         <div className="space-y-2">
           <h3 className="text-sm font-medium text-foreground">Revolution Name</h3>
           <p className="text-sm text-muted-foreground">Select your Revolution Name</p>
@@ -86,7 +87,7 @@ export function ProfileForm({
             </SelectContent>
           </Select>
           <Link
-            to={`?p=rns`}
+            to={`?p=rns&t=my-names`}
             className="inline-flex items-center gap-1.5 text-sm font-medium text-[#6366f1] hover:underline"
           >
             Manage names → RNS

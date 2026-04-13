@@ -33,6 +33,7 @@ interface EditorContextType extends EditorState {
   setBackground: (background: Background) => void;
   setBackgroundForUpload: (background: Background) => void;
   saveChanges: () => Promise<void>;
+  clearRevoName: () => Promise<void>;
   setDefault: () => void;
   addToGallery: (image: GalleryImage) => void;
   removeFromGallery: (url: string) => void;
@@ -43,6 +44,9 @@ interface EditorContextType extends EditorState {
   setSelectedPoolId: (id: string | null) => void;
   exportTheme: (customFilename?: string) => void;
   importTheme: (file: File) => Promise<void>;
+  expiredRevoName: string;
+  dismissRevoName: () => Promise<void>;
+  lostRevoName: string;
 }
 
 const EditorContext = createContext<EditorContextType | undefined>(undefined);
@@ -51,6 +55,8 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
   const [state, setState] = useState<EditorState>(initialState);
   const [changes, setChanges] = useState(false);
   const [themeChanges, setThemeChanges] = useState(false);
+  const [expiredRevoName, setExpiredRevoName] = useState("");
+  const [lostRevoName, setLostRevoName] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -68,12 +74,16 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       const { user, theme, blocks: blocks_raw, hasCreatorPool } = onlinkData;
-      const { id, name, email, revoName, description, image } = user;
+      const { id, name, email, revoName, revoNameStatus, originalRevoName, description, image } =
+        user;
       const normalizedHandle = normalizeHandle(handle);
       const formattedHandle = formatHandle(handle);
-      // console.info("👤 User data loaded:", { name, email, blocks: blocks_raw, theme });
 
       const blocks = blocks_raw.sort((a, b) => a.order - b.order);
+
+      // Server already validated ownership and expiry; just read the status
+      if (revoNameStatus === "expired") setExpiredRevoName(originalRevoName ?? "");
+      else if (revoNameStatus === "taken") setLostRevoName(originalRevoName ?? "");
 
       setState(prevState => ({
         ...prevState,
@@ -459,6 +469,27 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [state, authUser, themeChanges]);
 
+  const clearRevoName = useCallback(async () => {
+    const { profile, theme } = state;
+    try {
+      await trpcClient.user.edit.mutate({
+        name: profile.name,
+        description: profile.bio,
+        revo_name: "",
+        image: profile.photoUrl || "",
+        reward_business_id: "",
+        theme: theme.id,
+      });
+      setState(prevState => ({
+        ...prevState,
+        profile: { ...prevState.profile, revoName: "" },
+      }));
+    } catch (error) {
+      console.error("❌ Failed to clear revoName:", error);
+      toast.error("Failed to clear revoName");
+    }
+  }, [state]);
+
   const setDefault = useCallback(() => {
     console.group("🔄 Resetting to Default");
     setState(initialState);
@@ -556,6 +587,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     setBackground,
     setBackgroundForUpload,
     saveChanges,
+    clearRevoName,
     setDefault,
     addToGallery,
     removeFromGallery,
@@ -566,6 +598,13 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     setSelectedPoolId,
     exportTheme,
     importTheme,
+    expiredRevoName,
+    lostRevoName,
+    dismissRevoName: async () => {
+      await clearRevoName();
+      setLostRevoName("");
+      setExpiredRevoName("");
+    },
   };
 
   return <EditorContext.Provider value={value}>{children}</EditorContext.Provider>;

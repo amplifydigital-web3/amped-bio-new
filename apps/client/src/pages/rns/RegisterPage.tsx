@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import ConfirmRegistrationModal from "@/components/rns/modal/ConfirmRegisterationModal";
-import { trimmedDomainName } from "@/utils/rns";
+import { domainName } from "@/utils/rns";
 import {
   getDurationUnitFromSeconds,
   getStepForUnit,
@@ -86,15 +86,16 @@ export default function RegisterPage({ name }: RegisterClientProps) {
       <div className="max-w-[780px] mx-auto px-4">
         <div className="py-4 sm:py-6">
           <div className="w-full overflow-hidden">
-            <h1 className="text-3xl sm:text-4xl font-bold break-words hyphens-auto">
-              {trimmedDomainName(name)}
+            <h1 className="text-xl sm:text-3xl font-bold break-words hyphens-auto">
+              {domainName(name)}
             </h1>
           </div>
         </div>
 
         <div className="bg-white rounded-3xl p-6 space-y-6 border border-gray-100">
-          <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">
-            Register {trimmedDomainName(name)}
+          <h2 className="text-lg sm:text-2xl font-semibold break-all mb-4 sm:mb-6">
+            <span className="font-bold">Register</span> <br />
+            {domainName(name)}
           </h2>
 
           {/* Duration Selector */}

@@ -1,14 +1,80 @@
-import { trimmedDomainName } from "@/utils/rns";
-import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
-import { Copy } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { domainName } from "@/utils/rns";
+import { Camera, Copy, ExternalLink, Loader, Plus, Save, Trash2, X, Edit2 } from "lucide-react";
+import ImageUploadButton from "../ui/ImageUploadButton";
+import { useSignedUpload } from "@/hooks/rns/useSignedUpload";
+import { ProfileUpdates, useProfileRecords } from "@/hooks/rns/useProfileRecords";
+import { useEffect, useRef, useState } from "react";
+import toast from "react-hot-toast";
+import BannerEditorModal, { BannerFit, BannerState } from "./BannerEditorModal";
+import { z } from "zod";
+
+const BannerMetaSchema = z.object({
+  fit: z.enum(["cover", "contain"]).default("cover"),
+  focusX: z.number().min(0).max(100).default(50),
+  focusY: z.number().min(0).max(100).default(50),
+  scale: z.number().min(1).max(2).default(1),
+});
+
+function parseBannerMeta(raw: string | undefined): {
+  bannerFit: BannerFit;
+  bannerFocusX: number;
+  bannerFocusY: number;
+  bannerScale: number;
+} {
+  try {
+    if (raw) {
+      const parsed = BannerMetaSchema.parse(JSON.parse(raw));
+      return {
+        bannerFit: parsed.fit,
+        bannerFocusX: parsed.focusX,
+        bannerFocusY: parsed.focusY,
+        bannerScale: parsed.scale,
+      };
+    }
+  } catch {
+    // malformed JSON — fall through to defaults
+  }
+  return { bannerFit: "cover", bannerFocusX: 50, bannerFocusY: 50, bannerScale: 1 };
+}
 
 interface ProfileCardProps {
   name: string;
   addressFull: string;
   addressFormatted: string;
   expiry: string;
-  registrant?: string;
+  isCurrentOwner: boolean;
+  onTabChange?: (tab: "details" | "ownership" | "identity") => void;
+  textRecords?: Record<string, string>;
+  textRecordsLoading?: boolean;
+  onSaved?: () => void;
 }
+
+interface ProfileData {
+  bio: string;
+  websites: string[];
+  avatarFile: File | null; // pending file to upload on save
+  avatarUrl: string | null; // blob URL while pending upload, CDN URL otherwise
+  bannerFile: File | null; // pending file to upload on save
+  bannerUrl: string | null; // blob URL while pending upload, CDN URL otherwise
+  bannerFit: BannerFit;
+  bannerFocusX: number;
+  bannerFocusY: number;
+  bannerScale: number;
+}
+
+const INITIAL: ProfileData = {
+  bio: "",
+  websites: [],
+  avatarFile: null,
+  avatarUrl: null,
+  bannerFile: null,
+  bannerUrl: null,
+  bannerFit: "cover",
+  bannerFocusX: 50,
+  bannerFocusY: 50,
+  bannerScale: 1,
+};
 
 const TagBox = ({ label, value }: { label: string; value: string }) => (
   <div className="bg-gray-50 rounded-xl p-3 flex items-center">
@@ -17,72 +83,431 @@ const TagBox = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
-export const ProfileCard = ({ name, addressFull, addressFormatted, expiry }: ProfileCardProps) => {
-  const { navigateToProfileOwnership } = useRNSNavigation();
+const toBannerState = (data: ProfileData): BannerState => ({
+  bannerUrl: data.bannerUrl,
+  bannerFile: data.bannerFile,
+  bannerFit: data.bannerFit,
+  bannerFocusX: data.bannerFocusX,
+  bannerFocusY: data.bannerFocusY,
+  bannerScale: data.bannerScale,
+});
+
+const applyBannerState = (data: ProfileData, state: BannerState): ProfileData => ({
+  ...data,
+  ...state,
+});
+
+export const ProfileCard = ({
+  name,
+  addressFull,
+  addressFormatted,
+  expiry,
+  isCurrentOwner,
+  onTabChange,
+  textRecords,
+  textRecordsLoading,
+  onSaved,
+}: ProfileCardProps) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [isBannerModalOpen, setIsBannerModalOpen] = useState(false);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
+  const [saved, setSaved] = useState<ProfileData>(INITIAL);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+  const [bannerLoadFailed, setBannerLoadFailed] = useState(false);
+  const [draft, setDraft] = useState<ProfileData>(INITIAL);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+
+  const resolvedUrlsRef = useRef<{ avatar?: string | null; banner?: string | null }>({});
+
+  useEffect(() => {
+    if (!textRecords) return;
+    const avatarUrl = textRecords["avatar"] ?? null;
+    const bannerUrl = textRecords["banner"] ?? null;
+    setSaved({
+      bio: textRecords["description"] ?? "",
+      websites: textRecords["url"]
+        ? textRecords["url"]
+            .split(",")
+            .map(w => w.trim())
+            .filter(Boolean)
+        : [],
+      avatarFile: null,
+      avatarUrl,
+      bannerFile: null,
+      bannerUrl,
+      ...parseBannerMeta(textRecords["banner.meta"]),
+    });
+  }, [textRecords]);
+
+  const { setRecords, txHash, isPending, isConfirming, isConfirmed } = useProfileRecords(name);
+  const { uploadAll } = useSignedUpload();
+
+  useEffect(() => {
+    if (!isConfirmed) return;
+    const d = draftRef.current;
+    const r = resolvedUrlsRef.current;
+    setSaved({
+      ...d,
+      avatarFile: null,
+      avatarUrl: "avatar" in r ? (r.avatar ?? null) : d.avatarUrl,
+      bannerFile: null,
+      bannerUrl: "banner" in r ? (r.banner ?? null) : d.bannerUrl,
+      websites: d.websites.filter(w => w.trim()),
+    });
+    resolvedUrlsRef.current = {};
+    setIsEditing(false);
+    toast.success("Profile Updated");
+    onSaved?.();
+  }, [isConfirmed, txHash]);
+
+  const openEdit = () => {
+    setDraft({ ...saved, websites: [...saved.websites] });
+    setIsEditing(true);
+  };
+  const cancelEdit = () => setIsEditing(false);
+
+  const handleSave = async () => {
+    if (isSaving || isPending || isConfirming) return;
+    setIsSaving(true);
+
+    try {
+      const updates: ProfileUpdates = {};
+      let resolvedAvatarUrl: string | null = draft.avatarFile ? null : draft.avatarUrl;
+      let resolvedBannerUrl: string | null = draft.bannerFile ? null : draft.bannerUrl;
+      const hasImageUploads = draft.avatarFile || draft.bannerFile;
+      if (hasImageUploads) {
+        setIsUploadingImages(true);
+        try {
+          const uploads: { avatar?: File; banner?: File } = {};
+          if (draft.avatarFile) uploads.avatar = draft.avatarFile;
+          if (draft.bannerFile) uploads.banner = draft.bannerFile;
+          const uploadedUrls = await uploadAll(domainName(name), uploads);
+          if (uploadedUrls.avatar) resolvedAvatarUrl = uploadedUrls.avatar;
+          if (uploadedUrls.banner) resolvedBannerUrl = uploadedUrls.banner;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Image upload failed";
+          toast.error(msg);
+          setIsUploadingImages(false);
+          return;
+        }
+        setIsUploadingImages(false);
+      }
+      resolvedUrlsRef.current = {};
+      if (draft.avatarFile || draft.avatarUrl !== saved.avatarUrl)
+        resolvedUrlsRef.current.avatar = resolvedAvatarUrl;
+      if (draft.bannerFile || draft.bannerUrl !== saved.bannerUrl)
+        resolvedUrlsRef.current.banner = resolvedBannerUrl;
+      if (resolvedAvatarUrl !== saved.avatarUrl) updates.avatar = resolvedAvatarUrl ?? "";
+      if (resolvedBannerUrl !== saved.bannerUrl) updates.banner = resolvedBannerUrl ?? "";
+      if (draft.bio.trim() !== saved.bio) updates.bio = draft.bio.trim();
+      const newWebsiteStr = draft.websites.filter(w => w.trim()).join(",");
+      const savedWebsiteStr = saved.websites.join(",");
+      if (newWebsiteStr !== savedWebsiteStr) updates.website = newWebsiteStr;
+      const bannerMetaChanged =
+        draft.bannerFit !== saved.bannerFit ||
+        draft.bannerFocusX !== saved.bannerFocusX ||
+        draft.bannerFocusY !== saved.bannerFocusY ||
+        draft.bannerScale !== saved.bannerScale;
+      if (bannerMetaChanged)
+        updates.bannerMeta = JSON.stringify({
+          fit: draft.bannerFit,
+          focusX: draft.bannerFocusX,
+          focusY: draft.bannerFocusY,
+          scale: draft.bannerScale,
+        });
+      if (Object.keys(updates).length === 0) {
+        setIsEditing(false);
+        return;
+      }
+      await setRecords(updates);
+    } catch {
+      toast.error("Failed to update profile");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const display = isEditing ? draft : saved;
+
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [display.avatarUrl]);
+  useEffect(() => {
+    setBannerLoadFailed(false);
+  }, [display.bannerUrl]);
+
+  const bannerBgStyle = (data: ProfileData): React.CSSProperties => {
+    if (!data.bannerUrl || bannerLoadFailed) return {};
+    return {
+      backgroundImage: `url(${data.bannerUrl})`,
+      backgroundSize:
+        data.bannerFit === "contain"
+          ? "contain"
+          : data.bannerScale === 1
+            ? "cover"
+            : `${data.bannerScale * 100}%`,
+      backgroundPosition: `${data.bannerFocusX}% ${data.bannerFocusY}%`,
+      backgroundRepeat: "no-repeat",
+    };
+  };
+
+  const normalizeWebsiteUrl = (w: string) => {
+    const v = w.trim();
+    if (!v) return "#";
+    return v.startsWith("http://") || v.startsWith("https://") ? v : `https://${v}`;
+  };
 
   return (
     <main className="w-full max-w-4xl mx-auto sm:px-6 lg:px-8">
       {/* Profile Header Card */}
 
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-4">
-        <div className="h-28 sm:h-36 bg-gradient-to-r from-indigo-400 via-indigo-400 to-blue-400 relative"></div>
+        <div className="h-24 sm:h-32 md:h-36 relative overflow-hidden group">
+          {/* Gradient is always the base layer — shows during load and on error */}
+          <div className="absolute inset-0 bg-gradient-to-r from-indigo-400 via-indigo-400 to-blue-400" />
+          {display.bannerUrl && !bannerLoadFailed && (
+            <>
+              <div className="absolute inset-0" style={bannerBgStyle(display)} />
+              <img
+                src={display.bannerUrl}
+                alt=""
+                aria-hidden
+                className="sr-only"
+                onError={() => setBannerLoadFailed(true)}
+              />
+            </>
+          )}
 
-        <div className="px-6 pb-6 relative pt-16">
-          <div className="absolute left-6 sm:left-8 -top-16">
-            <div className="w-32 h-32 rounded-full ring-8 ring-white bg-gradient-to-br from-green-300 to-green-100"></div>
+          {isEditing && (
+            <button
+              onClick={() => setIsBannerModalOpen(true)}
+              className="absolute inset-0 z-10 flex items-center justify-center bg-black/20 hover:bg-black/40 transition-colors duration-200"
+            >
+              <span className="flex items-center gap-2 bg-white/20 backdrop-blur-sm text-white text-sm font-medium px-3 py-1.5 rounded-lg border border-white/30">
+                <Camera className="w-4 h-4" />
+                <span className="hidden sm:inline">Edit banner</span>
+              </span>
+            </button>
+          )}
+        </div>
+
+        <BannerEditorModal
+          isOpen={isBannerModalOpen}
+          initial={toBannerState(draft)}
+          onClose={() => setIsBannerModalOpen(false)}
+          onSave={state => {
+            setDraft(p => applyBannerState(p, state));
+            setIsBannerModalOpen(false);
+          }}
+        />
+        <div className="px-4 sm:px-6 pb-6 rounded-2xl relative py-16 border border-gray-200">
+          <div className="absolute left-6 sm:left-8 -top-16 group z-20">
+            <div className="relative w-32 h-32 rounded-full ring-8 ring-white overflow-hidden bg-gradient-to-br from-green-300 to-green-100">
+              {display.avatarUrl && !avatarLoadFailed && (
+                <img
+                  src={display.avatarUrl}
+                  alt="Avatar"
+                  className="absolute inset-0 w-full h-full object-cover"
+                  onError={() => setAvatarLoadFailed(true)}
+                />
+              )}
+              {isEditing && (
+                <ImageUploadButton
+                  onSelect={(file, previewUrl) =>
+                    setDraft(p => ({
+                      ...p,
+                      avatarFile: file,
+                      avatarUrl: previewUrl,
+                    }))
+                  }
+                  className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-full"
+                >
+                  <Camera className="w-5 h-5 text-white" />
+                </ImageUploadButton>
+              )}
+            </div>
+            {isEditing && draft.avatarUrl && !isUploadingImages && !isPending && !isConfirming && (
+              <button
+                onClick={() => setDraft(p => ({ ...p, avatarFile: null, avatarUrl: null }))}
+                title="Remove avatar"
+                className="absolute bottom-1 right-1 z-20 w-7 h-7 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-md ring-2 ring-white transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mt-4">
-            <h2 className="text-xl sm:text-3xl font-bold text-gray-900 mb-1 truncate">
-              {trimmedDomainName(name)}
-            </h2>
+          <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3 mt-4">
+            <div className="absolute right-2 sm:right-6 top-4 flex gap-2">
+              {isCurrentOwner &&
+                (isEditing ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={cancelEdit}
+                      disabled={isSaving || isPending || isConfirming}
+                      className="flex items-center rounded-full px-3 sm:px-4"
+                    >
+                      <X className="w-4 h-4 sm:mr-1.5" />
+                      <span className="hidden sm:inline">Cancel</span>
+                    </Button>
+                    <Button
+                      onClick={handleSave}
+                      disabled={isSaving || isPending || isConfirming}
+                      className="flex items-center rounded-full px-3 sm:px-4"
+                    >
+                      {isUploadingImages ? (
+                        <>
+                          <Loader className="w-4 h-4 animate-spin sm:mr-1.5" />
+                          Uploading…
+                        </>
+                      ) : isPending || isConfirming ? (
+                        <>
+                          <Loader className="w-4 h-4 animate-spin sm:mr-1.5" />
+                          {isPending ? "Confirm…" : "Saving…"}
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4 sm:mr-1.5" />
+                          <span className="hidden sm:inline">Save</span>
+                        </>
+                      )}
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="flex items-center rounded-full"
+                    onClick={openEdit}
+                  >
+                    <Edit2 className="w-4 h-4 mr-1.5" />
+                    Edit
+                  </Button>
+                ))}
+            </div>
+
+            <div className="flex flex-col mt-4 w-full min-w-0">
+              <h2 className="text-sm sm:text-xl font-bold text-gray-900 mb-1 break-all">
+                {domainName(name)}
+              </h2>
+              {isEditing ? (
+                <>
+                  <textarea
+                    value={draft.bio}
+                    onChange={e => setDraft({ ...draft, bio: e.target.value })}
+                    placeholder="Write a short bio..."
+                    maxLength={160}
+                    rows={2}
+                    className="mt-3 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 placeholder:text-gray-400 transition"
+                  />
+
+                  <div className="mt-3 space-y-2">
+                    {draft.websites.map((website, index) => (
+                      <div key={`website-${index}`} className="flex items-center gap-2">
+                        <input
+                          type="url"
+                          value={website}
+                          onChange={e => {
+                            const updated = [...draft.websites];
+                            updated[index] = e.target.value;
+                            setDraft({ ...draft, websites: updated });
+                          }}
+                          placeholder={`Website ${index + 1}`}
+                          className="w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 placeholder:text-gray-400 transition"
+                        />
+                        <button
+                          onClick={() =>
+                            setDraft({
+                              ...draft,
+                              websites: draft.websites.filter((_, i) => i !== index),
+                            })
+                          }
+                          className="h-9 w-9 rounded-lg border border-gray-200 bg-white text-gray-500 hover:text-red-500 hover:border-red-200 transition-colors flex items-center justify-center"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    {draft.websites.length < 2 && (
+                      <button
+                        onClick={() => setDraft({ ...draft, websites: [...draft.websites, ""] })}
+                        className="text-sm font-medium text-blue-500 hover:text-blue-600 flex items-center gap-1"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add website link
+                      </button>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  {textRecordsLoading ? (
+                    <div className="mt-2 flex gap-2 animate-pulse">
+                      <div className="h-3 bg-gray-200 rounded w-48" />
+                      <div className="h-3 bg-gray-200 rounded w-24" />
+                    </div>
+                  ) : (
+                    saved.bio && (
+                      <p className="mt-2 text-sm text-gray-600 leading-relaxed max-w-xl">
+                        {saved.bio}
+                      </p>
+                    )
+                  )}
+                  {!textRecordsLoading && saved.websites.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {saved.websites.map((website, index) => (
+                        <a
+                          key={`saved-website-${index}`}
+                          href={normalizeWebsiteUrl(website)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 text-sm font-medium hover:bg-blue-100 transition-colors break-all"
+                        >
+                          {website}
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+        <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-200 mt-4">
+          <h2 className="font-bold text-gray-400 mb-4">Addresses</h2>
+          <div className="bg-gray-50 rounded-lg p-3 sm:p-4 mb-8 inline-flex items-center gap-2 w-auto">
+            <span className="font-mono text-md mr-2">{addressFormatted}</span>
+            <Copy className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-muted-foreground/60" />
+            <button
+              type="button"
+              className="text-gray-400 hover:text-gray-600 ml-2 flex-shrink-0"
+              onClick={() => navigator.clipboard.writeText(addressFull)}
+            >
+              <Copy className="h-4 w-4 " />
+            </button>
+          </div>
 
-      {/* Content Card */}
-      <div className="bg-white rounded-2xl shadow-sm p-6">
-        <h2 className="font-bold text-gray-400 mb-4">Addresses</h2>
+          <div className="flex items-center mb-4">
+            <h2 className="font-bold text-gray-400">Ownership</h2>
+            <span className="text-blue-500 mx-2">→</span>
+            <button
+              onClick={() => onTabChange?.("ownership")}
+              className="text-blue-500 hover:text-blue-600 flex items-center gap-1 font-medium text-sm"
+            >
+              View
+            </button>
+          </div>
 
-        <div className="bg-gray-50 rounded-lg p-3 sm:p-4 mb-8 inline-flex items-center gap-2 w-auto">
-          {/* <svg
-            className="w-5 h-5 mr-2 text-gray-600"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M11.944 17.97L4.58 13.62L11.943 24L19.313 13.62L11.944 17.97Z"
-              fill="#343434"
-            />
-            <path d="M11.943 0L4.58 12.223L11.943 16.573L19.313 12.223L11.943 0Z" fill="#8C8C8C" />
-          </svg> */}
-          <span className="font-mono text-md mr-2">{addressFormatted}</span>
-          <Copy
-            className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-muted-foreground/60"
-            onClick={() => navigator.clipboard.writeText(addressFull)}
-          />
-        </div>
-
-        <div className="flex items-center mb-4">
-          <h2 className="font-bold text-gray-400">Ownership</h2>
-          <span className="text-blue-500 mx-2">→</span>
-          <button
-            onClick={() => navigateToProfileOwnership(name)}
-            className="text-blue-500 hover:text-blue-600 flex items-center gap-1 font-medium text-sm"
-          >
-            View
-          </button>
-        </div>
-
-        <div className="flex flex-wrap gap-3 mb-6">
-          <TagBox label="manager" value={addressFormatted} />
-
-          <TagBox label="owner" value={addressFormatted} />
-
-          <TagBox label="expiry" value={expiry} />
-
-          <TagBox label="parent" value="eth" />
+          <div className="flex flex-wrap gap-3 mb-6">
+            <TagBox label="manager" value={addressFormatted} />
+            <TagBox label="owner" value={addressFormatted} />
+            <TagBox label="expiry" value={expiry} />
+            <TagBox label="parent" value="eth" />
+          </div>
         </div>
       </div>
     </main>

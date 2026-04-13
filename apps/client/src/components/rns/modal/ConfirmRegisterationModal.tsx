@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { X, Wallet, Loader2 } from "lucide-react";
-import { trimmedDomainName } from "@/utils/rns";
+import { domainName } from "@/utils/rns";
 import { useRegistration } from "@/hooks/rns/useRegistration";
 import { useAccount } from "wagmi";
 import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
@@ -143,7 +143,7 @@ const ConfirmRegistrationModal = ({
           </div>
 
           <div className="space-y-2">
-            <Detail label="Name" value={trimmedDomainName(name)} />
+            <Detail label="Name" value={domainName(name)} />
             <Detail label="Action" value="Register Name" />
             <Detail label="Duration" value={formatDuration(duration)} />
           </div>
@@ -171,9 +171,9 @@ const ConfirmRegistrationModal = ({
 };
 
 const Detail = ({ label, value }: { label: string; value: string }) => (
-  <div className="bg-gray-50 rounded-2xl p-4 flex justify-between">
-    <span className="text-gray-500">{label}</span>
-    <span className="font-medium text-gray-900 truncate max-w-[60%]">{value}</span>
+  <div className="bg-gray-50 rounded-2xl p-4 flex justify-between items-start gap-4">
+    <span className="text-gray-500 shrink-0">{label}</span>
+    <span className="font-medium text-gray-900 text-right break-all min-w-0">{value}</span>
   </div>
 );
 
