@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNdauWallet } from "@/ndau-wallet/contexts/NdauWalletContext";
-import { useNdauSigner } from "@/ndau-wallet/hooks/useNdauSigner";
 import { NdauConnect } from "@/ndau-wallet/components/NdauConnect";
 import { trpc } from "@/utils/trpc/trpc";
 import { Button } from "@/components/ui/Button";
@@ -9,6 +8,8 @@ import { NDAU_TO_REVO_RATE, calculateRevoAmount } from "@ampedbio/constants";
 import { toast } from "sonner";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useSignMessage } from "wagmi";
+import axios from "axios";
+import yaml from "yaml";
 import {
   CheckCircle2,
   AlertCircle,
@@ -79,8 +80,7 @@ const StepIndicator = ({
 
 export default function NdauConversionPage() {
   const { authUser } = useAuth();
-  const { walletAddress: ndauAddress } = useNdauWallet();
-  const { signData: signNdauData, isSigning: isNdauSigning } = useNdauSigner();
+  const { walletAddress: ndauAddress, socket } = useNdauWallet();
   const { signMessageAsync, isPending: isAmpedbioSigning } = useSignMessage();
 
   const [currentStep, setCurrentStep] = useState<Step>(1);
@@ -90,6 +90,7 @@ export default function NdauConversionPage() {
   const [ampedbioSignature, setAmpedbioSignature] = useState<string | null>(null);
   const [ndauSignature, setNdauSignature] = useState<string | null>(null);
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
+  const [isNdauSigning, setIsNdauSigning] = useState(false);
 
   const isAmpedbioConnected = !!authUser?.wallet;
   const isNdauConnected = !!ndauAddress;
@@ -143,23 +144,91 @@ export default function NdauConversionPage() {
     }
   };
 
-  const handleSignNdau = async () => {
-    if (!ndauAddress) return;
+  const handleSignNdau = useCallback(async () => {
+    if (!ndauAddress || !socket || !socket.id) return;
 
-    try {
-      const result = await signNdauData({ message: SIGNATURE_MESSAGE }, SIGNATURE_MESSAGE);
-      if (result?.signature) {
-        setNdauSignature(result.signature);
+    setIsNdauSigning(true);
+
+    const apiUrl = import.meta.env.VITE_NDAU_API_URL;
+
+    const payload = {
+      vote: "yes",
+      proposal: {
+        proposal_id: "ndau-to-revo-conversion",
+        proposal_heading: `I agree to convert my ndau to the Ethereum address: ${authUser?.wallet}`,
+        voting_option_id: 1,
+        voting_option_heading: "Confirm Conversion",
+      },
+      wallet_address: ndauAddress,
+      validation_key: ndauAddress,
+    };
+
+    const payloadBase64 = btoa(yaml.stringify(payload));
+
+    const handleSignSuccess = (data: { signature: string; payload: string }) => {
+      socket.off("server-sign-fulfilled-website", handleSignSuccess);
+      socket.off("server-sign-rejected-website", handleSignRejected);
+      socket.off("server-sign-failed-website", handleSignFailed);
+      setIsNdauSigning(false);
+      if (data?.signature) {
+        setNdauSignature(data.signature);
         setCompletedSteps(prev => new Set(prev).add(4));
         setCurrentStep(5);
         toast.success("NDAU wallet signed successfully");
+      }
+    };
+
+    const handleSignRejected = () => {
+      socket.off("server-sign-fulfilled-website", handleSignSuccess);
+      socket.off("server-sign-rejected-website", handleSignRejected);
+      socket.off("server-sign-failed-website", handleSignFailed);
+      setIsNdauSigning(false);
+      toast.error("Signature request rejected by wallet");
+    };
+
+    const handleSignFailed = (data: { message: string }) => {
+      socket.off("server-sign-fulfilled-website", handleSignSuccess);
+      socket.off("server-sign-rejected-website", handleSignRejected);
+      socket.off("server-sign-failed-website", handleSignFailed);
+      setIsNdauSigning(false);
+      toast.error(data?.message || "Failed to sign with NDAU wallet");
+    };
+
+    socket.on("server-sign-fulfilled-website", handleSignSuccess);
+    socket.on("server-sign-rejected-website", handleSignRejected);
+    socket.on("server-sign-failed-website", handleSignFailed);
+
+    try {
+      if (!apiUrl) {
+        throw new Error("NDAU wallet API URL not configured");
+      }
+      await axios.post(`${apiUrl}/api/sign`, {
+        payload: payloadBase64,
+        walletAddress: ndauAddress,
+        websiteSocketId: socket.id,
+      });
+    } catch (error) {
+      socket.off("server-sign-fulfilled-website", handleSignSuccess);
+      socket.off("server-sign-rejected-website", handleSignRejected);
+      socket.off("server-sign-failed-website", handleSignFailed);
+      setIsNdauSigning(false);
+      if (axios.isAxiosError(error)) {
+        toast.error(error.response?.data?.message || "Failed to sign with NDAU wallet");
       } else {
         toast.error("Failed to sign with NDAU wallet");
       }
-    } catch (error) {
-      toast.error("Failed to sign with NDAU wallet");
     }
-  };
+
+    setTimeout(() => {
+      socket.off("server-sign-fulfilled-website", handleSignSuccess);
+      socket.off("server-sign-rejected-website", handleSignRejected);
+      socket.off("server-sign-failed-website", handleSignFailed);
+      if (isNdauSigning) {
+        setIsNdauSigning(false);
+        toast.error("Signature request timed out");
+      }
+    }, 60000);
+  }, [ndauAddress, socket, authUser?.wallet]);
 
   const submitMutation = useMutation({
     mutationFn: trpc.ndauConversion.submitConversion.mutationOptions().mutationFn,

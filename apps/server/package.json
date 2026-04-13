@@ -57,7 +57,9 @@
     "prisma": "6.7.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "socket.io": "^4.8.3",
     "viem": "2.34.0",
+    "yaml": "^2.8.3",
     "zod": "3.25.64"
   },
   "devDependencies": {
