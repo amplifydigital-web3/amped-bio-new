@@ -95,7 +95,7 @@ const TransactionsTab: React.FC = () => {
       setTransactions([]);
       fetchTransactions(address, 1, false);
     }
-  }, [address, chain, fetchTransactions]);
+  }, [address, chainId, fetchTransactions]);
 
   const loadMoreTransactions = () => {
     if (address && !loadingMore && hasMoreTransactions) {

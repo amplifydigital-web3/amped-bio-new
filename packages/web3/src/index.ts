@@ -87,8 +87,7 @@ export const libertasTestnet = {
 export const AVAILABLE_CHAINS = [libertasTestnet, revolutionDevnet] as const;
 
 export const getChainConfig = (chainId: number) => {
-  const chain = AVAILABLE_CHAINS.find(c => c.id === chainId);
-  return chain ? { ...chain } : null;
+  return AVAILABLE_CHAINS.find(c => c.id === chainId) ?? null;
 };
 
 export const getCurrencySymbol = (chainId: number) => {

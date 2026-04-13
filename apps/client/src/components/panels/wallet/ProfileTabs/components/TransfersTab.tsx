@@ -78,7 +78,7 @@ const TransfersTab: React.FC = () => {
       setTransfers([]);
       fetchTransfers(address, 1, false);
     }
-  }, [address, chain, fetchTransfers]);
+  }, [address, chainId, fetchTransfers]);
 
   const loadMoreTransfers = () => {
     if (address && !loadingMore && hasMoreTransfers) {
