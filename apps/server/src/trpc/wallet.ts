@@ -655,6 +655,50 @@ export const walletRouter = router({
       };
     }),
 
+  getUsersByAddresses: privateProcedure
+    .input(z.object({ addresses: z.array(z.string()).min(1).max(50) }))
+    .query(async ({ input }) => {
+      const normalizedAddresses = [...new Set(input.addresses.map(a => a.toLowerCase()))];
+
+      const userWallets = await prisma.userWallet.findMany({
+        where: {
+          address: {
+            in: normalizedAddresses as Address[],
+          },
+        },
+        include: {
+          user: {
+            select: {
+              name: true,
+              handle: true,
+              image: true,
+            },
+          },
+        },
+      });
+
+      const profileMap: Record<
+        string,
+        { name: string | null; handle: string | null; image: string | null } | null
+      > = {};
+
+      for (const address of normalizedAddresses) {
+        profileMap[address] = null;
+      }
+
+      for (const uw of userWallets) {
+        if (uw.user) {
+          profileMap[uw.address.toLowerCase()] = {
+            name: uw.user.name,
+            handle: uw.user.handle,
+            image: uw.user.image,
+          };
+        }
+      }
+
+      return profileMap;
+    }),
+
   // Get wallet statistics for the current user
   getWalletStats: privateProcedure.query(async ({ ctx }) => {
     const userId = ctx.user!.sub;
