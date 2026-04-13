@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useAccount, useBalance, useChainId } from "wagmi";
 import { Clock, Loader, AlertCircle } from "lucide-react";
 import { getChainConfig } from "@ampedbio/web3";
@@ -8,6 +8,7 @@ import RenderAddressProfile from "./RenderAddressProfile";
 import { Transaction, TransactionsResponse } from "../types";
 import { formatHash, timeAgo, formatValue, formatFee, getMethodSelector } from "../utils";
 import { trpcClient } from "@/utils/trpc";
+import { useAddressProfiles } from "../../hooks/useAddressProfiles";
 
 const TransactionsTab: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -16,6 +17,7 @@ const TransactionsTab: React.FC = () => {
   const [transactionPage, setTransactionPage] = useState(1);
   const [hasMoreTransactions, setHasMoreTransactions] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const methodSignaturesRef = useRef<Record<string, string>>({});
   const [methodSignatures, setMethodSignatures] = useState<Record<string, string>>({});
 
   const { address } = useAccount();
@@ -28,22 +30,20 @@ const TransactionsTab: React.FC = () => {
   const explorerUrl = chain?.blockExplorers?.default.url;
   const explorerApiUrl = chain?.blockExplorers?.default.apiUrl;
 
-  const fetchMethodSignatures = useCallback(
-    async (selectors: string[]) => {
-      const uncachedSelectors = selectors.filter(s => s && !methodSignatures[s]);
-      if (uncachedSelectors.length === 0) return;
+  const fetchMethodSignatures = useCallback(async (selectors: string[]) => {
+    const uncachedSelectors = selectors.filter(s => s && !methodSignaturesRef.current[s]);
+    if (uncachedSelectors.length === 0) return;
 
-      try {
-        const result = await trpcClient.wallet.getMethodSignatures.query({
-          selectors: uncachedSelectors,
-        });
-        setMethodSignatures(prev => ({ ...prev, ...result }));
-      } catch (error) {
-        console.error("Failed to fetch method signatures:", error);
-      }
-    },
-    [methodSignatures]
-  );
+    try {
+      const result = await trpcClient.wallet.getMethodSignatures.query({
+        selectors: uncachedSelectors,
+      });
+      methodSignaturesRef.current = { ...methodSignaturesRef.current, ...result };
+      setMethodSignatures(prev => ({ ...prev, ...result }));
+    } catch (error) {
+      console.error("Failed to fetch method signatures:", error);
+    }
+  }, []);
 
   const fetchTransactions = useCallback(
     async (walletAddress: string, page: number = 1, append: boolean = false) => {
@@ -95,7 +95,7 @@ const TransactionsTab: React.FC = () => {
       setTransactions([]);
       fetchTransactions(address, 1, false);
     }
-  }, [address, chain, fetchTransactions]);
+  }, [address, chainId, fetchTransactions]);
 
   const loadMoreTransactions = () => {
     if (address && !loadingMore && hasMoreTransactions) {
@@ -108,6 +108,12 @@ const TransactionsTab: React.FC = () => {
     if (!selector) return "Transfer";
     return methodSignatures[selector] || selector;
   };
+
+  const uniqueAddresses = useMemo(
+    () => transactions.flatMap(t => [t.from, t.to]).filter(Boolean) as Address[],
+    [transactions]
+  );
+  const { profiles } = useAddressProfiles(uniqueAddresses);
 
   if (transactionsLoading) {
     return (
@@ -193,8 +199,9 @@ const TransactionsTab: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <RenderAddressProfile
-                      address={transaction.from as Address}
+                      address={transaction.from}
                       explorerUrl={explorerUrl!}
+                      profile={profiles[transaction.from.toLowerCase()]}
                     />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -208,8 +215,9 @@ const TransactionsTab: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <RenderAddressProfile
-                      address={transaction.to as Address}
+                      address={transaction.to}
                       explorerUrl={explorerUrl!}
+                      profile={profiles[transaction.to.toLowerCase()]}
                     />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useAccount, useChainId } from "wagmi";
 import { ArrowLeftRight, Loader, AlertCircle } from "lucide-react";
 import { getChainConfig } from "@ampedbio/web3";
@@ -7,6 +7,7 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import RenderAddressProfile from "./RenderAddressProfile";
 import { Transfer, TransfersResponse } from "../types";
 import { formatHash, timeAgo } from "../utils";
+import { useAddressProfiles } from "../../hooks/useAddressProfiles";
 
 const TransfersTab: React.FC = () => {
   const [transfers, setTransfers] = useState<Transfer[]>([]);
@@ -77,13 +78,19 @@ const TransfersTab: React.FC = () => {
       setTransfers([]);
       fetchTransfers(address, 1, false);
     }
-  }, [address, chain, fetchTransfers]);
+  }, [address, chainId, fetchTransfers]);
 
   const loadMoreTransfers = () => {
     if (address && !loadingMore && hasMoreTransfers) {
       fetchTransfers(address, transferPage + 1, true);
     }
   };
+
+  const uniqueAddresses = useMemo(
+    () => transfers.flatMap(t => [t.from, t.to]).filter(Boolean) as Address[],
+    [transfers]
+  );
+  const { profiles } = useAddressProfiles(uniqueAddresses);
 
   if (transfersLoading) {
     return (
@@ -166,8 +173,9 @@ const TransfersTab: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <RenderAddressProfile
-                      address={transfer.from as Address}
+                      address={transfer.from}
                       explorerUrl={explorerUrl!}
+                      profile={profiles[transfer.from.toLowerCase()]}
                     />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -181,8 +189,9 @@ const TransfersTab: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <RenderAddressProfile
-                      address={transfer.to as Address}
+                      address={transfer.to}
                       explorerUrl={explorerUrl!}
+                      profile={profiles[transfer.to.toLowerCase()]}
                     />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

@@ -6,7 +6,7 @@ export interface RegistrationData {
     resolver: {
       address: `0x${string}`;
     };
-  };
+  }[];
   registration: {
     registrationDate: string;
     expiryDate: string;
