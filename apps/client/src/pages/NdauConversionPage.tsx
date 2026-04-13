@@ -18,6 +18,7 @@ import {
   Wallet,
   PenTool,
   Send,
+  Wrench,
 } from "lucide-react";
 
 const SIGNATURE_MESSAGE = "I agreed to the conversion to Revo";
@@ -80,7 +81,7 @@ const StepIndicator = ({
 
 export default function NdauConversionPage() {
   const { authUser } = useAuth();
-  const { walletAddress: ndauAddress, socket } = useNdauWallet();
+  const { walletAddress: ndauAddress, socket, updateWalletAddress } = useNdauWallet();
   const { signMessageAsync, isPending: isAmpedbioSigning } = useSignMessage();
 
   const [currentStep, setCurrentStep] = useState<Step>(1);
@@ -91,6 +92,7 @@ export default function NdauConversionPage() {
   const [ndauSignature, setNdauSignature] = useState<string | null>(null);
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
   const [isNdauSigning, setIsNdauSigning] = useState(false);
+  const [isSimulated, setIsSimulated] = useState(false);
 
   const isAmpedbioConnected = !!authUser?.wallet;
   const isNdauConnected = !!ndauAddress;
@@ -142,6 +144,21 @@ export default function NdauConversionPage() {
     } catch (error) {
       toast.error("Failed to sign with AmpedBio wallet");
     }
+  };
+
+  const handleSimulateNdauConnect = () => {
+    const mockNdauAddress = `0xSIM${Array(38).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`;
+    updateWalletAddress(mockNdauAddress);
+    setIsSimulated(true);
+    toast.success("NDAU wallet simulated (Maintenance Mode)");
+  };
+
+  const handleSimulateNdauSignature = () => {
+    const mockSignature = `0xfake_sig_${Array(120).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`;
+    setNdauSignature(mockSignature);
+    setCompletedSteps(prev => new Set(prev).add(4));
+    setCurrentStep(5);
+    toast.success("NDAU signature simulated (Maintenance Mode)");
   };
 
   const handleSignNdau = useCallback(async () => {
@@ -374,8 +391,16 @@ export default function NdauConversionPage() {
               {completedSteps.has(2) && <CheckCircle2 className="h-6 w-6 text-green-500" />}
             </div>
             {!isNdauConnected && !isStepDisabled(2) && (
-              <div className="mt-3">
+              <div className="mt-3 flex flex-col sm:flex-row gap-2">
                 <NdauConnect buttonText="Connect NDAU Wallet" />
+                <Button
+                  onClick={handleSimulateNdauConnect}
+                  variant="outline"
+                  className="border-amber-500 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                >
+                  <Wrench className="h-4 w-4 mr-2" />
+                  Simulate NDAU (Maintenance)
+                </Button>
               </div>
             )}
           </div>
@@ -447,30 +472,42 @@ export default function NdauConversionPage() {
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     {ndauSignature
                       ? `Signed: ${truncateSignature(ndauSignature)}`
-                      : `Sign the message: "${SIGNATURE_MESSAGE}"`}
+                      : isSimulated
+                        ? "Simulated signature will be generated"
+                        : `Sign the message: "${SIGNATURE_MESSAGE}"`}
                   </p>
                 </div>
               </div>
               {completedSteps.has(4) && <CheckCircle2 className="h-6 w-6 text-green-500" />}
             </div>
             {!ndauSignature && !isStepDisabled(4) && (
-              <Button
-                onClick={handleSignNdau}
-                disabled={isNdauSigning || alreadySubmitted}
-                className="mt-3"
-              >
-                {isNdauSigning ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Signing...
-                  </>
-                ) : (
-                  <>
-                    <PenTool className="h-4 w-4 mr-2" />
-                    Sign with NDAU Wallet
-                  </>
-                )}
-              </Button>
+              <div className="mt-3 flex flex-col sm:flex-row gap-2">
+                <Button
+                  onClick={handleSignNdau}
+                  disabled={isNdauSigning || alreadySubmitted}
+                  className={isSimulated ? "opacity-50" : ""}
+                >
+                  {isNdauSigning ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Signing...
+                    </>
+                  ) : (
+                    <>
+                      <PenTool className="h-4 w-4 mr-2" />
+                      Sign with NDAU Wallet
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={handleSimulateNdauSignature}
+                  variant="outline"
+                  className="border-amber-500 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                >
+                  <Wrench className="h-4 w-4 mr-2" />
+                  Simulate Signature (Maintenance)
+                </Button>
+              </div>
             )}
           </div>
 
