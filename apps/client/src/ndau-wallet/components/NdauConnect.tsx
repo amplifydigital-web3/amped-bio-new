@@ -9,7 +9,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Wallet, X, Loader2, CheckCircle2 } from "lucide-react";
+import { Wallet, X, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
 interface NdauConnectProps {
   buttonText?: string;
@@ -23,14 +23,27 @@ export function NdauConnect({
   const { walletAddress, socket, isConnecting, connect, disconnect } = useNdauWallet();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [socketId, setSocketId] = useState<string | undefined>(undefined);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const socketUrl = import.meta.env.VITE_NDAU_SOCKET_URL || import.meta.env.VITE_NDAU_API_URL;
 
   const isConnected = !!walletAddress;
 
   useEffect(() => {
     if (socket?.id) {
       setSocketId(socket.id);
+      setConnectionError(null);
     }
   }, [socket]);
+
+  useEffect(() => {
+    if (!socketUrl) {
+      setConnectionError(
+        "NDAU wallet socket URL not configured. Please set VITE_NDAU_SOCKET_URL environment variable."
+      );
+    } else if (isConnecting && !socketId && !socket) {
+      setConnectionError("Connecting to NDAU wallet server...");
+    }
+  }, [socketUrl, isConnecting, socketId, socket]);
 
   const handleOpen = useCallback(() => {
     if (!socket) {
@@ -91,12 +104,15 @@ export function NdauConnect({
           </DialogHeader>
 
           <div className="flex flex-col items-center py-6">
-            {isConnecting && !socketId ? (
+            {connectionError ? (
+              <div className="flex flex-col items-center gap-4 text-center max-w-sm">
+                <AlertCircle className="h-8 w-8 text-red-500" />
+                <p className="text-sm text-red-600 dark:text-red-400">{connectionError}</p>
+              </div>
+            ) : isConnecting && !socketId ? (
               <div className="flex flex-col items-center gap-4">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Connecting to server...
-                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Connecting to server...</p>
               </div>
             ) : (
               <>

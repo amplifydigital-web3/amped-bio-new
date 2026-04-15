@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useCallback, useRef, type ReactNod
 import { io, type Socket } from "socket.io-client";
 import type { SocketBase } from "../types/socketTypes";
 
-const SOCKET_URL = import.meta.env.VITE_NDAU_SOCKET_URL || "";
+const SOCKET_URL = import.meta.env.VITE_NDAU_SOCKET_URL || import.meta.env.VITE_NDAU_API_URL || "";
 
 interface NdauWalletContextType {
   walletAddress: string;
@@ -35,7 +35,11 @@ export function NdauWalletProvider({ children }: { children: ReactNode }) {
 
     setIsConnecting(true);
 
-    const newSocket = io(SOCKET_URL);
+    const newSocket = io(SOCKET_URL, {
+      transports: ["polling", "websocket"],
+      reconnection: true,
+      forceNew: true,
+    });
     socketRef.current = newSocket;
 
     newSocket.on("connect", () => {
@@ -64,8 +68,9 @@ export function NdauWalletProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    newSocket.on("connect_error", () => {
+    newSocket.on("connect_error", error => {
       setIsConnecting(false);
+      console.error("Socket connection error:", error);
     });
   }, []);
 
