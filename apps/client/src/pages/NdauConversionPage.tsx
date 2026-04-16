@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNdauWallet } from "@/ndau-wallet/contexts/NdauWalletContext";
+import { useNdauSigner } from "@/ndau-wallet/hooks/useNdauSigner";
 import { NdauConnect } from "@/ndau-wallet/components/NdauConnect";
 import { trpc } from "@/utils/trpc/trpc";
 import { Button } from "@/components/ui/Button";
@@ -8,7 +9,6 @@ import { NDAU_TO_REVO_RATE, calculateRevoAmount } from "@ampedbio/constants";
 import { toast } from "sonner";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useSignMessage } from "wagmi";
-import axios from "axios";
 import yaml from "yaml";
 import {
   CheckCircle2,
@@ -18,7 +18,7 @@ import {
   Wallet,
   PenTool,
   Send,
-  Wrench,
+  Clock,
 } from "lucide-react";
 
 const SIGNATURE_MESSAGE = "I agreed to the conversion to Revo";
@@ -81,7 +81,7 @@ const StepIndicator = ({
 
 export default function NdauConversionPage() {
   const { authUser } = useAuth();
-  const { walletAddress: ndauAddress, socket, updateWalletAddress } = useNdauWallet();
+  const { walletAddress: ndauAddress, validationKey: ndauValidationKey } = useNdauWallet();
   const { signMessageAsync, isPending: isAmpedbioSigning } = useSignMessage();
 
   const [currentStep, setCurrentStep] = useState<Step>(1);
@@ -91,8 +91,7 @@ export default function NdauConversionPage() {
   const [ampedbioSignature, setAmpedbioSignature] = useState<string | null>(null);
   const [ndauSignature, setNdauSignature] = useState<string | null>(null);
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
-  const [isNdauSigning, setIsNdauSigning] = useState(false);
-  const [isSimulated, setIsSimulated] = useState(false);
+  const { requestSignature, isSigning: isNdauSigning, remainingSeconds } = useNdauSigner();
 
   const isAmpedbioConnected = !!authUser?.wallet;
   const isNdauConnected = !!ndauAddress;
@@ -146,27 +145,8 @@ export default function NdauConversionPage() {
     }
   };
 
-  const handleSimulateNdauConnect = () => {
-    const mockNdauAddress = `0xSIM${Array(38).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`;
-    updateWalletAddress(mockNdauAddress);
-    setIsSimulated(true);
-    toast.success("NDAU wallet simulated (Maintenance Mode)");
-  };
-
-  const handleSimulateNdauSignature = () => {
-    const mockSignature = `0xfake_sig_${Array(120).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`;
-    setNdauSignature(mockSignature);
-    setCompletedSteps(prev => new Set(prev).add(4));
-    setCurrentStep(5);
-    toast.success("NDAU signature simulated (Maintenance Mode)");
-  };
-
   const handleSignNdau = useCallback(async () => {
-    if (!ndauAddress || !socket || !socket.id) return;
-
-    setIsNdauSigning(true);
-
-    const apiUrl = import.meta.env.VITE_NDAU_API_URL;
+    if (!ndauAddress) return;
 
     const payload = {
       vote: "yes",
@@ -177,75 +157,21 @@ export default function NdauConversionPage() {
         voting_option_heading: "Confirm Conversion",
       },
       wallet_address: ndauAddress,
-      validation_key: ndauAddress,
+      validation_key: ndauValidationKey || ndauAddress,
     };
 
     const payloadBase64 = btoa(yaml.stringify(payload));
 
-    const handleSignSuccess = (data: { signature: string; payload: string }) => {
-      socket.off("server-sign-fulfilled-website", handleSignSuccess);
-      socket.off("server-sign-rejected-website", handleSignRejected);
-      socket.off("server-sign-failed-website", handleSignFailed);
-      setIsNdauSigning(false);
-      if (data?.signature) {
-        setNdauSignature(data.signature);
-        setCompletedSteps(prev => new Set(prev).add(4));
-        setCurrentStep(5);
-        toast.success("NDAU wallet signed successfully");
-      }
-    };
-
-    const handleSignRejected = () => {
-      socket.off("server-sign-fulfilled-website", handleSignSuccess);
-      socket.off("server-sign-rejected-website", handleSignRejected);
-      socket.off("server-sign-failed-website", handleSignFailed);
-      setIsNdauSigning(false);
-      toast.error("Signature request rejected by wallet");
-    };
-
-    const handleSignFailed = (data: { message: string }) => {
-      socket.off("server-sign-fulfilled-website", handleSignSuccess);
-      socket.off("server-sign-rejected-website", handleSignRejected);
-      socket.off("server-sign-failed-website", handleSignFailed);
-      setIsNdauSigning(false);
-      toast.error(data?.message || "Failed to sign with NDAU wallet");
-    };
-
-    socket.on("server-sign-fulfilled-website", handleSignSuccess);
-    socket.on("server-sign-rejected-website", handleSignRejected);
-    socket.on("server-sign-failed-website", handleSignFailed);
-
     try {
-      if (!apiUrl) {
-        throw new Error("NDAU wallet API URL not configured");
-      }
-      await axios.post(`${apiUrl}/api/sign`, {
-        payload: payloadBase64,
-        walletAddress: ndauAddress,
-        websiteSocketId: socket.id,
-      });
-    } catch (error) {
-      socket.off("server-sign-fulfilled-website", handleSignSuccess);
-      socket.off("server-sign-rejected-website", handleSignRejected);
-      socket.off("server-sign-failed-website", handleSignFailed);
-      setIsNdauSigning(false);
-      if (axios.isAxiosError(error)) {
-        toast.error(error.response?.data?.message || "Failed to sign with NDAU wallet");
-      } else {
-        toast.error("Failed to sign with NDAU wallet");
-      }
+      const result = await requestSignature(payloadBase64, ndauAddress);
+      setNdauSignature(result.signature);
+      setCompletedSteps(prev => new Set(prev).add(4));
+      setCurrentStep(5);
+      toast.success("NDAU wallet signed successfully");
+    } catch (err) {
+      toast.error((err as Error).message || "Failed to sign with NDAU wallet");
     }
-
-    setTimeout(() => {
-      socket.off("server-sign-fulfilled-website", handleSignSuccess);
-      socket.off("server-sign-rejected-website", handleSignRejected);
-      socket.off("server-sign-failed-website", handleSignFailed);
-      if (isNdauSigning) {
-        setIsNdauSigning(false);
-        toast.error("Signature request timed out");
-      }
-    }, 60000);
-  }, [ndauAddress, socket, authUser?.wallet]);
+  }, [ndauAddress, authUser?.wallet, requestSignature]);
 
   const submitMutation = useMutation({
     mutationFn: trpc.ndauConversion.submitConversion.mutationOptions().mutationFn,
@@ -270,11 +196,18 @@ export default function NdauConversionPage() {
       revoAddress: authUser.wallet,
       ampedbioSignature,
       ndauSignature,
+      ndauValidationKey: ndauValidationKey || ndauAddress,
     });
   };
 
   const truncateSignature = (sig: string) => {
     return `${sig.slice(0, 10)}...${sig.slice(-8)}`;
+  };
+
+  const formatCountdown = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
   const isStepDisabled = (step: Step) => {
@@ -391,16 +324,8 @@ export default function NdauConversionPage() {
               {completedSteps.has(2) && <CheckCircle2 className="h-6 w-6 text-green-500" />}
             </div>
             {!isNdauConnected && !isStepDisabled(2) && (
-              <div className="mt-3 flex flex-col sm:flex-row gap-2">
+              <div className="mt-3">
                 <NdauConnect buttonText="Connect NDAU Wallet" />
-                <Button
-                  onClick={handleSimulateNdauConnect}
-                  variant="outline"
-                  className="border-amber-500 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
-                >
-                  <Wrench className="h-4 w-4 mr-2" />
-                  Simulate NDAU (Maintenance)
-                </Button>
               </div>
             )}
           </div>
@@ -472,25 +397,19 @@ export default function NdauConversionPage() {
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     {ndauSignature
                       ? `Signed: ${truncateSignature(ndauSignature)}`
-                      : isSimulated
-                        ? "Simulated signature will be generated"
-                        : `Sign the message: "${SIGNATURE_MESSAGE}"`}
+                      : "Open your NDAU wallet app to confirm the signature request"}
                   </p>
                 </div>
               </div>
               {completedSteps.has(4) && <CheckCircle2 className="h-6 w-6 text-green-500" />}
             </div>
             {!ndauSignature && !isStepDisabled(4) && (
-              <div className="mt-3 flex flex-col sm:flex-row gap-2">
-                <Button
-                  onClick={handleSignNdau}
-                  disabled={isNdauSigning || alreadySubmitted}
-                  className={isSimulated ? "opacity-50" : ""}
-                >
+              <div className="mt-3 space-y-3">
+                <Button onClick={handleSignNdau} disabled={isNdauSigning || alreadySubmitted}>
                   {isNdauSigning ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Signing...
+                      Waiting for signature...
                     </>
                   ) : (
                     <>
@@ -499,14 +418,17 @@ export default function NdauConversionPage() {
                     </>
                   )}
                 </Button>
-                <Button
-                  onClick={handleSimulateNdauSignature}
-                  variant="outline"
-                  className="border-amber-500 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
-                >
-                  <Wrench className="h-4 w-4 mr-2" />
-                  Simulate Signature (Maintenance)
-                </Button>
+                {isNdauSigning && remainingSeconds > 0 && (
+                  <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                    <Clock className="h-4 w-4" />
+                    <span>
+                      Time remaining:{" "}
+                      <span className="font-mono font-semibold text-gray-700 dark:text-gray-300">
+                        {formatCountdown(remainingSeconds)}
+                      </span>
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </div>

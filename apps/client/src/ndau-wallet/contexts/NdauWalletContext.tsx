@@ -6,24 +6,29 @@ const SOCKET_URL = import.meta.env.VITE_NDAU_SOCKET_URL || import.meta.env.VITE_
 
 interface NdauWalletContextType {
   walletAddress: string;
+  validationKey: string;
   socket: SocketBase | null;
   isConnecting: boolean;
   connect: () => void;
   disconnect: () => void;
   updateWalletAddress: (address: string) => void;
+  updateValidationKey: (key: string) => void;
 }
 
 const NdauWalletContext = createContext<NdauWalletContextType>({
   walletAddress: "",
+  validationKey: "",
   socket: null,
   isConnecting: false,
   connect: () => {},
   disconnect: () => {},
   updateWalletAddress: () => {},
+  updateValidationKey: () => {},
 });
 
 export function NdauWalletProvider({ children }: { children: ReactNode }) {
   const [walletAddress, setWalletAddress] = useState("");
+  const [validationKey, setValidationKey] = useState("");
   const [socket, setSocket] = useState<SocketBase | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const socketRef = useRef<Socket | null>(null);
@@ -62,8 +67,11 @@ export function NdauWalletProvider({ children }: { children: ReactNode }) {
 
     newSocket.on(
       "server-ndau_connection-established-website",
-      ({ walletAddress: _walletAddress }: { walletAddress: string }) => {
-        setWalletAddress(_walletAddress);
+      (data: { walletAddress: string; validationKey?: string }) => {
+        setWalletAddress(data.walletAddress);
+        if (data.validationKey) {
+          setValidationKey(data.validationKey);
+        }
         setIsConnecting(false);
       }
     );
@@ -81,6 +89,7 @@ export function NdauWalletProvider({ children }: { children: ReactNode }) {
     }
     setSocket(null);
     setWalletAddress("");
+    setValidationKey("");
     setIsConnecting(false);
   }, []);
 
@@ -88,15 +97,21 @@ export function NdauWalletProvider({ children }: { children: ReactNode }) {
     setWalletAddress(address);
   }, []);
 
+  const updateValidationKey = useCallback((key: string) => {
+    setValidationKey(key);
+  }, []);
+
   return (
     <NdauWalletContext.Provider
       value={{
         walletAddress,
+        validationKey,
         socket,
         isConnecting,
         connect,
         disconnect,
         updateWalletAddress,
+        updateValidationKey,
       }}
     >
       {children}

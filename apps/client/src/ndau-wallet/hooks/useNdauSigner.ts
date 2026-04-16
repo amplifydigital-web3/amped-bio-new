@@ -1,70 +1,122 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useNdauWallet } from "../contexts/NdauWalletContext";
-import type { SignResponse } from "../types/socketTypes";
+
+export interface NdauSignResult {
+  signature: string;
+  payload: string;
+}
 
 export interface UseNdauSignerReturn {
-  signData: (data: any, message?: string) => Promise<SignResponse | null>;
+  requestSignature: (payloadBase64: string, walletAddress: string) => Promise<NdauSignResult>;
   isSigning: boolean;
   error: string | null;
+  remainingSeconds: number;
 }
+
+const SIGN_TIMEOUT_MS = 30 * 60 * 1000;
 
 export function useNdauSigner(): UseNdauSignerReturn {
   const [isSigning, setIsSigning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { socket, walletAddress } = useNdauWallet();
+  const [remainingSeconds, setRemainingSeconds] = useState(0);
+  const { socket } = useNdauWallet();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startedAtRef = useRef<number>(0);
 
-  const signData = useCallback(
-    async (data: any, message?: string): Promise<SignResponse | null> => {
-      if (!socket || !walletAddress) {
-        setError("Wallet not connected");
-        return null;
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
+  const requestSignature = useCallback(
+    (payloadBase64: string, walletAddress: string): Promise<NdauSignResult> => {
+      if (!socket || !socket.id) {
+        const msg = "Socket not connected";
+        setError(msg);
+        return Promise.reject(new Error(msg));
       }
 
       setIsSigning(true);
       setError(null);
+      startedAtRef.current = Date.now();
+      setRemainingSeconds(Math.floor(SIGN_TIMEOUT_MS / 1000));
 
-      return new Promise((resolve) => {
-        const requestId = Date.now().toString();
+      intervalRef.current = setInterval(() => {
+        const elapsed = Date.now() - startedAtRef.current;
+        const remaining = Math.max(0, Math.floor((SIGN_TIMEOUT_MS - elapsed) / 1000));
+        setRemainingSeconds(remaining);
+        if (remaining <= 0 && intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+      }, 1000);
 
-        const handleSignSuccess = (response: SignResponse) => {
-          socket.off(`sign-success-${requestId}`, handleSignSuccess);
-          socket.off(`sign-error-${requestId}`, handleSignError);
+      return new Promise<NdauSignResult>((resolve, reject) => {
+        const cleanup = () => {
+          socket.off("server-sign-fulfilled-website", handleFulfilled);
+          socket.off("server-sign-rejected-website", handleRejected);
+          socket.off("server-sign-failed-website", handleFailed);
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+          }
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
           setIsSigning(false);
-          resolve(response);
+          setRemainingSeconds(0);
         };
 
-        const handleSignError = (errorData: { message: string }) => {
-          socket.off(`sign-success-${requestId}`, handleSignSuccess);
-          socket.off(`sign-error-${requestId}`, handleSignError);
-          setIsSigning(false);
-          setError(errorData.message || "Signing error");
-          resolve(null);
+        const handleFulfilled = (data: { signature: string; payload: string }) => {
+          cleanup();
+          if (data?.signature) {
+            resolve({ signature: data.signature, payload: data.payload });
+          } else {
+            const msg = "Signature response missing signature data";
+            setError(msg);
+            reject(new Error(msg));
+          }
         };
 
-        socket.on(`sign-success-${requestId}`, handleSignSuccess);
-        socket.on(`sign-error-${requestId}`, handleSignError);
+        const handleRejected = () => {
+          cleanup();
+          const msg = "Signature request rejected by wallet";
+          setError(msg);
+          reject(new Error(msg));
+        };
+
+        const handleFailed = (data: { message: string }) => {
+          cleanup();
+          const msg = data?.message || "Failed to sign with NDAU wallet";
+          setError(msg);
+          reject(new Error(msg));
+        };
+
+        socket.on("server-sign-fulfilled-website", handleFulfilled);
+        socket.on("server-sign-rejected-website", handleRejected);
+        socket.on("server-sign-failed-website", handleFailed);
 
         socket.emit("website-sign-request-server", {
-          requestId,
-          data,
-          message,
+          payload: payloadBase64,
           walletAddress,
-          website_socket_id: socket.id,
         });
 
-        setTimeout(() => {
-          socket.off(`sign-success-${requestId}`, handleSignSuccess);
-          socket.off(`sign-error-${requestId}`, handleSignError);
-          setIsSigning(false);
-          setError("Timeout: signature not completed");
-          resolve(null);
-        }, 60000);
+        timeoutRef.current = setTimeout(() => {
+          cleanup();
+          const msg = "Signature request timed out";
+          setError(msg);
+          reject(new Error(msg));
+        }, SIGN_TIMEOUT_MS);
       });
     },
-    [socket, walletAddress]
+    [socket]
   );
 
-  return { signData, isSigning, error };
+  return { requestSignature, isSigning, error, remainingSeconds };
 }
 
 export default useNdauSigner;

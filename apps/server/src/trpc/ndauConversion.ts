@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { router, privateProcedure, adminProcedure } from "../trpc/trpc";
+import { router, publicProcedure, privateProcedure, adminProcedure } from "../trpc/trpc";
 import { calculateRevoAmount } from "@ampedbio/constants";
 import { prisma } from "../services/DB";
 import { env } from "../env";
@@ -13,6 +13,7 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { revolutionDevnet } from "@ampedbio/web3";
+import { verifyConversionSignature } from "../utils/ndau";
 
 export const ndauConversionRouter = router({
   checkExistingConversion: privateProcedure
@@ -47,10 +48,18 @@ export const ndauConversionRouter = router({
         revoAddress: z.string().min(1, "REVO address is required"),
         ampedbioSignature: z.string().min(1, "AmpedBio signature is required"),
         ndauSignature: z.string().min(1, "NDAU signature is required"),
+        ndauValidationKey: z.string().min(1, "NDAU validation key is required"),
       })
     )
     .mutation(async ({ input }) => {
-      const { ndauAddress, ndauAmount, revoAddress, ampedbioSignature, ndauSignature } = input;
+      const {
+        ndauAddress,
+        ndauAmount,
+        revoAddress,
+        ampedbioSignature,
+        ndauSignature,
+        ndauValidationKey,
+      } = input;
 
       const existing = await prisma.ndauConversion.findFirst({
         where: { ndau_address: ndauAddress },
@@ -70,6 +79,7 @@ export const ndauConversionRouter = router({
           revo_address: revoAddress,
           ampedbio_signature: ampedbioSignature,
           ndau_signature: ndauSignature,
+          ndau_validation_key: ndauValidationKey,
           status: "pending",
         },
       });
@@ -234,4 +244,76 @@ export const ndauConversionRouter = router({
     });
     return { count };
   }),
+
+  getConversion: publicProcedure
+    .input(
+      z.object({
+        ndauAddress: z.string().min(1, "NDAU address is required"),
+      })
+    )
+    .query(async ({ input }) => {
+      const conversion = await prisma.ndauConversion.findUnique({
+        where: { ndau_address: input.ndauAddress },
+      });
+
+      if (!conversion) {
+        return null;
+      }
+
+      return {
+        id: conversion.id,
+        ndauAddress: conversion.ndau_address,
+        ndauAmount: conversion.ndau_amount,
+        revoAmount: conversion.revo_amount,
+        revoAddress: conversion.revo_address,
+        ampedbioSignature: conversion.ampedbio_signature,
+        ndauSignature: conversion.ndau_signature,
+        txid: conversion.txid,
+        status: conversion.status,
+        createdAt: conversion.created_at.toISOString(),
+        updatedAt: conversion.updated_at?.toISOString() || null,
+      };
+    }),
+
+  verifyNdauSignature: publicProcedure
+    .input(
+      z.object({
+        ndauAddress: z.string().min(1, "NDAU address is required"),
+      })
+    )
+    .query(async ({ input }) => {
+      const conversion = await prisma.ndauConversion.findUnique({
+        where: { ndau_address: input.ndauAddress },
+      });
+
+      if (!conversion) {
+        return {
+          found: false,
+          isValid: false,
+          error: "No conversion found for this NDAU address",
+        };
+      }
+
+      const result = await verifyConversionSignature(
+        conversion.ndau_signature,
+        conversion.ndau_address,
+        conversion.revo_address,
+        conversion.ndau_validation_key
+      );
+
+      return {
+        found: true,
+        isValid: result.isValid,
+        algorithm: result.algorithm,
+        error: result.error,
+        conversion: {
+          ndauAddress: conversion.ndau_address,
+          revoAddress: conversion.revo_address,
+          ndauAmount: conversion.ndau_amount,
+          revoAmount: conversion.revo_amount,
+          status: conversion.status,
+          createdAt: conversion.created_at.toISOString(),
+        },
+      };
+    }),
 });

@@ -11,7 +11,7 @@ datasource db {
 model User {
   id             Int       @id @default(autoincrement())
   name           String
-  revo_name      String?   @unique
+  revo_name      String?
   email          String
   email_verified Boolean   @default(false) @map("email_verified")
   password       String?
@@ -303,17 +303,18 @@ model Jwks {
 }
 
 model NdauConversion {
-  id                  Int       @id @default(autoincrement())
-  ndau_address        String    @db.VarChar(255)
-  ndau_amount         String    @db.Text
-  revo_amount         String    @db.Text
-  revo_address        String    @db.VarChar(255)
-  ampedbio_signature  String    @db.Text
-  ndau_signature      String    @db.Text
-  txid                String?   @db.Text
-  status              String    @default("pending")
-  created_at          DateTime  @default(now())
-  updated_at          DateTime? @updatedAt
+  id                   Int       @id @default(autoincrement())
+  ndau_address         String    @db.VarChar(255)
+  ndau_amount          String    @db.Text
+  revo_amount          String    @db.Text
+  revo_address         String    @db.VarChar(255)
+  ampedbio_signature   String    @db.Text
+  ndau_signature       String    @db.Text
+  ndau_validation_key  String    @db.Text
+  txid                 String?   @db.Text
+  status               String    @default("pending")
+  created_at           DateTime  @default(now())
+  updated_at           DateTime? @updatedAt
 
   @@unique([ndau_address])
   @@index([status])
