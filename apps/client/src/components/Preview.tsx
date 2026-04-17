@@ -35,14 +35,13 @@ const extractRootDomain = (url: string): string => {
 
 interface PreviewProps {
   isEditing: boolean;
-  handle: string;
   profile: UserProfile;
   blocks: BlockType[];
   theme: Theme;
   userId?: number;
 }
 
-export function Preview({ isEditing, handle, profile, blocks, theme, userId }: PreviewProps) {
+export function Preview({ isEditing, profile, blocks, theme, userId }: PreviewProps) {
   const [copied, setCopied] = useState(false);
   const themeConfig = theme.config;
   const { handleReferrerClick } = useReferralHandler();

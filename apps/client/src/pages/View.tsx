@@ -242,7 +242,6 @@ export function View() {
       )}
       <Preview
         isEditing={false}
-        handle={normalizedHandle}
         profile={profile}
         blocks={blocks}
         theme={theme ?? initialState.theme}

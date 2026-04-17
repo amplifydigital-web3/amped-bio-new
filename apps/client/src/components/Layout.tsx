@@ -155,7 +155,6 @@ export function Layout({ handle, bannerData, bannerLoading }: LayoutProps) {
               <div className="hidden md:flex md:flex-col md:flex-1 overflow-y-auto relative z-[5] bg-gray-100">
                 <Preview
                   isEditing={true}
-                  handle={handle}
                   profile={profile}
                   blocks={blocks}
                   theme={theme}
