@@ -33,8 +33,16 @@ export function useNdauSigner(): UseNdauSignerReturn {
 
   const requestSignature = useCallback(
     (payloadBase64: string, walletAddress: string): Promise<NdauSignResult> => {
+      console.log("[NDAU-SIGNER] requestSignature called", {
+        socketExists: !!socket,
+        socketId: socket?.id,
+        walletAddress,
+        payloadLength: payloadBase64?.length,
+      });
+
       if (!socket || !socket.id) {
         const msg = "Socket not connected";
+        console.error("[NDAU-SIGNER]", msg, { socket, socketId: socket?.id });
         setError(msg);
         return Promise.reject(new Error(msg));
       }
@@ -72,6 +80,7 @@ export function useNdauSigner(): UseNdauSignerReturn {
         };
 
         const handleFulfilled = (data: { signature: string; payload: string }) => {
+          console.log("[NDAU-SIGNER] Received server-sign-fulfilled-website:", data);
           cleanup();
           if (data?.signature) {
             resolve({ signature: data.signature, payload: data.payload });
@@ -83,6 +92,7 @@ export function useNdauSigner(): UseNdauSignerReturn {
         };
 
         const handleRejected = () => {
+          console.log("[NDAU-SIGNER] Received server-sign-rejected-website");
           cleanup();
           const msg = "Signature request rejected by wallet";
           setError(msg);
@@ -90,6 +100,7 @@ export function useNdauSigner(): UseNdauSignerReturn {
         };
 
         const handleFailed = (data: { message: string }) => {
+          console.log("[NDAU-SIGNER] Received server-sign-failed-website:", data);
           cleanup();
           const msg = data?.message || "Failed to sign with NDAU wallet";
           setError(msg);
@@ -100,12 +111,20 @@ export function useNdauSigner(): UseNdauSignerReturn {
         socket.on("server-sign-rejected-website", handleRejected);
         socket.on("server-sign-failed-website", handleFailed);
 
+        console.log("[NDAU-SIGNER] Emitting website-sign-request-server", {
+          payload: payloadBase64,
+          walletAddress,
+        });
+
         socket.emit("website-sign-request-server", {
           payload: payloadBase64,
           walletAddress,
         });
 
+        console.log("[NDAU-SIGNER] website-sign-request-server emitted, waiting for response...");
+
         timeoutRef.current = setTimeout(() => {
+          console.log("[NDAU-SIGNER] Signature request timed out after", SIGN_TIMEOUT_MS, "ms");
           cleanup();
           const msg = "Signature request timed out";
           setError(msg);

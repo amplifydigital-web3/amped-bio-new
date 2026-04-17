@@ -148,6 +148,12 @@ export default function NdauConversionPage() {
   const handleSignNdau = useCallback(async () => {
     if (!ndauAddress) return;
 
+    console.log("[NDAU-CONVERSION] handleSignNdau called", {
+      ndauAddress,
+      ndauValidationKey,
+      authUserWallet: authUser?.wallet,
+    });
+
     const payload = {
       vote: "yes",
       proposal: {
@@ -160,18 +166,25 @@ export default function NdauConversionPage() {
       validation_key: ndauValidationKey || ndauAddress,
     };
 
+    console.log("[NDAU-CONVERSION] Payload YAML:", yaml.stringify(payload));
+
     const payloadBase64 = btoa(yaml.stringify(payload));
 
+    console.log("[NDAU-CONVERSION] Payload base64:", payloadBase64);
+
     try {
+      console.log("[NDAU-CONVERSION] Calling requestSignature...");
       const result = await requestSignature(payloadBase64, ndauAddress);
+      console.log("[NDAU-CONVERSION] requestSignature resolved:", result);
       setNdauSignature(result.signature);
       setCompletedSteps(prev => new Set(prev).add(4));
       setCurrentStep(5);
       toast.success("NDAU wallet signed successfully");
     } catch (err) {
+      console.error("[NDAU-CONVERSION] requestSignature failed:", err);
       toast.error((err as Error).message || "Failed to sign with NDAU wallet");
     }
-  }, [ndauAddress, authUser?.wallet, requestSignature]);
+  }, [ndauAddress, authUser?.wallet, requestSignature, ndauValidationKey]);
 
   const submitMutation = useMutation({
     mutationFn: trpc.ndauConversion.submitConversion.mutationOptions().mutationFn,
