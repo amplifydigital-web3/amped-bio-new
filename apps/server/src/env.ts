@@ -95,6 +95,11 @@ export const env = cleanEnv(process.env, {
     default: "false",
     choices: ["true", "false"],
   }),
+  NDAU_API_URL: str({
+    desc: "NDAU API URL for balance queries",
+    default: "https://bpcdao.ndau.tech",
+    example: "https://bpcdao.ndau.tech",
+  }),
 
   // AWS S3 Configuration for profile picture uploads
   AWS_REGION: str({

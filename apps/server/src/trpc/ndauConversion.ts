@@ -34,17 +34,112 @@ export const ndauConversionRouter = router({
       };
     }),
 
+  getNdauBalance: publicProcedure
+    .input(
+      z.object({
+        ndauAddress: z.string().min(1, "NDAU address is required"),
+      })
+    )
+    .query(async ({ input }) => {
+      const { ndauAddress } = input;
+
+      console.log(`[NDAU-BALANCE] Fetching balance of ndau address: ${ndauAddress}`);
+
+      try {
+        // Try mainnet node
+        const ndauApiUrl = "http://mainnet-0.ndau.tech:3030";
+        console.log(`[NDAU-BALANCE] Using API URL: ${ndauApiUrl}`);
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+        try {
+          const url = `${ndauApiUrl}/account/account/${ndauAddress}`;
+          console.log(`[NDAU-BALANCE] Making request to: ${url}`);
+
+          const response = await fetch(url, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            console.error(
+              `[NDAU-BALANCE] HTTP error! status: ${response.status} for address: ${ndauAddress}`
+            );
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const data = await response.json();
+          console.log(
+            `[NDAU-BALANCE] Response received for ${ndauAddress}:`,
+            JSON.stringify(data).substring(0, 200) + "..."
+          );
+
+          if (data && data[ndauAddress] && data[ndauAddress].Balance !== undefined) {
+            // NDAU balance is in nanondau (1 NDAU = 1,000,000,000 nanondau)
+            const balanceInNanondau = parseFloat(data[ndauAddress].Balance);
+            const balanceInNdau = balanceInNanondau / 1000000000;
+
+            console.log(
+              `[NDAU-BALANCE] Balance for ${ndauAddress}: ${balanceInNdau} NDAU (${balanceInNanondau} nanondau)`
+            );
+
+            return {
+              success: true,
+              balance: balanceInNdau.toString(),
+              rawBalance: data[ndauAddress].Balance,
+              validationKeys: data[ndauAddress].ValidationKeys || [],
+            };
+          } else {
+            console.error(
+              `[NDAU-BALANCE] Invalid response from NDAU API for address: ${ndauAddress}`
+            );
+            throw new Error("Invalid response from NDAU API");
+          }
+        } catch (fetchError) {
+          clearTimeout(timeoutId);
+          console.error(`[NDAU-BALANCE] Fetch error for address ${ndauAddress}:`, fetchError);
+          if (fetchError instanceof Error) {
+            console.error(`[NDAU-BALANCE] Error details:`, {
+              name: fetchError.name,
+              message: fetchError.message,
+              stack: fetchError.stack,
+            });
+          }
+          throw fetchError;
+        }
+      } catch (error) {
+        console.error(
+          `[NDAU-BALANCE] Error fetching NDAU balance for address ${ndauAddress}:`,
+          error
+        );
+
+        if (error instanceof Error) {
+          console.error(`[NDAU-BALANCE] Full error details:`, {
+            name: error.name,
+            message: error.message,
+            stack: error.stack,
+          });
+        }
+
+        // Return 0 balance if API fails
+        return {
+          success: false,
+          balance: "0",
+          error: error instanceof Error ? error.message : "Failed to fetch NDAU balance",
+        };
+      }
+    }),
+
   submitConversion: privateProcedure
     .input(
       z.object({
         ndauAddress: z.string().min(1, "NDAU address is required"),
-        ndauAmount: z.string().refine(
-          val => {
-            const num = parseFloat(val);
-            return !isNaN(num) && num > 0;
-          },
-          { message: "NDAU amount must be greater than 0" }
-        ),
         revoAddress: z.string().min(1, "REVO address is required"),
         ampedbioSignature: z.string().min(1, "AmpedBio signature is required"),
         ndauSignature: z.string().min(1, "NDAU signature is required"),
@@ -52,14 +147,8 @@ export const ndauConversionRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const {
-        ndauAddress,
-        ndauAmount,
-        revoAddress,
-        ampedbioSignature,
-        ndauSignature,
-        ndauValidationKey,
-      } = input;
+      const { ndauAddress, revoAddress, ampedbioSignature, ndauSignature, ndauValidationKey } =
+        input;
 
       const existing = await prisma.ndauConversion.findFirst({
         where: { ndau_address: ndauAddress },
@@ -67,6 +156,47 @@ export const ndauConversionRouter = router({
 
       if (existing) {
         throw new Error("A conversion request already exists for this NDAU address");
+      }
+
+      let ndauAmount: string;
+
+      try {
+        const ndauApiUrl = "http://mainnet-0.ndau.tech:3030";
+        const url = `${ndauApiUrl}/account/account/${ndauAddress}`;
+
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (data && data[ndauAddress] && data[ndauAddress].Balance !== undefined) {
+          const balanceInNanondau = parseFloat(data[ndauAddress].Balance);
+          const balanceInNdau = balanceInNanondau / 1000000000;
+
+          if (balanceInNdau <= 0) {
+            throw new Error("NDAU balance must be greater than 0");
+          }
+
+          ndauAmount = balanceInNdau.toString();
+        } else {
+          throw new Error("Invalid response from NDAU API");
+        }
+      } catch (error) {
+        console.error(
+          `[NDAU-CONVERSION] Error fetching NDAU balance for address ${ndauAddress}:`,
+          error
+        );
+        throw new Error(
+          `Failed to fetch NDAU balance: ${error instanceof Error ? error.message : "Unknown error"}`
+        );
       }
 
       const revoAmount = calculateRevoAmount(ndauAmount);

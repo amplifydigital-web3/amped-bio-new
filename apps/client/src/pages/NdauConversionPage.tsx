@@ -103,6 +103,21 @@ export default function NdauConversionPage() {
     )
   );
 
+  const { data: ndauBalanceData, refetch: fetchNdauBalance } = useQuery(
+    trpc.ndauConversion.getNdauBalance.queryOptions(
+      { ndauAddress: ndauAddress || "" },
+      { enabled: false }
+    )
+  );
+
+  useEffect(() => {
+    if (ndauBalanceData?.success && ndauBalanceData.balance) {
+      setNdauBalance(ndauBalanceData.balance);
+    } else if (ndauBalanceData?.success === false) {
+      setNdauBalance("0");
+    }
+  }, [ndauBalanceData]);
+
   useEffect(() => {
     if (ndauBalance) {
       const calculated = calculateRevoAmount(ndauBalance);
@@ -121,17 +136,43 @@ export default function NdauConversionPage() {
 
   useEffect(() => {
     if (isNdauConnected && ndauAddress) {
-      checkExisting().then(result => {
-        if (result.data?.exists) {
-          setAlreadySubmitted(true);
-          toast.error("This NDAU wallet has already submitted a conversion request");
-        } else if (!completedSteps.has(2)) {
-          setCompletedSteps(prev => new Set(prev).add(2));
-          if (currentStep === 2) setCurrentStep(3);
-        }
-      });
+      console.log(`[NDAU-CONVERSION] NDAU wallet connected: ${ndauAddress}, fetching balance...`);
+
+      Promise.all([checkExisting(), fetchNdauBalance()])
+        .then(([existingResult, balanceResult]) => {
+          console.log(
+            `[NDAU-CONVERSION] Balance fetch completed for ${ndauAddress}:`,
+            balanceResult.data
+          );
+
+          if (existingResult.data?.exists) {
+            console.log(`[NDAU-CONVERSION] Conversion already exists for ${ndauAddress}`);
+            setAlreadySubmitted(true);
+            toast.error("This NDAU wallet has already submitted a conversion request");
+          } else if (!completedSteps.has(2)) {
+            setCompletedSteps(prev => new Set(prev).add(2));
+            if (currentStep === 2) setCurrentStep(3);
+          }
+
+          // Show balance info
+          if (balanceResult.data?.success) {
+            console.log(
+              `[NDAU-CONVERSION] Balance for ${ndauAddress}: ${balanceResult.data.balance} NDAU`
+            );
+            toast.success(`NDAU balance: ${balanceResult.data.balance} NDAU`);
+          } else if (balanceResult.data && "error" in balanceResult.data) {
+            console.error(
+              `[NDAU-CONVERSION] Failed to fetch balance for ${ndauAddress}:`,
+              balanceResult.data.error
+            );
+            toast.error(`Failed to fetch NDAU balance: ${balanceResult.data.error}`);
+          }
+        })
+        .catch(error => {
+          console.error(`[NDAU-CONVERSION] Error fetching data for ${ndauAddress}:`, error);
+        });
     }
-  }, [isNdauConnected, ndauAddress, checkExisting, completedSteps, currentStep]);
+  }, [isNdauConnected, ndauAddress, checkExisting, fetchNdauBalance, completedSteps, currentStep]);
 
   const handleSignAmpedbio = async () => {
     try {
@@ -203,9 +244,16 @@ export default function NdauConversionPage() {
       return;
     }
 
+    // Validate NDAU balance locally for UX (backend will fetch actual value)
+    const ndauBalanceNum = parseFloat(ndauBalance || "0");
+
+    if (isNaN(ndauBalanceNum) || ndauBalanceNum <= 0) {
+      toast.error("Invalid NDAU balance. Please check your NDAU wallet connection.");
+      return;
+    }
+
     submitMutation.mutate({
       ndauAddress,
-      ndauAmount: ndauBalance || "0",
       revoAddress: authUser.wallet,
       ampedbioSignature,
       ndauSignature,
@@ -339,6 +387,42 @@ export default function NdauConversionPage() {
             {!isNdauConnected && !isStepDisabled(2) && (
               <div className="mt-3">
                 <NdauConnect buttonText="Connect NDAU Wallet" />
+              </div>
+            )}
+            {isNdauConnected && ndauBalance && ndauBalanceData?.success === true && (
+              <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    NDAU Balance:
+                  </span>
+                  <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                    {parseFloat(ndauBalance).toFixed(6)} NDAU
+                  </span>
+                </div>
+                {revoAmount && (
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      You will receive:
+                    </span>
+                    <span className="text-lg font-bold text-green-600 dark:text-green-400">
+                      {revoAmount} REVO
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {isNdauConnected && ndauBalanceData?.success === false && (
+              <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                  <p className="text-sm font-medium text-red-800 dark:text-red-200">
+                    Failed to fetch NDAU balance
+                  </p>
+                </div>
+                <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                  Check browser console for detailed error information.
+                </p>
               </div>
             )}
           </div>
