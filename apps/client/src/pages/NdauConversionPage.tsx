@@ -19,9 +19,8 @@ import {
   PenTool,
   Send,
   Clock,
+  FileText,
 } from "lucide-react";
-
-const SIGNATURE_MESSAGE = "I agreed to the conversion to Revo";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -103,6 +102,13 @@ export default function NdauConversionPage() {
     )
   );
 
+  const { data: conversionDetails, refetch: getConversionDetails } = useQuery(
+    trpc.ndauConversion.getConversion.queryOptions(
+      { ndauAddress: ndauAddress || "" },
+      { enabled: false }
+    )
+  );
+
   const { data: ndauBalanceData, refetch: fetchNdauBalance } = useQuery(
     trpc.ndauConversion.getNdauBalance.queryOptions(
       { ndauAddress: ndauAddress || "" },
@@ -148,13 +154,19 @@ export default function NdauConversionPage() {
           if (existingResult.data?.exists) {
             console.log(`[NDAU-CONVERSION] Conversion already exists for ${ndauAddress}`);
             setAlreadySubmitted(true);
+
+            getConversionDetails().then(detailsResult => {
+              if (detailsResult.data) {
+                console.log(`[NDAU-CONVERSION] Conversion details:`, detailsResult.data);
+              }
+            });
+
             toast.error("This NDAU wallet has already submitted a conversion request");
           } else if (!completedSteps.has(2)) {
             setCompletedSteps(prev => new Set(prev).add(2));
             if (currentStep === 2) setCurrentStep(3);
           }
 
-          // Show balance info
           if (balanceResult.data?.success) {
             console.log(
               `[NDAU-CONVERSION] Balance for ${ndauAddress}: ${balanceResult.data.balance} NDAU`
@@ -172,11 +184,22 @@ export default function NdauConversionPage() {
           console.error(`[NDAU-CONVERSION] Error fetching data for ${ndauAddress}:`, error);
         });
     }
-  }, [isNdauConnected, ndauAddress, checkExisting, fetchNdauBalance, completedSteps, currentStep]);
+  }, [
+    isNdauConnected,
+    ndauAddress,
+    checkExisting,
+    fetchNdauBalance,
+    completedSteps,
+    currentStep,
+    getConversionDetails,
+  ]);
 
   const handleSignAmpedbio = async () => {
     try {
-      const signature = await signMessageAsync({ message: SIGNATURE_MESSAGE });
+      const ndauAmount = ndauBalance || "0";
+      const ndauAmountNum = parseFloat(ndauAmount);
+      const signatureMessage = `I agreed to convert ${ndauAmountNum.toFixed(6)} NDAU to ${revoAmount || "0"} REVO at the rate of 1 NDAU = ${NDAU_TO_REVO_RATE} REVO`;
+      const signature = await signMessageAsync({ message: signatureMessage });
       setAmpedbioSignature(signature);
       setCompletedSteps(prev => new Set(prev).add(3));
       setCurrentStep(4);
@@ -195,11 +218,14 @@ export default function NdauConversionPage() {
       authUserWallet: authUser?.wallet,
     });
 
+    const ndauAmount = ndauBalance || "0";
+    const ndauAmountNum = parseFloat(ndauAmount);
+
     const payload = {
       vote: "yes",
       proposal: {
         proposal_id: "ndau-to-revo-conversion",
-        proposal_heading: `I agree to convert my ndau to the Ethereum address: ${authUser?.wallet}`,
+        proposal_heading: `I agree to convert ${ndauAmountNum.toFixed(6)} NDAU to ${revoAmount || "0"} REVO (rate: 1 NDAU = ${NDAU_TO_REVO_RATE} REVO) to Revolution address: ${authUser?.wallet}`,
         voting_option_id: 1,
         voting_option_heading: "Confirm Conversion",
       },
@@ -312,15 +338,143 @@ export default function NdauConversionPage() {
 
         <StepIndicator currentStep={currentStep} completedSteps={completedSteps} />
 
-        {alreadySubmitted && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-6">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
-              <p className="text-red-800 dark:text-red-200 font-medium">
-                This NDAU wallet has already submitted a conversion request. You cannot submit
-                again.
-              </p>
+        {alreadySubmitted && conversionDetails && (
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-6 mb-6">
+            <div className="flex items-start gap-3 mb-4">
+              <AlertCircle className="h-6 w-6 text-yellow-600 dark:text-yellow-400 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-yellow-900 dark:text-yellow-100 mb-2">
+                  Conversion Already Submitted
+                </h3>
+                <p className="text-yellow-800 dark:text-yellow-200">
+                  This NDAU wallet has already submitted a conversion request. Below are the
+                  details:
+                </p>
+              </div>
             </div>
+
+            <div className="bg-white dark:bg-gray-900 rounded-lg p-4 space-y-3">
+              <div className="flex justify-between items-center pb-2 border-b border-gray-200 dark:border-gray-700">
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Status:
+                </span>
+                <span
+                  className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                    conversionDetails.status === "processed"
+                      ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                      : conversionDetails.status === "pending"
+                        ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
+                        : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                  }`}
+                >
+                  {conversionDetails.status.charAt(0).toUpperCase() +
+                    conversionDetails.status.slice(1)}
+                </span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600 dark:text-gray-400">NDAU Address:</span>
+                <span className="font-mono text-xs text-gray-900 dark:text-white break-all max-w-[200px]">
+                  {conversionDetails.ndauAddress}
+                </span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600 dark:text-gray-400">REVO Address:</span>
+                <span className="font-mono text-xs text-gray-900 dark:text-white break-all max-w-[200px]">
+                  {conversionDetails.revoAddress}
+                </span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600 dark:text-gray-400">NDAU Amount:</span>
+                <span className="font-semibold text-gray-900 dark:text-white">
+                  {parseFloat(conversionDetails.ndauAmount).toFixed(6)} NDAU
+                </span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600 dark:text-gray-400">REVO Amount:</span>
+                <span className="font-semibold text-blue-600 dark:text-blue-400">
+                  {conversionDetails.revoAmount} REVO
+                </span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600 dark:text-gray-400">Submitted On:</span>
+                <span className="text-sm text-gray-900 dark:text-white">
+                  {new Date(conversionDetails.createdAt).toLocaleString()}
+                </span>
+              </div>
+
+              {conversionDetails.txid && (
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    Transaction Hash:
+                  </span>
+                  <span className="font-mono text-xs text-blue-600 dark:text-blue-400 break-all max-w-[200px]">
+                    {conversionDetails.txid}
+                  </span>
+                </div>
+              )}
+
+              <div className="pt-3 mt-3 border-t border-gray-200 dark:border-gray-700">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 font-medium">
+                  Signature Details:
+                </p>
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between items-start">
+                    <span className="text-gray-500 dark:text-gray-400">AmpedBio Signature:</span>
+                    <span
+                      className="font-mono text-gray-700 dark:text-gray-300 break-all max-w-[200px]"
+                      title={conversionDetails.ampedbioSignature}
+                    >
+                      {conversionDetails.ampedbioSignature?.slice(0, 10)}...
+                      {conversionDetails.ampedbioSignature?.slice(-8)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-start">
+                    <span className="text-gray-500 dark:text-gray-400">NDAU Signature:</span>
+                    <span
+                      className="font-mono text-gray-700 dark:text-gray-300 break-all max-w-[200px]"
+                      title={conversionDetails.ndauSignature}
+                    >
+                      {conversionDetails.ndauSignature?.slice(0, 10)}...
+                      {conversionDetails.ndauSignature?.slice(-8)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {conversionDetails.status === "pending" && (
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  Your conversion is being processed by an admin. You will receive REVO tokens once
+                  the process is complete.
+                </p>
+              </div>
+            )}
+
+            {conversionDetails.status === "processed" && (
+              <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                <p className="text-sm text-green-800 dark:text-green-200 mb-3">
+                  Your conversion has been processed successfully. Check your REVO wallet for
+                  received tokens.
+                </p>
+                <Button
+                  onClick={() =>
+                    window.open(`/i/ndau-conversion/proof?ndauAddress=${ndauAddress}`, "_blank")
+                  }
+                  variant="confirm"
+                  size="sm"
+                  className="w-full"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  View Conversion Proof
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
@@ -447,8 +601,19 @@ export default function NdauConversionPage() {
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     {ampedbioSignature
                       ? `Signed: ${truncateSignature(ampedbioSignature)}`
-                      : `Sign the message: "${SIGNATURE_MESSAGE}"`}
+                      : "Sign the conversion agreement"}
                   </p>
+                  {!ampedbioSignature && !isStepDisabled(3) && ndauBalance && revoAmount && (
+                    <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                      <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        Message you will sign:
+                      </p>
+                      <p className="text-sm text-gray-900 dark:text-white font-mono break-words">
+                        I agreed to convert {parseFloat(ndauBalance).toFixed(6)} NDAU to{" "}
+                        {revoAmount} REVO at the rate of 1 NDAU = {NDAU_TO_REVO_RATE} REVO
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
               {completedSteps.has(3) && <CheckCircle2 className="h-6 w-6 text-green-500" />}
@@ -496,6 +661,18 @@ export default function NdauConversionPage() {
                       ? `Signed: ${truncateSignature(ndauSignature)}`
                       : "Open your NDAU wallet app to confirm the signature request"}
                   </p>
+                  {!ndauSignature && !isStepDisabled(4) && ndauBalance && revoAmount && (
+                    <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                      <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        Proposal you will sign:
+                      </p>
+                      <p className="text-sm text-gray-900 dark:text-white break-words leading-relaxed">
+                        I agree to convert {parseFloat(ndauBalance).toFixed(6)} NDAU to {revoAmount}{" "}
+                        REVO (rate: 1 NDAU = {NDAU_TO_REVO_RATE} REVO) to Revolution address:{" "}
+                        {authUser?.wallet}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
               {completedSteps.has(4) && <CheckCircle2 className="h-6 w-6 text-green-500" />}
@@ -609,22 +786,13 @@ export default function NdauConversionPage() {
                 </div>
 
                 <Button
-                  onClick={handleSubmit}
-                  disabled={submitMutation.isPending || alreadySubmitted}
+                  onClick={() => window.open(`/i/ndau-conversion/proof/${ndauAddress}`, "_blank")}
                   variant="confirm"
-                  className="w-full h-12 text-lg"
+                  size="sm"
+                  className="w-full"
                 >
-                  {submitMutation.isPending ? (
-                    <>
-                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                      Submitting...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="h-5 w-5 mr-2" />
-                      Submit Conversion Request
-                    </>
-                  )}
+                  <FileText className="h-4 w-4 mr-2" />
+                  View Conversion Proof
                 </Button>
               </div>
             )}

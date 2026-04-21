@@ -8,6 +8,7 @@ import { PoolDebugPage } from "./pages/PoolDebugPage";
 import { PoolAPYDebugPage } from "./pages/PoolAPYDebugPage";
 import NetworkPage from "./pages/NetworkPage";
 import NdauConversionPage from "./pages/NdauConversionPage";
+import NdauConversionProofPage from "./pages/NdauConversionProofPage";
 import PublicLayout from "./components/layout/PublicLayout";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -42,7 +43,9 @@ const AdminPools = lazy(() =>
   import("./pages/admin/AdminPools").then(module => ({ default: module.AdminPools }))
 );
 const AdminNdauConversions = lazy(() =>
-  import("./pages/admin/AdminNdauConversions").then(module => ({ default: module.AdminNdauConversions }))
+  import("./pages/admin/AdminNdauConversions").then(module => ({
+    default: module.AdminNdauConversions,
+  }))
 );
 
 function AppRouter() {
@@ -136,6 +139,14 @@ function AppRouter() {
         element={
           <PublicLayout>
             <NdauConversionPage />
+          </PublicLayout>
+        }
+      />
+      <Route
+        path="/i/ndau-conversion/proof/:ndauAddress"
+        element={
+          <PublicLayout>
+            <NdauConversionProofPage />
           </PublicLayout>
         }
       />

@@ -46,8 +46,7 @@ export const ndauConversionRouter = router({
       console.log(`[NDAU-BALANCE] Fetching balance of ndau address: ${ndauAddress}`);
 
       try {
-        // Try mainnet node
-        const ndauApiUrl = "http://mainnet-0.ndau.tech:3030";
+        const ndauApiUrl = "https://mainnet-0.ndau.tech:3030";
         console.log(`[NDAU-BALANCE] Using API URL: ${ndauApiUrl}`);
 
         const controller = new AbortController();
@@ -80,9 +79,9 @@ export const ndauConversionRouter = router({
             JSON.stringify(data).substring(0, 200) + "..."
           );
 
-          if (data && data[ndauAddress] && data[ndauAddress].Balance !== undefined) {
+          if (data && data[ndauAddress] && data[ndauAddress].balance !== undefined) {
             // NDAU balance is in nanondau (1 NDAU = 1,000,000,000 nanondau)
-            const balanceInNanondau = parseFloat(data[ndauAddress].Balance);
+            const balanceInNanondau = parseFloat(data[ndauAddress].balance);
             const balanceInNdau = balanceInNanondau / 1000000000;
 
             console.log(
@@ -92,8 +91,8 @@ export const ndauConversionRouter = router({
             return {
               success: true,
               balance: balanceInNdau.toString(),
-              rawBalance: data[ndauAddress].Balance,
-              validationKeys: data[ndauAddress].ValidationKeys || [],
+              rawBalance: data[ndauAddress].balance,
+              validationKeys: data[ndauAddress].validationKeys || [],
             };
           } else {
             console.error(
@@ -161,7 +160,7 @@ export const ndauConversionRouter = router({
       let ndauAmount: string;
 
       try {
-        const ndauApiUrl = "http://mainnet-0.ndau.tech:3030";
+        const ndauApiUrl = "https://mainnet-0.ndau.tech:3030";
         const url = `${ndauApiUrl}/account/account/${ndauAddress}`;
 
         const response = await fetch(url, {
@@ -177,8 +176,8 @@ export const ndauConversionRouter = router({
 
         const data = await response.json();
 
-        if (data && data[ndauAddress] && data[ndauAddress].Balance !== undefined) {
-          const balanceInNanondau = parseFloat(data[ndauAddress].Balance);
+        if (data && data[ndauAddress] && data[ndauAddress].balance !== undefined) {
+          const balanceInNanondau = parseFloat(data[ndauAddress].balance);
           const balanceInNdau = balanceInNanondau / 1000000000;
 
           if (balanceInNdau <= 0) {
