@@ -197,7 +197,10 @@ export async function verifyConversionSignature(
   ndauSignature: string,
   ndauAddress: string,
   revoAddress: string,
-  ndauValidationKey: string
+  ndauValidationKey: string,
+  ndauAmount?: string,
+  revoAmount?: string,
+  ndauTimestamp?: number
 ): Promise<{
   isValid: boolean;
   algorithm?: string;
@@ -210,16 +213,20 @@ export async function verifyConversionSignature(
 
     const sig = parseNdauSignature(ndauSignature);
 
+    const ndauAmountNum = ndauAmount ? parseFloat(ndauAmount) : 0;
+    const revoAmountValue = revoAmount || "0";
+
     const payload = {
       vote: "yes",
       proposal: {
         proposal_id: "ndau-to-revo-conversion",
-        proposal_heading: `I agree to convert my ndau to the Ethereum address: ${revoAddress}`,
+        proposal_heading: `I agree to convert ${ndauAmountNum.toFixed(6)} NDAU to ${revoAmountValue} REVO (rate: 1 NDAU = 10 REVO) to Revolution address: ${revoAddress}`,
         voting_option_id: 1,
         voting_option_heading: "Confirm Conversion",
       },
       wallet_address: ndauAddress,
       validation_key: ndauValidationKey,
+      timestamp: ndauTimestamp,
     };
 
     const payloadBase64 = Buffer.from(yaml.stringify(payload)).toString("base64");

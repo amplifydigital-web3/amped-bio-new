@@ -13,7 +13,8 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { revolutionDevnet } from "@ampedbio/web3";
-import { verifyConversionSignature } from "../utils/ndau";
+import { verifyConversionSignature, verifyNdauSignature } from "../utils/ndau";
+import { recoverAddress, hashMessage } from "viem";
 
 export const ndauConversionRouter = router({
   checkExistingConversion: privateProcedure
@@ -143,11 +144,22 @@ export const ndauConversionRouter = router({
         ampedbioSignature: z.string().min(1, "AmpedBio signature is required"),
         ndauSignature: z.string().min(1, "NDAU signature is required"),
         ndauValidationKey: z.string().min(1, "NDAU validation key is required"),
+        documentHash: z.string().min(1, "Document hash is required"),
+        ampedbioTimestamp: z.number().min(1, "AmpedBio timestamp is required"),
+        ndauTimestamp: z.number().min(1, "NDAU timestamp is required"),
       })
     )
     .mutation(async ({ input }) => {
-      const { ndauAddress, revoAddress, ampedbioSignature, ndauSignature, ndauValidationKey } =
-        input;
+      const {
+        ndauAddress,
+        revoAddress,
+        ampedbioSignature,
+        ndauSignature,
+        ndauValidationKey,
+        documentHash,
+        ampedbioTimestamp,
+        ndauTimestamp,
+      } = input;
 
       const existing = await prisma.ndauConversion.findFirst({
         where: { ndau_address: ndauAddress },
@@ -155,6 +167,18 @@ export const ndauConversionRouter = router({
 
       if (existing) {
         throw new Error("A conversion request already exists for this NDAU address");
+      }
+
+      const ampedbioMessage = `I agree to the terms of the document with hash ${documentHash} at ${ampedbioTimestamp}`;
+      const recoveredAddress = await recoverAddress({
+        hash: hashMessage(ampedbioMessage),
+        signature: ampedbioSignature as `0x${string}`,
+      });
+
+      if (recoveredAddress.toLowerCase() !== revoAddress.toLowerCase()) {
+        throw new Error(
+          "AmpedBio signature verification failed. The signature does not match the REVO address."
+        );
       }
 
       let ndauAmount: string;
@@ -200,6 +224,22 @@ export const ndauConversionRouter = router({
 
       const revoAmount = calculateRevoAmount(ndauAmount);
 
+      const ndauVerification = await verifyConversionSignature(
+        ndauSignature,
+        ndauAddress,
+        revoAddress,
+        ndauValidationKey,
+        ndauAmount,
+        revoAmount,
+        ndauTimestamp
+      );
+
+      if (!ndauVerification.isValid) {
+        throw new Error(
+          `NDAU signature verification failed: ${ndauVerification.error || "Invalid signature"}`
+        );
+      }
+
       const conversion = await prisma.ndauConversion.create({
         data: {
           ndau_address: ndauAddress,
@@ -210,6 +250,9 @@ export const ndauConversionRouter = router({
           ndau_signature: ndauSignature,
           ndau_validation_key: ndauValidationKey,
           status: "pending",
+          document_hash: documentHash,
+          ampedbio_timestamp: ampedbioTimestamp,
+          ndau_timestamp: ndauTimestamp,
         },
       });
 
@@ -226,6 +269,9 @@ export const ndauConversionRouter = router({
           ndauSignature: conversion.ndau_signature,
           status: conversion.status,
           createdAt: conversion.created_at.toISOString(),
+          documentHash: conversion.document_hash,
+          ampedbioTimestamp: conversion.ampedbio_timestamp,
+          ndauTimestamp: conversion.ndau_timestamp,
         },
       };
     }),
@@ -401,6 +447,9 @@ export const ndauConversionRouter = router({
         status: conversion.status,
         createdAt: conversion.created_at.toISOString(),
         updatedAt: conversion.updated_at?.toISOString() || null,
+        documentHash: conversion.document_hash,
+        ampedbioTimestamp: conversion.ampedbio_timestamp,
+        ndauTimestamp: conversion.ndau_timestamp,
       };
     }),
 

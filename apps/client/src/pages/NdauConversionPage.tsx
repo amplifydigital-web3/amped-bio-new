@@ -34,7 +34,7 @@ const StepIndicator = ({
   const steps = [
     { num: 1, label: "Connect AmpedBio" },
     { num: 2, label: "Connect NDAU" },
-    { num: 3, label: "Sign AmpedBio" },
+    { num: 3, label: "Sign Agreement" },
     { num: 4, label: "Sign NDAU" },
     { num: 5, label: "Submit" },
   ];
@@ -90,6 +90,10 @@ export default function NdauConversionPage() {
   const [ampedbioSignature, setAmpedbioSignature] = useState<string | null>(null);
   const [ndauSignature, setNdauSignature] = useState<string | null>(null);
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
+  const [ampedbioTimestamp, setAmpedbioTimestamp] = useState<number | null>(null);
+  const [ndauTimestamp, setNdauTimestamp] = useState<number | null>(null);
+  const [documentHash, setDocumentHash] = useState<string | null>(null);
+  const [isCalculatingHash, setIsCalculatingHash] = useState(false);
   const { requestSignature, isSigning: isNdauSigning, remainingSeconds } = useNdauSigner();
 
   const isAmpedbioConnected = !!authUser?.wallet;
@@ -142,7 +146,7 @@ export default function NdauConversionPage() {
 
   useEffect(() => {
     if (isNdauConnected && ndauAddress) {
-      console.log(`[NDAU-CONVERSION] NDAU wallet connected: ${ndauAddress}, fetching balance...`);
+      console.log(`[NDAU-CONVERSION] NDAU account connected: ${ndauAddress}, fetching balance...`);
 
       Promise.all([checkExisting(), fetchNdauBalance()])
         .then(([existingResult, balanceResult]) => {
@@ -161,7 +165,7 @@ export default function NdauConversionPage() {
               }
             });
 
-            toast.error("This NDAU wallet has already submitted a conversion request");
+            toast.error("This NDAU account has already submitted a conversion request");
           } else if (!completedSteps.has(2)) {
             setCompletedSteps(prev => new Set(prev).add(2));
             if (currentStep === 2) setCurrentStep(3);
@@ -194,18 +198,39 @@ export default function NdauConversionPage() {
     getConversionDetails,
   ]);
 
+  const calculateDocumentHash = async (): Promise<string> => {
+    try {
+      const response = await fetch("/docs/NDAU_to_REVO_Token_Conversion_Agreement.pdf");
+      const arrayBuffer = await response.arrayBuffer();
+      const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+      return hashHex;
+    } catch (error) {
+      console.error("Failed to calculate document hash:", error);
+      throw new Error("Failed to calculate document hash");
+    }
+  };
+
   const handleSignAmpedbio = async () => {
     try {
-      const ndauAmount = ndauBalance || "0";
-      const ndauAmountNum = parseFloat(ndauAmount);
-      const signatureMessage = `I agreed to convert ${ndauAmountNum.toFixed(6)} NDAU to ${revoAmount || "0"} REVO at the rate of 1 NDAU = ${NDAU_TO_REVO_RATE} REVO`;
+      setIsCalculatingHash(true);
+      const hash = await calculateDocumentHash();
+      setDocumentHash(hash);
+
+      const timestamp = Math.floor(Date.now() / 1000);
+      const signatureMessage = `I agree to the terms of the document with hash ${hash} at ${timestamp}`;
       const signature = await signMessageAsync({ message: signatureMessage });
+
       setAmpedbioSignature(signature);
+      setAmpedbioTimestamp(timestamp);
       setCompletedSteps(prev => new Set(prev).add(3));
       setCurrentStep(4);
       toast.success("AmpedBio wallet signed successfully");
     } catch (error) {
       toast.error("Failed to sign with AmpedBio wallet");
+    } finally {
+      setIsCalculatingHash(false);
     }
   };
 
@@ -220,6 +245,7 @@ export default function NdauConversionPage() {
 
     const ndauAmount = ndauBalance || "0";
     const ndauAmountNum = parseFloat(ndauAmount);
+    const timestamp = Math.floor(Date.now() / 1000);
 
     const payload = {
       vote: "yes",
@@ -231,6 +257,7 @@ export default function NdauConversionPage() {
       },
       wallet_address: ndauAddress,
       validation_key: ndauValidationKey || ndauAddress,
+      timestamp,
     };
 
     console.log("[NDAU-CONVERSION] Payload YAML:", yaml.stringify(payload));
@@ -244,14 +271,15 @@ export default function NdauConversionPage() {
       const result = await requestSignature(payloadBase64, ndauAddress);
       console.log("[NDAU-CONVERSION] requestSignature resolved:", result);
       setNdauSignature(result.signature);
+      setNdauTimestamp(timestamp);
       setCompletedSteps(prev => new Set(prev).add(4));
       setCurrentStep(5);
-      toast.success("NDAU wallet signed successfully");
+      toast.success("NDAU account signed successfully");
     } catch (err) {
       console.error("[NDAU-CONVERSION] requestSignature failed:", err);
-      toast.error((err as Error).message || "Failed to sign with NDAU wallet");
+      toast.error((err as Error).message || "Failed to sign with NDAU account");
     }
-  }, [ndauAddress, authUser?.wallet, requestSignature, ndauValidationKey]);
+  }, [ndauAddress, authUser?.wallet, requestSignature, ndauValidationKey, ndauBalance, revoAmount]);
 
   const submitMutation = useMutation({
     mutationFn: trpc.ndauConversion.submitConversion.mutationOptions().mutationFn,
@@ -274,7 +302,7 @@ export default function NdauConversionPage() {
     const ndauBalanceNum = parseFloat(ndauBalance || "0");
 
     if (isNaN(ndauBalanceNum) || ndauBalanceNum <= 0) {
-      toast.error("Invalid NDAU balance. Please check your NDAU wallet connection.");
+      toast.error("Invalid NDAU balance. Please check your NDAU account connection.");
       return;
     }
 
@@ -284,6 +312,9 @@ export default function NdauConversionPage() {
       ampedbioSignature,
       ndauSignature,
       ndauValidationKey: ndauValidationKey || ndauAddress,
+      documentHash: documentHash || "",
+      ampedbioTimestamp: ampedbioTimestamp || 0,
+      ndauTimestamp: ndauTimestamp || 0,
     });
   };
 
@@ -347,7 +378,7 @@ export default function NdauConversionPage() {
                   Conversion Already Submitted
                 </h3>
                 <p className="text-yellow-800 dark:text-yellow-200">
-                  This NDAU wallet has already submitted a conversion request. Below are the
+                  This NDAU account has already submitted a conversion request. Below are the
                   details:
                 </p>
               </div>
@@ -401,7 +432,7 @@ export default function NdauConversionPage() {
               </div>
 
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Submitted On:</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">Submitted On:</span>
                 <span className="text-sm text-gray-900 dark:text-white">
                   {new Date(conversionDetails.createdAt).toLocaleString()}
                 </span>
@@ -527,12 +558,12 @@ export default function NdauConversionPage() {
                 <Wallet className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 <div>
                   <h3 className="font-semibold text-gray-900 dark:text-white">
-                    Step 2: Connect NDAU Wallet
+                    Step 2: Connect NDAU Account
                   </h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     {isNdauConnected
                       ? `Connected: ${ndauAddress?.slice(0, 8)}...${ndauAddress?.slice(-6)}`
-                      : "Scan QR code with your NDAU wallet app"}
+                      : "Scan QR code with your NDAU account app"}
                   </p>
                 </div>
               </div>
@@ -540,7 +571,7 @@ export default function NdauConversionPage() {
             </div>
             {!isNdauConnected && !isStepDisabled(2) && (
               <div className="mt-3">
-                <NdauConnect buttonText="Connect NDAU Wallet" />
+                <NdauConnect buttonText="Connect NDAU Account" />
               </div>
             )}
             {isNdauConnected && ndauBalance && ndauBalanceData?.success === true && (
@@ -596,22 +627,34 @@ export default function NdauConversionPage() {
                 <PenTool className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 <div>
                   <h3 className="font-semibold text-gray-900 dark:text-white">
-                    Step 3: Sign with AmpedBio Wallet
+                    Step 3: Sign Agreement
                   </h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     {ampedbioSignature
                       ? `Signed: ${truncateSignature(ampedbioSignature)}`
-                      : "Sign the conversion agreement"}
+                      : "Read and sign the agreement"}
                   </p>
                   {!ampedbioSignature && !isStepDisabled(3) && ndauBalance && revoAmount && (
-                    <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-                      <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                        Message you will sign:
-                      </p>
-                      <p className="text-sm text-gray-900 dark:text-white font-mono break-words">
-                        I agreed to convert {parseFloat(ndauBalance).toFixed(6)} NDAU to{" "}
-                        {revoAmount} REVO at the rate of 1 NDAU = {NDAU_TO_REVO_RATE} REVO
-                      </p>
+                    <div className="mt-3 space-y-3">
+                      <a
+                        href="/docs/NDAU_to_REVO_Token_Conversion_Agreement.pdf"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                      >
+                        <FileText className="h-4 w-4" />
+                        Read NDAU to REVO Token Conversion Agreement
+                      </a>
+                      <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                          Message you will sign (document hash will be calculated when you click
+                          Sign):
+                        </p>
+                        <p className="text-sm text-gray-900 dark:text-white font-mono break-words">
+                          I agree to the terms of the document with hash [calculated when signing]
+                          at [current timestamp]
+                        </p>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -621,18 +664,17 @@ export default function NdauConversionPage() {
             {!ampedbioSignature && !isStepDisabled(3) && (
               <Button
                 onClick={handleSignAmpedbio}
-                disabled={isAmpedbioSigning || alreadySubmitted}
+                disabled={isAmpedbioSigning || isCalculatingHash || alreadySubmitted}
                 className="mt-3"
               >
-                {isAmpedbioSigning ? (
+                {isAmpedbioSigning || isCalculatingHash ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Signing...
+                    {isCalculatingHash ? "Calculating hash..." : "Signing..."}
                   </>
                 ) : (
                   <>
-                    <PenTool className="h-4 w-4 mr-2" />
-                    Sign with AmpedBio Wallet
+                    <PenTool className="h-4 w-4 mr-2" />I Read and Agree
                   </>
                 )}
               </Button>
@@ -654,12 +696,12 @@ export default function NdauConversionPage() {
                 <PenTool className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 <div>
                   <h3 className="font-semibold text-gray-900 dark:text-white">
-                    Step 4: Sign with NDAU Wallet
+                    Step 4: Sign with NDAU Account
                   </h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     {ndauSignature
                       ? `Signed: ${truncateSignature(ndauSignature)}`
-                      : "Open your NDAU wallet app to confirm the signature request"}
+                      : "Open your NDAU account app to confirm the signature request"}
                   </p>
                   {!ndauSignature && !isStepDisabled(4) && ndauBalance && revoAmount && (
                     <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
@@ -688,7 +730,7 @@ export default function NdauConversionPage() {
                   ) : (
                     <>
                       <PenTool className="h-4 w-4 mr-2" />
-                      Sign with NDAU Wallet
+                      Sign with NDAU Account
                     </>
                   )}
                 </Button>
@@ -819,15 +861,15 @@ export default function NdauConversionPage() {
             </li>
             <li className="flex items-start">
               <span className="mr-2">2.</span>
-              <span>Connect your NDAU wallet via QR code</span>
+              <span>Connect your NDAU account via QR code</span>
             </li>
             <li className="flex items-start">
               <span className="mr-2">3.</span>
-              <span>Sign the agreement message with your AmpedBio wallet</span>
+              <span>Read and sign the NDAU to REVO Conversion Agreement</span>
             </li>
             <li className="flex items-start">
               <span className="mr-2">4.</span>
-              <span>Sign the agreement message with your NDAU wallet</span>
+              <span>Sign with your NDAU account to confirm the conversion</span>
             </li>
             <li className="flex items-start">
               <span className="mr-2">5.</span>
