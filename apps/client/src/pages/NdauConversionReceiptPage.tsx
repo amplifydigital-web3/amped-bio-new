@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "react-router";
 import { trpc } from "@/utils/trpc/trpc";
 import { Button } from "@/components/ui/Button";
@@ -14,9 +14,11 @@ import {
   ArrowRight,
   PenTool,
   Send,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
+import { verifyNdauSignature, createNdauConversionPayload } from "@/utils/ndauSignature";
 
 type ProofStep = {
   num: number;
@@ -27,7 +29,7 @@ type ProofStep = {
 };
 import { skipToken } from "@tanstack/react-query";
 
-export default function NdauConversionProofPage() {
+export default function NdauConversionReceiptPage() {
   const params = useParams<{ ndauAddress: string }>();
   const ndauAddressParam = params.ndauAddress || "";
 
@@ -39,6 +41,49 @@ export default function NdauConversionProofPage() {
   );
 
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [signatureValid, setSignatureValid] = useState<boolean | null>(null);
+  const [isVerifyingSignature, setIsVerifyingSignature] = useState(false);
+
+  useEffect(() => {
+    const verifySignature = async () => {
+      if (
+        conversion?.ndauSignature &&
+        conversion?.ndauAddress &&
+        conversion?.revoAddress &&
+        conversion?.ndauAmount &&
+        conversion?.revoAmount &&
+        conversion?.ndauTimestamp &&
+        conversion?.documentHash
+      ) {
+        setIsVerifyingSignature(true);
+        try {
+          const payload = createNdauConversionPayload(
+            conversion.ndauAddress,
+            conversion.revoAddress,
+            conversion.ndauAddress,
+            conversion.ndauAmount,
+            conversion.revoAmount,
+            conversion.ndauTimestamp,
+            conversion.documentHash
+          );
+
+          const isValid = await verifyNdauSignature(
+            payload,
+            conversion.ndauSignature,
+            conversion.ndauAddress
+          );
+          setSignatureValid(isValid);
+        } catch (error) {
+          console.error("Error verifying signature:", error);
+          setSignatureValid(false);
+        } finally {
+          setIsVerifyingSignature(false);
+        }
+      }
+    };
+
+    verifySignature();
+  }, [conversion]);
 
   const copyToClipboardSafe = async (text: string | null | undefined, fieldName: string) => {
     if (!text) return;
@@ -146,7 +191,7 @@ export default function NdauConversionProofPage() {
               <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
             </div>
             <p className="text-center text-gray-600 dark:text-gray-300 mt-4">
-              Loading conversion proof...
+              Loading conversion receipt...
             </p>
           </div>
         </div>
@@ -179,10 +224,10 @@ export default function NdauConversionProofPage() {
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-            NDAU to REVO Conversion Proof
+            NDAU to REVO Conversion Receipt
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-300">
-            Cryptographically verifiable proof of conversion agreement
+            Cryptographically verifiable receipt of conversion agreement
           </p>
         </div>
 
@@ -378,7 +423,7 @@ export default function NdauConversionProofPage() {
                     </div>
                   )}
                 </div>
-                <div className="flex items-start gap-2">
+                <div className="flex items-start gap-2 mb-2">
                   <code
                     className="flex-1 text-xs bg-gray-100 dark:bg-gray-900 px-3 py-2 rounded font-mono text-gray-900 dark:text-white break-all"
                     title={conversion.ndauSignature}
@@ -394,15 +439,48 @@ export default function NdauConversionProofPage() {
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                  This signature proves the NDAU wallet owner agreed to convert{" "}
-                  {parseFloat(conversion.ndauAmount).toFixed(6)} NDAU to {conversion.revoAmount}{" "}
-                  REVO.
-                </p>
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    This signature proves the NDAU wallet owner agreed to convert{" "}
+                    {parseFloat(conversion.ndauAmount).toFixed(6)} NDAU to {conversion.revoAmount}{" "}
+                    REVO.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    {isVerifyingSignature ? (
+                      <div className="flex items-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin text-blue-600 dark:text-blue-400" />
+                        <span className="text-xs text-blue-600 dark:text-blue-400">
+                          Verifying...
+                        </span>
+                      </div>
+                    ) : signatureValid === true ? (
+                      <div className="flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400" />
+                        <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                          Verified
+                        </span>
+                      </div>
+                    ) : signatureValid === false ? (
+                      <div className="flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3 text-red-600 dark:text-red-400" />
+                        <span className="text-xs text-red-600 dark:text-red-400 font-medium">
+                          Invalid
+                        </span>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
                 {ndauSignedTimestamp && (
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     <strong>Unix Timestamp:</strong> {ndauSignedTimestamp}
                   </p>
+                )}
+                {signatureValid === true && conversion.ndauAddress && (
+                  <div className="mt-2 bg-green-50 dark:bg-green-900/20 rounded p-2 border border-green-200 dark:border-green-800">
+                    <p className="text-xs text-green-800 dark:text-green-200">
+                      <strong>Signed by:</strong> {truncateAddress(conversion.ndauAddress)}
+                    </p>
+                  </div>
                 )}
               </div>
 
@@ -422,10 +500,10 @@ export default function NdauConversionProofPage() {
                     Important Information
                   </p>
                   <ul className="text-sm text-yellow-700 dark:text-yellow-300 space-y-1 list-disc list-inside">
-                    <li>This proof serves as immutable evidence of conversion agreement</li>
+                    <li>This receipt serves as immutable evidence of conversion agreement</li>
                     <li>All data is cryptographically signed and verifiable on-chain</li>
                     <li>The backend fetched the actual NDAU balance at submission time</li>
-                    <li>Keep this proof for your records in case of any disputes</li>
+                    <li>Keep this receipt for your records in case of any disputes</li>
                   </ul>
                 </div>
               </div>
@@ -498,6 +576,14 @@ export default function NdauConversionProofPage() {
             >
               <ExternalLink className="h-4 w-4" />
               Back to Conversion Page
+            </Button>
+            <Button
+              onClick={() => window.open(`/i/ndau-conversion`, "_self")}
+              variant="outline"
+              className="inline-flex items-center gap-2 ml-2"
+            >
+              <Wallet className="h-4 w-4" />
+              Convert with Another Account
             </Button>
           </div>
         </div>

@@ -10,9 +10,9 @@ CREATE TABLE `ndau_conversions` (
     `ndau_validation_key` TEXT NOT NULL,
     `txid` TEXT NULL,
     `status` VARCHAR(191) NOT NULL DEFAULT 'pending',
-    `ampedbio_timestamp` INTEGER NULL,
-    `document_hash` VARCHAR(255) NULL,
-    `ndau_timestamp` INTEGER NULL,
+    `ampedbio_timestamp` INTEGER NOT NULL,
+    `document_hash` VARCHAR(255) NOT NULL,
+    `ndau_timestamp` INTEGER NOT NULL,
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updated_at` DATETIME(3) NULL,
 

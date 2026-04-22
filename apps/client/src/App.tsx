@@ -8,7 +8,7 @@ import { PoolDebugPage } from "./pages/PoolDebugPage";
 import { PoolAPYDebugPage } from "./pages/PoolAPYDebugPage";
 import NetworkPage from "./pages/NetworkPage";
 import NdauConversionPage from "./pages/NdauConversionPage";
-import NdauConversionProofPage from "./pages/NdauConversionProofPage";
+import NdauConversionReceiptPage from "./pages/NdauConversionReceiptPage";
 import PublicLayout from "./components/layout/PublicLayout";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -143,10 +143,10 @@ function AppRouter() {
         }
       />
       <Route
-        path="/i/ndau-conversion/proof/:ndauAddress"
+        path="/i/ndau-conversion/receipt/:ndauAddress"
         element={
           <PublicLayout>
-            <NdauConversionProofPage />
+            <NdauConversionReceiptPage />
           </PublicLayout>
         }
       />

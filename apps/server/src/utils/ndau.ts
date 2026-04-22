@@ -2,6 +2,8 @@ import * as ed from "@noble/ed25519";
 import { createHash } from "crypto";
 import yaml from "yaml";
 
+const NDAU_TO_REVO_RATE = "6.872";
+
 const NDAU_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
 
 function base36Decode(s: string): Uint8Array {
@@ -198,9 +200,10 @@ export async function verifyConversionSignature(
   ndauAddress: string,
   revoAddress: string,
   ndauValidationKey: string,
-  ndauAmount?: string,
-  revoAmount?: string,
-  ndauTimestamp?: number
+  ndauAmount: string,
+  revoAmount: string,
+  ndauTimestamp: number,
+  documentHash: string
 ): Promise<{
   isValid: boolean;
   algorithm?: string;
@@ -213,20 +216,22 @@ export async function verifyConversionSignature(
 
     const sig = parseNdauSignature(ndauSignature);
 
-    const ndauAmountNum = ndauAmount ? parseFloat(ndauAmount) : 0;
-    const revoAmountValue = revoAmount || "0";
+    const ndauAmountNum = parseFloat(ndauAmount);
+    const revoAmountValue = revoAmount;
+    const hash = documentHash;
+    const timestamp = ndauTimestamp;
 
     const payload = {
       vote: "yes",
       proposal: {
         proposal_id: "ndau-to-revo-conversion",
-        proposal_heading: `I agree to convert ${ndauAmountNum.toFixed(6)} NDAU to ${revoAmountValue} REVO (rate: 1 NDAU = 10 REVO) to Revolution address: ${revoAddress}`,
+        proposal_heading: `I agree to convert ${ndauAmountNum} NDAU to ${revoAmountValue} REVO (rate: 1 NDAU = ${NDAU_TO_REVO_RATE} REVO) from ${ndauAddress} to ${revoAddress}. Document hash: ${hash}. Timestamp: ${timestamp}`,
         voting_option_id: 1,
         voting_option_heading: "Confirm Conversion",
       },
       wallet_address: ndauAddress,
       validation_key: ndauValidationKey,
-      timestamp: ndauTimestamp,
+      timestamp,
     };
 
     const payloadBase64 = Buffer.from(yaml.stringify(payload)).toString("base64");

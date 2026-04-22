@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { router, publicProcedure, privateProcedure, adminProcedure } from "../trpc/trpc";
-import { calculateRevoAmount } from "@ampedbio/constants";
+import { calculateRevoAmount, NDAU_TO_REVO_RATE } from "@ampedbio/constants";
 import { prisma } from "../services/DB";
 import { env } from "../env";
 import {
@@ -81,9 +81,9 @@ export const ndauConversionRouter = router({
           );
 
           if (data && data[ndauAddress] && data[ndauAddress].balance !== undefined) {
-            // NDAU balance is in nanondau (1 NDAU = 1,000,000,000 nanondau)
+            // NDAU balance is in nanondau (1 NDAU = 100,000,000 nanondau)
             const balanceInNanondau = parseFloat(data[ndauAddress].balance);
-            const balanceInNdau = balanceInNanondau / 1000000000;
+            const balanceInNdau = balanceInNanondau / 100000000;
 
             console.log(
               `[NDAU-BALANCE] Balance for ${ndauAddress}: ${balanceInNdau} NDAU (${balanceInNanondau} nanondau)`
@@ -169,18 +169,6 @@ export const ndauConversionRouter = router({
         throw new Error("A conversion request already exists for this NDAU address");
       }
 
-      const ampedbioMessage = `I agree to the terms of the document with hash ${documentHash} at ${ampedbioTimestamp}`;
-      const recoveredAddress = await recoverAddress({
-        hash: hashMessage(ampedbioMessage),
-        signature: ampedbioSignature as `0x${string}`,
-      });
-
-      if (recoveredAddress.toLowerCase() !== revoAddress.toLowerCase()) {
-        throw new Error(
-          "AmpedBio signature verification failed. The signature does not match the REVO address."
-        );
-      }
-
       let ndauAmount: string;
 
       try {
@@ -202,13 +190,31 @@ export const ndauConversionRouter = router({
 
         if (data && data[ndauAddress] && data[ndauAddress].balance !== undefined) {
           const balanceInNanondau = parseFloat(data[ndauAddress].balance);
-          const balanceInNdau = balanceInNanondau / 1000000000;
+          const balanceInNdau = balanceInNanondau / 100000000;
 
           if (balanceInNdau <= 0) {
             throw new Error("NDAU balance must be greater than 0");
           }
 
           ndauAmount = balanceInNdau.toString();
+
+          const accountData = data[ndauAddress];
+
+          if (
+            !accountData.validationKeys ||
+            !Array.isArray(accountData.validationKeys) ||
+            accountData.validationKeys.length === 0
+          ) {
+            throw new Error("No validation keys found for this NDAU account");
+          }
+
+          const blockchainValidationKey = accountData.validationKeys[0];
+
+          if (ndauValidationKey !== blockchainValidationKey) {
+            throw new Error(
+              "The validation keys are mismatched. The provided validation key does not match the key registered on the blockchain."
+            );
+          }
         } else {
           throw new Error("Invalid response from NDAU API");
         }
@@ -224,6 +230,18 @@ export const ndauConversionRouter = router({
 
       const revoAmount = calculateRevoAmount(ndauAmount);
 
+      const ampedbioMessage = `I agree to convert ${ndauAmount} NDAU to ${revoAmount} REVO (rate: 1 NDAU = ${NDAU_TO_REVO_RATE} REVO) from ${ndauAddress} to ${revoAddress}. Document hash: ${documentHash}. Timestamp: ${ampedbioTimestamp}`;
+      const recoveredAddress = await recoverAddress({
+        hash: hashMessage(ampedbioMessage),
+        signature: ampedbioSignature as `0x${string}`,
+      });
+
+      if (recoveredAddress.toLowerCase() !== revoAddress.toLowerCase()) {
+        throw new Error(
+          "AmpedBio signature verification failed. The signature does not match the REVO address."
+        );
+      }
+
       const ndauVerification = await verifyConversionSignature(
         ndauSignature,
         ndauAddress,
@@ -231,7 +249,8 @@ export const ndauConversionRouter = router({
         ndauValidationKey,
         ndauAmount,
         revoAmount,
-        ndauTimestamp
+        ndauTimestamp,
+        documentHash
       );
 
       if (!ndauVerification.isValid) {
@@ -476,7 +495,11 @@ export const ndauConversionRouter = router({
         conversion.ndau_signature,
         conversion.ndau_address,
         conversion.revo_address,
-        conversion.ndau_validation_key
+        conversion.ndau_validation_key,
+        conversion.ndau_amount,
+        conversion.revo_amount,
+        conversion.ndau_timestamp,
+        conversion.document_hash
       );
 
       return {
