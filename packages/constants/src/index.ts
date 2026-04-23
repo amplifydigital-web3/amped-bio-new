@@ -17,3 +17,4 @@ export * from "./chains";
 export * from "./site-settings";
 export * from "./referral";
 export * from "./ndau-conversion";
+export * from "./ndauConversionMessage";

@@ -316,8 +316,7 @@ model NdauConversion {
   created_at           DateTime  @default(now())
   updated_at           DateTime? @updatedAt
   document_hash        String    @map("document_hash") @db.VarChar(255)
-  ampedbio_timestamp   Int       @map("ampedbio_timestamp")
-  ndau_timestamp       Int       @map("ndau_timestamp")
+  timestamp            Int
 
   @@unique([ndau_address])
   @@index([status])

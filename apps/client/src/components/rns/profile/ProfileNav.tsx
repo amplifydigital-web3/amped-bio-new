@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/Button";
 import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
 
 interface ProfileNavProps {
@@ -8,10 +7,7 @@ interface ProfileNavProps {
   addressFull?: string;
 }
 
-export const ProfileNav = ({
-  name,
-  activeTab = "details",
-}: ProfileNavProps) => {
+export const ProfileNav = ({ name, activeTab = "details" }: ProfileNavProps) => {
   const { navigateToProfile, navigateToProfileOwnership, navigateToProfileMore } =
     useRNSNavigation();
 

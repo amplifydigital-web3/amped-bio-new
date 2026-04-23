@@ -1,7 +1,7 @@
-import React from 'react';
+import React from "react";
 
 interface SkeletonLoaderProps {
-  variant?: 'text' | 'card' | 'avatar' | 'button' | 'input' | 'pill';
+  variant?: "text" | "card" | "avatar" | "button" | "input" | "pill";
   width?: string;
   height?: string;
   className?: string;
@@ -10,23 +10,23 @@ interface SkeletonLoaderProps {
 }
 
 const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({
-  variant = 'text',
+  variant = "text",
   width,
   height,
-  className = '',
+  className = "",
   count = 1,
-  animated = true
+  animated = true,
 }) => {
   const baseClasses = `bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 
-    ${animated ? 'animate-shimmer' : ''} ${className}`;
+    ${animated ? "animate-shimmer" : ""} ${className}`;
 
   const variants = {
-    text: 'h-4 rounded-md',
-    card: 'h-48 rounded-2xl',
-    avatar: 'w-12 h-12 rounded-full',
-    button: 'h-12 rounded-xl',
-    input: 'h-14 rounded-2xl',
-    pill: 'h-10 rounded-full'
+    text: "h-4 rounded-md",
+    card: "h-48 rounded-2xl",
+    avatar: "w-12 h-12 rounded-full",
+    button: "h-12 rounded-xl",
+    input: "h-14 rounded-2xl",
+    pill: "h-10 rounded-full",
   };
 
   const getStyle = () => {
@@ -39,11 +39,7 @@ const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({
   return (
     <>
       {Array.from({ length: count }).map((_, index) => (
-        <div
-          key={index}
-          className={`${baseClasses} ${variants[variant]}`}
-          style={getStyle()}
-        />
+        <div key={index} className={`${baseClasses} ${variants[variant]}`} style={getStyle()} />
       ))}
     </>
   );

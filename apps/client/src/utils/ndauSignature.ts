@@ -1,6 +1,9 @@
 import * as secp256k1 from "@noble/secp256k1";
 import * as ed25519 from "@noble/ed25519";
-import yaml from "yaml";
+import {
+  type NdauConversionPayload,
+  createNdauConversionPayload as createSharedNdauConversionPayload,
+} from "@ampedbio/constants";
 
 const BASE32_ALPHABET = "abcdefghijklmnopqrstuvwxyz234567";
 
@@ -56,19 +59,6 @@ function parseNdauSignature(ndauSignature: string) {
   };
 }
 
-export interface NdauConversionPayload {
-  vote: string;
-  proposal: {
-    proposal_id: string;
-    proposal_heading: string;
-    voting_option_id: number;
-    voting_option_heading: string;
-  };
-  wallet_address: string;
-  validation_key: string;
-  timestamp: number;
-}
-
 export function createNdauConversionPayload(
   ndauAddress: string,
   revoAddress: string,
@@ -78,26 +68,19 @@ export function createNdauConversionPayload(
   timestamp: number,
   documentHash: string
 ): NdauConversionPayload {
-  return {
-    vote: "yes",
-    proposal: {
-      proposal_id: "ndau-to-revo-conversion",
-      proposal_heading: `I agree to convert ${ndauAmount} NDAU to ${revoAmount} REVO (rate: 1 NDAU = 1 REVO) from ${ndauAddress} to ${revoAddress}. Document hash: ${documentHash}. Timestamp: ${timestamp}`,
-      voting_option_id: 1,
-      voting_option_heading: "Confirm Conversion",
-    },
-    wallet_address: ndauAddress,
-    validation_key: ndauValidationKey,
+  return createSharedNdauConversionPayload({
+    ndauAddress,
+    revoAddress,
+    ndauValidationKey,
+    ndauAmount,
+    revoAmount,
     timestamp,
-  };
-}
-
-export function payloadToYaml(payload: NdauConversionPayload): string {
-  return yaml.stringify(payload);
+    documentHash,
+  });
 }
 
 export async function verifyNdauSignature(
-  payload: NdauConversionPayload,
+  payloadYaml: string,
   signature: string,
   ndauAccount: string
 ): Promise<boolean> {
@@ -109,7 +92,6 @@ export async function verifyNdauSignature(
       return false;
     }
 
-    const payloadYaml = payloadToYaml(payload);
     const payloadBytes = new TextEncoder().encode(payloadYaml);
 
     let isValid = false;

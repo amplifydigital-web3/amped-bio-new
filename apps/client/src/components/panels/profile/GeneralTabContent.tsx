@@ -13,9 +13,10 @@ export function GeneralTabContent() {
   const { authUser } = useAuth();
   const { address: accountAddress, isConnected } = useAccount();
   const showRNS = import.meta.env.VITE_SHOW_RNS === "true";
-  const { revoNames: revolutionNames, isFetching } = showRNS
-    ? useGetAllRegisteredNames(accountAddress, isConnected)
-    : { revoNames: null, isFetching: false };
+  const { revoNames: revolutionNames, isFetching } = useGetAllRegisteredNames(
+    accountAddress,
+    isConnected
+  );
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
 
   const handleProfileUpdate = (field: string, value: string) => {

@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { router, publicProcedure, privateProcedure, adminProcedure } from "../trpc/trpc";
-import { calculateRevoAmount, NDAU_TO_REVO_RATE } from "@ampedbio/constants";
+import {
+  calculateRevoAmount,
+  NDAU_TO_REVO_RATE,
+  createConversionMessage,
+  createNdauConversionPayloadYaml,
+} from "@ampedbio/constants";
 import { prisma } from "../services/DB";
 import { env } from "../env";
 import {
@@ -17,6 +22,44 @@ import { verifyConversionSignature, verifyNdauSignature } from "../utils/ndau";
 import { recoverAddress, hashMessage } from "viem";
 
 export const ndauConversionRouter = router({
+  getNdauConversionPayloadYaml: privateProcedure
+    .input(
+      z.object({
+        ndauAddress: z.string().min(1, "NDAU address is required"),
+        revoAddress: z.string().min(1, "REVO address is required"),
+        ndauAmount: z.string().min(1, "NDAU amount is required"),
+        revoAmount: z.string().min(1, "REVO amount is required"),
+        ndauValidationKey: z.string().min(1, "NDAU validation key is required"),
+        timestamp: z.number().min(1, "Timestamp is required"),
+        documentHash: z.string().min(1, "Document hash is required"),
+      })
+    )
+    .query(async ({ input }) => {
+      const {
+        ndauAddress,
+        revoAddress,
+        ndauAmount,
+        revoAmount,
+        ndauValidationKey,
+        timestamp,
+        documentHash,
+      } = input;
+
+      const payloadYaml = createNdauConversionPayloadYaml({
+        ndauAddress,
+        revoAddress,
+        ndauValidationKey,
+        ndauAmount,
+        revoAmount,
+        timestamp,
+        documentHash,
+      });
+
+      return {
+        payloadYaml,
+      };
+    }),
+
   checkExistingConversion: privateProcedure
     .input(
       z.object({
@@ -145,8 +188,7 @@ export const ndauConversionRouter = router({
         ndauSignature: z.string().min(1, "NDAU signature is required"),
         ndauValidationKey: z.string().min(1, "NDAU validation key is required"),
         documentHash: z.string().min(1, "Document hash is required"),
-        ampedbioTimestamp: z.number().min(1, "AmpedBio timestamp is required"),
-        ndauTimestamp: z.number().min(1, "NDAU timestamp is required"),
+        timestamp: z.number().min(1, "Timestamp is required"),
       })
     )
     .mutation(async ({ input }) => {
@@ -157,8 +199,7 @@ export const ndauConversionRouter = router({
         ndauSignature,
         ndauValidationKey,
         documentHash,
-        ampedbioTimestamp,
-        ndauTimestamp,
+        timestamp,
       } = input;
 
       const existing = await prisma.ndauConversion.findFirst({
@@ -230,7 +271,14 @@ export const ndauConversionRouter = router({
 
       const revoAmount = calculateRevoAmount(ndauAmount);
 
-      const ampedbioMessage = `I agree to convert ${ndauAmount} NDAU to ${revoAmount} REVO (rate: 1 NDAU = ${NDAU_TO_REVO_RATE} REVO) from ${ndauAddress} to ${revoAddress}. Document hash: ${documentHash}. Timestamp: ${ampedbioTimestamp}`;
+      const ampedbioMessage = createConversionMessage({
+        ndauAddress,
+        revoAddress,
+        ndauAmount,
+        revoAmount,
+        documentHash,
+        timestamp,
+      });
       const recoveredAddress = await recoverAddress({
         hash: hashMessage(ampedbioMessage),
         signature: ampedbioSignature as `0x${string}`,
@@ -249,7 +297,7 @@ export const ndauConversionRouter = router({
         ndauValidationKey,
         ndauAmount,
         revoAmount,
-        ndauTimestamp,
+        timestamp,
         documentHash
       );
 
@@ -270,8 +318,7 @@ export const ndauConversionRouter = router({
           ndau_validation_key: ndauValidationKey,
           status: "pending",
           document_hash: documentHash,
-          ampedbio_timestamp: ampedbioTimestamp,
-          ndau_timestamp: ndauTimestamp,
+          timestamp,
         },
       });
 
@@ -289,8 +336,7 @@ export const ndauConversionRouter = router({
           status: conversion.status,
           createdAt: conversion.created_at.toISOString(),
           documentHash: conversion.document_hash,
-          ampedbioTimestamp: conversion.ampedbio_timestamp,
-          ndauTimestamp: conversion.ndau_timestamp,
+          timestamp: conversion.timestamp,
         },
       };
     }),
@@ -467,8 +513,7 @@ export const ndauConversionRouter = router({
         createdAt: conversion.created_at.toISOString(),
         updatedAt: conversion.updated_at?.toISOString() || null,
         documentHash: conversion.document_hash,
-        ampedbioTimestamp: conversion.ampedbio_timestamp,
-        ndauTimestamp: conversion.ndau_timestamp,
+        timestamp: conversion.timestamp,
       };
     }),
 
@@ -498,7 +543,7 @@ export const ndauConversionRouter = router({
         conversion.ndau_validation_key,
         conversion.ndau_amount,
         conversion.revo_amount,
-        conversion.ndau_timestamp,
+        conversion.timestamp,
         conversion.document_hash
       );
 

@@ -11,14 +11,11 @@ import {
   Clock,
   FileText,
   XCircle,
-  ArrowRight,
-  PenTool,
-  Send,
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
-import { verifyNdauSignature, createNdauConversionPayload } from "@/utils/ndauSignature";
+import { verifyNdauSignature } from "@/utils/ndauSignature";
 
 type ProofStep = {
   num: number;
@@ -27,7 +24,6 @@ type ProofStep = {
   completed: boolean;
   timestamp?: number;
 };
-import { skipToken } from "@tanstack/react-query";
 
 export default function NdauConversionReceiptPage() {
   const params = useParams<{ ndauAddress: string }>();
@@ -52,23 +48,27 @@ export default function NdauConversionReceiptPage() {
         conversion?.revoAddress &&
         conversion?.ndauAmount &&
         conversion?.revoAmount &&
-        conversion?.ndauTimestamp &&
+        conversion?.timestamp &&
         conversion?.documentHash
       ) {
         setIsVerifyingSignature(true);
         try {
-          const payload = createNdauConversionPayload(
-            conversion.ndauAddress,
-            conversion.revoAddress,
-            conversion.ndauAddress,
-            conversion.ndauAmount,
-            conversion.revoAmount,
-            conversion.ndauTimestamp,
-            conversion.documentHash
-          );
+          const payloadResult = await trpc.ndauConversion.getNdauConversionPayloadYaml.query({
+            ndauAddress: conversion.ndauAddress,
+            revoAddress: conversion.revoAddress,
+            ndauAmount: conversion.ndauAmount,
+            revoAmount: conversion.revoAmount,
+            ndauValidationKey: conversion.ndauAddress,
+            timestamp: conversion.timestamp,
+            documentHash: conversion.documentHash,
+          });
+
+          if (!payloadResult?.payloadYaml) {
+            throw new Error("Failed to get payload YAML from server");
+          }
 
           const isValid = await verifyNdauSignature(
-            payload,
+            payloadResult.payloadYaml,
             conversion.ndauSignature,
             conversion.ndauAddress
           );
@@ -122,10 +122,7 @@ export default function NdauConversionReceiptPage() {
     }
   };
 
-  const ampedbioSignedTimestamp =
-    conversion?.ampedbioTimestamp || extractTimestampFromSignature(conversion?.ampedbioSignature);
-  const ndauSignedTimestamp =
-    conversion?.ndauTimestamp || extractTimestampFromSignature(conversion?.ndauSignature);
+  const conversionTimestamp = conversion?.timestamp;
 
   const steps: ProofStep[] = [
     {
@@ -143,9 +140,16 @@ export default function NdauConversionReceiptPage() {
     {
       num: 3,
       label: "Sign Agreement Document",
-      description: `User signed the NDAU to REVO Token Conversion Agreement with document hash`,
+      description: `User signed NDAU to REVO Token Conversion Agreement with document hash`,
       completed: !!conversion?.ampedbioSignature,
-      timestamp: ampedbioSignedTimestamp || undefined,
+      timestamp: conversionTimestamp || undefined,
+    },
+    {
+      num: 4,
+      label: "Sign Conversion",
+      description: `User agreed to convert ${parseFloat(conversion?.ndauAmount || "0").toFixed(6)} NDAU to ${conversion?.revoAmount || "0"} REVO`,
+      completed: !!conversion?.ndauSignature,
+      timestamp: conversionTimestamp || undefined,
     },
     {
       num: 4,
@@ -375,10 +379,10 @@ export default function NdauConversionReceiptPage() {
                   <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                     AmpedBio Wallet Signature (Document Agreement):
                   </p>
-                  {ampedbioSignedTimestamp && (
+                  {conversionTimestamp && (
                     <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
                       <Clock className="h-3 w-3" />
-                      <span>{formatTimestamp(ampedbioSignedTimestamp)}</span>
+                      <span>{formatTimestamp(conversionTimestamp)}</span>
                     </div>
                   )}
                 </div>
@@ -401,13 +405,86 @@ export default function NdauConversionReceiptPage() {
                   </Button>
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                  This signature proves the AmpedBio wallet owner agreed to the terms of the NDAU to
-                  REVO Conversion Agreement document by signing its hash.
+                  This signature proves AmpedBio wallet owner agreed to terms of NDAU to REVO
+                  Conversion Agreement document by signing its hash.
                 </p>
-                {ampedbioSignedTimestamp && (
+                {conversionTimestamp && (
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    <strong>Unix Timestamp:</strong> {ampedbioSignedTimestamp}
+                    <strong>Unix Timestamp:</strong> {conversionTimestamp}
                   </p>
+                )}
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    NDAU Wallet Signature (Conversion):
+                  </p>
+                  {conversionTimestamp && (
+                    <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                      <Clock className="h-3 w-3" />
+                      <span>{formatTimestamp(conversionTimestamp)}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-start gap-2 mb-2">
+                  <code
+                    className="flex-1 text-xs bg-gray-100 dark:bg-gray-900 px-3 py-2 rounded font-mono text-gray-900 dark:text-white break-all"
+                    title={conversion.ndauSignature}
+                  >
+                    {truncateSignature(conversion.ndauSignature)}
+                  </code>
+                  <Button
+                    onClick={() => copyToClipboardSafe(conversion.ndauSignature, "ndauSignature")}
+                    variant="outline"
+                    size="sm"
+                    className="flex-shrink-0"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    This signature proves NDAU wallet owner agreed to convert{" "}
+                    {parseFloat(conversion.ndauAmount).toFixed(6)} NDAU to {conversion.revoAmount}{" "}
+                    REVO.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    {isVerifyingSignature ? (
+                      <div className="flex items-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin text-blue-600 dark:text-blue-400" />
+                        <span className="text-xs text-blue-600 dark:text-blue-400">
+                          Verifying...
+                        </span>
+                      </div>
+                    ) : signatureValid === true ? (
+                      <div className="flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400" />
+                        <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                          Verified
+                        </span>
+                      </div>
+                    ) : signatureValid === false ? (
+                      <div className="flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3 text-red-600 dark:text-red-400" />
+                        <span className="text-xs text-red-600 dark:text-red-400 font-medium">
+                          Invalid
+                        </span>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+                {conversionTimestamp && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <strong>Unix Timestamp:</strong> {conversionTimestamp}
+                  </p>
+                )}
+                {signatureValid === true && conversion.ndauAddress && (
+                  <div className="mt-2 bg-green-50 dark:bg-green-900/20 rounded p-2 border border-green-200 dark:border-green-800">
+                    <p className="text-xs text-green-800 dark:text-green-200">
+                      <strong>Signed by:</strong> {truncateAddress(conversion.ndauAddress)}
+                    </p>
+                  </div>
                 )}
               </div>
 

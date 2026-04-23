@@ -9,12 +9,7 @@ import { NDAU_TO_REVO_RATE, calculateRevoAmount } from "@ampedbio/constants";
 import { toast } from "sonner";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useSignMessage } from "wagmi";
-import {
-  verifyNdauSignature,
-  createNdauConversionPayload,
-  payloadToYaml,
-  type NdauConversionPayload,
-} from "@/utils/ndauSignature";
+import { verifyNdauSignature } from "@/utils/ndauSignature";
 import {
   CheckCircle2,
   AlertCircle,
@@ -123,6 +118,21 @@ export default function NdauConversionPage() {
   const { data: ndauBalanceData, refetch: fetchNdauBalance } = useQuery(
     trpc.ndauConversion.getNdauBalance.queryOptions(
       { ndauAddress: ndauAddress || "" },
+      { enabled: false }
+    )
+  );
+
+  const { data: payloadYamlData, refetch: fetchPayloadYaml } = useQuery(
+    trpc.ndauConversion.getNdauConversionPayloadYaml.queryOptions(
+      {
+        ndauAddress: ndauAddress || "",
+        revoAddress: authUser?.wallet || "",
+        ndauAmount: ndauBalance || "0",
+        revoAmount: revoAmount || "0",
+        ndauValidationKey: ndauValidationKey || ndauAddress || "",
+        timestamp: conversionTimestamp || 0,
+        documentHash: documentHash || "",
+      },
       { enabled: false }
     )
   );
@@ -260,34 +270,35 @@ export default function NdauConversionPage() {
     const ndauAmountNum = parseFloat(ndauAmount);
     const timestamp = conversionTimestamp || Math.floor(Date.now() / 1000);
 
-    const payload = createNdauConversionPayload(
-      ndauAddress,
-      authUser.wallet,
-      ndauValidationKey || ndauAddress,
-      ndauAmountNum.toString(),
-      revoAmount || "0",
-      timestamp,
-      documentHash || ""
-    );
-
-    const payloadYaml = payloadToYaml(payload);
-
-    console.log("[NDAU-CONVERSION] Payload YAML:", payloadYaml);
-
-    const payloadBase64 = btoa(payloadYaml);
-
-    console.log("[NDAU-CONVERSION] Payload base64:", payloadBase64);
-
     try {
-      console.log("[NDAU-CONVERSION] Calling requestSignature...");
-      const result = await requestSignature(payloadBase64, ndauAddress);
-      console.log("[NDAU-CONVERSION] requestSignature resolved:", result);
-      setNdauSignature(result.signature);
-      setNdauTimestamp(timestamp);
-      toast.success("NDAU account signed successfully");
+      const payloadResult = await fetchPayloadYaml();
+
+      if (!payloadResult.data?.payloadYaml) {
+        throw new Error("Failed to get payload YAML from server");
+      }
+
+      const payloadYaml = payloadResult.data.payloadYaml;
+
+      console.log("[NDAU-CONVERSION] Payload YAML:", payloadYaml);
+
+      const payloadBase64 = btoa(payloadYaml);
+
+      console.log("[NDAU-CONVERSION] Payload base64:", payloadBase64);
+
+      try {
+        console.log("[NDAU-CONVERSION] Calling requestSignature...");
+        const result = await requestSignature(payloadBase64, ndauAddress);
+        console.log("[NDAU-CONVERSION] requestSignature resolved:", result);
+        setNdauSignature(result.signature);
+        setNdauTimestamp(timestamp);
+        toast.success("NDAU account signed successfully");
+      } catch (err) {
+        console.error("[NDAU-CONVERSION] requestSignature failed:", err);
+        toast.error((err as Error).message || "Failed to sign with NDAU account");
+      }
     } catch (err) {
-      console.error("[NDAU-CONVERSION] requestSignature failed:", err);
-      toast.error((err as Error).message || "Failed to sign with NDAU account");
+      console.error("[NDAU-CONVERSION] Failed to get payload YAML:", err);
+      toast.error((err as Error).message || "Failed to prepare signature payload");
     }
   }, [
     ndauAddress,
@@ -298,6 +309,7 @@ export default function NdauConversionPage() {
     revoAmount,
     conversionTimestamp,
     documentHash,
+    fetchPayloadYaml,
   ]);
 
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -332,19 +344,18 @@ export default function NdauConversionPage() {
 
     // Verify ndau signature before submitting
     const timestamp = ndauTimestamp || conversionTimestamp || Math.floor(Date.now() / 1000);
-    const payload = createNdauConversionPayload(
-      ndauAddress,
-      authUser.wallet,
-      ndauValidationKey || ndauAddress,
-      ndauBalanceNum.toString(),
-      revoAmount || "0",
-      timestamp,
-      documentHash || ""
-    );
 
     setIsVerifyingSignature(true);
     try {
-      const isValid = await verifyNdauSignature(payload, ndauSignature, ndauAddress);
+      const payloadResult = await fetchPayloadYaml();
+
+      if (!payloadResult.data?.payloadYaml) {
+        throw new Error("Failed to get payload YAML from server");
+      }
+
+      const payloadYaml = payloadResult.data.payloadYaml;
+
+      const isValid = await verifyNdauSignature(payloadYaml, ndauSignature, ndauAddress);
       setSignatureValid(isValid);
 
       if (!isValid) {
@@ -369,8 +380,7 @@ export default function NdauConversionPage() {
       ndauSignature,
       ndauValidationKey: ndauValidationKey || ndauAddress,
       documentHash: documentHash || "",
-      ampedbioTimestamp: ampedbioTimestamp || 0,
-      ndauTimestamp: timestamp,
+      timestamp,
     });
   };
 

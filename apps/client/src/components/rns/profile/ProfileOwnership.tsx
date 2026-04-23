@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { HelpCircle, Send, FastForward, RefreshCcw, Copy, Info, Loader } from "lucide-react";
+import { HelpCircle, Send, FastForward, RefreshCcw, Copy, Loader } from "lucide-react";
 import TransferNameModal from "@/components/rns/modal/TransferNameModal";
 import ExtendRegistrationModal from "@/components/rns/modal/ExtendRegistrationModal";
 import { formatDateTime, scannerURL } from "@/utils/rns";

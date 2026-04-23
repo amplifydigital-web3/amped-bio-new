@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { ParticlesBackground } from "./particles/ParticlesBackground";
 import { cn } from "../utils/cn";
 import {
@@ -18,7 +18,6 @@ import { Theme, UserProfile } from "@/types/editor";
 import { trpcClient } from "@/utils/trpc";
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
-import { setCookie } from "@/utils/cookies";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
 
 // Helper function to extract the root domain from a URL
