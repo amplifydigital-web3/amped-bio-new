@@ -1,6 +1,5 @@
 import * as ed from "@noble/ed25519";
 import { createHash } from "crypto";
-import yaml from "yaml";
 import {
   createNdauConversionPayloadYaml as createSharedNdauConversionPayloadYaml,
   NDAU_TO_REVO_RATE,

@@ -122,21 +122,6 @@ export default function NdauConversionPage() {
     )
   );
 
-  const { data: payloadYamlData, refetch: fetchPayloadYaml } = useQuery(
-    trpc.ndauConversion.getNdauConversionPayloadYaml.queryOptions(
-      {
-        ndauAddress: ndauAddress || "",
-        revoAddress: authUser?.wallet || "",
-        ndauAmount: ndauBalance || "0",
-        revoAmount: revoAmount || "0",
-        ndauValidationKey: ndauValidationKey || ndauAddress || "",
-        timestamp: conversionTimestamp || 0,
-        documentHash: documentHash || "",
-      },
-      { enabled: false }
-    )
-  );
-
   useEffect(() => {
     if (ndauBalanceData?.success && ndauBalanceData.balance) {
       setNdauBalance(ndauBalanceData.balance);
@@ -271,13 +256,15 @@ export default function NdauConversionPage() {
     const timestamp = conversionTimestamp || Math.floor(Date.now() / 1000);
 
     try {
-      const payloadResult = await fetchPayloadYaml();
+      const payloadResult = await trpc.ndauConversion.getConversion.query({
+        ndauAddress,
+      });
 
-      if (!payloadResult.data?.payloadYaml) {
+      if (!payloadResult?.payloadYaml) {
         throw new Error("Failed to get payload YAML from server");
       }
 
-      const payloadYaml = payloadResult.data.payloadYaml;
+      const payloadYaml = payloadResult.payloadYaml;
 
       console.log("[NDAU-CONVERSION] Payload YAML:", payloadYaml);
 
@@ -309,7 +296,6 @@ export default function NdauConversionPage() {
     revoAmount,
     conversionTimestamp,
     documentHash,
-    fetchPayloadYaml,
   ]);
 
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -347,13 +333,15 @@ export default function NdauConversionPage() {
 
     setIsVerifyingSignature(true);
     try {
-      const payloadResult = await fetchPayloadYaml();
+      const payloadResult = await trpc.ndauConversion.getConversion.query({
+        ndauAddress,
+      });
 
-      if (!payloadResult.data?.payloadYaml) {
+      if (!payloadResult?.payloadYaml) {
         throw new Error("Failed to get payload YAML from server");
       }
 
-      const payloadYaml = payloadResult.data.payloadYaml;
+      const payloadYaml = payloadResult.payloadYaml;
 
       const isValid = await verifyNdauSignature(payloadYaml, ndauSignature, ndauAddress);
       setSignatureValid(isValid);

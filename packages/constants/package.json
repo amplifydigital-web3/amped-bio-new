@@ -10,7 +10,7 @@
     "dist/**"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts --external zod --external yaml",
+    "build": "tsup src/index.ts --format esm,cjs --dts --external zod",
     "dev": "tsup src/index.ts --format esm,cjs --watch --dts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix --exit-on-fatal-error",
@@ -26,6 +26,7 @@
     "typescript": "5.9.2"
   },
   "dependencies": {
-    "zod": "3.25.64"
+    "zod": "3.25.64",
+    "yaml": "^2.5.0"
   }
 }

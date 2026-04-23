@@ -53,22 +53,12 @@ export default function NdauConversionReceiptPage() {
       ) {
         setIsVerifyingSignature(true);
         try {
-          const payloadResult = await trpc.ndauConversion.getNdauConversionPayloadYaml.query({
-            ndauAddress: conversion.ndauAddress,
-            revoAddress: conversion.revoAddress,
-            ndauAmount: conversion.ndauAmount,
-            revoAmount: conversion.revoAmount,
-            ndauValidationKey: conversion.ndauAddress,
-            timestamp: conversion.timestamp,
-            documentHash: conversion.documentHash,
-          });
-
-          if (!payloadResult?.payloadYaml) {
-            throw new Error("Failed to get payload YAML from server");
+          if (!conversion.payloadYaml) {
+            throw new Error("Payload YAML not available in conversion data");
           }
 
           const isValid = await verifyNdauSignature(
-            payloadResult.payloadYaml,
+            conversion.payloadYaml,
             conversion.ndauSignature,
             conversion.ndauAddress
           );
