@@ -3,13 +3,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNdauWallet } from "@/ndau-wallet/contexts/NdauWalletContext";
 import { useNdauSigner } from "@/ndau-wallet/hooks/useNdauSigner";
 import { NdauConnect } from "@/ndau-wallet/components/NdauConnect";
-import { trpc } from "@/utils/trpc/trpc";
+import { trpc, trpcClient } from "@/utils/trpc/trpc";
 import { Button } from "@/components/ui/Button";
 import { NDAU_TO_REVO_RATE, calculateRevoAmount } from "@ampedbio/constants";
 import { toast } from "sonner";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useSignMessage } from "wagmi";
-import { verifyNdauSignature } from "@/utils/ndauSignature";
+
 import {
   CheckCircle2,
   AlertCircle,
@@ -94,8 +94,6 @@ export default function NdauConversionPage() {
   const [conversionTimestamp, setConversionTimestamp] = useState<number | null>(null);
   const [documentHash, setDocumentHash] = useState<string | null>(null);
   const [isCalculatingHash, setIsCalculatingHash] = useState(false);
-  const [signatureValid, setSignatureValid] = useState<boolean | null>(null);
-  const [isVerifyingSignature, setIsVerifyingSignature] = useState(false);
   const { requestSignature, isSigning: isNdauSigning, remainingSeconds } = useNdauSigner();
 
   const isAmpedbioConnected = !!authUser?.wallet;
@@ -256,8 +254,14 @@ export default function NdauConversionPage() {
     const timestamp = conversionTimestamp || Math.floor(Date.now() / 1000);
 
     try {
-      const payloadResult = await trpc.ndauConversion.getConversion.query({
+      const payloadResult = await trpcClient.ndauConversion.getConversionPayload.query({
         ndauAddress,
+        revoAddress: authUser.wallet,
+        ndauAmount,
+        revoAmount: revoAmount || "0",
+        documentHash: documentHash || "",
+        timestamp,
+        ndauValidationKey: ndauValidationKey || undefined,
       });
 
       if (!payloadResult?.payloadYaml) {
@@ -330,36 +334,6 @@ export default function NdauConversionPage() {
 
     // Verify ndau signature before submitting
     const timestamp = ndauTimestamp || conversionTimestamp || Math.floor(Date.now() / 1000);
-
-    setIsVerifyingSignature(true);
-    try {
-      const payloadResult = await trpc.ndauConversion.getConversion.query({
-        ndauAddress,
-      });
-
-      if (!payloadResult?.payloadYaml) {
-        throw new Error("Failed to get payload YAML from server");
-      }
-
-      const payloadYaml = payloadResult.payloadYaml;
-
-      const isValid = await verifyNdauSignature(payloadYaml, ndauSignature, ndauAddress);
-      setSignatureValid(isValid);
-
-      if (!isValid) {
-        toast.error("Invalid ndau signature. Please verify your ndau account and try again.");
-        setIsVerifyingSignature(false);
-        return;
-      }
-      toast.success("ndau signature verified successfully");
-    } catch (error) {
-      console.error("Error verifying ndau signature:", error);
-      toast.error("Failed to verify ndau signature");
-      setIsVerifyingSignature(false);
-      return;
-    } finally {
-      setIsVerifyingSignature(false);
-    }
 
     submitMutation.mutate({
       ndauAddress,
@@ -917,45 +891,6 @@ export default function NdauConversionPage() {
                       {ndauSignature ? truncateSignature(ndauSignature) : "-"}
                     </span>
                   </div>
-                  <div className="flex justify-between items-start">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      Signature Verification:
-                    </span>
-                    <div className="flex items-center gap-2">
-                      {isVerifyingSignature ? (
-                        <div className="flex items-center gap-2">
-                          <Loader2 className="h-4 w-4 animate-spin text-blue-600 dark:text-blue-400" />
-                          <span className="text-sm text-blue-600 dark:text-blue-400">
-                            Verifying...
-                          </span>
-                        </div>
-                      ) : signatureValid === true ? (
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-                          <span className="text-sm text-green-600 dark:text-green-400 font-medium">
-                            Valid
-                          </span>
-                        </div>
-                      ) : signatureValid === false ? (
-                        <div className="flex items-center gap-2">
-                          <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
-                          <span className="text-sm text-red-600 dark:text-red-400 font-medium">
-                            Invalid
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-sm text-gray-400">Pending verification</span>
-                      )}
-                    </div>
-                  </div>
-                  {signatureValid === true && ndauAddress && (
-                    <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 border border-green-200 dark:border-green-800">
-                      <p className="text-xs text-green-800 dark:text-green-200">
-                        <strong>Verified by:</strong> {ndauAddress.slice(0, 12)}...
-                        {ndauAddress.slice(-8)}
-                      </p>
-                    </div>
-                  )}
                 </div>
 
                 <Button
@@ -963,7 +898,7 @@ export default function NdauConversionPage() {
                     setSubmitError(null);
                     handleSubmit();
                   }}
-                  disabled={submitMutation.isPending || alreadySubmitted || isVerifyingSignature}
+                  disabled={submitMutation.isPending || alreadySubmitted}
                 >
                   {submitMutation.isPending ? (
                     <>

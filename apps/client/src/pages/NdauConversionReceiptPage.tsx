@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams } from "react-router";
 import { trpc } from "@/utils/trpc/trpc";
 import { Button } from "@/components/ui/Button";
@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
-import { verifyNdauSignature } from "@/utils/ndauSignature";
 
 type ProofStep = {
   num: number;
@@ -37,43 +36,17 @@ export default function NdauConversionReceiptPage() {
   );
 
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const [signatureValid, setSignatureValid] = useState<boolean | null>(null);
-  const [isVerifyingSignature, setIsVerifyingSignature] = useState(false);
 
-  useEffect(() => {
-    const verifySignature = async () => {
-      if (
-        conversion?.ndauSignature &&
-        conversion?.ndauAddress &&
-        conversion?.revoAddress &&
-        conversion?.ndauAmount &&
-        conversion?.revoAmount &&
-        conversion?.timestamp &&
-        conversion?.documentHash
-      ) {
-        setIsVerifyingSignature(true);
-        try {
-          if (!conversion.payloadYaml) {
-            throw new Error("Payload YAML not available in conversion data");
-          }
+  const { data: verificationResult, isLoading: isVerifyingSignature } = useQuery(
+    trpc.ndauConversion.verifyNdauSignature.queryOptions(
+      { ndauAddress: ndauAddressParam },
+      { enabled: !!ndauAddressParam && !!conversion?.ndauSignature }
+    )
+  );
 
-          const isValid = await verifyNdauSignature(
-            conversion.payloadYaml,
-            conversion.ndauSignature,
-            conversion.ndauAddress
-          );
-          setSignatureValid(isValid);
-        } catch (error) {
-          console.error("Error verifying signature:", error);
-          setSignatureValid(false);
-        } finally {
-          setIsVerifyingSignature(false);
-        }
-      }
-    };
-
-    verifySignature();
-  }, [conversion]);
+  const signatureValid = verificationResult?.found
+    ? verificationResult.isValid
+    : null;
 
   const copyToClipboardSafe = async (text: string | null | undefined, fieldName: string) => {
     if (!text) return;

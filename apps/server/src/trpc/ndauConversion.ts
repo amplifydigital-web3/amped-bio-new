@@ -4,6 +4,7 @@ import {
   calculateRevoAmount,
   NDAU_TO_REVO_RATE,
   createConversionMessage,
+  createNdauConversionPayloadYaml,
 } from "@ampedbio/constants";
 import { prisma } from "../services/DB";
 import { env } from "../env";
@@ -163,17 +164,29 @@ export const ndauConversionRouter = router({
         timestamp,
       } = input;
 
+      console.log("[NDAU-CONVERSION] submitConversion called", {
+        ndauAddress,
+        revoAddress,
+        ndauValidationKey,
+        documentHash,
+        timestamp,
+        ampedbioSignatureLength: ampedbioSignature.length,
+        ndauSignatureLength: ndauSignature.length,
+      });
+
       const existing = await prisma.ndauConversion.findFirst({
         where: { ndau_address: ndauAddress },
       });
 
       if (existing) {
+        console.error("[NDAU-CONVERSION] submitConversion failed: conversion already exists for", ndauAddress);
         throw new Error("A conversion request already exists for this NDAU address");
       }
 
       let ndauAmount: string;
 
       try {
+        console.log("[NDAU-CONVERSION] submitConversion: fetching NDAU balance from blockchain for", ndauAddress);
         const ndauApiUrl = "https://mainnet-0.ndau.tech:3030";
         const url = `${ndauApiUrl}/account/account/${ndauAddress}`;
 
@@ -194,6 +207,8 @@ export const ndauConversionRouter = router({
           const balanceInNanondau = parseFloat(data[ndauAddress].balance);
           const balanceInNdau = balanceInNanondau / 100000000;
 
+          console.log("[NDAU-CONVERSION] submitConversion: NDAU balance for", ndauAddress, "=", balanceInNdau);
+
           if (balanceInNdau <= 0) {
             throw new Error("NDAU balance must be greater than 0");
           }
@@ -207,22 +222,26 @@ export const ndauConversionRouter = router({
             !Array.isArray(accountData.validationKeys) ||
             accountData.validationKeys.length === 0
           ) {
+            console.error("[NDAU-CONVERSION] submitConversion: no validation keys found for", ndauAddress);
             throw new Error("No validation keys found for this NDAU account");
           }
 
           const blockchainValidationKey = accountData.validationKeys[0];
+          console.log("[NDAU-CONVERSION] submitConversion: blockchain validation key:", blockchainValidationKey, "provided:", ndauValidationKey);
 
           if (ndauValidationKey !== blockchainValidationKey) {
+            console.error("[NDAU-CONVERSION] submitConversion: validation key mismatch. blockchain:", blockchainValidationKey, "provided:", ndauValidationKey);
             throw new Error(
               "The validation keys are mismatched. The provided validation key does not match the key registered on the blockchain."
             );
           }
         } else {
+          console.error("[NDAU-CONVERSION] submitConversion: invalid response from NDAU API for", ndauAddress, "data:", JSON.stringify(data).substring(0, 200));
           throw new Error("Invalid response from NDAU API");
         }
       } catch (error) {
         console.error(
-          `[NDAU-CONVERSION] Error fetching NDAU balance for address ${ndauAddress}:`,
+          `[NDAU-CONVERSION] submitConversion: Error fetching NDAU balance for address ${ndauAddress}:`,
           error
         );
         throw new Error(
@@ -232,6 +251,7 @@ export const ndauConversionRouter = router({
 
       const revoAmount = calculateRevoAmount(ndauAmount);
 
+      console.log("[NDAU-CONVERSION] submitConversion: verifying AmpedBio signature...");
       const ampedbioMessage = createConversionMessage({
         ndauAddress,
         revoAddress,
@@ -245,12 +265,16 @@ export const ndauConversionRouter = router({
         signature: ampedbioSignature as `0x${string}`,
       });
 
+      console.log("[NDAU-CONVERSION] submitConversion: AmpedBio recovered address:", recoveredAddress, "expected:", revoAddress);
+
       if (recoveredAddress.toLowerCase() !== revoAddress.toLowerCase()) {
+        console.error("[NDAU-CONVERSION] submitConversion: AmpedBio signature mismatch. recovered:", recoveredAddress, "expected:", revoAddress);
         throw new Error(
           "AmpedBio signature verification failed. The signature does not match the REVO address."
         );
       }
 
+      console.log("[NDAU-CONVERSION] submitConversion: verifying NDAU signature...");
       const ndauVerification = await verifyConversionSignature(
         ndauSignature,
         ndauAddress,
@@ -262,12 +286,16 @@ export const ndauConversionRouter = router({
         documentHash
       );
 
+      console.log("[NDAU-CONVERSION] submitConversion: NDAU verification result:", ndauVerification);
+
       if (!ndauVerification.isValid) {
+        console.error("[NDAU-CONVERSION] submitConversion: NDAU signature verification FAILED:", ndauVerification);
         throw new Error(
           `NDAU signature verification failed: ${ndauVerification.error || "Invalid signature"}`
         );
       }
 
+      console.log("[NDAU-CONVERSION] submitConversion: all verifications passed, creating conversion record...");
       const conversion = await prisma.ndauConversion.create({
         data: {
           ndau_address: ndauAddress,
@@ -282,6 +310,8 @@ export const ndauConversionRouter = router({
           timestamp,
         },
       });
+
+      console.log("[NDAU-CONVERSION] submitConversion: conversion record created successfully, id:", conversion.id);
 
       return {
         success: true,
@@ -446,6 +476,40 @@ export const ndauConversionRouter = router({
     return { count };
   }),
 
+  getConversionPayload: publicProcedure
+    .input(
+      z.object({
+        ndauAddress: z.string().min(1, "NDAU address is required"),
+        revoAddress: z.string().min(1, "REVO address is required"),
+        ndauAmount: z.string().min(1, "NDAU amount is required"),
+        revoAmount: z.string().min(1, "REVO amount is required"),
+        documentHash: z.string().min(1, "Document hash is required"),
+        timestamp: z.number().min(1, "Timestamp is required"),
+        ndauValidationKey: z.string().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      console.log("[NDAU-CONVERSION] getConversionPayload called with:", JSON.stringify(input));
+
+      try {
+        const payloadYaml = createNdauConversionPayloadYaml({
+          ndauAddress: input.ndauAddress,
+          revoAddress: input.revoAddress,
+          ndauAmount: input.ndauAmount,
+          revoAmount: input.revoAmount,
+          documentHash: input.documentHash,
+          timestamp: input.timestamp,
+          ndauValidationKey: input.ndauValidationKey,
+        });
+
+        console.log("[NDAU-CONVERSION] getConversionPayload generated YAML successfully, length:", payloadYaml.length);
+        return { payloadYaml };
+      } catch (error) {
+        console.error("[NDAU-CONVERSION] getConversionPayload FAILED:", error);
+        throw error;
+      }
+    }),
+
   getConversion: publicProcedure
     .input(
       z.object({
@@ -461,7 +525,7 @@ export const ndauConversionRouter = router({
         return null;
       }
 
-      const payloadYaml = (await import("@ampedbio/constants")).createNdauConversionPayloadYaml({
+      const payloadYaml = createNdauConversionPayloadYaml({
         ndauAddress: conversion.ndau_address,
         revoAddress: conversion.revo_address,
         ndauValidationKey: conversion.ndau_validation_key,
