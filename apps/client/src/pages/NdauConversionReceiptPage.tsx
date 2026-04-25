@@ -86,6 +86,7 @@ export default function NdauConversionReceiptPage() {
   };
 
   const conversionTimestamp = conversion?.timestamp;
+  const ndauSignedTimestamp = extractTimestampFromSignature(conversion?.ndauSignature);
 
   const steps: ProofStep[] = [
     {
