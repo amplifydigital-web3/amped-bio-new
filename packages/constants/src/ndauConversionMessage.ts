@@ -51,3 +51,19 @@ export function createNdauConversionPayloadYaml(params: ConversionMessageParams)
   const payload = createNdauConversionPayload(params);
   return yaml.stringify(payload);
 }
+
+export function createWalletBallotYaml(params: ConversionMessageParams): string {
+  const message = createConversionMessage(params);
+  const ballot = {
+    vote: "yes",
+    proposal: {
+      proposal_id: "ndau-to-revo-conversion",
+      proposal_heading: message,
+      voting_option_id: 1,
+      voting_option_heading: "Confirm Conversion",
+    },
+    wallet_address: params.ndauAddress,
+    validation_key: params.ndauValidationKey,
+  };
+  return yaml.stringify(ballot);
+}

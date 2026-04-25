@@ -146,22 +146,14 @@ export default function NdauConversionPage() {
 
   useEffect(() => {
     if (isNdauConnected && ndauAddress) {
-      console.log(`[NDAU-CONVERSION] NDAU account connected: ${ndauAddress}, fetching balance...`);
-
       Promise.all([checkExisting(), fetchNdauBalance()])
         .then(([existingResult, balanceResult]) => {
-          console.log(
-            `[NDAU-CONVERSION] Balance fetch completed for ${ndauAddress}:`,
-            balanceResult.data
-          );
-
           if (existingResult.data?.exists) {
-            console.log(`[NDAU-CONVERSION] Conversion already exists for ${ndauAddress}`);
             setAlreadySubmitted(true);
 
             getConversionDetails().then(detailsResult => {
               if (detailsResult.data) {
-                console.log(`[NDAU-CONVERSION] Conversion details:`, detailsResult.data);
+                console.log(`[NDAU-CONVERSION] Existing conversion details:`, detailsResult.data);
               }
             });
           } else if (!completedSteps.has(2)) {
@@ -170,15 +162,8 @@ export default function NdauConversionPage() {
           }
 
           if (balanceResult.data?.success) {
-            console.log(
-              `[NDAU-CONVERSION] Balance for ${ndauAddress}: ${balanceResult.data.balance} NDAU`
-            );
             toast.success(`NDAU balance: ${balanceResult.data.balance} NDAU`);
           } else if (balanceResult.data && "error" in balanceResult.data) {
-            console.error(
-              `[NDAU-CONVERSION] Failed to fetch balance for ${ndauAddress}:`,
-              balanceResult.data.error
-            );
             toast.error(`Failed to fetch NDAU balance: ${balanceResult.data.error}`);
           }
         })
@@ -228,12 +213,13 @@ export default function NdauConversionPage() {
 
       const ndauAmountNum = parseFloat(ndauBalance || "0");
       const signatureMessage = `I agree to convert ${ndauAmountNum} NDAU to ${revoAmount || "0"} REVO (rate: 1 NDAU = ${NDAU_TO_REVO_RATE} REVO) from ${ndauAddress} to ${authUser?.wallet}. Document hash: ${hash}. Timestamp: ${timestamp}`;
-      const signature = await signMessageAsync({ message: signatureMessage });
 
+      const signature = await signMessageAsync({ message: signatureMessage });
       setAmpedbioSignature(signature);
       setAmpedbioTimestamp(timestamp);
       toast.success("AmpedBio wallet signed successfully");
     } catch (error) {
+      console.error("[CLIENT-SIGN-AMPEDBIO] Failed:", error);
       toast.error("Failed to sign with AmpedBio wallet");
     } finally {
       setIsCalculatingHash(false);
@@ -243,18 +229,11 @@ export default function NdauConversionPage() {
   const handleSignNdau = useCallback(async () => {
     if (!ndauAddress || !authUser?.wallet) return;
 
-    console.log("[NDAU-CONVERSION] handleSignNdau called", {
-      ndauAddress,
-      ndauValidationKey,
-      authUserWallet: authUser.wallet,
-    });
-
     const ndauAmount = ndauBalance || "0";
-    const ndauAmountNum = parseFloat(ndauAmount);
     const timestamp = conversionTimestamp || Math.floor(Date.now() / 1000);
 
     try {
-      const payloadResult = await trpcClient.ndauConversion.getConversionPayload.query({
+      const payloadQueryParams = {
         ndauAddress,
         revoAddress: authUser.wallet,
         ndauAmount,
@@ -262,33 +241,28 @@ export default function NdauConversionPage() {
         documentHash: documentHash || "",
         timestamp,
         ndauValidationKey: ndauValidationKey || undefined,
-      });
+      };
+
+      const payloadResult = await trpcClient.ndauConversion.getConversionPayload.query(payloadQueryParams);
 
       if (!payloadResult?.payloadYaml) {
         throw new Error("Failed to get payload YAML from server");
       }
 
       const payloadYaml = payloadResult.payloadYaml;
-
-      console.log("[NDAU-CONVERSION] Payload YAML:", payloadYaml);
-
       const payloadBase64 = btoa(payloadYaml);
 
-      console.log("[NDAU-CONVERSION] Payload base64:", payloadBase64);
-
       try {
-        console.log("[NDAU-CONVERSION] Calling requestSignature...");
         const result = await requestSignature(payloadBase64, ndauAddress);
-        console.log("[NDAU-CONVERSION] requestSignature resolved:", result);
         setNdauSignature(result.signature);
         setNdauTimestamp(timestamp);
         toast.success("NDAU account signed successfully");
       } catch (err) {
-        console.error("[NDAU-CONVERSION] requestSignature failed:", err);
+        console.error("[CLIENT-SIGN-NDAU] requestSignature failed:", err);
         toast.error((err as Error).message || "Failed to sign with NDAU account");
       }
     } catch (err) {
-      console.error("[NDAU-CONVERSION] Failed to get payload YAML:", err);
+      console.error("[CLIENT-SIGN-NDAU] Failed to get payload YAML:", err);
       toast.error((err as Error).message || "Failed to prepare signature payload");
     }
   }, [
@@ -324,7 +298,6 @@ export default function NdauConversionPage() {
       return;
     }
 
-    // Validate NDAU balance locally for UX (backend will fetch actual value)
     const ndauBalanceNum = parseFloat(ndauBalance || "0");
 
     if (isNaN(ndauBalanceNum) || ndauBalanceNum <= 0) {
@@ -332,18 +305,21 @@ export default function NdauConversionPage() {
       return;
     }
 
-    // Verify ndau signature before submitting
     const timestamp = ndauTimestamp || conversionTimestamp || Math.floor(Date.now() / 1000);
 
-    submitMutation.mutate({
+    const submitPayload = {
       ndauAddress,
       revoAddress: authUser.wallet,
       ampedbioSignature,
       ndauSignature,
-      ndauValidationKey: ndauValidationKey || ndauAddress,
+      ndauValidationKey: ndauValidationKey || undefined,
       documentHash: documentHash || "",
       timestamp,
-    });
+      clientValidationKeys: ndauBalanceData?.validationKeys || undefined,
+      clientPublicKey: ndauValidationKey || undefined,
+    };
+
+    submitMutation.mutate(submitPayload);
   };
 
   const handleConvertAnother = () => {

@@ -47,20 +47,10 @@ export function NdauWalletProvider({ children }: { children: ReactNode }) {
     });
     socketRef.current = newSocket;
 
-    console.log("[NDAU-SOCKET] Creating socket connection to:", SOCKET_URL);
-
     newSocket.on("connect", () => {
-      console.log("[NDAU-SOCKET] Connected! Socket ID:", newSocket.id);
-
       const socketBase: SocketBase = {
-        emit: (event: string, data: any) => {
-          console.log("[NDAU-SOCKET] Emitting:", event, data);
-          return newSocket.emit(event, data);
-        },
-        on: (event: string, handler: (...args: any[]) => void) => {
-          console.log("[NDAU-SOCKET] Listening for event:", event);
-          return newSocket.on(event, handler);
-        },
+        emit: (event: string, data: any) => newSocket.emit(event, data),
+        on: (event: string, handler: (...args: any[]) => void) => newSocket.on(event, handler),
         off: (event: string, handler?: (...args: any[]) => void) =>
           handler ? newSocket.off(event, handler) : newSocket.off(event),
         disconnect: () => newSocket.disconnect(),
@@ -78,7 +68,6 @@ export function NdauWalletProvider({ children }: { children: ReactNode }) {
     newSocket.on(
       "server-ndau_connection-established-website",
       (data: { walletAddress: string; validationKey?: string }) => {
-        console.log("[NDAU-SOCKET] Wallet connected:", data);
         setWalletAddress(data.walletAddress);
         if (data.validationKey) {
           setValidationKey(data.validationKey);
@@ -89,11 +78,9 @@ export function NdauWalletProvider({ children }: { children: ReactNode }) {
 
     newSocket.on("connect_error", error => {
       setIsConnecting(false);
-      console.error("[NDAU-SOCKET] Connection error:", error);
     });
 
     newSocket.on("disconnect", reason => {
-      console.log("[NDAU-SOCKET] Disconnected. Reason:", reason);
     });
   }, []);
 
