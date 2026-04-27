@@ -937,6 +937,18 @@ export default function NdauConversionPage() {
             </li>
           </ul>
         </div>
+
+        <div className="mt-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-6 text-center">
+          <p className="text-sm text-amber-800 dark:text-amber-200">
+            Need help with your NDAU wallet? Contact Oneiro support at{" "}
+            <a
+              href="mailto:support@oneiro.freshdesk.com"
+              className="font-semibold underline hover:text-amber-600 dark:hover:text-amber-400"
+            >
+              support@oneiro.freshdesk.com
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   );
