@@ -67,3 +67,22 @@ export const isRevoNameExpired = (expiryDateWithGrace: string): boolean => {
 
   return false;
 };
+
+export const smoothScrollTo = (target: number, duration = 300, container?: HTMLElement) => {
+  const start = container ? container.scrollTop : window.scrollY;
+  const distance = target - start;
+  let startTime: number | null = null;
+  const ease = (t: number) => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t);
+  const step = (ts: number) => {
+    if (!startTime) startTime = ts;
+    const progress = Math.min((ts - startTime) / duration, 1);
+    const position = start + distance * ease(progress);
+    if (container) {
+      container.scrollTop = position;
+    } else {
+      window.scrollTo(0, position);
+    }
+    if (progress < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+};

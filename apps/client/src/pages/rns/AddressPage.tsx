@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Copy } from "lucide-react";
 import { useReverseLookup } from "@/hooks/rns/useReverseLookup";
 import { useOwnerDetail } from "@/hooks/rns/useOwnerDetail";
-import { domainName, trimmedDomainName } from "@/utils/rns";
+import { domainName } from "@/utils/rns";
 import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
 
 interface AddressPageProps {
@@ -79,11 +79,11 @@ const AddressPage = ({ address }: AddressPageProps) => {
             <div className="w-32 h-32 rounded-full ring-8 ring-white bg-gradient-to-br from-green-300 to-green-100"></div>
           </div>
           <div className="flex justify-between items-start flex-col sm:flex-row gap-4 sm:gap-0">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold">{trimmedDomainName(name) || name}</h1>
+            <div className="space-y-1 min-w-0 flex-1">
+              <div className="flex items-start gap-2 min-w-0">
+                <h1 className="text-2xl font-bold break-all min-w-0">{domainName(name) || name}</h1>
                 <button
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 shrink-0 mt-1"
                   onClick={() => navigator.clipboard.writeText(domainName(name))}
                 >
                   <Copy className="w-5 h-5" />
@@ -94,7 +94,7 @@ const AddressPage = ({ address }: AddressPageProps) => {
             {name && (
               <button
                 onClick={() => navigateToProfile(name)}
-                className="bg-blue-50 text-blue-500 px-6 py-2 rounded-full hover:bg-blue-100 transition font-medium"
+                className="shrink-0 bg-blue-50 text-blue-500 px-6 py-2 rounded-full hover:bg-blue-100 transition font-medium"
               >
                 View Profile
               </button>
@@ -202,12 +202,12 @@ const AddressPage = ({ address }: AddressPageProps) => {
       {name && shouldShowDomain() && (
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           <div className="divide-y divide-gray-100">
-            <div className="p-4 flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-green-300"></div>
-                <div>
-                  <div className="flex items-center">
-                    <span className="text-gray-900 font-bold">{fullName || name}</span>
+            <div className="p-4 flex justify-between items-center gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-12 h-12 rounded-full bg-green-300 shrink-0"></div>
+                <div className="min-w-0">
+                  <div className="flex items-center min-w-0">
+                    <span className="text-gray-900 font-bold break-all">{fullName || name}</span>
                   </div>
                   <p className="text-gray-400 text-sm">
                     {expiryDate?.isExpired
@@ -216,7 +216,7 @@ const AddressPage = ({ address }: AddressPageProps) => {
                   </p>
                 </div>
               </div>
-              <span className="px-4 py-1 bg-blue-50 text-blue-500 rounded-full text-sm font-medium">
+              <span className="px-4 py-1 bg-blue-50 text-blue-500 rounded-full text-sm font-medium shrink-0">
                 Owner
               </span>
             </div>

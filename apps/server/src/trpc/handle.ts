@@ -5,6 +5,8 @@ import { ThemeConfig } from "@ampedbio/constants";
 import { prisma } from "../services/DB";
 import { z } from "zod";
 import { HANDLE_MIN_LENGTH, HANDLE_REGEX } from "@ampedbio/constants";
+import { env } from "../env";
+import { logger } from "better-auth";
 
 // Create a base schema for handle validation
 export const handleBaseSchema = z
@@ -21,6 +23,17 @@ export const handleBaseSchema = z
 // Use the base schema in specific contexts
 export const handleParamSchema = z.object({
   handle: handleBaseSchema,
+});
+
+const RevoNameSubgraphSchema = z.object({
+  data: z.object({
+    revoNames: z.array(
+      z.object({
+        expiryDateWithGrace: z.string(),
+        owner: z.string(),
+      })
+    ),
+  }),
 });
 
 const appRouter = router({
@@ -129,6 +142,7 @@ const appRouter = router({
             { handle: handle.toUpperCase() },
           ],
         },
+        include: { wallet: true },
       });
 
       if (user === null) {
@@ -179,12 +193,88 @@ const appRouter = router({
         imageFileId: image_file_id,
       });
 
+      // Validate revoName on-chain: check expiry and ownership
+      const walletAddress = user.wallet?.address ?? null;
+      let resolvedRevoName: string | null = revo_name ?? null;
+      let revoNameStatus: "active" | "expired" | "taken" | null = resolvedRevoName
+        ? "active"
+        : null;
+
+      if (resolvedRevoName) {
+        const SUBGRAPH_URL = env.SUBGRAPH_URL;
+        if (!SUBGRAPH_URL) {
+          // No subgraph URL configured — cannot validate ownership/expiry, clear the name
+          console.warn("[revoName] SUBGRAPH_URL not configured, clearing revoName");
+          resolvedRevoName = null;
+          revoNameStatus = null;
+        } else {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 5000);
+          try {
+            const labelName = resolvedRevoName.split(".")[0];
+            const res = await fetch(SUBGRAPH_URL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              signal: controller.signal,
+              body: JSON.stringify({
+                query: `query ($l: String!) { revoNames(where: { labelName: $l }) { expiryDateWithGrace owner } }`,
+                variables: { l: labelName },
+              }),
+            });
+
+            if (!res.ok) {
+              throw new Error(`Subgraph responded with status ${res.status}`);
+            }
+
+            const json = await res.json();
+
+            if (json?.errors?.length) {
+              console.warn("[revoName] Subgraph returned GraphQL errors:", json.errors);
+            }
+
+            const parsed = RevoNameSubgraphSchema.safeParse(json);
+            if (!parsed.success) {
+              console.warn("[revoName] Subgraph returned invalid data:", parsed.error.flatten());
+              resolvedRevoName = null;
+              revoNameStatus = null;
+            } else {
+              const details = parsed.data.data.revoNames[0];
+              if (!details) {
+                resolvedRevoName = null;
+                revoNameStatus = null;
+              } else {
+                const expiryTimestamp = Number(details.expiryDateWithGrace);
+                const nowInSeconds = Math.floor(Date.now() / 1000);
+                if (expiryTimestamp > 0 && expiryTimestamp < nowInSeconds) {
+                  resolvedRevoName = null;
+                  revoNameStatus = "expired";
+                } else if (
+                  walletAddress &&
+                  details.owner.toLowerCase() !== walletAddress.toLowerCase()
+                ) {
+                  resolvedRevoName = null;
+                  revoNameStatus = "taken";
+                }
+              }
+            }
+          } catch (err) {
+            console.warn("[revoName] Subgraph validation failed, clearing revoName:", err);
+            resolvedRevoName = null;
+            revoNameStatus = null;
+          } finally {
+            clearTimeout(timeout);
+          }
+        }
+      }
+
       const result = {
         user: {
           id: user_id,
           name,
           email,
-          revoName: revo_name,
+          revoName: resolvedRevoName,
+          revoNameStatus,
+          originalRevoName: revo_name ?? null,
           description,
           image: resolvedImageUrl,
         },

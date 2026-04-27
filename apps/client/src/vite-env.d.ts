@@ -19,6 +19,8 @@ interface ImportMetaEnv {
   readonly VITE_GOOGLE_CLIENT_ID: string;
   // ndau wallet
   readonly VITE_NDAU_SOCKET_URL: string;
+  // namesonchain (revo)
+  readonly VITE_RNS_URL: string;
 }
 
 interface ImportMeta {
