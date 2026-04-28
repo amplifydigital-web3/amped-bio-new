@@ -1,9 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { BASE_REGISTRAR_ABI, getChainConfig, REGISTRAR_CONTROLLER_ABI } from "@ampedbio/web3";
-import { keccak256, namehash, toBytes } from "viem";
 import { useAccount, useWriteContract, usePublicClient } from "wagmi";
 
-import { domainName } from "@/utils/rns";
 import { ContractStep, TxStatus, TxStep } from "@/types/rns/common";
 import { useEditor } from "@/contexts/EditorContext";
 

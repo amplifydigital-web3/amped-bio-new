@@ -1,3 +1,4 @@
+
 interface ProfileNavProps {
   name: string;
   activeTab?: "details" | "ownership" | "identity";
