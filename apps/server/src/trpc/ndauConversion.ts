@@ -2,7 +2,6 @@ import { z } from "zod";
 import { router, publicProcedure, privateProcedure, adminProcedure } from "../trpc/trpc";
 import {
   calculateRevoAmount,
-  NDAU_TO_REVO_RATE,
   createConversionMessage,
   createNdauConversionPayloadYaml,
 } from "@ampedbio/constants";
@@ -20,6 +19,8 @@ import { privateKeyToAccount } from "viem/accounts";
 import { revolutionDevnet } from "@ampedbio/web3";
 import { verifyConversionSignature, verifyNdauSignature } from "../utils/ndau";
 import { recoverAddress, hashMessage } from "viem";
+
+const CANONICAL_DOCUMENT_HASH = "ac31744d16a32a5e553123335dd7501aea5cece491e734aabf5e932c21255063";
 
 export const ndauConversionRouter = router({
   checkExistingConversion: privateProcedure
@@ -125,18 +126,26 @@ export const ndauConversionRouter = router({
         clientPublicKey,
       } = input;
 
-      console.log(JSON.stringify({
-        event: "[NDAU-CONVERSION] submitConversion - Client data received",
-        ndauAddress,
-        revoAddress,
-        clientProvidedValidationKey: clientProvidedValidationKey || null,
-        clientPublicKey: clientPublicKey || null,
-        clientValidationKeys: clientValidationKeys || null,
-        documentHash,
-        timestamp,
-        ampedbioSignatureLength: ampedbioSignature.length,
-        ndauSignatureLength: ndauSignature.length,
-      }));
+      if (documentHash !== CANONICAL_DOCUMENT_HASH) {
+        throw new Error(
+          "Invalid document hash. The provided document hash does not match the canonical agreement document."
+        );
+      }
+
+      console.log(
+        JSON.stringify({
+          event: "[NDAU-CONVERSION] submitConversion - Client data received",
+          ndauAddress,
+          revoAddress,
+          clientProvidedValidationKey: clientProvidedValidationKey || null,
+          clientPublicKey: clientPublicKey || null,
+          clientValidationKeys: clientValidationKeys || null,
+          documentHash,
+          timestamp,
+          ampedbioSignatureLength: ampedbioSignature.length,
+          ndauSignatureLength: ndauSignature.length,
+        })
+      );
 
       const existing = await prisma.ndauConversion.findFirst({
         where: { ndau_address: ndauAddress },
@@ -188,14 +197,16 @@ export const ndauConversionRouter = router({
 
           blockchainValidationKey = accountData.validationKeys[0];
 
-          console.log(JSON.stringify({
-            event: "[NDAU-CONVERSION] submitConversion - Blockchain account data",
-            ndauAddress,
-            publicKey: blockchainValidationKey,
-            allValidationKeys: accountData.validationKeys,
-            rawAccountFields: Object.keys(rawAccountData),
-            rawAccountData,
-          }));
+          console.log(
+            JSON.stringify({
+              event: "[NDAU-CONVERSION] submitConversion - Blockchain account data",
+              ndauAddress,
+              publicKey: blockchainValidationKey,
+              allValidationKeys: accountData.validationKeys,
+              rawAccountFields: Object.keys(rawAccountData),
+              rawAccountData,
+            })
+          );
         } else {
           throw new Error("Invalid response from NDAU API");
         }
@@ -239,10 +250,12 @@ export const ndauConversionRouter = router({
       );
 
       if (!ndauVerification.isValid) {
-        console.error(JSON.stringify({
-          event: "[NDAU-CONVERSION] submitConversion - NDAU signature verification FAILED",
-          ...ndauVerification,
-        }));
+        console.error(
+          JSON.stringify({
+            event: "[NDAU-CONVERSION] submitConversion - NDAU signature verification FAILED",
+            ...ndauVerification,
+          })
+        );
         throw new Error(
           `NDAU signature verification failed: ${ndauVerification.error || "Invalid signature"}`
         );
@@ -263,15 +276,17 @@ export const ndauConversionRouter = router({
         },
       });
 
-      console.log(JSON.stringify({
-        event: "[NDAU-CONVERSION] submitConversion - Conversion created",
-        id: conversion.id,
-        ndauAddress,
-        publicKey: blockchainValidationKey,
-        revoAddress,
-        ndauAmount,
-        revoAmount,
-      }));
+      console.log(
+        JSON.stringify({
+          event: "[NDAU-CONVERSION] submitConversion - Conversion created",
+          id: conversion.id,
+          ndauAddress,
+          publicKey: blockchainValidationKey,
+          revoAddress,
+          ndauAmount,
+          revoAmount,
+        })
+      );
 
       return {
         success: true,
@@ -471,14 +486,16 @@ export const ndauConversionRouter = router({
 
         const blockchainValidationKey = accountData.validationKeys[0];
 
-        console.log(JSON.stringify({
-          event: "[NDAU-CONVERSION] getConversionPayload - Account data",
-          ndauAddress: input.ndauAddress,
-          publicKey: blockchainValidationKey,
-          allValidationKeys: accountData.validationKeys,
-          rawAccountFields: Object.keys(accountData),
-          rawAccountData: accountData,
-        }));
+        console.log(
+          JSON.stringify({
+            event: "[NDAU-CONVERSION] getConversionPayload - Account data",
+            ndauAddress: input.ndauAddress,
+            publicKey: blockchainValidationKey,
+            allValidationKeys: accountData.validationKeys,
+            rawAccountFields: Object.keys(accountData),
+            rawAccountData: accountData,
+          })
+        );
 
         const payloadYaml = createNdauConversionPayloadYaml({
           ndauAddress: input.ndauAddress,
@@ -492,10 +509,12 @@ export const ndauConversionRouter = router({
 
         return { payloadYaml, validationKey: blockchainValidationKey };
       } catch (error) {
-        console.error(JSON.stringify({
-          event: "[NDAU-CONVERSION] getConversionPayload FAILED",
-          error: error instanceof Error ? error.message : String(error),
-        }));
+        console.error(
+          JSON.stringify({
+            event: "[NDAU-CONVERSION] getConversionPayload FAILED",
+            error: error instanceof Error ? error.message : String(error),
+          })
+        );
         throw error;
       }
     }),
@@ -606,7 +625,7 @@ export const ndauConversionRouter = router({
         let bits = 0;
         let value = 0;
         let index = 0;
-        const output = new Uint8Array(Math.ceil(str.length * 5 / 8));
+        const output = new Uint8Array(Math.ceil((str.length * 5) / 8));
         for (let i = 0; i < str.length; i++) {
           const charIndex = NDAU_ALPHABET.indexOf(str[i].toLowerCase());
           if (charIndex === -1) throw new Error(`Invalid base32 character: ${str[i]}`);
@@ -725,7 +744,8 @@ export const ndauConversionRouter = router({
 
       const bytePayload = new Uint8Array(Buffer.from(walletBallotYaml, "binary"));
       steps.step8_bytePayloadLength = bytePayload.length;
-      steps.step8_bytePayloadHex = Buffer.from(bytePayload).toString("hex").substring(0, 100) + "...";
+      steps.step8_bytePayloadHex =
+        Buffer.from(bytePayload).toString("hex").substring(0, 100) + "...";
 
       const preHash = createHash("sha256").update(bytePayload).digest();
       steps.step9_preHashedSha256 = preHash.toString("hex");
@@ -776,7 +796,10 @@ export const ndauConversionRouter = router({
         try {
           const resultB = secp256k1.verify(compactSig, preHash, pk.key);
           steps.step13_verifyCompactPreHash = resultB;
-          if (resultB) { isValid = true; verifyMethod = "v3-compact-prehash"; }
+          if (resultB) {
+            isValid = true;
+            verifyMethod = "v3-compact-prehash";
+          }
         } catch (e) {
           steps.step13_verifyCompactPreHash_error = (e as Error).message;
         }
@@ -784,7 +807,10 @@ export const ndauConversionRouter = router({
         try {
           const resultC = secp256k1.verify(compactSig, preHash, pk.key, { lowS: false });
           steps.step14_verifyCompactPreHashLowS = resultC;
-          if (resultC) { isValid = true; verifyMethod = "v3-compact-prehash-lowS"; }
+          if (resultC) {
+            isValid = true;
+            verifyMethod = "v3-compact-prehash-lowS";
+          }
         } catch (e) {
           steps.step14_verifyCompactPreHashLowS_error = (e as Error).message;
         }
