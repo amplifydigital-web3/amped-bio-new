@@ -79,7 +79,7 @@ const StepIndicator = ({
 
 export default function NdauConversionPage() {
   const { authUser } = useAuth();
-  const { walletAddress: ndauAddress, validationKey: ndauValidationKey } = useNdauWallet();
+  const { walletAddress: ndauAddress, validationKey: ndauValidationKey, disconnect: disconnectNdau } = useNdauWallet();
   const { signMessageAsync, isPending: isAmpedbioSigning } = useSignMessage();
 
   const [currentStep, setCurrentStep] = useState<Step>(1);
@@ -336,6 +336,7 @@ export default function NdauConversionPage() {
   };
 
   const handleConvertAnother = () => {
+    disconnectNdau();
     setCurrentStep(1);
     setCompletedSteps(new Set());
     setNdauBalance("");
