@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useRef, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useRef, useEffect, type ReactNode } from "react";
 import { io, type Socket } from "socket.io-client";
 import type { SocketBase } from "../types/socketTypes";
 
@@ -9,6 +9,7 @@ interface NdauWalletContextType {
   validationKey: string;
   socket: SocketBase | null;
   isConnecting: boolean;
+  error: string | null;
   connect: () => void;
   disconnect: () => void;
   updateWalletAddress: (address: string) => void;
@@ -20,6 +21,7 @@ const NdauWalletContext = createContext<NdauWalletContextType>({
   validationKey: "",
   socket: null,
   isConnecting: false,
+  error: null,
   connect: () => {},
   disconnect: () => {},
   updateWalletAddress: () => {},
@@ -31,7 +33,15 @@ export function NdauWalletProvider({ children }: { children: ReactNode }) {
   const [validationKey, setValidationKey] = useState("");
   const [socket, setSocket] = useState<SocketBase | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
+
+  useEffect(() => {
+    return () => {
+      socketRef.current?.disconnect();
+      socketRef.current = null;
+    };
+  }, []);
 
   const connect = useCallback(() => {
     if (socketRef.current) {
@@ -39,6 +49,7 @@ export function NdauWalletProvider({ children }: { children: ReactNode }) {
     }
 
     setIsConnecting(true);
+    setError(null);
 
     const newSocket = io(SOCKET_URL, {
       transports: ["polling", "websocket"],
@@ -76,11 +87,16 @@ export function NdauWalletProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    newSocket.on("connect_error", error => {
+    newSocket.on("connect_error", err => {
       setIsConnecting(false);
+      setError(err.message);
     });
 
-    newSocket.on("disconnect", reason => {
+    newSocket.on("disconnect", () => {
+      setSocket(null);
+      setWalletAddress("");
+      setValidationKey("");
+      setIsConnecting(false);
     });
   }, []);
 
@@ -93,6 +109,7 @@ export function NdauWalletProvider({ children }: { children: ReactNode }) {
     setWalletAddress("");
     setValidationKey("");
     setIsConnecting(false);
+    setError(null);
   }, []);
 
   const updateWalletAddress = useCallback((address: string) => {
@@ -110,6 +127,7 @@ export function NdauWalletProvider({ children }: { children: ReactNode }) {
         validationKey,
         socket,
         isConnecting,
+        error,
         connect,
         disconnect,
         updateWalletAddress,
