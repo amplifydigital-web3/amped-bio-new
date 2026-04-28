@@ -23,6 +23,7 @@ export function useNdauSigner(): UseNdauSignerReturn {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAtRef = useRef<number>(0);
+  const inFlightRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -33,12 +34,19 @@ export function useNdauSigner(): UseNdauSignerReturn {
 
   const requestSignature = useCallback(
     (payloadBase64: string, walletAddress: string): Promise<NdauSignResult> => {
+      if (inFlightRef.current) {
+        const msg = "Signature request already in progress";
+        setError(msg);
+        return Promise.reject(new Error(msg));
+      }
+
       if (!socket || !socket.id) {
         const msg = "Socket not connected";
         setError(msg);
         return Promise.reject(new Error(msg));
       }
 
+      inFlightRef.current = true;
       setIsSigning(true);
       setError(null);
       startedAtRef.current = Date.now();
@@ -69,6 +77,7 @@ export function useNdauSigner(): UseNdauSignerReturn {
           }
           setIsSigning(false);
           setRemainingSeconds(0);
+          inFlightRef.current = false;
         };
 
         const handleFulfilled = (data: { signature: string; payload: string }) => {

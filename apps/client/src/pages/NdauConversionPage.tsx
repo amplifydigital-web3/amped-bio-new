@@ -5,7 +5,7 @@ import { useNdauSigner } from "@/ndau-wallet/hooks/useNdauSigner";
 import { NdauConnect } from "@/ndau-wallet/components/NdauConnect";
 import { trpc, trpcClient } from "@/utils/trpc/trpc";
 import { Button } from "@/components/ui/Button";
-import { NDAU_TO_REVO_RATE, calculateRevoAmount } from "@ampedbio/constants";
+import { NDAU_TO_REVO_RATE, calculateRevoAmount, createConversionMessage } from "@ampedbio/constants";
 import { toast } from "sonner";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useSignMessage } from "wagmi";
@@ -191,6 +191,12 @@ export default function NdauConversionPage() {
   const calculateDocumentHash = async (): Promise<string> => {
     try {
       const response = await fetch("/docs/NDAU_to_REVO_Token_Conversion_Agreement.pdf");
+      if (!response.ok) {
+        const status = response.status;
+        const text = await response.text().catch(() => "");
+        console.error(`Failed to fetch document: ${status} ${text}`);
+        throw new Error(`Failed to fetch conversion document (HTTP ${status})`);
+      }
       const arrayBuffer = await response.arrayBuffer();
       const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
       const hashArray = Array.from(new Uint8Array(hashBuffer));
@@ -212,7 +218,14 @@ export default function NdauConversionPage() {
       setConversionTimestamp(timestamp);
 
       const ndauAmountNum = parseFloat(ndauBalance || "0");
-      const signatureMessage = `I agree to convert ${ndauAmountNum} NDAU to ${revoAmount || "0"} REVO (rate: 1 NDAU = ${NDAU_TO_REVO_RATE} REVO) from ${ndauAddress} to ${authUser?.wallet}. Document hash: ${hash}. Timestamp: ${timestamp}`;
+      const signatureMessage = createConversionMessage({
+        ndauAmount: String(ndauAmountNum),
+        revoAmount: revoAmount || "0",
+        ndauAddress,
+        revoAddress: authUser?.wallet || "",
+        documentHash: hash,
+        timestamp,
+      });
 
       const signature = await signMessageAsync({ message: signatureMessage });
       setAmpedbioSignature(signature);

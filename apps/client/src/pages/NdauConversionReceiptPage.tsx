@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams } from "react-router";
 import { trpc } from "@/utils/trpc/trpc";
+import { NDAU_TO_REVO_RATE } from "@ampedbio/constants";
 import { Button } from "@/components/ui/Button";
 import {
   ArrowLeft,
@@ -93,7 +94,7 @@ export default function NdauConversionReceiptPage() {
     {
       num: 3,
       label: "Sign Conversion",
-      description: `User agreed to convert ${parseFloat(conversion?.ndauAmount || "0").toFixed(6)} NDAU to ${conversion?.revoAmount || "0"} REVO (rate: 1 NDAU = 1000 REVO)`,
+      description: `User agreed to convert ${parseFloat(conversion?.ndauAmount || "0").toFixed(6)} NDAU to ${conversion?.revoAmount || "0"} REVO (rate: 1 NDAU = ${NDAU_TO_REVO_RATE} REVO)`,
       completed: !!conversion?.ampedbioSignature && !!conversion?.ndauSignature,
       timestamp: conversionTimestamp || undefined,
     },
