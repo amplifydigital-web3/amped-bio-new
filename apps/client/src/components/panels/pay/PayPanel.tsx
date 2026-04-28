@@ -21,7 +21,7 @@ import usePayDialog from "@/hooks/usePayDialog";
 import { Scanner as QRScanner } from "@yudiel/react-qr-scanner";
 import { Address, isAddress, zeroAddress } from "viem";
 import { useChainId, useAccount } from "wagmi";
-import { getChainConfig } from "@ampedbio/web3";
+import { getChainConfig, getCurrencySymbol } from "@ampedbio/web3";
 import { useResolveRevoName } from "@/hooks/rns/useResolveRevoName";
 import { DOMAIN_SUFFIX } from "@/config/rns/constants";
 
@@ -591,7 +591,7 @@ const PayRow: React.FC<{
       </div>
       <div className="text-right">
         <div className="font-semibold text-red-600">
-          -{formatValue(transaction.value, chain?.nativeCurrency.symbol || "REVO")}
+          -{formatValue(transaction.value, chain ? getCurrencySymbol(chain.id) : "REVO")}
         </div>
         <button
           onClick={() => payDialog.openPayDialog(transaction.to as Address)}

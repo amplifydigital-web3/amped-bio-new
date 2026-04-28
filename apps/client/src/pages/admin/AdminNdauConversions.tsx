@@ -1,6 +1,8 @@
 import { FC, useState } from "react";
 import { trpc } from "@/utils/trpc/trpc";
 import { Button } from "@/components/ui/Button";
+import { useChainId } from "wagmi";
+import { getCurrencySymbol } from "@ampedbio/web3";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +17,8 @@ import { toast } from "sonner";
 import { RouterOutputs } from "@/utils/trpc/trpc";
 
 export const AdminNdauConversions: FC = () => {
+  const chainId = useChainId();
+  const currencySymbol = getCurrencySymbol(chainId);
   const {
     data: conversions,
     isLoading,
@@ -31,7 +35,7 @@ export const AdminNdauConversions: FC = () => {
   const processMutation = useMutation({
     mutationFn: trpc.ndauConversion.processConversion.mutationOptions().mutationFn,
     onSuccess: () => {
-      toast.success("Conversion processed successfully! REVO tokens sent.");
+      toast.success(`Conversion processed successfully! ${currencySymbol} tokens sent.`);
       setIsProcessDialogOpen(false);
       setSelectedConversion(null);
       refetch();
@@ -113,7 +117,7 @@ export const AdminNdauConversions: FC = () => {
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">NDAU to REVO Conversions</h1>
+        <h1 className="text-2xl font-bold">NDAU to {currencySymbol} Conversions</h1>
         <Badge variant="outline" className="text-sm">
           Total: {conversions?.length || 0}
         </Badge>
@@ -146,13 +150,13 @@ export const AdminNdauConversions: FC = () => {
                   scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
                 >
-                  REVO Amount
+                  {currencySymbol} Amount
                 </th>
                 <th
                   scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
                 >
-                  REVO Address
+                  {currencySymbol} Address
                 </th>
                 <th
                   scope="col"
@@ -205,7 +209,7 @@ export const AdminNdauConversions: FC = () => {
                     {conversion.ndauAmount} NDAU
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 dark:text-blue-400 font-semibold">
-                    {conversion.revoAmount} REVO
+                    {conversion.revoAmount} {currencySymbol}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono text-xs max-w-[150px] truncate">
                     {conversion.revoAddress}
@@ -261,7 +265,7 @@ export const AdminNdauConversions: FC = () => {
       <Dialog open={isProcessDialogOpen} onOpenChange={setIsProcessDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Send REVO Tokens</DialogTitle>
+            <DialogTitle>Send {currencySymbol} Tokens</DialogTitle>
           </DialogHeader>
 
           {selectedConversion && (
@@ -269,12 +273,12 @@ export const AdminNdauConversions: FC = () => {
               <div className="space-y-4 py-4">
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                   <p className="text-sm text-blue-800 dark:text-blue-200 mb-2">
-                    <strong>Confirmation:</strong> By clicking "Send REVO", you confirm that:
+                    <strong>Confirmation:</strong> By clicking "Send {currencySymbol}", you confirm that:
                   </p>
                   <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside">
                     <li>You have verified the NDAU conversion request</li>
                     <li>The NDAU tokens have been received</li>
-                    <li>You authorize the automatic transfer of REVO tokens</li>
+                    <li>You authorize the automatic transfer of {currencySymbol} tokens</li>
                   </ul>
                 </div>
 
@@ -286,13 +290,13 @@ export const AdminNdauConversions: FC = () => {
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">REVO to send:</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">{currencySymbol} to send:</span>
                     <span className="font-semibold text-blue-600 dark:text-blue-400">
                       {selectedConversion.revoAmount} REVO
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">REVO Address:</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">{currencySymbol} Address:</span>
                     <span className="font-mono text-xs text-gray-900 dark:text-white break-all max-w-[200px]">
                       {selectedConversion.revoAddress}
                     </span>
@@ -302,7 +306,7 @@ export const AdminNdauConversions: FC = () => {
                 <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
                   <p className="text-sm text-yellow-800 dark:text-yellow-200">
                     <strong>Note:</strong> The transaction will be sent automatically to the user's
-                    REVO address. Make sure you have sufficient balance.
+                    {currencySymbol} address. Make sure you have sufficient balance.
                   </p>
                 </div>
               </div>
@@ -330,7 +334,7 @@ export const AdminNdauConversions: FC = () => {
                   ) : (
                     <>
                       <Send className="h-4 w-4 mr-2" />
-                      Send REVO
+                      Send {currencySymbol}
                     </>
                   )}
                 </Button>

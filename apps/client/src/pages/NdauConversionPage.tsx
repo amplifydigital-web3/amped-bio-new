@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/Button";
 import { NDAU_TO_REVO_RATE, calculateRevoAmount, createConversionMessage } from "@ampedbio/constants";
 import { toast } from "sonner";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useSignMessage } from "wagmi";
+import { useSignMessage, useChainId } from "wagmi";
+import { getCurrencySymbol } from "@ampedbio/web3";
 
 import {
   CheckCircle2,
@@ -91,6 +92,8 @@ export default function NdauConversionPage() {
   const { authUser } = useAuth();
   const { walletAddress: ndauAddress, validationKey: ndauValidationKey, disconnect: disconnectNdau } = useNdauWallet();
   const { signMessageAsync, isPending: isAmpedbioSigning } = useSignMessage();
+  const chainId = useChainId();
+  const currencySymbol = getCurrencySymbol(chainId);
 
   const [currentStep, setCurrentStep] = useState<Step>(1);
   const [completedSteps, setCompletedSteps] = useState<Set<Step>>(new Set());
@@ -402,10 +405,10 @@ export default function NdauConversionPage() {
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-            NDAU to REVO Conversion
+            NDAU to {currencySymbol} Conversion
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-300">
-            Convert your NDAU tokens to REVO tokens at a fixed rate. Complete all steps to submit
+            Convert your NDAU tokens to {currencySymbol} tokens at a fixed rate. Complete all steps to submit
             your conversion request.
           </p>
         </div>
@@ -419,9 +422,9 @@ export default function NdauConversionPage() {
               <div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Conversion Rate</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  1 NDAU = {NDAU_TO_REVO_RATE} REVO
-                </p>
-              </div>
+                    1 NDAU = {NDAU_TO_REVO_RATE} {currencySymbol}
+                  </p>
+                </div>
             </div>
           </div>
         </div>
@@ -470,7 +473,7 @@ export default function NdauConversionPage() {
               </div>
 
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">REVO Address:</span>
+                <span className="text-sm text-gray-600 dark:text-gray-400">{currencySymbol} Address:</span>
                 <span className="font-mono text-xs text-gray-900 dark:text-white break-all max-w-[200px]">
                   {conversionDetails.revoAddress}
                 </span>
@@ -484,9 +487,9 @@ export default function NdauConversionPage() {
               </div>
 
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">REVO Amount:</span>
+                <span className="text-sm text-gray-600 dark:text-gray-400">{currencySymbol} Amount:</span>
                 <span className="font-semibold text-blue-600 dark:text-blue-400">
-                  {conversionDetails.revoAmount} REVO
+                  {conversionDetails.revoAmount} {currencySymbol}
                 </span>
               </div>
 
@@ -540,7 +543,7 @@ export default function NdauConversionPage() {
             {conversionDetails.status === "pending" && (
               <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                 <p className="text-sm text-blue-800 dark:text-blue-200">
-                  Your conversion is being processed by an admin. You will receive REVO tokens once
+                  Your conversion is being processed by an admin. You will receive {currencySymbol} tokens once
                   the process is complete.
                 </p>
               </div>
@@ -549,7 +552,7 @@ export default function NdauConversionPage() {
             {conversionDetails.status === "processed" && (
               <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
                 <p className="text-sm text-green-800 dark:text-green-200 mb-3">
-                  Your conversion has been processed successfully. Check your REVO wallet for
+                  Your conversion has been processed successfully. Check your {currencySymbol} wallet for
                   received tokens.
                 </p>
                 <Button
@@ -653,9 +656,9 @@ export default function NdauConversionPage() {
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       You will receive:
                     </span>
-                    <span className="text-lg font-bold text-green-600 dark:text-green-400">
-                      {revoAmount} REVO
-                    </span>
+                      <span className="text-lg font-bold text-green-600 dark:text-green-400">
+                        {revoAmount} {currencySymbol}
+                      </span>
                   </div>
                 )}
               </div>
@@ -708,7 +711,7 @@ export default function NdauConversionPage() {
                     Message you will sign (same for both wallets):
                   </p>
                   <p className="text-sm text-gray-900 dark:text-white font-mono break-words">
-                    I agree to convert {ndauBalance || "0"} NDAU to {revoAmount || "0"} REVO (rate:
+                    I agree to convert {ndauBalance || "0"} NDAU to {revoAmount || "0"} {currencySymbol} (rate:
                     1 NDAU = {NDAU_TO_REVO_RATE} REVO) from {ndauAddress || "..."} to{" "}
                     {authUser?.wallet || "..."}. Document hash: [calculated when signing].
                     Timestamp: [generated when signing]
@@ -854,15 +857,15 @@ export default function NdauConversionPage() {
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">REVO to Receive</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">{currencySymbol} to Receive</span>
                     <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-                      {revoAmount || "0"} REVO
+                      {revoAmount || "0"} {currencySymbol}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-500 dark:text-gray-400">Rate</span>
                     <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                      1 NDAU = {NDAU_TO_REVO_RATE} REVO
+                  1 NDAU = {NDAU_TO_REVO_RATE} {currencySymbol}
                     </span>
                   </div>
                   <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
@@ -874,7 +877,7 @@ export default function NdauConversionPage() {
                     </div>
                   </div>
                   <div className="flex justify-between items-start">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">To (REVO)</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">To ({currencySymbol})</span>
                     <span className="text-xs font-mono text-gray-900 dark:text-white break-all max-w-[200px] text-right">
                       {authUser?.wallet}
                     </span>
@@ -981,7 +984,7 @@ export default function NdauConversionPage() {
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">REVO Address:</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">{currencySymbol} Address:</span>
                     <span className="font-mono text-xs text-gray-900 dark:text-white break-all max-w-[200px]">
                       {authUser?.wallet}
                     </span>
@@ -997,7 +1000,7 @@ export default function NdauConversionPage() {
                       You will receive:
                     </span>
                     <span className="font-semibold text-blue-600 dark:text-blue-400">
-                      {revoAmount || "0.000"} REVO
+                      {revoAmount || "0.000"} {currencySymbol}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -1076,7 +1079,7 @@ export default function NdauConversionPage() {
           <ul className="space-y-2 text-sm text-blue-800 dark:text-blue-200">
             <li className="flex items-start">
               <span className="mr-2">1.</span>
-              <span>Connect your AmpedBio (REVO) wallet</span>
+              <span>Connect your AmpedBio ({currencySymbol}) wallet</span>
             </li>
             <li className="flex items-start">
               <span className="mr-2">2.</span>

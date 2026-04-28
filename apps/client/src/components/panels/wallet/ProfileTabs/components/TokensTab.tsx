@@ -1,9 +1,12 @@
 import React from "react";
-import { useAccount, useBalance } from "wagmi";
+import { useAccount, useBalance, useChainId } from "wagmi";
+import { getCurrencySymbol } from "@ampedbio/web3";
 import { Coins, Loader } from "lucide-react";
 
 const TokensTab: React.FC = () => {
   const { address } = useAccount();
+  const chainId = useChainId();
+  const currencySymbol = getCurrencySymbol(chainId);
   const { data: revoBalance, isLoading: isRevoBalanceLoading } = useBalance({
     address: address,
   });
@@ -12,7 +15,7 @@ const TokensTab: React.FC = () => {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader className="w-8 h-8 text-gray-400 animate-spin" />
-        <p className="ml-3 text-gray-500">Loading REVO balance...</p>
+        <p className="ml-3 text-gray-500">Loading {currencySymbol} balance...</p>
       </div>
     );
   }
@@ -23,9 +26,9 @@ const TokensTab: React.FC = () => {
         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <Coins className="w-8 h-8 text-gray-400" />
         </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No REVO balance found</h3>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">No {currencySymbol} balance found</h3>
         <p className="text-gray-500 mb-6 max-w-sm mx-auto">
-          Your REVO token balance will appear here.
+          Your {currencySymbol} token balance will appear here.
         </p>
       </div>
     );
@@ -38,7 +41,7 @@ const TokensTab: React.FC = () => {
         <div className="flex items-center space-x-3">
           <Coins className="w-6 h-6 text-blue-500" />
           <div>
-            <p className="text-sm font-medium text-gray-900">REVO</p>
+            <p className="text-sm font-medium text-gray-900">{currencySymbol}</p>
             <p className="text-xs text-gray-500">Revolution Chain Native Token</p>
           </div>
         </div>

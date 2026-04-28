@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { domainName, scannerURL } from "@/utils/rns";
 import { Copy, ExternalLink } from "lucide-react";
-import { useAccount } from "wagmi";
+import { useAccount, useChainId } from "wagmi";
+import { getCurrencySymbol } from "@ampedbio/web3";
 import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
 import { ProfileCard } from "@/components/rns/profile/ProfileCard";
 import { ProfileNav } from "@/components/rns/profile/ProfileNav";
@@ -39,6 +40,8 @@ export default function ProfilePage({ name }: ProfilePageProps) {
     textRecordsLoading,
   } = useNameDetails(name);
   const { address: connectedWallet } = useAccount();
+  const chainId = useChainId();
+  const currencySymbol = getCurrencySymbol(chainId);
   const { navigateToHome, navigateToRegister } = useRNSNavigation();
 
   const [redirecting, setRedirecting] = useState(false);
@@ -79,7 +82,7 @@ export default function ProfilePage({ name }: ProfilePageProps) {
         {isDifferentOwner && (
           <button type="button" className="self-end shrink-0" onClick={navigateToHome}>
             <span className="text-blue-600 font-bold hover:underline hover:text-blue-500">
-              Register your own REVO Name
+              Register your own {currencySymbol} Name
             </span>
           </button>
         )}

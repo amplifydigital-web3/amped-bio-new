@@ -3,6 +3,8 @@ import { useParams } from "react-router";
 import { trpc } from "@/utils/trpc/trpc";
 import { NDAU_TO_REVO_RATE } from "@ampedbio/constants";
 import { Button } from "@/components/ui/Button";
+import { useChainId } from "wagmi";
+import { getCurrencySymbol } from "@ampedbio/web3";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -28,6 +30,8 @@ type ProofStep = {
 export default function NdauConversionReceiptPage() {
   const params = useParams<{ ndauAddress: string }>();
   const ndauAddressParam = params.ndauAddress || "";
+  const chainId = useChainId();
+  const currencySymbol = getCurrencySymbol(chainId);
 
   const { data: conversion, isLoading } = useQuery(
     trpc.ndauConversion.getConversion.queryOptions(
@@ -82,7 +86,7 @@ export default function NdauConversionReceiptPage() {
     {
       num: 1,
       label: "Connect AmpedBio Wallet",
-      description: "User connected their AmpedBio (REVO) wallet",
+      description: `User connected their AmpedBio (${currencySymbol}) wallet`,
       completed: true,
     },
     {
@@ -94,7 +98,7 @@ export default function NdauConversionReceiptPage() {
     {
       num: 3,
       label: "Sign Conversion",
-      description: `User agreed to convert ${parseFloat(conversion?.ndauAmount || "0").toFixed(6)} NDAU to ${conversion?.revoAmount || "0"} REVO (rate: 1 NDAU = ${NDAU_TO_REVO_RATE} REVO)`,
+      description: `User agreed to convert ${parseFloat(conversion?.ndauAmount || "0").toFixed(6)} NDAU to ${conversion?.revoAmount || "0"} ${currencySymbol} (rate: 1 NDAU = ${NDAU_TO_REVO_RATE} ${currencySymbol})`,
       completed: !!conversion?.ampedbioSignature && !!conversion?.ndauSignature,
       timestamp: conversionTimestamp || undefined,
     },
@@ -168,7 +172,7 @@ export default function NdauConversionReceiptPage() {
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-            NDAU to REVO Conversion Receipt
+            NDAU to {currencySymbol} Conversion Receipt
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-300">
             Cryptographically verifiable receipt of conversion agreement
@@ -200,7 +204,7 @@ export default function NdauConversionReceiptPage() {
                 </h2>
                 <p className="text-gray-600 dark:text-gray-300">
                   {conversion.status === "processed"
-                    ? "Conversion has been completed and REVO tokens have been sent"
+                    ? `Conversion has been completed and ${currencySymbol} tokens have been sent`
                     : conversion.status === "pending"
                       ? "Conversion is awaiting admin processing"
                       : "Unknown conversion status"}
@@ -236,7 +240,7 @@ export default function NdauConversionReceiptPage() {
                 </div>
 
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">REVO Address:</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{currencySymbol} Address:</p>
                   <div className="flex items-center gap-2">
                     <code className="flex-1 text-xs bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded font-mono text-gray-900 dark:text-white break-all">
                       {conversion.revoAddress}
@@ -260,9 +264,9 @@ export default function NdauConversionReceiptPage() {
                 </div>
 
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">REVO Amount:</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{currencySymbol} Amount:</p>
                   <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                    {conversion.revoAmount} REVO
+                    {conversion.revoAmount} {currencySymbol}
                   </p>
                 </div>
 
@@ -377,7 +381,7 @@ export default function NdauConversionReceiptPage() {
                   </Button>
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                  This signature proves AmpedBio wallet owner agreed to terms of NDAU to REVO
+                  This signature proves AmpedBio wallet owner agreed to terms of NDAU to {currencySymbol}
                   Conversion Agreement document by signing its hash.
                 </p>
                 {conversionTimestamp && (
@@ -419,7 +423,7 @@ export default function NdauConversionReceiptPage() {
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     This signature proves NDAU account owner agreed to convert{" "}
                     {parseFloat(conversion.ndauAmount).toFixed(6)} NDAU to {conversion.revoAmount}{" "}
-                    REVO.
+                    {currencySymbol}.
                   </p>
                   <div className="flex items-center gap-2">
                     {isVerifyingSignature ? (
