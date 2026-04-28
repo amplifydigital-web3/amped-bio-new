@@ -688,6 +688,28 @@ export default function NdauConversionPage() {
                   </p>
                 </div>
 
+                <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm text-blue-800 dark:text-blue-200">
+                      <a
+                        href="/docs/NDAU_to_REVO_Token_Conversion_Agreement.pdf"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold underline hover:text-blue-600 dark:hover:text-blue-400"
+                      >
+                        View Conversion Agreement PDF
+                      </a>
+                      {" - "}Read the full terms before signing.
+                    </p>
+                    {documentHash && (
+                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-mono break-all">
+                        Document Hash: {documentHash}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div
                     className={`p-4 rounded-lg border-2 ${
@@ -953,7 +975,7 @@ export default function NdauConversionPage() {
 
         <div className="mt-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-6 text-center">
           <p className="text-sm text-amber-800 dark:text-amber-200">
-            Need help with your NDAU wallet? Contact Oneiro support at{" "}
+            Need help with your NDAU account? Contact Oneiro support at{" "}
             <a
               href="mailto:support@oneiro.freshdesk.com"
               className="font-semibold underline hover:text-amber-600 dark:hover:text-amber-400"

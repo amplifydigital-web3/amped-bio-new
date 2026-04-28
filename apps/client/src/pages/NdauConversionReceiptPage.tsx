@@ -302,6 +302,38 @@ export default function NdauConversionReceiptPage() {
                     </div>
                   </div>
                 )}
+
+                {conversion.documentHash && (
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                      Document Hash (SHA-256):
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 text-xs bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded font-mono text-gray-900 dark:text-white break-all">
+                        {conversion.documentHash}
+                      </code>
+                      <Button
+                        onClick={() => copyToClipboardSafe(conversion.documentHash, "documentHash")}
+                        variant="outline"
+                        size="sm"
+                        className="flex-shrink-0"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="mt-2">
+                      <a
+                        href="/docs/NDAU_to_REVO_Token_Conversion_Agreement.pdf"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1"
+                      >
+                        <FileText className="h-3 w-3" />
+                        View Conversion Agreement PDF
+                      </a>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -358,7 +390,7 @@ export default function NdauConversionReceiptPage() {
               <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    NDAU Wallet Signature (Conversion):
+                    NDAU Account Signature (Conversion):
                   </p>
                   {conversionTimestamp && (
                     <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
@@ -385,7 +417,7 @@ export default function NdauConversionReceiptPage() {
                 </div>
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    This signature proves NDAU wallet owner agreed to convert{" "}
+                    This signature proves NDAU account owner agreed to convert{" "}
                     {parseFloat(conversion.ndauAmount).toFixed(6)} NDAU to {conversion.revoAmount}{" "}
                     REVO.
                   </p>

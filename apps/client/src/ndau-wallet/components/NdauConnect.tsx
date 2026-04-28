@@ -17,7 +17,7 @@ interface NdauConnectProps {
 }
 
 export function NdauConnect({
-  buttonText = "Connect NDAU Wallet",
+  buttonText = "Connect NDAU Account",
   connectedText,
 }: NdauConnectProps) {
   const { walletAddress, socket, isConnecting, connect, disconnect } = useNdauWallet();
@@ -38,10 +38,10 @@ export function NdauConnect({
   useEffect(() => {
     if (!socketUrl) {
       setConnectionError(
-        "NDAU wallet socket URL not configured. Please set VITE_NDAU_SOCKET_URL environment variable."
+        "NDAU account socket URL not configured. Please set VITE_NDAU_SOCKET_URL environment variable."
       );
     } else if (isConnecting && !socketId && !socket) {
-      setConnectionError("Connecting to NDAU wallet server...");
+      setConnectionError("Connecting to NDAU account server...");
     }
   }, [socketUrl, isConnecting, socketId, socket]);
 
@@ -97,9 +97,9 @@ export function NdauConnect({
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Connect with NDAU Wallet</DialogTitle>
+            <DialogTitle>Connect with NDAU Account</DialogTitle>
             <DialogDescription>
-              Scan the QR code with your ndau wallet app to connect
+              Scan the QR code with your ndau account app to connect
             </DialogDescription>
           </DialogHeader>
 
@@ -120,7 +120,7 @@ export function NdauConnect({
                   <QRCodeSVG value={qrCodeValue} size={218} includeMargin />
                 </div>
                 <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-                  Scan QR code with ndau wallet app
+                  Scan QR code with ndau account app
                 </p>
               </>
             )}

@@ -105,7 +105,7 @@ export function useNdauSigner(): UseNdauSignerReturn {
 
         const handleFailed = (data: { message: string }) => {
           cleanup();
-          const msg = data?.message || "Failed to sign with NDAU wallet";
+          const msg = data?.message || "Failed to sign with NDAU account";
           setError(msg);
           reject(new Error(msg));
         };
