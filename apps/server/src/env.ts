@@ -90,11 +90,6 @@ export const env = cleanEnv(process.env, {
     desc: "Private key for NDAU conversion REVO payouts",
     default: "",
   }),
-  NDAU_CONVERSION_MOCK_MODE: str({
-    desc: "If true, don't actually send funds but return a dummy transaction hash",
-    default: "false",
-    choices: ["true", "false"],
-  }),
 
   // AWS S3 Configuration for profile picture uploads
   AWS_REGION: str({

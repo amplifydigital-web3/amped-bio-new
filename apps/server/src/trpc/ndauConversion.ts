@@ -132,7 +132,6 @@ export const ndauConversionRouter = router({
         );
       }
 
-
       const existing = await prisma.ndauConversion.findFirst({
         where: { ndau_address: ndauAddress },
       });
@@ -328,11 +327,16 @@ export const ndauConversionRouter = router({
         throw new Error("This conversion has already been processed");
       }
 
+      if (conversion.status !== "pending") {
+        throw new Error(
+          `Conversion cannot be processed in its current state: ${conversion.status}`
+        );
+      }
+
       // Check if private key is configured
       const privateKey = env.NDAU_CONVERSION_PRIVATE_KEY;
-      const mockMode = env.NDAU_CONVERSION_MOCK_MODE === "true";
 
-      if (!privateKey && !mockMode) {
+      if (!privateKey) {
         throw new Error(
           "NDAU conversion wallet not configured. Please set NDAU_CONVERSION_PRIVATE_KEY environment variable."
         );
@@ -340,28 +344,38 @@ export const ndauConversionRouter = router({
 
       let txid: string | null = null;
 
-      if (mockMode) {
-        // Mock mode: generate a dummy transaction hash
-        txid = "0x" + "mock" + id.toString().padStart(60, "0");
-      } else {
-        // Real mode: send REVO tokens
-        try {
-          const account = privateKeyToAccount(privateKey as `0x${string}`);
+      try {
+        const account = privateKeyToAccount(privateKey as `0x${string}`);
 
-          const chain = revolutionDevnet;
-          const publicClient = createPublicClient({
-            chain,
-            transport: http(chain.rpcUrls.default.http[0]),
+        const chain = revolutionDevnet;
+        const publicClient = createPublicClient({
+          chain,
+          transport: http(chain.rpcUrls.default.http[0]),
+        });
+
+        const walletClient = createWalletClient({
+          chain,
+          transport: http(chain.rpcUrls.default.http[0]),
+        });
+
+        const amountWei = parseEther(conversion.revo_amount);
+
+        if (conversion.txid) {
+          console.warn(
+            `[processConversion] Conversion ${id} already has txid ${conversion.txid}, skipping sendTransaction`
+          );
+
+          const receipt = await publicClient.waitForTransactionReceipt({
+            hash: conversion.txid as `0x${string}`,
           });
 
-          const walletClient = createWalletClient({
-            chain,
-            transport: http(chain.rpcUrls.default.http[0]),
-          });
-
-          // Check balance before sending
+          if (receipt.status === "success") {
+            txid = conversion.txid;
+          } else {
+            throw new Error("Previously sent transaction failed on-chain");
+          }
+        } else {
           const balance = await publicClient.getBalance({ address: account.address });
-          const amountWei = parseEther(conversion.revo_amount);
 
           if (balance < amountWei) {
             throw new Error(
@@ -369,7 +383,6 @@ export const ndauConversionRouter = router({
             );
           }
 
-          // Send transaction
           const hash = await walletClient.sendTransaction({
             account,
             chain: revolutionDevnet,
@@ -377,7 +390,21 @@ export const ndauConversionRouter = router({
             value: amountWei,
           });
 
-          // Wait for transaction confirmation
+          const persistedTx = await prisma.ndauConversion.updateMany({
+            where: { id, txid: null },
+            data: { txid: hash, updated_at: new Date() },
+          });
+
+          if (persistedTx.count === 0) {
+            console.warn(
+              `[processConversion] Race condition detected for conversion ${id}, txid already set by another process`
+            );
+            const refreshed = await prisma.ndauConversion.findUnique({ where: { id } });
+            throw new Error(
+              `Transaction already sent by another process (txid: ${refreshed?.txid})`
+            );
+          }
+
           const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
           if (receipt.status === "success") {
@@ -385,10 +412,10 @@ export const ndauConversionRouter = router({
           } else {
             throw new Error("Transaction failed");
           }
-        } catch (error) {
-          console.error("Error sending REVO tokens:", error);
-          throw new Error(`Failed to send REVO: ${(error as Error).message}`);
         }
+      } catch (error) {
+        console.error("Error sending REVO tokens:", error);
+        throw new Error(`Failed to send REVO: ${(error as Error).message}`);
       }
 
       const updatedConversion = await prisma.ndauConversion.update({
