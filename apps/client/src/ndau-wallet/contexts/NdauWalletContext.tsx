@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useCallback, useRef, useEffect, ty
 import { io, type Socket } from "socket.io-client";
 import type { SocketBase } from "../types/socketTypes";
 
-const SOCKET_URL = import.meta.env.VITE_NDAU_SOCKET_URL || import.meta.env.VITE_NDAU_API_URL || "";
+const SOCKET_URL = import.meta.env.VITE_NDAU_SOCKET_URL || "";
 
 interface NdauWalletContextType {
   walletAddress: string;

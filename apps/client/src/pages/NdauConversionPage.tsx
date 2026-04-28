@@ -328,7 +328,7 @@ export default function NdauConversionPage() {
       ndauValidationKey: ndauValidationKey || undefined,
       documentHash: documentHash || "",
       timestamp,
-      clientValidationKeys: ndauBalanceData?.validationKeys || undefined,
+      clientValidationKeys: ndauBalanceData && "validationKeys" in ndauBalanceData ? ndauBalanceData.validationKeys : undefined,
       clientPublicKey: ndauValidationKey || undefined,
     };
 

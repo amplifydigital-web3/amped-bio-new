@@ -132,20 +132,6 @@ export const ndauConversionRouter = router({
         );
       }
 
-      console.log(
-        JSON.stringify({
-          event: "[NDAU-CONVERSION] submitConversion - Client data received",
-          ndauAddress,
-          revoAddress,
-          clientProvidedValidationKey: clientProvidedValidationKey || null,
-          clientPublicKey: clientPublicKey || null,
-          clientValidationKeys: clientValidationKeys || null,
-          documentHash,
-          timestamp,
-          ampedbioSignatureLength: ampedbioSignature.length,
-          ndauSignatureLength: ndauSignature.length,
-        })
-      );
 
       const existing = await prisma.ndauConversion.findFirst({
         where: { ndau_address: ndauAddress },
@@ -275,18 +261,6 @@ export const ndauConversionRouter = router({
           timestamp,
         },
       });
-
-      console.log(
-        JSON.stringify({
-          event: "[NDAU-CONVERSION] submitConversion - Conversion created",
-          id: conversion.id,
-          ndauAddress,
-          publicKey: blockchainValidationKey,
-          revoAddress,
-          ndauAmount,
-          revoAmount,
-        })
-      );
 
       return {
         success: true,
@@ -485,17 +459,6 @@ export const ndauConversionRouter = router({
         }
 
         const blockchainValidationKey = accountData.validationKeys[0];
-
-        console.log(
-          JSON.stringify({
-            event: "[NDAU-CONVERSION] getConversionPayload - Account data",
-            ndauAddress: input.ndauAddress,
-            publicKey: blockchainValidationKey,
-            allValidationKeys: accountData.validationKeys,
-            rawAccountFields: Object.keys(accountData),
-            rawAccountData: accountData,
-          })
-        );
 
         const payloadYaml = createNdauConversionPayloadYaml({
           ndauAddress: input.ndauAddress,

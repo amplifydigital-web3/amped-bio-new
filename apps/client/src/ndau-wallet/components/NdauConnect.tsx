@@ -24,7 +24,7 @@ export function NdauConnect({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [socketId, setSocketId] = useState<string | undefined>(undefined);
   const [connectionError, setConnectionError] = useState<string | null>(null);
-  const socketUrl = import.meta.env.VITE_NDAU_SOCKET_URL || import.meta.env.VITE_NDAU_API_URL;
+  const socketUrl = import.meta.env.VITE_NDAU_SOCKET_URL;
 
   const isConnected = !!walletAddress;
 
