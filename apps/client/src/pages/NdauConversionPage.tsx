@@ -20,7 +20,17 @@ import {
   Send,
   Clock,
   FileText,
+  ShieldCheck,
 } from "lucide-react";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -95,6 +105,9 @@ export default function NdauConversionPage() {
   const [documentHash, setDocumentHash] = useState<string | null>(null);
   const [isCalculatingHash, setIsCalculatingHash] = useState(false);
   const { requestSignature, isSigning: isNdauSigning, remainingSeconds } = useNdauSigner();
+
+  const [showSignDialog, setShowSignDialog] = useState(false);
+  const [isProcessingSign, setIsProcessingSign] = useState(false);
 
   const isAmpedbioConnected = !!authUser?.wallet;
   const isNdauConnected = !!ndauAddress;
@@ -210,9 +223,8 @@ export default function NdauConversionPage() {
 
   const handleSignAmpedbio = async () => {
     try {
-      setIsCalculatingHash(true);
-      const hash = await calculateDocumentHash();
-      setDocumentHash(hash);
+      setIsProcessingSign(true);
+      await new Promise(resolve => setTimeout(resolve, 3000));
 
       const timestamp = Math.floor(Date.now() / 1000);
       setConversionTimestamp(timestamp);
@@ -223,17 +235,31 @@ export default function NdauConversionPage() {
         revoAmount: revoAmount || "0",
         ndauAddress,
         revoAddress: authUser?.wallet || "",
-        documentHash: hash,
+        documentHash: documentHash || "",
         timestamp,
       });
 
       const signature = await signMessageAsync({ message: signatureMessage });
       setAmpedbioSignature(signature);
       setAmpedbioTimestamp(timestamp);
+      setShowSignDialog(false);
       toast.success("AmpedBio wallet signed successfully");
     } catch (error) {
       console.error("[CLIENT-SIGN-AMPEDBIO] Failed:", error);
       toast.error("Failed to sign with AmpedBio wallet");
+    } finally {
+      setIsProcessingSign(false);
+    }
+  };
+
+  const handleOpenSignDialog = async () => {
+    setIsCalculatingHash(true);
+    try {
+      const hash = await calculateDocumentHash();
+      setDocumentHash(hash);
+      setShowSignDialog(true);
+    } catch (error) {
+      toast.error("Failed to calculate document hash");
     } finally {
       setIsCalculatingHash(false);
     }
@@ -731,14 +757,14 @@ export default function NdauConversionPage() {
                     ) : (
                       <>
                         <Button
-                          onClick={handleSignAmpedbio}
+                          onClick={handleOpenSignDialog}
                           disabled={isAmpedbioSigning || isCalculatingHash || alreadySubmitted}
                           className="w-full"
                         >
-                          {isAmpedbioSigning || isCalculatingHash ? (
+                          {isCalculatingHash ? (
                             <>
                               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              {isCalculatingHash ? "Calculating hash..." : "Signing..."}
+                              Calculating hash...
                             </>
                           ) : (
                             <>
@@ -806,6 +832,99 @@ export default function NdauConversionPage() {
               </div>
             )}
           </div>
+
+          {/* Sign Confirmation Dialog */}
+          <Dialog open={showSignDialog} onOpenChange={open => !open && !isProcessingSign && setShowSignDialog(false)}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">
+                  Confirm Signature
+                </DialogTitle>
+                <DialogDescription className="text-sm text-gray-500 dark:text-gray-400">
+                  Please review the details below before signing with your AmpedBio wallet.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-3 py-2">
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">NDAU Amount</span>
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                      {ndauBalance || "0"} NDAU
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">REVO to Receive</span>
+                    <span className="text-sm font-semibold text-green-600 dark:text-green-400">
+                      {revoAmount || "0"} REVO
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Rate</span>
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                      1 NDAU = {NDAU_TO_REVO_RATE} REVO
+                    </span>
+                  </div>
+                  <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
+                    <div className="flex justify-between items-start">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">From (NDAU)</span>
+                      <span className="text-xs font-mono text-gray-900 dark:text-white break-all max-w-[200px] text-right">
+                        {ndauAddress}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-start">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">To (REVO)</span>
+                    <span className="text-xs font-mono text-gray-900 dark:text-white break-all max-w-[200px] text-right">
+                      {authUser?.wallet}
+                    </span>
+                  </div>
+                </div>
+
+                {documentHash && (
+                  <div className="flex items-start gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <ShieldCheck className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                        Document Hash
+                      </p>
+                      <p className="text-xs font-mono text-blue-600 dark:text-blue-400 break-all">
+                        {documentHash}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter className="gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowSignDialog(false)}
+                  disabled={isProcessingSign}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSignAmpedbio}
+                  disabled={isProcessingSign}
+                  className="flex-1"
+                >
+                  {isProcessingSign ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Signing...
+                    </>
+                  ) : (
+                    <>
+                      <PenTool className="h-4 w-4 mr-2" />
+                      Confirm Signature
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {/* Step 4: Submit */}
           <div
