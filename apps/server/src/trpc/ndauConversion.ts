@@ -288,6 +288,24 @@ export const ndauConversionRouter = router({
       orderBy: { created_at: "desc" },
     });
 
+    const revoAddresses = [
+      ...new Set(conversions.map(c => c.revo_address).filter(Boolean)),
+    ];
+
+    const userByAddress = new Map<string, { handle: string } | null>();
+    if (revoAddresses.length > 0) {
+      const wallets = await prisma.userWallet.findMany({
+        where: { address: { in: revoAddresses } },
+        include: { user: { select: { handle: true } } },
+      });
+      for (const wallet of wallets) {
+        userByAddress.set(
+          wallet.address.toLowerCase(),
+          wallet.user.handle ? { handle: wallet.user.handle } : null
+        );
+      }
+    }
+
     return conversions.map((c: any) => ({
       id: c.id,
       ndauAddress: c.ndau_address,
@@ -300,6 +318,7 @@ export const ndauConversionRouter = router({
       status: c.status,
       createdAt: c.created_at.toISOString(),
       updatedAt: c.updated_at?.toISOString() || null,
+      user: userByAddress.get(c.revo_address.toLowerCase()) ?? null,
     }));
   }),
 

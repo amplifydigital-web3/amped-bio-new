@@ -11,10 +11,12 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/Switch";
 import { Loader2, CheckCircle2, Clock, XCircle, Send } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { RouterOutputs } from "@/utils/trpc/trpc";
+import { formatHandle } from "@/utils/handle";
 
 export const AdminNdauConversions: FC = () => {
   const chainId = useChainId();
@@ -26,6 +28,13 @@ export const AdminNdauConversions: FC = () => {
     error,
     refetch,
   } = useQuery(trpc.ndauConversion.getAllConversions.queryOptions());
+
+  const [showFullData, setShowFullData] = useState(false);
+
+  const copyToClipboard = (value: string) => {
+    navigator.clipboard.writeText(value);
+    toast.success("Copied!");
+  };
 
   const [selectedConversion, setSelectedConversion] = useState<
     RouterOutputs["ndauConversion"]["getAllConversions"][number] | null
@@ -56,6 +65,7 @@ export const AdminNdauConversions: FC = () => {
       revoAddress: conversion.revoAddress,
       ampedbioSignature: conversion.ampedbioSignature,
       ndauSignature: conversion.ndauSignature,
+      user: conversion.user,
     });
     setIsProcessDialogOpen(true);
   };
@@ -125,6 +135,15 @@ export const AdminNdauConversions: FC = () => {
 
       {conversions && conversions.length > 0 ? (
         <div className="overflow-x-auto">
+          <div className="flex items-center gap-2 mb-4">
+            <Switch
+              checked={showFullData}
+              onChange={() => setShowFullData(prev => !prev)}
+            />
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              Show full data
+            </span>
+          </div>
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
@@ -157,6 +176,12 @@ export const AdminNdauConversions: FC = () => {
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
                 >
                   {currencySymbol} Address
+                </th>
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
+                >
+                  Ampedbio User
                 </th>
                 <th
                   scope="col"
@@ -202,7 +227,11 @@ export const AdminNdauConversions: FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                     {conversion.id}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono text-xs max-w-[150px] truncate">
+                  <td
+                    className={`px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono text-xs cursor-pointer ${showFullData ? "" : "max-w-[150px] truncate"}`}
+                    title={conversion.ndauAddress}
+                    onClick={() => copyToClipboard(conversion.ndauAddress)}
+                  >
                     {conversion.ndauAddress}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white font-semibold">
@@ -211,28 +240,69 @@ export const AdminNdauConversions: FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 dark:text-blue-400 font-semibold">
                     {conversion.revoAmount} {currencySymbol}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono text-xs max-w-[150px] truncate">
+                  <td
+                    className={`px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono text-xs cursor-pointer ${showFullData ? "" : "max-w-[150px] truncate"}`}
+                    title={conversion.revoAddress}
+                    onClick={() => copyToClipboard(conversion.revoAddress)}
+                  >
                     {conversion.revoAddress}
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    {conversion.user?.handle ? (
+                      <a
+                        href={`/${formatHandle(conversion.user.handle)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        {formatHandle(conversion.user.handle)}
+                      </a>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
                   <td
-                    className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono text-xs max-w-[120px] truncate"
+                    className={`px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono text-xs cursor-pointer ${showFullData ? "" : "max-w-[120px] truncate"}`}
                     title={conversion.ampedbioSignature}
+                    onClick={() => copyToClipboard(conversion.ampedbioSignature || "")}
                   >
                     {conversion.ampedbioSignature
-                      ? `${conversion.ampedbioSignature.slice(0, 10)}...`
+                      ? showFullData
+                        ? conversion.ampedbioSignature
+                        : `${conversion.ampedbioSignature.slice(0, 10)}...`
                       : "-"}
                   </td>
                   <td
-                    className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono text-xs max-w-[120px] truncate"
+                    className={`px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono text-xs cursor-pointer ${showFullData ? "" : "max-w-[120px] truncate"}`}
                     title={conversion.ndauSignature}
+                    onClick={() => copyToClipboard(conversion.ndauSignature || "")}
                   >
-                    {conversion.ndauSignature ? `${conversion.ndauSignature.slice(0, 10)}...` : "-"}
+                    {conversion.ndauSignature
+                      ? showFullData
+                        ? conversion.ndauSignature
+                        : `${conversion.ndauSignature.slice(0, 10)}...`
+                      : "-"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {getStatusBadge(conversion.status)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono text-xs max-w-[150px] truncate">
-                    {conversion.txid || "-"}
+                  <td
+                    className={`px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono text-xs cursor-pointer ${showFullData ? "" : "max-w-[150px] truncate"}`}
+                    title={conversion.txid || ""}
+                    onClick={() => conversion.txid && copyToClipboard(conversion.txid)}
+                  >
+                    {conversion.txid ? (
+                      <a
+                        href={`https://libertas.revoscan.io/tx/${conversion.txid}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        {conversion.txid}
+                      </a>
+                    ) : (
+                      "-"
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                     {new Date(conversion.createdAt).toLocaleDateString()}
