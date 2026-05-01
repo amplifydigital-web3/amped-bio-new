@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/Switch";
-import { Loader2, CheckCircle2, Clock, XCircle, Send } from "lucide-react";
+import { Loader2, CheckCircle2, Clock, XCircle, Send, Download } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { RouterOutputs } from "@/utils/trpc/trpc";
@@ -106,6 +106,62 @@ export const AdminNdauConversions: FC = () => {
     }
   };
 
+  const escapeCSV = (str: string | number | null | undefined) => {
+    if (str === null || str === undefined) return "";
+    const string = String(str);
+    if (string.includes('"')) return `"${string.replace(/"/g, '""')}"`;
+    if (string.includes(",")) return `"${string}"`;
+    return string;
+  };
+
+  const exportCSV = () => {
+    if (!conversions || conversions.length === 0) return;
+
+    const headers = [
+      "ID",
+      "NDAU Address",
+      "NDAU Amount",
+      `${currencySymbol} Amount`,
+      `${currencySymbol} Address`,
+      "Ampedbio User",
+      "AmpedBio Signature",
+      "NDAU Signature",
+      "Status",
+      "TXID",
+      "Created At",
+      "Updated At",
+    ];
+
+    const rows = conversions.map(c =>
+      [
+        c.id,
+        escapeCSV(c.ndauAddress),
+        c.ndauAmount,
+        c.revoAmount,
+        escapeCSV(c.revoAddress),
+        escapeCSV(c.user?.handle ?? null),
+        escapeCSV(c.ampedbioSignature ?? null),
+        escapeCSV(c.ndauSignature ?? null),
+        escapeCSV(c.status),
+        escapeCSV(c.txid ?? null),
+        escapeCSV(new Date(c.createdAt).toLocaleDateString()),
+        escapeCSV(new Date(c.updatedAt).toLocaleDateString()),
+      ].join(",")
+    );
+
+    const csvContent = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    const today = new Date().toISOString().slice(0, 10);
+    link.setAttribute("download", `ndau-conversions-${today}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (isLoading) {
     return (
       <div>
@@ -128,9 +184,15 @@ export const AdminNdauConversions: FC = () => {
     <div>
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-2xl font-bold">NDAU to {currencySymbol} Conversions</h1>
-        <Badge variant="outline" className="text-sm">
-          Total: {conversions?.length || 0}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-sm">
+            Total: {conversions?.length || 0}
+          </Badge>
+          <Button variant="outline" size="sm" onClick={exportCSV}>
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
+        </div>
       </div>
 
       {conversions && conversions.length > 0 ? (
