@@ -6,21 +6,54 @@ import {
   createNdauConversionPayloadYaml,
 } from "@ampedbio/constants";
 import { prisma } from "../services/DB";
-import { env } from "../env";
 import {
   createPublicClient,
-  createWalletClient,
   http,
   parseEther,
   formatEther,
-  type Address,
 } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
 import { revolutionDevnet } from "@ampedbio/web3";
 import { verifyConversionSignature, verifyNdauSignature } from "../utils/ndau";
 import { recoverAddress, hashMessage } from "viem";
 
 const CANONICAL_DOCUMENT_HASH = "ac31744d16a32a5e553123335dd7501aea5cece491e734aabf5e932c21255063";
+
+async function validateConversionTxid(
+  txid: string,
+  expectedRevoAddress: string,
+  expectedRevoAmount: string
+): Promise<void> {
+  const chain = revolutionDevnet;
+  const publicClient = createPublicClient({
+    chain,
+    transport: http(chain.rpcUrls.default.http[0]),
+  });
+
+  const tx = await publicClient.getTransaction({ hash: txid as `0x${string}` });
+
+  if (!tx) {
+    throw new Error("Transaction not found on-chain");
+  }
+
+  if (tx.to?.toLowerCase() !== expectedRevoAddress.toLowerCase()) {
+    throw new Error(
+      `Transaction recipient mismatch. Expected: ${expectedRevoAddress}, Got: ${tx.to}`
+    );
+  }
+
+  const expectedValue = parseEther(expectedRevoAmount);
+  if (tx.value < expectedValue) {
+    throw new Error(
+      `Transaction value insufficient. Expected at least: ${expectedRevoAmount} REVO, Got: ${formatEther(tx.value)} REVO`
+    );
+  }
+
+  const receipt = await publicClient.getTransactionReceipt({ hash: txid as `0x${string}` });
+
+  if (receipt.status !== "success") {
+    throw new Error("Transaction failed on-chain");
+  }
+}
 
 export const ndauConversionRouter = router({
   checkExistingConversion: privateProcedure
@@ -323,145 +356,6 @@ export const ndauConversionRouter = router({
   }),
 
   /**
-   * Process a conversion and send REVO tokens automatically (admin only)
-   */
-  processConversion: adminProcedure
-    .input(
-      z.object({
-        id: z.number(),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const { id } = input;
-
-      const conversion = await prisma.ndauConversion.findUnique({
-        where: { id },
-      });
-
-      if (!conversion) {
-        throw new Error("Conversion request not found");
-      }
-
-      if (conversion.status === "processed") {
-        throw new Error("This conversion has already been processed");
-      }
-
-      if (conversion.status !== "pending") {
-        throw new Error(
-          `Conversion cannot be processed in its current state: ${conversion.status}`
-        );
-      }
-
-      // Check if private key is configured
-      const privateKey = env.NDAU_CONVERSION_PRIVATE_KEY;
-
-      if (!privateKey) {
-        throw new Error(
-          "NDAU conversion wallet not configured. Please set NDAU_CONVERSION_PRIVATE_KEY environment variable."
-        );
-      }
-
-      let txid: string | null = null;
-
-      try {
-        const account = privateKeyToAccount(privateKey as `0x${string}`);
-
-        const chain = revolutionDevnet;
-        const publicClient = createPublicClient({
-          chain,
-          transport: http(chain.rpcUrls.default.http[0]),
-        });
-
-        const walletClient = createWalletClient({
-          chain,
-          transport: http(chain.rpcUrls.default.http[0]),
-        });
-
-        const amountWei = parseEther(conversion.revo_amount);
-
-        if (conversion.txid) {
-          console.warn(
-            `[processConversion] Conversion ${id} already has txid ${conversion.txid}, skipping sendTransaction`
-          );
-
-          const receipt = await publicClient.waitForTransactionReceipt({
-            hash: conversion.txid as `0x${string}`,
-          });
-
-          if (receipt.status === "success") {
-            txid = conversion.txid;
-          } else {
-            throw new Error("Previously sent transaction failed on-chain");
-          }
-        } else {
-          const balance = await publicClient.getBalance({ address: account.address });
-
-          if (balance < amountWei) {
-            throw new Error(
-              `Insufficient balance. Required: ${conversion.revo_amount} REVO, Available: ${formatEther(balance)} REVO`
-            );
-          }
-
-          const hash = await walletClient.sendTransaction({
-            account,
-            chain: revolutionDevnet,
-            to: conversion.revo_address as Address,
-            value: amountWei,
-          });
-
-          const persistedTx = await prisma.ndauConversion.updateMany({
-            where: { id, txid: null },
-            data: { txid: hash, updated_at: new Date() },
-          });
-
-          if (persistedTx.count === 0) {
-            console.warn(
-              `[processConversion] Race condition detected for conversion ${id}, txid already set by another process`
-            );
-            const refreshed = await prisma.ndauConversion.findUnique({ where: { id } });
-            throw new Error(
-              `Transaction already sent by another process (txid: ${refreshed?.txid})`
-            );
-          }
-
-          const receipt = await publicClient.waitForTransactionReceipt({ hash });
-
-          if (receipt.status === "success") {
-            txid = hash;
-          } else {
-            throw new Error("Transaction failed");
-          }
-        }
-      } catch (error) {
-        console.error("Error sending REVO tokens:", error);
-        throw new Error(`Failed to send REVO: ${(error as Error).message}`);
-      }
-
-      const updatedConversion = await prisma.ndauConversion.update({
-        where: { id },
-        data: {
-          txid,
-          status: "processed",
-          updated_at: new Date(),
-        },
-      });
-
-      return {
-        success: true,
-        message: "Conversion processed successfully. REVO tokens sent!",
-        conversion: {
-          id: updatedConversion.id,
-          ndauAddress: updatedConversion.ndau_address,
-          ndauAmount: updatedConversion.ndau_amount,
-          revoAmount: updatedConversion.revo_amount,
-          revoAddress: updatedConversion.revo_address,
-          txid: updatedConversion.txid,
-          status: updatedConversion.status,
-        },
-      };
-    }),
-
-  /**
    * Confirm a conversion txid from MetaMask (admin only)
    * Used by the admin UI after a successful MetaMask transaction
    */
@@ -493,6 +387,8 @@ export const ndauConversionRouter = router({
         );
       }
 
+      await validateConversionTxid(txid, conversion.revo_address, conversion.revo_amount);
+
       const updatedConversion = await prisma.ndauConversion.update({
         where: { id },
         data: {
@@ -505,6 +401,64 @@ export const ndauConversionRouter = router({
       return {
         success: true,
         message: "Conversion confirmed successfully",
+        conversion: {
+          id: updatedConversion.id,
+          ndauAddress: updatedConversion.ndau_address,
+          ndauAmount: updatedConversion.ndau_amount,
+          revoAmount: updatedConversion.revo_amount,
+          revoAddress: updatedConversion.revo_address,
+          txid: updatedConversion.txid,
+          status: updatedConversion.status,
+        },
+      };
+    }),
+
+  /**
+   * Mark a conversion as completed by providing a txid (admin only)
+   * Opens a dialog in the admin UI for manually entering a txid
+   */
+  markConversionCompleted: adminProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        txid: z.string().min(1, "Transaction ID is required"),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { id, txid } = input;
+
+      const conversion = await prisma.ndauConversion.findUnique({
+        where: { id },
+      });
+
+      if (!conversion) {
+        throw new Error("Conversion request not found");
+      }
+
+      if (conversion.status === "processed") {
+        throw new Error("This conversion has already been processed");
+      }
+
+      if (conversion.status !== "pending") {
+        throw new Error(
+          `Conversion cannot be processed in its current state: ${conversion.status}`
+        );
+      }
+
+      await validateConversionTxid(txid, conversion.revo_address, conversion.revo_amount);
+
+      const updatedConversion = await prisma.ndauConversion.update({
+        where: { id },
+        data: {
+          txid,
+          status: "processed",
+          updated_at: new Date(),
+        },
+      });
+
+      return {
+        success: true,
+        message: "Conversion marked as completed successfully",
         conversion: {
           id: updatedConversion.id,
           ndauAddress: updatedConversion.ndau_address,

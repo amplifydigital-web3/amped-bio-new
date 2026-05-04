@@ -13,7 +13,9 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/Switch";
-import { Loader2, CheckCircle2, Clock, XCircle, Send, Download, Wallet } from "lucide-react";
+import { Input } from "@/components/ui/Input";
+import { Label } from "@/components/ui/label";
+import { Loader2, CheckCircle2, Clock, XCircle, Send, Download, Wallet, ClipboardCheck } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { RouterOutputs } from "@/utils/trpc/trpc";
@@ -47,18 +49,11 @@ export const AdminNdauConversions: FC = () => {
   const [metaMaskAddress, setMetaMaskAddress] = useState<string | null>(null);
   const [isSendingTx, setIsSendingTx] = useState(false);
 
-  const processMutation = useMutation({
-    mutationFn: trpc.ndauConversion.processConversion.mutationOptions().mutationFn,
-    onSuccess: () => {
-      toast.success(`Conversion processed successfully! ${currencySymbol} tokens sent.`);
-      setIsProcessDialogOpen(false);
-      setSelectedConversion(null);
-      refetch();
-    },
-    onError: err => {
-      toast.error(`Failed to process conversion: ${err.message}`);
-    },
-  });
+  const [isMarkCompletedOpen, setIsMarkCompletedOpen] = useState(false);
+  const [txidInput, setTxidInput] = useState("");
+  const [selectedConversionForMark, setSelectedConversionForMark] = useState<
+    RouterOutputs["ndauConversion"]["getAllConversions"][number] | null
+  >(null);
 
   const confirmMutation = useMutation({
     mutationFn: trpc.ndauConversion.confirmConversionTxid.mutationOptions().mutationFn,
@@ -72,6 +67,20 @@ export const AdminNdauConversions: FC = () => {
     },
     onError: err => {
       toast.error(`Failed to confirm conversion: ${err.message}`);
+    },
+  });
+
+  const markCompletedMutation = useMutation({
+    mutationFn: trpc.ndauConversion.markConversionCompleted.mutationOptions().mutationFn,
+    onSuccess: () => {
+      toast.success("Conversion marked as completed!");
+      setIsMarkCompletedOpen(false);
+      setSelectedConversionForMark(null);
+      setTxidInput("");
+      refetch();
+    },
+    onError: err => {
+      toast.error(`Failed to mark conversion: ${err.message}`);
     },
   });
 
@@ -157,11 +166,20 @@ export const AdminNdauConversions: FC = () => {
     }
   };
 
-  const handleSubmitProcess = () => {
-    if (!selectedConversion) return;
+  const handleMarkCompletedClick = (
+    conversion: RouterOutputs["ndauConversion"]["getAllConversions"][number]
+  ) => {
+    setSelectedConversionForMark(conversion);
+    setTxidInput("");
+    setIsMarkCompletedOpen(true);
+  };
 
-    processMutation.mutate({
-      id: selectedConversion.id,
+  const handleMarkCompletedSubmit = () => {
+    if (!selectedConversionForMark || !txidInput.trim()) return;
+
+    markCompletedMutation.mutate({
+      id: selectedConversionForMark.id,
+      txid: txidInput.trim(),
     });
   };
 
@@ -458,13 +476,22 @@ export const AdminNdauConversions: FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     {conversion.status === "pending" ? (
-                      <Button
-                        size="sm"
-                        onClick={() => handleProcessClick(conversion)}
-                        disabled={processMutation.isPending}
-                      >
-                        Process
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => handleProcessClick(conversion)}
+                        >
+                          Process
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleMarkCompletedClick(conversion)}
+                        >
+                          <ClipboardCheck className="h-4 w-4 mr-1" />
+                          Mark Completed
+                        </Button>
+                      </div>
                     ) : (
                       <span className="text-gray-400">-</span>
                     )}
@@ -615,6 +642,88 @@ export const AdminNdauConversions: FC = () => {
                   </DialogFooter>
                 </div>
               )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Mark Completed Dialog */}
+      <Dialog open={isMarkCompletedOpen} onOpenChange={setIsMarkCompletedOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Mark Conversion as Completed</DialogTitle>
+          </DialogHeader>
+
+          {selectedConversionForMark && (
+            <div className="space-y-4 py-4">
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-500">NDAU Amount:</span>
+                  <span className="font-semibold text-gray-900">
+                    {selectedConversionForMark.ndauAmount} NDAU
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-500">{currencySymbol} Amount:</span>
+                  <span className="font-semibold text-blue-600">
+                    {selectedConversionForMark.revoAmount} {currencySymbol}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-500">{currencySymbol} Address:</span>
+                  <span className="font-mono text-xs text-gray-900 break-all max-w-[200px]">
+                    {selectedConversionForMark.revoAddress}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="txid-input">Transaction ID (TXID)</Label>
+                <Input
+                  id="txid-input"
+                  placeholder="0x..."
+                  value={txidInput}
+                  onChange={e => setTxidInput(e.target.value)}
+                  className="font-mono text-xs"
+                />
+                <p className="text-xs text-gray-500">
+                  Enter the transaction hash of the REVO transfer. The system will validate the
+                  transaction on-chain before marking it as completed.
+                </p>
+              </div>
+
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsMarkCompletedOpen(false);
+                    setSelectedConversionForMark(null);
+                    setTxidInput("");
+                  }}
+                  disabled={markCompletedMutation.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleMarkCompletedSubmit}
+                  disabled={!txidInput.trim() || markCompletedMutation.isPending}
+                  variant="confirm"
+                >
+                  {markCompletedMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Validating...
+                    </>
+                  ) : (
+                    <>
+                      <ClipboardCheck className="h-4 w-4 mr-2" />
+                      Mark Completed
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
             </div>
           )}
         </DialogContent>
