@@ -462,6 +462,62 @@ export const ndauConversionRouter = router({
     }),
 
   /**
+   * Confirm a conversion txid from MetaMask (admin only)
+   * Used by the admin UI after a successful MetaMask transaction
+   */
+  confirmConversionTxid: adminProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        txid: z.string().min(1, "Transaction ID is required"),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { id, txid } = input;
+
+      const conversion = await prisma.ndauConversion.findUnique({
+        where: { id },
+      });
+
+      if (!conversion) {
+        throw new Error("Conversion request not found");
+      }
+
+      if (conversion.status === "processed") {
+        throw new Error("This conversion has already been processed");
+      }
+
+      if (conversion.status !== "pending") {
+        throw new Error(
+          `Conversion cannot be processed in its current state: ${conversion.status}`
+        );
+      }
+
+      const updatedConversion = await prisma.ndauConversion.update({
+        where: { id },
+        data: {
+          txid,
+          status: "processed",
+          updated_at: new Date(),
+        },
+      });
+
+      return {
+        success: true,
+        message: "Conversion confirmed successfully",
+        conversion: {
+          id: updatedConversion.id,
+          ndauAddress: updatedConversion.ndau_address,
+          ndauAmount: updatedConversion.ndau_amount,
+          revoAmount: updatedConversion.revo_amount,
+          revoAddress: updatedConversion.revo_address,
+          txid: updatedConversion.txid,
+          status: updatedConversion.status,
+        },
+      };
+    }),
+
+  /**
    * Get pending conversions count (for admin dashboard)
    */
   getPendingConversionsCount: adminProcedure.query(async () => {

@@ -2,7 +2,8 @@ import { FC, useState } from "react";
 import { trpc } from "@/utils/trpc/trpc";
 import { Button } from "@/components/ui/Button";
 import { useChainId } from "wagmi";
-import { getCurrencySymbol } from "@ampedbio/web3";
+import { getCurrencySymbol, revolutionDevnet } from "@ampedbio/web3";
+import { createWalletClient, custom, parseEther, type Address } from "viem";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/Switch";
-import { Loader2, CheckCircle2, Clock, XCircle, Send, Download } from "lucide-react";
+import { Loader2, CheckCircle2, Clock, XCircle, Send, Download, Wallet } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { RouterOutputs } from "@/utils/trpc/trpc";
@@ -41,6 +42,11 @@ export const AdminNdauConversions: FC = () => {
   >(null);
   const [isProcessDialogOpen, setIsProcessDialogOpen] = useState(false);
 
+  const [isConnectingMetaMask, setIsConnectingMetaMask] = useState(false);
+  const [isMetaMaskConnected, setIsMetaMaskConnected] = useState(false);
+  const [metaMaskAddress, setMetaMaskAddress] = useState<string | null>(null);
+  const [isSendingTx, setIsSendingTx] = useState(false);
+
   const processMutation = useMutation({
     mutationFn: trpc.ndauConversion.processConversion.mutationOptions().mutationFn,
     onSuccess: () => {
@@ -53,6 +59,45 @@ export const AdminNdauConversions: FC = () => {
       toast.error(`Failed to process conversion: ${err.message}`);
     },
   });
+
+  const confirmMutation = useMutation({
+    mutationFn: trpc.ndauConversion.confirmConversionTxid.mutationOptions().mutationFn,
+    onSuccess: () => {
+      toast.success(`Conversion confirmed! TXID recorded.`);
+      setIsProcessDialogOpen(false);
+      setSelectedConversion(null);
+      setIsMetaMaskConnected(false);
+      setMetaMaskAddress(null);
+      refetch();
+    },
+    onError: err => {
+      toast.error(`Failed to confirm conversion: ${err.message}`);
+    },
+  });
+
+  const connectMetaMask = async () => {
+    if (!window.ethereum) {
+      toast.error("MetaMask is not installed");
+      return;
+    }
+
+    setIsConnectingMetaMask(true);
+    try {
+      const accounts = (await window.ethereum.request({
+        method: "eth_requestAccounts",
+      })) as string[];
+      if (accounts.length > 0) {
+        setIsMetaMaskConnected(true);
+        setMetaMaskAddress(accounts[0]);
+        toast.success("MetaMask connected");
+      }
+    } catch (error) {
+      console.error("Failed to connect to MetaMask:", error);
+      toast.error("Failed to connect to MetaMask");
+    } finally {
+      setIsConnectingMetaMask(false);
+    }
+  };
 
   const handleProcessClick = (
     conversion: RouterOutputs["ndauConversion"]["getAllConversions"][number]
@@ -67,7 +112,49 @@ export const AdminNdauConversions: FC = () => {
       ndauSignature: conversion.ndauSignature,
       user: conversion.user,
     });
+    setIsMetaMaskConnected(false);
+    setMetaMaskAddress(null);
     setIsProcessDialogOpen(true);
+  };
+
+  const handleMetaMaskSend = async () => {
+    if (!selectedConversion || !window.ethereum) return;
+
+    setIsSendingTx(true);
+    try {
+      const walletClient = createWalletClient({
+        chain: revolutionDevnet,
+        transport: custom(window.ethereum),
+      });
+
+      const accounts = (await window.ethereum.request({
+        method: "eth_requestAccounts",
+      })) as string[];
+
+      const hash = await walletClient.sendTransaction({
+        account: accounts[0] as Address,
+        chain: revolutionDevnet,
+        to: selectedConversion.revoAddress as Address,
+        value: parseEther(selectedConversion.revoAmount),
+      });
+
+      toast.success("Transaction sent. Recording TXID...");
+
+      confirmMutation.mutate({
+        id: selectedConversion.id,
+        txid: hash,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      if (message.includes("User rejected")) {
+        toast.error("Transaction rejected by MetaMask");
+      } else {
+        console.error("Transaction failed:", error);
+        toast.error(`Transaction failed: ${message}`);
+      }
+    } finally {
+      setIsSendingTx(false);
+    }
   };
 
   const handleSubmitProcess = () => {
@@ -397,81 +484,138 @@ export const AdminNdauConversions: FC = () => {
       <Dialog open={isProcessDialogOpen} onOpenChange={setIsProcessDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Send {currencySymbol} Tokens</DialogTitle>
+            <DialogTitle>Process Conversion via MetaMask</DialogTitle>
           </DialogHeader>
 
           {selectedConversion && (
-            <>
-              <div className="space-y-4 py-4">
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                  <p className="text-sm text-blue-800 dark:text-blue-200 mb-2">
-                    <strong>Confirmation:</strong> By clicking "Send {currencySymbol}", you confirm that:
-                  </p>
-                  <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside">
-                    <li>You have verified the NDAU conversion request</li>
-                    <li>The NDAU tokens have been received</li>
-                    <li>You authorize the automatic transfer of {currencySymbol} tokens</li>
-                  </ul>
-                </div>
-
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">NDAU Amount:</span>
-                    <span className="font-semibold text-gray-900 dark:text-white">
-                      {selectedConversion.ndauAmount} NDAU
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">{currencySymbol} to send:</span>
-                    <span className="font-semibold text-blue-600 dark:text-blue-400">
-                      {selectedConversion.revoAmount} REVO
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">{currencySymbol} Address:</span>
-                    <span className="font-mono text-xs text-gray-900 dark:text-white break-all max-w-[200px]">
-                      {selectedConversion.revoAddress}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
-                  <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                    <strong>Note:</strong> The transaction will be sent automatically to the user's
-                    {currencySymbol} address. Make sure you have sufficient balance.
+            <div className="space-y-4 py-4">
+              {!window.ethereum ? (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <p className="text-sm text-red-800">
+                    MetaMask is not installed. Please install MetaMask to process conversions.
                   </p>
                 </div>
-              </div>
+              ) : !isMetaMaskConnected ? (
+                <div className="space-y-4">
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-500">NDAU Amount:</span>
+                      <span className="font-semibold text-gray-900">
+                        {selectedConversion.ndauAmount} NDAU
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-500">{currencySymbol} to send:</span>
+                      <span className="font-semibold text-blue-600">
+                        {selectedConversion.revoAmount} REVO
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-500">{currencySymbol} Address:</span>
+                      <span className="font-mono text-xs text-gray-900 break-all max-w-[200px]">
+                        {selectedConversion.revoAddress}
+                      </span>
+                    </div>
+                  </div>
 
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsProcessDialogOpen(false)}
-                  disabled={processMutation.isPending}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  onClick={handleSubmitProcess}
-                  disabled={processMutation.isPending}
-                  variant="confirm"
-                >
-                  {processMutation.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Sending...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="h-4 w-4 mr-2" />
-                      Send {currencySymbol}
-                    </>
-                  )}
-                </Button>
-              </DialogFooter>
-            </>
+                  <Button
+                    type="button"
+                    onClick={connectMetaMask}
+                    disabled={isConnectingMetaMask}
+                    className="w-full"
+                  >
+                    {isConnectingMetaMask ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Connecting...
+                      </>
+                    ) : (
+                      <>
+                        <Wallet className="h-4 w-4 mr-2" />
+                        Connect MetaMask
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                    <div className="flex items-center gap-2">
+                      <Wallet className="h-4 w-4 text-green-600" />
+                      <span className="text-sm text-green-800 font-medium">
+                        Connected: {metaMaskAddress?.slice(0, 6)}...{metaMaskAddress?.slice(-4)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-blue-800 mb-2">
+                      <strong>Confirm Transaction:</strong> MetaMask will prompt you to send:
+                    </p>
+                    <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+                      <li>{selectedConversion.revoAmount} REVO</li>
+                      <li>To: {selectedConversion.revoAddress}</li>
+                      <li>On: Revochain Devnet</li>
+                    </ul>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-500">From:</span>
+                      <span className="font-mono text-xs text-gray-900 break-all max-w-[200px]">
+                        {metaMaskAddress}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-500">To:</span>
+                      <span className="font-mono text-xs text-gray-900 break-all max-w-[200px]">
+                        {selectedConversion.revoAddress}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-500">Amount:</span>
+                      <span className="font-semibold text-blue-600">
+                        {selectedConversion.revoAmount} REVO
+                      </span>
+                    </div>
+                  </div>
+
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsProcessDialogOpen(false)}
+                      disabled={isSendingTx || confirmMutation.isPending}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={handleMetaMaskSend}
+                      disabled={isSendingTx || confirmMutation.isPending}
+                      variant="confirm"
+                    >
+                      {isSendingTx ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Sending...
+                        </>
+                      ) : confirmMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Confirming...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4 mr-2" />
+                          Send {currencySymbol}
+                        </>
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </div>
+              )}
+            </div>
           )}
         </DialogContent>
       </Dialog>

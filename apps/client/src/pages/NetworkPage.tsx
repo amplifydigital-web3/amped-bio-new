@@ -4,16 +4,6 @@ import { AVAILABLE_CHAINS } from "@ampedbio/web3";
 import { Button } from "../components/ui/Button";
 import { Wallet } from "lucide-react";
 
-declare global {
-  interface Window {
-    ethereum?: {
-      request: (args: { method: string; params?: Array<unknown> }) => Promise<unknown>;
-      on: (event: string, handler: (arg: unknown) => void) => void;
-      removeListener: (event: string, handler: (arg: unknown) => void) => void;
-    };
-  }
-}
-
 const NetworkPage: React.FC = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
