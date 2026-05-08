@@ -2,8 +2,8 @@ import { FC, useState } from "react";
 import { trpc } from "@/utils/trpc/trpc";
 import { Button } from "@/components/ui/Button";
 import { useChainId } from "wagmi";
-import { getCurrencySymbol, revolutionDevnet } from "@ampedbio/web3";
-import { createWalletClient, custom, parseEther, type Address } from "viem";
+import { getCurrencySymbol, libertasTestnet } from "@ampedbio/web3";
+import { createWalletClient, createPublicClient, custom, http, parseEther, type Address } from "viem";
 import {
   Dialog,
   DialogContent,
@@ -132,7 +132,7 @@ export const AdminNdauConversions: FC = () => {
     setIsSendingTx(true);
     try {
       const walletClient = createWalletClient({
-        chain: revolutionDevnet,
+        chain: libertasTestnet,
         transport: custom(window.ethereum),
       });
 
@@ -142,12 +142,21 @@ export const AdminNdauConversions: FC = () => {
 
       const hash = await walletClient.sendTransaction({
         account: accounts[0] as Address,
-        chain: revolutionDevnet,
+        chain: libertasTestnet,
         to: selectedConversion.revoAddress as Address,
         value: parseEther(selectedConversion.revoAmount),
       });
 
-      toast.success("Transaction sent. Recording TXID...");
+      toast.success("Transaction submitted. Waiting for confirmation...");
+
+      // Wait for the transaction to be mined so the server can find the receipt
+      const publicClient = createPublicClient({
+        chain: libertasTestnet,
+        transport: http(),
+      });
+      await publicClient.waitForTransactionReceipt({ hash });
+
+      toast.success("Transaction confirmed. Recording TXID...");
 
       confirmMutation.mutate({
         id: selectedConversion.id,
@@ -582,7 +591,7 @@ export const AdminNdauConversions: FC = () => {
                     <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
                       <li>{selectedConversion.revoAmount} REVO</li>
                       <li>To: {selectedConversion.revoAddress}</li>
-                      <li>On: Revochain Devnet</li>
+                      <li>On: Libertas Testnet</li>
                     </ul>
                   </div>
 
