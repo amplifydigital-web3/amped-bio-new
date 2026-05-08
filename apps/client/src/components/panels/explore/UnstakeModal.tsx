@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Coins, TrendingUp, AlertCircle, Check } from "lucide-react";
 import { BsTelegram } from "react-icons/bs";
 import { useAccount, useBalance } from "wagmi";
@@ -52,6 +52,10 @@ export default function UnstakeModal({ isOpen, onClose, pool, onStakeSuccess }: 
   const [step, setStep] = useState<"amount" | "confirm" | "staking" | "success">("amount");
   const [amount, setAmount] = useState("");
 
+  // Capture the pre-unstake value before the transaction, so the success screen
+  // shows the correct total even after the parent refetches pool data.
+  const preCurrentStakeRef = useRef<number>(0);
+
   // Get user account and balance
   const { address: userAddress } = useAccount();
   const { data: balanceData, isLoading: isBalanceLoading } = useBalance({
@@ -79,6 +83,10 @@ export default function UnstakeModal({ isOpen, onClose, pool, onStakeSuccess }: 
       throw new Error(error);
     }
 
+    // Snapshot the current stake before the transaction, so the success screen
+    // always shows the correct total regardless of whether the parent has
+    // already refetched pool data.
+    preCurrentStakeRef.current = pool?.currentStake ?? 0;
     setStep("staking");
 
     try {
@@ -400,7 +408,7 @@ export default function UnstakeModal({ isOpen, onClose, pool, onStakeSuccess }: 
             <span className="text-sm font-medium text-green-700">Your Total Stake</span>
             <span className="text-lg font-bold text-green-900">
               {formatNumberWithSeparators(
-                Math.max(0, (pool.currentStake || 0) - parseFloat(amount))
+                Math.max(0, (preCurrentStakeRef.current || 0) - parseFloat(amount))
               )}{" "}
               {currencySymbol}
             </span>

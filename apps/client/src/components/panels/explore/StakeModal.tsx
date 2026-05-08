@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Coins, TrendingUp, AlertCircle, Check } from "lucide-react";
 import { BsTelegram } from "react-icons/bs";
 import { getChainConfig } from "@ampedbio/web3";
@@ -60,6 +60,10 @@ export default function StakeModal({ isOpen, onClose, pool, onStakeSuccess }: St
   const [amount, setAmount] = useState("");
   const [animatingTokens, setAnimatingTokens] = useState<Array<{ id: number; delay: number }>>([]);
 
+  // Capture the pre-stake value before the transaction, so the success screen
+  // shows the correct total even after the parent refetches pool data.
+  const preStakeByYouRef = useRef<number>(0);
+
   useEffect(() => {
     if (isOpen) {
       setStep("amount");
@@ -77,6 +81,10 @@ export default function StakeModal({ isOpen, onClose, pool, onStakeSuccess }: St
   };
 
   const handleStakeClick = async () => {
+    // Snapshot the current stake before the transaction, so the success screen
+    // always shows the correct total regardless of whether the parent has
+    // already refetched pool data.
+    preStakeByYouRef.current = pool?.stakedByYou ?? 0;
     setStep("staking");
 
     try {
@@ -494,7 +502,7 @@ export default function StakeModal({ isOpen, onClose, pool, onStakeSuccess }: St
             <span className="text-sm font-medium text-green-700">Your Total Stake</span>
             <span className="text-lg font-bold text-green-900">
               {formatNumberWithSeparators(
-                (pool.stakedByYou || 0) + (amount ? parseFloat(amount) : 0)
+                (preStakeByYouRef.current || 0) + (amount ? parseFloat(amount) : 0)
               )}{" "}
               {currencySymbol}
             </span>
