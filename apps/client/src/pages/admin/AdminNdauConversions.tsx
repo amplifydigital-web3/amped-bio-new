@@ -3,7 +3,7 @@ import { trpc } from "@/utils/trpc/trpc";
 import { Button } from "@/components/ui/Button";
 import { useChainId } from "wagmi";
 import { getCurrencySymbol, libertasTestnet } from "@ampedbio/web3";
-import { createWalletClient, createPublicClient, custom, http, parseEther, type Address } from "viem";
+import { createWalletClient, custom, parseEther, type Address } from "viem";
 import {
   Dialog,
   DialogContent,
@@ -15,8 +15,17 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/Switch";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/label";
-import { Loader2, CheckCircle2, Clock, XCircle, Send, Download, Wallet, ClipboardCheck } from "lucide-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  Loader2,
+  CheckCircle2,
+  Clock,
+  XCircle,
+  Send,
+  Download,
+  Wallet,
+  ClipboardCheck,
+} from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { RouterOutputs } from "@/utils/trpc/trpc";
 import { formatHandle } from "@/utils/handle";
@@ -31,6 +40,8 @@ export const AdminNdauConversions: FC = () => {
     error,
     refetch,
   } = useQuery(trpc.ndauConversion.getAllConversions.queryOptions());
+
+  const queryClient = useQueryClient();
 
   const [showFullData, setShowFullData] = useState(false);
 
@@ -108,9 +119,28 @@ export const AdminNdauConversions: FC = () => {
     }
   };
 
-  const handleProcessClick = (
+  const handleProcessClick = async (
     conversion: RouterOutputs["ndauConversion"]["getAllConversions"][number]
   ) => {
+    try {
+      const latest = await queryClient.fetchQuery(
+        trpc.ndauConversion.getConversionById.queryOptions({ id: conversion.id })
+      );
+      if (latest.txid || latest.status !== "pending") {
+        toast.error(
+          latest.status === "processing"
+            ? "This conversion is currently being processed"
+            : "This conversion has already been processed"
+        );
+        return;
+      }
+    } catch (err) {
+      toast.error(
+        `Failed to check conversion status: ${err instanceof Error ? err.message : "Unknown error"}`
+      );
+      return;
+    }
+
     setSelectedConversion({
       id: conversion.id,
       ndauAddress: conversion.ndauAddress,
@@ -147,16 +177,7 @@ export const AdminNdauConversions: FC = () => {
         value: parseEther(selectedConversion.revoAmount),
       });
 
-      toast.success("Transaction submitted. Waiting for confirmation...");
-
-      // Wait for the transaction to be mined so the server can find the receipt
-      const publicClient = createPublicClient({
-        chain: libertasTestnet,
-        transport: http(),
-      });
-      await publicClient.waitForTransactionReceipt({ hash });
-
-      toast.success("Transaction confirmed. Recording TXID...");
+      toast.success("Transaction submitted. Recording TXID...");
 
       confirmMutation.mutate({
         id: selectedConversion.id,
@@ -199,6 +220,13 @@ export const AdminNdauConversions: FC = () => {
           <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
             <Clock className="h-3 w-3 mr-1" />
             Pending
+          </Badge>
+        );
+      case "processing":
+        return (
+          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+            Processing
           </Badge>
         );
       case "processed":
@@ -312,13 +340,8 @@ export const AdminNdauConversions: FC = () => {
       {conversions && conversions.length > 0 ? (
         <div className="overflow-x-auto">
           <div className="flex items-center gap-2 mb-4">
-            <Switch
-              checked={showFullData}
-              onChange={() => setShowFullData(prev => !prev)}
-            />
-            <span className="text-sm text-gray-600 dark:text-gray-400">
-              Show full data
-            </span>
+            <Switch checked={showFullData} onChange={() => setShowFullData(prev => !prev)} />
+            <span className="text-sm text-gray-600 dark:text-gray-400">Show full data</span>
           </div>
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-800">
@@ -486,10 +509,7 @@ export const AdminNdauConversions: FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     {conversion.status === "pending" ? (
                       <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => handleProcessClick(conversion)}
-                        >
+                        <Button size="sm" onClick={() => handleProcessClick(conversion)}>
                           Process
                         </Button>
                         <Button

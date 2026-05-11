@@ -6,13 +6,8 @@ import {
   createNdauConversionPayloadYaml,
 } from "@ampedbio/constants";
 import { prisma } from "../services/DB";
-import {
-  createPublicClient,
-  http,
-  parseEther,
-  formatEther,
-} from "viem";
-import { revolutionDevnet } from "@ampedbio/web3";
+import { createPublicClient, http, parseEther, formatEther } from "viem";
+import { libertasTestnet } from "@ampedbio/web3";
 import { verifyConversionSignature, verifyNdauSignature } from "../utils/ndau";
 import { recoverAddress, hashMessage } from "viem";
 
@@ -23,10 +18,12 @@ async function validateConversionTxid(
   expectedRevoAddress: string,
   expectedRevoAmount: string
 ): Promise<void> {
-  const chain = revolutionDevnet;
+  const chain = libertasTestnet;
   const publicClient = createPublicClient({
     chain,
-    transport: http(chain.rpcUrls.default.http[0]),
+    transport: http(chain.rpcUrls.default.http[0], {
+      timeout: 20_000,
+    }),
   });
 
   const tx = await publicClient.getTransaction({ hash: txid as `0x${string}` });
@@ -321,9 +318,7 @@ export const ndauConversionRouter = router({
       orderBy: { created_at: "desc" },
     });
 
-    const revoAddresses = [
-      ...new Set(conversions.map(c => c.revo_address).filter(Boolean)),
-    ];
+    const revoAddresses = [...new Set(conversions.map(c => c.revo_address).filter(Boolean))];
 
     const userByAddress = new Map<string, { handle: string } | null>();
     if (revoAddresses.length > 0) {
@@ -356,8 +351,28 @@ export const ndauConversionRouter = router({
   }),
 
   /**
+   * Get a single conversion by ID (admin only)
+   * Used for pre-check before opening the Process dialog
+   */
+  getConversionById: adminProcedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
+    const conversion = await prisma.ndauConversion.findUnique({
+      where: { id: input.id },
+    });
+
+    if (!conversion) {
+      throw new Error("Conversion request not found");
+    }
+
+    return {
+      id: conversion.id,
+      txid: conversion.txid,
+      status: conversion.status,
+    };
+  }),
+
+  /**
    * Confirm a conversion txid from MetaMask (admin only)
-   * Used by the admin UI after a successful MetaMask transaction
+   * Saves txid immediately with "processing" status, then validates on-chain
    */
   confirmConversionTxid: adminProcedure
     .input(
@@ -381,36 +396,60 @@ export const ndauConversionRouter = router({
         throw new Error("This conversion has already been processed");
       }
 
-      if (conversion.status !== "pending") {
+      if (conversion.status !== "pending" && conversion.status !== "processing") {
         throw new Error(
           `Conversion cannot be processed in its current state: ${conversion.status}`
         );
       }
 
-      await validateConversionTxid(txid, conversion.revo_address, conversion.revo_amount);
-
       const updatedConversion = await prisma.ndauConversion.update({
         where: { id },
         data: {
           txid,
-          status: "processed",
+          status: "processing",
           updated_at: new Date(),
         },
       });
 
-      return {
-        success: true,
-        message: "Conversion confirmed successfully",
-        conversion: {
-          id: updatedConversion.id,
-          ndauAddress: updatedConversion.ndau_address,
-          ndauAmount: updatedConversion.ndau_amount,
-          revoAmount: updatedConversion.revo_amount,
-          revoAddress: updatedConversion.revo_address,
-          txid: updatedConversion.txid,
-          status: updatedConversion.status,
-        },
-      };
+      try {
+        await validateConversionTxid(txid, conversion.revo_address, conversion.revo_amount);
+
+        const confirmedConversion = await prisma.ndauConversion.update({
+          where: { id },
+          data: {
+            status: "processed",
+            updated_at: new Date(),
+          },
+        });
+
+        return {
+          success: true,
+          message: "Conversion confirmed and validated on-chain",
+          conversion: {
+            id: confirmedConversion.id,
+            ndauAddress: confirmedConversion.ndau_address,
+            ndauAmount: confirmedConversion.ndau_amount,
+            revoAmount: confirmedConversion.revo_amount,
+            revoAddress: confirmedConversion.revo_address,
+            txid: confirmedConversion.txid,
+            status: confirmedConversion.status,
+          },
+        };
+      } catch {
+        return {
+          success: true,
+          message: "TXID recorded. On-chain validation pending.",
+          conversion: {
+            id: updatedConversion.id,
+            ndauAddress: updatedConversion.ndau_address,
+            ndauAmount: updatedConversion.ndau_amount,
+            revoAmount: updatedConversion.revo_amount,
+            revoAddress: updatedConversion.revo_address,
+            txid: updatedConversion.txid,
+            status: updatedConversion.status,
+          },
+        };
+      }
     }),
 
   /**
@@ -439,12 +478,11 @@ export const ndauConversionRouter = router({
         throw new Error("This conversion has already been processed");
       }
 
-      if (conversion.status !== "pending") {
+      if (conversion.status !== "pending" && conversion.status !== "processing") {
         throw new Error(
           `Conversion cannot be processed in its current state: ${conversion.status}`
         );
       }
-
       await validateConversionTxid(txid, conversion.revo_address, conversion.revo_amount);
 
       const updatedConversion = await prisma.ndauConversion.update({
