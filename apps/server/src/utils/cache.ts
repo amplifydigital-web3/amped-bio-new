@@ -136,8 +136,8 @@ export enum CacheKeys {
    */
   APY_PREFIX = "apy",
   /**
-   * Cache key prefix for storing pools public data (totalStake, fans count).
-   * Format: `pools_public_data:${chainId}:${poolAddress}:${searchTerm}`
+   * Cache key prefix for storing pools public data (totalStake, fans count, creatorStaked).
+   * Format: `pools_public_data:${chainId}:${poolAddress}`
    */
   POOLS_PUBLIC_DATA_PREFIX = "pools_public_data",
   /**
@@ -284,12 +284,8 @@ export function getAPYCacheKey(chainId: number, poolAddress: Address): string {
   return `${CacheKeys.APY_PREFIX}:${chainId}:${poolAddress}`;
 }
 
-export function getPoolsCacheKey(
-  chainId: number,
-  poolAddress: Address,
-  search: string = ""
-): string {
-  return `${CacheKeys.POOLS_PUBLIC_DATA_PREFIX}:${chainId}:${poolAddress}:${search.toLowerCase()}`;
+export function getPoolsCacheKey(chainId: number, poolAddress: Address): string {
+  return `${CacheKeys.POOLS_PUBLIC_DATA_PREFIX}:${chainId}:${poolAddress}`;
 }
 
 export function getMethodSignatureCacheKey(selector: string): string {

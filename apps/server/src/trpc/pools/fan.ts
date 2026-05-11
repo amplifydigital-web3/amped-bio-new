@@ -307,10 +307,16 @@ export const poolsFanRouter = router({
           transport: http(),
         });
 
-        // Create a map to store contract data
+        // Create a map to store contract data (from cache or blockchain)
         const blockchainStakeData = new Map<
           number,
-          { creatorStaked: bigint; totalFanStaked: bigint; isCached: boolean }
+          {
+            creatorStaked: bigint;
+            totalFanStaked: bigint;
+            fans: number;
+            totalStake: bigint;
+            isCached: boolean;
+          }
         >();
 
         // Create a map to track which pools need blockchain data (cache miss)
@@ -319,11 +325,7 @@ export const poolsFanRouter = router({
         // Check cache for each pool before making blockchain calls
         for (const pool of pools) {
           if (pool.poolAddress) {
-            const cacheKey = getPoolsCacheKey(
-              parseInt(pool.chainId),
-              pool.poolAddress as Address,
-              input.search
-            );
+            const cacheKey = getPoolsCacheKey(parseInt(pool.chainId), pool.poolAddress as Address);
             const cachedData = await cache.get<{
               creatorStaked: string;
               totalStake: string;
@@ -331,15 +333,22 @@ export const poolsFanRouter = router({
             }>(cacheKey);
 
             if (cachedData) {
-              // Cache hit: store cached data with explicit isCached flag
+              // Cache hit: store full cached data — no need for a second cache lookup later
+              const cachedTotalStake = cachedData.totalStake
+                ? BigInt(cachedData.totalStake)
+                : BigInt(0);
               blockchainStakeData.set(pool.id, {
                 creatorStaked: cachedData.creatorStaked
                   ? BigInt(cachedData.creatorStaked)
                   : BigInt(0),
-                totalFanStaked: cachedData.totalStake ? BigInt(cachedData.totalStake) : BigInt(0),
+                totalFanStaked: BigInt(0), // not needed for cached pools; totalStake is used directly
+                fans: cachedData.fans ?? 0,
+                totalStake: cachedTotalStake,
                 isCached: true,
               });
-              console.log(`Cache hit for pool ${pool.id}: using cached totalStake and fans`);
+              console.log(
+                `Cache hit for pool ${pool.id}: using cached totalStake=${cachedTotalStake}, fans=${cachedData.fans}`
+              );
             } else {
               // Cache miss: mark pool for blockchain query
               poolsNeedingBlockchain.set(pool.id, pool);
@@ -412,6 +421,8 @@ export const poolsFanRouter = router({
                 blockchainStakeData.set(pool.id, {
                   creatorStaked,
                   totalFanStaked,
+                  fans: 0,
+                  totalStake: BigInt(0),
                   isCached: false,
                 });
               } else {
@@ -446,22 +457,15 @@ export const poolsFanRouter = router({
               staked => BigInt(staked.stakeAmount) > 0n
             ).length;
 
-            // If pool was cached, use cached fans count
+            // If pool was cached, use cached fans count and totalStake directly
             if (isCached && pool.poolAddress) {
-              const cacheKey = getPoolsCacheKey(
-                parseInt(pool.chainId),
-                pool.poolAddress as Address,
-                input.search
-              );
-              const cachedData = await cache.get<{
-                creatorStaked: string;
-                totalStake: string;
-                fans: number;
-              }>(cacheKey);
-              if (cachedData) {
-                activeStakers = cachedData.fans;
-                totalStake = cachedData.totalStake ? BigInt(cachedData.totalStake) : BigInt(0);
-                console.log(`Using cached fans count for pool ${pool.id}: ${activeStakers}`);
+              const stakeData = blockchainStakeData.get(pool.id);
+              if (stakeData) {
+                activeStakers = stakeData.fans;
+                totalStake = stakeData.totalStake;
+                console.log(
+                  `Using cached fans count for pool ${pool.id}: ${activeStakers}, totalStake: ${totalStake}`
+                );
               }
             } else {
               // Query the totalStaked from the pool contract if we have the necessary data
@@ -497,8 +501,7 @@ export const poolsFanRouter = router({
                     // Store in cache
                     const cacheKey = getPoolsCacheKey(
                       parseInt(pool.chainId),
-                      pool.poolAddress as Address,
-                      input.search
+                      pool.poolAddress as Address
                     );
                     await cache.set(
                       cacheKey,
