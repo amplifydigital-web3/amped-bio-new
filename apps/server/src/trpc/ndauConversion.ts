@@ -6,6 +6,7 @@ import {
   createNdauConversionPayloadYaml,
 } from "@ampedbio/constants";
 import { prisma } from "../services/DB";
+import type { NdauConversion } from "../lib/prisma/index.js";
 import { createPublicClient, http, parseEther, formatEther } from "viem";
 import { libertasTestnet } from "@ampedbio/web3";
 import { verifyConversionSignature, verifyNdauSignature } from "../utils/ndau";
@@ -13,11 +14,25 @@ import { recoverAddress, hashMessage } from "viem";
 
 const CANONICAL_DOCUMENT_HASH = "ac31744d16a32a5e553123335dd7501aea5cece491e734aabf5e932c21255063";
 
-async function validateConversionTxid(
-  txid: string,
-  expectedRevoAddress: string,
-  expectedRevoAmount: string
-): Promise<void> {
+type ConversionTxidCheck = {
+  txid: string;
+  expectedRevoAddress: string;
+  expectedRevoAmount: string;
+};
+
+type ConversionTxidResult = {
+  txid: string;
+  success: boolean;
+  error?: string;
+};
+
+/**
+ * Validate multiple conversion txids on-chain using a single publicClient.
+ * Returns per-txid results so callers know which passed and which failed.
+ */
+async function validateConversionTxidsBatch(
+  conversions: ConversionTxidCheck[]
+): Promise<ConversionTxidResult[]> {
   const chain = libertasTestnet;
   const publicClient = createPublicClient({
     chain,
@@ -26,29 +41,73 @@ async function validateConversionTxid(
     }),
   });
 
-  const tx = await publicClient.getTransaction({ hash: txid as `0x${string}` });
+  const results: ConversionTxidResult[] = [];
 
-  if (!tx) {
-    throw new Error("Transaction not found on-chain");
+  for (const conv of conversions) {
+    try {
+      const tx = await publicClient.getTransaction({ hash: conv.txid as `0x${string}` });
+
+      if (!tx) {
+        results.push({ txid: conv.txid, success: false, error: "Transaction not found on-chain" });
+        continue;
+      }
+
+      if (tx.to?.toLowerCase() !== conv.expectedRevoAddress.toLowerCase()) {
+        results.push({
+          txid: conv.txid,
+          success: false,
+          error: `Transaction recipient mismatch. Expected: ${conv.expectedRevoAddress}, Got: ${tx.to}`,
+        });
+        continue;
+      }
+
+      const expectedValue = parseEther(conv.expectedRevoAmount);
+      if (tx.value < expectedValue) {
+        results.push({
+          txid: conv.txid,
+          success: false,
+          error: `Transaction value insufficient. Expected at least: ${conv.expectedRevoAmount} REVO, Got: ${formatEther(tx.value)} REVO`,
+        });
+        continue;
+      }
+
+      const receipt = await publicClient.getTransactionReceipt({
+        hash: conv.txid as `0x${string}`,
+      });
+
+      if (receipt.status !== "success") {
+        results.push({ txid: conv.txid, success: false, error: "Transaction failed on-chain" });
+        continue;
+      }
+
+      results.push({ txid: conv.txid, success: true });
+    } catch (err) {
+      results.push({
+        txid: conv.txid,
+        success: false,
+        error: err instanceof Error ? err.message : "Unknown validation error",
+      });
+    }
   }
 
-  if (tx.to?.toLowerCase() !== expectedRevoAddress.toLowerCase()) {
-    throw new Error(
-      `Transaction recipient mismatch. Expected: ${expectedRevoAddress}, Got: ${tx.to}`
-    );
-  }
+  return results;
+}
 
-  const expectedValue = parseEther(expectedRevoAmount);
-  if (tx.value < expectedValue) {
-    throw new Error(
-      `Transaction value insufficient. Expected at least: ${expectedRevoAmount} REVO, Got: ${formatEther(tx.value)} REVO`
-    );
-  }
-
-  const receipt = await publicClient.getTransactionReceipt({ hash: txid as `0x${string}` });
-
-  if (receipt.status !== "success") {
-    throw new Error("Transaction failed on-chain");
+/**
+ * Validate a single conversion txid (thin wrapper around the batch function).
+ * Used by confirmConversionTxid and markConversionCompleted.
+ */
+async function validateConversionTxid(
+  txid: string,
+  expectedRevoAddress: string,
+  expectedRevoAmount: string
+): Promise<void> {
+  const results = await validateConversionTxidsBatch([
+    { txid, expectedRevoAddress, expectedRevoAmount },
+  ]);
+  const result = results[0];
+  if (!result.success) {
+    throw new Error(result.error ?? "Validation failed");
   }
 }
 
@@ -318,6 +377,43 @@ export const ndauConversionRouter = router({
       orderBy: { created_at: "desc" },
     });
 
+    // Auto-resolve "processing" conversions whose txids are now confirmed on-chain
+    const processingConversions = conversions.filter(
+      (c: NdauConversion) => c.status === "processing" && c.txid
+    );
+
+    if (processingConversions.length > 0) {
+      const batchResults = await validateConversionTxidsBatch(
+        processingConversions.map((c: NdauConversion) => ({
+          txid: c.txid!,
+          expectedRevoAddress: c.revo_address,
+          expectedRevoAmount: c.revo_amount,
+        }))
+      );
+
+      // Build a lookup from txid to conversion for fast matching
+      const convByTxid = new Map(processingConversions.map((c: NdauConversion) => [c.txid!, c]));
+
+      for (const result of batchResults) {
+        if (result.success) {
+          const conv = convByTxid.get(result.txid);
+          if (conv) {
+            await prisma.ndauConversion.update({
+              where: { id: conv.id },
+              data: {
+                status: "processed",
+                updated_at: new Date(),
+              },
+            });
+            // Update the in-memory object so the returned list reflects the change
+            conv.status = "processed";
+            conv.updated_at = new Date();
+          }
+        }
+        // Non-success results stay "processing" — no action needed
+      }
+    }
+
     const revoAddresses = [...new Set(conversions.map(c => c.revo_address).filter(Boolean))];
 
     const userByAddress = new Map<string, { handle: string } | null>();
@@ -334,7 +430,7 @@ export const ndauConversionRouter = router({
       }
     }
 
-    return conversions.map((c: any) => ({
+    return conversions.map((c: NdauConversion) => ({
       id: c.id,
       ndauAddress: c.ndau_address,
       ndauAmount: c.ndau_amount,
