@@ -4,7 +4,8 @@ import { useWalletContext } from "@/contexts/WalletContext";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import SentLottie from "@/assets/lottie/sent.lottie";
 import { UsePayDialogReturns } from "@/hooks/usePayDialog";
-import { useAccount } from "wagmi";
+import { useAccount, useChainId } from "wagmi";
+import { getCurrencySymbol } from "@ampedbio/web3";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -21,6 +22,8 @@ export default function PayModal({ hook }: PayModalProps) {
     "amount"
   );
   const { chain } = useAccount();
+  const chainId = useChainId();
+  const currencySymbol = getCurrencySymbol(chainId);
   const wallet = useWalletContext();
 
   const explorerUrl = chain?.blockExplorers?.default.url;
@@ -147,7 +150,7 @@ export default function PayModal({ hook }: PayModalProps) {
             )}
             {wallet.balance?.data?.formatted && (
               <p className="text-gray-500 text-xs mt-1 text-center">
-                Balance: {parseFloat(wallet.balance.data.formatted).toFixed(8)} REVO
+                Balance: {parseFloat(wallet.balance.data.formatted).toFixed(8)} {currencySymbol}
               </p>
             )}
           </div>
@@ -177,7 +180,7 @@ export default function PayModal({ hook }: PayModalProps) {
         <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 space-y-2">
           <div className="flex justify-between">
             <span className="text-gray-600">Sending:</span>
-            <span className="font-medium text-gray-900">{hook.sendAmount} REVO</span>
+            <span className="font-medium text-gray-900">{hook.sendAmount} {currencySymbol}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600">To:</span>
@@ -191,7 +194,7 @@ export default function PayModal({ hook }: PayModalProps) {
           <div className="flex justify-between">
             <span className="text-gray-600">Network Fee:</span>
             <span className="font-medium text-gray-900">
-              ~{hook.estimatedGasFee ? parseFloat(hook.estimatedGasFee).toFixed(8) : "..."} REVO
+              ~{hook.estimatedGasFee ? parseFloat(hook.estimatedGasFee).toFixed(8) : "..."} {currencySymbol}
             </span>
           </div>
           <div className="flex justify-between font-medium pt-2 border-t border-gray-200">
@@ -200,7 +203,7 @@ export default function PayModal({ hook }: PayModalProps) {
               {(
                 parseFloat(hook.sendAmount || "0") + parseFloat(hook.estimatedGasFee || "0")
               ).toFixed(8)}{" "}
-              REVO
+              {currencySymbol}
             </span>
           </div>
         </div>

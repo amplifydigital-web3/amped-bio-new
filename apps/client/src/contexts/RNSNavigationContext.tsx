@@ -6,8 +6,6 @@ import { useCallback, useMemo } from "react";
 export type RNSView =
   | { type: "home" }
   | { type: "profile"; name: string }
-  | { type: "profile-ownership"; name: string }
-  | { type: "profile-more"; name: string }
   | { type: "register"; name: string }
   | { type: "address"; address: string }
   | { type: "success" }
@@ -23,11 +21,7 @@ const buildTParam = (view: RNSView) => {
     case "my-names":
       return "my-names";
     case "profile":
-      return `profile:${encodeURIComponent(view.name)}:details`;
-    case "profile-ownership":
-      return `profile:${encodeURIComponent(view.name)}:ownership`;
-    case "profile-more":
-      return `profile:${encodeURIComponent(view.name)}:more`;
+      return `profile:${encodeURIComponent(view.name)}`;
     case "address":
       return `address:${encodeURIComponent(view.address)}`;
     case "success":
@@ -40,13 +34,11 @@ const buildTParam = (view: RNSView) => {
 const parseTParam = (t?: string | null): RNSView => {
   if (!t) return { type: "home" };
   const parts = t.split(":");
-  const [a, b, c] = parts;
+  const [a, b] = parts;
   if (a === "home") return { type: "home" };
   if (a === "register" && b) return { type: "register", name: decodeURIComponent(b) };
   if (a === "my-names") return { type: "my-names" };
   if (a === "profile" && b) {
-    if (c === "ownership") return { type: "profile-ownership", name: decodeURIComponent(b) };
-    if (c === "more") return { type: "profile-more", name: decodeURIComponent(b) };
     return { type: "profile", name: decodeURIComponent(b) };
   }
   if (a === "address" && b) return { type: "address", address: decodeURIComponent(b) };
@@ -77,9 +69,6 @@ export const useRNSNavigation = () => {
       currentView,
       navigateToHome: () => navigateToView({ type: "home" }),
       navigateToProfile: (name: string) => navigateToView({ type: "profile", name }),
-      navigateToProfileOwnership: (name: string) =>
-        navigateToView({ type: "profile-ownership", name }),
-      navigateToProfileMore: (name: string) => navigateToView({ type: "profile-more", name }),
       navigateToRegister: (name: string) => navigateToView({ type: "register", name }),
       navigateToAddress: (address: string) => navigateToView({ type: "address", address }),
       navigateToSuccess: () => navigateToView({ type: "success" }),

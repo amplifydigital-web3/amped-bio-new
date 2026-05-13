@@ -1,7 +1,7 @@
 import React from "react";
 import { X, ExternalLink } from "lucide-react";
 import { AddressResult, TxStep } from "@/types/rns/common";
-import { scannerURL, trimmedDomainName } from "@/utils/rns";
+import { scannerURL, domainName } from "@/utils/rns";
 import { StepState } from "@/hooks/rns/useTransferOwnership";
 
 interface SuccessStepProps {
@@ -42,8 +42,8 @@ const SuccessStep: React.FC<SuccessStepProps> = ({ onClose, ensName, selectedAdd
             </svg>
           </div>
 
-          <h3 className="mb-2 text-lg font-medium sm:text-xl">
-            {trimmedDomainName(ensName || "")} has been transferred
+          <h3 className="mb-2 text-lg font-medium sm:text-xl break-all">
+            {domainName(ensName || "")} has been transferred
           </h3>
 
           <p className="text-xs text-gray-600 sm:text-sm">

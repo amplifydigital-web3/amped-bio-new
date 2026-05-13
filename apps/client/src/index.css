@@ -170,3 +170,12 @@
 .animate-float {
   animation: float 3s ease-in-out infinite;
 }
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.animate-gradient {
+  background-size: 300% 300%;
+  animation: gradient 8s ease infinite;
+}

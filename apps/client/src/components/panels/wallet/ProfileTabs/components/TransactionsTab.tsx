@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useAccount, useBalance, useChainId } from "wagmi";
 import { Clock, Loader, AlertCircle } from "lucide-react";
-import { getChainConfig } from "@ampedbio/web3";
+import { getChainConfig, getCurrencySymbol } from "@ampedbio/web3";
 import { Address } from "viem";
 import { Tooltip } from "@/components/ui/Tooltip";
 import RenderAddressProfile from "./RenderAddressProfile";
@@ -26,6 +26,7 @@ const TransactionsTab: React.FC = () => {
     address: address,
   });
 
+  const currencySymbol = getCurrencySymbol(chainId);
   const chain = getChainConfig(chainId);
   const explorerUrl = chain?.blockExplorers?.default.url;
   const explorerApiUrl = chain?.blockExplorers?.default.apiUrl;
@@ -226,10 +227,10 @@ const TransactionsTab: React.FC = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatValue(transaction.value, revoBalance?.symbol)}
+                    {formatValue(transaction.value, currencySymbol)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatFee(transaction.fee, revoBalance?.symbol)}
+                    {formatFee(transaction.fee, currencySymbol)}
                   </td>
                 </tr>
               );

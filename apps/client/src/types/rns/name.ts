@@ -35,3 +35,13 @@ export interface NameDetail {
     address: string;
   };
 }
+
+export const PROFILE_KEYS = {
+  avatar: "avatar",
+  banner: "banner",
+  bio: "description",
+  website: "url",
+  bannerMeta: "banner.meta",
+} as const;
+
+export type ProfileKey = keyof typeof PROFILE_KEYS;

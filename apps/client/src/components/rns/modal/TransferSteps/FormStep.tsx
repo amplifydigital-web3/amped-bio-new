@@ -3,7 +3,7 @@ import { X, AlertTriangle } from "lucide-react";
 import { Address } from "viem";
 
 import { AddressResult, TxStatus } from "@/types/rns/common";
-import { trimmedDomainName } from "@/utils/rns";
+import { domainName } from "@/utils/rns";
 
 interface FormStepProps {
   onClose: () => void;
@@ -75,7 +75,7 @@ const FormStep: React.FC<FormStepProps> = ({
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-blue-100" />
             <div>
-              <p className="font-semibold">{ensName ? trimmedDomainName(ensName) : "—"}</p>
+              <p className="font-semibold break-all">{ensName ? domainName(ensName) : "—"}</p>
               {senderAddress && (
                 <>
                   <p className="block lg:hidden text-gray-500 text-sm">

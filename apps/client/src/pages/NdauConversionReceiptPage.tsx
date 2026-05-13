@@ -1,0 +1,573 @@
+import { useState } from "react";
+import { useParams } from "react-router";
+import { trpc } from "@/utils/trpc/trpc";
+import { NDAU_TO_REVO_RATE } from "@ampedbio/constants";
+import { Button } from "@/components/ui/Button";
+import { useChainId } from "wagmi";
+import { getCurrencySymbol } from "@ampedbio/web3";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  AlertCircle,
+  Copy,
+  Wallet,
+  Clock,
+  FileText,
+  XCircle,
+  Loader2,
+} from "lucide-react";
+import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+
+type ProofStep = {
+  num: number;
+  label: string;
+  description: string;
+  completed: boolean;
+  timestamp?: number;
+};
+
+export default function NdauConversionReceiptPage() {
+  const params = useParams<{ ndauAddress: string }>();
+  const ndauAddressParam = params.ndauAddress || "";
+  const chainId = useChainId();
+  const currencySymbol = getCurrencySymbol(chainId);
+
+  const { data: conversion, isLoading } = useQuery(
+    trpc.ndauConversion.getConversion.queryOptions(
+      { ndauAddress: ndauAddressParam },
+      { enabled: !!ndauAddressParam }
+    )
+  );
+
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const { data: verificationResult, isLoading: isVerifyingSignature } = useQuery(
+    trpc.ndauConversion.verifyNdauSignature.queryOptions(
+      { ndauAddress: ndauAddressParam },
+      { enabled: !!ndauAddressParam && !!conversion?.ndauSignature }
+    )
+  );
+
+  const signatureValid = verificationResult?.found
+    ? verificationResult.isValid
+    : null;
+
+  const copyToClipboardSafe = async (text: string | null | undefined, fieldName: string) => {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(fieldName);
+      toast.success("Copied to clipboard");
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (error) {
+      toast.error("Failed to copy to clipboard");
+    }
+  };
+
+  const truncateAddress = (address?: string) => {
+    if (!address) return "-";
+    return `${address.slice(0, 8)}...${address.slice(-6)}`;
+  };
+
+  const truncateSignature = (sig?: string) => {
+    if (!sig) return "-";
+    return `${sig.slice(0, 15)}...${sig.slice(-10)}`;
+  };
+
+  const formatTimestamp = (timestamp?: number | null) => {
+    if (!timestamp) return "-";
+    return new Date(timestamp * 1000).toLocaleString();
+  };
+
+  const conversionTimestamp = conversion?.timestamp;
+
+  const steps: ProofStep[] = [
+    {
+      num: 1,
+      label: "Connect AmpedBio Wallet",
+      description: `User connected their AmpedBio (${currencySymbol}) wallet`,
+      completed: true,
+    },
+    {
+      num: 2,
+      label: "Connect NDAU Account",
+      description: "User connected their NDAU account via QR code",
+      completed: true,
+    },
+    {
+      num: 3,
+      label: "Sign Conversion",
+      description: `User agreed to convert ${parseFloat(conversion?.ndauAmount || "0").toFixed(6)} NDAU to ${conversion?.revoAmount || "0"} ${currencySymbol} (rate: 1 NDAU = ${NDAU_TO_REVO_RATE} ${currencySymbol})`,
+      completed: !!conversion?.ampedbioSignature && !!conversion?.ndauSignature,
+      timestamp: conversionTimestamp || undefined,
+    },
+    {
+      num: 4,
+      label: "Submit Conversion Request",
+      description: "User submitted the conversion request for admin processing",
+      completed: conversion?.status === "pending" || conversion?.status === "processed",
+    },
+  ];
+
+  if (!ndauAddressParam) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-12 px-4">
+        <div className="max-w-3xl mx-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
+            <div className="flex items-center justify-center gap-3 mb-6">
+              <XCircle className="h-12 w-12 text-red-600 dark:text-red-400" />
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                Missing NDAU Address
+              </h1>
+            </div>
+            <p className="text-center text-gray-600 dark:text-gray-300">
+              No NDAU address provided. Please provide an NDAU address in the URL.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-12 px-4">
+        <div className="max-w-3xl mx-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
+            <div className="flex items-center justify-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
+            </div>
+            <p className="text-center text-gray-600 dark:text-gray-300 mt-4">
+              Loading conversion receipt...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!conversion) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-12 px-4">
+        <div className="max-w-3xl mx-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
+            <div className="flex items-center justify-center gap-3 mb-6">
+              <XCircle className="h-12 w-12 text-red-600 dark:text-red-400" />
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                Conversion Not Found
+              </h1>
+            </div>
+            <p className="text-center text-gray-600 dark:text-gray-300">
+              No conversion found for NDAU address: {ndauAddressParam}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-12 px-4">
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
+            NDAU to {currencySymbol} Conversion Receipt
+          </h1>
+          <p className="text-lg text-gray-600 dark:text-gray-300">
+            Cryptographically verifiable receipt of conversion agreement
+          </p>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 space-y-8">
+          {/* Status Card */}
+          <div
+            className={`p-6 rounded-lg border-2 ${
+              conversion.status === "processed"
+                ? "border-green-500 bg-green-50 dark:bg-green-900/20"
+                : conversion.status === "pending"
+                  ? "border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20"
+                  : "border-gray-500 bg-gray-50 dark:bg-gray-700"
+            }`}
+          >
+            <div className="flex items-center justify-center gap-3">
+              {conversion.status === "processed" ? (
+                <CheckCircle2 className="h-10 w-10 text-green-600 dark:text-green-400" />
+              ) : conversion.status === "pending" ? (
+                <Clock className="h-10 w-10 text-yellow-600 dark:text-yellow-400" />
+              ) : (
+                <AlertCircle className="h-10 w-10 text-gray-600 dark:text-gray-400" />
+              )}
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  Status: {conversion.status.charAt(0).toUpperCase() + conversion.status.slice(1)}
+                </h2>
+                <p className="text-gray-600 dark:text-gray-300">
+                  {conversion.status === "processed"
+                    ? `Conversion has been completed and ${currencySymbol} tokens have been sent`
+                    : conversion.status === "pending"
+                      ? "Conversion is awaiting admin processing"
+                      : "Unknown conversion status"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Conversion Details */}
+          <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              Conversion Details
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">NDAU Address:</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 text-xs bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded font-mono text-gray-900 dark:text-white break-all">
+                      {conversion.ndauAddress}
+                    </code>
+                    <Button
+                      onClick={() => copyToClipboardSafe(conversion.ndauAddress, "ndauAddress")}
+                      variant="outline"
+                      size="sm"
+                      className="flex-shrink-0"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{currencySymbol} Address:</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 text-xs bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded font-mono text-gray-900 dark:text-white break-all">
+                      {conversion.revoAddress}
+                    </code>
+                    <Button
+                      onClick={() => copyToClipboardSafe(conversion.revoAddress, "revoAddress")}
+                      variant="outline"
+                      size="sm"
+                      className="flex-shrink-0"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">NDAU Amount:</p>
+                  <p className="text-xl font-bold text-gray-900 dark:text-white">
+                    {parseFloat(conversion.ndauAmount).toFixed(6)} NDAU
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{currencySymbol} Amount:</p>
+                  <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                    {conversion.revoAmount} {currencySymbol}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Submitted On:</p>
+                  <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {new Date(conversion.createdAt).toLocaleString()}
+                  </p>
+                </div>
+
+                {conversion.updatedAt && (
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Last Updated:</p>
+                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {new Date(conversion.updatedAt).toLocaleString()}
+                    </p>
+                  </div>
+                )}
+
+                {conversion.txid && (
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                      Transaction Hash:
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 text-xs bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded font-mono text-blue-600 dark:text-blue-400 break-all">
+                        {conversion.txid}
+                      </code>
+                      <Button
+                        onClick={() => copyToClipboardSafe(conversion.txid, "txid")}
+                        variant="outline"
+                        size="sm"
+                        className="flex-shrink-0"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {conversion.documentHash && (
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                      Document Hash (SHA-256):
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 text-xs bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded font-mono text-gray-900 dark:text-white break-all">
+                        {conversion.documentHash}
+                      </code>
+                      <Button
+                        onClick={() => copyToClipboardSafe(conversion.documentHash, "documentHash")}
+                        variant="outline"
+                        size="sm"
+                        className="flex-shrink-0"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="mt-2">
+                      <a
+                        href="/docs/NDAU_to_REVO_Token_Conversion_Agreement.pdf"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1"
+                      >
+                        <FileText className="h-3 w-3" />
+                        View Conversion Agreement PDF
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Signatures Section */}
+          <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <Wallet className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              Cryptographic Signatures
+            </h3>
+
+            <div className="space-y-4">
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    AmpedBio Wallet Signature (Document Agreement):
+                  </p>
+                  {conversionTimestamp && (
+                    <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                      <Clock className="h-3 w-3" />
+                      <span>{formatTimestamp(conversionTimestamp)}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-start gap-2">
+                  <code
+                    className="flex-1 text-xs bg-gray-100 dark:bg-gray-900 px-3 py-2 rounded font-mono text-gray-900 dark:text-white break-all"
+                    title={conversion.ampedbioSignature}
+                  >
+                    {truncateSignature(conversion.ampedbioSignature)}
+                  </code>
+                  <Button
+                    onClick={() =>
+                      copyToClipboardSafe(conversion.ampedbioSignature, "ampedbioSignature")
+                    }
+                    variant="outline"
+                    size="sm"
+                    className="flex-shrink-0"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  This signature proves AmpedBio wallet owner agreed to terms of NDAU to {currencySymbol}
+                  Conversion Agreement document by signing its hash.
+                </p>
+                {conversionTimestamp && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <strong>Unix Timestamp:</strong> {conversionTimestamp}
+                  </p>
+                )}
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    NDAU Account Signature (Conversion):
+                  </p>
+                  {conversionTimestamp && (
+                    <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                      <Clock className="h-3 w-3" />
+                      <span>{formatTimestamp(conversionTimestamp)}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-start gap-2 mb-2">
+                  <code
+                    className="flex-1 text-xs bg-gray-100 dark:bg-gray-900 px-3 py-2 rounded font-mono text-gray-900 dark:text-white break-all"
+                    title={conversion.ndauSignature}
+                  >
+                    {truncateSignature(conversion.ndauSignature)}
+                  </code>
+                  <Button
+                    onClick={() => copyToClipboardSafe(conversion.ndauSignature, "ndauSignature")}
+                    variant="outline"
+                    size="sm"
+                    className="flex-shrink-0"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    This signature proves NDAU account owner agreed to convert{" "}
+                    {parseFloat(conversion.ndauAmount).toFixed(6)} NDAU to {conversion.revoAmount}{" "}
+                    {currencySymbol}.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    {isVerifyingSignature ? (
+                      <div className="flex items-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin text-blue-600 dark:text-blue-400" />
+                        <span className="text-xs text-blue-600 dark:text-blue-400">
+                          Verifying...
+                        </span>
+                      </div>
+                    ) : signatureValid === true ? (
+                      <div className="flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400" />
+                        <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                          Verified
+                        </span>
+                      </div>
+                    ) : signatureValid === false ? (
+                      <div className="flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3 text-red-600 dark:text-red-400" />
+                        <span className="text-xs text-red-600 dark:text-red-400 font-medium">
+                          Invalid
+                        </span>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+                {conversionTimestamp && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <strong>Unix Timestamp:</strong> {conversionTimestamp}
+                  </p>
+                )}
+                {signatureValid === true && conversion.ndauAddress && (
+                  <div className="mt-2 bg-green-50 dark:bg-green-900/20 rounded p-2 border border-green-200 dark:border-green-800">
+                    <p className="text-xs text-green-800 dark:text-green-200">
+                      <strong>Signed by:</strong> {truncateAddress(conversion.ndauAddress)}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  <strong>Verification:</strong> You can verify these signatures by checking that
+                  they were created by the respective wallet addresses shown above.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-2 font-semibold">
+                    Important Information
+                  </p>
+                  <ul className="text-sm text-yellow-700 dark:text-yellow-300 space-y-1 list-disc list-inside">
+                    <li>This receipt serves as immutable evidence of conversion agreement</li>
+                    <li>All data is cryptographically signed and verifiable on-chain</li>
+                    <li>The backend fetched the actual NDAU balance at submission time</li>
+                    <li>Keep this receipt for your records in case of any disputes</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Process Steps Section */}
+          <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              Process Steps & Timeline
+            </h3>
+
+            <div className="space-y-3">
+              {steps.map((step, index) => (
+                <div
+                  key={step.num}
+                  className={`relative p-4 rounded-lg border-2 transition-colors ${
+                    step.completed
+                      ? "border-green-500 bg-green-50 dark:bg-green-900/20"
+                      : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0">
+                      {step.completed ? (
+                        <CheckCircle2 className="h-6 w-6 text-green-500" />
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                          <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">
+                            {step.num}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-gray-900 dark:text-white mb-1">
+                        {step.label}
+                      </h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+                        {step.description}
+                      </p>
+                      {step.timestamp && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Clock className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                          <span className="text-gray-700 dark:text-gray-300">
+                            Signed at: {formatTimestamp(step.timestamp)}
+                          </span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                            (Unix: {step.timestamp})
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {index < steps.length - 1 && (
+                    <div className="absolute left-6 bottom-0 h-8 w-0.5 bg-gray-200 dark:bg-gray-700 transform translate-y-full"></div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Back Button */}
+          <div className="text-center">
+            <Button
+              onClick={() => window.history.back()}
+              variant="outline"
+              className="inline-flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Conversion Page
+            </Button>
+            <Button
+              onClick={() => window.open(`/i/ndau-conversion`, "_self")}
+              variant="outline"
+              className="inline-flex items-center gap-2 ml-2"
+            >
+              <Wallet className="h-4 w-4" />
+              Convert with Another Account
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
