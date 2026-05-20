@@ -15,6 +15,8 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAccount, useSignMessage } from "wagmi";
+import { useCaptcha } from "@/hooks/useCaptcha";
+import { CaptchaActions } from "@ampedbio/constants";
 import {
   Check,
   Loader2,
@@ -105,6 +107,7 @@ export function SignPage() {
   const { authUser, isPending: isAuthPending } = useAuth();
   const { address, isConnected } = useAccount();
   const { signMessageAsync, isPending: isSigning } = useSignMessage();
+  const { executeCaptcha } = useCaptcha();
 
   const isPopup = typeof window !== "undefined" && !!window.opener;
 
@@ -176,11 +179,19 @@ export function SignPage() {
     setIsLoggingIn(true);
     setLoginError(null);
     try {
+      const recaptchaToken = await executeCaptcha(CaptchaActions.LOGIN);
       const response = await authClient.signIn.email({
         email: data.email,
         password: data.password,
         callbackURL: window.location.href,
         rememberMe: true,
+        fetchOptions: {
+          headers: recaptchaToken
+            ? {
+                "x-captcha-response": recaptchaToken,
+              }
+            : undefined,
+        },
       });
       if (response?.error) {
         throw new Error(response.error.message || "Login failed");
