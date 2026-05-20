@@ -408,8 +408,7 @@ export default function NdauConversionPage() {
             NDAU to {currencySymbol} Conversion
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-300">
-            Convert your NDAU tokens to {currencySymbol} tokens at a fixed rate. Complete all steps to submit
-            your conversion request.
+            Convert your NDAU tokens to testnet REVO (tREVO) at a fixed conversion rate. All tREVO will convert to Mainnet REVO at TGE. Please note: each NDAU account must be converted separately, so you'll need to repeat this process for every individual NDAU account you wish to convert.
           </p>
         </div>
 
@@ -739,6 +738,10 @@ export default function NdauConversionPage() {
                     )}
                   </div>
                 </div>
+
+                <p className="font-bold text-gray-900 dark:text-white mb-4">
+                  By signing this transaction, you acknowledge and agree to the full terms and conditions of the Conversion Agreement detailed above.
+                </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div
