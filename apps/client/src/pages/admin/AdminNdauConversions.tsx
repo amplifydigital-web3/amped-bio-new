@@ -141,16 +141,7 @@ export const AdminNdauConversions: FC = () => {
       return;
     }
 
-    setSelectedConversion({
-      id: conversion.id,
-      ndauAddress: conversion.ndauAddress,
-      ndauAmount: conversion.ndauAmount,
-      revoAmount: conversion.revoAmount,
-      revoAddress: conversion.revoAddress,
-      ampedbioSignature: conversion.ampedbioSignature,
-      ndauSignature: conversion.ndauSignature,
-      user: conversion.user,
-    });
+    setSelectedConversion(conversion);
     setIsMetaMaskConnected(false);
     setMetaMaskAddress(null);
     setIsProcessDialogOpen(true);
@@ -287,7 +278,7 @@ export const AdminNdauConversions: FC = () => {
         escapeCSV(c.status),
         escapeCSV(c.txid ?? null),
         escapeCSV(new Date(c.createdAt).toLocaleDateString()),
-        escapeCSV(new Date(c.updatedAt).toLocaleDateString()),
+        escapeCSV(c.updatedAt ? new Date(c.updatedAt).toLocaleDateString() : ""),
       ].join(",")
     );
 
