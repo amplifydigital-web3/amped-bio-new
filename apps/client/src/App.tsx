@@ -2,6 +2,7 @@ import { useEffect, lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route } from "react-router";
 import { Editor } from "./pages/Editor";
 import { View } from "./pages/View";
+import { SignPage } from "./pages/SignPage";
 import PoolsPage from "./pages/PoolsPage";
 import { PoolDetailsPage } from "./pages/PoolDetailsPage";
 import { PoolDebugPage } from "./pages/PoolDebugPage";
@@ -219,6 +220,9 @@ function AppRouter() {
           }
         />
       </Route>
+
+      {/* Sign route */}
+      <Route path="/sign" element={<SignPage />} />
 
       {/* Authentication Routes */}
       <Route path="/auth/verify-email/:token?" element={<EmailVerification />} />
