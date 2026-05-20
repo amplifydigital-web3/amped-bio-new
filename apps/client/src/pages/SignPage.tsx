@@ -23,6 +23,8 @@ import {
   ArrowRight,
   LogIn,
   PenTool,
+  ShieldCheck,
+  X,
 } from "lucide-react";
 import {
   Dialog,
@@ -33,14 +35,18 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
-type Step = 1 | 2 | 3;
+type Step = 1 | 2 | 3 | 4;
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters long"),
 });
 
-const paramsSchema = z.object({
+const paramsSchemaPopup = z.object({
+  message: z.string().min(1, "Message is required"),
+});
+
+const paramsSchemaDirect = z.object({
   message: z.string().min(1, "Message is required"),
   redirect: z
     .string()
@@ -58,7 +64,10 @@ const paramsSchema = z.object({
     ),
 });
 
-function getRedirectHostname(redirectUrl: string): string {
+type Params = { message: string; redirect?: string };
+
+function getRedirectHostname(redirectUrl?: string): string {
+  if (!redirectUrl) return "the requesting site";
   try {
     return new URL(redirectUrl).hostname;
   } catch {
@@ -66,10 +75,30 @@ function getRedirectHostname(redirectUrl: string): string {
   }
 }
 
+function getOpenerHostname(): string {
+  try {
+    if (document.referrer) {
+      return new URL(document.referrer).hostname;
+    }
+  } catch {}
+  return "the requesting site";
+}
+
+function getRequestingUrl(params: { redirect?: string } | null): string {
+  if (params?.redirect) return params.redirect;
+  try {
+    if (document.referrer) {
+      return new URL(document.referrer).href;
+    }
+  } catch {}
+  return "the requesting site";
+}
+
 const STEP_DEFS = [
   { num: 1, label: "Login", icon: LogIn },
-  { num: 2, label: "Sign", icon: PenTool },
-  { num: 3, label: "Return", icon: ArrowRight },
+  { num: 2, label: "Trust", icon: ShieldCheck },
+  { num: 3, label: "Sign", icon: PenTool },
+  { num: 4, label: "Return", icon: ArrowRight },
 ];
 
 export function SignPage() {
@@ -77,15 +106,16 @@ export function SignPage() {
   const { address, isConnected } = useAccount();
   const { signMessageAsync, isPending: isSigning } = useSignMessage();
 
-  const [params, setParams] = useState<z.infer<typeof paramsSchema> | null>(
-    null
-  );
+  const isPopup = typeof window !== "undefined" && !!window.opener;
+
+  const [params, setParams] = useState<Params | null>(null);
   const [paramsError, setParamsError] = useState<string | null>(null);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [signError, setSignError] = useState<string | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [trustConfirmed, setTrustConfirmed] = useState(false);
 
   const {
     register,
@@ -119,17 +149,28 @@ export function SignPage() {
       return;
     }
 
-    const result = paramsSchema.safeParse({ message, redirect });
-    if (!result.success) {
-      const firstError =
-        result.error.issues[0]?.message || "Invalid parameters";
-      setParamsError(firstError);
-      return;
+    if (isPopup) {
+      const result = paramsSchemaPopup.safeParse({ message });
+      if (!result.success) {
+        const firstError =
+          result.error.issues[0]?.message || "Invalid parameters";
+        setParamsError(firstError);
+        return;
+      }
+      setParams(result.data);
+    } else {
+      const result = paramsSchemaDirect.safeParse({ message, redirect: redirect ?? undefined });
+      if (!result.success) {
+        const firstError =
+          result.error.issues[0]?.message || "Invalid parameters";
+        setParamsError(firstError);
+        return;
+      }
+      setParams(result.data);
     }
-    setParams(result.data);
-  }, []);
+  }, [isPopup]);
 
-  const step: Step = !authUser ? 1 : signature ? 3 : 2;
+  const step: Step = !authUser ? 1 : signature ? 4 : trustConfirmed ? 3 : 2;
 
   const onSubmitLogin = async (data: z.infer<typeof loginSchema>) => {
     setIsLoggingIn(true);
@@ -164,9 +205,25 @@ export function SignPage() {
 
   const handleReturn = () => {
     if (!params || !signature || !address) return;
+
+    if (isPopup) {
+      window.opener!.postMessage(
+        {
+          type: "SIGNATURE_RESULT",
+          signature,
+          address,
+          message: params.message,
+        },
+        "*"
+      );
+      window.close();
+      return;
+    }
+
+    if (!params.redirect) return;
     const url = new URL(params.redirect);
-    url.searchParams.set("signature", signature);
-    url.searchParams.set("address", address);
+    url.searchParams.set("s", signature);
+    url.searchParams.set("a", address);
     window.location.href = url.toString();
   };
 
@@ -238,7 +295,7 @@ export function SignPage() {
                 </div>
                 {index < STEP_DEFS.length - 1 && (
                   <div
-                    className={`w-12 h-1 mx-1 rounded ${
+                    className={`w-7 h-1 mx-1 rounded ${
                       step > (stepDef.num as Step)
                         ? "bg-green-500"
                         : "bg-gray-200"
@@ -302,8 +359,59 @@ export function SignPage() {
           </Card>
         )}
 
-        {/* Step 2: Sign */}
+        {/* Step 2: Trust Verification */}
         {step === 2 && (
+          <Card className="w-full">
+            <CardHeader>
+              <div className="flex items-center gap-2 text-blue-600">
+                <ShieldCheck className="h-5 w-5" />
+                <CardTitle>Verify Requesting Site</CardTitle>
+              </div>
+              <CardDescription>
+                Verify that you know and trust the site requesting your signature
+                before proceeding.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                  <p className="text-xs font-medium text-gray-500 mb-1">
+                    Requesting URL
+                  </p>
+                  <p className="text-sm font-mono text-gray-900 break-all">
+                    {getRequestingUrl(params)}
+                  </p>
+                </div>
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                  <p className="text-xs font-medium text-gray-500 mb-1">
+                    Message to sign
+                  </p>
+                  <pre className="text-sm text-gray-900 break-all whitespace-pre-wrap font-mono">
+                    {params.message}
+                  </pre>
+                </div>
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-md flex items-start gap-2">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-amber-800">
+                    Only proceed if you recognize and trust the requesting site.
+                    Signing unknown messages can compromise your wallet security.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button
+                onClick={() => setTrustConfirmed(true)}
+                className="w-full"
+              >
+                I Know and Trust This Site
+              </Button>
+            </CardFooter>
+          </Card>
+        )}
+
+        {/* Step 3: Sign */}
+        {step === 3 && (
           <Card className="w-full">
             <CardHeader>
               <CardTitle>Sign Message</CardTitle>
@@ -370,8 +478,8 @@ export function SignPage() {
           </Card>
         )}
 
-        {/* Step 3: Done */}
-        {step === 3 && (
+        {/* Step 4: Done */}
+        {step === 4 && (
           <Card className="w-full">
             <CardHeader>
               <div className="flex items-center gap-2 text-green-600">
@@ -379,11 +487,21 @@ export function SignPage() {
                 <CardTitle>Message Signed</CardTitle>
               </div>
               <CardDescription>
-                You will be redirected back to{" "}
-                <span className="font-medium">
-                  {getRedirectHostname(params.redirect)}
-                </span>{" "}
-                with your signed message.
+                {isPopup ? (
+                  <>
+                    The signature has been sent back to{" "}
+                    <span className="font-medium">{getOpenerHostname()}</span>.
+                    You can close this window.
+                  </>
+                ) : (
+                  <>
+                    You will be redirected back to{" "}
+                    <span className="font-medium">
+                      {getRedirectHostname(params.redirect)}
+                    </span>{" "}
+                    with your signed message.
+                  </>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -398,8 +516,17 @@ export function SignPage() {
             </CardContent>
             <CardFooter>
               <Button onClick={handleReturn} variant="confirm" className="w-full">
-                <ArrowRight className="mr-2 h-5 w-5" />
-                Return to {getRedirectHostname(params.redirect)}
+                {isPopup ? (
+                  <>
+                    <X className="mr-2 h-5 w-5" />
+                    Close Window
+                  </>
+                ) : (
+                  <>
+                    <ArrowRight className="mr-2 h-5 w-5" />
+                    Return to {getRedirectHostname(params.redirect)}
+                  </>
+                )}
               </Button>
             </CardFooter>
           </Card>
