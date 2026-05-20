@@ -77,8 +77,11 @@ function getRedirectHostname(redirectUrl?: string): string {
   }
 }
 
-function getOpenerHostname(): string {
+function getOpenerHostname(openerUrl?: string | null): string {
   try {
+    if (openerUrl) {
+      return new URL(openerUrl).hostname;
+    }
     if (document.referrer) {
       return new URL(document.referrer).hostname;
     }
@@ -86,9 +89,12 @@ function getOpenerHostname(): string {
   return "the requesting site";
 }
 
-function getRequestingUrl(params: { redirect?: string } | null): string {
+function getRequestingUrl(params: { redirect?: string } | null, openerUrl?: string | null): string {
   if (params?.redirect) return params.redirect;
   try {
+    if (openerUrl) {
+      return new URL(openerUrl).href;
+    }
     if (document.referrer) {
       return new URL(document.referrer).href;
     }
@@ -110,6 +116,19 @@ export function SignPage() {
   const { executeCaptcha } = useCaptcha();
 
   const isPopup = typeof window !== "undefined" && !!window.opener;
+
+  // Capture the opener's referrer on first mount (survives login page reloads via sessionStorage)
+  const [openerUrl, setOpenerUrl] = useState<string | null>(() => {
+    if (!isPopup) return null;
+    const stored = sessionStorage.getItem("sign_opener_url");
+    if (stored) return stored;
+    const referrer = typeof document !== "undefined" ? document.referrer : "";
+    if (referrer) {
+      sessionStorage.setItem("sign_opener_url", referrer);
+      return referrer;
+    }
+    return null;
+  });
 
   const [params, setParams] = useState<Params | null>(null);
   const [paramsError, setParamsError] = useState<string | null>(null);
@@ -216,6 +235,8 @@ export function SignPage() {
 
   const handleReturn = () => {
     if (!params || !signature || !address) return;
+
+    sessionStorage.removeItem("sign_opener_url");
 
     if (isPopup) {
       window.opener!.postMessage(
@@ -390,7 +411,7 @@ export function SignPage() {
                     Requesting URL
                   </p>
                   <p className="text-sm font-mono text-gray-900 break-all">
-                    {getRequestingUrl(params)}
+                    {getRequestingUrl(params, openerUrl)}
                   </p>
                 </div>
                 <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
@@ -501,7 +522,7 @@ export function SignPage() {
                 {isPopup ? (
                   <>
                     The signature has been sent back to{" "}
-                    <span className="font-medium">{getOpenerHostname()}</span>.
+                    <span className="font-medium">{getOpenerHostname(openerUrl)}</span>.
                     You can close this window.
                   </>
                 ) : (
