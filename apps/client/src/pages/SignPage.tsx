@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/Button";
@@ -22,10 +22,6 @@ import {
   Loader2,
   AlertCircle,
   AlertTriangle,
-  ArrowRight,
-  LogIn,
-  PenTool,
-  ShieldCheck,
   X,
 } from "lucide-react";
 import {
@@ -37,77 +33,21 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
-type Step = 1 | 2 | 3 | 4;
+type FlowStep =
+  | "login"
+  | "wallet_wait"
+  | "announcing"
+  | "awaiting_message"
+  | "trust"
+  | "sign"
+  | "done";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters long"),
 });
 
-const paramsSchemaPopup = z.object({
-  message: z.string().min(1, "Message is required"),
-});
-
-const paramsSchemaDirect = z.object({
-  message: z.string().min(1, "Message is required"),
-  redirect: z
-    .string()
-    .min(1, "Redirect URL is required")
-    .refine(
-      (url) => {
-        try {
-          const parsed = new URL(url);
-          return parsed.protocol === "http:" || parsed.protocol === "https:";
-        } catch {
-          return false;
-        }
-      },
-      { message: "Redirect URL must be a valid http/https URL" }
-    ),
-});
-
-type Params = { message: string; redirect?: string };
-
-function getRedirectHostname(redirectUrl?: string): string {
-  if (!redirectUrl) return "the requesting site";
-  try {
-    return new URL(redirectUrl).hostname;
-  } catch {
-    return "site";
-  }
-}
-
-function getOpenerHostname(openerUrl?: string | null): string {
-  try {
-    if (openerUrl) {
-      return new URL(openerUrl).hostname;
-    }
-    if (document.referrer) {
-      return new URL(document.referrer).hostname;
-    }
-  } catch {}
-  return "the requesting site";
-}
-
-function getRequestingUrl(params: { redirect?: string } | null, openerUrl?: string | null): string {
-  if (params?.redirect) return params.redirect;
-  try {
-    if (openerUrl) {
-      return new URL(openerUrl).href;
-    }
-    if (document.referrer) {
-      return new URL(document.referrer).href;
-    }
-  } catch {}
-  return "the requesting site";
-}
-
-const STEP_DEFS = [
-  { num: 1, label: "Login", icon: LogIn },
-  { num: 2, label: "Trust", icon: ShieldCheck },
-  { num: 3, label: "Sign", icon: PenTool },
-  { num: 4, label: "Return", icon: ArrowRight },
-];
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export function SignPage() {
   const { authUser, isPending: isAuthPending } = useAuth();
@@ -117,27 +57,15 @@ export function SignPage() {
 
   const isPopup = typeof window !== "undefined" && !!window.opener;
 
-  // Capture the opener's referrer on first mount (survives login page reloads via sessionStorage)
-  const [openerUrl, setOpenerUrl] = useState<string | null>(() => {
-    if (!isPopup) return null;
-    const stored = sessionStorage.getItem("sign_opener_url");
-    if (stored) return stored;
-    const referrer = typeof document !== "undefined" ? document.referrer : "";
-    if (referrer) {
-      sessionStorage.setItem("sign_opener_url", referrer);
-      return referrer;
-    }
-    return null;
-  });
-
-  const [params, setParams] = useState<Params | null>(null);
-  const [paramsError, setParamsError] = useState<string | null>(null);
+  const [flowStep, setFlowStep] = useState<FlowStep>("login");
+  const [openerOrigin, setOpenerOrigin] = useState<string | null>(null);
+  const [messageToSign, setMessageToSign] = useState<string | null>(null);
+  const [signature, setSignature] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState("");
+  const [signError, setSignError] = useState<string | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [signError, setSignError] = useState<string | null>(null);
-  const [signature, setSignature] = useState<string | null>(null);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [trustConfirmed, setTrustConfirmed] = useState(false);
 
   const {
     register,
@@ -148,51 +76,104 @@ export function SignPage() {
     mode: "onBlur",
   });
 
+  const sendToOpener = useCallback(
+    (data: object) => {
+      if (isPopup && window.opener) {
+        window.opener.postMessage(data, "*");
+      }
+    },
+    [isPopup]
+  );
+
+  const startAnnouncing = useCallback(async () => {
+    setFlowStep("announcing");
+    setStatusMessage("Preparing to communicate with requesting site...");
+    await delay(1000);
+    sendToOpener({ type: "SIGN_READY" });
+    setFlowStep("awaiting_message");
+    setStatusMessage("Waiting for message to sign...");
+  }, [sendToOpener]);
+
+  // Transition: user logs in
   useEffect(() => {
-    const search = window.location.search;
-    const sp = new URLSearchParams(search);
-    const m = sp.get("m");
-    const r = sp.get("r");
+    if (!authUser) return;
+    if (flowStep !== "login") return;
 
-    let message: string | null = null;
-    let redirect: string | null = null;
-
-    try {
-      message = m ? atob(m) : null;
-    } catch {
-      setParamsError("Invalid base64 encoding in 'm' parameter");
-      return;
-    }
-
-    try {
-      redirect = r ? atob(r) : null;
-    } catch {
-      setParamsError("Invalid base64 encoding in 'r' parameter");
-      return;
-    }
-
-    if (isPopup) {
-      const result = paramsSchemaPopup.safeParse({ message });
-      if (!result.success) {
-        const firstError =
-          result.error.issues[0]?.message || "Invalid parameters";
-        setParamsError(firstError);
-        return;
-      }
-      setParams(result.data);
+    if (!isConnected) {
+      setFlowStep("wallet_wait");
+      setStatusMessage("Connecting wallet...");
     } else {
-      const result = paramsSchemaDirect.safeParse({ message, redirect: redirect ?? undefined });
-      if (!result.success) {
-        const firstError =
-          result.error.issues[0]?.message || "Invalid parameters";
-        setParamsError(firstError);
+      startAnnouncing();
+    }
+  }, [authUser, isConnected, flowStep, startAnnouncing]);
+
+  // Transition: wallet connects
+  useEffect(() => {
+    if (!isConnected || !authUser) return;
+    if (flowStep === "wallet_wait") {
+      startAnnouncing();
+    }
+  }, [isConnected, authUser, flowStep, startAnnouncing]);
+
+  // Listen for SIGN_MESSAGE from opener
+  useEffect(() => {
+    if (flowStep !== "awaiting_message") return;
+
+    const handleMessage = async (event: MessageEvent) => {
+      if (event.data?.type !== "SIGN_MESSAGE") return;
+
+      const origin = event.origin;
+      let decodedMessage: string;
+      try {
+        decodedMessage = atob(event.data.message);
+      } catch {
         return;
       }
-      setParams(result.data);
-    }
-  }, [isPopup]);
 
-  const step: Step = !authUser ? 1 : signature ? 4 : trustConfirmed ? 3 : 2;
+      setOpenerOrigin(origin);
+      setMessageToSign(decodedMessage);
+
+      sendToOpener({ type: "SIGN_MESSAGE_RECEIVED" });
+
+      setStatusMessage("Message received. Verifying requesting site...");
+      await delay(1000);
+
+      setFlowStep("trust");
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [flowStep, sendToOpener]);
+
+  const handleTrustConfirm = () => {
+    setFlowStep("sign");
+  };
+
+  const handleSign = async () => {
+    if (!messageToSign) return;
+    setSignError(null);
+    try {
+      const sig = await signMessageAsync({ message: messageToSign });
+      setSignature(sig);
+      setFlowStep("done");
+    } catch (error) {
+      setSignError((error as Error).message || "Signing failed");
+    }
+  };
+
+  const handleCloseWindow = () => {
+    if (!signature || !address) return;
+
+    sessionStorage.removeItem("sign_opener_origin");
+
+    sendToOpener({
+      type: "SIGNATURE_RESULT",
+      signature,
+      address,
+    });
+
+    window.close();
+  };
 
   const onSubmitLogin = async (data: z.infer<typeof loginSchema>) => {
     setIsLoggingIn(true);
@@ -222,46 +203,8 @@ export function SignPage() {
     }
   };
 
-  const handleSign = async () => {
-    if (!params) return;
-    setSignError(null);
-    try {
-      const sig = await signMessageAsync({ message: params.message });
-      setSignature(sig);
-    } catch (error) {
-      setSignError((error as Error).message || "Signing failed");
-    }
-  };
-
-  const handleReturn = () => {
-    if (!params || !signature || !address) return;
-
-    sessionStorage.removeItem("sign_opener_url");
-
-    if (isPopup) {
-      window.opener!.postMessage(
-        {
-          type: "SIGNATURE_RESULT",
-          signature,
-          address,
-          message: params.message,
-        },
-        "*"
-      );
-      window.close();
-      return;
-    }
-
-    if (!params.redirect) return;
-    const url = new URL(params.redirect);
-    url.searchParams.set("s", signature);
-    url.searchParams.set("a", address);
-    window.location.href = url.toString();
-  };
-
   const isSubmitting = isLoggingIn;
 
-  // --- Initial loading (auth state not yet determined) ---
   if (isAuthPending) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -270,77 +213,11 @@ export function SignPage() {
     );
   }
 
-  // --- Invalid / missing params ---
-  if (paramsError) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <Card className="w-full max-w-sm mx-auto">
-          <CardHeader>
-            <div className="flex items-center gap-2 text-red-600">
-              <AlertCircle className="h-5 w-5" />
-              <CardTitle>Invalid Request</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-600">{paramsError}</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (!params) {
-    return null;
-  }
-
-  // --- Main stepper ---
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 p-4">
       <div className="w-full max-w-sm mx-auto flex-1 flex flex-col justify-center">
-        {/* Stepper indicator */}
-        <div className="flex items-center justify-center mb-8">
-          {STEP_DEFS.map((stepDef, index) => {
-            const isCompleted = step > (stepDef.num as Step);
-            const isCurrent = step === (stepDef.num as Step);
-            const StepIcon = stepDef.icon;
-            return (
-              <div key={stepDef.num} className="flex items-center">
-                <div className="flex flex-col items-center">
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
-                      isCompleted
-                        ? "bg-green-500 text-white"
-                        : isCurrent
-                          ? "bg-blue-500 text-white"
-                          : "bg-gray-200 text-gray-500"
-                    }`}
-                  >
-                    {isCompleted ? (
-                      <Check className="h-5 w-5" />
-                    ) : (
-                      <StepIcon className="h-4 w-4" />
-                    )}
-                  </div>
-                  <span className="text-xs mt-1 text-gray-500">
-                    {stepDef.label}
-                  </span>
-                </div>
-                {index < STEP_DEFS.length - 1 && (
-                  <div
-                    className={`w-7 h-1 mx-1 rounded ${
-                      step > (stepDef.num as Step)
-                        ? "bg-green-500"
-                        : "bg-gray-200"
-                    }`}
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Step 1: Login */}
-        {step === 1 && (
+        {/* Login Step */}
+        {flowStep === "login" && (
           <Card className="w-full">
             <CardHeader>
               <CardTitle>Sign In</CardTitle>
@@ -391,27 +268,63 @@ export function SignPage() {
           </Card>
         )}
 
-        {/* Step 2: Trust Verification */}
-        {step === 2 && (
+        {/* Wallet Wait Step */}
+        {flowStep === "wallet_wait" && (
+          <Card className="w-full">
+            <CardContent className="py-12">
+              <div className="flex flex-col items-center gap-4">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                <p className="text-sm text-gray-500">{statusMessage}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Announcing Step */}
+        {flowStep === "announcing" && (
+          <Card className="w-full">
+            <CardContent className="py-12">
+              <div className="flex flex-col items-center gap-4">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                <p className="text-sm text-gray-500">{statusMessage}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Awaiting Message Step */}
+        {flowStep === "awaiting_message" && (
+          <Card className="w-full">
+            <CardContent className="py-12">
+              <div className="flex flex-col items-center gap-4">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                <p className="text-sm text-gray-500">{statusMessage}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Trust Step */}
+        {flowStep === "trust" && (
           <Card className="w-full">
             <CardHeader>
               <div className="flex items-center gap-2 text-blue-600">
-                <ShieldCheck className="h-5 w-5" />
+                <AlertTriangle className="h-5 w-5" />
                 <CardTitle>Verify Requesting Site</CardTitle>
               </div>
               <CardDescription>
-                Verify that you know and trust the site requesting your signature
-                before proceeding.
+                Verify that you know and trust the site requesting your
+                signature before proceeding.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
                   <p className="text-xs font-medium text-gray-500 mb-1">
-                    Requesting URL
+                    Requesting Origin
                   </p>
                   <p className="text-sm font-mono text-gray-900 break-all">
-                    {getRequestingUrl(params, openerUrl)}
+                    {openerOrigin}
                   </p>
                 </div>
                 <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
@@ -419,7 +332,7 @@ export function SignPage() {
                     Message to sign
                   </p>
                   <pre className="text-sm text-gray-900 break-all whitespace-pre-wrap font-mono">
-                    {params.message}
+                    {messageToSign}
                   </pre>
                 </div>
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-md flex items-start gap-2">
@@ -432,18 +345,15 @@ export function SignPage() {
               </div>
             </CardContent>
             <CardFooter>
-              <Button
-                onClick={() => setTrustConfirmed(true)}
-                className="w-full"
-              >
+              <Button onClick={handleTrustConfirm} className="w-full">
                 I Know and Trust This Site
               </Button>
             </CardFooter>
           </Card>
         )}
 
-        {/* Step 3: Sign */}
-        {step === 3 && (
+        {/* Sign Step */}
+        {flowStep === "sign" && (
           <Card className="w-full">
             <CardHeader>
               <CardTitle>Sign Message</CardTitle>
@@ -453,65 +363,60 @@ export function SignPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {!isConnected ? (
-                <div className="flex flex-col items-center py-8 gap-3">
-                  <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
-                  <p className="text-sm text-gray-500">Connecting wallet...</p>
+              <div className="space-y-4">
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                  <p className="text-xs font-medium text-gray-500 mb-1">
+                    Message to sign
+                  </p>
+                  <pre className="text-sm text-gray-900 break-all whitespace-pre-wrap font-mono">
+                    {messageToSign}
+                  </pre>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
-                    <p className="text-xs font-medium text-gray-500 mb-1">
-                      Message to sign
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                  <p className="text-xs font-medium text-gray-500 mb-1">
+                    Wallet address
+                  </p>
+                  <p className="text-sm font-mono text-gray-900 truncate">
+                    {address}
+                  </p>
+                </div>
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-md flex items-start gap-2">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-amber-800">
+                      Please review carefully before signing
                     </p>
-                    <pre className="text-sm text-gray-900 break-all whitespace-pre-wrap font-mono">
-                      {params.message}
-                    </pre>
+                    <p className="text-xs text-amber-700">
+                      We do not recommend signing unreadable or unknown
+                      messages. Amped.bio is not responsible for what you sign
+                      with your wallet.
+                    </p>
                   </div>
-                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
-                    <p className="text-xs font-medium text-gray-500 mb-1">
-                      Wallet address
-                    </p>
-                    <p className="text-sm font-mono text-gray-900 truncate">
-                      {address}
-                    </p>
-                    </div>
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-md flex items-start gap-2">
-                    <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-amber-800">
-                        Please review carefully before signing
-                      </p>
-                      <p className="text-xs text-amber-700">
-                        We do not recommend signing unreadable or unknown messages. Amped.bio is not responsible for what you sign with your wallet.
-                      </p>
-                    </div>
+                </div>
+                {signError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
+                    <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-red-600">{signError}</p>
                   </div>
-                  {signError && (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
-                      <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
-                      <p className="text-sm text-red-600">{signError}</p>
-                    </div>
+                )}
+                <Button
+                  onClick={() => setShowConfirmModal(true)}
+                  className="w-full"
+                  disabled={isSigning}
+                >
+                  {isSigning ? (
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  ) : (
+                    "Sign Message"
                   )}
-                  <Button
-                    onClick={() => setShowConfirmModal(true)}
-                    className="w-full"
-                    disabled={isSigning}
-                  >
-                    {isSigning ? (
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    ) : (
-                      "Sign Message"
-                    )}
-                  </Button>
-                </div>
-              )}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Step 4: Done */}
-        {step === 4 && (
+        {/* Done Step */}
+        {flowStep === "done" && (
           <Card className="w-full">
             <CardHeader>
               <div className="flex items-center gap-2 text-green-600">
@@ -519,21 +424,8 @@ export function SignPage() {
                 <CardTitle>Message Signed</CardTitle>
               </div>
               <CardDescription>
-                {isPopup ? (
-                  <>
-                    The signature has been sent back to{" "}
-                    <span className="font-medium">{getOpenerHostname(openerUrl)}</span>.
-                    You can close this window.
-                  </>
-                ) : (
-                  <>
-                    You will be redirected back to{" "}
-                    <span className="font-medium">
-                      {getRedirectHostname(params.redirect)}
-                    </span>{" "}
-                    with your signed message.
-                  </>
-                )}
+                The signature has been sent back to the requesting site. You can
+                close this window.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -547,18 +439,13 @@ export function SignPage() {
               </div>
             </CardContent>
             <CardFooter>
-              <Button onClick={handleReturn} variant="confirm" className="w-full">
-                {isPopup ? (
-                  <>
-                    <X className="mr-2 h-5 w-5" />
-                    Close Window
-                  </>
-                ) : (
-                  <>
-                    <ArrowRight className="mr-2 h-5 w-5" />
-                    Return to {getRedirectHostname(params.redirect)}
-                  </>
-                )}
+              <Button
+                onClick={handleCloseWindow}
+                variant="confirm"
+                className="w-full"
+              >
+                <X className="mr-2 h-5 w-5" />
+                Close Window
               </Button>
             </CardFooter>
           </Card>
@@ -573,7 +460,8 @@ export function SignPage() {
               <DialogTitle>Confirm Signing</DialogTitle>
             </div>
             <DialogDescription className="text-left">
-              Do you really want to sign this message? This action cannot be undone.
+              Do you really want to sign this message? This action cannot be
+              undone.
             </DialogDescription>
           </DialogHeader>
           <div className="p-3 bg-gray-50 border border-gray-200 rounded-md mt-2">
@@ -581,7 +469,7 @@ export function SignPage() {
               Message to sign
             </p>
             <pre className="text-xs text-gray-900 break-all whitespace-pre-wrap font-mono max-h-32 overflow-y-auto">
-              {params.message}
+              {messageToSign}
             </pre>
           </div>
           <DialogFooter className="mt-4 flex gap-2">
