@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/Button";
@@ -66,6 +66,8 @@ export function SignPage() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [errorState, setErrorState] = useState<string | null>(null);
+  const prevFlowStep = useRef<FlowStep>("login");
 
   const {
     register,
@@ -86,11 +88,17 @@ export function SignPage() {
   );
 
   const startAnnouncing = useCallback(async () => {
+    const from = prevFlowStep.current;
+    prevFlowStep.current = "announcing";
     setFlowStep("announcing");
+    console.log(`[S] flowStep changed: ${from} → announcing`);
     setStatusMessage("Preparing to communicate with requesting site...");
     await delay(1000);
+    console.log('[S] postMessage sent:', JSON.stringify({ type: "SIGN_READY" }));
     sendToOpener({ type: "SIGN_READY" });
+    prevFlowStep.current = "awaiting_message";
     setFlowStep("awaiting_message");
+    console.log('[S] flowStep changed: announcing → awaiting_message');
     setStatusMessage("Waiting for message to sign...");
   }, [sendToOpener]);
 
@@ -100,7 +108,9 @@ export function SignPage() {
     if (flowStep !== "login") return;
 
     if (!isConnected) {
+      prevFlowStep.current = "wallet_wait";
       setFlowStep("wallet_wait");
+      console.log('[S] flowStep changed: login → wallet_wait');
       setStatusMessage("Connecting wallet...");
     } else {
       startAnnouncing();
@@ -111,6 +121,7 @@ export function SignPage() {
   useEffect(() => {
     if (!isConnected || !authUser) return;
     if (flowStep === "wallet_wait") {
+      console.log('[S] flowStep changed: wallet_wait → announcing');
       startAnnouncing();
     }
   }, [isConnected, authUser, flowStep, startAnnouncing]);
@@ -119,8 +130,24 @@ export function SignPage() {
   useEffect(() => {
     if (flowStep !== "awaiting_message") return;
 
+    const timeout = setTimeout(() => {
+      setErrorState(
+        "Communication timeout — The requesting site did not respond."
+      );
+    }, 30000);
+
     const handleMessage = async (event: MessageEvent) => {
       if (event.data?.type !== "SIGN_MESSAGE") return;
+      clearTimeout(timeout);
+
+      console.log(
+        '[S] postMessage received:',
+        JSON.stringify({
+          origin: event.origin,
+          type: event.data.type,
+          message: event.data.message,
+        })
+      );
 
       const origin = event.origin;
       let decodedMessage: string;
@@ -130,23 +157,36 @@ export function SignPage() {
         return;
       }
 
+      console.log('[S] decoded message:', JSON.stringify(decodedMessage));
+
       setOpenerOrigin(origin);
       setMessageToSign(decodedMessage);
 
+      console.log(
+        '[S] postMessage sent:',
+        JSON.stringify({ type: "SIGN_MESSAGE_RECEIVED" })
+      );
       sendToOpener({ type: "SIGN_MESSAGE_RECEIVED" });
 
       setStatusMessage("Message received. Verifying requesting site...");
       await delay(1000);
 
+      prevFlowStep.current = "trust";
       setFlowStep("trust");
+      console.log('[S] flowStep changed: awaiting_message → trust');
     };
 
     window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
+    return () => {
+      window.removeEventListener("message", handleMessage);
+      clearTimeout(timeout);
+    };
   }, [flowStep, sendToOpener]);
 
   const handleTrustConfirm = () => {
+    prevFlowStep.current = "sign";
     setFlowStep("sign");
+    console.log('[S] flowStep changed: trust → sign');
   };
 
   const handleSign = async () => {
@@ -154,8 +194,11 @@ export function SignPage() {
     setSignError(null);
     try {
       const sig = await signMessageAsync({ message: messageToSign });
+      console.log('[S] signMessageAsync result:', JSON.stringify(sig));
       setSignature(sig);
+      prevFlowStep.current = "done";
       setFlowStep("done");
+      console.log('[S] flowStep changed: sign → done');
     } catch (error) {
       setSignError((error as Error).message || "Signing failed");
     }
@@ -165,6 +208,15 @@ export function SignPage() {
     if (!signature || !address) return;
 
     sessionStorage.removeItem("sign_opener_origin");
+
+    console.log(
+      '[S] postMessage sent:',
+      JSON.stringify({
+        type: "SIGNATURE_RESULT",
+        signature,
+        address,
+      })
+    );
 
     sendToOpener({
       type: "SIGNATURE_RESULT",
@@ -205,6 +257,24 @@ export function SignPage() {
 
   const isSubmitting = isLoggingIn;
 
+  if (!isPopup) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <Card className="w-full max-w-sm">
+          <CardContent className="py-12">
+            <div className="flex flex-col items-center gap-4 text-center">
+              <AlertCircle className="h-10 w-10 text-red-500" />
+              <CardTitle>Invalid Access</CardTitle>
+              <CardDescription>
+                This page must be opened from a requesting site.
+              </CardDescription>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (isAuthPending) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -216,8 +286,19 @@ export function SignPage() {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 p-4">
       <div className="w-full max-w-sm mx-auto flex-1 flex flex-col justify-center">
-        {/* Login Step */}
-        {flowStep === "login" && (
+        {errorState && (
+          <Card className="w-full border-red-200">
+            <CardContent className="py-12">
+              <div className="flex flex-col items-center gap-4 text-center">
+                <AlertCircle className="h-10 w-10 text-red-500" />
+                <CardTitle>Error</CardTitle>
+                <CardDescription>{errorState}</CardDescription>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {!errorState && flowStep === "login" && (
           <Card className="w-full">
             <CardHeader>
               <CardTitle>Sign In</CardTitle>
@@ -269,7 +350,7 @@ export function SignPage() {
         )}
 
         {/* Wallet Wait Step */}
-        {flowStep === "wallet_wait" && (
+        {!errorState && flowStep === "wallet_wait" && (
           <Card className="w-full">
             <CardContent className="py-12">
               <div className="flex flex-col items-center gap-4">
@@ -281,7 +362,7 @@ export function SignPage() {
         )}
 
         {/* Announcing Step */}
-        {flowStep === "announcing" && (
+        {!errorState && flowStep === "announcing" && (
           <Card className="w-full">
             <CardContent className="py-12">
               <div className="flex flex-col items-center gap-4">
@@ -293,7 +374,7 @@ export function SignPage() {
         )}
 
         {/* Awaiting Message Step */}
-        {flowStep === "awaiting_message" && (
+        {!errorState && flowStep === "awaiting_message" && (
           <Card className="w-full">
             <CardContent className="py-12">
               <div className="flex flex-col items-center gap-4">
@@ -305,7 +386,21 @@ export function SignPage() {
         )}
 
         {/* Trust Step */}
-        {flowStep === "trust" && (
+        {!errorState && flowStep === "trust" && openerOrigin === null && (
+          <Card className="w-full border-red-200">
+            <CardContent className="py-12">
+              <div className="flex flex-col items-center gap-4 text-center">
+                <AlertCircle className="h-10 w-10 text-red-500" />
+                <CardTitle>Unable to verify requesting site</CardTitle>
+                <CardDescription>
+                  Cannot determine the origin of the request.
+                </CardDescription>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {!errorState && flowStep === "trust" && openerOrigin !== null && (
           <Card className="w-full">
             <CardHeader>
               <div className="flex items-center gap-2 text-blue-600">
@@ -353,7 +448,7 @@ export function SignPage() {
         )}
 
         {/* Sign Step */}
-        {flowStep === "sign" && (
+        {!errorState && flowStep === "sign" && (
           <Card className="w-full">
             <CardHeader>
               <CardTitle>Sign Message</CardTitle>
@@ -416,7 +511,7 @@ export function SignPage() {
         )}
 
         {/* Done Step */}
-        {flowStep === "done" && (
+        {!errorState && flowStep === "done" && (
           <Card className="w-full">
             <CardHeader>
               <div className="flex items-center gap-2 text-green-600">
