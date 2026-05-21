@@ -93,7 +93,7 @@ export function SignPage() {
     setFlowStep("announcing");
     console.log(`[S] flowStep changed: ${from} → announcing`);
     setStatusMessage("Preparing to communicate with requesting site...");
-    await delay(1000);
+    await delay(2500);
     console.log('[S] postMessage sent:', JSON.stringify({ type: "SIGN_READY" }));
     sendToOpener({ type: "SIGN_READY" });
     prevFlowStep.current = "awaiting_message";
@@ -150,6 +150,14 @@ export function SignPage() {
       );
 
       const origin = event.origin;
+
+      if (!origin || origin === "null") {
+        setErrorState(
+          "Unable to verify requesting site — Cannot determine the origin of the request."
+        );
+        return;
+      }
+
       let decodedMessage: string;
       try {
         decodedMessage = atob(event.data.message);
@@ -169,7 +177,7 @@ export function SignPage() {
       sendToOpener({ type: "SIGN_MESSAGE_RECEIVED" });
 
       setStatusMessage("Message received. Verifying requesting site...");
-      await delay(1000);
+      await delay(2500);
 
       prevFlowStep.current = "trust";
       setFlowStep("trust");
