@@ -313,6 +313,7 @@ model NdauConversion {
   ndau_validation_key  String    @db.Text
   txid                 String?   @db.Text
   status               String    @default("pending")
+  group                String    @default("gn")
   created_at           DateTime  @default(now())
   updated_at           DateTime? @updatedAt
   document_hash        String    @map("document_hash") @db.VarChar(255)

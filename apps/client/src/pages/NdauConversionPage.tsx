@@ -5,7 +5,7 @@ import { useNdauSigner } from "@/ndau-wallet/hooks/useNdauSigner";
 import { NdauConnect } from "@/ndau-wallet/components/NdauConnect";
 import { trpc, trpcClient } from "@/utils/trpc/trpc";
 import { Button } from "@/components/ui/Button";
-import { NDAU_TO_REVO_RATE, calculateRevoAmount, createConversionMessage } from "@ampedbio/constants";
+import { NDAU_TO_REVO_RATE, calculateRevoAmount, createConversionMessage, KNOWN_NDAU_GROUPS, getNdauPdfPath } from "@ampedbio/constants";
 import { toast } from "sonner";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useSignMessage, useChainId } from "wagmi";
@@ -94,6 +94,11 @@ export default function NdauConversionPage() {
   const { signMessageAsync, isPending: isAmpedbioSigning } = useSignMessage();
   const chainId = useChainId();
   const currencySymbol = getCurrencySymbol(chainId);
+
+  const searchParams = new URLSearchParams(window.location.search);
+  const rawGroup = searchParams.get("group") || "gn";
+  const group = KNOWN_NDAU_GROUPS.includes(rawGroup as typeof KNOWN_NDAU_GROUPS[number]) ? rawGroup : "gn";
+  const pdfPath = getNdauPdfPath(group);
 
   const [currentStep, setCurrentStep] = useState<Step>(1);
   const [completedSteps, setCompletedSteps] = useState<Set<Step>>(new Set());
@@ -206,7 +211,7 @@ export default function NdauConversionPage() {
 
   const calculateDocumentHash = async (): Promise<string> => {
     try {
-      const response = await fetch("/docs/NDAU_to_REVO_Token_Conversion_Agreement.pdf");
+      const response = await fetch(pdfPath);
       if (!response.ok) {
         const status = response.status;
         const text = await response.text().catch(() => "");
@@ -357,6 +362,7 @@ export default function NdauConversionPage() {
       ndauValidationKey: ndauValidationKey || undefined,
       documentHash: documentHash || "",
       timestamp,
+      group,
       clientValidationKeys: ndauBalanceData && "validationKeys" in ndauBalanceData ? ndauBalanceData.validationKeys : undefined,
       clientPublicKey: ndauValidationKey || undefined,
     };
@@ -722,7 +728,7 @@ export default function NdauConversionPage() {
                   <div>
                     <p className="text-sm text-blue-800 dark:text-blue-200">
                       <a
-                        href="/docs/NDAU_to_REVO_Token_Conversion_Agreement.pdf"
+                        href={pdfPath}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="font-semibold underline hover:text-blue-600 dark:hover:text-blue-400"
