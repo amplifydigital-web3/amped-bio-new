@@ -10,7 +10,10 @@ export const NDAU_GROUP_LABELS: Record<string, string> = {
 };
 
 export function getNdauPdfPath(group: string): string {
-  return group === "gn" ? "/docs/ndau_revo.pdf" : `/docs/ndau_revo_${group}.pdf`;
+  const validGroup = KNOWN_NDAU_GROUPS.includes(group as (typeof KNOWN_NDAU_GROUPS)[number])
+    ? group
+    : "gn";
+  return validGroup === "gn" ? "/docs/ndau_revo.pdf" : `/docs/ndau_revo_${validGroup}.pdf`;
 }
 
 // NDAU Conversion types
