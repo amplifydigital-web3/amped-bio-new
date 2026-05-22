@@ -4,6 +4,7 @@ import {
   calculateRevoAmount,
   createConversionMessage,
   createNdauConversionPayloadYaml,
+  KNOWN_NDAU_GROUPS,
 } from "@ampedbio/constants";
 import { prisma } from "../services/DB";
 import type { NdauConversion } from "../lib/prisma/index.js";
@@ -12,7 +13,11 @@ import { libertasTestnet } from "@ampedbio/web3";
 import { verifyConversionSignature, verifyNdauSignature } from "../utils/ndau";
 import { recoverAddress, hashMessage } from "viem";
 
-const CANONICAL_DOCUMENT_HASH = "ac31744d16a32a5e553123335dd7501aea5cece491e734aabf5e932c21255063";
+const VALID_DOCUMENT_HASHES: Record<string, string> = {
+  gn: "ac31744d16a32a5e553123335dd7501aea5cece491e734aabf5e932c21255063",
+  ig: "ac31744d16a32a5e553123335dd7501aea5cece491e734aabf5e932c21255063",
+  wc: "2ed0abeb660a7eb7fd402011d6c9dff4b213603557bd68582ef6a27c04af706a",
+};
 
 type ConversionTxidCheck = {
   txid: string;
@@ -200,6 +205,7 @@ export const ndauConversionRouter = router({
         timestamp: z.number().min(1, "Timestamp is required"),
         clientValidationKeys: z.array(z.string()).optional(),
         clientPublicKey: z.string().optional(),
+        group: z.string().default("gn"),
       })
     )
     .mutation(async ({ input }) => {
@@ -208,16 +214,19 @@ export const ndauConversionRouter = router({
         revoAddress,
         ampedbioSignature,
         ndauSignature,
-        ndauValidationKey: clientProvidedValidationKey,
         documentHash,
         timestamp,
-        clientValidationKeys,
-        clientPublicKey,
+        group,
       } = input;
 
-      if (documentHash !== CANONICAL_DOCUMENT_HASH) {
+      const resolvedGroup = KNOWN_NDAU_GROUPS.includes(group as (typeof KNOWN_NDAU_GROUPS)[number])
+        ? group
+        : "gn";
+
+      const expectedHash = VALID_DOCUMENT_HASHES[resolvedGroup];
+      if (!expectedHash || documentHash !== expectedHash) {
         throw new Error(
-          "Invalid document hash. The provided document hash does not match the canonical agreement document."
+          "Invalid document hash. The provided document hash does not match the agreement document for the specified group."
         );
       }
 
@@ -347,6 +356,7 @@ export const ndauConversionRouter = router({
           status: "pending",
           document_hash: documentHash,
           timestamp,
+          group: resolvedGroup,
         },
       });
 
@@ -365,6 +375,7 @@ export const ndauConversionRouter = router({
           createdAt: conversion.created_at.toISOString(),
           documentHash: conversion.document_hash,
           timestamp: conversion.timestamp,
+          group: conversion.group,
         },
       };
     }),
@@ -443,6 +454,7 @@ export const ndauConversionRouter = router({
       createdAt: c.created_at.toISOString(),
       updatedAt: c.updated_at?.toISOString() || null,
       user: userByAddress.get(c.revo_address.toLowerCase()) ?? null,
+      group: c.group,
     }));
   }),
 
@@ -712,6 +724,7 @@ export const ndauConversionRouter = router({
         documentHash: conversion.document_hash,
         timestamp: conversion.timestamp,
         payloadYaml,
+        group: conversion.group,
       };
     }),
 

@@ -3,6 +3,7 @@ import { trpc } from "@/utils/trpc/trpc";
 import { Button } from "@/components/ui/Button";
 import { useChainId } from "wagmi";
 import { getCurrencySymbol, libertasTestnet } from "@ampedbio/web3";
+import { NDAU_GROUP_LABELS } from "@ampedbio/constants";
 import { createWalletClient, custom, parseEther, type Address } from "viem";
 import {
   Dialog,
@@ -253,6 +254,7 @@ export const AdminNdauConversions: FC = () => {
     const headers = [
       "ID",
       "NDAU Address",
+      "Group",
       "NDAU Amount",
       `${currencySymbol} Amount`,
       `${currencySymbol} Address`,
@@ -269,6 +271,7 @@ export const AdminNdauConversions: FC = () => {
       [
         c.id,
         escapeCSV(c.ndauAddress),
+        escapeCSV(c.group),
         c.ndauAmount,
         c.revoAmount,
         escapeCSV(c.revoAddress),
@@ -353,6 +356,12 @@ export const AdminNdauConversions: FC = () => {
                   scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
                 >
+                  Group
+                </th>
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
+                >
                   NDAU Amount
                 </th>
                 <th
@@ -423,6 +432,9 @@ export const AdminNdauConversions: FC = () => {
                     onClick={() => copyToClipboard(conversion.ndauAddress)}
                   >
                     {conversion.ndauAddress}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white capitalize">
+                    {NDAU_GROUP_LABELS[conversion.group] || conversion.group}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white font-semibold">
                     {conversion.ndauAmount} NDAU

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams } from "react-router";
 import { trpc } from "@/utils/trpc/trpc";
-import { NDAU_TO_REVO_RATE } from "@ampedbio/constants";
+import { NDAU_TO_REVO_RATE, NDAU_GROUP_LABELS, getNdauPdfPath } from "@ampedbio/constants";
 import { Button } from "@/components/ui/Button";
 import { useChainId } from "wagmi";
 import { getCurrencySymbol } from "@ampedbio/web3";
@@ -81,6 +81,10 @@ export default function NdauConversionReceiptPage() {
   };
 
   const conversionTimestamp = conversion?.timestamp;
+
+  const group = conversion?.group || "gn";
+  const groupLabel = NDAU_GROUP_LABELS[group] || group;
+  const pdfPath = getNdauPdfPath(group);
 
   const steps: ProofStep[] = [
     {
@@ -277,6 +281,13 @@ export default function NdauConversionReceiptPage() {
                   </p>
                 </div>
 
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Group:</p>
+                  <p className="text-lg font-semibold text-gray-900 dark:text-white capitalize">
+                    {groupLabel}
+                  </p>
+                </div>
+
                 {conversion.updatedAt && (
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Last Updated:</p>
@@ -327,7 +338,7 @@ export default function NdauConversionReceiptPage() {
                     </div>
                     <div className="mt-2">
                       <a
-                        href="/docs/NDAU_to_REVO_Token_Conversion_Agreement.pdf"
+                        href={pdfPath}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1"

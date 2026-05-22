@@ -1,6 +1,21 @@
 // NDAU to REVO conversion constants
 export const NDAU_TO_REVO_RATE = "6.872"; // 1 NDAU = 6.872 REVO
 
+export const KNOWN_NDAU_GROUPS = ["gn", "ig", "wc"] as const;
+
+export const NDAU_GROUP_LABELS: Record<string, string> = {
+  gn: "general",
+  ig: "igenius",
+  wc: "wealthcolony",
+};
+
+export function getNdauPdfPath(group: string): string {
+  const validGroup = KNOWN_NDAU_GROUPS.includes(group as (typeof KNOWN_NDAU_GROUPS)[number])
+    ? group
+    : "gn";
+  return validGroup === "gn" ? "/docs/ndau_revo.pdf" : `/docs/ndau_revo_${validGroup}.pdf`;
+}
+
 // NDAU Conversion types
 export interface NdauConversionData {
   ndauAddress: string;
