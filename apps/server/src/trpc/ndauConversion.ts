@@ -5,6 +5,7 @@ import {
   createConversionMessage,
   createNdauConversionPayloadYaml,
   KNOWN_NDAU_GROUPS,
+  VALID_DOCUMENT_HASHES,
 } from "@ampedbio/constants";
 import { prisma } from "../services/DB";
 import type { NdauConversion } from "../lib/prisma/index.js";
@@ -12,12 +13,6 @@ import { createPublicClient, http, parseEther, formatEther } from "viem";
 import { libertasTestnet } from "@ampedbio/web3";
 import { verifyConversionSignature, verifyNdauSignature } from "../utils/ndau";
 import { recoverAddress, hashMessage } from "viem";
-
-const VALID_DOCUMENT_HASHES: Record<string, string> = {
-  gn: "ac31744d16a32a5e553123335dd7501aea5cece491e734aabf5e932c21255063",
-  ig: "ac31744d16a32a5e553123335dd7501aea5cece491e734aabf5e932c21255063",
-  wc: "2ed0abeb660a7eb7fd402011d6c9dff4b213603557bd68582ef6a27c04af706a",
-};
 
 type ConversionTxidCheck = {
   txid: string;

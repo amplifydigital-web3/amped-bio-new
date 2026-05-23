@@ -5,7 +5,7 @@ import { useNdauSigner } from "@/ndau-wallet/hooks/useNdauSigner";
 import { NdauConnect } from "@/ndau-wallet/components/NdauConnect";
 import { trpc, trpcClient } from "@/utils/trpc/trpc";
 import { Button } from "@/components/ui/Button";
-import { NDAU_TO_REVO_RATE, calculateRevoAmount, createConversionMessage, KNOWN_NDAU_GROUPS, getNdauPdfPath } from "@ampedbio/constants";
+import { NDAU_TO_REVO_RATE, calculateRevoAmount, createConversionMessage, KNOWN_NDAU_GROUPS, getNdauPdfPath, getDocumentHash } from "@ampedbio/constants";
 import { toast } from "sonner";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useSignMessage, useChainId } from "wagmi";
@@ -179,7 +179,11 @@ export default function NdauConversionPage() {
             });
           } else if (!completedSteps.has(2)) {
             setCompletedSteps(prev => new Set(prev).add(2));
-            if (currentStep === 2) setCurrentStep(3);
+            if (currentStep === 2) {
+              setCurrentStep(3);
+              setDocumentHash(getDocumentHash(group));
+              setConversionTimestamp(Math.floor(Date.now() / 1000));
+            }
           }
 
           if (balanceResult.data?.success) {
@@ -200,6 +204,7 @@ export default function NdauConversionPage() {
     completedSteps,
     currentStep,
     getConversionDetails,
+    group,
   ]);
 
   useEffect(() => {
@@ -234,7 +239,7 @@ export default function NdauConversionPage() {
       setIsProcessingSign(true);
       await new Promise(resolve => setTimeout(resolve, 3000));
 
-      const timestamp = Math.floor(Date.now() / 1000);
+      const timestamp = conversionTimestamp || Math.floor(Date.now() / 1000);
       setConversionTimestamp(timestamp);
 
       const ndauAmountNum = parseFloat(ndauBalance || "0");
@@ -264,6 +269,14 @@ export default function NdauConversionPage() {
     setIsCalculatingHash(true);
     try {
       const hash = await calculateDocumentHash();
+      const expectedHash = getDocumentHash(group);
+      if (hash !== expectedHash) {
+        console.error(
+          `Document hash mismatch. Computed: ${hash}, Expected: ${expectedHash}`
+        );
+        toast.error("Document hash mismatch. The conversion agreement may have been modified. Please refresh the page and try again.");
+        return;
+      }
       setDocumentHash(hash);
       setShowSignDialog(true);
     } catch (error) {
@@ -716,10 +729,10 @@ export default function NdauConversionPage() {
                     Message you will sign (same for both wallets):
                   </p>
                   <p className="text-sm text-gray-900 dark:text-white font-mono break-words">
-                    I agree to convert {ndauBalance || "0"} NDAU to {revoAmount || "0"} {currencySymbol} (rate:
-                    1 NDAU = {NDAU_TO_REVO_RATE} REVO) from {ndauAddress || "..."} to{" "}
-                    {authUser?.wallet || "..."}. Document hash: [calculated when signing].
-                    Timestamp: [generated when signing]
+                     I agree to convert {ndauBalance || "0"} NDAU to {revoAmount || "0"} {currencySymbol} (rate:
+                     1 NDAU = {NDAU_TO_REVO_RATE} REVO) from {ndauAddress || "..."} to{" "}
+                     {authUser?.wallet || "..."}. Document hash: {documentHash}.
+                     Timestamp: {conversionTimestamp}
                   </p>
                 </div>
 
