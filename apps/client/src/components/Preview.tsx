@@ -20,6 +20,8 @@ import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { setCookie } from "@/utils/cookies";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
+import { ErrorBoundary } from "./ErrorBoundary";
+import { BlockErrorFallback } from "./blocks/BlockErrorFallback";
 
 // Helper function to extract the root domain from a URL
 const extractRootDomain = (url: string): string => {
@@ -246,47 +248,61 @@ export function Preview({ profile, blocks, theme, userId }: PreviewProps) {
                       );
 
                     return (
-                      <a
-                        key={block.id.toString()}
-                        href={block.config.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={() => handleLinkClick(block)}
-                        className={cn(
-                          "w-full px-4 py-3 flex items-center space-x-3",
-                          "transition-all duration-200",
-                          getButtonBaseStyle(themeConfig?.buttonStyle),
-                          getButtonEffectStyle(themeConfig?.buttonEffect)
-                        )}
-                        style={{
-                          backgroundColor: themeConfig?.buttonColor,
-                          fontFamily: themeConfig?.fontFamily,
-                          fontSize: themeConfig?.fontSize,
-                          color: themeConfig?.fontColor,
-                        }}
-                      >
-                        {element}
-                        <span className="flex-1 text-center">{block.config.label}</span>
-                      </a>
+                      <ErrorBoundary key={block.id.toString()} fallback={<BlockErrorFallback platform={block.config.platform} />}>
+                        <a
+                          href={block.config.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => handleLinkClick(block)}
+                          className={cn(
+                            "w-full px-4 py-3 flex items-center space-x-3",
+                            "transition-all duration-200",
+                            getButtonBaseStyle(themeConfig?.buttonStyle),
+                            getButtonEffectStyle(themeConfig?.buttonEffect)
+                          )}
+                          style={{
+                            backgroundColor: themeConfig?.buttonColor,
+                            fontFamily: themeConfig?.fontFamily,
+                            fontSize: themeConfig?.fontSize,
+                            color: themeConfig?.fontColor,
+                          }}
+                        >
+                          {element}
+                          <span className="flex-1 text-center">{block.config.label}</span>
+                        </a>
+                      </ErrorBoundary>
                     );
                   }
                   if (block.type === "media") {
-                    return <MediaBlock key={block.id} block={block} theme={themeConfig} />;
+                    return (
+                      <ErrorBoundary key={block.id} fallback={<BlockErrorFallback platform={block.config.platform} />}>
+                        <MediaBlock block={block} theme={themeConfig} />
+                      </ErrorBoundary>
+                    );
                   }
                   if (block.type === "pool") {
-                    return <CreatorPoolBlock key={block.id} block={block} theme={themeConfig} />;
+                    return (
+                      <ErrorBoundary key={block.id} fallback={<BlockErrorFallback platform="creator pool" />}>
+                        <CreatorPoolBlock block={block} theme={themeConfig} />
+                      </ErrorBoundary>
+                    );
                   }
                   if (block.type === "referral") {
                     return (
-                      <ReferralBlock
-                        key={block.id}
-                        block={block}
-                        theme={themeConfig}
-                        pageOwnerId={userId ?? 0}
-                      />
+                      <ErrorBoundary key={block.id} fallback={<BlockErrorFallback platform="referral" />}>
+                        <ReferralBlock
+                          block={block}
+                          theme={themeConfig}
+                          pageOwnerId={userId ?? 0}
+                        />
+                      </ErrorBoundary>
                     );
                   }
-                  return <TextBlock key={block.id} block={block} theme={themeConfig} />;
+                  return (
+                    <ErrorBoundary key={block.id} fallback={<BlockErrorFallback platform="content" />}>
+                      <TextBlock block={block} theme={themeConfig} />
+                    </ErrorBoundary>
+                  );
                 })}
               </div>
 
