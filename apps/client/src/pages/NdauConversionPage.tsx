@@ -112,6 +112,7 @@ export default function NdauConversionPage() {
   const [conversionTimestamp, setConversionTimestamp] = useState<number | null>(null);
   const [documentHash, setDocumentHash] = useState<string | null>(null);
   const [isCalculatingHash, setIsCalculatingHash] = useState(false);
+  const [pdfNotFound, setPdfNotFound] = useState(false);
   const { requestSignature, isSigning: isNdauSigning, remainingSeconds } = useNdauSigner();
 
   const [showSignDialog, setShowSignDialog] = useState(false);
@@ -280,7 +281,8 @@ export default function NdauConversionPage() {
       setDocumentHash(hash);
       setShowSignDialog(true);
     } catch (error) {
-      toast.error("Failed to calculate document hash");
+      setPdfNotFound(true);
+      toast.warning("Terms not yet available. Please wait for an official announcement.");
     } finally {
       setIsCalculatingHash(false);
     }
@@ -397,6 +399,7 @@ export default function NdauConversionPage() {
     setConversionTimestamp(null);
     setDocumentHash(null);
     setIsCalculatingHash(false);
+    setPdfNotFound(false);
     toast.info("Reset. You can now connect a different NDAU account.");
   };
 
@@ -412,6 +415,7 @@ export default function NdauConversionPage() {
 
   const isStepDisabled = (step: Step) => {
     if (alreadySubmitted) return true;
+    if (pdfNotFound && (step === 3 || step === 4)) return true;
     if (step === 1) return false;
     if (step === 2) return !completedSteps.has(1);
     if (step === 3) return !completedSteps.has(2);
@@ -722,6 +726,17 @@ export default function NdauConversionPage() {
               {completedSteps.has(3) && <CheckCircle2 className="h-6 w-6 text-green-500" />}
             </div>
 
+            {pdfNotFound && (
+              <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                    The conversion agreement terms are not yet available. Please wait for an official announcement before proceeding.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {!isStepDisabled(3) && (
               <div className="space-y-4">
                 <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
@@ -740,14 +755,20 @@ export default function NdauConversionPage() {
                   <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
                   <div>
                     <p className="text-sm text-blue-800 dark:text-blue-200">
-                      <a
-                        href={pdfPath}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-semibold underline hover:text-blue-600 dark:hover:text-blue-400"
-                      >
-                        View Conversion Agreement PDF
-                      </a>
+                      {pdfNotFound ? (
+                        <span className="text-amber-600 dark:text-amber-400">
+                          Conversion Agreement PDF (unavailable)
+                        </span>
+                      ) : (
+                        <a
+                          href={pdfPath}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold underline hover:text-blue-600 dark:hover:text-blue-400"
+                        >
+                          View Conversion Agreement PDF
+                        </a>
+                      )}
                       {" - "}Read the full terms before signing.
                     </p>
                     {documentHash && (
@@ -783,7 +804,7 @@ export default function NdauConversionPage() {
                       <>
                         <Button
                           onClick={handleOpenSignDialog}
-                          disabled={isAmpedbioSigning || isCalculatingHash || alreadySubmitted}
+                          disabled={isAmpedbioSigning || isCalculatingHash || alreadySubmitted || pdfNotFound}
                           className="w-full"
                         >
                           {isCalculatingHash ? (
@@ -823,7 +844,7 @@ export default function NdauConversionPage() {
                         <Button
                           onClick={handleSignNdau}
                           disabled={
-                            isNdauSigning || alreadySubmitted || !ampedbioSignature || !documentHash
+                            isNdauSigning || alreadySubmitted || !ampedbioSignature || !documentHash || pdfNotFound
                           }
                           className="w-full"
                         >
@@ -1054,7 +1075,7 @@ export default function NdauConversionPage() {
                     setSubmitError(null);
                     handleSubmit();
                   }}
-                  disabled={submitMutation.isPending || alreadySubmitted}
+                  disabled={submitMutation.isPending || alreadySubmitted || pdfNotFound}
                 >
                   {submitMutation.isPending ? (
                     <>
