@@ -1,41 +1,43 @@
 import React from "react";
-import { AlertTriangle } from "lucide-react";
+import { BlockErrorFallback } from "./blocks/BlockErrorFallback";
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
-  fallback?: React.ReactNode;
+  fallback?: React.ReactNode | ((error: Error | null) => React.ReactNode);
 }
 
 interface ErrorBoundaryState {
   hasError: boolean;
+  error: Error | null;
 }
 
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, error: null };
   }
 
-  static getDerivedStateFromError(): ErrorBoundaryState {
+  static getDerivedStateFromError(): Partial<ErrorBoundaryState> {
     return { hasError: true };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
     console.error("ErrorBoundary caught an error:", error, errorInfo);
+    this.setState({ error });
+  }
+
+  componentDidUpdate(prevProps: ErrorBoundaryProps): void {
+    if (this.state.hasError && prevProps.children !== this.props.children) {
+      this.setState({ hasError: false, error: null });
+    }
   }
 
   render() {
     if (this.state.hasError) {
-      return (
-        this.props.fallback ?? (
-          <div className="w-full p-6 rounded-lg bg-destructive/10 border-2 border-dashed border-destructive/20 flex flex-col items-center justify-center space-y-2">
-            <AlertTriangle className="w-8 h-8 text-destructive" />
-            <p className="text-sm text-destructive">
-              Failed to render content
-            </p>
-          </div>
-        )
-      );
+      if (typeof this.props.fallback === "function") {
+        return this.props.fallback(this.state.error);
+      }
+      return this.props.fallback ?? <BlockErrorFallback />;
     }
 
     return this.props.children;
