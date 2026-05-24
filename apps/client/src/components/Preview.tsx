@@ -21,6 +21,7 @@ import { Check, Copy } from "lucide-react";
 import { setCookie } from "@/utils/cookies";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { BlockErrorFallback } from "./blocks/BlockErrorFallback";
 
 // Helper function to extract the root domain from a URL
 const extractRootDomain = (url: string): string => {
@@ -247,7 +248,7 @@ export function Preview({ profile, blocks, theme, userId }: PreviewProps) {
                       );
 
                     return (
-                      <ErrorBoundary key={block.id.toString()}>
+                      <ErrorBoundary key={block.id.toString()} fallback={<BlockErrorFallback platform={block.config.platform} />}>
                         <a
                           href={block.config.url}
                           target="_blank"
@@ -274,21 +275,21 @@ export function Preview({ profile, blocks, theme, userId }: PreviewProps) {
                   }
                   if (block.type === "media") {
                     return (
-                      <ErrorBoundary key={block.id}>
+                      <ErrorBoundary key={block.id} fallback={<BlockErrorFallback platform={block.config.platform} />}>
                         <MediaBlock block={block} theme={themeConfig} />
                       </ErrorBoundary>
                     );
                   }
                   if (block.type === "pool") {
                     return (
-                      <ErrorBoundary key={block.id}>
+                      <ErrorBoundary key={block.id} fallback={<BlockErrorFallback platform="creator pool" />}>
                         <CreatorPoolBlock block={block} theme={themeConfig} />
                       </ErrorBoundary>
                     );
                   }
                   if (block.type === "referral") {
                     return (
-                      <ErrorBoundary key={block.id}>
+                      <ErrorBoundary key={block.id} fallback={<BlockErrorFallback platform="referral" />}>
                         <ReferralBlock
                           block={block}
                           theme={themeConfig}
@@ -298,7 +299,7 @@ export function Preview({ profile, blocks, theme, userId }: PreviewProps) {
                     );
                   }
                   return (
-                    <ErrorBoundary key={block.id}>
+                    <ErrorBoundary key={block.id} fallback={<BlockErrorFallback platform="content" />}>
                       <TextBlock block={block} theme={themeConfig} />
                     </ErrorBoundary>
                   );
