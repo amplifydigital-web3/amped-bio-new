@@ -59,6 +59,11 @@ export function SignPage() {
 
   const [flowStep, setFlowStep] = useState<FlowStep>("login");
   const [openerOrigin, setOpenerOrigin] = useState<string | null>(null);
+  const openerOriginRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    openerOriginRef.current = openerOrigin;
+  }, [openerOrigin]);
   const [messageToSign, setMessageToSign] = useState<string | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
@@ -81,7 +86,7 @@ export function SignPage() {
   const sendToOpener = useCallback(
     (data: object) => {
       if (isPopup && window.opener) {
-        window.opener.postMessage(data, "*");
+        window.opener.postMessage(data, openerOriginRef.current || "*");
       }
     },
     [isPopup]
@@ -168,6 +173,7 @@ export function SignPage() {
       console.log('[S] decoded message:', JSON.stringify(decodedMessage));
 
       setOpenerOrigin(origin);
+      openerOriginRef.current = origin;
       setMessageToSign(decodedMessage);
 
       console.log(
