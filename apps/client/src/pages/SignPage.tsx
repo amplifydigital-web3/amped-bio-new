@@ -207,6 +207,21 @@ export function SignPage() {
       prevFlowStep.current = "done";
       setFlowStep("done");
       console.log('[S] flowStep changed: sign → done');
+
+      console.log(
+        '[S] postMessage sent:',
+        JSON.stringify({
+          type: "SIGNATURE_RESULT",
+          signature: sig,
+          address,
+        })
+      );
+
+      sendToOpener({
+        type: "SIGNATURE_RESULT",
+        signature: sig,
+        address,
+      });
     } catch (error) {
       setSignError((error as Error).message || "Signing failed");
     }
