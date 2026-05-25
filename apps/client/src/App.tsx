@@ -2,11 +2,14 @@ import { useEffect, lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route } from "react-router";
 import { Editor } from "./pages/Editor";
 import { View } from "./pages/View";
+import { SignPage } from "./pages/SignPage";
 import PoolsPage from "./pages/PoolsPage";
 import { PoolDetailsPage } from "./pages/PoolDetailsPage";
 import { PoolDebugPage } from "./pages/PoolDebugPage";
 import { PoolAPYDebugPage } from "./pages/PoolAPYDebugPage";
 import NetworkPage from "./pages/NetworkPage";
+import NdauConversionPage from "./pages/NdauConversionPage";
+import NdauConversionReceiptPage from "./pages/NdauConversionReceiptPage";
 import PublicLayout from "./components/layout/PublicLayout";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -39,6 +42,11 @@ const AdminFiles = lazy(() =>
 );
 const AdminPools = lazy(() =>
   import("./pages/admin/AdminPools").then(module => ({ default: module.AdminPools }))
+);
+const AdminNdauConversions = lazy(() =>
+  import("./pages/admin/AdminNdauConversions").then(module => ({
+    default: module.AdminNdauConversions,
+  }))
 );
 
 function AppRouter() {
@@ -127,6 +135,22 @@ function AppRouter() {
           </PublicLayout>
         }
       />
+      <Route
+        path="/i/ndau-conversion"
+        element={
+          <PublicLayout>
+            <NdauConversionPage />
+          </PublicLayout>
+        }
+      />
+      <Route
+        path="/i/ndau-conversion/receipt/:ndauAddress"
+        element={
+          <PublicLayout>
+            <NdauConversionReceiptPage />
+          </PublicLayout>
+        }
+      />
 
       {/* Admin Routes with nested routing - lazy loaded with Suspense */}
       <Route
@@ -187,7 +211,18 @@ function AppRouter() {
             </Suspense>
           }
         />
+        <Route
+          path="ndau-conversions"
+          element={
+            <Suspense fallback={<div>Loading conversions...</div>}>
+              <AdminNdauConversions />
+            </Suspense>
+          }
+        />
       </Route>
+
+      {/* Sign route */}
+      <Route path="/sign" element={<SignPage />} />
 
       {/* Authentication Routes */}
       <Route path="/auth/verify-email/:token?" element={<EmailVerification />} />

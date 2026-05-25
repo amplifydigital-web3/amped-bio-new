@@ -4,6 +4,7 @@ export interface RegistrationData {
     owner: `0x${string}`;
     expiryDateWithGrace: string;
     resolver: {
+      texts: string[];
       address: `0x${string}`;
     };
   }[];

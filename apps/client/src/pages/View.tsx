@@ -150,6 +150,8 @@ export function View() {
             const { id, name, email, description, image, revoName } = user;
             const formattedHandle = formatHandle(normalizedHandle);
 
+            // Server already validated ownership and expiry; revoName is null if invalid
+
             setProfile({
               id,
               name,
@@ -240,7 +242,6 @@ export function View() {
       )}
       <Preview
         isEditing={false}
-        handle={normalizedHandle}
         profile={profile}
         blocks={blocks}
         theme={theme ?? initialState.theme}

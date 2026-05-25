@@ -1,9 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { BASE_REGISTRAR_ABI, getChainConfig, REGISTRAR_CONTROLLER_ABI } from "@ampedbio/web3";
-import { keccak256, namehash, toBytes } from "viem";
 import { useAccount, useWriteContract, usePublicClient } from "wagmi";
 
-import { domainName } from "@/utils/rns";
 import { ContractStep, TxStatus, TxStep } from "@/types/rns/common";
 import { useEditor } from "@/contexts/EditorContext";
 
@@ -29,7 +27,7 @@ export function useTransferOwnership() {
   const { address, chainId } = useAccount();
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
-  const { profile, setProfile, saveChanges } = useEditor();
+  const { profile, clearRevoName } = useEditor();
 
   const networkConfig = getChainConfig(chainId ?? 0);
 
@@ -106,12 +104,8 @@ export function useTransferOwnership() {
         }
         if (name === profile.revoName?.split(".")[0]) {
           console.log("Updating profile");
-          setProfile({
-            ...profile,
-            revoName: "",
-          });
 
-          saveChanges();
+          await clearRevoName();
         }
         return {
           success: true,

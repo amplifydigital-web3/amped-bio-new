@@ -1,6 +1,8 @@
-import React, { useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { X, Search, AlertTriangle } from "lucide-react";
-import { isAddress } from "viem";
+import { isAddress, zeroAddress } from "viem";
+import { useResolveRevoName } from "@/hooks/rns/useResolveRevoName";
+import { DOMAIN_SUFFIX } from "@/config/rns/constants";
 
 import { useReverseLookup } from "@/hooks/rns/useReverseLookup";
 import { AddressResult } from "@/types/rns/common";
@@ -31,6 +33,32 @@ const SearchStep: React.FC<SearchStepProps> = ({
   handleContinue,
 }) => {
   const { fullName: recipientEnsName } = useReverseLookup(recipient as `0x${string}`);
+  const [resolveError, setResolveError] = useState<string | null>(null);
+  const [debouncedRnsName, setDebouncedRnsName] = useState("");
+  const [showRnsResult, setShowRnsResult] = useState(false);
+
+  // Debounce recipient input for RNS resolution
+  useEffect(() => {
+    if (recipient && !isAddress(recipient) && recipient.endsWith(DOMAIN_SUFFIX)) {
+      const timer = setTimeout(() => setDebouncedRnsName(recipient), 700);
+      return () => clearTimeout(timer);
+    } else {
+      setDebouncedRnsName("");
+      setShowRnsResult(false);
+    }
+  }, [recipient]);
+
+  const {
+    address: resolvedAddress,
+    isLoading: resolving,
+    error: resolveHookError,
+  } = useResolveRevoName(debouncedRnsName);
+
+  useEffect(() => {
+    if (debouncedRnsName && (resolvedAddress || resolveHookError)) {
+      setShowRnsResult(true);
+    }
+  }, [debouncedRnsName, resolvedAddress, resolveHookError]);
 
   const isOwner = ownerAddress && address && ownerAddress.toLowerCase() === address.toLowerCase();
 
@@ -39,10 +67,12 @@ const SearchStep: React.FC<SearchStepProps> = ({
     Boolean(address) &&
     selectedAddress?.address.toLowerCase() === address?.toLowerCase();
 
-  const showInvalidAddress = recipient.trim() !== "" && !selectedAddress;
+  const showInvalidAddress =
+    recipient.trim() !== "" && !selectedAddress && !resolveError && !resolving;
 
   const handleSearch = (value: string) => {
     setRecipient(value);
+    setResolveError(null);
 
     if (!value.trim()) {
       setSelectedAddress(null);
@@ -50,6 +80,11 @@ const SearchStep: React.FC<SearchStepProps> = ({
     }
 
     if (isAddress(value)) {
+      if (value === zeroAddress) {
+        setResolveError("Zero address is not allowed as recipient.");
+        setSelectedAddress(null);
+        return;
+      }
       setSelectedAddress({
         address: value as `0x${string}`,
         name: recipientEnsName,
@@ -57,8 +92,32 @@ const SearchStep: React.FC<SearchStepProps> = ({
       return;
     }
 
+    // Do not set address here for RNS, let useEffect handle it
     setSelectedAddress(null);
   };
+
+  // Ensure resolved RNS address is set after resolution completes
+  useEffect(() => {
+    if (debouncedRnsName && showRnsResult && resolvedAddress && isAddress(resolvedAddress)) {
+      if (resolvedAddress === zeroAddress) {
+        setResolveError("Revoname not found or invalid.");
+        setSelectedAddress(null);
+        return;
+      }
+      if (!selectedAddress || selectedAddress.address !== resolvedAddress) {
+        setResolveError(null);
+        setSelectedAddress({
+          address: resolvedAddress,
+          name: debouncedRnsName,
+        });
+      }
+    }
+    // If resolution failed
+    else if (debouncedRnsName && showRnsResult && resolveHookError) {
+      setResolveError("Revoname not found or invalid.");
+      setSelectedAddress(null);
+    }
+  }, [debouncedRnsName, showRnsResult, resolvedAddress, resolveHookError, selectedAddress]);
 
   return (
     <div className="flex flex-col rounded-3xl">
@@ -77,17 +136,38 @@ const SearchStep: React.FC<SearchStepProps> = ({
           <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
           <input
             type="text"
-            placeholder="Ethereum address"
-            className="w-full text-sm sm:text-base pl-10 pr-4 py-2 rounded-lg border border-[#e2e3e3] focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Ethereum address or Revoname"
+            className="w-full text-sm sm:text-base pl-10 pr-10 py-2 rounded-lg border border-[#e2e3e3] focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={recipient}
             onChange={e => handleSearch(e.target.value)}
+            disabled={resolving}
           />
+          {recipient && (
+            <button
+              type="button"
+              className="absolute right-3 top-2 text-gray-400 hover:text-gray-600 focus:outline-none"
+              onClick={() => handleSearch("")}
+              aria-label="Clear input"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
-        {/* Invalid address */}
+        {/* Invalid address or Revoname */}
         {showInvalidAddress && (
           <div className="mb-4 p-3 bg-gray-50 rounded-lg text-gray-600 text-center">
-            Please enter a valid Ethereum address
+            Please enter a valid Ethereum address or Revoname
+          </div>
+        )}
+        {resolveError && (
+          <div className="mb-4 p-3 bg-red-50 rounded-lg text-red-600 text-center">
+            {resolveError}
+          </div>
+        )}
+        {resolving && (
+          <div className="mb-4 p-3 bg-blue-50 rounded-lg text-blue-600 text-center">
+            Resolving Revoname...
           </div>
         )}
 
@@ -96,7 +176,7 @@ const SearchStep: React.FC<SearchStepProps> = ({
           <div className="flex items-center justify-center flex-col text-gray-500 gap-2 mt-8">
             <Search className="w-8 h-8 text-gray-400 mb-2" />
             <p className="text-center">
-              Enter an Ethereum address
+              Enter an Ethereum address or Revoname
               <br />
               to transfer this name to
             </p>

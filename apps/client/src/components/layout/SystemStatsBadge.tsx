@@ -1,8 +1,8 @@
 import { useSystemStats } from "@/hooks/useSystemStats";
 import { formatUnits } from "viem";
 import { Loader2 } from "lucide-react";
-
-const CHAIN_ID = "73863";
+import { useChainId } from "wagmi";
+import { getCurrencySymbol } from "@ampedbio/web3";
 
 function formatREVO(wei: string | undefined): string {
   if (!wei) return "0.00";
@@ -17,7 +17,8 @@ function formatREVO(wei: string | undefined): string {
 }
 
 export function SystemStatsBadge() {
-  const { data, isLoading } = useSystemStats(CHAIN_ID);
+  const chainId = useChainId();
+  const { data, isLoading } = useSystemStats(String(chainId));
 
   if (isLoading) {
     return (
@@ -42,7 +43,7 @@ export function SystemStatsBadge() {
         <span className="text-gray-500">Minted:</span>
         <span className="text-gray-900 font-semibold">{formatREVO(data.totalMinted)}</span>
       </div>
-      <span className="text-blue-600 font-bold">REVO</span>
+        <span className="text-blue-600 font-bold">{getCurrencySymbol(chainId)}</span>
     </div>
   );
 }

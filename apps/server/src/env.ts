@@ -85,6 +85,12 @@ export const env = cleanEnv(process.env, {
     default: "",
   }),
 
+  // NDAU Conversion Configuration
+  NDAU_CONVERSION_PRIVATE_KEY: str({
+    desc: "Private key for NDAU conversion REVO payouts",
+    default: "",
+  }),
+
   // AWS S3 Configuration for profile picture uploads
   AWS_REGION: str({
     desc: "AWS Region",
@@ -168,5 +174,11 @@ export const env = cleanEnv(process.env, {
   REDIS_TLS: bool({
     desc: "Enable TLS connection for Redis (required for Upstash)",
     default: false,
+  }),
+
+  SUBGRAPH_URL: str({
+    desc: "URL for the RNS subgraph to validate name ownership and expiry",
+    default: "",
+    example: "https://graph.libertas.revolutionchain.io/subgraphs/name/subgraph/rns",
   }),
 });

@@ -17,6 +17,10 @@ interface ImportMetaEnv {
   // google
   readonly VITE_CAPTCHA_SITE_KEY: string;
   readonly VITE_GOOGLE_CLIENT_ID: string;
+  // ndau account
+  readonly VITE_NDAU_SOCKET_URL: string;
+  // namesonchain (revo)
+  readonly VITE_RNS_URL: string;
 }
 
 interface ImportMeta {
@@ -35,6 +39,14 @@ interface Window {
       ready: (callback: () => void) => Promise<void>;
       execute: (siteKey: string, options: { action: string }) => Promise<string>;
     };
+  };
+  ethereum?: {
+    request: (args: { method: string; params?: Array<unknown> }) => Promise<unknown>;
+    on: (event: string, handler: (arg: unknown) => void) => void;
+    removeListener: (event: string, handler: (arg: unknown) => void) => void;
+    selectedAddress?: string;
+    chainId?: string;
+    isMetaMask?: boolean;
   };
 }
 
