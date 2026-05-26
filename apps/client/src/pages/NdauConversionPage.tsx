@@ -652,7 +652,20 @@ export default function NdauConversionPage() {
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     {isNdauConnected
                       ? `Connected: ${ndauAddress?.slice(0, 8)}...${ndauAddress?.slice(-6)}`
-                      : "Scan QR code with your NDAU account app"}
+                      : (
+                        <>
+                          Scan QR code with your NDAU account app.{" "}
+                          <a
+                            href="https://ndau.io/knowledge-base/wallet-connect/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline"
+                          >
+                            Click here
+                          </a>{" "}
+                          to learn how to scan.
+                        </>
+                      )}
                   </p>
                 </div>
               </div>
