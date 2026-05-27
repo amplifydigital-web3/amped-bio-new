@@ -1,17 +1,19 @@
+"use client";
+
 import { FaXTwitter } from "react-icons/fa6";
 import type { ThemeConfig } from "../../types/editor";
 import { MediaBlock } from "@ampedbio/constants";
-import { Tweet as ReactTweet } from "react-tweet";
+import { EmbeddedTweet, TweetSkeleton } from "react-tweet";
+import { getTweet, type Tweet, type TweetEntities } from "react-tweet/api";
+import { useState, useEffect } from "react";
 
 interface TwitterBlockProps {
   block: MediaBlock;
   theme: ThemeConfig;
 }
 
-// Function to extract tweet ID from X.com or Twitter URL
 function extractTweetId(url: string): string | null {
   try {
-    // Match the pattern for both x.com and twitter.com URLs
     const match = url.match(/(?:twitter\.com|x\.com)\/[^/]+\/status\/(\d+)/);
     return match ? match[1] : null;
   } catch {
@@ -19,7 +21,113 @@ function extractTweetId(url: string): string | null {
   }
 }
 
+/**
+ * Workaround for react-tweet issue where the Twitter Syndication API sometimes
+ * omits entity arrays, causing enrichTweet to crash.
+ * @see https://github.com/vercel/react-tweet/issues/218#issuecomment-4521112920
+ */
+function asEntityArray<T>(value: T | T[] | undefined | null): T[] {
+  if (value == null) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+/**
+ * Ensures all entity arrays are present and properly typed before enrichment.
+ * @see https://github.com/vercel/react-tweet/issues/218#issuecomment-4521112920
+ */
+function normalizeTweetEntities(
+  entities?: TweetEntities | null,
+): TweetEntities {
+  if (!entities || typeof entities !== "object" || Array.isArray(entities)) {
+    return {
+      hashtags: [],
+      user_mentions: [],
+      urls: [],
+      symbols: [],
+    };
+  }
+
+  const normalized: TweetEntities = {
+    hashtags: asEntityArray(entities.hashtags),
+    user_mentions: asEntityArray(entities.user_mentions),
+    urls: asEntityArray(entities.urls),
+    symbols: asEntityArray(entities.symbols),
+  };
+
+  const media = asEntityArray(entities.media);
+  if (media.length > 0) {
+    normalized.media = media;
+  }
+
+  return normalized;
+}
+
+/**
+ * Normalizes a tweet and its nested entities (quoted_tweet, parent) to prevent
+ * crashes when the Syndication API returns incomplete entity data.
+ * @see https://github.com/vercel/react-tweet/issues/218#issuecomment-4521112920
+ */
+function normalizeTweet(tweet: Tweet): Tweet {
+  return {
+    ...tweet,
+    entities: normalizeTweetEntities(tweet.entities),
+    ...(tweet.quoted_tweet
+      ? {
+          quoted_tweet: {
+            ...tweet.quoted_tweet,
+            entities: normalizeTweetEntities(tweet.quoted_tweet.entities),
+          },
+        }
+      : {}),
+    ...(tweet.parent
+      ? {
+          parent: {
+            ...tweet.parent,
+            entities: normalizeTweetEntities(tweet.parent.entities),
+          },
+        }
+      : {}),
+  };
+}
+
 export function TwitterBlock({ block, theme }: TwitterBlockProps) {
+  const [tweet, setTweet] = useState<Tweet | null | undefined>(undefined);
+  const [error, setError] = useState(false);
+
+  const tweetId = block.config.url ? extractTweetId(block.config.url) : null;
+
+  useEffect(() => {
+    if (!tweetId) {
+      setTweet(null);
+      setError(false);
+      return;
+    }
+
+    let cancelled = false;
+    setError(false);
+    setTweet(undefined);
+
+    getTweet(tweetId)
+      .then((data) => {
+        if (cancelled) return;
+        if (data) {
+          setTweet(normalizeTweet(data));
+        } else {
+          setTweet(null);
+          setError(true);
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setTweet(null);
+        setError(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [tweetId]);
+
   if (!block.config.url) {
     return (
       <div className="w-full p-6 rounded-lg bg-[#1DA1F2]/10 border-2 border-dashed border-[#1DA1F2]/20 flex flex-col items-center justify-center space-y-2">
@@ -30,9 +138,6 @@ export function TwitterBlock({ block, theme }: TwitterBlockProps) {
       </div>
     );
   }
-
-  // Extract the tweet ID from the URL
-  const tweetId = block.config.url ? extractTweetId(block.config.url) : null;
 
   return (
     <div className="w-full space-y-2">
@@ -45,16 +150,23 @@ export function TwitterBlock({ block, theme }: TwitterBlockProps) {
           X
         </span>
       </div>
-      {tweetId ? (
-        <ReactTweet id={tweetId} />
-      ) : (
+      {!tweetId ? (
         <div className="w-full p-4 rounded-lg bg-[#1DA1F2]/10 border border-[#1DA1F2]/20 text-center">
           <p className="text-sm text-[#1DA1F2]" style={{ fontFamily: theme.fontFamily }}>
             Invalid tweet URL. Please update with a valid X post link.
           </p>
         </div>
+      ) : tweet === undefined ? (
+        <TweetSkeleton />
+      ) : tweet ? (
+        <EmbeddedTweet tweet={tweet} />
+      ) : (
+        <div className="w-full p-4 rounded-lg bg-[#1DA1F2]/10 border border-[#1DA1F2]/20 text-center">
+          <p className="text-sm text-[#1DA1F2]" style={{ fontFamily: theme.fontFamily }}>
+            {error ? "Failed to load tweet." : "Tweet not found."}
+          </p>
+        </div>
       )}
-      {/* Display content as description if available */}
       {block.config.content && block.config.content.trim() !== "" && (
         <div className="mt-2 px-3 py-2">
           <p className="text-sm text-gray-700" style={{ fontFamily: theme.fontFamily }}>

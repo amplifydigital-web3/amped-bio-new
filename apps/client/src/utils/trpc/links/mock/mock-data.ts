@@ -139,7 +139,7 @@ export const mockData = {
           type: "media",
           config: {
             platform: "twitter",
-            url: "https://twitter.com/demouser",
+            url: "https://x.com/demouser",
             label: "@demouser",
           },
           order: 4,
