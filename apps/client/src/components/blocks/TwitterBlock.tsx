@@ -4,8 +4,9 @@ import { FaXTwitter } from "react-icons/fa6";
 import type { ThemeConfig } from "../../types/editor";
 import { MediaBlock } from "@ampedbio/constants";
 import { EmbeddedTweet, TweetSkeleton } from "react-tweet";
-import { getTweet, type Tweet, type TweetEntities } from "react-tweet/api";
-import { useState, useEffect } from "react";
+import { useTweet } from "react-tweet";
+import type { Tweet, TweetEntities } from "react-tweet/api";
+import { useMemo } from "react";
 
 interface TwitterBlockProps {
   block: MediaBlock;
@@ -91,42 +92,15 @@ function normalizeTweet(tweet: Tweet): Tweet {
 }
 
 export function TwitterBlock({ block, theme }: TwitterBlockProps) {
-  const [tweet, setTweet] = useState<Tweet | null | undefined>(undefined);
-  const [error, setError] = useState(false);
+  const extractedId = block.config.url ? extractTweetId(block.config.url) : null;
+  const tweetId = extractedId ?? undefined;
 
-  const tweetId = block.config.url ? extractTweetId(block.config.url) : null;
+  const { data, isLoading, error } = useTweet(tweetId);
 
-  useEffect(() => {
-    if (!tweetId) {
-      setTweet(null);
-      setError(false);
-      return;
-    }
-
-    let cancelled = false;
-    setError(false);
-    setTweet(undefined);
-
-    getTweet(tweetId)
-      .then((data) => {
-        if (cancelled) return;
-        if (data) {
-          setTweet(normalizeTweet(data));
-        } else {
-          setTweet(null);
-          setError(true);
-        }
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setTweet(null);
-        setError(true);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [tweetId]);
+  const tweet = useMemo(
+    () => (data ? normalizeTweet(data) : null),
+    [data],
+  );
 
   if (!block.config.url) {
     return (
@@ -156,7 +130,7 @@ export function TwitterBlock({ block, theme }: TwitterBlockProps) {
             Invalid tweet URL. Please update with a valid X post link.
           </p>
         </div>
-      ) : tweet === undefined ? (
+      ) : isLoading ? (
         <TweetSkeleton />
       ) : tweet ? (
         <EmbeddedTweet tweet={tweet} />
