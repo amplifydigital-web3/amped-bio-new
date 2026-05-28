@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { useForm, useFieldArray, Controller, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useAccount, useBalance, useChainId, usePublicClient } from "wagmi";
+import { useAccount, useChainId, usePublicClient } from "wagmi";
 import { TRPCClientError } from "@trpc/client";
 import {
   Users,
@@ -121,10 +121,11 @@ const parseTRPCError = (error: unknown): string => {
 };
 
 import type { CreatorPoolFormValues, TierIconEntry } from "./types";
+import { useWalletContext } from "@/contexts/WalletContext";
 
 export function CreatorPoolPanel() {
   const client = usePublicClient();
-  const { address, isConnected } = useAccount();
+  const { isConnected } = useAccount();
   const chainId = useChainId();
   const { createPool, poolAddress, isLoading: isPoolLoading } = useCreatorPool();
   const hasConfirmedPool = useRef(false);
@@ -183,9 +184,9 @@ export function CreatorPoolPanel() {
     confirmExistingPool();
   }, [poolAddress, isPoolLoading, chainId]);
 
-  const { data: revoBalance } = useBalance({
-    address,
-  });
+  const { balance } = useWalletContext();
+
+  const revoBalance = balance?.data ? balance.data : undefined;
 
   const [uploadedFileId, setUploadedFileId] = React.useState<number | null>(null);
 

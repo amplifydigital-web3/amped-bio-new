@@ -1,17 +1,15 @@
 import React from "react";
-import { useAccount, useBalance, useChainId } from "wagmi";
+import { useChainId } from "wagmi";
 import { getCurrencySymbol } from "@ampedbio/web3";
 import { Coins, Loader } from "lucide-react";
+import { useWalletContext } from "@/contexts/WalletContext";
 
 const TokensTab: React.FC = () => {
-  const { address } = useAccount();
   const chainId = useChainId();
   const currencySymbol = getCurrencySymbol(chainId);
-  const { data: revoBalance, isLoading: isRevoBalanceLoading } = useBalance({
-    address: address,
-  });
+  const { balance } = useWalletContext();
 
-  if (isRevoBalanceLoading) {
+  if (balance?.isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader className="w-8 h-8 text-gray-400 animate-spin" />
@@ -20,7 +18,7 @@ const TokensTab: React.FC = () => {
     );
   }
 
-  if (!revoBalance) {
+  if (!balance?.data?.formatted) {
     return (
       <div className="text-center py-12">
         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -47,7 +45,7 @@ const TokensTab: React.FC = () => {
         </div>
         <div className="text-right">
           <p className="text-sm font-medium text-gray-900">
-            {parseFloat(revoBalance.formatted).toFixed(4)} {revoBalance.symbol}
+            {parseFloat(balance.data!.formatted).toFixed(4)} {currencySymbol}
           </p>
           <p className="text-xs text-gray-500">$0.00 USD</p>
         </div>

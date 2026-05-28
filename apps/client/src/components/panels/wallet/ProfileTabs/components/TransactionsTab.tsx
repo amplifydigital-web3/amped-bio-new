@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { useAccount, useBalance, useChainId } from "wagmi";
+import { useAccount, useChainId } from "wagmi";
 import { Clock, Loader, AlertCircle } from "lucide-react";
 import { getChainConfig, getCurrencySymbol } from "@ampedbio/web3";
 import { Address } from "viem";
@@ -22,9 +22,6 @@ const TransactionsTab: React.FC = () => {
 
   const { address } = useAccount();
   const chainId = useChainId();
-  const { data: revoBalance } = useBalance({
-    address: address,
-  });
 
   const currencySymbol = getCurrencySymbol(chainId);
   const chain = getChainConfig(chainId);

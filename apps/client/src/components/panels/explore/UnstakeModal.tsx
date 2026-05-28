@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Coins, TrendingUp, AlertCircle, Check } from "lucide-react";
 import { BsTelegram } from "react-icons/bs";
-import { useAccount, useBalance } from "wagmi";
 import { getChainConfig } from "@ampedbio/web3";
 import { useStakingManager } from "@/hooks/useStakingManager";
 import { formatNumberWithSeparators } from "@/utils/numberUtils";
@@ -55,16 +54,6 @@ export default function UnstakeModal({ isOpen, onClose, pool, onStakeSuccess }: 
   // Capture the pre-unstake value before the transaction, so the success screen
   // shows the correct total even after the parent refetches pool data.
   const preCurrentStakeRef = useRef<number>(0);
-
-  // Get user account and balance
-  const { address: userAddress } = useAccount();
-  const { data: balanceData, isLoading: isBalanceLoading } = useBalance({
-    address: userAddress,
-    token: undefined, // This will use the native token (REVO in this case)
-    query: {
-      refetchInterval: 10000, // Refresh every 10 seconds
-    },
-  });
 
   useEffect(() => {
     if (isOpen) {
