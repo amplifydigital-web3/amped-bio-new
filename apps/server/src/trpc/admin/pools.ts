@@ -115,8 +115,11 @@ export const adminPoolsRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      console.log("=== syncPool START ===");
-      console.log("Input received:", { poolId: input.poolId });
+      const verboseLog = (...args: unknown[]) => {
+        console.info("[syncPool]", ...args);
+      };
+
+      verboseLog("=== START ===", { poolId: input.poolId });
 
       // 1. Find the pool in DB
       const pool = await prisma.creatorPool.findUnique({
@@ -146,7 +149,7 @@ export const adminPoolsRouter = router({
         });
       }
 
-      console.log("Pool found:", {
+      verboseLog("Pool found:", {
         id: pool.id,
         poolAddress: pool.poolAddress,
         chainId: pool.chainId,
@@ -169,14 +172,14 @@ export const adminPoolsRouter = router({
         });
       }
 
-      console.log("Using creationTxid:", pool.creationTxid);
+      verboseLog("Using creationTxid:", pool.creationTxid);
       let creationBlock: bigint;
       try {
         const receipt = await publicClient.getTransactionReceipt({
           hash: pool.creationTxid as `0x${string}`,
         });
         creationBlock = receipt.blockNumber;
-        console.log("Creation block from receipt:", creationBlock.toString());
+        verboseLog("Creation block:", creationBlock.toString());
       } catch (error) {
         console.error("Failed to fetch receipt from creationTxid:", error);
         throw new TRPCError({
@@ -186,7 +189,9 @@ export const adminPoolsRouter = router({
       }
 
       // 3. Get all Stake events for this pool from L2_BASE_TOKEN
-      console.log("Fetching Stake events from block", creationBlock.toString(), "to latest...");
+      // TODO: For pools with thousands of events, implement paginated getLogs
+      //       (some RPC providers cap at 10k blocks/blogs per request)
+      verboseLog("Fetching events from block", creationBlock.toString());
       const stakeLogs: Log[] = [];
       const unstakeLogs: Log[] = [];
 
@@ -209,7 +214,7 @@ export const adminPoolsRouter = router({
           toBlock: "latest",
         });
         stakeLogs.push(...fetchedStakeLogs);
-        console.log(`Found ${fetchedStakeLogs.length} Stake logs`);
+        verboseLog(`Found ${fetchedStakeLogs.length} Stake logs`);
       } catch (error) {
         console.error("Error fetching Stake logs:", error);
         throw new TRPCError({
@@ -238,7 +243,7 @@ export const adminPoolsRouter = router({
           toBlock: "latest",
         });
         unstakeLogs.push(...fetchedUnstakeLogs);
-        console.log(`Found ${fetchedUnstakeLogs.length} Unstake logs`);
+        verboseLog(`Found ${fetchedUnstakeLogs.length} Unstake logs`);
       } catch (error) {
         console.error("Error fetching Unstake logs:", error);
         throw new TRPCError({
@@ -248,7 +253,7 @@ export const adminPoolsRouter = router({
       }
 
       // 5. Get RewardClaimed events from the pool contract
-      console.log("Fetching RewardClaimed events...");
+      verboseLog("Fetching RewardClaimed events...");
       let rewardClaimedLogs: Log[] = [];
       try {
         const fetched = await publicClient.getLogs({
@@ -265,7 +270,7 @@ export const adminPoolsRouter = router({
           toBlock: "latest",
         });
         rewardClaimedLogs = fetched;
-        console.log(`Found ${fetched.length} RewardClaimed logs`);
+        verboseLog(`Found ${fetched.length} RewardClaimed logs`);
       } catch (error) {
         console.error("Error fetching RewardClaimed logs:", error);
         // Non-fatal — continue processing
@@ -296,7 +301,6 @@ export const adminPoolsRouter = router({
           });
 
           if (!userWallet) {
-            console.log(`Skipping Stake — wallet ${stakerAddress} not found in DB (tx: ${txHash})`);
             stakesSkipped++;
             continue;
           }
@@ -361,9 +365,6 @@ export const adminPoolsRouter = router({
           });
 
           stakesProcessed++;
-          console.log(
-            `Stake processed — wallet: ${stakerAddress} (userId: ${userWallet.userId}), amount: ${amount.toString()}, tx: ${txHash}`
-          );
         } catch (error) {
           console.error("Error processing Stake log:", error);
           stakesSkipped++;
@@ -394,9 +395,6 @@ export const adminPoolsRouter = router({
           });
 
           if (!userWallet) {
-            console.log(
-              `Skipping Unstake — wallet ${unstakerAddress} not found in DB (tx: ${txHash})`
-            );
             unstakesSkipped++;
             continue;
           }
@@ -431,7 +429,7 @@ export const adminPoolsRouter = router({
           const existingAmount = BigInt(existingStake?.stakeAmount || "0");
 
           if (existingAmount < amount) {
-            console.warn(
+            verboseLog(
               `Unstake amount ${amount.toString()} exceeds current stake ${existingAmount.toString()} for wallet ${unstakerAddress}. Setting to 0.`
             );
             // Instead of erroring, we set to 0 to avoid blocking the sync
@@ -470,9 +468,6 @@ export const adminPoolsRouter = router({
           });
 
           unstakesProcessed++;
-          console.log(
-            `Unstake processed — wallet: ${unstakerAddress} (userId: ${userWallet.userId}), amount: ${amount.toString()}, tx: ${txHash}`
-          );
         } catch (error) {
           console.error("Error processing Unstake log:", error);
           unstakesSkipped++;
@@ -480,6 +475,8 @@ export const adminPoolsRouter = router({
       }
 
       // 8. Process RewardClaimed events (update lastClaim on StakedPool)
+      // Cache block timestamps to avoid redundant RPC calls
+      const blockTimestampCache = new Map<bigint, Date>();
       let claimsProcessed = 0;
       let claimsSkipped = 0;
 
@@ -503,14 +500,27 @@ export const adminPoolsRouter = router({
             continue;
           }
 
-          // Update lastClaim timestamp on StakedPool
+          // Resolve block timestamp (cached per block)
+          let blockTimestamp = blockTimestampCache.get(log.blockNumber!);
+          if (!blockTimestamp) {
+            try {
+              const block = await publicClient.getBlock({ blockNumber: log.blockNumber! });
+              blockTimestamp = new Date(Number(block.timestamp) * 1000);
+              blockTimestampCache.set(log.blockNumber!, blockTimestamp);
+            } catch {
+              // Fallback: approximate from block number if RPC fails
+              blockTimestamp = new Date(Number(log.blockNumber!) * 1000);
+              blockTimestampCache.set(log.blockNumber!, blockTimestamp);
+            }
+          }
+
           await prisma.stakedPool.updateMany({
             where: {
               userWalletId: userWallet.id,
               poolId: pool.id,
             },
             data: {
-              lastClaim: new Date(Number(log.blockNumber) * 1000), // approximate timestamp from block
+              lastClaim: blockTimestamp,
             },
           });
 
@@ -522,7 +532,7 @@ export const adminPoolsRouter = router({
       }
 
       // 9. Recalculate total fans and revoStaked for the pool
-      console.log("Recalculating pool aggregation data...");
+      verboseLog("Recalculating pool aggregation data...");
       const allStakedPools = await prisma.stakedPool.findMany({
         where: { poolId: pool.id },
         select: { stakeAmount: true },
@@ -544,7 +554,7 @@ export const adminPoolsRouter = router({
         },
       });
 
-      console.log("=== syncPool END ===");
+      verboseLog("=== END ===");
 
       return {
         success: true,

@@ -431,31 +431,19 @@ export const poolsCreatorRouter = router({
 
       console.info("Fetched pool address from chain:", poolAddress);
 
-      // Find the wallet for the user
-      const wallet = await prisma.userWallet.findUnique({
-        where: { userId },
-      });
-
-      if (!wallet) {
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: "User does not have a wallet",
-        });
-      }
-
       if (zeroAddress === poolAddress) {
         // No pool exists on-chain — clean up any stale DB record
         try {
           await prisma.creatorPool.delete({
             where: {
               walletId_chainId: {
-                walletId: wallet.id,
+                walletId: userWallet.id,
                 chainId: input.chainId,
               },
             },
           });
           console.info(
-            `Deleted stale pool record for wallet ${wallet.id} on chain ${input.chainId}`
+            `Deleted stale pool record for wallet ${userWallet.id} on chain ${input.chainId}`
           );
         } catch (deleteError) {
           // Pool might not exist in DB — that's fine
@@ -478,7 +466,7 @@ export const poolsCreatorRouter = router({
       let pool = await prisma.creatorPool.findUnique({
         where: {
           walletId_chainId: {
-            walletId: wallet.id,
+            walletId: userWallet.id,
             chainId: input.chainId,
           },
         },
@@ -504,7 +492,7 @@ export const poolsCreatorRouter = router({
             ...(input.creationTxid && { creationTxid: input.creationTxid }),
             wallet: {
               connect: {
-                id: wallet.id,
+                id: userWallet.id,
               },
             },
           },

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -7,10 +7,12 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/Button";
-import { Loader2 } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import { trpc } from "../../utils/trpc/trpc";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
+
+const TXID_REGEX = /^0x[0-9a-fA-F]{64}$/;
 
 interface SetTxidDialogProps {
   isOpen: boolean;
@@ -29,6 +31,15 @@ export default function SetTxidDialog({
 }: SetTxidDialogProps) {
   const [txid, setTxid] = useState(currentTxid || "");
 
+  const validationError = useMemo(() => {
+    const trimmed = txid.trim();
+    if (!trimmed) return null;
+    if (!TXID_REGEX.test(trimmed)) {
+      return "Invalid format — must be 0x followed by 64 hex characters";
+    }
+    return null;
+  }, [txid]);
+
   const setTxidMutation = useMutation({
     mutationFn: trpc.admin.pools.setCreationTxid.mutationOptions().mutationFn,
     onSuccess: data => {
@@ -41,10 +52,12 @@ export default function SetTxidDialog({
     },
   });
 
+  const isValid = txid.trim().length > 0 && validationError === null;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!txid.trim()) return;
-    setTxidMutation.mutate({ poolId, creationTxid: txid });
+    if (!isValid) return;
+    setTxidMutation.mutate({ poolId, creationTxid: txid.trim() });
   };
 
   return (
@@ -66,12 +79,18 @@ export default function SetTxidDialog({
               placeholder="0x..."
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
               required
-              pattern="^0x[0-9a-fA-F]{64}$"
-              title="Please enter a valid transaction hash (0x followed by 64 hex characters)"
             />
-            <p className="text-xs text-gray-500 mt-1">
-              The transaction hash of the pool creation transaction on-chain.
-            </p>
+            {validationError && (
+              <div className="flex items-center gap-1 mt-1 text-amber-600 dark:text-amber-400 text-xs">
+                <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                <span>{validationError}</span>
+              </div>
+            )}
+            {!validationError && (
+              <p className="text-xs text-gray-500 mt-1">
+                The transaction hash of the pool creation transaction on-chain.
+              </p>
+            )}
           </div>
 
           <DialogFooter>
@@ -85,7 +104,7 @@ export default function SetTxidDialog({
             </Button>
             <Button
               type="submit"
-              disabled={setTxidMutation.isPending || !txid.trim()}
+              disabled={setTxidMutation.isPending || !isValid}
             >
               {setTxidMutation.isPending && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
