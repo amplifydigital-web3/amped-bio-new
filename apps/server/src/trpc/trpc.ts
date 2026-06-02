@@ -7,6 +7,7 @@ export type SessionUser = {
   email: string;
   role: string;
   wallet: string | null;
+  poolAddresses: Record<string, string>;
 };
 
 export type Context = {
@@ -34,6 +35,7 @@ export const createContext = async ({
         email: session.user.email,
         role: (session.user as any).role || "user",
         wallet: (session.user as any).wallet ?? null,
+        poolAddresses: (session.user as any).poolAddresses ?? {},
       },
     };
   }

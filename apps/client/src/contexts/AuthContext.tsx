@@ -41,6 +41,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         role: user.role || "user",
         image: user.image || null,
         wallet: (user as any).wallet ?? null,
+        poolAddresses: (user as any).poolAddresses ?? {},
       };
       setAuthUser(mappedUser);
       setIsInitializing(false);
@@ -87,6 +88,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           role: user.role || "user",
           image: user.image || null,
           wallet: null,
+          poolAddresses: {},
         };
         setAuthUser(mappedUser);
         return mappedUser;
@@ -147,6 +149,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         role: response.user.role,
         image: response.user.image,
         wallet: response.user.wallet,
+        poolAddresses: (response.user as any).poolAddresses ?? {},
       };
       setAuthUser(mappedUser);
     } catch (error) {

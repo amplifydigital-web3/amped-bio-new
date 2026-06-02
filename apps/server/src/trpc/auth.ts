@@ -106,7 +106,7 @@ export const authRouter = router({
           role: user.role,
           image: imageUrl,
           wallet: userWallet?.address || null,
-          hasPool: false, // Placeholder - we'll need to determine this differently since pools are now related to wallet
+          poolAddresses: ctx.user?.poolAddresses ?? {},
         },
       };
     } catch (error) {
