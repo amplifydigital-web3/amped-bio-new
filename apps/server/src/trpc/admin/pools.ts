@@ -445,7 +445,11 @@ export const adminPoolsRouter = router({
               currentStakes.map(s => [s.userWalletId, BigInt(s.stakeAmount || "0")])
             );
 
-            // Write everything in a single transaction
+            // Write everything in a single transaction.
+            // The existence check above is a best-effort optimisation to avoid
+            // sending already-known events to the transaction.  As a safety net,
+            // createMany uses skipDuplicates so that if two syncPool calls race,
+            // duplicate events are silently skipped instead of throwing.
             await prisma.$transaction(async tx => {
               // Upsert StakedPool for each wallet with net change
               for (const [walletId, netChange] of netAmounts) {
@@ -469,7 +473,7 @@ export const adminPoolsRouter = router({
                 });
               }
 
-              // Batch-create all new StakeEvents
+              // Batch-create all new StakeEvents (skip duplicates on race)
               await tx.stakeEvent.createMany({
                 data: allNew.map(e => ({
                   userWalletId: walletByAddress.get(e.address)!,
@@ -478,6 +482,7 @@ export const adminPoolsRouter = router({
                   eventType: e.type,
                   transactionHash: e.txHash,
                 })),
+                skipDuplicates: true,
               });
             });
 
@@ -531,7 +536,8 @@ export const adminPoolsRouter = router({
               const block = await publicClient.getBlock({ blockNumber: bn });
               blockTimestampCache.set(bn, new Date(Number(block.timestamp) * 1000));
             } catch {
-              blockTimestampCache.set(bn, new Date(Number(bn) * 1000));
+              // Fallback: use current date if RPC fails
+              blockTimestampCache.set(bn, new Date());
             }
           }
 
@@ -569,13 +575,17 @@ export const adminPoolsRouter = router({
         select: { stakeAmount: true },
       });
 
-      // Sum the string amounts as BigInt
+      // Sum the string amounts as BigInt, only counting active stakes
       let totalStakedBigInt = 0n;
+      let fansCount = 0;
       for (const sp of allStakedPools) {
-        totalStakedBigInt += BigInt(sp.stakeAmount || "0");
+        const amount = BigInt(sp.stakeAmount || "0");
+        if (amount > 0n) {
+          totalStakedBigInt += amount;
+          fansCount++;
+        }
       }
       const totalStaked = totalStakedBigInt.toString();
-      const fansCount = allStakedPools.length;
 
       await prisma.creatorPool.update({
         where: { id: pool.id },

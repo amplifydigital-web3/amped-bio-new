@@ -1,4 +1,7 @@
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +15,15 @@ import { trpc } from "../../utils/trpc/trpc";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-const TXID_REGEX = /^0x[0-9a-fA-F]{64}$/;
+const txidSchema = z
+  .string()
+  .regex(/^0x[0-9a-fA-F]{64}$/, "Invalid format — must be 0x followed by 64 hex characters");
+
+const formSchema = z.object({
+  txid: txidSchema,
+});
+
+type FormValues = z.infer<typeof formSchema>;
 
 interface SetTxidDialogProps {
   isOpen: boolean;
@@ -29,16 +40,19 @@ export default function SetTxidDialog({
   currentTxid,
   onSuccess,
 }: SetTxidDialogProps) {
-  const [txid, setTxid] = useState(currentTxid || "");
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isValid },
+    reset,
+  } = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: { txid: currentTxid || "" },
+    mode: "onChange",
+  });
 
-  const validationError = useMemo(() => {
-    const trimmed = txid.trim();
-    if (!trimmed) return null;
-    if (!TXID_REGEX.test(trimmed)) {
-      return "Invalid format — must be 0x followed by 64 hex characters";
-    }
-    return null;
-  }, [txid]);
+  // Reset form when dialog opens with a different txid
+  const resetKey = useMemo(() => currentTxid ?? "", [currentTxid]);
 
   const setTxidMutation = useMutation({
     mutationFn: trpc.admin.pools.setCreationTxid.mutationOptions().mutationFn,
@@ -52,21 +66,23 @@ export default function SetTxidDialog({
     },
   });
 
-  const isValid = txid.trim().length > 0 && validationError === null;
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isValid) return;
-    setTxidMutation.mutate({ poolId, creationTxid: txid.trim() });
+  const onSubmit = (data: FormValues) => {
+    setTxidMutation.mutate({ poolId, creationTxid: data.txid });
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={open => {
+        if (!open) onClose();
+        else reset({ txid: currentTxid || "" });
+      }}
+    >
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Set Pool Creation Txid</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" key={resetKey}>
           <div>
             <label htmlFor="txid" className="block text-sm font-medium mb-1">
               Transaction Hash (Txid)
@@ -74,19 +90,17 @@ export default function SetTxidDialog({
             <input
               id="txid"
               type="text"
-              value={txid}
-              onChange={e => setTxid(e.target.value)}
               placeholder="0x..."
+              {...register("txid")}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-              required
             />
-            {validationError && (
+            {errors.txid && (
               <div className="flex items-center gap-1 mt-1 text-amber-600 dark:text-amber-400 text-xs">
                 <AlertTriangle className="h-3 w-3 flex-shrink-0" />
-                <span>{validationError}</span>
+                <span>{errors.txid.message}</span>
               </div>
             )}
-            {!validationError && (
+            {!errors.txid && (
               <p className="text-xs text-gray-500 mt-1">
                 The transaction hash of the pool creation transaction on-chain.
               </p>
@@ -102,13 +116,8 @@ export default function SetTxidDialog({
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={setTxidMutation.isPending || !isValid}
-            >
-              {setTxidMutation.isPending && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
+            <Button type="submit" disabled={setTxidMutation.isPending || !isValid}>
+              {setTxidMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save
             </Button>
           </DialogFooter>
