@@ -64,6 +64,11 @@ export const adminPoolsRouter = router({
       }
     }),
 
+  /**
+   * Sets or updates the creation transaction hash (txid) for a pool.
+   * Used by admins to manually link a pool to its on-chain creation transaction.
+   * This txid is required by syncPool to locate the pool's creation block.
+   */
   setCreationTxid: adminProcedure
     .input(
       z.object({
@@ -108,6 +113,20 @@ export const adminPoolsRouter = router({
       }
     }),
 
+  /**
+   * Synchronizes all on-chain events for a specific pool from its creation block to present.
+   *
+   * 1. Validates the pool exists and has a creationTxid set.
+   * 2. Fetches the creation block via getTransactionReceipt using the saved txid.
+   * 3. Queries all Stake / Unstake events from L2_BASE_TOKEN filtered by pool address.
+   * 4. Queries all RewardClaimed events from the pool contract.
+   * 5. Decodes all events, batch-finds known wallets, and batch-checks already-indexed events.
+   * 6. Computes net balance changes per wallet and writes everything in a single DB transaction.
+   * 7. Updates lastClaim timestamps for RewardClaimed events.
+   * 8. Recalculates and saves the pool's revoStaked and fans counts.
+   *
+   * Returns a summary with processed/skipped/alreadyIndexed counts for each event type.
+   */
   syncPool: adminProcedure
     .input(
       z.object({
@@ -277,257 +296,269 @@ export const adminPoolsRouter = router({
         rewardClaimedLogs = [];
       }
 
-      // 6. Process Stake events
-      let stakesProcessed = 0;
-      let stakesSkipped = 0;
-      let stakesAlreadyIndexed = 0;
+      // Initialize summary counters at the top so all code paths are covered
+      let summaryStakesProcessed = 0;
+      let summaryStakesSkipped = 0;
+      let summaryStakesAlready = 0;
+      let summaryUnstakesProcessed = 0;
+      let summaryUnstakesSkipped = 0;
+      let summaryUnstakesAlready = 0;
 
+      // 6. Decode all events and batch-process them
+      //
+      // Instead of N events × 5 DB queries, we:
+      //   1. Decode all events in memory
+      //   2. Batch-find all wallets with one query
+      //   3. Batch-check existing events with one query
+      //   4. Write everything in a single transaction
+
+      interface ParsedEvent {
+        address: string;
+        amount: bigint;
+        txHash: string;
+        type: "stake" | "unstake";
+      }
+      const allEvents: ParsedEvent[] = [];
+
+      // --- Decode all Stake events ---
       for (const log of stakeLogs) {
         try {
-          const decodedLog = decodeEventLog({
+          const decoded = decodeEventLog({
             abi: L2_BASE_TOKEN_ABI,
             eventName: "Stake",
             data: log.data,
             topics: log.topics,
           });
-          const args = decodedLog.args as any;
-          const stakerAddress = (args.staker as string).toLowerCase();
-          const amount = typeof args.amount === "bigint" ? args.amount : BigInt(args.amount);
-          const txHash = log.transactionHash!;
-
-          // Find or skip wallet not in DB
-          const userWallet = await prisma.userWallet.findUnique({
-            where: { address: stakerAddress },
+          const args = decoded.args as any;
+          allEvents.push({
+            address: (args.staker as string).toLowerCase(),
+            amount: typeof args.amount === "bigint" ? args.amount : BigInt(args.amount),
+            txHash: log.transactionHash!,
+            type: "stake",
           });
-
-          if (!userWallet) {
-            stakesSkipped++;
-            continue;
-          }
-
-          // Check if already indexed
-          const existingEvent = await prisma.stakeEvent.findUnique({
-            where: {
-              transactionHash_userWalletId_poolId: {
-                transactionHash: txHash,
-                userWalletId: userWallet.id,
-                poolId: pool.id,
-              },
-            },
-          });
-
-          if (existingEvent) {
-            stakesAlreadyIndexed++;
-            continue;
-          }
-
-          // Upsert StakedPool
-          const existingStake = await prisma.stakedPool.findUnique({
-            where: {
-              userWalletId_poolId: {
-                userWalletId: userWallet.id,
-                poolId: pool.id,
-              },
-            },
-            select: { stakeAmount: true },
-          });
-
-          const existingAmount = BigInt(existingStake?.stakeAmount || "0");
-          const newStakeAmount = (existingAmount + amount).toString();
-
-          await prisma.stakedPool.upsert({
-            where: {
-              userWalletId_poolId: {
-                userWalletId: userWallet.id,
-                poolId: pool.id,
-              },
-            },
-            update: {
-              stakeAmount: newStakeAmount,
-              updatedAt: new Date(),
-            },
-            create: {
-              userWalletId: userWallet.id,
-              poolId: pool.id,
-              stakeAmount: amount.toString(),
-            },
-          });
-
-          // Create StakeEvent
-          await prisma.stakeEvent.create({
-            data: {
-              userWalletId: userWallet.id,
-              poolId: pool.id,
-              amount: amount.toString(),
-              eventType: "stake",
-              transactionHash: txHash,
-            },
-          });
-
-          stakesProcessed++;
         } catch (error) {
-          console.error("Error processing Stake log:", error);
-          stakesSkipped++;
+          console.error("Error decoding Stake log:", error);
         }
       }
 
-      // 7. Process Unstake events
-      let unstakesProcessed = 0;
-      let unstakesSkipped = 0;
-      let unstakesAlreadyIndexed = 0;
-
+      // --- Decode all Unstake events ---
       for (const log of unstakeLogs) {
         try {
-          const decodedLog = decodeEventLog({
+          const decoded = decodeEventLog({
             abi: L2_BASE_TOKEN_ABI,
             eventName: "Unstake",
             data: log.data,
             topics: log.topics,
           });
-          const args = decodedLog.args as any;
-          const unstakerAddress = (args.unstaker as string).toLowerCase();
-          const amount = typeof args.amount === "bigint" ? args.amount : BigInt(args.amount);
-          const txHash = log.transactionHash!;
-
-          // Find or skip wallet not in DB
-          const userWallet = await prisma.userWallet.findUnique({
-            where: { address: unstakerAddress },
+          const args = decoded.args as any;
+          allEvents.push({
+            address: (args.unstaker as string).toLowerCase(),
+            amount: typeof args.amount === "bigint" ? args.amount : BigInt(args.amount),
+            txHash: log.transactionHash!,
+            type: "unstake",
           });
-
-          if (!userWallet) {
-            unstakesSkipped++;
-            continue;
-          }
-
-          // Check if already indexed
-          const existingEvent = await prisma.stakeEvent.findUnique({
-            where: {
-              transactionHash_userWalletId_poolId: {
-                transactionHash: txHash,
-                userWalletId: userWallet.id,
-                poolId: pool.id,
-              },
-            },
-          });
-
-          if (existingEvent) {
-            unstakesAlreadyIndexed++;
-            continue;
-          }
-
-          // Upsert StakedPool
-          const existingStake = await prisma.stakedPool.findUnique({
-            where: {
-              userWalletId_poolId: {
-                userWalletId: userWallet.id,
-                poolId: pool.id,
-              },
-            },
-            select: { stakeAmount: true },
-          });
-
-          const existingAmount = BigInt(existingStake?.stakeAmount || "0");
-
-          if (existingAmount < amount) {
-            verboseLog(
-              `Unstake amount ${amount.toString()} exceeds current stake ${existingAmount.toString()} for wallet ${unstakerAddress}. Setting to 0.`
-            );
-            // Instead of erroring, we set to 0 to avoid blocking the sync
-          }
-
-          const newStakeAmount =
-            existingAmount >= amount ? (existingAmount - amount).toString() : "0";
-
-          await prisma.stakedPool.upsert({
-            where: {
-              userWalletId_poolId: {
-                userWalletId: userWallet.id,
-                poolId: pool.id,
-              },
-            },
-            update: {
-              stakeAmount: newStakeAmount,
-              updatedAt: new Date(),
-            },
-            create: {
-              userWalletId: userWallet.id,
-              poolId: pool.id,
-              stakeAmount: (-amount).toString(),
-            },
-          });
-
-          // Create StakeEvent
-          await prisma.stakeEvent.create({
-            data: {
-              userWalletId: userWallet.id,
-              poolId: pool.id,
-              amount: amount.toString(),
-              eventType: "unstake",
-              transactionHash: txHash,
-            },
-          });
-
-          unstakesProcessed++;
         } catch (error) {
-          console.error("Error processing Unstake log:", error);
-          unstakesSkipped++;
+          console.error("Error decoding Unstake log:", error);
         }
       }
 
-      // 8. Process RewardClaimed events (update lastClaim on StakedPool)
-      // Cache block timestamps to avoid redundant RPC calls
-      const blockTimestampCache = new Map<bigint, Date>();
-      let claimsProcessed = 0;
-      let claimsSkipped = 0;
+      verboseLog(`Decoded ${allEvents.length} total stake/unstake events`);
 
-      for (const log of rewardClaimedLogs) {
-        try {
-          const decodedLog = decodeEventLog({
-            abi: CREATOR_POOL_ABI,
-            eventName: "RewardClaimed",
-            data: log.data,
-            topics: log.topics,
-          });
-          const args = decodedLog.args as any;
-          const fanAddress = (args.fan as string).toLowerCase();
+      if (allEvents.length > 0) {
+        // --- Batch-find all wallets ---
+        const uniqueAddresses = [...new Set(allEvents.map(e => e.address))];
+        const wallets = await prisma.userWallet.findMany({
+          where: { address: { in: uniqueAddresses } },
+          select: { id: true, address: true },
+        });
+        const walletByAddress = new Map(wallets.map(w => [w.address, w.id]));
 
-          const userWallet = await prisma.userWallet.findUnique({
-            where: { address: fanAddress },
-          });
+        // Filter events to only those with known wallets
+        const knownEvents = allEvents.filter(e => walletByAddress.has(e.address));
+        summaryStakesSkipped = allEvents.length - knownEvents.length;
 
-          if (!userWallet) {
-            claimsSkipped++;
-            continue;
-          }
+        if (knownEvents.length > 0) {
+          // --- Batch-check which events already exist ---
+          const existingEventKeys = new Set(
+            (
+              await prisma.stakeEvent.findMany({
+                where: {
+                  poolId: pool.id,
+                  OR: knownEvents.map(e => ({
+                    transactionHash: e.txHash,
+                    userWalletId: walletByAddress.get(e.address)!,
+                  })),
+                },
+                select: {
+                  transactionHash: true,
+                  userWalletId: true,
+                  eventType: true,
+                },
+              })
+            ).map(e => `${e.transactionHash}-${e.userWalletId}`)
+          );
 
-          // Resolve block timestamp (cached per block)
-          let blockTimestamp = blockTimestampCache.get(log.blockNumber!);
-          if (!blockTimestamp) {
-            try {
-              const block = await publicClient.getBlock({ blockNumber: log.blockNumber! });
-              blockTimestamp = new Date(Number(block.timestamp) * 1000);
-              blockTimestampCache.set(log.blockNumber!, blockTimestamp);
-            } catch {
-              // Fallback: approximate from block number if RPC fails
-              blockTimestamp = new Date(Number(log.blockNumber!) * 1000);
-              blockTimestampCache.set(log.blockNumber!, blockTimestamp);
+          // Separate new vs already-indexed and split by type
+          const newStakes: ParsedEvent[] = [];
+          const newUnstakes: ParsedEvent[] = [];
+
+          for (const e of knownEvents) {
+            const key = `${e.txHash}-${walletByAddress.get(e.address)!}`;
+            if (existingEventKeys.has(key)) {
+              if (e.type === "stake") summaryStakesAlready++;
+              else summaryUnstakesAlready++;
+            } else {
+              if (e.type === "stake") newStakes.push(e);
+              else newUnstakes.push(e);
             }
           }
 
-          await prisma.stakedPool.updateMany({
-            where: {
-              userWalletId: userWallet.id,
-              poolId: pool.id,
-            },
-            data: {
-              lastClaim: blockTimestamp,
-            },
-          });
+          summaryStakesProcessed = newStakes.length;
+          summaryUnstakesProcessed = newUnstakes.length;
 
-          claimsProcessed++;
-        } catch (error) {
-          console.error("Error processing RewardClaimed log:", error);
-          claimsSkipped++;
+          verboseLog(
+            `Events: ${knownEvents.length} known wallets, ${summaryStakesAlready + summaryUnstakesAlready} already indexed, ${newStakes.length + newUnstakes.length} to process`
+          );
+
+          const allNew = [...newStakes, ...newUnstakes];
+
+          if (allNew.length > 0) {
+            // --- Aggregate net amount per wallet ---
+            const netAmounts = new Map<number, bigint>();
+            for (const e of allNew) {
+              const wid = walletByAddress.get(e.address)!;
+              netAmounts.set(
+                wid,
+                (netAmounts.get(wid) || 0n) + (e.type === "stake" ? e.amount : -e.amount)
+              );
+            }
+
+            // Fetch current stakes for these wallets
+            const currentStakes = await prisma.stakedPool.findMany({
+              where: {
+                poolId: pool.id,
+                userWalletId: { in: [...netAmounts.keys()] },
+              },
+              select: { userWalletId: true, stakeAmount: true },
+            });
+            const currentByWallet = new Map(
+              currentStakes.map(s => [s.userWalletId, BigInt(s.stakeAmount || "0")])
+            );
+
+            // Write everything in a single transaction
+            await prisma.$transaction(async tx => {
+              // Upsert StakedPool for each wallet with net change
+              for (const [walletId, netChange] of netAmounts) {
+                const currentAmount = currentByWallet.get(walletId) || 0n;
+                const newAmount = currentAmount + netChange;
+                const finalAmount = newAmount >= 0n ? newAmount : 0n;
+
+                await tx.stakedPool.upsert({
+                  where: {
+                    userWalletId_poolId: {
+                      userWalletId: walletId,
+                      poolId: pool.id,
+                    },
+                  },
+                  update: { stakeAmount: finalAmount.toString(), updatedAt: new Date() },
+                  create: {
+                    userWalletId: walletId,
+                    poolId: pool.id,
+                    stakeAmount: finalAmount.toString(),
+                  },
+                });
+              }
+
+              // Batch-create all new StakeEvents
+              await tx.stakeEvent.createMany({
+                data: allNew.map(e => ({
+                  userWalletId: walletByAddress.get(e.address)!,
+                  poolId: pool.id,
+                  amount: e.amount.toString(),
+                  eventType: e.type,
+                  transactionHash: e.txHash,
+                })),
+              });
+            });
+
+            verboseLog(
+              `Batch write done: ${allNew.length} events, ${netAmounts.size} stakedPools upserted`
+            );
+          }
+        }
+      }
+
+      // 8. Process RewardClaimed events (batch)
+      let claimsProcessed = 0;
+      let claimsSkipped = 0;
+
+      if (rewardClaimedLogs.length > 0) {
+        // Decode claims and batch-find wallets
+        const claimEvents: { address: string; blockNumber: bigint }[] = [];
+        for (const log of rewardClaimedLogs) {
+          try {
+            const decoded = decodeEventLog({
+              abi: CREATOR_POOL_ABI,
+              eventName: "RewardClaimed",
+              data: log.data,
+              topics: log.topics,
+            });
+            const args = decoded.args as any;
+            claimEvents.push({
+              address: (args.fan as string).toLowerCase(),
+              blockNumber: log.blockNumber!,
+            });
+          } catch {
+            // skip
+          }
+        }
+
+        if (claimEvents.length > 0) {
+          const claimAddresses = [...new Set(claimEvents.map(c => c.address))];
+          const claimWallets = await prisma.userWallet.findMany({
+            where: { address: { in: claimAddresses } },
+            select: { id: true, address: true },
+          });
+          const claimWalletByAddress = new Map(claimWallets.map(w => [w.address, w.id]));
+
+          // Resolve unique block timestamps in batch (via getBlock, cached)
+          const uniqueBlocks = [...new Set(claimEvents.map(c => c.blockNumber.toString()))].map(s =>
+            BigInt(s)
+          );
+          const blockTimestampCache = new Map<bigint, Date>();
+          for (const bn of uniqueBlocks) {
+            try {
+              const block = await publicClient.getBlock({ blockNumber: bn });
+              blockTimestampCache.set(bn, new Date(Number(block.timestamp) * 1000));
+            } catch {
+              blockTimestampCache.set(bn, new Date(Number(bn) * 1000));
+            }
+          }
+
+          // Update lastClaim for each known wallet (grouped to avoid N updates)
+          const walletLastClaim = new Map<number, Date>();
+          for (const ce of claimEvents) {
+            const wid = claimWalletByAddress.get(ce.address);
+            if (!wid) {
+              claimsSkipped++;
+              continue;
+            }
+            const ts = blockTimestampCache.get(ce.blockNumber)!;
+            const existing = walletLastClaim.get(wid);
+            if (!existing || ts > existing) {
+              walletLastClaim.set(wid, ts);
+            }
+          }
+
+          // Batch-update lastClaim
+          for (const [wid, ts] of walletLastClaim) {
+            await prisma.stakedPool.updateMany({
+              where: { userWalletId: wid, poolId: pool.id },
+              data: { lastClaim: ts },
+            });
+          }
+
+          claimsProcessed = walletLastClaim.size;
         }
       }
 
@@ -562,14 +593,14 @@ export const adminPoolsRouter = router({
         poolId: pool.id,
         summary: {
           stakes: {
-            processed: stakesProcessed,
-            skipped: stakesSkipped,
-            alreadyIndexed: stakesAlreadyIndexed,
+            processed: summaryStakesProcessed,
+            skipped: summaryStakesSkipped,
+            alreadyIndexed: summaryStakesAlready,
           },
           unstakes: {
-            processed: unstakesProcessed,
-            skipped: unstakesSkipped,
-            alreadyIndexed: unstakesAlreadyIndexed,
+            processed: summaryUnstakesProcessed,
+            skipped: summaryUnstakesSkipped,
+            alreadyIndexed: summaryUnstakesAlready,
           },
           claims: {
             processed: claimsProcessed,
