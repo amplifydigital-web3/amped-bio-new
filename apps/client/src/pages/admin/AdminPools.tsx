@@ -5,7 +5,9 @@ import { Button } from "../../components/ui/Button";
 import { toast } from "sonner";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { formatHandle } from "../../utils/handle";
+import { Loader2, RefreshCw } from "lucide-react";
 import SyncTransactionDialog from "./SyncTransactionDialog";
+import SetTxidDialog from "./SetTxidDialog";
 
 export const AdminPools: FC = () => {
   const {
@@ -17,6 +19,12 @@ export const AdminPools: FC = () => {
   } = useQuery(trpc.admin.pools.getAllPools.queryOptions());
 
   const [isSyncDialogOpen, setIsSyncDialogOpen] = useState(false);
+  const [syncingPoolId, setSyncingPoolId] = useState<number | null>(null);
+  const [isSetTxidDialogOpen, setIsSetTxidDialogOpen] = useState(false);
+  const [editingTxidPool, setEditingTxidPool] = useState<{
+    id: number;
+    currentTxid: string | null | undefined;
+  } | null>(null);
 
   const handleSyncComplete = () => {
     refetch();
@@ -33,8 +41,44 @@ export const AdminPools: FC = () => {
     },
   });
 
+  const syncPoolMutation = useMutation({
+    mutationFn: trpc.admin.pools.syncPool.mutationOptions().mutationFn,
+    onSuccess: data => {
+      const s = data.summary;
+      toast.success(
+        `Pool synced: ${s.stakes.processed} stakes, ${s.unstakes.processed} unstakes, ${s.claims.processed} claims`
+      );
+      refetch();
+    },
+    onError: err => {
+      toast.error(`Failed to sync pool: ${err.message}`);
+    },
+    onSettled: () => {
+      setSyncingPoolId(null);
+    },
+  });
+
+  const handleSyncPool = (poolId: number) => {
+    setSyncingPoolId(poolId);
+    syncPoolMutation.mutate({ poolId });
+  };
+
   const handleToggleHidden = (poolId: number, currentHiddenStatus: boolean) => {
     setHiddenMutation.mutate({ poolId, hidden: !currentHiddenStatus });
+  };
+
+  const handleOpenSetTxid = (poolId: number, currentTxid: string | null | undefined) => {
+    setEditingTxidPool({ id: poolId, currentTxid });
+    setIsSetTxidDialogOpen(true);
+  };
+
+  const handleSetTxidSuccess = () => {
+    refetch();
+  };
+
+  const formatTxid = (txid: string | null | undefined) => {
+    if (!txid) return null;
+    return `${txid.slice(0, 10)}...${txid.slice(-8)}`;
   };
 
   if (isLoading) {
@@ -95,7 +139,19 @@ export const AdminPools: FC = () => {
                   scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
                 >
+                  Creation Txid
+                </th>
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
+                >
                   Hidden
+                </th>
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
+                >
+                  Actions
                 </th>
               </tr>
             </thead>
@@ -125,12 +181,47 @@ export const AdminPools: FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                     {pool.chainId}
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={pool.creationTxid ? "font-mono text-xs" : "text-gray-400 italic"}
+                      >
+                        {formatTxid(pool.creationTxid) || "N/A"}
+                      </span>
+                      <button
+                        onClick={() => handleOpenSetTxid(pool.id, pool.creationTxid)}
+                        className="text-blue-600 hover:text-blue-800 text-xs underline"
+                        title="Set or edit creation transaction txid"
+                      >
+                        {pool.creationTxid ? "Edit" : "Set"}
+                      </button>
+                    </div>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <Switch
                       checked={pool.hidden || false}
                       onChange={() => handleToggleHidden(pool.id, pool.hidden || false)}
                       disabled={setHiddenMutation.isPending}
                     />
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleSyncPool(pool.id)}
+                      disabled={syncingPoolId === pool.id || !pool.poolAddress}
+                      title={
+                        !pool.poolAddress
+                          ? "Pool has no address — sync creation first"
+                          : "Sync all on-chain events for this pool"
+                      }
+                    >
+                      {syncingPoolId === pool.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4" />
+                      )}
+                    </Button>
                   </td>
                 </tr>
               ))}
@@ -146,6 +237,19 @@ export const AdminPools: FC = () => {
         onClose={() => setIsSyncDialogOpen(false)}
         onSyncComplete={handleSyncComplete}
       />
+
+      {editingTxidPool && (
+        <SetTxidDialog
+          isOpen={isSetTxidDialogOpen}
+          onClose={() => {
+            setIsSetTxidDialogOpen(false);
+            setEditingTxidPool(null);
+          }}
+          poolId={editingTxidPool.id}
+          currentTxid={editingTxidPool.currentTxid}
+          onSuccess={handleSetTxidSuccess}
+        />
+      )}
     </div>
   );
 };

@@ -2,8 +2,8 @@ import { adminProcedure, router } from "../trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { prisma } from "../../services/DB";
-import { createPublicClient, http, decodeEventLog, type Address } from "viem";
-import { getChainConfig, L2_BASE_TOKEN_ABI } from "@ampedbio/web3";
+import { createPublicClient, http, decodeEventLog, type Address, type Log } from "viem";
+import { getChainConfig, L2_BASE_TOKEN_ABI, CREATOR_POOL_ABI } from "@ampedbio/web3";
 
 export const adminPoolsRouter = router({
   getAllPools: adminProcedure.query(async () => {
@@ -62,6 +62,513 @@ export const adminPoolsRouter = router({
           message: "Failed to update pool visibility",
         });
       }
+    }),
+
+  setCreationTxid: adminProcedure
+    .input(
+      z.object({
+        poolId: z.number(),
+        creationTxid: z.string().regex(/^0x[0-9a-fA-F]{64}$/, "Invalid transaction hash format"),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { poolId, creationTxid } = input;
+
+      try {
+        const pool = await prisma.creatorPool.findUnique({
+          where: { id: poolId },
+        });
+
+        if (!pool) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: `Pool with id ${poolId} not found`,
+          });
+        }
+
+        const updatedPool = await prisma.creatorPool.update({
+          where: { id: poolId },
+          data: {
+            creationTxid,
+          },
+        });
+
+        return {
+          id: updatedPool.id,
+          creationTxid: updatedPool.creationTxid,
+          message: "Transaction hash updated successfully",
+        };
+      } catch (error) {
+        console.error("Error updating pool transaction hash:", error);
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to update pool transaction hash",
+        });
+      }
+    }),
+
+  syncPool: adminProcedure
+    .input(
+      z.object({
+        poolId: z.number(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      console.log("=== syncPool START ===");
+      console.log("Input received:", { poolId: input.poolId });
+
+      // 1. Find the pool in DB
+      const pool = await prisma.creatorPool.findUnique({
+        where: { id: input.poolId },
+      });
+
+      if (!pool) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Pool with id ${input.poolId} not found`,
+        });
+      }
+
+      if (!pool.poolAddress) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Pool ${input.poolId} has no poolAddress set. Sync the pool creation first.`,
+        });
+      }
+
+      const chain = getChainConfig(parseInt(pool.chainId));
+
+      if (!chain) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Unsupported chain ID: ${pool.chainId}`,
+        });
+      }
+
+      console.log("Pool found:", {
+        id: pool.id,
+        poolAddress: pool.poolAddress,
+        chainId: pool.chainId,
+        chainName: chain.name,
+      });
+
+      const publicClient = createPublicClient({
+        chain: chain,
+        transport: http(),
+      });
+
+      const tokenAddress = chain.contracts.L2_BASE_TOKEN.address;
+      const poolAddress = pool.poolAddress as Address;
+
+      // 2. Find the creation block using the saved creationTxid
+      if (!pool.creationTxid) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: `Pool ${input.poolId} has no creationTxid. Set it first in the admin panel (Actions > Set Tx).`,
+        });
+      }
+
+      console.log("Using creationTxid:", pool.creationTxid);
+      let creationBlock: bigint;
+      try {
+        const receipt = await publicClient.getTransactionReceipt({
+          hash: pool.creationTxid as `0x${string}`,
+        });
+        creationBlock = receipt.blockNumber;
+        console.log("Creation block from receipt:", creationBlock.toString());
+      } catch (error) {
+        console.error("Failed to fetch receipt from creationTxid:", error);
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Invalid or unreachable creationTxid: ${pool.creationTxid}. Verify the hash and update it in the admin panel.`,
+        });
+      }
+
+      // 3. Get all Stake events for this pool from L2_BASE_TOKEN
+      console.log("Fetching Stake events from block", creationBlock.toString(), "to latest...");
+      const stakeLogs: Log[] = [];
+      const unstakeLogs: Log[] = [];
+
+      try {
+        const fetchedStakeLogs = await publicClient.getLogs({
+          address: tokenAddress,
+          event: {
+            type: "event",
+            name: "Stake",
+            inputs: [
+              { type: "address", name: "staker", indexed: true },
+              { type: "address", name: "pool", indexed: true },
+              { type: "uint256", name: "amount", indexed: false },
+            ],
+          } as const,
+          args: {
+            pool: poolAddress,
+          } as any,
+          fromBlock: creationBlock,
+          toBlock: "latest",
+        });
+        stakeLogs.push(...fetchedStakeLogs);
+        console.log(`Found ${fetchedStakeLogs.length} Stake logs`);
+      } catch (error) {
+        console.error("Error fetching Stake logs:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Failed to fetch Stake logs: ${(error as Error).message}`,
+        });
+      }
+
+      // 4. Get all Unstake events for this pool from L2_BASE_TOKEN
+      try {
+        const fetchedUnstakeLogs = await publicClient.getLogs({
+          address: tokenAddress,
+          event: {
+            type: "event",
+            name: "Unstake",
+            inputs: [
+              { type: "address", name: "unstaker", indexed: true },
+              { type: "address", name: "pool", indexed: true },
+              { type: "uint256", name: "amount", indexed: false },
+            ],
+          } as const,
+          args: {
+            pool: poolAddress,
+          } as any,
+          fromBlock: creationBlock,
+          toBlock: "latest",
+        });
+        unstakeLogs.push(...fetchedUnstakeLogs);
+        console.log(`Found ${fetchedUnstakeLogs.length} Unstake logs`);
+      } catch (error) {
+        console.error("Error fetching Unstake logs:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Failed to fetch Unstake logs: ${(error as Error).message}`,
+        });
+      }
+
+      // 5. Get RewardClaimed events from the pool contract
+      console.log("Fetching RewardClaimed events...");
+      let rewardClaimedLogs: Log[] = [];
+      try {
+        const fetched = await publicClient.getLogs({
+          address: poolAddress,
+          event: {
+            type: "event",
+            name: "RewardClaimed",
+            inputs: [
+              { type: "address", name: "fan", indexed: true },
+              { type: "uint256", name: "amount", indexed: false },
+            ],
+          } as const,
+          fromBlock: creationBlock,
+          toBlock: "latest",
+        });
+        rewardClaimedLogs = fetched;
+        console.log(`Found ${fetched.length} RewardClaimed logs`);
+      } catch (error) {
+        console.error("Error fetching RewardClaimed logs:", error);
+        // Non-fatal — continue processing
+        rewardClaimedLogs = [];
+      }
+
+      // 6. Process Stake events
+      let stakesProcessed = 0;
+      let stakesSkipped = 0;
+      let stakesAlreadyIndexed = 0;
+
+      for (const log of stakeLogs) {
+        try {
+          const decodedLog = decodeEventLog({
+            abi: L2_BASE_TOKEN_ABI,
+            eventName: "Stake",
+            data: log.data,
+            topics: log.topics,
+          });
+          const args = decodedLog.args as any;
+          const stakerAddress = (args.staker as string).toLowerCase();
+          const amount = typeof args.amount === "bigint" ? args.amount : BigInt(args.amount);
+          const txHash = log.transactionHash!;
+
+          // Find or skip wallet not in DB
+          const userWallet = await prisma.userWallet.findUnique({
+            where: { address: stakerAddress },
+          });
+
+          if (!userWallet) {
+            console.log(`Skipping Stake — wallet ${stakerAddress} not found in DB (tx: ${txHash})`);
+            stakesSkipped++;
+            continue;
+          }
+
+          // Check if already indexed
+          const existingEvent = await prisma.stakeEvent.findUnique({
+            where: {
+              transactionHash_userWalletId_poolId: {
+                transactionHash: txHash,
+                userWalletId: userWallet.id,
+                poolId: pool.id,
+              },
+            },
+          });
+
+          if (existingEvent) {
+            stakesAlreadyIndexed++;
+            continue;
+          }
+
+          // Upsert StakedPool
+          const existingStake = await prisma.stakedPool.findUnique({
+            where: {
+              userWalletId_poolId: {
+                userWalletId: userWallet.id,
+                poolId: pool.id,
+              },
+            },
+            select: { stakeAmount: true },
+          });
+
+          const existingAmount = BigInt(existingStake?.stakeAmount || "0");
+          const newStakeAmount = (existingAmount + amount).toString();
+
+          await prisma.stakedPool.upsert({
+            where: {
+              userWalletId_poolId: {
+                userWalletId: userWallet.id,
+                poolId: pool.id,
+              },
+            },
+            update: {
+              stakeAmount: newStakeAmount,
+              updatedAt: new Date(),
+            },
+            create: {
+              userWalletId: userWallet.id,
+              poolId: pool.id,
+              stakeAmount: amount.toString(),
+            },
+          });
+
+          // Create StakeEvent
+          await prisma.stakeEvent.create({
+            data: {
+              userWalletId: userWallet.id,
+              poolId: pool.id,
+              amount: amount.toString(),
+              eventType: "stake",
+              transactionHash: txHash,
+            },
+          });
+
+          stakesProcessed++;
+          console.log(
+            `Stake processed — wallet: ${stakerAddress} (userId: ${userWallet.userId}), amount: ${amount.toString()}, tx: ${txHash}`
+          );
+        } catch (error) {
+          console.error("Error processing Stake log:", error);
+          stakesSkipped++;
+        }
+      }
+
+      // 7. Process Unstake events
+      let unstakesProcessed = 0;
+      let unstakesSkipped = 0;
+      let unstakesAlreadyIndexed = 0;
+
+      for (const log of unstakeLogs) {
+        try {
+          const decodedLog = decodeEventLog({
+            abi: L2_BASE_TOKEN_ABI,
+            eventName: "Unstake",
+            data: log.data,
+            topics: log.topics,
+          });
+          const args = decodedLog.args as any;
+          const unstakerAddress = (args.unstaker as string).toLowerCase();
+          const amount = typeof args.amount === "bigint" ? args.amount : BigInt(args.amount);
+          const txHash = log.transactionHash!;
+
+          // Find or skip wallet not in DB
+          const userWallet = await prisma.userWallet.findUnique({
+            where: { address: unstakerAddress },
+          });
+
+          if (!userWallet) {
+            console.log(
+              `Skipping Unstake — wallet ${unstakerAddress} not found in DB (tx: ${txHash})`
+            );
+            unstakesSkipped++;
+            continue;
+          }
+
+          // Check if already indexed
+          const existingEvent = await prisma.stakeEvent.findUnique({
+            where: {
+              transactionHash_userWalletId_poolId: {
+                transactionHash: txHash,
+                userWalletId: userWallet.id,
+                poolId: pool.id,
+              },
+            },
+          });
+
+          if (existingEvent) {
+            unstakesAlreadyIndexed++;
+            continue;
+          }
+
+          // Upsert StakedPool
+          const existingStake = await prisma.stakedPool.findUnique({
+            where: {
+              userWalletId_poolId: {
+                userWalletId: userWallet.id,
+                poolId: pool.id,
+              },
+            },
+            select: { stakeAmount: true },
+          });
+
+          const existingAmount = BigInt(existingStake?.stakeAmount || "0");
+
+          if (existingAmount < amount) {
+            console.warn(
+              `Unstake amount ${amount.toString()} exceeds current stake ${existingAmount.toString()} for wallet ${unstakerAddress}. Setting to 0.`
+            );
+            // Instead of erroring, we set to 0 to avoid blocking the sync
+          }
+
+          const newStakeAmount =
+            existingAmount >= amount ? (existingAmount - amount).toString() : "0";
+
+          await prisma.stakedPool.upsert({
+            where: {
+              userWalletId_poolId: {
+                userWalletId: userWallet.id,
+                poolId: pool.id,
+              },
+            },
+            update: {
+              stakeAmount: newStakeAmount,
+              updatedAt: new Date(),
+            },
+            create: {
+              userWalletId: userWallet.id,
+              poolId: pool.id,
+              stakeAmount: (-amount).toString(),
+            },
+          });
+
+          // Create StakeEvent
+          await prisma.stakeEvent.create({
+            data: {
+              userWalletId: userWallet.id,
+              poolId: pool.id,
+              amount: amount.toString(),
+              eventType: "unstake",
+              transactionHash: txHash,
+            },
+          });
+
+          unstakesProcessed++;
+          console.log(
+            `Unstake processed — wallet: ${unstakerAddress} (userId: ${userWallet.userId}), amount: ${amount.toString()}, tx: ${txHash}`
+          );
+        } catch (error) {
+          console.error("Error processing Unstake log:", error);
+          unstakesSkipped++;
+        }
+      }
+
+      // 8. Process RewardClaimed events (update lastClaim on StakedPool)
+      let claimsProcessed = 0;
+      let claimsSkipped = 0;
+
+      for (const log of rewardClaimedLogs) {
+        try {
+          const decodedLog = decodeEventLog({
+            abi: CREATOR_POOL_ABI,
+            eventName: "RewardClaimed",
+            data: log.data,
+            topics: log.topics,
+          });
+          const args = decodedLog.args as any;
+          const fanAddress = (args.fan as string).toLowerCase();
+
+          const userWallet = await prisma.userWallet.findUnique({
+            where: { address: fanAddress },
+          });
+
+          if (!userWallet) {
+            claimsSkipped++;
+            continue;
+          }
+
+          // Update lastClaim timestamp on StakedPool
+          await prisma.stakedPool.updateMany({
+            where: {
+              userWalletId: userWallet.id,
+              poolId: pool.id,
+            },
+            data: {
+              lastClaim: new Date(Number(log.blockNumber) * 1000), // approximate timestamp from block
+            },
+          });
+
+          claimsProcessed++;
+        } catch (error) {
+          console.error("Error processing RewardClaimed log:", error);
+          claimsSkipped++;
+        }
+      }
+
+      // 9. Recalculate total fans and revoStaked for the pool
+      console.log("Recalculating pool aggregation data...");
+      const allStakedPools = await prisma.stakedPool.findMany({
+        where: { poolId: pool.id },
+        select: { stakeAmount: true },
+      });
+
+      // Sum the string amounts as BigInt
+      let totalStakedBigInt = 0n;
+      for (const sp of allStakedPools) {
+        totalStakedBigInt += BigInt(sp.stakeAmount || "0");
+      }
+      const totalStaked = totalStakedBigInt.toString();
+      const fansCount = allStakedPools.length;
+
+      await prisma.creatorPool.update({
+        where: { id: pool.id },
+        data: {
+          revoStaked: totalStaked,
+          fans: fansCount,
+        },
+      });
+
+      console.log("=== syncPool END ===");
+
+      return {
+        success: true,
+        message: `Pool sync completed`,
+        poolId: pool.id,
+        summary: {
+          stakes: {
+            processed: stakesProcessed,
+            skipped: stakesSkipped,
+            alreadyIndexed: stakesAlreadyIndexed,
+          },
+          unstakes: {
+            processed: unstakesProcessed,
+            skipped: unstakesSkipped,
+            alreadyIndexed: unstakesAlreadyIndexed,
+          },
+          claims: {
+            processed: claimsProcessed,
+            skipped: claimsSkipped,
+          },
+          totalStaked,
+          fansCount,
+        },
+      };
     }),
 
   syncTransaction: adminProcedure

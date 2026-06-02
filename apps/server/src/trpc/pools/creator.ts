@@ -379,6 +379,10 @@ export const poolsCreatorRouter = router({
     .input(
       z.object({
         chainId: z.string(),
+        creationTxid: z
+          .string()
+          .regex(/^0x[0-9a-fA-F]{64}$/, "Invalid transaction hash format")
+          .optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -483,7 +487,11 @@ export const poolsCreatorRouter = router({
       if (pool !== null) {
         await prisma.creatorPool.update({
           where: { id: pool.id },
-          data: { poolAddress, name: poolName },
+          data: {
+            poolAddress,
+            name: poolName,
+            ...(input.creationTxid && { creationTxid: input.creationTxid }),
+          },
         });
         return { id: pool.id };
       } else {
@@ -493,6 +501,7 @@ export const poolsCreatorRouter = router({
             poolAddress,
             name: poolName,
             revoStaked: "0",
+            ...(input.creationTxid && { creationTxid: input.creationTxid }),
             wallet: {
               connect: {
                 id: wallet.id,

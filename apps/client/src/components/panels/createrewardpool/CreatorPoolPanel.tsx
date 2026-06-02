@@ -379,6 +379,7 @@ export function CreatorPoolPanel() {
       // After the contract pool is created, sync it with the database
       await trpcClient.pools.creator.syncPoolCreation.mutate({
         chainId: chainId.toString(),
+        creationTxid: hash,
       });
 
       // Set the image for the pool if one was uploaded
