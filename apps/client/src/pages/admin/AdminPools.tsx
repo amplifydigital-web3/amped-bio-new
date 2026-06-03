@@ -46,7 +46,7 @@ export const AdminPools: FC = () => {
     onSuccess: data => {
       const s = data.summary;
       toast.success(
-        `Pool synced: ${s.stakes.processed} stakes, ${s.unstakes.processed} unstakes, ${s.claims.processed} claims`
+        `Pool synced: ${s.stakes.processed} stakes, ${s.unstakes.processed} unstakes`
       );
       refetch();
     },

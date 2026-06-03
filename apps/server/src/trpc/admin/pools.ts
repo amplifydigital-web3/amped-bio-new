@@ -118,7 +118,8 @@ export const adminPoolsRouter = router({
    *
    * 1. Validates the pool exists and has a creationTxid set.
    * 2. Fetches the creation block via getTransactionReceipt using the saved txid.
-   * 3. Queries all Stake / Unstake events from L2_BASE_TOKEN filtered by pool address.
+   * 3. Fetches the latest block and paginates getLogs (5k blocks per chunk) for both
+   *    Stake and Unstake events in parallel.
    * 4. Decodes all events, batch-finds known wallets, and batch-checks already-indexed events.
    * 5. Computes net balance changes per wallet and writes everything in a single DB transaction.
    * 6. Recalculates and saves the pool's revoStaked and fans counts.
@@ -205,71 +206,94 @@ export const adminPoolsRouter = router({
         });
       }
 
-      // 3. Get all Stake events for this pool from L2_BASE_TOKEN
-      // TODO: For pools with thousands of events, implement paginated getLogs
-      //       (some RPC providers cap at 10k blocks/blogs per request)
-      verboseLog("Fetching events from block", creationBlock.toString());
+      // 3. Fetch the latest block to paginate the log queries. RPC providers typically
+      //    cap getLogs at ~10k blocks per request, so we split the range into chunks.
+      const BLOCK_RANGE = 5_000n;
+      let latestBlock: bigint;
+      try {
+        latestBlock = await publicClient.getBlockNumber();
+      } catch (error) {
+        console.error("Error fetching latest block number:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Failed to fetch latest block number: ${(error as Error).message}`,
+        });
+      }
+      verboseLog("Fetching events from", creationBlock.toString(), "to", latestBlock.toString());
+
+      const STAKE_EVENT = {
+        type: "event" as const,
+        name: "Stake" as const,
+        inputs: [
+          { type: "address" as const, name: "staker", indexed: true as const },
+          { type: "address" as const, name: "pool", indexed: true as const },
+          { type: "uint256" as const, name: "amount", indexed: false as const },
+        ],
+      };
+
+      const UNSTAKE_EVENT = {
+        type: "event" as const,
+        name: "Unstake" as const,
+        inputs: [
+          { type: "address" as const, name: "unstaker", indexed: true as const },
+          { type: "address" as const, name: "pool", indexed: true as const },
+          { type: "uint256" as const, name: "amount", indexed: false as const },
+        ],
+      };
+
       const stakeLogs: Log[] = [];
       const unstakeLogs: Log[] = [];
 
+      // --- Paginated fetch helper ---
+      const fetchLogsPaginated = async (
+        eventDef: typeof STAKE_EVENT | typeof UNSTAKE_EVENT,
+        label: string
+      ): Promise<Log[]> => {
+        const logs: Log[] = [];
+        let from = creationBlock;
+
+        while (from <= latestBlock) {
+          const to = from + BLOCK_RANGE - 1n > latestBlock ? latestBlock : from + BLOCK_RANGE - 1n;
+          try {
+            const chunk = await publicClient.getLogs({
+              address: tokenAddress,
+              event: eventDef,
+              args: { pool: poolAddress } as any,
+              fromBlock: from,
+              toBlock: to,
+            });
+            logs.push(...chunk);
+            verboseLog(`  ${label} [${from}-${to}]: ${chunk.length} logs`);
+          } catch (error) {
+            console.error(`Error fetching ${label} logs [${from}-${to}]:`, error);
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: `Failed to fetch ${label} logs at block range ${from}-${to}: ${(error as Error).message}`,
+            });
+          }
+          from = to + 1n;
+        }
+        return logs;
+      };
+
+      // 4. Fetch all Stake and Unstake logs in parallel chunks
       try {
-        const fetchedStakeLogs = await publicClient.getLogs({
-          address: tokenAddress,
-          event: {
-            type: "event",
-            name: "Stake",
-            inputs: [
-              { type: "address", name: "staker", indexed: true },
-              { type: "address", name: "pool", indexed: true },
-              { type: "uint256", name: "amount", indexed: false },
-            ],
-          } as const,
-          args: {
-            pool: poolAddress,
-          } as any,
-          fromBlock: creationBlock,
-          toBlock: "latest",
-        });
-        stakeLogs.push(...fetchedStakeLogs);
-        verboseLog(`Found ${fetchedStakeLogs.length} Stake logs`);
+        const [stakes, unstakes] = await Promise.all([
+          fetchLogsPaginated(STAKE_EVENT, "Stake"),
+          fetchLogsPaginated(UNSTAKE_EVENT, "Unstake"),
+        ]);
+        stakeLogs.push(...stakes);
+        unstakeLogs.push(...unstakes);
+        verboseLog(`Total: ${stakes.length} Stake, ${unstakes.length} Unstake logs`);
       } catch (error) {
-        console.error("Error fetching Stake logs:", error);
+        if (error instanceof TRPCError) throw error;
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: `Failed to fetch Stake logs: ${(error as Error).message}`,
+          message: `Failed to fetch events: ${(error as Error).message}`,
         });
       }
 
-      // 4. Get all Unstake events for this pool from L2_BASE_TOKEN
-      try {
-        const fetchedUnstakeLogs = await publicClient.getLogs({
-          address: tokenAddress,
-          event: {
-            type: "event",
-            name: "Unstake",
-            inputs: [
-              { type: "address", name: "unstaker", indexed: true },
-              { type: "address", name: "pool", indexed: true },
-              { type: "uint256", name: "amount", indexed: false },
-            ],
-          } as const,
-          args: {
-            pool: poolAddress,
-          } as any,
-          fromBlock: creationBlock,
-          toBlock: "latest",
-        });
-        unstakeLogs.push(...fetchedUnstakeLogs);
-        verboseLog(`Found ${fetchedUnstakeLogs.length} Unstake logs`);
-      } catch (error) {
-        console.error("Error fetching Unstake logs:", error);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: `Failed to fetch Unstake logs: ${(error as Error).message}`,
-        });
-      }
-
-      // Initialize summary counters at the top so all code paths are covered
+      // 5. Initialize summary counters at the top so all code paths are covered
       let summaryStakesProcessed = 0;
       let summaryStakesSkipped = 0;
       let summaryStakesAlready = 0;
@@ -348,7 +372,14 @@ export const adminPoolsRouter = router({
 
         // Filter events to only those with known wallets
         const knownEvents = allEvents.filter(e => walletByAddress.has(e.address));
-        summaryStakesSkipped = allEvents.length - knownEvents.length;
+
+        // Count skipped events per type (unknown wallet → can't index)
+        for (const e of allEvents) {
+          if (!walletByAddress.has(e.address)) {
+            if (e.type === "stake") summaryStakesSkipped++;
+            else summaryUnstakesSkipped++;
+          }
+        }
 
         if (knownEvents.length > 0) {
           // --- Batch-check which events already exist ---
@@ -466,7 +497,7 @@ export const adminPoolsRouter = router({
         }
       }
 
-      // 5. Recalculate total fans and revoStaked for the pool
+      // 7. Recalculate total fans and revoStaked for the pool
       verboseLog("Recalculating pool aggregation data...");
       const allStakedPools = await prisma.stakedPool.findMany({
         where: { poolId: pool.id },

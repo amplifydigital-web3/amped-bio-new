@@ -129,7 +129,7 @@ export function CreatorPoolPanel() {
   const { isConnected } = useAccount();
   const chainId = useChainId();
   const { createPool, poolAddress, isLoading: isPoolLoading } = useCreatorPool();
-  const hasConfirmedPool = useRef(false);
+  const hasConfirmedPool = useRef<Set<string>>(new Set());
   const [showSummaryModal, setShowSummaryModal] = React.useState(false);
   const [formData, setFormData] = React.useState<CreatorPoolFormValues | null>(null);
   const [isLaunching, setIsLaunching] = React.useState(false);
@@ -152,13 +152,13 @@ export function CreatorPoolPanel() {
       }
 
       // Only run if we have a pool address, it's not already confirmed, and we haven't tried to confirm it yet
-      if (poolAddress && !isPoolLoading && !hasConfirmedPool.current) {
+      if (poolAddress && !isPoolLoading && !hasConfirmedPool.current.has(chainId.toString())) {
         confirmingPoolRef.current = true;
 
         // Check if pool is already confirmed in the database (from session)
         const dbPoolAddress = authUser?.poolAddresses?.[chainId.toString()];
         if (dbPoolAddress) {
-          hasConfirmedPool.current = true;
+          hasConfirmedPool.current.add(chainId.toString());
           confirmingPoolRef.current = false;
           return;
         }
@@ -168,7 +168,7 @@ export function CreatorPoolPanel() {
             chainId: chainId.toString(),
           });
 
-          hasConfirmedPool.current = true;
+          hasConfirmedPool.current.add(chainId.toString());
           console.log("Pool synced successfully");
         } catch (error) {
           const isRpcError =
@@ -308,7 +308,6 @@ export function CreatorPoolPanel() {
     setShowTransactionModal(true);
     setTransactionStep("confirming");
     setTransactionError(null);
-    let createdPoolId: number | null = null;
     let contractHash: `0x${string}` | null = null;
 
     try {
@@ -318,7 +317,6 @@ export function CreatorPoolPanel() {
         chainId: chainId.toString(), // Pass chainId as string
       });
 
-      createdPoolId = createdPool.id;
 
       try {
         // Then create the pool on the contract
