@@ -309,6 +309,7 @@ export function CreatorPoolPanel() {
     setTransactionStep("confirming");
     setTransactionError(null);
     let createdPoolId: number | null = null;
+    let contractHash: `0x${string}` | null = null;
 
     try {
       // First create the pool in the database
@@ -326,6 +327,7 @@ export function CreatorPoolPanel() {
           creatorCut: formData.creatorFee,
           stake: INITIAL_STAKE_ETH, // Fixed initial stake (1e15 wei)
         });
+        contractHash = hash;
 
         // Set transaction hash for display
         setTransactionHash(hash);
@@ -377,9 +379,12 @@ export function CreatorPoolPanel() {
       }
 
       // After the contract pool is created, sync it with the database
+      if (!contractHash) {
+        throw new Error("Contract hash not available — transaction may have failed silently");
+      }
       await trpcClient.pools.creator.syncPoolCreation.mutate({
         chainId: chainId.toString(),
-        creationTxid: hash,
+        creationTxid: contractHash,
       });
 
       // Set the image for the pool if one was uploaded
