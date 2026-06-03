@@ -1189,8 +1189,18 @@ export const poolsFanRouter = router({
             },
           });
 
-          await prisma.stakeEvent.create({
-            data: {
+          // Upsert to avoid duplicate-key errors if the event was already indexed
+          // (e.g. by an admin syncPool run before the user confirmed their tx).
+          await prisma.stakeEvent.upsert({
+            where: {
+              transactionHash_userWalletId_poolId: {
+                transactionHash: input.hash,
+                userWalletId: userWallet.id,
+                poolId: pool.id,
+              },
+            },
+            update: {}, // no-op — event already exists
+            create: {
               userWalletId: userWallet.id,
               poolId: pool.id,
               amount: amountToStore,
@@ -1406,8 +1416,18 @@ export const poolsFanRouter = router({
             },
           });
 
-          await prisma.stakeEvent.create({
-            data: {
+          // Upsert to avoid duplicate-key errors if the event was already indexed
+          // (e.g. by an admin syncPool run before the user confirmed their tx).
+          await prisma.stakeEvent.upsert({
+            where: {
+              transactionHash_userWalletId_poolId: {
+                transactionHash: input.hash,
+                userWalletId: userWallet.id,
+                poolId: pool.id,
+              },
+            },
+            update: {}, // no-op — event already exists
+            create: {
               userWalletId: userWallet.id,
               poolId: pool.id,
               amount: amountToStore,

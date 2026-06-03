@@ -3,7 +3,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { prisma } from "../../services/DB";
 import { createPublicClient, http, decodeEventLog, type Address, type Log } from "viem";
-import { getChainConfig, L2_BASE_TOKEN_ABI, CREATOR_POOL_ABI } from "@ampedbio/web3";
+import { getChainConfig, L2_BASE_TOKEN_ABI } from "@ampedbio/web3";
 
 export const adminPoolsRouter = router({
   getAllPools: adminProcedure.query(async () => {
@@ -119,11 +119,9 @@ export const adminPoolsRouter = router({
    * 1. Validates the pool exists and has a creationTxid set.
    * 2. Fetches the creation block via getTransactionReceipt using the saved txid.
    * 3. Queries all Stake / Unstake events from L2_BASE_TOKEN filtered by pool address.
-   * 4. Queries all RewardClaimed events from the pool contract.
-   * 5. Decodes all events, batch-finds known wallets, and batch-checks already-indexed events.
-   * 6. Computes net balance changes per wallet and writes everything in a single DB transaction.
-   * 7. Updates lastClaim timestamps for RewardClaimed events.
-   * 8. Recalculates and saves the pool's revoStaked and fans counts.
+   * 4. Decodes all events, batch-finds known wallets, and batch-checks already-indexed events.
+   * 5. Computes net balance changes per wallet and writes everything in a single DB transaction.
+   * 6. Recalculates and saves the pool's revoStaked and fans counts.
    *
    * Returns a summary with processed/skipped/alreadyIndexed counts for each event type.
    */
@@ -269,31 +267,6 @@ export const adminPoolsRouter = router({
           code: "INTERNAL_SERVER_ERROR",
           message: `Failed to fetch Unstake logs: ${(error as Error).message}`,
         });
-      }
-
-      // 5. Get RewardClaimed events from the pool contract
-      verboseLog("Fetching RewardClaimed events...");
-      let rewardClaimedLogs: Log[] = [];
-      try {
-        const fetched = await publicClient.getLogs({
-          address: poolAddress,
-          event: {
-            type: "event",
-            name: "RewardClaimed",
-            inputs: [
-              { type: "address", name: "fan", indexed: true },
-              { type: "uint256", name: "amount", indexed: false },
-            ],
-          } as const,
-          fromBlock: creationBlock,
-          toBlock: "latest",
-        });
-        rewardClaimedLogs = fetched;
-        verboseLog(`Found ${fetched.length} RewardClaimed logs`);
-      } catch (error) {
-        console.error("Error fetching RewardClaimed logs:", error);
-        // Non-fatal — continue processing
-        rewardClaimedLogs = [];
       }
 
       // Initialize summary counters at the top so all code paths are covered
@@ -493,82 +466,7 @@ export const adminPoolsRouter = router({
         }
       }
 
-      // 8. Process RewardClaimed events (batch)
-      let claimsProcessed = 0;
-      let claimsSkipped = 0;
-
-      if (rewardClaimedLogs.length > 0) {
-        // Decode claims and batch-find wallets
-        const claimEvents: { address: string; blockNumber: bigint }[] = [];
-        for (const log of rewardClaimedLogs) {
-          try {
-            const decoded = decodeEventLog({
-              abi: CREATOR_POOL_ABI,
-              eventName: "RewardClaimed",
-              data: log.data,
-              topics: log.topics,
-            });
-            const args = decoded.args as any;
-            claimEvents.push({
-              address: (args.fan as string).toLowerCase(),
-              blockNumber: log.blockNumber!,
-            });
-          } catch {
-            // skip
-          }
-        }
-
-        if (claimEvents.length > 0) {
-          const claimAddresses = [...new Set(claimEvents.map(c => c.address))];
-          const claimWallets = await prisma.userWallet.findMany({
-            where: { address: { in: claimAddresses } },
-            select: { id: true, address: true },
-          });
-          const claimWalletByAddress = new Map(claimWallets.map(w => [w.address, w.id]));
-
-          // Resolve unique block timestamps in batch (via getBlock, cached)
-          const uniqueBlocks = [...new Set(claimEvents.map(c => c.blockNumber.toString()))].map(s =>
-            BigInt(s)
-          );
-          const blockTimestampCache = new Map<bigint, Date>();
-          for (const bn of uniqueBlocks) {
-            try {
-              const block = await publicClient.getBlock({ blockNumber: bn });
-              blockTimestampCache.set(bn, new Date(Number(block.timestamp) * 1000));
-            } catch {
-              // Fallback: use current date if RPC fails
-              blockTimestampCache.set(bn, new Date());
-            }
-          }
-
-          // Update lastClaim for each known wallet (grouped to avoid N updates)
-          const walletLastClaim = new Map<number, Date>();
-          for (const ce of claimEvents) {
-            const wid = claimWalletByAddress.get(ce.address);
-            if (!wid) {
-              claimsSkipped++;
-              continue;
-            }
-            const ts = blockTimestampCache.get(ce.blockNumber)!;
-            const existing = walletLastClaim.get(wid);
-            if (!existing || ts > existing) {
-              walletLastClaim.set(wid, ts);
-            }
-          }
-
-          // Batch-update lastClaim
-          for (const [wid, ts] of walletLastClaim) {
-            await prisma.stakedPool.updateMany({
-              where: { userWalletId: wid, poolId: pool.id },
-              data: { lastClaim: ts },
-            });
-          }
-
-          claimsProcessed = walletLastClaim.size;
-        }
-      }
-
-      // 9. Recalculate total fans and revoStaked for the pool
+      // 5. Recalculate total fans and revoStaked for the pool
       verboseLog("Recalculating pool aggregation data...");
       const allStakedPools = await prisma.stakedPool.findMany({
         where: { poolId: pool.id },
@@ -611,10 +509,6 @@ export const adminPoolsRouter = router({
             processed: summaryUnstakesProcessed,
             skipped: summaryUnstakesSkipped,
             alreadyIndexed: summaryUnstakesAlready,
-          },
-          claims: {
-            processed: claimsProcessed,
-            skipped: claimsSkipped,
           },
           totalStaked,
           fansCount,
