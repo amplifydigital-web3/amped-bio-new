@@ -122,13 +122,14 @@ const parseTRPCError = (error: unknown): string => {
 
 import type { CreatorPoolFormValues, TierIconEntry } from "./types";
 import { useWalletContext } from "@/contexts/WalletContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function CreatorPoolPanel() {
   const client = usePublicClient();
   const { isConnected } = useAccount();
   const chainId = useChainId();
   const { createPool, poolAddress, isLoading: isPoolLoading } = useCreatorPool();
-  const hasConfirmedPool = useRef(false);
+  const hasConfirmedPool = useRef<Set<string>>(new Set());
   const [showSummaryModal, setShowSummaryModal] = React.useState(false);
   const [formData, setFormData] = React.useState<CreatorPoolFormValues | null>(null);
   const [isLaunching, setIsLaunching] = React.useState(false);
@@ -140,8 +141,9 @@ export function CreatorPoolPanel() {
   const [transactionError, setTransactionError] = React.useState<string | null>(null);
   const [poolImage, setPoolImage] = React.useState<string | null>(null);
   const confirmingPoolRef = useRef(false);
+  const { authUser } = useAuth();
 
-  // Effect to confirm pool existence when panel opens and user has a pool address but hasn't confirmed it
+  // Effect to sync pool existence when panel opens and user has an on-chain pool but DB may be stale
   useEffect(() => {
     const confirmExistingPool = async () => {
       // Prevent multiple simultaneous calls
@@ -150,31 +152,35 @@ export function CreatorPoolPanel() {
       }
 
       // Only run if we have a pool address, it's not already confirmed, and we haven't tried to confirm it yet
-      if (poolAddress && !isPoolLoading && !hasConfirmedPool.current) {
+      if (poolAddress && !isPoolLoading && !hasConfirmedPool.current.has(chainId.toString())) {
         confirmingPoolRef.current = true;
+
+        // Check if pool is already confirmed in the database (from session)
+        const dbPoolAddress = authUser?.poolAddresses?.[chainId.toString()];
+        if (dbPoolAddress) {
+          hasConfirmedPool.current.add(chainId.toString());
+          confirmingPoolRef.current = false;
+          return;
+        }
+
         try {
-          // Call the confirmPoolCreation method to update the database
-          await trpcClient.pools.creator.confirmPoolCreation.mutate({
+          await trpcClient.pools.creator.syncPoolCreation.mutate({
             chainId: chainId.toString(),
           });
 
-          hasConfirmedPool.current = true;
-          console.log("Pool confirmed successfully");
+          hasConfirmedPool.current.add(chainId.toString());
+          console.log("Pool synced successfully");
         } catch (error) {
-          console.error("Error confirming pool:", error);
+          const isRpcError =
+            error instanceof TRPCClientError && error.data?.code === "INTERNAL_SERVER_ERROR";
 
-          // If confirmation fails, delete the pool from the database
-          try {
-            await trpcClient.pools.creator.deletePoolOnError.mutate({
-              chainId: chainId.toString(),
-            });
-            console.log("Pool deleted due to confirmation error");
-          } catch (deleteError) {
-            console.error("Error deleting pool:", deleteError);
+          if (isRpcError) {
+            console.error("Pool sync RPC error (will retry next mount):", error);
+          } else {
+            // ZeroAddress or other error — server already cleaned up the stale DB record
+            console.error("Pool sync failed:", error);
+            toast.error("No pool found on-chain. The pool record has been removed.");
           }
-
-          const errorMessage = parseTRPCError(error);
-          toast.error(`Failed to confirm pool: ${errorMessage}`);
         } finally {
           confirmingPoolRef.current = false;
         }
@@ -302,7 +308,7 @@ export function CreatorPoolPanel() {
     setShowTransactionModal(true);
     setTransactionStep("confirming");
     setTransactionError(null);
-    let createdPoolId: number | null = null;
+    let contractHash: `0x${string}` | null = null;
 
     try {
       // First create the pool in the database
@@ -311,7 +317,6 @@ export function CreatorPoolPanel() {
         chainId: chainId.toString(), // Pass chainId as string
       });
 
-      createdPoolId = createdPool.id;
 
       try {
         // Then create the pool on the contract
@@ -320,6 +325,7 @@ export function CreatorPoolPanel() {
           creatorCut: formData.creatorFee,
           stake: INITIAL_STAKE_ETH, // Fixed initial stake (1e15 wei)
         });
+        contractHash = hash;
 
         // Set transaction hash for display
         setTransactionHash(hash);
@@ -370,9 +376,13 @@ export function CreatorPoolPanel() {
         return;
       }
 
-      // After the contract pool is created, confirm it in the database
-      await trpcClient.pools.creator.confirmPoolCreation.mutate({
-        chainId: chainId.toString(), // Pass chainId as string
+      // After the contract pool is created, sync it with the database
+      if (!contractHash) {
+        throw new Error("Contract hash not available — transaction may have failed silently");
+      }
+      await trpcClient.pools.creator.syncPoolCreation.mutate({
+        chainId: chainId.toString(),
+        creationTxid: contractHash,
       });
 
       // Set the image for the pool if one was uploaded
@@ -390,17 +400,9 @@ export function CreatorPoolPanel() {
     } catch (error) {
       console.error("Error creating pool - Full error details:", error);
 
-      // If we created a pool in the database but failed later, delete it
-      if (createdPoolId) {
-        try {
-          await trpcClient.pools.creator.deletePoolOnError.mutate({
-            chainId: chainId.toString(),
-          });
-          console.log("Pool deleted due to error");
-        } catch (deleteError) {
-          console.error("Error deleting pool:", deleteError);
-        }
-      }
+      // syncPoolCreation handles its own cleanup: if the chain returns zeroAddress,
+      // the server deletes the stale DB record automatically.
+      // RPC errors are thrown as INTERNAL_SERVER_ERROR — no deletion occurs.
 
       const errorMessage = parseTRPCError(error);
       setTransactionError(errorMessage);
@@ -674,7 +676,7 @@ export function CreatorPoolPanel() {
               cursor: pointer;
               box-shadow: 0 2px 4px rgba(0,0,0,0.2);
             }
-            
+
             .slider::-moz-range-thumb {
               height: 20px;
               width: 20px;

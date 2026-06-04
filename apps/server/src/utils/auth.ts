@@ -52,10 +52,27 @@ export const auth = betterAuth({
         where: { userId: parseInt(user.id) },
       });
 
+      // Fetch creator pools to determine which chains have confirmed pool addresses.
+      // This avoids the frontend calling syncPoolCreation (blockchain RPC) for already-confirmed pools.
+      const creatorPools = userWallet
+        ? await prisma.creatorPool.findMany({
+            where: { walletId: userWallet.id },
+            select: { chainId: true, poolAddress: true },
+          })
+        : [];
+
+      const poolAddresses: Record<string, string> = {};
+      for (const pool of creatorPools) {
+        if (pool.poolAddress) {
+          poolAddresses[pool.chainId] = pool.poolAddress;
+        }
+      }
+
       return {
         user: {
           ...user,
           wallet: userWallet?.address ?? null,
+          poolAddresses,
         },
         session,
       };

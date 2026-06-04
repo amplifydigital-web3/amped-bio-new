@@ -375,11 +375,14 @@ export const poolsCreatorRouter = router({
       }
     }),
 
-  confirmPoolCreation: privateProcedure
+  syncPoolCreation: privateProcedure
     .input(
       z.object({
-        // poolAddress: z.string(),
-        chainId: z.string(), // Changed to string for large chain IDs
+        chainId: z.string(),
+        creationTxid: z
+          .string()
+          .regex(/^0x[0-9a-fA-F]{64}$/, "Invalid transaction hash format")
+          .optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -410,16 +413,43 @@ export const poolsCreatorRouter = router({
         transport: http(),
       });
 
-      const poolAddress = (await publicClient.readContract({
-        address: chain.contracts.CREATOR_POOL_FACTORY.address,
-        abi: CREATOR_POOL_FACTORY_ABI,
-        functionName: "getPoolForCreator",
-        args: [userWallet!.address as `0x${string}`],
-      })) as Address;
+      let poolAddress: Address;
+      try {
+        poolAddress = (await publicClient.readContract({
+          address: chain.contracts.CREATOR_POOL_FACTORY.address,
+          abi: CREATOR_POOL_FACTORY_ABI,
+          functionName: "getPoolForCreator",
+          args: [userWallet!.address as `0x${string}`],
+        })) as Address;
+      } catch (rpcError) {
+        console.error("RPC error syncing pool:", rpcError);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to sync pool with blockchain",
+        });
+      }
 
       console.info("Fetched pool address from chain:", poolAddress);
 
       if (zeroAddress === poolAddress) {
+        // No pool exists on-chain — clean up any stale DB record
+        try {
+          await prisma.creatorPool.delete({
+            where: {
+              walletId_chainId: {
+                walletId: userWallet.id,
+                chainId: input.chainId,
+              },
+            },
+          });
+          console.info(
+            `Deleted stale pool record for wallet ${userWallet.id} on chain ${input.chainId}`
+          );
+        } catch (deleteError) {
+          // Pool might not exist in DB — that's fine
+          console.info("No stale pool record to delete:", deleteError);
+        }
+
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "No pool found for creator on-chain",
@@ -433,22 +463,10 @@ export const poolsCreatorRouter = router({
       });
       console.info("Fetched pool name from chain:", poolName);
 
-      // Find the wallet for the user
-      const wallet = await prisma.userWallet.findUnique({
-        where: { userId },
-      });
-
-      if (!wallet) {
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: "User does not have a wallet",
-        });
-      }
-
       let pool = await prisma.creatorPool.findUnique({
         where: {
           walletId_chainId: {
-            walletId: wallet.id,
+            walletId: userWallet.id,
             chainId: input.chainId,
           },
         },
@@ -457,7 +475,11 @@ export const poolsCreatorRouter = router({
       if (pool !== null) {
         await prisma.creatorPool.update({
           where: { id: pool.id },
-          data: { poolAddress, name: poolName },
+          data: {
+            poolAddress,
+            name: poolName,
+            ...(input.creationTxid && { creationTxid: input.creationTxid }),
+          },
         });
         return { id: pool.id };
       } else {
@@ -467,56 +489,15 @@ export const poolsCreatorRouter = router({
             poolAddress,
             name: poolName,
             revoStaked: "0",
+            ...(input.creationTxid && { creationTxid: input.creationTxid }),
             wallet: {
               connect: {
-                id: wallet.id,
+                id: userWallet.id,
               },
             },
           },
         });
         return { id: pool.id };
-      }
-    }),
-
-  deletePoolOnError: privateProcedure
-    .input(
-      z.object({
-        chainId: z.string(),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user!.sub;
-
-      // Find the wallet for the user
-      const wallet = await prisma.userWallet.findUnique({
-        where: { userId },
-      });
-
-      if (!wallet) {
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: "User does not have a wallet",
-        });
-      }
-
-      try {
-        // Find and delete the pool for this specific wallet and chain
-        const pool = await prisma.creatorPool.delete({
-          where: {
-            walletId_chainId: {
-              walletId: wallet.id,
-              chainId: input.chainId,
-            },
-          },
-        });
-
-        return { id: pool.id, deleted: true };
-      } catch (error) {
-        console.error("Error deleting pool:", error);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to delete pool",
-        });
       }
     }),
 

@@ -319,6 +319,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         role: user.role,
         image: user.image || null,
         wallet: null,
+        poolAddresses: {},
       });
     } catch (error) {
       setLoginError((error as Error).message || "Login failed");
@@ -417,6 +418,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         role: user.role,
         image: user.image || null,
         wallet: null,
+        poolAddresses: {},
       });
     } catch (error) {
       setRegisterError((error as Error).message || "Registration failed");

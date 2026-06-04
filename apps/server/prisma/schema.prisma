@@ -212,12 +212,13 @@ model CreatorPool {
   walletId Int
   chainId  String
 
-  name          String?       @db.VarChar(255)
-  image_file_id Int?
-  description   String?       @db.LongText
-  fans          Int           @default(0)
-  revoStaked    String        @db.Text
-  poolAddress   String?       @unique
+  name             String?       @db.VarChar(255)
+  image_file_id    Int?
+  description      String?       @db.LongText
+  fans             Int           @default(0)
+  revoStaked       String        @db.Text
+  poolAddress      String?       @unique
+  creationTxid     String?       @db.VarChar(66)
   wallet        UserWallet    @relation(fields: [walletId], references: [id], onDelete: Cascade)
   poolImage     UploadedFile? @relation("CreatorPoolImage", fields: [image_file_id], references: [id], onDelete: SetNull)
   stakedPools   StakedPool[]

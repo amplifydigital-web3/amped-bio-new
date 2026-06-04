@@ -6,4 +6,5 @@ export type AuthUser = {
   // emailVerified: boolean;
   image: string | null; // User profile image URL
   wallet: string | null; // User wallet address
+  poolAddresses: Record<string, string>; // chainId → poolAddress for confirmed creator pools
 };
