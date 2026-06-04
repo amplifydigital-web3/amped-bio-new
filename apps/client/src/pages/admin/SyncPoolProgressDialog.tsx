@@ -98,6 +98,7 @@ export default function SyncPoolProgressDialog({
   const completedCalled = useRef(false);
   const onCompleteRef = useRef(onComplete);
   const onCloseRef = useRef(onClose);
+  const mountedRef = useRef(true);
 
   // Keep refs in sync without triggering re-subscriptions
   useEffect(() => {
@@ -116,11 +117,14 @@ export default function SyncPoolProgressDialog({
     setError(null);
     setIsConnecting(true);
     completedCalled.current = false;
+    mountedRef.current = true;
 
     const subscription = trpcClient.admin.pools.syncPool.subscribe(
       { poolId },
       {
         onData(event: any) {
+          if (!mountedRef.current) return;
+
           // tRPC SSE delivers tracked data directly; mockLink wraps in result.data
           const data = (event as any).result?.data ?? (event as any).data ?? event;
           setIsConnecting(false);
@@ -128,9 +132,16 @@ export default function SyncPoolProgressDialog({
 
           if (data.phase === "complete") {
             setIsCompleted(true);
+            // Immediately close the SSE connection to prevent browser EventSource reconnection
+            abortRef.current?.();
             if (!completedCalled.current) {
               completedCalled.current = true;
-              onCompleteRef.current();
+              // Defer refetch outside SSE event handler to avoid React state conflicts
+              setTimeout(() => {
+                if (mountedRef.current) {
+                  onCompleteRef.current();
+                }
+              }, 0);
             }
           }
 
@@ -139,11 +150,13 @@ export default function SyncPoolProgressDialog({
           }
         },
         onError(err) {
+          if (!mountedRef.current) return;
           console.error("Subscription error:", err);
           setIsConnecting(false);
           setError(err.message || "Connection error");
         },
         onComplete() {
+          if (!mountedRef.current) return;
           setIsConnecting(false);
         },
       }
@@ -152,6 +165,7 @@ export default function SyncPoolProgressDialog({
     abortRef.current = () => subscription.unsubscribe();
 
     return () => {
+      mountedRef.current = false;
       subscription.unsubscribe();
     };
   }, [isOpen, poolId]); // Removed onComplete/onClose from deps to prevent re-subscription loop
@@ -194,7 +208,7 @@ export default function SyncPoolProgressDialog({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleClose(); }}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Syncing Pool #{poolId}</DialogTitle>

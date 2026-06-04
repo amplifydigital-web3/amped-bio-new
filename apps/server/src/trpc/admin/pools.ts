@@ -540,7 +540,7 @@ export const adminPoolsRouter = router({
           where: { address: { in: uniqueAddresses } },
           select: { id: true, address: true },
         });
-        const walletByAddress = new Map(wallets.map(w => [w.address, w.id]));
+        const walletByAddress = new Map(wallets.map(w => [w.address.toLowerCase(), w.id]));
 
         // Filter events to only those with known wallets
         knownEvents = allEvents.filter(e => walletByAddress.has(e.address));
