@@ -5,7 +5,8 @@ import { Button } from "../../components/ui/Button";
 import { toast } from "sonner";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { formatHandle } from "../../utils/handle";
-import { Loader2, RefreshCw } from "lucide-react";
+import { ExternalLink, Loader2, RefreshCw } from "lucide-react";
+import { getChainConfig } from "@ampedbio/web3";
 import SyncTransactionDialog from "./SyncTransactionDialog";
 import SetTxidDialog from "./SetTxidDialog";
 
@@ -23,7 +24,9 @@ export const AdminPools: FC = () => {
   const [isSetTxidDialogOpen, setIsSetTxidDialogOpen] = useState(false);
   const [editingTxidPool, setEditingTxidPool] = useState<{
     id: number;
-    currentTxid: string | null | undefined;
+    poolAddress: string | null;
+    chainId: string;
+    currentTxid: string | null;
   } | null>(null);
 
   const handleSyncComplete = () => {
@@ -67,8 +70,8 @@ export const AdminPools: FC = () => {
     setHiddenMutation.mutate({ poolId, hidden: !currentHiddenStatus });
   };
 
-  const handleOpenSetTxid = (poolId: number, currentTxid: string | null | undefined) => {
-    setEditingTxidPool({ id: poolId, currentTxid });
+  const handleOpenSetTxid = (poolId: number, poolAddress: string | null, chainId: string, currentTxid: string | null) => {
+    setEditingTxidPool({ id: poolId, poolAddress, chainId, currentTxid });
     setIsSetTxidDialogOpen(true);
   };
 
@@ -127,6 +130,12 @@ export const AdminPools: FC = () => {
                   scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
                 >
+                  Pool Name
+                </th>
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400"
+                >
                   Creator
                 </th>
                 <th
@@ -156,13 +165,31 @@ export const AdminPools: FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-900 dark:divide-gray-700">
-              {pools.map(pool => (
+              {pools.map(pool => {
+                  const explorerUrl = getChainConfig(parseInt(pool.chainId))?.blockExplorers?.default?.url;
+
+                  return (
                 <tr key={pool.id}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                     {pool.id}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {pool.poolAddress || "N/A"}
+                    {pool.poolAddress && explorerUrl ? (
+                      <a
+                        href={`${explorerUrl}/address/${pool.poolAddress}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline"
+                      >
+                        {pool.poolAddress.slice(0, 10)}...{pool.poolAddress.slice(-8)}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    ) : (
+                      pool.poolAddress || "N/A"
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    {pool.name || "N/A"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-500 dark:text-gray-400">
                     {pool.wallet?.user?.handle ? (
@@ -189,7 +216,7 @@ export const AdminPools: FC = () => {
                         {formatTxid(pool.creationTxid) || "N/A"}
                       </span>
                       <button
-                        onClick={() => handleOpenSetTxid(pool.id, pool.creationTxid)}
+                        onClick={() => handleOpenSetTxid(pool.id, pool.poolAddress, pool.chainId, pool.creationTxid)}
                         className="text-blue-600 hover:text-blue-800 text-xs underline"
                         title="Set or edit creation transaction txid"
                       >
@@ -224,7 +251,7 @@ export const AdminPools: FC = () => {
                     </Button>
                   </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
         </div>
@@ -246,6 +273,8 @@ export const AdminPools: FC = () => {
             setEditingTxidPool(null);
           }}
           poolId={editingTxidPool.id}
+          poolAddress={editingTxidPool.poolAddress}
+          chainId={editingTxidPool.chainId}
           currentTxid={editingTxidPool.currentTxid}
           onSuccess={handleSetTxidSuccess}
         />

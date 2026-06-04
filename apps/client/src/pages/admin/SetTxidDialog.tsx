@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -10,7 +10,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/Button";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle, Loader2, Search } from "lucide-react";
 import { trpc } from "../../utils/trpc/trpc";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -29,7 +29,9 @@ interface SetTxidDialogProps {
   isOpen: boolean;
   onClose: () => void;
   poolId: number;
-  currentTxid: string | null | undefined;
+  poolAddress: string | null;
+  chainId: string;
+  currentTxid: string | null;
   onSuccess: () => void;
 }
 
@@ -37,6 +39,8 @@ export default function SetTxidDialog({
   isOpen,
   onClose,
   poolId,
+  poolAddress,
+  chainId,
   currentTxid,
   onSuccess,
 }: SetTxidDialogProps) {
@@ -45,6 +49,7 @@ export default function SetTxidDialog({
     handleSubmit,
     formState: { errors, isValid },
     reset,
+    setValue,
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: { txid: currentTxid || "" },
@@ -53,6 +58,8 @@ export default function SetTxidDialog({
 
   // Reset form when dialog opens with a different txid
   const resetKey = useMemo(() => currentTxid ?? "", [currentTxid]);
+
+  const [isFetchingTxid, setIsFetchingTxid] = useState(false);
 
   const setTxidMutation = useMutation({
     mutationFn: trpc.admin.pools.setCreationTxid.mutationOptions().mutationFn,
@@ -68,6 +75,27 @@ export default function SetTxidDialog({
 
   const onSubmit = (data: FormValues) => {
     setTxidMutation.mutate({ poolId, creationTxid: data.txid });
+  };
+
+  const handleFetchTxid = async () => {
+    if (!poolAddress || !chainId) {
+      toast.error("Pool address and chain ID are required to fetch the txid.");
+      return;
+    }
+
+    setIsFetchingTxid(true);
+    try {
+      const result = await trpc.admin.pools.fetchCreationTxid.query({
+        poolAddress,
+        chainId: parseInt(chainId),
+      });
+      setValue("txid", result.creationTxid);
+      toast.success("Creation txid fetched successfully.");
+    } catch (err: any) {
+      toast.error(`Failed to fetch txid: ${err.message}`);
+    } finally {
+      setIsFetchingTxid(false);
+    }
   };
 
   return (
@@ -106,6 +134,24 @@ export default function SetTxidDialog({
               </p>
             )}
           </div>
+
+          {poolAddress && chainId && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleFetchTxid}
+              disabled={isFetchingTxid || setTxidMutation.isPending}
+              className="w-full"
+            >
+              {isFetchingTxid ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="mr-2 h-4 w-4" />
+              )}
+              Auto-fetch Txid
+            </Button>
+          )}
 
           <DialogFooter>
             <Button

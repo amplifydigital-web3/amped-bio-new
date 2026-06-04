@@ -3,7 +3,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { prisma } from "../../services/DB";
 import { createPublicClient, http, decodeEventLog, type Address, type Log } from "viem";
-import { getChainConfig, L2_BASE_TOKEN_ABI } from "@ampedbio/web3";
+import { getChainConfig, L2_BASE_TOKEN_ABI, CREATOR_POOL_FACTORY_ABI } from "@ampedbio/web3";
 
 export const adminPoolsRouter = router({
   getAllPools: adminProcedure.query(async () => {
@@ -109,6 +109,92 @@ export const adminPoolsRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to update pool transaction hash",
+        });
+      }
+    }),
+
+  /**
+   * Auto-fetches the creation transaction hash for a pool by looking up the
+   * CreatorPoolCreated event from the CREATOR_POOL_FACTORY contract on the pool's chain.
+   * The event is filtered by the pool's address to find the exact transaction that created it.
+   */
+  fetchCreationTxid: adminProcedure
+    .input(
+      z.object({
+        poolAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/, "Invalid pool address"),
+        chainId: z.number(),
+      })
+    )
+    .query(async ({ input }) => {
+      const chain = getChainConfig(input.chainId);
+
+      if (!chain) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Unsupported chain ID: ${input.chainId}`,
+        });
+      }
+
+      const factoryAddress = chain.contracts.CREATOR_POOL_FACTORY.address;
+
+      if (!factoryAddress || factoryAddress === "0x0000000000000000000000000000000000000000") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `No CREATOR_POOL_FACTORY contract configured for chain ${input.chainId}`,
+        });
+      }
+
+      const publicClient = createPublicClient({
+        chain: chain,
+        transport: http(),
+      });
+
+      try {
+        const logs = await publicClient.getLogs({
+          address: factoryAddress as Address,
+          event: {
+            type: "event",
+            name: "CreatorPoolCreated",
+            inputs: [
+              { type: "address", name: "creator", indexed: true },
+              { type: "address", name: "pool", indexed: true },
+              { type: "address", name: "node", indexed: true },
+              { type: "uint256", name: "creatorCut", indexed: false },
+              { type: "string", name: "poolName", indexed: false },
+            ],
+          },
+          args: {
+            pool: input.poolAddress as Address,
+          },
+          fromBlock: 0n,
+          toBlock: "latest",
+        });
+
+        if (logs.length === 0) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: `No CreatorPoolCreated event found for pool address ${input.poolAddress} on chain ${input.chainId}. The pool may not have been created through the factory.`,
+          });
+        }
+
+        const creationTxid = logs[0].transactionHash;
+
+        if (!creationTxid) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Found event but no transaction hash was returned.",
+          });
+        }
+
+        return {
+          creationTxid,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        console.error("Error fetching creation txid:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Failed to fetch creation txid: ${(error as Error).message}`,
         });
       }
     }),
