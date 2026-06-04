@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { AlertTriangle, Loader2, Search } from "lucide-react";
 import { trpc } from "../../utils/trpc/trpc";
+import { trpcClient } from "../../utils/trpc/trpc";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -85,7 +86,7 @@ export default function SetTxidDialog({
 
     setIsFetchingTxid(true);
     try {
-      const result = await trpc.admin.pools.fetchCreationTxid.query({
+      const result = await trpcClient.admin.pools.fetchCreationTxid.query({
         poolAddress,
         chainId: parseInt(chainId),
       });
