@@ -40,6 +40,21 @@ export interface SyncProgressEvent {
     unstakes: { processed: number; skipped: number; alreadyIndexed: number };
     totalStaked: string;
     fansCount: number;
+    totalOnChainEvents?: number;
+    uniqueOnChainAddresses?: number;
+    unknownAddressCount?: number;
+    zeroBalanceCount?: number;
+    totalNewStakeAmount?: string;
+    totalNewUnstakeAmount?: string;
+    scope?: {
+      chainName: string;
+      chainId: string;
+      creationTxid: string;
+      creationBlock: string;
+      latestBlock: string;
+      totalBlocks: string;
+      blockRange: number;
+    };
   };
 }
 
@@ -143,7 +158,7 @@ export default function SyncPoolProgressDialog({
 
   const handleClose = () => {
     abortRef.current?.();
-    onClose();
+    onCloseRef.current();
   };
 
   const getStepStatus = (index: number) => {
@@ -313,36 +328,103 @@ export default function SyncPoolProgressDialog({
 
           {/* Summary when complete */}
           {isCompleted && currentEvent?.summary && (
-            <div className="space-y-2 border-t pt-3 mt-2">
+            <div className="space-y-3 border-t pt-3 mt-2">
               <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Sync Summary</h4>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="bg-green-50 dark:bg-green-900/20 rounded-md p-2">
-                  <span className="text-gray-500 dark:text-gray-400">Stakes Processed:</span>
-                  <span className="ml-1 font-semibold">{currentEvent.summary.stakes.processed}</span>
+
+              {/* Section 0: Sync Scope */}
+              {currentEvent.summary.scope && (
+                <div>
+                  <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">Sync Scope</h5>
+                  <div className="grid grid-cols-2 gap-1.5 text-xs">
+                    <div className="bg-gray-50 dark:bg-gray-800 rounded-md p-1.5">
+                      <span className="text-gray-500 dark:text-gray-400">Chain:</span>
+                      <span className="ml-1 font-semibold">{currentEvent.summary.scope.chainName} ({currentEvent.summary.scope.chainId})</span>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-gray-800 rounded-md p-1.5">
+                      <span className="text-gray-500 dark:text-gray-400">Creation Tx:</span>
+                      <span className="ml-1 font-semibold font-mono text-[10px]">{currentEvent.summary.scope.creationTxid.slice(0, 10)}...{currentEvent.summary.scope.creationTxid.slice(-8)}</span>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-gray-800 rounded-md p-1.5">
+                      <span className="text-gray-500 dark:text-gray-400">From Block:</span>
+                      <span className="ml-1 font-semibold">{Number(currentEvent.summary.scope.creationBlock).toLocaleString()}</span>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-gray-800 rounded-md p-1.5">
+                      <span className="text-gray-500 dark:text-gray-400">To Block:</span>
+                      <span className="ml-1 font-semibold">{Number(currentEvent.summary.scope.latestBlock).toLocaleString()}</span>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-gray-800 rounded-md p-1.5 col-span-2">
+                      <span className="text-gray-500 dark:text-gray-400">Blocks Scanned:</span>
+                      <span className="ml-1 font-semibold">{Number(currentEvent.summary.scope.totalBlocks).toLocaleString()}</span>
+                      <span className="text-gray-400 ml-1">(chunks of {currentEvent.summary.scope.blockRange})</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-red-50 dark:bg-red-900/20 rounded-md p-2">
-                  <span className="text-gray-500 dark:text-gray-400">Unstakes Processed:</span>
-                  <span className="ml-1 font-semibold">{currentEvent.summary.unstakes.processed}</span>
+              )}
+
+              {/* Section 1: Event Activity */}
+              <div>
+                <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">Event Activity</h5>
+                <div className="grid grid-cols-2 gap-1.5 text-xs">
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-md p-1.5">
+                    <span className="text-gray-500 dark:text-gray-400">On-Chain Events:</span>
+                    <span className="ml-1 font-semibold">{currentEvent.summary.totalOnChainEvents ?? (currentEvent.summary.stakes.processed + currentEvent.summary.unstakes.processed + currentEvent.summary.stakes.alreadyIndexed + currentEvent.summary.unstakes.alreadyIndexed + currentEvent.summary.stakes.skipped + currentEvent.summary.unstakes.skipped)}</span>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-md p-1.5">
+                    <span className="text-gray-500 dark:text-gray-400">Unique Addresses:</span>
+                    <span className="ml-1 font-semibold">{currentEvent.summary.uniqueOnChainAddresses ?? "?"}</span>
+                  </div>
+                  <div className="bg-green-50 dark:bg-green-900/20 rounded-md p-1.5">
+                    <span className="text-gray-500 dark:text-gray-400">Stakes New:</span>
+                    <span className="ml-1 font-semibold text-green-700 dark:text-green-300">{currentEvent.summary.stakes.processed}</span>
+                  </div>
+                  <div className="bg-red-50 dark:bg-red-900/20 rounded-md p-1.5">
+                    <span className="text-gray-500 dark:text-gray-400">Unstakes New:</span>
+                    <span className="ml-1 font-semibold text-red-700 dark:text-red-300">{currentEvent.summary.unstakes.processed}</span>
+                  </div>
                 </div>
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-md p-2">
-                  <span className="text-gray-500 dark:text-gray-400">Already Indexed:</span>
-                  <span className="ml-1 font-semibold">
-                    {currentEvent.summary.stakes.alreadyIndexed + currentEvent.summary.unstakes.alreadyIndexed}
-                  </span>
+              </div>
+
+              {/* Section 2: Address Match Status */}
+              <div>
+                <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">Wallet Match Status</h5>
+                <div className="grid grid-cols-2 gap-1.5 text-xs">
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-md p-1.5">
+                    <span className="text-gray-500 dark:text-gray-400">Already Indexed:</span>
+                    <span className="ml-1 font-semibold text-yellow-700 dark:text-yellow-300">
+                      {currentEvent.summary.stakes.alreadyIndexed + currentEvent.summary.unstakes.alreadyIndexed}
+                    </span>
+                  </div>
+                  <div className="bg-orange-50 dark:bg-orange-900/20 rounded-md p-1.5">
+                    <span className="text-gray-500 dark:text-gray-400">Unknown Wallets:</span>
+                    <span className="ml-1 font-semibold text-orange-700 dark:text-orange-300">{currentEvent.summary.unknownAddressCount ?? (currentEvent.summary.stakes.skipped + currentEvent.summary.unstakes.skipped)}</span>
+                  </div>
                 </div>
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-md p-2">
-                  <span className="text-gray-500 dark:text-gray-400">Skipped:</span>
-                  <span className="ml-1 font-semibold">
-                    {currentEvent.summary.stakes.skipped + currentEvent.summary.unstakes.skipped}
-                  </span>
-                </div>
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-md p-2">
-                  <span className="text-gray-500 dark:text-gray-400">Total Staked:</span>
-                  <span className="ml-1 font-semibold">{currentEvent.summary.totalStaked} REVO</span>
-                </div>
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-md p-2">
-                  <span className="text-gray-500 dark:text-gray-400">Fans:</span>
-                  <span className="ml-1 font-semibold">{currentEvent.summary.fansCount}</span>
+                {(currentEvent.summary.unknownAddressCount ?? 0) > 0 && (
+                  <div className="mt-1.5 text-xs text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/10 rounded-md p-2">
+                    <strong>⚠️ {(currentEvent.summary.stakes.skipped + currentEvent.summary.unstakes.skipped)} events skipped</strong> — {currentEvent.summary.unknownAddressCount} addresses are not registered in amped.bio. These stakers won't appear in wallet views until they connect their wallet.
+                  </div>
+                )}
+              </div>
+
+              {/* Section 3: Pool Final State */}
+              <div>
+                <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">Pool Final State</h5>
+                <div className="grid grid-cols-2 gap-1.5 text-xs">
+                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-md p-1.5">
+                    <span className="text-gray-500 dark:text-gray-400">Active Fans:</span>
+                    <span className="ml-1 font-semibold text-blue-700 dark:text-blue-300">{currentEvent.summary.fansCount}</span>
+                  </div>
+                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-md p-1.5">
+                    <span className="text-gray-500 dark:text-gray-400">Total Staked:</span>
+                    <span className="ml-1 font-semibold text-blue-700 dark:text-blue-300">{currentEvent.summary.totalStaked} REVO</span>
+                  </div>
+                  {currentEvent.summary.zeroBalanceCount !== undefined && (
+                    <div className="bg-gray-50 dark:bg-gray-800 rounded-md p-1.5 col-span-2">
+                      <span className="text-gray-500 dark:text-gray-400">Zero-Balance Records:</span>
+                      <span className="ml-1 font-semibold">{currentEvent.summary.zeroBalanceCount}</span>
+                      <span className="block text-gray-400 mt-0.5 text-[10px]">(unstaked completely — kept for history)</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

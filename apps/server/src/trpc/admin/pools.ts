@@ -430,10 +430,8 @@ export const adminPoolsRouter = router({
       // 5. Initialize summary counters
       let summaryStakesProcessed = 0;
       let summaryStakesSkipped = 0;
-      let summaryStakesAlready = 0;
       let summaryUnstakesProcessed = 0;
       let summaryUnstakesSkipped = 0;
-      let summaryUnstakesAlready = 0;
 
       yield tracked(`sync-${poolId}-100`, emitProgress(100, "processing", `Decoding ${stakeLogs.length + unstakeLogs.length} events...`, {
         percent: 100,
@@ -441,11 +439,12 @@ export const adminPoolsRouter = router({
         unstakesFound: unstakeLogs.length,
       }));
 
-      // 6. Decode all events and batch-process them
+      // 6. Decode all events
       interface ParsedEvent {
         address: string;
         amount: bigint;
         txHash: string;
+        blockNumber: bigint;
         type: "stake" | "unstake";
       }
       const allEvents: ParsedEvent[] = [];
@@ -464,6 +463,7 @@ export const adminPoolsRouter = router({
             address: (args.staker as string).toLowerCase(),
             amount: typeof args.amount === "bigint" ? args.amount : BigInt(args.amount),
             txHash: log.transactionHash!,
+            blockNumber: log.blockNumber!,
             type: "stake",
           });
         } catch (error) {
@@ -485,6 +485,7 @@ export const adminPoolsRouter = router({
             address: (args.unstaker as string).toLowerCase(),
             amount: typeof args.amount === "bigint" ? args.amount : BigInt(args.amount),
             txHash: log.transactionHash!,
+            blockNumber: log.blockNumber!,
             type: "unstake",
           });
         } catch (error) {
@@ -494,6 +495,38 @@ export const adminPoolsRouter = router({
 
       verboseLog(`Decoded ${allEvents.length} total stake/unstake events`);
 
+      // Fetch block timestamps for all unique block numbers
+      const blockTimestamps = new Map<bigint, Date>();
+      if (allEvents.length > 0) {
+        const uniqueBlockNumbers = [...new Set(allEvents.map(e => e.blockNumber))];
+        verboseLog(`Fetching timestamps for ${uniqueBlockNumbers.length} unique blocks...`);
+
+        const BATCH_SIZE = 50;
+        for (let i = 0; i < uniqueBlockNumbers.length; i += BATCH_SIZE) {
+          checkAborted();
+          const batch = uniqueBlockNumbers.slice(i, i + BATCH_SIZE);
+          const blocks = await Promise.all(
+            batch.map(bn => publicClient.getBlock({ blockNumber: bn }))
+          );
+          for (const block of blocks) {
+            blockTimestamps.set(block.number!, new Date(Number(block.timestamp) * 1000));
+          }
+        }
+        verboseLog(`Block timestamps fetched: ${blockTimestamps.size} blocks`);
+      }
+
+      // Declare variables used for summary
+      let knownEvents: ParsedEvent[] = [];
+      let totalStaked = "0";
+      let fansCount = 0;
+      let zeroBalanceCount = 0;
+      let totalNewStakeAmount = 0n;
+      let totalNewUnstakeAmount = 0n;
+      let uniqueOnChainAddresses = new Set<string>();
+      let uniqueKnownAddresses = new Set<string>();
+      let unknownAddressCount = 0;
+
+      // 7. Look up wallets, compute net amounts, then replace everything in a single transaction
       if (allEvents.length > 0) {
         yield tracked(`sync-${poolId}-200`, emitProgress(200, "processing", `Looking up ${allEvents.length} wallets in database...`, {
           percent: 100,
@@ -510,7 +543,7 @@ export const adminPoolsRouter = router({
         const walletByAddress = new Map(wallets.map(w => [w.address, w.id]));
 
         // Filter events to only those with known wallets
-        const knownEvents = allEvents.filter(e => walletByAddress.has(e.address));
+        knownEvents = allEvents.filter(e => walletByAddress.has(e.address));
 
         // Count skipped events per type (unknown wallet → can't index)
         for (const e of allEvents) {
@@ -520,167 +553,133 @@ export const adminPoolsRouter = router({
           }
         }
 
-        yield tracked(`sync-${poolId}-300`, emitProgress(300, "processing", `Found ${wallets.length} known wallets, checking duplicate events...`, {
+        summaryStakesProcessed = knownEvents.filter(e => e.type === "stake").length;
+        summaryUnstakesProcessed = knownEvents.filter(e => e.type === "unstake").length;
+
+        yield tracked(`sync-${poolId}-300`, emitProgress(300, "processing", `Found ${wallets.length} known wallets, computing net stakes...`, {
           percent: 100,
           stakesFound: stakeLogs.length,
           unstakesFound: unstakeLogs.length,
+          stakesProcessed: summaryStakesProcessed,
+          unstakesProcessed: summaryUnstakesProcessed,
           stakesSkipped: summaryStakesSkipped,
           unstakesSkipped: summaryUnstakesSkipped,
         }));
 
         if (knownEvents.length > 0) {
-          // --- Batch-check which events already exist ---
-          const existingEventKeys = new Set(
-            (
-              await prisma.stakeEvent.findMany({
-                where: {
-                  poolId: pool.id,
-                  OR: knownEvents.map(e => ({
-                    transactionHash: e.txHash,
-                    userWalletId: walletByAddress.get(e.address)!,
-                  })),
-                },
-                select: {
-                  transactionHash: true,
-                  userWalletId: true,
-                  eventType: true,
-                },
-              })
-            ).map(e => `${e.transactionHash}-${e.userWalletId}`)
-          );
-
-          // Separate new vs already-indexed and split by type
-          const newStakes: ParsedEvent[] = [];
-          const newUnstakes: ParsedEvent[] = [];
-
+          // Compute net amount per wallet from ALL known events
+          const netAmounts = new Map<number, bigint>();
           for (const e of knownEvents) {
-            const key = `${e.txHash}-${walletByAddress.get(e.address)!}`;
-            if (existingEventKeys.has(key)) {
-              if (e.type === "stake") summaryStakesAlready++;
-              else summaryUnstakesAlready++;
-            } else {
-              if (e.type === "stake") newStakes.push(e);
-              else newUnstakes.push(e);
-            }
+            const wid = walletByAddress.get(e.address)!;
+            const delta = e.type === "stake" ? e.amount : -e.amount;
+            netAmounts.set(wid, (netAmounts.get(wid) || 0n) + delta);
+            if (e.type === "stake") totalNewStakeAmount += e.amount;
+            else totalNewUnstakeAmount += e.amount;
           }
 
-          summaryStakesProcessed = newStakes.length;
-          summaryUnstakesProcessed = newUnstakes.length;
-
-          verboseLog(
-            `Events: ${knownEvents.length} known wallets, ${summaryStakesAlready + summaryUnstakesAlready} already indexed, ${newStakes.length + newUnstakes.length} to process`
-          );
-
-          const allNew = [...newStakes, ...newUnstakes];
-
-          if (allNew.length > 0) {
-            checkAborted();
-            yield tracked(`sync-${poolId}-400`, emitProgress(400, "writing", `Writing ${allNew.length} new events to database...`, {
-              percent: 100,
-              stakesFound: stakeLogs.length,
-              unstakesFound: unstakeLogs.length,
-              stakesProcessed: summaryStakesProcessed,
-              unstakesProcessed: summaryUnstakesProcessed,
-              stakesSkipped: summaryStakesSkipped,
-              unstakesSkipped: summaryUnstakesSkipped,
-              stakesAlreadyIndexed: summaryStakesAlready,
-              unstakesAlreadyIndexed: summaryUnstakesAlready,
-            }));
-
-            // --- Aggregate net amount per wallet ---
-            const netAmounts = new Map<number, bigint>();
-            for (const e of allNew) {
-              const wid = walletByAddress.get(e.address)!;
-              netAmounts.set(
-                wid,
-                (netAmounts.get(wid) || 0n) + (e.type === "stake" ? e.amount : -e.amount)
-              );
+          // Count fans and total staked from net amounts
+          let totalStakedBigInt = 0n;
+          for (const [, netAmount] of netAmounts) {
+            if (netAmount > 0n) {
+              totalStakedBigInt += netAmount;
+              fansCount++;
             }
+          }
+          totalStaked = totalStakedBigInt.toString();
+          zeroBalanceCount = 0;
 
-            // Fetch current stakes for these wallets
-            const currentStakes = await prisma.stakedPool.findMany({
-              where: {
-                poolId: pool.id,
-                userWalletId: { in: [...netAmounts.keys()] },
-              },
-              select: { userWalletId: true, stakeAmount: true },
+          checkAborted();
+          yield tracked(`sync-${poolId}-400`, emitProgress(400, "writing", `Replacing all ${knownEvents.length} events in a single transaction...`, {
+            percent: 100,
+            stakesFound: stakeLogs.length,
+            unstakesFound: unstakeLogs.length,
+            stakesProcessed: summaryStakesProcessed,
+            unstakesProcessed: summaryUnstakesProcessed,
+            stakesSkipped: summaryStakesSkipped,
+            unstakesSkipped: summaryUnstakesSkipped,
+          }));
+
+          // SINGLE TRANSACTION: delete all existing records, then insert fresh
+          await prisma.$transaction(async (tx) => {
+            // Delete all stake events for this pool
+            await tx.stakeEvent.deleteMany({
+              where: { poolId: pool.id },
             });
-            const currentByWallet = new Map(
-              currentStakes.map(s => [s.userWalletId, BigInt(s.stakeAmount || "0")])
-            );
 
-            // Write everything in a single transaction.
-            await prisma.$transaction(async tx => {
-              // Upsert StakedPool for each wallet with net change
-              for (const [walletId, netChange] of netAmounts) {
-                const currentAmount = currentByWallet.get(walletId) || 0n;
-                const newAmount = currentAmount + netChange;
-                const finalAmount = newAmount >= 0n ? newAmount : 0n;
+            // Delete all staked pools for this pool
+            await tx.stakedPool.deleteMany({
+              where: { poolId: pool.id },
+            });
 
-                await tx.stakedPool.upsert({
-                  where: {
-                    userWalletId_poolId: {
-                      userWalletId: walletId,
-                      poolId: pool.id,
-                    },
-                  },
-                  update: { stakeAmount: finalAmount.toString(), updatedAt: new Date() },
-                  create: {
-                    userWalletId: walletId,
-                    poolId: pool.id,
-                    stakeAmount: finalAmount.toString(),
-                  },
+            // Insert all stake events (known wallets only)
+            await tx.stakeEvent.createMany({
+              data: knownEvents.map(e => ({
+                userWalletId: walletByAddress.get(e.address)!,
+                poolId: pool.id,
+                amount: e.amount.toString(),
+                eventType: e.type,
+                transactionHash: e.txHash,
+                createdAt: blockTimestamps.get(e.blockNumber) ?? new Date(),
+              })),
+            });
+
+            // Insert staked pools for wallets with positive net amount
+            const stakedPoolRows: { userWalletId: number; poolId: number; stakeAmount: string }[] = [];
+            for (const [walletId, netAmount] of netAmounts) {
+              if (netAmount > 0n) {
+                stakedPoolRows.push({
+                  userWalletId: walletId,
+                  poolId: pool.id,
+                  stakeAmount: netAmount.toString(),
                 });
               }
+            }
 
-              // Batch-create all new StakeEvents (skip duplicates on race)
-              await tx.stakeEvent.createMany({
-                data: allNew.map(e => ({
-                  userWalletId: walletByAddress.get(e.address)!,
-                  poolId: pool.id,
-                  amount: e.amount.toString(),
-                  eventType: e.type,
-                  transactionHash: e.txHash,
-                })),
-                skipDuplicates: true,
+            if (stakedPoolRows.length > 0) {
+              await tx.stakedPool.createMany({
+                data: stakedPoolRows,
               });
-            });
+            }
+          });
 
-            verboseLog(
-              `Batch write done: ${allNew.length} events, ${netAmounts.size} stakedPools upserted`
-            );
-          }
+          verboseLog(
+            `Transaction complete: ${knownEvents.length} events inserted, ${fansCount} stakedPools created`
+          );
+        } else {
+          // No known wallets — still clean up existing data for this pool
+          totalStaked = "0";
+          fansCount = 0;
+          zeroBalanceCount = 0;
+
+          await prisma.$transaction(async (tx) => {
+            await tx.stakeEvent.deleteMany({ where: { poolId: pool.id } });
+            await tx.stakedPool.deleteMany({ where: { poolId: pool.id } });
+          });
+
+          verboseLog("No known wallets — existing pool data cleared");
         }
+
+        // Count unique addresses for summary
+        uniqueOnChainAddresses = new Set(allEvents.map(e => e.address));
+        uniqueKnownAddresses = new Set(knownEvents.map(e => e.address));
+        unknownAddressCount = uniqueOnChainAddresses.size - uniqueKnownAddresses.size;
+      } else {
+        // No on-chain events found — clean up existing data to stay consistent
+        await prisma.$transaction(async (tx) => {
+          await tx.stakeEvent.deleteMany({ where: { poolId: pool.id } });
+          await tx.stakedPool.deleteMany({ where: { poolId: pool.id } });
+        });
+        verboseLog("No on-chain events found — existing pool data cleared");
       }
 
-      // 7. Recalculate total fans and revoStaked for the pool
-      yield tracked(`sync-${poolId}-500`, emitProgress(500, "finalizing", "Recalculating pool totals...", {
+      // 8. Update pool totals
+      yield tracked(`sync-${poolId}-500`, emitProgress(500, "finalizing", "Updating pool totals...", {
         percent: 100,
         stakesProcessed: summaryStakesProcessed,
         unstakesProcessed: summaryUnstakesProcessed,
         stakesSkipped: summaryStakesSkipped,
         unstakesSkipped: summaryUnstakesSkipped,
-        stakesAlreadyIndexed: summaryStakesAlready,
-        unstakesAlreadyIndexed: summaryUnstakesAlready,
       }));
-
-      verboseLog("Recalculating pool aggregation data...");
-      const allStakedPools = await prisma.stakedPool.findMany({
-        where: { poolId: pool.id },
-        select: { stakeAmount: true },
-      });
-
-      // Sum the string amounts as BigInt, only counting active stakes
-      let totalStakedBigInt = 0n;
-      let fansCount = 0;
-      for (const sp of allStakedPools) {
-        const amount = BigInt(sp.stakeAmount || "0");
-        if (amount > 0n) {
-          totalStakedBigInt += amount;
-          fansCount++;
-        }
-      }
-      const totalStaked = totalStakedBigInt.toString();
 
       await prisma.creatorPool.update({
         where: { id: pool.id },
@@ -691,6 +690,58 @@ export const adminPoolsRouter = router({
       });
 
       verboseLog("=== END ===");
+      verboseLog(`Final state: ${fansCount} active fans, ${zeroBalanceCount} zero-balance records, ${totalStaked} total REVO staked`);
+      verboseLog(`On-chain: ${uniqueOnChainAddresses.size} unique addresses, ${uniqueKnownAddresses.size} known, ${unknownAddressCount} unknown`);
+
+      // Detailed console log for admin visibility
+      console.log("============================================");
+      console.log("           SYNC POOL SUMMARY                 ");
+      console.log("============================================");
+      console.log("");
+      console.log("--- POOL INFO ---");
+      console.log(`Pool ID:            ${poolId}`);
+      console.log(`Pool Address:       ${poolAddress}`);
+      console.log(`Chain:              ${chain.name} (${pool.chainId})`);
+      console.log(`Creation TxID:      ${pool.creationTxid}`);
+      console.log("");
+      console.log("--- SYNC SCOPE ---");
+      console.log(`Creation Block:     ${creationBlock.toString()}`);
+      console.log(`Latest Block:       ${latestBlock.toString()}`);
+      console.log(`Blocks Scanned:     ${totalBlocks.toString()}`);
+      console.log(`Block Range Chunk:  ${BLOCK_RANGE}`);
+      console.log("");
+      console.log("--- ON-CHAIN EVENTS ---");
+      console.log(`Total events found: ${allEvents.length}`);
+      console.log(`  Stake events:     ${stakeLogs.length}`);
+      console.log(`  Unstake events:   ${unstakeLogs.length}`);
+      console.log(`Unique addresses:   ${uniqueOnChainAddresses.size}`);
+      console.log("");
+      console.log("--- PROCESSING RESULTS ---");
+      console.log(`Known wallets:       ${uniqueKnownAddresses.size}`);
+      console.log(`Unknown wallets:     ${unknownAddressCount}`);
+      console.log(`  → These ${unknownAddressCount} addresses are NOT registered in amped.bio`);
+      console.log(`  → Their stakes are SKIPPED and won't appear in wallet views`);
+      console.log(`  → They will appear once they connect their wallet to amped.bio`);
+      console.log(`New stakes indexed:   ${summaryStakesProcessed} (${totalNewStakeAmount.toString()} REVO)`);
+      console.log(`New unstakes indexed: ${summaryUnstakesProcessed} (${totalNewUnstakeAmount.toString()} REVO)`);
+      console.log(`Skipped (unknown):    ${summaryStakesSkipped + summaryUnstakesSkipped}`);
+      console.log("");
+      console.log("--- DATABASE FINAL STATE ---");
+      console.log(`Active fans:          ${fansCount}`);
+      console.log(`Zero-balance records: ${zeroBalanceCount}`);
+      console.log(`Total REVO staked:    ${totalStaked}`);
+      console.log("");
+      console.log("============================================");
+
+      const scope = {
+        chainName: chain.name,
+        chainId: pool.chainId,
+        creationTxid: pool.creationTxid,
+        creationBlock: creationBlock.toString(),
+        latestBlock: latestBlock.toString(),
+        totalBlocks: totalBlocks.toString(),
+        blockRange: Number(BLOCK_RANGE),
+      };
 
       yield tracked(`sync-${poolId}-999`, emitProgress(999, "complete", `Sync completed! Total: ${totalStaked} REVO staked by ${fansCount} fans`, {
         percent: 100,
@@ -698,21 +749,26 @@ export const adminPoolsRouter = router({
         unstakesProcessed: summaryUnstakesProcessed,
         stakesSkipped: summaryStakesSkipped,
         unstakesSkipped: summaryUnstakesSkipped,
-        stakesAlreadyIndexed: summaryStakesAlready,
-        unstakesAlreadyIndexed: summaryUnstakesAlready,
         summary: {
           stakes: {
             processed: summaryStakesProcessed,
             skipped: summaryStakesSkipped,
-            alreadyIndexed: summaryStakesAlready,
+            alreadyIndexed: 0,
           },
           unstakes: {
             processed: summaryUnstakesProcessed,
             skipped: summaryUnstakesSkipped,
-            alreadyIndexed: summaryUnstakesAlready,
+            alreadyIndexed: 0,
           },
           totalStaked,
           fansCount,
+          totalOnChainEvents: allEvents.length,
+          uniqueOnChainAddresses: uniqueOnChainAddresses.size,
+          unknownAddressCount,
+          zeroBalanceCount,
+          totalNewStakeAmount: totalNewStakeAmount.toString(),
+          totalNewUnstakeAmount: totalNewUnstakeAmount.toString(),
+          scope,
         },
       }));
     }),
