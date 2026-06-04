@@ -174,19 +174,33 @@ export const AdminPools: FC = () => {
                     {pool.id}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {pool.poolAddress && explorerUrl ? (
-                      <a
-                        href={`${explorerUrl}/address/${pool.poolAddress}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline"
-                      >
-                        {pool.poolAddress.slice(0, 10)}...{pool.poolAddress.slice(-8)}
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    ) : (
-                      pool.poolAddress || "N/A"
-                    )}
+                    <div className="flex items-center gap-2">
+                      {pool.poolAddress && explorerUrl ? (
+                        <a
+                          href={`${explorerUrl}/address/${pool.poolAddress}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline"
+                        >
+                          {pool.poolAddress.slice(0, 10)}...{pool.poolAddress.slice(-8)}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      ) : (
+                        <span>{pool.poolAddress || "N/A"}</span>
+                      )}
+                      {pool.poolAddress && (
+                        <a
+                          href={`/i/pools/${pool.poolAddress}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-green-600 hover:text-green-800 hover:underline"
+                          title="View public pool page"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Public
+                        </a>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                     {pool.name || "N/A"}
