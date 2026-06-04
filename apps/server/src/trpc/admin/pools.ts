@@ -1,6 +1,6 @@
 import { adminProcedure, router } from "../trpc";
 import { z } from "zod";
-import { TRPCError } from "@trpc/server";
+import { TRPCError, tracked } from "@trpc/server";
 import { prisma } from "../../services/DB";
 import { createPublicClient, http, decodeEventLog, type Address, type Log } from "viem";
 import { getChainConfig, L2_BASE_TOKEN_ABI, CREATOR_POOL_FACTORY_ABI } from "@ampedbio/web3";
@@ -218,29 +218,59 @@ export const adminPoolsRouter = router({
         poolId: z.number(),
       })
     )
-    .mutation(async ({ input }) => {
+    .subscription(async function* (opts) {
+      const poolId = opts.input.poolId;
+      const signal = opts.signal;
+
+      // Helper: throws if client disconnected, so we don't waste work
+      const checkAborted = () => {
+        if (signal?.aborted) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Client disconnected" });
+        }
+      };
+
+      const emitProgress = (step: number, phase: string, message: string, extra: Record<string, any> = {}) => ({
+        id: `sync-${poolId}-${step}`,
+        step,
+        phase,
+        message,
+        percent: extra.percent ?? 0,
+        stakesFound: extra.stakesFound ?? 0,
+        unstakesFound: extra.unstakesFound ?? 0,
+        currentBlock: extra.currentBlock,
+        latestBlock: extra.latestBlock,
+        stakesProcessed: extra.stakesProcessed ?? 0,
+        unstakesProcessed: extra.unstakesProcessed ?? 0,
+        stakesSkipped: extra.stakesSkipped ?? 0,
+        unstakesSkipped: extra.unstakesSkipped ?? 0,
+        stakesAlreadyIndexed: extra.stakesAlreadyIndexed ?? 0,
+        unstakesAlreadyIndexed: extra.unstakesAlreadyIndexed ?? 0,
+        summary: extra.summary ?? undefined,
+      });
+
       const verboseLog = (...args: unknown[]) => {
         console.info("[syncPool]", ...args);
       };
 
-      verboseLog("=== START ===", { poolId: input.poolId });
+      verboseLog("=== START ===", { poolId });
+      yield tracked(`sync-${poolId}-0`, emitProgress(0, "init", "Finding pool in database..."));
 
       // 1. Find the pool in DB
       const pool = await prisma.creatorPool.findUnique({
-        where: { id: input.poolId },
+        where: { id: poolId },
       });
 
       if (!pool) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: `Pool with id ${input.poolId} not found`,
+          message: `Pool with id ${poolId} not found`,
         });
       }
 
       if (!pool.poolAddress) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: `Pool ${input.poolId} has no poolAddress set. Sync the pool creation first.`,
+          message: `Pool ${poolId} has no poolAddress set. Sync the pool creation first.`,
         });
       }
 
@@ -252,6 +282,8 @@ export const adminPoolsRouter = router({
           message: `Unsupported chain ID: ${pool.chainId}`,
         });
       }
+
+      yield tracked(`sync-${poolId}-1`, emitProgress(1, "init", `Connecting to blockchain: ${chain.name}...`));
 
       verboseLog("Pool found:", {
         id: pool.id,
@@ -272,9 +304,11 @@ export const adminPoolsRouter = router({
       if (!pool.creationTxid) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
-          message: `Pool ${input.poolId} has no creationTxid. Set it first in the admin panel (Actions > Set Tx).`,
+          message: `Pool ${poolId} has no creationTxid. Set it first in the admin panel (Actions > Set Tx).`,
         });
       }
+
+      yield tracked(`sync-${poolId}-2`, emitProgress(2, "init", "Fetching creation block from transaction hash..."));
 
       verboseLog("Using creationTxid:", pool.creationTxid);
       let creationBlock: bigint;
@@ -292,8 +326,7 @@ export const adminPoolsRouter = router({
         });
       }
 
-      // 3. Fetch the latest block to paginate the log queries. RPC providers typically
-      //    cap getLogs at ~10k blocks per request, so we split the range into chunks.
+      // 3. Fetch the latest block to paginate the log queries.
       const BLOCK_RANGE = 5_000n;
       let latestBlock: bigint;
       try {
@@ -305,7 +338,11 @@ export const adminPoolsRouter = router({
           message: `Failed to fetch latest block number: ${(error as Error).message}`,
         });
       }
+
+      const totalBlocks = latestBlock - creationBlock + 1n;
       verboseLog("Fetching events from", creationBlock.toString(), "to", latestBlock.toString());
+
+      yield tracked(`sync-${poolId}-3`, emitProgress(3, "init", `Total blocks to scan: ${totalBlocks.toString()} (from ${creationBlock.toString()} to ${latestBlock.toString()})`));
 
       const STAKE_EVENT = {
         type: "event" as const,
@@ -330,7 +367,18 @@ export const adminPoolsRouter = router({
       const stakeLogs: Log[] = [];
       const unstakeLogs: Log[] = [];
 
-      // --- Paginated fetch helper ---
+      // 4. Fetch Stake and Unstake logs in parallel (both events on the same block range)
+      checkAborted();
+      yield tracked(
+        `sync-${poolId}-scan-start`,
+        emitProgress(10, "scanning", `Scanning Stake & Unstake events in parallel (${totalBlocks.toString()} blocks)...`, {
+          percent: 5,
+          currentBlock: creationBlock.toString(),
+          latestBlock: latestBlock.toString(),
+        })
+      );
+
+      // Paginated fetch helper (no yield inside — called from Promise.all)
       const fetchLogsPaginated = async (
         eventDef: typeof STAKE_EVENT | typeof UNSTAKE_EVENT,
         label: string
@@ -339,6 +387,7 @@ export const adminPoolsRouter = router({
         let from = creationBlock;
 
         while (from <= latestBlock) {
+          checkAborted();
           const to = from + BLOCK_RANGE - 1n > latestBlock ? latestBlock : from + BLOCK_RANGE - 1n;
           try {
             const chunk = await publicClient.getLogs({
@@ -362,7 +411,6 @@ export const adminPoolsRouter = router({
         return logs;
       };
 
-      // 4. Fetch all Stake and Unstake logs in parallel chunks
       try {
         const [stakes, unstakes] = await Promise.all([
           fetchLogsPaginated(STAKE_EVENT, "Stake"),
@@ -379,7 +427,7 @@ export const adminPoolsRouter = router({
         });
       }
 
-      // 5. Initialize summary counters at the top so all code paths are covered
+      // 5. Initialize summary counters
       let summaryStakesProcessed = 0;
       let summaryStakesSkipped = 0;
       let summaryStakesAlready = 0;
@@ -387,14 +435,13 @@ export const adminPoolsRouter = router({
       let summaryUnstakesSkipped = 0;
       let summaryUnstakesAlready = 0;
 
-      // 6. Decode all events and batch-process them
-      //
-      // Instead of N events × 5 DB queries, we:
-      //   1. Decode all events in memory
-      //   2. Batch-find all wallets with one query
-      //   3. Batch-check existing events with one query
-      //   4. Write everything in a single transaction
+      yield tracked(`sync-${poolId}-100`, emitProgress(100, "processing", `Decoding ${stakeLogs.length + unstakeLogs.length} events...`, {
+        percent: 100,
+        stakesFound: stakeLogs.length,
+        unstakesFound: unstakeLogs.length,
+      }));
 
+      // 6. Decode all events and batch-process them
       interface ParsedEvent {
         address: string;
         amount: bigint;
@@ -448,6 +495,12 @@ export const adminPoolsRouter = router({
       verboseLog(`Decoded ${allEvents.length} total stake/unstake events`);
 
       if (allEvents.length > 0) {
+        yield tracked(`sync-${poolId}-200`, emitProgress(200, "processing", `Looking up ${allEvents.length} wallets in database...`, {
+          percent: 100,
+          stakesFound: stakeLogs.length,
+          unstakesFound: unstakeLogs.length,
+        }));
+
         // --- Batch-find all wallets ---
         const uniqueAddresses = [...new Set(allEvents.map(e => e.address))];
         const wallets = await prisma.userWallet.findMany({
@@ -466,6 +519,14 @@ export const adminPoolsRouter = router({
             else summaryUnstakesSkipped++;
           }
         }
+
+        yield tracked(`sync-${poolId}-300`, emitProgress(300, "processing", `Found ${wallets.length} known wallets, checking duplicate events...`, {
+          percent: 100,
+          stakesFound: stakeLogs.length,
+          unstakesFound: unstakeLogs.length,
+          stakesSkipped: summaryStakesSkipped,
+          unstakesSkipped: summaryUnstakesSkipped,
+        }));
 
         if (knownEvents.length > 0) {
           // --- Batch-check which events already exist ---
@@ -513,6 +574,19 @@ export const adminPoolsRouter = router({
           const allNew = [...newStakes, ...newUnstakes];
 
           if (allNew.length > 0) {
+            checkAborted();
+            yield tracked(`sync-${poolId}-400`, emitProgress(400, "writing", `Writing ${allNew.length} new events to database...`, {
+              percent: 100,
+              stakesFound: stakeLogs.length,
+              unstakesFound: unstakeLogs.length,
+              stakesProcessed: summaryStakesProcessed,
+              unstakesProcessed: summaryUnstakesProcessed,
+              stakesSkipped: summaryStakesSkipped,
+              unstakesSkipped: summaryUnstakesSkipped,
+              stakesAlreadyIndexed: summaryStakesAlready,
+              unstakesAlreadyIndexed: summaryUnstakesAlready,
+            }));
+
             // --- Aggregate net amount per wallet ---
             const netAmounts = new Map<number, bigint>();
             for (const e of allNew) {
@@ -536,10 +610,6 @@ export const adminPoolsRouter = router({
             );
 
             // Write everything in a single transaction.
-            // The existence check above is a best-effort optimisation to avoid
-            // sending already-known events to the transaction.  As a safety net,
-            // createMany uses skipDuplicates so that if two syncPool calls race,
-            // duplicate events are silently skipped instead of throwing.
             await prisma.$transaction(async tx => {
               // Upsert StakedPool for each wallet with net change
               for (const [walletId, netChange] of netAmounts) {
@@ -584,6 +654,16 @@ export const adminPoolsRouter = router({
       }
 
       // 7. Recalculate total fans and revoStaked for the pool
+      yield tracked(`sync-${poolId}-500`, emitProgress(500, "finalizing", "Recalculating pool totals...", {
+        percent: 100,
+        stakesProcessed: summaryStakesProcessed,
+        unstakesProcessed: summaryUnstakesProcessed,
+        stakesSkipped: summaryStakesSkipped,
+        unstakesSkipped: summaryUnstakesSkipped,
+        stakesAlreadyIndexed: summaryStakesAlready,
+        unstakesAlreadyIndexed: summaryUnstakesAlready,
+      }));
+
       verboseLog("Recalculating pool aggregation data...");
       const allStakedPools = await prisma.stakedPool.findMany({
         where: { poolId: pool.id },
@@ -612,10 +692,14 @@ export const adminPoolsRouter = router({
 
       verboseLog("=== END ===");
 
-      return {
-        success: true,
-        message: `Pool sync completed`,
-        poolId: pool.id,
+      yield tracked(`sync-${poolId}-999`, emitProgress(999, "complete", `Sync completed! Total: ${totalStaked} REVO staked by ${fansCount} fans`, {
+        percent: 100,
+        stakesProcessed: summaryStakesProcessed,
+        unstakesProcessed: summaryUnstakesProcessed,
+        stakesSkipped: summaryStakesSkipped,
+        unstakesSkipped: summaryUnstakesSkipped,
+        stakesAlreadyIndexed: summaryStakesAlready,
+        unstakesAlreadyIndexed: summaryUnstakesAlready,
         summary: {
           stakes: {
             processed: summaryStakesProcessed,
@@ -630,7 +714,7 @@ export const adminPoolsRouter = router({
           totalStaked,
           fansCount,
         },
-      };
+      }));
     }),
 
   syncTransaction: adminProcedure

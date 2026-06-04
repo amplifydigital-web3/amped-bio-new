@@ -9,6 +9,7 @@ import { ExternalLink, Loader2, RefreshCw } from "lucide-react";
 import { getChainConfig } from "@ampedbio/web3";
 import SyncTransactionDialog from "./SyncTransactionDialog";
 import SetTxidDialog from "./SetTxidDialog";
+import SyncPoolProgressDialog from './SyncPoolProgressDialog';
 
 export const AdminPools: FC = () => {
   const {
@@ -29,9 +30,7 @@ export const AdminPools: FC = () => {
     currentTxid: string | null;
   } | null>(null);
 
-  const handleSyncComplete = () => {
-    refetch();
-  };
+
 
   const setHiddenMutation = useMutation({
     mutationFn: trpc.admin.pools.setHidden.mutationOptions().mutationFn,
@@ -44,26 +43,20 @@ export const AdminPools: FC = () => {
     },
   });
 
-  const syncPoolMutation = useMutation({
-    mutationFn: trpc.admin.pools.syncPool.mutationOptions().mutationFn,
-    onSuccess: data => {
-      const s = data.summary;
-      toast.success(
-        `Pool synced: ${s.stakes.processed} stakes, ${s.unstakes.processed} unstakes`
-      );
-      refetch();
-    },
-    onError: err => {
-      toast.error(`Failed to sync pool: ${err.message}`);
-    },
-    onSettled: () => {
-      setSyncingPoolId(null);
-    },
-  });
+  const [syncProgressDialogOpen, setSyncProgressDialogOpen] = useState(false);
 
   const handleSyncPool = (poolId: number) => {
     setSyncingPoolId(poolId);
-    syncPoolMutation.mutate({ poolId });
+    setSyncProgressDialogOpen(true);
+  };
+
+  const handleSyncDialogClose = () => {
+    setSyncProgressDialogOpen(false);
+    setSyncingPoolId(null);
+  };
+
+  const handleSyncComplete = () => {
+    refetch();
   };
 
   const handleToggleHidden = (poolId: number, currentHiddenStatus: boolean) => {
@@ -291,6 +284,15 @@ export const AdminPools: FC = () => {
           chainId={editingTxidPool.chainId}
           currentTxid={editingTxidPool.currentTxid}
           onSuccess={handleSetTxidSuccess}
+        />
+      )}
+
+      {syncingPoolId !== null && (
+        <SyncPoolProgressDialog
+          isOpen={syncProgressDialogOpen}
+          onClose={handleSyncDialogClose}
+          poolId={syncingPoolId}
+          onComplete={handleSyncComplete}
         />
       )}
     </div>

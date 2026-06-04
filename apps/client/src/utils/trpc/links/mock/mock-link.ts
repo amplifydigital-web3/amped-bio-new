@@ -107,12 +107,39 @@ export function mockLink(): TRPCLink<AppRouter> {
         const { path, input, type } = op;
         console.log(`[MOCK] Creating observable for ${path}`, { type, input });
 
-        // Throw error for subscriptions (not supported in mockLink)
+        // Mock subscriptions with a simulated progress stream
         if (type === "subscription") {
-          console.error(`[MOCK] Subscription not supported for ${path}`);
-          throw new Error(
-            "Subscriptions are unsupported by mockLink - use httpSubscriptionLink or wsLink"
-          );
+          console.log(`[MOCK] Subscription requested for ${path} - emitting mock progress`);
+          // Emit a single mock complete event and finish
+          observer.next({
+            result: {
+              data: {
+                id: `mock-${Date.now()}`,
+                step: 999,
+                phase: "complete",
+                message: "[MOCK] Pool sync completed (demo data)",
+                percent: 100,
+                stakesFound: 0,
+                unstakesFound: 0,
+                stakesProcessed: 0,
+                unstakesProcessed: 0,
+                stakesSkipped: 0,
+                unstakesSkipped: 0,
+                stakesAlreadyIndexed: 0,
+                unstakesAlreadyIndexed: 0,
+                summary: {
+                  stakes: { processed: 0, skipped: 0, alreadyIndexed: 0 },
+                  unstakes: { processed: 0, skipped: 0, alreadyIndexed: 0 },
+                  totalStaked: "0",
+                  fansCount: 0,
+                },
+              },
+            },
+          });
+          observer.complete();
+          return () => {
+            console.log(`[MOCK] Subscription cleanup for ${path}`);
+          };
         }
 
         console.log(`[MOCK] Calling mockRequester for ${path}`);

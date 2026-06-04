@@ -50,7 +50,17 @@ export const createContext = async ({
  * Initialization of tRPC backend
  * Should be done only once per backend!
  */
-const t = initTRPC.context<Context>().create();
+const t = initTRPC.context<Context>().create({
+  sse: {
+    ping: {
+      enabled: true,
+      intervalMs: 3000,
+    },
+    client: {
+      reconnectAfterInactivityMs: 10000,
+    },
+  },
+});
 
 /**
  * Export reusable router and procedure helpers
