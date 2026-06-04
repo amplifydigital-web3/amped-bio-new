@@ -150,6 +150,8 @@ export const adminPoolsRouter = router({
       });
 
       try {
+        const latestBlock = await publicClient.getBlockNumber();
+
         const logs = await publicClient.getLogs({
           address: factoryAddress as Address,
           event: {
@@ -167,7 +169,7 @@ export const adminPoolsRouter = router({
             pool: input.poolAddress as Address,
           },
           fromBlock: 0n,
-          toBlock: "latest",
+          toBlock: latestBlock,
         });
 
         if (logs.length === 0) {
