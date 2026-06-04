@@ -81,6 +81,16 @@ export default function SyncPoolProgressDialog({
   const [isConnecting, setIsConnecting] = useState(true);
   const abortRef = useRef<(() => void) | null>(null);
   const completedCalled = useRef(false);
+  const onCompleteRef = useRef(onComplete);
+  const onCloseRef = useRef(onClose);
+
+  // Keep refs in sync without triggering re-subscriptions
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -105,7 +115,7 @@ export default function SyncPoolProgressDialog({
             setIsCompleted(true);
             if (!completedCalled.current) {
               completedCalled.current = true;
-              onComplete();
+              onCompleteRef.current();
             }
           }
 
@@ -129,7 +139,7 @@ export default function SyncPoolProgressDialog({
     return () => {
       subscription.unsubscribe();
     };
-  }, [isOpen, poolId, onComplete]);
+  }, [isOpen, poolId]); // Removed onComplete/onClose from deps to prevent re-subscription loop
 
   const handleClose = () => {
     abortRef.current?.();
