@@ -16,6 +16,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAccount, useSignMessage } from "wagmi";
 import { useCaptcha } from "@/hooks/useCaptcha";
+import { GoogleLoginButton } from "@/components/auth/GoogleLoginButton";
 import { CaptchaActions } from "@ampedbio/constants";
 import {
   Check,
@@ -284,6 +285,27 @@ export function SignPage() {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    setIsLoggingIn(true);
+    setLoginError(null);
+
+    try {
+      const response = await authClient.signIn.social({
+        provider: "google",
+        callbackURL: window.location.href,
+      });
+
+      if (response?.error) {
+        setIsLoggingIn(false);
+        setLoginError(response.error.message || "Google login failed");
+        return;
+      }
+    } catch (error) {
+      setLoginError((error as Error).message || "Google login failed");
+      setIsLoggingIn(false);
+    }
+  };
+
   const isSubmitting = isLoggingIn;
 
   if (!isPopup) {
@@ -374,6 +396,20 @@ export function SignPage() {
                   )}
                 </Button>
               </form>
+
+              {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+                <>
+                  <div className="relative flex items-center my-4">
+                    <div className="flex-grow border-t border-gray-300"></div>
+                    <span className="flex-shrink mx-4 text-gray-600 text-sm">or</span>
+                    <div className="flex-grow border-t border-gray-300"></div>
+                  </div>
+
+                  <div data-testid="google-sign-in" className="w-full">
+                    <GoogleLoginButton onClick={() => handleGoogleLogin()} />
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         )}
