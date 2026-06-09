@@ -240,6 +240,16 @@ export default function NdauConversionPage() {
       setIsProcessingSign(true);
       await new Promise(resolve => setTimeout(resolve, 3000));
 
+      const freshHash = await calculateDocumentHash();
+      const expectedHash = getDocumentHash(group);
+      if (freshHash !== expectedHash) {
+        console.error(
+          `Document hash mismatch at sign time. Computed: ${freshHash}, Expected: ${expectedHash}`
+        );
+        toast.error("Document hash mismatch. The conversion agreement may have been modified. Please refresh the page and try again.");
+        return;
+      }
+
       const timestamp = conversionTimestamp || Math.floor(Date.now() / 1000);
       setConversionTimestamp(timestamp);
 
@@ -249,7 +259,7 @@ export default function NdauConversionPage() {
         revoAmount: revoAmount || "0",
         ndauAddress,
         revoAddress: authUser?.wallet || "",
-        documentHash: documentHash || "",
+        documentHash: freshHash,
         timestamp,
       });
 
