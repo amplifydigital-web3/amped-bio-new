@@ -26,6 +26,14 @@ ALWAYS run typecheck and build commands to validate your modifications before cl
 - **Schema Validation**: Implement `zod` for all schema definitions and data validations. No other validation libraries.
 - **Alerts & Warnings**: When implementing alerts or warnings, style them using Tailwind CSS classes and include an appropriate icon from `lucide-react`.
 
+# CONTAINERIZATION - APPLE NATIVE PRIORITY
+
+- **Apple Silicon Native Priority**: On Apple Silicon macOS 26+, you MUST prioritize Apple's native container runtime over Docker Desktop.
+- **Mocker (Transparent Docker Replacement)**: All `docker` CLI commands MUST be rewritten to `mocker` automatically. Mocker is a drop-in Docker-compatible CLI built on Apple's native Containerization framework — same commands, same flags, same output, zero VM overhead. Use the `mocker` skill to enforce this rewrite.
+- **Apple Container CLI (Native Management)**: For direct container lifecycle operations (`container run`, `container build`, `container system start/stop`, `container image`, `container volume`, `container network`), use the `apple-container-skill`. This is Apple's native CLI (`container`), not Docker.
+- **Detection**: Verify architecture (`uname -m` = arm64) and macOS version (`sw_vers -productVersion` ≥ 26.0) before activating native container tools.
+- **Fallback**: Only use Docker Desktop if the user explicitly requests it or if native containers are unavailable on the target system.
+
 # PROJECT STRUCTURE - ABSOLUTE LOCATIONS
 
 - **Client Application**: Located in `apps/client` - know this location.
