@@ -1,3 +1,4 @@
+
 generator client {
   provider = "prisma-client-js"
   output   = "../src/lib/prisma"
@@ -38,6 +39,8 @@ model User {
   wallet            UserWallet?
   referralsMade     Referral[]  @relation("ReferrerReferrals")
   referralsReceived Referral[]  @relation("ReferredReferrals")
+  twoFactorEnabled  Boolean     @default(false) @map("two_factor_enabled")
+  twoFactor         TwoFactor?
 
   @@unique([email])
   @@map("users")
@@ -56,6 +59,7 @@ model Session {
 
   @@unique([token])
   @@map("session")
+  @@index([userId])
 }
 
 model Account {
@@ -75,6 +79,7 @@ model Account {
   updatedAt             DateTime
 
   @@map("account")
+  @@index([userId])
 }
 
 model Verification {
@@ -86,6 +91,7 @@ model Verification {
   updatedAt  DateTime?
 
   @@map("verification")
+  @@index([identifier(length: 191)])
 }
 
 model ThemeCategory {
@@ -212,13 +218,13 @@ model CreatorPool {
   walletId Int
   chainId  String
 
-  name             String?       @db.VarChar(255)
-  image_file_id    Int?
-  description      String?       @db.LongText
-  fans             Int           @default(0)
-  revoStaked       String        @db.Text
-  poolAddress      String?       @unique
-  creationTxid     String?       @db.VarChar(66)
+  name          String?       @db.VarChar(255)
+  image_file_id Int?
+  description   String?       @db.LongText
+  fans          Int           @default(0)
+  revoStaked    String        @db.Text
+  poolAddress   String?       @unique
+  creationTxid  String?       @db.VarChar(66)
   wallet        UserWallet    @relation(fields: [walletId], references: [id], onDelete: Cascade)
   poolImage     UploadedFile? @relation("CreatorPoolImage", fields: [image_file_id], references: [id], onDelete: SetNull)
   stakedPools   StakedPool[]
@@ -256,7 +262,8 @@ model StakedPool {
   userWallet UserWallet  @relation(fields: [userWalletId], references: [id], onDelete: Cascade)
   pool       CreatorPool @relation(fields: [poolId], references: [id], onDelete: Cascade)
 
-  @@unique([userWalletId, poolId]) // Each wallet can only have one staking entry per pool
+  // Each wallet can only have one staking entry per pool
+  @@unique([userWalletId, poolId])
   @@map("staked_pools")
 }
 
@@ -277,11 +284,11 @@ model StakeEvent {
 }
 
 model Referral {
-  id         Int       @id @default(autoincrement())
-  referrerId Int       @map("referrer_id")
-  referredId Int       @map("referred_id")
-  txid       String?   @map("txid") @db.Text
-  createdAt  DateTime  @default(now())
+  id         Int      @id @default(autoincrement())
+  referrerId Int      @map("referrer_id")
+  referredId Int      @map("referred_id")
+  txid       String?  @map("txid") @db.Text
+  createdAt  DateTime @default(now())
 
   referrer User @relation("ReferrerReferrals", fields: [referrerId], references: [id], onDelete: Cascade)
   referred User @relation("ReferredReferrals", fields: [referredId], references: [id], onDelete: Cascade)
@@ -304,24 +311,39 @@ model Jwks {
 }
 
 model NdauConversion {
-  id                   Int       @id @default(autoincrement())
-  ndau_address         String    @db.VarChar(255)
-  ndau_amount          String    @db.Text
-  revo_amount          String    @db.Text
-  revo_address         String    @db.VarChar(255)
-  ampedbio_signature   String    @db.Text
-  ndau_signature       String    @db.Text
-  ndau_validation_key  String    @db.Text
-  txid                 String?   @db.Text
-  status               String    @default("pending")
-  group                String    @default("gn") @db.VarChar(10)
-  created_at           DateTime  @default(now())
-  updated_at           DateTime? @updatedAt
-  document_hash        String    @map("document_hash") @db.VarChar(255)
-  timestamp            Int
+  id                  Int       @id @default(autoincrement())
+  ndau_address        String    @db.VarChar(255)
+  ndau_amount         String    @db.Text
+  revo_amount         String    @db.Text
+  revo_address        String    @db.VarChar(255)
+  ampedbio_signature  String    @db.Text
+  ndau_signature      String    @db.Text
+  ndau_validation_key String    @db.Text
+  txid                String?   @db.Text
+  status              String    @default("pending")
+  group               String    @default("gn") @db.VarChar(10)
+  created_at          DateTime  @default(now())
+  updated_at          DateTime? @updatedAt
+  document_hash       String    @map("document_hash") @db.VarChar(255)
+  timestamp           Int
 
   @@unique([ndau_address])
   @@index([status])
   @@index([created_at])
   @@map("ndau_conversions")
+}
+
+model TwoFactor {
+  id          String  @id @default(cuid())
+  userId      Int     @map("user_id")
+  secret      String  @db.Text
+  backupCodes String  @map("backup_codes") @db.Text
+  verified    Boolean @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId])
+  @@map("two_factor")
+  @@index([secret(length: 191)])
+  @@index([userId])
 }

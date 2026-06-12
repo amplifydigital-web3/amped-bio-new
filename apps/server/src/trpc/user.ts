@@ -6,6 +6,7 @@ import crypto from "crypto";
 import { prisma } from "../services/DB";
 import { editUserSchema } from "../schemas/user.schema";
 import Decimal from "decimal.js";
+import { auth } from "../utils/auth";
 
 // Schema for initiating email change
 const initiateEmailChangeSchema = z.object({
@@ -487,5 +488,120 @@ export const userRouter = router({
         })),
         total,
       };
+    }),
+
+  // === Two-Factor Authentication (2FA) ===
+
+  getTwoFactorStatus: privateProcedure.query(async ({ ctx }) => {
+    const userId = ctx.user!.sub;
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { twoFactorEnabled: true },
+      });
+      return { twoFactorEnabled: user?.twoFactorEnabled ?? false };
+    } catch (err) {
+      console.error("Error getting 2FA status:", err);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to get 2FA status",
+      });
+    }
+  }),
+
+  enableTwoFactor: privateProcedure
+    .input(z.object({ password: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const result = await auth.api.enableTwoFactor({
+          body: { password: input.password },
+          headers: ctx.req.headers as any,
+        });
+        return result;
+      } catch (err: any) {
+        console.error("Error enabling 2FA:", err);
+        if (err?.statusCode) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: err.message || "Failed to enable 2FA",
+          });
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to enable 2FA",
+        });
+      }
+    }),
+
+  verifyTotp: privateProcedure
+    .input(z.object({ code: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const result = await auth.api.verifyTOTP({
+          body: { code: input.code },
+          headers: ctx.req.headers as any,
+        });
+        return result;
+      } catch (err: any) {
+        console.error("Error verifying TOTP:", err);
+        if (err?.statusCode) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: err.message || "Invalid 2FA code",
+          });
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to verify 2FA code",
+        });
+      }
+    }),
+
+  disableTwoFactor: privateProcedure
+    .input(z.object({ password: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const result = await auth.api.disableTwoFactor({
+          body: { password: input.password },
+          headers: ctx.req.headers as any,
+        });
+        return result;
+      } catch (err: any) {
+        console.error("Error disabling 2FA:", err);
+        if (err?.statusCode) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: err.message || "Failed to disable 2FA",
+          });
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to disable 2FA",
+        });
+      }
+    }),
+
+  generateBackupCodes: privateProcedure
+    .input(z.object({ password: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const result = await auth.api.generateBackupCodes({
+          body: { password: input.password },
+          headers: ctx.req.headers as any,
+        });
+        return result;
+      } catch (err: any) {
+        console.error("Error generating backup codes:", err);
+        if (err?.statusCode) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: err.message || "Failed to generate backup codes",
+          });
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to generate backup codes",
+        });
+      }
     }),
 });

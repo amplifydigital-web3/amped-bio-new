@@ -42,6 +42,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         image: user.image || null,
         wallet: (user as any).wallet ?? null,
         poolAddresses: (user as any).poolAddresses ?? {},
+        twoFactorEnabled: (user as any).twoFactorEnabled || false,
       };
       setAuthUser(mappedUser);
       setIsInitializing(false);
@@ -89,6 +90,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           image: user.image || null,
           wallet: null,
           poolAddresses: {},
+          twoFactorEnabled: false,
         };
         setAuthUser(mappedUser);
         return mappedUser;
@@ -150,6 +152,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         image: response.user.image,
         wallet: response.user.wallet,
         poolAddresses: (response.user as any).poolAddresses ?? {},
+        twoFactorEnabled: (response.user as any).twoFactorEnabled || false,
       };
       setAuthUser(mappedUser);
     } catch (error) {

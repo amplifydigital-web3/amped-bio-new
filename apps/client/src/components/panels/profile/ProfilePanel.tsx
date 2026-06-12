@@ -4,6 +4,7 @@ import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
 import { EffectsTabContent } from "./EffectsTabContent";
 import { AppearanceTabContent } from "./AppearanceTabContent";
 import { GeneralTabContent } from "./GeneralTabContent";
+import { SecurityTabContent } from "./SecurityTabContent";
 import { Download, Upload, AlertTriangle } from "lucide-react";
 import {
   Dialog,
@@ -18,7 +19,7 @@ export function ProfilePanel() {
   const { theme, exportTheme, importTheme, expiredRevoName, lostRevoName, dismissRevoName } =
     useEditor();
   const { navigateToMyNames } = useRNSNavigation();
-  const [activeTab, setActiveTab] = useState<"general" | "appearance" | "effects" | "theme">(
+  const [activeTab, setActiveTab] = useState<"general" | "appearance" | "effects" | "theme" | "security">(
     "general"
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -99,6 +100,17 @@ export function ProfilePanel() {
             onClick={() => setActiveTab("theme")}
           >
             Theme
+          </button>
+
+          <button
+            className={`px-3 py-2 text-sm font-medium rounded-md ${
+              activeTab === "security"
+                ? "bg-gray-100 text-gray-900"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+            onClick={() => setActiveTab("security")}
+          >
+            Security
           </button>
         </nav>
       </div>
@@ -198,6 +210,8 @@ export function ProfilePanel() {
             </div>
           </>
         )}
+
+        {activeTab === "security" && <SecurityTabContent />}
       </div>
 
       {/* RevoName Issue Dialog — covers both expired and taken-by-another-user cases */}

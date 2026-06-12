@@ -52,6 +52,7 @@ export const authRouter = router({
             email: session.user.email,
             role: (session.user as any).role || "user",
             wallet: (session.user as any).wallet ?? null,
+            twoFactorEnabled: (session.user as any).twoFactorEnabled || false,
           },
         },
       });
@@ -107,6 +108,7 @@ export const authRouter = router({
           image: imageUrl,
           wallet: userWallet?.address || null,
           poolAddresses: ctx.user?.poolAddresses ?? {},
+          twoFactorEnabled: (user as any).twoFactorEnabled || false,
         },
       };
     } catch (error) {

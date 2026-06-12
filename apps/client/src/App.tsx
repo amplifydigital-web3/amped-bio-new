@@ -15,7 +15,7 @@ import PublicLayout from "./components/layout/PublicLayout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { initParticlesEngine } from "@tsparticles/react";
 import { loadAll } from "@tsparticles/all";
-import { EmailVerification, EmailVerificationResent, PasswordReset } from "./pages/auth";
+import { EmailVerification, EmailVerificationResent, PasswordReset, TwoFactorChallenge } from "./pages/auth";
 import { Toaster } from "react-hot-toast";
 import { EditorProvider } from "./contexts/EditorContext";
 import { useTokenExpiration } from "./hooks/useTokenExpiration";
@@ -228,6 +228,7 @@ function AppRouter() {
       <Route path="/auth/verify-email/:token?" element={<EmailVerification />} />
       <Route path="/auth/resend-verification" element={<EmailVerificationResent />} />
       <Route path="/auth/reset-password/:token?" element={<PasswordReset />} />
+<Route path="/auth/two-factor" element={<TwoFactorChallenge />} />
     </Routes>
   );
 }
