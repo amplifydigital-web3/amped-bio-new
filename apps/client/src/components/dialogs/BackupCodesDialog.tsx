@@ -14,6 +14,7 @@ interface BackupCodesDialogProps {
   onClose: () => void;
   backupCodes: string[];
   onRegenerate?: () => void;
+  onSaved?: () => void;
 }
 
 export function BackupCodesDialog({
@@ -21,6 +22,7 @@ export function BackupCodesDialog({
   onClose,
   backupCodes,
   onRegenerate,
+  onSaved,
 }: BackupCodesDialogProps) {
   const handleCopyAll = async () => {
     try {
@@ -89,6 +91,12 @@ export function BackupCodesDialog({
               Download
             </Button>
           </div>
+
+          {onSaved && (
+            <Button onClick={onSaved} className="w-full">
+              I've saved my backup codes
+            </Button>
+          )}
 
           {onRegenerate && (
             <div className="text-center">

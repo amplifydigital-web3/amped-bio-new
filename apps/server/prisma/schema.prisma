@@ -345,5 +345,4 @@ model TwoFactor {
   @@unique([userId])
   @@map("two_factor")
   @@index([secret(length: 191)])
-  @@index([userId])
 }

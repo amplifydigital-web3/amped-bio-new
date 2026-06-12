@@ -17,6 +17,7 @@ export function TwoFactorChallenge() {
   const [loading, setLoading] = useState(false);
   const [useBackupCode, setUseBackupCode] = useState(false);
   const [backupCode, setBackupCode] = useState("");
+  const [trustDevice, setTrustDevice] = useState(false);
 
   const handleVerifyTotp = async () => {
     if (code.length !== 6) return;
@@ -25,7 +26,7 @@ export function TwoFactorChallenge() {
     try {
       const { data, error: verifyError } = await authClient.twoFactor.verifyTotp({
         code,
-        trustDevice: true,
+        trustDevice,
       });
       if (verifyError) {
         setError(verifyError.message || "Invalid code. Please try again.");
@@ -48,7 +49,7 @@ export function TwoFactorChallenge() {
     try {
       const { data, error: verifyError } = await authClient.twoFactor.verifyBackupCode({
         code: backupCode.trim(),
-        trustDevice: true,
+        trustDevice,
       });
       if (verifyError) {
         setError(verifyError.message || "Invalid backup code. Please try again.");
@@ -126,6 +127,16 @@ export function TwoFactorChallenge() {
                 "Verify Backup Code"
               )}
             </Button>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={trustDevice}
+                onChange={(e) => setTrustDevice(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-600">Trust this device for 30 days</span>
+            </label>
           </div>
         ) : (
           <div className="space-y-6">
@@ -162,6 +173,16 @@ export function TwoFactorChallenge() {
                 "Verify"
               )}
             </Button>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={trustDevice}
+                onChange={(e) => setTrustDevice(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-600">Trust this device for 30 days</span>
+            </label>
           </div>
         )}
 

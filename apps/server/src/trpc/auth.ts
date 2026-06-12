@@ -108,7 +108,7 @@ export const authRouter = router({
           image: imageUrl,
           wallet: userWallet?.address || null,
           poolAddresses: ctx.user?.poolAddresses ?? {},
-          twoFactorEnabled: (user as any).twoFactorEnabled || false,
+          twoFactorEnabled: user.twoFactorEnabled ?? false,
         },
       };
     } catch (error) {

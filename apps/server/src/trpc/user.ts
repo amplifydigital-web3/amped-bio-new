@@ -510,7 +510,7 @@ export const userRouter = router({
   }),
 
   enableTwoFactor: privateProcedure
-    .input(z.object({ password: z.string() }))
+    .input(z.object({ password: z.string().min(1, "Password is required") }))
     .mutation(async ({ ctx, input }) => {
       try {
         const result = await auth.api.enableTwoFactor({
@@ -534,7 +534,7 @@ export const userRouter = router({
     }),
 
   verifyTotp: privateProcedure
-    .input(z.object({ code: z.string() }))
+    .input(z.object({ code: z.string().regex(/^\d{6}$/, "TOTP code must be 6 digits") }))
     .mutation(async ({ ctx, input }) => {
       try {
         const result = await auth.api.verifyTOTP({
@@ -558,7 +558,7 @@ export const userRouter = router({
     }),
 
   disableTwoFactor: privateProcedure
-    .input(z.object({ password: z.string() }))
+    .input(z.object({ password: z.string().min(1, "Password is required") }))
     .mutation(async ({ ctx, input }) => {
       try {
         const result = await auth.api.disableTwoFactor({
@@ -582,7 +582,7 @@ export const userRouter = router({
     }),
 
   generateBackupCodes: privateProcedure
-    .input(z.object({ password: z.string() }))
+    .input(z.object({ password: z.string().min(1, "Password is required") }))
     .mutation(async ({ ctx, input }) => {
       try {
         const result = await auth.api.generateBackupCodes({

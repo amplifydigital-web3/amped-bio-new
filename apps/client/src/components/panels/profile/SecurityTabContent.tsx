@@ -76,13 +76,18 @@ export function SecurityTabContent() {
     try {
       await verifyMutation.mutateAsync({ code: verifyCode });
       await refreshUserData();
-      toast.success("Two-factor authentication enabled");
-      setStep("enabled");
+      setShowSetupCodes(true);
     } catch (err: any) {
       setVerifyError(err.message || "Invalid code. Please try again.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSetupComplete = () => {
+    toast.success("Two-factor authentication enabled");
+    setStep("enabled");
+    setShowSetupCodes(false);
   };
 
   const handleDisable = async () => {
@@ -285,6 +290,7 @@ export function SecurityTabContent() {
             isOpen={showSetupCodes}
             onClose={() => setShowSetupCodes(false)}
             backupCodes={setupBackupCodes}
+            onSaved={handleSetupComplete}
           />
         )}
       </div>
