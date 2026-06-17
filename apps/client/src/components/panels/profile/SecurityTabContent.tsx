@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Shield, ShieldCheck, AlertCircle, Loader2, Eye } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { BackupCodesDialog } from "@/components/dialogs/BackupCodesDialog";
 import { toast } from "sonner";
+import { twoFactorPasswordSchema, totpCodeSchema } from "@/schemas";
 
 type SetupStep = "idle" | "confirm-password" | "setup" | "enabled";
 
@@ -53,6 +54,23 @@ export function SecurityTabContent() {
   const disableMutation = trpc.user.disableTwoFactor.useMutation();
   const generateBackupMutation = trpc.user.generateBackupCodes.useMutation();
 
+  const isPasswordValid = useMemo(
+    () => twoFactorPasswordSchema.safeParse(password).success,
+    [password]
+  );
+  const isTotpValid = useMemo(
+    () => totpCodeSchema.safeParse(verifyCode).success,
+    [verifyCode]
+  );
+  const isDisablePasswordValid = useMemo(
+    () => twoFactorPasswordSchema.safeParse(disablePassword).success,
+    [disablePassword]
+  );
+  const isRegeneratePasswordValid = useMemo(
+    () => twoFactorPasswordSchema.safeParse(regeneratePassword).success,
+    [regeneratePassword]
+  );
+
   const handleInitiateEnable = async () => {
     setLoading(true);
     setPasswordError(null);
@@ -70,7 +88,11 @@ export function SecurityTabContent() {
   };
 
   const handleVerifySetup = async () => {
-    if (verifyCode.length !== 6) return;
+    const parsed = totpCodeSchema.safeParse(verifyCode);
+    if (!parsed.success) {
+      setVerifyError(parsed.error.issues[0]?.message ?? "Invalid TOTP code");
+      return;
+    }
     setLoading(true);
     setVerifyError(null);
     try {
@@ -165,7 +187,7 @@ export function SecurityTabContent() {
 
             <Button
               onClick={handleInitiateEnable}
-              disabled={loading || !password}
+              disabled={loading || !isPasswordValid}
               className="w-full"
             >
               {loading ? (
@@ -256,7 +278,7 @@ export function SecurityTabContent() {
               </Button>
               <Button
                 onClick={handleVerifySetup}
-                disabled={loading || verifyCode.length !== 6}
+                disabled={loading || !isTotpValid}
                 className="flex-1"
               >
                 {loading ? (
@@ -392,7 +414,7 @@ export function SecurityTabContent() {
               </Button>
               <Button
                 onClick={handleDisable}
-                disabled={loading || !disablePassword}
+                disabled={loading || !isDisablePasswordValid}
                 className="flex-1 bg-red-600 hover:bg-red-700"
               >
                 {loading ? (
@@ -452,7 +474,7 @@ export function SecurityTabContent() {
               </Button>
               <Button
                 onClick={handleGenerateBackupCodes}
-                disabled={loading || !regeneratePassword}
+                disabled={loading || !isRegeneratePasswordValid}
                 className="flex-1"
               >
                 {loading ? (
