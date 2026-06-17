@@ -7,7 +7,9 @@ export const authClient = createAuthClient({
     inferAdditionalFields<typeof auth>(),
     jwtClient(),
     twoFactorClient({
-      twoFactorPage: "/auth/two-factor",
+      onTwoFactorRedirect() {
+        window.location.href = "/auth/two-factor";
+      },
     }),
     // oneTapClient({
     //   clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,

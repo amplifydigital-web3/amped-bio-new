@@ -320,6 +320,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         image: user.image || null,
         wallet: null,
         poolAddresses: {},
+        twoFactorEnabled: false,
       });
     } catch (error) {
       setLoginError((error as Error).message || "Login failed");
@@ -419,6 +420,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         image: user.image || null,
         wallet: null,
         poolAddresses: {},
+        twoFactorEnabled: false,
       });
     } catch (error) {
       setRegisterError((error as Error).message || "Registration failed");

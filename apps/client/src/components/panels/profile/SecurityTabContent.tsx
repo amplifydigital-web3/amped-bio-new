@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { Shield, ShieldCheck, AlertCircle, Loader2, Eye } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/contexts/AuthContext";
-import { trpc } from "@/utils/trpc/trpc";
+import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import {
@@ -29,30 +29,27 @@ export function SecurityTabContent() {
     authUser?.twoFactorEnabled ? "enabled" : "idle"
   );
   const [password, setPassword] = useState("");
-  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
 
   // Setup state
   const [totpUri, setTotpUri] = useState<string | null>(null);
   const [setupBackupCodes, setSetupBackupCodes] = useState<string[]>([]);
   const [verifyCode, setVerifyCode] = useState("");
-  const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [verifyError, setVerifyError] = useState<string | undefined>();
   const [showSetupCodes, setShowSetupCodes] = useState(false);
 
   // Enabled state
   const [showDisableDialog, setShowDisableDialog] = useState(false);
   const [disablePassword, setDisablePassword] = useState("");
-  const [disableError, setDisableError] = useState<string | null>(null);
+  const [disableError, setDisableError] = useState<string | undefined>();
   const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
   const [regeneratePassword, setRegeneratePassword] = useState("");
-  const [regenerateError, setRegenerateError] = useState<string | null>(null);
+  const [regenerateError, setRegenerateError] = useState<string | undefined>();
   const [showBackupCodesDialog, setShowBackupCodesDialog] = useState(false);
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
 
-  const enableMutation = trpc.user.enableTwoFactor.useMutation();
-  const verifyMutation = trpc.user.verifyTotp.useMutation();
-  const disableMutation = trpc.user.disableTwoFactor.useMutation();
-  const generateBackupMutation = trpc.user.generateBackupCodes.useMutation();
+
 
   const isPasswordValid = useMemo(
     () => twoFactorPasswordSchema.safeParse(password).success,
@@ -73,9 +70,12 @@ export function SecurityTabContent() {
 
   const handleInitiateEnable = async () => {
     setLoading(true);
-    setPasswordError(null);
+    setPasswordError(undefined);
     try {
-      const result = await enableMutation.mutateAsync({ password });
+      const { data: result, error: enableError } = await authClient.twoFactor.enable({
+        password,
+      });
+      if (enableError) throw new Error(enableError.message || "Failed to enable 2FA");
       setTotpUri(result.totpURI);
       setSetupBackupCodes(result.backupCodes);
       setStep("setup");
@@ -94,9 +94,12 @@ export function SecurityTabContent() {
       return;
     }
     setLoading(true);
-    setVerifyError(null);
+    setVerifyError(undefined);
     try {
-      await verifyMutation.mutateAsync({ code: verifyCode });
+      const { error: verifyTotpError } = await authClient.twoFactor.verifyTotp({
+        code: verifyCode,
+      });
+      if (verifyTotpError) throw new Error(verifyTotpError.message || "Invalid code");
       await refreshUserData();
       setShowSetupCodes(true);
     } catch (err: any) {
@@ -114,9 +117,12 @@ export function SecurityTabContent() {
 
   const handleDisable = async () => {
     setLoading(true);
-    setDisableError(null);
+    setDisableError(undefined);
     try {
-      await disableMutation.mutateAsync({ password: disablePassword });
+      const { error: disableError_ } = await authClient.twoFactor.disable({
+        password: disablePassword,
+      });
+      if (disableError_) throw new Error(disableError_.message || "Failed to disable 2FA");
       await refreshUserData();
       toast.success("Two-factor authentication disabled");
       setShowDisableDialog(false);
@@ -133,9 +139,12 @@ export function SecurityTabContent() {
 
   const handleGenerateBackupCodes = async () => {
     setLoading(true);
-    setRegenerateError(null);
+    setRegenerateError(undefined);
     try {
-      const result = await generateBackupMutation.mutateAsync({ password: regeneratePassword });
+      const { data: result, error: genError } = await authClient.twoFactor.generateBackupCodes({
+        password: regeneratePassword,
+      });
+      if (genError) throw new Error(genError.message || "Failed to generate backup codes");
       setBackupCodes(result.backupCodes);
       setShowRegenerateDialog(false);
       setRegeneratePassword("");
@@ -179,7 +188,7 @@ export function SecurityTabContent() {
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value);
-                setPasswordError(null);
+                setPasswordError(undefined);
               }}
               error={passwordError}
               autoComplete="current-password"
@@ -247,7 +256,7 @@ export function SecurityTabContent() {
                 value={verifyCode}
                 onChange={(value) => {
                   setVerifyCode(value);
-                  setVerifyError(null);
+                  setVerifyError(undefined);
                 }}
                 onComplete={handleVerifySetup}
                 disabled={loading}
@@ -350,7 +359,7 @@ export function SecurityTabContent() {
             variant="outline"
             onClick={() => {
               setRegeneratePassword("");
-              setRegenerateError(null);
+              setRegenerateError(undefined);
               setShowRegenerateDialog(true);
             }}
             className="flex-1 min-w-[150px]"
@@ -395,7 +404,7 @@ export function SecurityTabContent() {
               value={disablePassword}
               onChange={(e) => {
                 setDisablePassword(e.target.value);
-                setDisableError(null);
+                setDisableError(undefined);
               }}
               autoComplete="current-password"
             />
@@ -406,7 +415,7 @@ export function SecurityTabContent() {
                 onClick={() => {
                   setShowDisableDialog(false);
                   setDisablePassword("");
-                  setDisableError(null);
+                  setDisableError(undefined);
                 }}
                 className="flex-1"
               >
@@ -455,7 +464,7 @@ export function SecurityTabContent() {
               value={regeneratePassword}
               onChange={(e) => {
                 setRegeneratePassword(e.target.value);
-                setRegenerateError(null);
+                setRegenerateError(undefined);
               }}
               autoComplete="current-password"
             />
@@ -466,7 +475,7 @@ export function SecurityTabContent() {
                 onClick={() => {
                   setShowRegenerateDialog(false);
                   setRegeneratePassword("");
-                  setRegenerateError(null);
+                  setRegenerateError(undefined);
                 }}
                 className="flex-1"
               >

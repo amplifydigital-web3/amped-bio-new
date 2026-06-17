@@ -84,12 +84,16 @@ export const auth = betterAuth({
     twoFactor({
       issuer: "Amped.Bio",
       skipVerificationOnEnable: false,
+      twoFactorCookieMaxAge: 600, // 10 minutes
+      trustDeviceMaxAge: 30 * 24 * 60 * 60, // 30 days
       totpOptions: {
         digits: 6,
         period: 30,
       },
       backupCodeOptions: {
         amount: 10,
+        length: 10,
+        storeBackupCodes: "encrypted",
       },
     }),
     jwt({
