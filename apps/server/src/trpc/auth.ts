@@ -4,6 +4,7 @@ import { getFileUrl } from "../utils/fileUrlResolver";
 import { env } from "../env";
 import { prisma } from "../services/DB";
 import { auth } from "../utils/auth";
+import type { EnrichedSessionUser } from "../types/auth-helpers";
 
 // Helper function to handle Prisma errors
 function handlePrismaError(error: unknown, operation: string) {
@@ -45,14 +46,15 @@ export const authRouter = router({
       }
 
       // Generate JWT token using better-auth's internal API
+      const sessionUser = session.user as unknown as EnrichedSessionUser;
       const token = await auth.api.signJWT({
         body: {
           payload: {
-            sub: session.user.id.toString(),
-            email: session.user.email,
-            role: (session.user as any).role || "user",
-            wallet: (session.user as any).wallet ?? null,
-            twoFactorEnabled: (session.user as any).twoFactorEnabled || false,
+            sub: sessionUser.id.toString(),
+            email: sessionUser.email,
+            role: sessionUser.role || "user",
+            wallet: sessionUser.wallet ?? null,
+            twoFactorEnabled: sessionUser.twoFactorEnabled || false,
           },
         },
       });
