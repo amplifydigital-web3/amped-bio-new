@@ -147,12 +147,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const response = await trpcClient.auth.me.query();
       const user = response.user as unknown as EnrichedSessionUser;
       const mappedUser: AuthUser = {
-        id: user.id,
+        id: Number(user.id),
         email: user.email,
         handle: user.handle ?? "",
-        role: user.role,
-        image: user.image,
-        wallet: user.wallet,
+        role: user.role ?? "",
+        image: user.image ?? null,
+        wallet: user.wallet ?? null,
         poolAddresses: user.poolAddresses ?? {},
         twoFactorEnabled: user.twoFactorEnabled || false,
       };
