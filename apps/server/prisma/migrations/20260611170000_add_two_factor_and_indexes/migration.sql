@@ -15,3 +15,9 @@ CREATE TABLE `two_factor` (
 
 -- AddForeignKey
 ALTER TABLE `two_factor` ADD CONSTRAINT `two_factor_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- CreateIndex
+CREATE INDEX `verification_identifier_idx` ON `verification`(`identifier`(191));
+
+-- CreateIndex
+CREATE INDEX `two_factor_secret_idx` ON `two_factor`(`secret`(191));
