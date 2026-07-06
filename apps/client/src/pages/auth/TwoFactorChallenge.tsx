@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { Shield, AlertCircle, Loader2, KeyRound } from "lucide-react";
+import { Shield, AlertCircle, Loader2, KeyRound, LogOut } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/Button";
 import {
@@ -63,6 +63,11 @@ export function TwoFactorChallenge() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCancel = async () => {
+    await authClient.signOut();
+    navigate("/", { replace: true });
   };
 
   return (
@@ -201,6 +206,18 @@ export function TwoFactorChallenge() {
               ? "Use authenticator app instead"
               : "Use backup code instead"}
           </button>
+        </div>
+
+        <div className="mt-6 pt-4 border-t border-gray-200">
+          <Button
+            variant="outline"
+            onClick={handleCancel}
+            disabled={loading}
+            className="w-full text-gray-500 hover:text-gray-700 border-gray-200"
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Cancel and return to home
+          </Button>
         </div>
       </div>
     </div>
