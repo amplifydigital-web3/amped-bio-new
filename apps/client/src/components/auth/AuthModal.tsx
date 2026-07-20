@@ -310,7 +310,11 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         throw new Error(response.error.message || "Login failed");
       }
 
-      const user = response.data.user as BetterAuthUser;
+      const user = response.data?.user as BetterAuthUser | undefined;
+
+      if (!user?.id) {
+        return;
+      }
 
       onClose({
         id: parseInt(user.id),
