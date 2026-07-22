@@ -12,7 +12,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { createWalletClient, createPublicClient, http } from "viem";
 import { getChainConfig } from "@ampedbio/web3";
 import { AFFILIATES_CHAIN_ID, SITE_SETTINGS, PROCESSING_TXID } from "@ampedbio/constants";
-import { cache, CacheKeys } from "../utils/cache";
+import { cache, CacheKeys, CACHE_TTL, getAffiliateBalanceCacheKey } from "../utils/cache";
 
 // Helper function to check affiliate wallet balance
 async function getAffiliateWalletStatus() {
@@ -72,12 +72,33 @@ async function getAffiliateWalletStatus() {
 
     const requiredAmount = (referrerReward || 0) + (refereeReward || 0);
 
+    // Check balance cache first
+    const balanceCacheKey = getAffiliateBalanceCacheKey(AFFILIATES_CHAIN_ID);
+    const cachedBalance = await cache.get<{ balance: string; hasBalance: boolean }>(balanceCacheKey);
+
+    if (cachedBalance !== null) {
+      return {
+        hasBalance: cachedBalance.hasBalance,
+        balance: cachedBalance.balance,
+        requiredAmount,
+        currency: chain.nativeCurrency.symbol,
+      };
+    }
+
+    // Cache miss — fetch from RPC
     const balance = await publicClient.getBalance({ address: account.address });
     const balanceInEther = Number(balance) / 1e18;
 
-    return {
-      hasBalance: balanceInEther >= requiredAmount,
+    const result = {
       balance: balanceInEther.toFixed(4),
+      hasBalance: balanceInEther >= requiredAmount,
+    };
+
+    await cache.set(balanceCacheKey, result, CACHE_TTL.AFFILIATE_BALANCE);
+
+    return {
+      hasBalance: result.hasBalance,
+      balance: result.balance,
       requiredAmount,
       currency: chain.nativeCurrency.symbol,
     };
@@ -613,6 +634,13 @@ export const referralRouter = router({
           `[REFERRAL_CLAIM_SUCCESS] userId=${userId}, referralId=${input.referralId}, txid=${result.txid}`
         );
 
+        // Invalidate affiliate balance cache after successful claim
+        try {
+          await cache.delete(getAffiliateBalanceCacheKey(AFFILIATES_CHAIN_ID));
+        } catch (cacheError) {
+          console.error("Failed to invalidate affiliate balance cache:", cacheError);
+        }
+
         return result;
       } catch (error) {
         if (error instanceof TRPCError) {
@@ -940,6 +968,13 @@ export const referralRouter = router({
         console.log(
           `[REFEREE_CLAIM_SUCCESS] userId=${userId}, referralId=${input.referralId}, txid=${result.txid}`
         );
+
+        // Invalidate affiliate balance cache after successful claim
+        try {
+          await cache.delete(getAffiliateBalanceCacheKey(AFFILIATES_CHAIN_ID));
+        } catch (cacheError) {
+          console.error("Failed to invalidate affiliate balance cache:", cacheError);
+        }
 
         return result;
       } catch (error) {

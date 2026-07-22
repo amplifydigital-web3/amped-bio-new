@@ -133,13 +133,14 @@ export const poolsCreatorRouter = router({
           where: { poolId: pool.id },
         });
 
-        // Get current user's stake in this pool (using the userId already defined at the start of this function)
+        let userStakeAmount = 0n;
+        let userPendingRewards = 0n;
+        let lastClaim: Date | null = null;
+
         const userWallet = await prisma.userWallet.findUnique({
           where: { userId },
         });
 
-        let userStakeAmount = 0n;
-        let lastClaim: Date | null = null;
         if (userWallet) {
           const userStake = await prisma.stakedPool.findUnique({
             where: {
@@ -152,63 +153,49 @@ export const poolsCreatorRouter = router({
 
           if (userStake) {
             lastClaim = userStake.lastClaim;
-            // For consistency, also check blockchain for updated stake amount
-            if (pool.poolAddress) {
-              try {
-                const chain = getChainConfig(parseInt(pool.chainId));
-                if (chain) {
-                  const publicClient = createPublicClient({
-                    chain: chain,
-                    transport: http(),
-                  });
+          }
 
-                  const fanStakeAmount = await publicClient.readContract({
+          const chain = getChainConfig(parseInt(pool.chainId));
+          if (pool.poolAddress && chain) {
+            try {
+              const publicClient = createPublicClient({
+                chain: chain,
+                transport: http(),
+              });
+
+              const [fanStakeResult, pendingRewardResult] = await publicClient.multicall({
+                contracts: [
+                  {
                     address: pool.poolAddress as Address,
                     abi: CREATOR_POOL_ABI,
                     functionName: "fanStakes",
                     args: [userWallet.address as Address],
-                  });
+                  },
+                  {
+                    address: pool.poolAddress as Address,
+                    abi: CREATOR_POOL_ABI,
+                    functionName: "pendingReward",
+                    args: [userWallet.address as Address],
+                  },
+                ],
+              });
 
-                  userStakeAmount = fanStakeAmount as bigint;
-                }
-              } catch (error) {
-                // If blockchain query fails, use the database value
-                userStakeAmount = BigInt(userStake.stakeAmount);
-                console.error(
-                  `Error fetching user stake from blockchain for pool ${pool.id}:`,
-                  error
-                );
-              }
-            } else {
-              userStakeAmount = BigInt(userStake.stakeAmount);
+              userStakeAmount = fanStakeResult.status === "success"
+                ? (fanStakeResult.result as bigint)
+                : BigInt(userStake?.stakeAmount ?? "0");
+              userPendingRewards = pendingRewardResult.status === "success"
+                ? (pendingRewardResult.result as bigint)
+                : 0n;
+            } catch (error) {
+              console.error(
+                `Error fetching data from contract for pool ${pool.id}:`,
+                error
+              );
+              userStakeAmount = BigInt(userStake?.stakeAmount ?? "0");
+              userPendingRewards = 0n;
             }
-          }
-        }
-
-        // Get user's pending rewards from the pool contract
-        let userPendingRewards = 0n;
-        const chain = getChainConfig(parseInt(pool.chainId));
-        if (userWallet && pool.poolAddress && chain) {
-          try {
-            const publicClient = createPublicClient({
-              chain: chain,
-              transport: http(),
-            });
-
-            // Use the pendingReward function to get the user's pending rewards
-            userPendingRewards = (await publicClient.readContract({
-              address: pool.poolAddress as Address,
-              abi: CREATOR_POOL_ABI,
-              functionName: "pendingReward",
-              args: [userWallet.address as Address],
-            })) as bigint;
-          } catch (error) {
-            console.error(
-              `Error fetching user pending rewards from blockchain for pool ${pool.id}:`,
-              error
-            );
-            // If blockchain query fails, return 0n as there's no fallback in the database for pending rewards
-            userPendingRewards = 0n;
+          } else if (userStake) {
+            userStakeAmount = BigInt(userStake.stakeAmount);
           }
         }
 
