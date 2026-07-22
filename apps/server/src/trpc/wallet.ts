@@ -10,7 +10,7 @@ import { getChainConfig } from "@ampedbio/web3";
 import * as jose from "jose";
 import Decimal from "decimal.js";
 import { SITE_SETTINGS } from "@ampedbio/constants";
-import { cache, CACHE_TTL, getMethodSignatureCacheKey } from "../utils/cache";
+import { cache, CACHE_TTL, getMethodSignatureCacheKey, getFaucetBalanceCacheKey, getWalletStatsCacheKey } from "../utils/cache";
 
 // Schema for requesting faucet tokens
 const faucetRequestSchema = z.object({
@@ -241,7 +241,7 @@ export const walletRouter = router({
         const faucetAmount = Number(env.FAUCET_AMOUNT);
         let hasSufficientFunds = true; // Assume true by default
 
-        // If not in mock mode, check the actual balance of the faucet
+        // If not in mock mode, check the actual balance of the faucet (with cache)
         if (env.FAUCET_MOCK_MODE !== "true") {
           if (!env.FAUCET_PRIVATE_KEY) {
             throw new TRPCError({
@@ -250,21 +250,30 @@ export const walletRouter = router({
             });
           }
 
-          const publicClient = createPublicClient({
-            chain,
-            transport: http(chain.rpcUrls.default.http[0]),
-          });
+          const balanceCacheKey = getFaucetBalanceCacheKey(input.chainId);
+          const cachedBalance = await cache.get<{ hasSufficientFunds: boolean }>(balanceCacheKey);
 
-          const account = privateKeyToAccount(env.FAUCET_PRIVATE_KEY as `0x${string}`);
-          const balance = await publicClient.getBalance({ address: account.address });
-          // Use Decimal for precise conversion from wei to ether
-          const balanceInEther = new Decimal(balance.toString())
-            .div(new Decimal("10").pow(18))
-            .toNumber();
+          if (cachedBalance !== null) {
+            hasSufficientFunds = cachedBalance.hasSufficientFunds;
+          } else {
+            const publicClient = createPublicClient({
+              chain,
+              transport: http(chain.rpcUrls.default.http[0]),
+            });
 
-          // Check if the faucet has enough balance for the airdrop
-          if (balanceInEther < faucetAmount) {
-            hasSufficientFunds = false;
+            const account = privateKeyToAccount(env.FAUCET_PRIVATE_KEY as `0x${string}`);
+            const balance = await publicClient.getBalance({ address: account.address });
+            // Use Decimal for precise conversion from wei to ether
+            const balanceInEther = new Decimal(balance.toString())
+              .div(new Decimal("10").pow(18))
+              .toNumber();
+
+            // Check if the faucet has enough balance for the airdrop
+            if (balanceInEther < faucetAmount) {
+              hasSufficientFunds = false;
+            }
+
+            await cache.set(balanceCacheKey, { hasSufficientFunds }, CACHE_TTL.FAUCET_BALANCE);
           }
         }
 
@@ -528,6 +537,13 @@ export const walletRouter = router({
 
           console.log(`${isMockMode ? "[MOCK] " : ""}Transaction sent: ${hash}`);
 
+          // Invalidate faucet balance cache after airdrop
+          try {
+            await cache.delete(getFaucetBalanceCacheKey(input.chainId));
+          } catch (cacheError) {
+            console.error("Failed to invalidate faucet balance cache:", cacheError);
+          }
+
           // Create a transaction record
           const transaction = {
             id: hash, // Use the hash as the ID
@@ -704,6 +720,24 @@ export const walletRouter = router({
     const userId = ctx.user!.sub;
 
     try {
+      // Check cache first
+      const cacheKey = getWalletStatsCacheKey(userId);
+      const cached = await cache.get<{
+        myStake: string;
+        stakedToMe: string;
+        stakersSupportingMe: number;
+        creatorPoolsJoined: number;
+      }>(cacheKey);
+
+      if (cached !== null) {
+        return {
+          myStake: BigInt(cached.myStake),
+          stakedToMe: BigInt(cached.stakedToMe),
+          stakersSupportingMe: cached.stakersSupportingMe,
+          creatorPoolsJoined: cached.creatorPoolsJoined,
+        };
+      }
+
       // Get user's wallet
       const userWallet = await prisma.userWallet.findUnique({
         where: { userId },
@@ -792,6 +826,15 @@ export const walletRouter = router({
           },
         },
       });
+
+      // Cache the result
+      const statsData = {
+        myStake: myStake.toString(),
+        stakedToMe: stakedToMe.toString(),
+        stakersSupportingMe,
+        creatorPoolsJoined,
+      };
+      await cache.set(cacheKey, statsData, CACHE_TTL.WALLET_STATS);
 
       return {
         myStake: myStake, // Return as bigint (wei)

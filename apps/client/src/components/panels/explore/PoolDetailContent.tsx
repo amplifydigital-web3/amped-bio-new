@@ -55,6 +55,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
     data: pool,
     isLoading,
     isError,
+    isFetching,
     refetch: refetchPoolData,
   } = useQuery({
     ...trpc.pools.fan.getPoolDetailsForModal.queryOptions({
@@ -70,16 +71,10 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
   const [isImageUploadModalOpen, setIsImageUploadModalOpen] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
 
-  const {
-    creatorCut: contractCreatorCut,
-    fanStake: rawFanStake,
-    pendingReward,
-    isReadingPendingReward,
-    fetchAllData,
-    claimReward,
-  } = usePoolReader(
+  const { claimReward } = usePoolReader(
     pool?.address as `0x${string}` | undefined,
     userAddress as `0x${string}` | undefined,
+    pool?.chainId,
     {
       initialFanStake: pool?.stakedByYou ?? undefined,
       initialPendingReward: pool?.pendingRewards ?? undefined,
@@ -88,9 +83,6 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
 
   const chainConfig = getChainConfig(parseInt(pool?.chainId || "0"));
   const currencySymbol = chainConfig?.nativeCurrency.symbol || "REVO";
-
-  // Format the raw fan stake (bigint) to a string for display
-  const fanStake = rawFanStake ? formatEther(rawFanStake) : "0";
 
   const handleImageUploadClick = useCallback(() => {
     setIsImageUploadModalOpen(true);
@@ -179,15 +171,18 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
 
     setIsClaiming(true);
     try {
+      // Capture the claimed amount BEFORE the claim (it resets to ~0 after)
+      const claimedAmount = pool.pendingRewards ?? 0n;
+
       await claimReward(pool.id);
       // Introduce a 1-second delay to allow the blockchain to update before refetching
       await new Promise(resolve => setTimeout(resolve, 1000));
       // Refetch all pool data after successful claim
-      await fetchAllData();
+      await refetchPoolData();
 
       // Show success toast
       toast.success(
-        `Rewards claimed successfully! Your wallet has been updated with ${formatEther(pendingReward || pool.pendingRewards || BigInt(0))} ${currencySymbol}`
+        `Rewards claimed successfully! Your wallet has been updated with ${formatEther(claimedAmount)} ${currencySymbol}`
       );
     } catch (error) {
       console.error("Failed to claim rewards:", error);
@@ -361,7 +356,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                         className="mt-2 px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-xs font-medium transition-colors duration-200 disabled:opacity-50 flex items-center justify-center"
                         disabled={
                           !isWeb3Wallet ||
-                          isReadingPendingReward ||
+                          isFetching ||
                           !pool?.pendingRewards ||
                           pool.pendingRewards === BigInt(0) ||
                           isClaiming
@@ -437,8 +432,8 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-gray-700">Take Rate:</span>
                       <span className="text-sm font-semibold text-gray-900">
-                        {contractCreatorCut !== undefined && contractCreatorCut !== null
-                          ? `${Number(contractCreatorCut) / 100}%`
+                        {pool.creatorFee !== null && pool.creatorFee !== undefined
+                          ? `${pool.creatorFee / 100}%`
                           : "N/A"}
                       </span>
                     </div>
@@ -549,13 +544,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
             : null
         }
         onStakeSuccess={async () => {
-          // When stake operations complete, refetch blockchain data using multicall
-          await fetchAllData();
-
-          // Refetch pool data to update fans count and other pool details
           await refetchPoolData();
-
-          // Call the original callback if provided
           onStakeSuccess?.();
         }}
       />
@@ -577,10 +566,6 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
             : null
         }
         onStakeSuccess={async () => {
-          // When stake operations complete, refetch blockchain data using multicall
-          await fetchAllData();
-
-          // Refetch pool data to update fans count and other pool details
           await refetchPoolData();
 
           // Call the original callback if provided
