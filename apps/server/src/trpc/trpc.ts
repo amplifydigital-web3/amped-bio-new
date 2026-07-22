@@ -1,6 +1,7 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import { auth } from "../utils/auth";
+import type { EnrichedSessionUser } from "../types/auth-helpers";
 
 export type SessionUser = {
   sub: number;
@@ -27,15 +28,16 @@ export const createContext = async ({
   });
 
   if (session?.user) {
+    const sUser = session.user as unknown as EnrichedSessionUser;
     return {
       req,
       res,
       user: {
-        sub: parseInt(session.user.id, 10),
-        email: session.user.email,
-        role: (session.user as any).role || "user",
-        wallet: (session.user as any).wallet ?? null,
-        poolAddresses: (session.user as any).poolAddresses ?? {},
+        sub: parseInt(sUser.id, 10),
+        email: sUser.email,
+        role: sUser.role || "user",
+        wallet: sUser.wallet ?? null,
+        poolAddresses: sUser.poolAddresses ?? {},
       },
     };
   }

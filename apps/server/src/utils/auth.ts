@@ -5,9 +5,10 @@ import { sendEmailVerification, sendPasswordResetEmail, sendWelcomeEmail } from 
 import { hashPassword, verifyPassword } from "./password";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { captcha, jwt, customSession } from "better-auth/plugins";
+import { captcha, jwt, customSession, twoFactor } from "better-auth/plugins";
 import crypto from "crypto";
 import { JWTPayload, SignJWT } from "jose";
+import type { EnrichedUser } from "../types/auth-helpers";
 
 // === jwt private key generation  ===
 const pk = crypto.createPrivateKey({
@@ -37,19 +38,20 @@ export const auth = betterAuth({
   trustedOrigins: [env.FRONTEND_URL],
   plugins: [
     customSession(async ({ user, session }) => {
+      const u = user as unknown as EnrichedUser;
       // Backfill handle for existing users without one
-      const userHandle = (user as any).handle;
-      if ((!userHandle || userHandle === "") && user.email) {
-        const newHandle = await processEmailToUniqueHandle(user.email);
+      const userHandle = u.handle;
+      if ((!userHandle || userHandle === "") && u.email) {
+        const newHandle = await processEmailToUniqueHandle(u.email);
         await prisma.user.update({
-          where: { id: parseInt(user.id) },
+          where: { id: parseInt(u.id) },
           data: { handle: newHandle },
         });
-        (user as any).handle = newHandle;
+        u.handle = newHandle;
       }
 
       const userWallet = await prisma.userWallet.findUnique({
-        where: { userId: parseInt(user.id) },
+        where: { userId: parseInt(u.id) },
       });
 
       // Fetch creator pools to determine which chains have confirmed pool addresses.
@@ -70,7 +72,7 @@ export const auth = betterAuth({
 
       return {
         user: {
-          ...user,
+          ...u,
           wallet: userWallet?.address ?? null,
           poolAddresses,
         },
@@ -80,6 +82,21 @@ export const auth = betterAuth({
     captcha({
       provider: "google-recaptcha",
       secretKey: env.CAPTCHA_SECRET_KEY,
+    }),
+    twoFactor({
+      issuer: "Amped.Bio",
+      skipVerificationOnEnable: false,
+      twoFactorCookieMaxAge: 600, // 10 minutes
+      trustDeviceMaxAge: 30 * 24 * 60 * 60, // 30 days
+      totpOptions: {
+        digits: 6,
+        period: 30,
+      },
+      backupCodeOptions: {
+        amount: 10,
+        length: 10,
+        storeBackupCodes: "encrypted",
+      },
     }),
     jwt({
       disableSettingJwtHeader: true,
@@ -213,6 +230,12 @@ export const auth = betterAuth({
         type: "string",
         required: false,
         defaultValue: null,
+      },
+      twoFactorEnabled: {
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+        input: false,
       },
     },
   },

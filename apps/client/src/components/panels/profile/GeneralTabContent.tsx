@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ProfileForm } from "./ProfileForm";
 import { ImageUploader } from "./ImageUploader";
 import { URLPicker } from "./URLPicker";
+import { SecurityTabContent } from "./SecurityTabContent";
 import { useEditor } from "../../../contexts/EditorContext";
 import { useAuth } from "../../../contexts/AuthContext";
 import { EmailChangeDialog } from "../../dialogs/EmailChangeDialog";
@@ -72,6 +73,10 @@ export function GeneralTabContent() {
       <hr className="my-6 border-gray-200" />
 
       <URLPicker />
+
+      <hr className="my-6 border-gray-200" />
+
+      <SecurityTabContent />
 
       {/* Email Change Dialog */}
       <EmailChangeDialog isOpen={isEmailDialogOpen} onClose={() => setIsEmailDialogOpen(false)} />

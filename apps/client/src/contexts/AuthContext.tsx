@@ -2,6 +2,7 @@ import { createContext, useContext, ReactNode, useState, useEffect } from "react
 import type { AuthUser } from "../types/auth";
 import { trpcClient } from "../utils/trpc";
 import { authClient, type Session } from "../lib/auth-client";
+import type { EnrichedSessionUser } from "../types/session";
 
 // Extended user type for better-auth session
 type BetterAuthUser = Session["user"];
@@ -33,15 +34,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Sync session data with AuthContext
   useEffect(() => {
     if (session?.user) {
-      const user = session.user as BetterAuthUser;
+      const user = session.user as unknown as EnrichedSessionUser;
       const mappedUser: AuthUser = {
         id: parseInt(user.id),
         email: user.email,
         handle: user.handle || user.name || "",
         role: user.role || "user",
         image: user.image || null,
-        wallet: (user as any).wallet ?? null,
-        poolAddresses: (user as any).poolAddresses ?? {},
+        wallet: user.wallet ?? null,
+        poolAddresses: user.poolAddresses ?? {},
+        twoFactorEnabled: user.twoFactorEnabled || false,
       };
       setAuthUser(mappedUser);
       setIsInitializing(false);
@@ -89,6 +91,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           image: user.image || null,
           wallet: null,
           poolAddresses: {},
+          twoFactorEnabled: false,
         };
         setAuthUser(mappedUser);
         return mappedUser;
@@ -142,14 +145,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const refreshUserData = async () => {
     try {
       const response = await trpcClient.auth.me.query();
+      const user = response.user as unknown as EnrichedSessionUser;
       const mappedUser: AuthUser = {
-        id: response.user.id,
-        email: response.user.email,
-        handle: response.user.handle ?? "",
-        role: response.user.role,
-        image: response.user.image,
-        wallet: response.user.wallet,
-        poolAddresses: (response.user as any).poolAddresses ?? {},
+        id: Number(user.id),
+        email: user.email,
+        handle: user.handle ?? "",
+        role: user.role ?? "",
+        image: user.image ?? null,
+        wallet: user.wallet ?? null,
+        poolAddresses: user.poolAddresses ?? {},
+        twoFactorEnabled: user.twoFactorEnabled || false,
       };
       setAuthUser(mappedUser);
     } catch (error) {

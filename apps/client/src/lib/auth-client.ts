@@ -1,11 +1,16 @@
 import { createAuthClient } from "better-auth/react";
-import { inferAdditionalFields, jwtClient } from "better-auth/client/plugins";
+import { inferAdditionalFields, jwtClient, twoFactorClient } from "better-auth/client/plugins";
 import { auth } from "../../../server/src/utils/auth";
 
 export const authClient = createAuthClient({
   plugins: [
     inferAdditionalFields<typeof auth>(),
     jwtClient(),
+    twoFactorClient({
+      onTwoFactorRedirect() {
+        window.location.href = "/auth/two-factor";
+      },
+    }),
     // oneTapClient({
     //   clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
     // }),
