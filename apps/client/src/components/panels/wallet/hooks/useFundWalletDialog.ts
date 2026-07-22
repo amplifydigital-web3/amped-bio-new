@@ -28,15 +28,22 @@ export function useFundWalletDialog(params: {
     nextAvailableDate: Date | null;
     canRequestNow: boolean;
     hasWallet: boolean;
-    hasSufficientFunds: boolean; // New state for faucet balance
+    hasSufficientFunds: boolean;
     faucetEnabled: boolean;
+    requirements: {
+      photo: boolean;
+      background: boolean;
+      bio: boolean;
+      minLinks: boolean;
+    };
   }>({
     lastRequestDate: null,
     nextAvailableDate: null,
     canRequestNow: true,
     hasWallet: false,
-    hasSufficientFunds: true, // Default to true
+    hasSufficientFunds: true,
     faucetEnabled: false,
+    requirements: { photo: false, background: false, bio: false, minLinks: false },
   });
 
   // Fetch faucet amount and status when the dialog is opened
@@ -57,8 +64,9 @@ export function useFundWalletDialog(params: {
           nextAvailableDate: result.nextAvailableDate ? new Date(result.nextAvailableDate) : null,
           canRequestNow: result.canRequestNow,
           hasWallet: result.hasWallet,
-          hasSufficientFunds: result.hasSufficientFunds, // Update based on API response
-          faucetEnabled: result.faucetEnabled, // Set global faucet status
+          hasSufficientFunds: result.hasSufficientFunds,
+          faucetEnabled: result.faucetEnabled,
+          requirements: result.requirements ?? { photo: false, background: false, bio: false, minLinks: false },
         });
       } catch (error: any) {
         console.error("Failed to fetch faucet amount or status:", error);
@@ -93,6 +101,13 @@ export function useFundWalletDialog(params: {
     // Prevent claim if faucet has insufficient funds
     if (!faucetInfo.hasSufficientFunds) {
       toast.error("The faucet is currently out of funds. Please try again later.");
+      return { success: false };
+    }
+
+    // Prevent claim if profile requirements are not met
+    const reqs = faucetInfo.requirements;
+    if (!reqs.photo || !reqs.background || !reqs.bio || !reqs.minLinks) {
+      toast.error("Complete your profile to unlock the faucet.");
       return { success: false };
     }
 
