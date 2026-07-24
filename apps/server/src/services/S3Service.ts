@@ -291,7 +291,7 @@ class S3Service {
     themeId,
   }: GenerateFileKeyParams): string {
     // Validate required parameters for backgrounds
-    if (category === "backgrounds" && !themeId) {
+    if (category === "backgrounds" && (themeId == null || themeId <= 0)) {
       throw new Error("themeId is required for backgrounds category");
     }
 
@@ -330,7 +330,7 @@ class S3Service {
     if (category === "collection" && !collectionId) {
       throw new Error("collectionId is required for collection uploads");
     }
-    if (category === "backgrounds" && !themeId) {
+    if (category === "backgrounds" && (themeId == null || themeId <= 0)) {
       throw new Error("themeId is required for backgrounds category");
     }
 
