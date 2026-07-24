@@ -403,7 +403,10 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
             <h2 className="text-xl font-bold text-gray-900">Profile Requirements</h2>
           </div>
           <div className="p-6">
-            <FaucetRequirementsChecklist requirements={faucetInfo.requirements} />
+            <FaucetRequirementsChecklist
+              requirements={faucetInfo.requirements}
+              onActionClick={() => setShowRequirementsModal(false)}
+            />
           </div>
         </DialogContent>
       </Dialog>

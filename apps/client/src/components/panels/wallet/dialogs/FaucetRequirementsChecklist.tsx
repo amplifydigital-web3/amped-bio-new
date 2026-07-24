@@ -18,6 +18,7 @@ interface Requirement {
 
 interface FaucetRequirementsChecklistProps {
   requirements: FaucetRequirements;
+  onActionClick?: () => void;
 }
 
 const STEPS: Omit<Requirement, "completed">[] = [
@@ -51,7 +52,7 @@ const STEPS: Omit<Requirement, "completed">[] = [
   },
 ];
 
-export function FaucetRequirementsChecklist({ requirements }: FaucetRequirementsChecklistProps) {
+export function FaucetRequirementsChecklist({ requirements, onActionClick }: FaucetRequirementsChecklistProps) {
   const steps: Requirement[] = STEPS.map(step => ({
     ...step,
     completed: requirements[step.key] ?? false,
@@ -105,6 +106,7 @@ export function FaucetRequirementsChecklist({ requirements }: FaucetRequirements
             {!step.completed && (
               <a
                 href={step.actionHref}
+                onClick={onActionClick}
                 className="flex items-center space-x-1 text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors flex-shrink-0 ml-2"
               >
                 <span>{step.actionLabel}</span>
