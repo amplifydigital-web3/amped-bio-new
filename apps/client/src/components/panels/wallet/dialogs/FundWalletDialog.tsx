@@ -5,6 +5,7 @@ import OnRampIcon from "@/assets/icons/onramp.png";
 import { useState, useEffect } from "react";
 import { useFundWalletDialog } from "../hooks/useFundWalletDialog";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { FaucetRequirementsChecklist } from "./FaucetRequirementsChecklist";
 
 // Component to display countdown timer
 function CountdownTimer({ targetDate, onComplete }: { targetDate: Date; onComplete?: () => void }) {
@@ -86,6 +87,13 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
   });
 
   const [rewardClaimed, setRewardClaimed] = useState(!faucetInfo.canRequestNow);
+  const [showRequirementsModal, setShowRequirementsModal] = useState(false);
+
+  const allRequirementsMet =
+    faucetInfo.requirements.photo &&
+    faucetInfo.requirements.background &&
+    faucetInfo.requirements.bio &&
+    faucetInfo.requirements.minLinks;
 
   useEffect(() => {
     setRewardClaimed(!faucetInfo.canRequestNow);
@@ -195,14 +203,15 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
                       !faucetInfo.faucetEnabled ||
                       claimingFaucet ||
                       !faucetInfo.canRequestNow ||
-                      !faucetInfo.hasSufficientFunds
+                      !faucetInfo.hasSufficientFunds ||
+                      !allRequirementsMet
                     }
                     className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 flex items-center space-x-2 ${
                       !faucetInfo.faucetEnabled
                         ? "bg-gray-400 text-white cursor-not-allowed"
                         : !faucetInfo.canRequestNow
                           ? "bg-blue-600 text-white cursor-default"
-                          : claimingFaucet || !faucetInfo.hasSufficientFunds
+                          : claimingFaucet || !faucetInfo.hasSufficientFunds || !allRequirementsMet
                             ? "bg-gray-400 text-white cursor-not-allowed"
                             : "bg-green-600 hover:bg-green-700 text-white hover:scale-105"
                     }`}
@@ -227,6 +236,11 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
                         <Gift className="w-4 h-4" />
                         <span>Out of Funds</span>
                       </>
+                    ) : !allRequirementsMet ? (
+                      <>
+                        <Gift className="w-4 h-4" />
+                        <span>Complete Profile</span>
+                      </>
                     ) : (
                       <>
                         <Gift className="w-4 h-4" />
@@ -236,6 +250,22 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
                   </button>
                 </div>
               </div>
+
+              {/* Requirements */}
+              {!isLoadingFaucetAmount && faucetInfo.faucetEnabled && (
+                <button
+                  onClick={() => setShowRequirementsModal(true)}
+                  className={`w-full rounded-lg p-3 text-sm font-medium transition-colors ${
+                    allRequirementsMet
+                      ? "bg-green-50 border border-green-200 text-green-700 hover:bg-green-100"
+                      : "bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100"
+                  }`}
+                >
+                  {allRequirementsMet
+                    ? "✓ Profile complete — faucet unlocked"
+                    : "Complete your profile to unlock the faucet →"}
+                </button>
+              )}
 
               {/* Bridge */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow duration-200">
@@ -362,6 +392,21 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
                 Deposit Funds Manually
               </button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Requirements Modal */}
+      <Dialog open={showRequirementsModal} onOpenChange={setShowRequirementsModal}>
+        <DialogContent className="max-w-md rounded-xl p-0 bg-white">
+          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <h2 className="text-xl font-bold text-gray-900">Profile Requirements</h2>
+          </div>
+          <div className="p-6">
+            <FaucetRequirementsChecklist
+              requirements={faucetInfo.requirements}
+              onActionClick={() => setShowRequirementsModal(false)}
+            />
           </div>
         </DialogContent>
       </Dialog>
