@@ -87,6 +87,7 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
   });
 
   const [rewardClaimed, setRewardClaimed] = useState(!faucetInfo.canRequestNow);
+  const [showRequirementsModal, setShowRequirementsModal] = useState(false);
 
   const allRequirementsMet =
     faucetInfo.requirements.photo &&
@@ -250,9 +251,20 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
                 </div>
               </div>
 
-              {/* Requirements Checklist */}
+              {/* Requirements */}
               {!isLoadingFaucetAmount && faucetInfo.faucetEnabled && (
-                <FaucetRequirementsChecklist requirements={faucetInfo.requirements} />
+                <button
+                  onClick={() => setShowRequirementsModal(true)}
+                  className={`w-full rounded-lg p-3 text-sm font-medium transition-colors ${
+                    allRequirementsMet
+                      ? "bg-green-50 border border-green-200 text-green-700 hover:bg-green-100"
+                      : "bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100"
+                  }`}
+                >
+                  {allRequirementsMet
+                    ? "✓ Profile complete — faucet unlocked"
+                    : "Complete your profile to unlock the faucet →"}
+                </button>
               )}
 
               {/* Bridge */}
@@ -380,6 +392,18 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
                 Deposit Funds Manually
               </button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Requirements Modal */}
+      <Dialog open={showRequirementsModal} onOpenChange={setShowRequirementsModal}>
+        <DialogContent className="max-w-md rounded-xl p-0 bg-white">
+          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <h2 className="text-xl font-bold text-gray-900">Profile Requirements</h2>
+          </div>
+          <div className="p-6">
+            <FaucetRequirementsChecklist requirements={faucetInfo.requirements} />
           </div>
         </DialogContent>
       </Dialog>
