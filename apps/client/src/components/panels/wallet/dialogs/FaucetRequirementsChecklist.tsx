@@ -1,7 +1,14 @@
 import { Check, ArrowRight } from "lucide-react";
 
+type FaucetRequirements = {
+  photo: boolean;
+  background: boolean;
+  bio: boolean;
+  minLinks: boolean;
+};
+
 interface Requirement {
-  key: string;
+  key: keyof FaucetRequirements;
   label: string;
   description: string;
   completed: boolean;
@@ -10,7 +17,7 @@ interface Requirement {
 }
 
 interface FaucetRequirementsChecklistProps {
-  requirements: Record<string, boolean>;
+  requirements: FaucetRequirements;
 }
 
 const STEPS: Omit<Requirement, "completed">[] = [

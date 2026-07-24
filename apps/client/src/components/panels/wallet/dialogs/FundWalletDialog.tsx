@@ -210,7 +210,7 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
                         ? "bg-gray-400 text-white cursor-not-allowed"
                         : !faucetInfo.canRequestNow
                           ? "bg-blue-600 text-white cursor-default"
-                          : claimingFaucet || !faucetInfo.hasSufficientFunds
+                          : claimingFaucet || !faucetInfo.hasSufficientFunds || !allRequirementsMet
                             ? "bg-gray-400 text-white cursor-not-allowed"
                             : "bg-green-600 hover:bg-green-700 text-white hover:scale-105"
                     }`}
@@ -234,6 +234,11 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
                       <>
                         <Gift className="w-4 h-4" />
                         <span>Out of Funds</span>
+                      </>
+                    ) : !allRequirementsMet ? (
+                      <>
+                        <Gift className="w-4 h-4" />
+                        <span>Complete Profile</span>
                       </>
                     ) : (
                       <>
