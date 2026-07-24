@@ -5,6 +5,7 @@ import OnRampIcon from "@/assets/icons/onramp.png";
 import { useState, useEffect } from "react";
 import { useFundWalletDialog } from "../hooks/useFundWalletDialog";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { FaucetRequirementsChecklist } from "./FaucetRequirementsChecklist";
 
 // Component to display countdown timer
 function CountdownTimer({ targetDate, onComplete }: { targetDate: Date; onComplete?: () => void }) {
@@ -86,6 +87,12 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
   });
 
   const [rewardClaimed, setRewardClaimed] = useState(!faucetInfo.canRequestNow);
+
+  const allRequirementsMet =
+    faucetInfo.requirements.photo &&
+    faucetInfo.requirements.background &&
+    faucetInfo.requirements.bio &&
+    faucetInfo.requirements.minLinks;
 
   useEffect(() => {
     setRewardClaimed(!faucetInfo.canRequestNow);
@@ -195,14 +202,15 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
                       !faucetInfo.faucetEnabled ||
                       claimingFaucet ||
                       !faucetInfo.canRequestNow ||
-                      !faucetInfo.hasSufficientFunds
+                      !faucetInfo.hasSufficientFunds ||
+                      !allRequirementsMet
                     }
                     className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 flex items-center space-x-2 ${
                       !faucetInfo.faucetEnabled
                         ? "bg-gray-400 text-white cursor-not-allowed"
                         : !faucetInfo.canRequestNow
                           ? "bg-blue-600 text-white cursor-default"
-                          : claimingFaucet || !faucetInfo.hasSufficientFunds
+                          : claimingFaucet || !faucetInfo.hasSufficientFunds || !allRequirementsMet
                             ? "bg-gray-400 text-white cursor-not-allowed"
                             : "bg-green-600 hover:bg-green-700 text-white hover:scale-105"
                     }`}
@@ -227,6 +235,11 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
                         <Gift className="w-4 h-4" />
                         <span>Out of Funds</span>
                       </>
+                    ) : !allRequirementsMet ? (
+                      <>
+                        <Gift className="w-4 h-4" />
+                        <span>Complete Profile</span>
+                      </>
                     ) : (
                       <>
                         <Gift className="w-4 h-4" />
@@ -236,6 +249,11 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
                   </button>
                 </div>
               </div>
+
+              {/* Requirements Checklist */}
+              {!isLoadingFaucetAmount && faucetInfo.faucetEnabled && (
+                <FaucetRequirementsChecklist requirements={faucetInfo.requirements} />
+              )}
 
               {/* Bridge */}
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow duration-200">

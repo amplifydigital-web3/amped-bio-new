@@ -12,6 +12,58 @@ import Decimal from "decimal.js";
 import { SITE_SETTINGS } from "@ampedbio/constants";
 import { cache, CACHE_TTL, getMethodSignatureCacheKey } from "../utils/cache";
 
+const themeConfigSchema = z.object({
+  background: z
+    .object({
+      type: z.string(),
+      value: z.string().nullable(),
+    })
+    .optional(),
+});
+
+async function getFaucetRequirements(userId: number) {
+  const [user, linkBlockCount] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        image: true,
+        image_file_id: true,
+        description: true,
+        theme: true,
+      },
+    }),
+    prisma.block.count({
+      where: { user_id: userId, type: "link" },
+    }),
+  ]);
+
+  if (!user) {
+    return { photo: false, background: false, bio: false, minLinks: false };
+  }
+
+  const hasPhoto = !!(user.image || user.image_file_id);
+
+  let hasBackground = false;
+  if (user.theme) {
+    const themeRecord = await prisma.theme.findUnique({
+      where: { id: Number(user.theme) },
+      select: { config: true },
+    });
+    if (themeRecord?.config) {
+      const parsed = themeConfigSchema.safeParse(themeRecord.config);
+      if (parsed.success) {
+        hasBackground =
+          parsed.data.background?.type === "image" && !!parsed.data.background?.value;
+      }
+    }
+  }
+
+  const hasBio = !!(user.description && user.description.trim().length > 0);
+  const hasMinLinks = linkBlockCount >= 5;
+
+  return { photo: hasPhoto, background: hasBackground, bio: hasBio, minLinks: hasMinLinks };
+}
+
 // Schema for requesting faucet tokens
 const faucetRequestSchema = z.object({
   publicKey: z.string(),
@@ -233,7 +285,13 @@ export const walletRouter = router({
             canRequestNow: false,
             hasWallet: false,
             hasSufficientFunds: false,
-            faucetEnabled: false, // Indicate that the faucet is disabled
+            faucetEnabled: false,
+            requirements: {
+              photo: false,
+              background: false,
+              bio: false,
+              minLinks: false,
+            },
           };
         }
 
@@ -300,8 +358,9 @@ export const walletRouter = router({
           nextAvailableDate,
           canRequestNow,
           hasWallet: !!userWallet,
-          hasSufficientFunds, // Return the flag to the client
-          faucetEnabled, // Return the faucet enabled status
+          hasSufficientFunds,
+          faucetEnabled,
+          requirements: await getFaucetRequirements(userId),
         };
       } catch (error) {
         console.error("Error getting faucet amount:", error);
@@ -312,6 +371,19 @@ export const walletRouter = router({
         });
       }
     }),
+
+  checkFaucetRequirements: privateProcedure.query(async ({ ctx }) => {
+    const userId = ctx.user!.sub;
+    try {
+      return await getFaucetRequirements(userId);
+    } catch (error) {
+      console.error("Error checking faucet requirements:", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to check faucet requirements",
+      });
+    }
+  }),
 
   // Get the wallet address linked to the current user (1:1 relationship)
   getUserWallet: privateProcedure.query(async ({ ctx }) => {
@@ -416,6 +488,33 @@ export const walletRouter = router({
         }
 
         const now = new Date();
+
+        // Validate faucet profile requirements
+        const requirements = await getFaucetRequirements(userId);
+        if (!requirements.photo) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "You need a profile photo to claim faucet tokens.",
+          });
+        }
+        if (!requirements.background) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "You need a background image to claim faucet tokens.",
+          });
+        }
+        if (!requirements.bio) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "You need a bio to claim faucet tokens.",
+          });
+        }
+        if (!requirements.minLinks) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "You need at least 5 links to claim faucet tokens.",
+          });
+        }
 
         // Find user's wallet (1:1 relationship - each user can have only one wallet)
         let wallet = await prisma.userWallet.findFirst({
