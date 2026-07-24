@@ -57,7 +57,11 @@ async function getFaucetRequirements(userId: number) {
     }
   }
 
-  const hasBio = !!(user.description && user.description.trim().length > 0);
+  const hasBio = (() => {
+    if (!user.description) return false;
+    const stripped = user.description.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, "").trim();
+    return stripped.length > 0;
+  })();
   const hasMinLinks = linkBlockCount >= 5;
 
   return { photo: hasPhoto, background: hasBackground, bio: hasBio, minLinks: hasMinLinks };
