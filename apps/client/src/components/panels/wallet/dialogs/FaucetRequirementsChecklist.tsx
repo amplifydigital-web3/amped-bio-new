@@ -1,4 +1,6 @@
 import { Check, ArrowRight } from "lucide-react";
+import { useEditor } from "../../../../contexts/EditorContext";
+import type { EditorPanelType } from "../../../../types/editor";
 
 type FaucetRequirements = {
   photo: boolean;
@@ -12,7 +14,7 @@ interface Requirement {
   label: string;
   description: string;
   completed: boolean;
-  actionHref: string;
+  panel: EditorPanelType;
   actionLabel: string;
 }
 
@@ -26,39 +28,49 @@ const STEPS: Omit<Requirement, "completed">[] = [
     key: "photo",
     label: "Profile Photo",
     description: "Upload a profile picture",
-    actionHref: "/editor?tab=profile",
+    panel: "profile",
     actionLabel: "Upload Photo",
   },
   {
     key: "background",
-    label: "Background Image",
+    label: "Background",
     description: "Set a background for your page",
-    actionHref: "/editor?tab=theme",
+    panel: "gallery",
     actionLabel: "Set Background",
   },
   {
     key: "bio",
     label: "Bio / About Text",
     description: "Write a short bio about yourself",
-    actionHref: "/editor?tab=profile",
+    panel: "profile",
     actionLabel: "Write Bio",
   },
   {
     key: "minLinks",
-    label: "At Least 5 Links",
-    description: "Add 5 or more links to your page",
-    actionHref: "/editor?tab=links",
-    actionLabel: "Add Links",
+    label: "At Least 5 Blocks",
+    description: "Add 5 or more blocks to your page",
+    panel: "blocks",
+    actionLabel: "Add Blocks",
   },
 ];
 
-export function FaucetRequirementsChecklist({ requirements, onActionClick }: FaucetRequirementsChecklistProps) {
+export function FaucetRequirementsChecklist({
+  requirements,
+  onActionClick,
+}: FaucetRequirementsChecklistProps) {
+  const { setActivePanelAndNavigate } = useEditor();
+
   const steps: Requirement[] = STEPS.map(step => ({
     ...step,
     completed: requirements[step.key] ?? false,
   }));
 
   const completedCount = steps.filter(s => s.completed).length;
+
+  const handleAction = (panel: EditorPanelType) => {
+    setActivePanelAndNavigate(panel);
+    onActionClick?.();
+  };
 
   return (
     <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
@@ -104,14 +116,14 @@ export function FaucetRequirementsChecklist({ requirements, onActionClick }: Fau
               </div>
             </div>
             {!step.completed && (
-              <a
-                href={step.actionHref}
-                onClick={onActionClick}
+              <button
+                type="button"
+                onClick={() => handleAction(step.panel)}
                 className="flex items-center space-x-1 text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors flex-shrink-0 ml-2"
               >
                 <span>{step.actionLabel}</span>
                 <ArrowRight className="w-3 h-3" />
-              </a>
+              </button>
             )}
           </div>
         ))}

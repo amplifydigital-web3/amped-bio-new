@@ -15,7 +15,7 @@ import { cache, CACHE_TTL, getMethodSignatureCacheKey } from "../utils/cache";
 const themeConfigSchema = z.object({
   background: z
     .object({
-      type: z.string(),
+      type: z.enum(["color", "image", "video"]),
       value: z.string().nullable(),
     })
     .optional(),
@@ -33,7 +33,7 @@ async function getFaucetRequirements(userId: number) {
       },
     }),
     prisma.block.count({
-      where: { user_id: userId, type: "link" },
+      where: { user_id: userId },
     }),
   ]);
 
@@ -52,8 +52,7 @@ async function getFaucetRequirements(userId: number) {
     if (themeRecord?.config) {
       const parsed = themeConfigSchema.safeParse(themeRecord.config);
       if (parsed.success) {
-        hasBackground =
-          parsed.data.background?.type === "image" && !!parsed.data.background?.value;
+        hasBackground = !!parsed.data.background?.type && !!parsed.data.background?.value;
       }
     }
   }
