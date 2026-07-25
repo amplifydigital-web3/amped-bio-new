@@ -17,6 +17,7 @@ const themeConfigSchema = z.object({
     .object({
       type: z.enum(["color", "image", "video"]),
       value: z.string().nullable(),
+      fileId: z.number().optional(),
     })
     .optional(),
 });
@@ -52,7 +53,7 @@ async function getFaucetRequirements(userId: number) {
     if (themeRecord?.config) {
       const parsed = themeConfigSchema.safeParse(themeRecord.config);
       if (parsed.success) {
-        hasBackground = !!parsed.data.background?.type && !!parsed.data.background?.value;
+        hasBackground = !!parsed.data.background?.type && (!!parsed.data.background?.value || !!parsed.data.background?.fileId);
       }
     }
   }
