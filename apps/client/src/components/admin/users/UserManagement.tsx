@@ -12,11 +12,13 @@ import {
   Check,
   Download,
   Loader2,
+  ShieldOff,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { formatUserRole, formatUserStatus, formatDate } from "../../../utils/adminFormat";
 import { maskEmail } from "../../../utils/email";
+import { toast } from "sonner";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
 
@@ -80,6 +82,19 @@ export function UserManagement() {
     setEditFormErrors({});
     setConfirmationText("");
     setIsEditModalOpen(true);
+  };
+
+  const handleDisableUserTwoFactor = async (userId: number, userName: string) => {
+    if (!window.confirm(`Disable two-factor authentication for ${userName}? This will allow them to sign in without 2FA.`)) {
+      return;
+    }
+    try {
+      await trpcClient.admin.users.disableUserTwoFactor.mutate({ userId });
+      toast.success(`2FA disabled for ${userName}`);
+      refetch();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to disable 2FA");
+    }
   };
 
   // Get users with pagination - only enabled when search or filters are applied
@@ -770,6 +785,15 @@ export function UserManagement() {
                         >
                           {user.block === "yes" ? "Unblock" : "Block"}
                         </button>
+                        {user.twoFactorEnabled && (
+                          <button
+                            className="text-orange-600 hover:text-orange-900"
+                            onClick={() => handleDisableUserTwoFactor(user.id, user.name)}
+                          >
+                            <ShieldOff className="h-4 w-4 inline mr-1" />
+                            Disable 2FA
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
