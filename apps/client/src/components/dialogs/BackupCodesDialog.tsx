@@ -63,11 +63,24 @@ export function BackupCodesDialog({
               {backupCodes.map((code, index) => (
                 <div
                   key={index}
-                  className="flex items-center justify-between px-3 py-1.5 bg-white rounded border border-gray-100"
+                  className="flex items-center justify-between px-3 py-1.5 bg-white rounded border border-gray-100 group"
                 >
-                  <span className="text-sm font-mono text-gray-900">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(code);
+                        toast.success("Code copied");
+                      } catch {
+                        toast.error("Failed to copy");
+                      }
+                    }}
+                    className="text-sm font-mono text-gray-900 hover:text-blue-600 transition-colors cursor-pointer"
+                    title="Click to copy"
+                  >
                     {index + 1}. {code}
-                  </span>
+                  </button>
+                  <Copy className="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-600 flex-shrink-0" />
                 </div>
               ))}
             </div>
