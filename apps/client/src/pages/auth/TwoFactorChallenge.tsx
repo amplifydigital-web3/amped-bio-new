@@ -111,10 +111,18 @@ export function TwoFactorChallenge() {
               <input
                 type="text"
                 value={backupCode}
-                onChange={(e) => setBackupCode(e.target.value)}
-                placeholder="XXXX-XXXX"
+                onChange={(e) => {
+                  const cleaned = e.target.value.replace(/[^a-zA-Z0-9-]/g, "").slice(0, 11);
+                  setBackupCode(cleaned);
+                }}
+                onPaste={(e) => {
+                  e.preventDefault();
+                  const pasted = e.clipboardData.getData("text");
+                  const cleaned = pasted.replace(/^[^a-zA-Z0-9]*\d+\.\s*/, "").replace(/[^a-zA-Z0-9-]/g, "").slice(0, 11);
+                  setBackupCode(cleaned);
+                }}
+                placeholder="XXXXX-XXXXX"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-center text-lg tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                maxLength={11}
                 autoFocus
               />
             </div>
