@@ -132,6 +132,7 @@ export const usersRouter = router({
             handle: true,
             role: true,
             block: true,
+            twoFactorEnabled: true,
             created_at: true,
             updated_at: true,
             image: true,
