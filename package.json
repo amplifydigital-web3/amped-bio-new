@@ -16,7 +16,8 @@
   "scripts": {
     "build": "turbo build",
     "build:packages": "turbo build --filter=\"@ampedbio/constants\"",
-    "build:apps": "turbo build --filter=\"@ampedbio/client\" --filter=\"@ampedbio/server\"",
+    "build:apps": "turbo build --filter=\"@ampedbio/client\" --filter=\"@ampedbio/server\" --filter=\"@ampedbio/site\"",
+    "dev:site": "pnpm run --filter @ampedbio/site dev",
     "prebuild": "pnpm run build:packages",
     "dev": "pnpm run dev:client",
     "dev:client": "pnpm run build:packages && pnpm run --filter @ampedbio/client dev:client-only",

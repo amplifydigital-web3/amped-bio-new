@@ -35,7 +35,7 @@ export const JWT_KEYS = {
 // ================ better-auth configuration ==================
 export const auth = betterAuth({
   basePath: "/auth",
-  trustedOrigins: [env.FRONTEND_URL],
+  trustedOrigins: [env.FRONTEND_URL, env.SITE_URL],
   plugins: [
     customSession(async ({ user, session }) => {
       const u = user as unknown as EnrichedUser;
@@ -130,6 +130,12 @@ export const auth = betterAuth({
     provider: "mysql",
   }),
   advanced: {
+    crossSubDomainCookies: env.COOKIE_DOMAIN
+      ? {
+          enabled: true,
+          domain: env.COOKIE_DOMAIN,
+        }
+      : undefined,
     database: {
       useNumberId: true,
       // generateId: options => {

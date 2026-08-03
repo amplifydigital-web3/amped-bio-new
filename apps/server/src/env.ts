@@ -22,9 +22,19 @@ export const env = cleanEnv(process.env, {
     default: 43000,
   }),
   FRONTEND_URL: str({
-    desc: "URL for the website in production",
+    desc: "URL for the app in production",
     default: "http://localhost:5173",
+    example: "https://app.amped.bio",
+  }),
+  SITE_URL: str({
+    desc: "URL for the public Next.js site (for cross-subdomain auth)",
+    default: "http://localhost:3000",
     example: "https://amped.bio",
+  }),
+  COOKIE_DOMAIN: str({
+    desc: "Cookie domain for cross-subdomain auth (e.g. .amped.bio). Leave empty for localhost.",
+    default: "",
+    example: ".amped.bio",
   }),
   API_HOST: str({
     desc: "Host for the API",
