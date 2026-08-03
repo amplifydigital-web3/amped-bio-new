@@ -1,10 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "../../../../utils/trpc";
-import { useAccount, useReadContracts, useWriteContract } from "wagmi";
+import { useAccount, useWriteContract } from "wagmi";
 import { CREATOR_POOL_ABI, getChainConfig, multicall3Abi } from "@ampedbio/web3";
-import { useMemo } from "react";
 import { type Address, encodeFunctionData } from "viem";
-import { UserStakedPoolWithNullables } from "@ampedbio/constants";
+import { UserStakedPool } from "@ampedbio/constants";
 import { toast } from "react-hot-toast";
 import { useWalletContext } from "@/contexts/WalletContext";
 
@@ -22,33 +21,7 @@ export const useStakedPools = () => {
       chainId: chainId?.toString() ?? "0",
     }),
     enabled: !!userAddress && !!chainId,
-  });
-
-  const contracts = useMemo(() => {
-    return (stakedPools || []).flatMap(pool => {
-      const poolAddress = pool.pool.address as Address;
-      return [
-        {
-          address: poolAddress,
-          abi: CREATOR_POOL_ABI,
-          functionName: "pendingReward",
-          args: [userAddress],
-        },
-        {
-          address: poolAddress,
-          abi: CREATOR_POOL_ABI,
-          functionName: "fanStakes",
-          args: [userAddress],
-        },
-      ];
-    });
-  }, [stakedPools, userAddress]);
-
-  const { data: multicallData, refetch: refetchMulticallData } = useReadContracts({
-    contracts,
-    query: {
-      enabled: (stakedPools?.length ?? 0) > 0,
-    },
+    refetchInterval: 15000,
   });
 
   const {
@@ -58,29 +31,15 @@ export const useStakedPools = () => {
     isError: isErrorClaiming,
   } = useWriteContract();
 
-  const combinedData = useMemo(() => {
-    return stakedPools?.map((pool, index) => {
-      const pendingRewards = multicallData?.[index * 2]?.result as bigint | undefined;
-      const stakedByYouResult = multicallData?.[index * 2 + 1]?.result as bigint | undefined;
-
-      return {
-        ...pool,
-        pendingRewards: pendingRewards ?? pool.pool.pendingRewards, // Use multicall data first, fallback to backend value
-        stakedByYou: stakedByYouResult ?? pool.pool.stakedByYou, // Use multicall data first, fallback to backend value
-      };
-    });
-  }, [stakedPools, multicallData]);
-
   const refetch = async () => {
     await refetchStakedPools();
-    await refetchMulticallData();
   };
 
   const claimAll = async () => {
-    if (!combinedData) return;
+    if (!stakedPools) return;
 
-    const poolsToClaim = combinedData.filter(
-      pool => pool.pendingRewards && pool.pendingRewards > 0
+    const poolsToClaim = (stakedPools ?? []).filter(
+      pool => pool.pool.pendingRewards && pool.pool.pendingRewards > 0n
     );
 
     if (poolsToClaim.length === 0) {
@@ -120,7 +79,7 @@ export const useStakedPools = () => {
   };
 
   return {
-    stakedPools: combinedData,
+    stakedPools,
     isLoading: isLoadingPools,
     refetch,
     claimAll,
@@ -128,7 +87,7 @@ export const useStakedPools = () => {
     isSuccessClaiming,
     isErrorClaiming,
   } as {
-    stakedPools: UserStakedPoolWithNullables[] | undefined;
+    stakedPools: UserStakedPool[] | undefined;
     isLoading: boolean;
     refetch: () => Promise<void>;
     claimAll: () => Promise<void>;

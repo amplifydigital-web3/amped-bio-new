@@ -90,6 +90,7 @@ export interface PoolDetailsForModal {
   stakedByYou: bigint | null; // Amount of REVO that the requesting user has staked in this pool
   lastClaim: Date | null;
   apy?: number; // APY in basis points (e.g., 1250 = 12.5%)
+  creatorFee: number | null; // Creator fee in basis points (e.g., 2500 = 25%)
   creator: {
     userId: number;
     address: string;

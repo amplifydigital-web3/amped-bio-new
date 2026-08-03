@@ -117,6 +117,27 @@ export const CACHE_TTL = {
    * Function signatures rarely change once deployed.
    */
   METHOD_SIGNATURE: 604800,
+  /**
+   * 10 seconds - Live per-user per-pool on-chain data (fanStakes, pendingReward).
+   * Short TTL to keep data fresh while absorbing 15s client polling.
+   */
+  LIVE_USER_POOL_DATA: 10,
+  /**
+   * 10 seconds - User staked pools list (polling absorption).
+   */
+  USER_STAKED: 10,
+  /**
+   * 30 seconds - Faucet wallet balance.
+   */
+  FAUCET_BALANCE: 30,
+  /**
+   * 60 seconds - Affiliate wallet balance.
+   */
+  AFFILIATE_BALANCE: 60,
+  /**
+   * 30 seconds - Wallet stats (myStake, stakedToMe, etc.).
+   */
+  WALLET_STATS: 30,
 } as const;
 
 /**
@@ -150,6 +171,31 @@ export enum CacheKeys {
    * Format: `system_stats:${chainId}`
    */
   SYSTEM_STATS_PREFIX = "system_stats",
+  /**
+   * Cache key prefix for live per-user per-pool on-chain data (fanStakes, pendingReward).
+   * Format: `live_user_pool:${chainId}:${poolAddress}:${userAddress}`
+   */
+  LIVE_USER_POOL_DATA_PREFIX = "live_user_pool",
+  /**
+   * Cache key prefix for user staked pools (polling absorption).
+   * Format: `user_staked:${chainId}:${userId}`
+   */
+  USER_STAKED_PREFIX = "user_staked",
+  /**
+   * Cache key prefix for faucet wallet balance.
+   * Format: `faucet_balance:${chainId}`
+   */
+  FAUCET_BALANCE_PREFIX = "faucet_balance",
+  /**
+   * Cache key prefix for affiliate wallet balance.
+   * Format: `affiliate_balance:${chainId}`
+   */
+  AFFILIATE_BALANCE_PREFIX = "affiliate_balance",
+  /**
+   * Cache key prefix for wallet stats.
+   * Format: `wallet_stats:${userId}`
+   */
+  WALLET_STATS_PREFIX = "wallet_stats",
 }
 
 /**
@@ -294,4 +340,28 @@ export function getMethodSignatureCacheKey(selector: string): string {
 
 export function getSystemStatsCacheKey(chainId: number): string {
   return `${CacheKeys.SYSTEM_STATS_PREFIX}:${chainId}`;
+}
+
+export function getLiveUserPoolDataCacheKey(
+  chainId: number,
+  poolAddress: Address,
+  userAddress: Address
+): string {
+  return `${CacheKeys.LIVE_USER_POOL_DATA_PREFIX}:${chainId}:${poolAddress}:${userAddress}`;
+}
+
+export function getUserStakedCacheKey(chainId: string, userId: string | number): string {
+  return `${CacheKeys.USER_STAKED_PREFIX}:${chainId}:${userId}`;
+}
+
+export function getFaucetBalanceCacheKey(chainId: number): string {
+  return `${CacheKeys.FAUCET_BALANCE_PREFIX}:${chainId}`;
+}
+
+export function getAffiliateBalanceCacheKey(chainId: number): string {
+  return `${CacheKeys.AFFILIATE_BALANCE_PREFIX}:${chainId}`;
+}
+
+export function getWalletStatsCacheKey(userId: string | number): string {
+  return `${CacheKeys.WALLET_STATS_PREFIX}:${userId}`;
 }

@@ -17,6 +17,9 @@ import {
   getAPYCacheKey,
   getPoolsCacheKey,
   getSystemStatsCacheKey,
+  getLiveUserPoolDataCacheKey,
+  getUserStakedCacheKey,
+  getWalletStatsCacheKey,
   CACHE_TTL,
 } from "../../utils/cache";
 import {
@@ -795,6 +798,13 @@ export const poolsFanRouter = router({
     .query(async ({ ctx, input }): Promise<Array<UserStakedPool>> => {
       const userId = ctx.user!.sub;
 
+      // Check cache first
+      const userStakedCacheKey = getUserStakedCacheKey(input.chainId, userId);
+      const cachedStakedPools = await cache.get<UserStakedPool[]>(userStakedCacheKey);
+      if (cachedStakedPools !== null) {
+        return cachedStakedPools;
+      }
+
       try {
         const userWallet = await prisma.userWallet.findUnique({
           where: { userId },
@@ -1026,6 +1036,9 @@ export const poolsFanRouter = router({
         // Filter out stakes where the user has 0 stake amount
         const filteredResultStakes = resultStakes.filter(stake => stake.pool.stakedByYou > 0n);
 
+        // Cache the result
+        await cache.set(userStakedCacheKey, filteredResultStakes, CACHE_TTL.USER_STAKED);
+
         return filteredResultStakes;
       } catch (error) {
         console.error("Error getting user stakes:", error);
@@ -1212,6 +1225,14 @@ export const poolsFanRouter = router({
           console.info(
             `Stake confirmed for user ${userId} in pool ${pool.id}, amount: ${stake.amount.toString()}`
           );
+        }
+
+        // Invalidate caches after successful stake
+        try {
+          await cache.delete(getWalletStatsCacheKey(userId));
+          await cache.delete(getUserStakedCacheKey(input.chainId, userId));
+        } catch (cacheError) {
+          console.error("Failed to invalidate cache after stake:", cacheError);
         }
 
         return {
@@ -1441,6 +1462,14 @@ export const poolsFanRouter = router({
           );
         }
 
+        // Invalidate caches after successful unstake
+        try {
+          await cache.delete(getWalletStatsCacheKey(userId));
+          await cache.delete(getUserStakedCacheKey(input.chainId, userId));
+        } catch (cacheError) {
+          console.error("Failed to invalidate cache after unstake:", cacheError);
+        }
+
         return {
           success: true,
           message: `Successfully confirmed ${parsedUnstakes.length} unstake(s)`,
@@ -1596,7 +1625,7 @@ export const poolsFanRouter = router({
           // Fetch blockchain data (totalFanStaked, creatorStaked)
           (async () => {
             if (!pool.poolAddress) {
-              return { totalStake };
+              return { totalStake, creatorFee: null };
             }
 
             try {
@@ -1612,6 +1641,11 @@ export const poolsFanRouter = router({
                   abi: CREATOR_POOL_ABI,
                   functionName: "creatorStaked" as const,
                 },
+                {
+                  address: pool.poolAddress as Address,
+                  abi: CREATOR_POOL_ABI,
+                  functionName: "creatorCut" as const,
+                },
               ];
 
               // Execute all contract calls in a single batch
@@ -1622,9 +1656,11 @@ export const poolsFanRouter = router({
               // Process the results
               const totalFanStakedResult = results[0];
               const creatorStakedResult = results[1];
+              const creatorCutResult = results[2];
 
               let totalFanStaked: bigint | null = null;
               let creatorStaked: bigint | null = null;
+              let creatorFee: number | null = null;
 
               // Handle totalFanStaked result
               if (totalFanStakedResult.status === "success") {
@@ -1652,6 +1688,19 @@ export const poolsFanRouter = router({
                 );
               }
 
+              // Handle creatorCut result
+              if (creatorCutResult.status === "success") {
+                creatorFee = Number(creatorCutResult.result as bigint);
+                console.log(
+                  `Successfully fetched creatorCut from contract for pool ${pool.id}: ${creatorFee}`
+                );
+              } else {
+                console.error(
+                  `Error fetching creatorCut from contract for pool ${pool.id}:`,
+                  creatorCutResult.error
+                );
+              }
+
               // Calculate the total stake as sum of creatorStaked and totalFanStaked only if both calls succeeded
               if (totalFanStaked !== null && creatorStaked !== null) {
                 const newTotalStake = (totalFanStaked + creatorStaked) as bigint;
@@ -1673,17 +1722,17 @@ export const poolsFanRouter = router({
                   // Continue anyway, we'll still return the blockchain value
                 }
 
-                return { totalStake: newTotalStake };
+                return { totalStake: newTotalStake, creatorFee };
               } else {
                 console.warn(
                   `Could not fetch both totalFanStaked and creatorStaked for pool ${pool.id}, using DB value`
                 );
-                return { totalStake };
+                return { totalStake, creatorFee };
               }
             } catch (error) {
               console.error(`Error fetching data from contract for pool ${pool.id}:`, error);
               // If contract query fails, we'll keep the db value
-              return { totalStake };
+              return { totalStake, creatorFee: null };
             }
           })(),
 
@@ -1825,6 +1874,7 @@ export const poolsFanRouter = router({
 
         // Update values with data from blockchain calls
         totalStake = blockchainData.totalStake;
+        const creatorFee = blockchainData.creatorFee;
 
         // Fetch pool name from blockchain if not in database
         if (!poolName && pool.poolAddress && chain) {
@@ -1892,6 +1942,7 @@ export const poolsFanRouter = router({
           stakedByYou,
           lastClaim,
           apy,
+          creatorFee,
           creator: {
             userId: pool.wallet!.userId!,
             address: pool.wallet!.address!,
@@ -1906,6 +1957,65 @@ export const poolsFanRouter = router({
           message: "Failed to get pool details",
         });
       }
+    }),
+
+  getLiveUserPoolData: publicProcedure
+    .input(
+      z.object({
+        poolAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+        userAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+        chainId: z.string(),
+      })
+    )
+    .query(async ({ input }) => {
+      const cacheKey = getLiveUserPoolDataCacheKey(
+        parseInt(input.chainId),
+        input.poolAddress as Address,
+        input.userAddress as Address
+      );
+
+      const cached = await cache.get<{ fanStakes: string; pendingReward: string }>(cacheKey);
+      if (cached) {
+        return cached;
+      }
+
+      const chain = getChainConfig(parseInt(input.chainId));
+      if (!chain) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Unsupported chain ID" });
+      }
+
+      const publicClient = createPublicClient({ chain, transport: http() });
+      const results = await publicClient.multicall({
+        contracts: [
+          {
+            address: input.poolAddress as Address,
+            abi: CREATOR_POOL_ABI,
+            functionName: "fanStakes",
+            args: [input.userAddress as Address],
+          },
+          {
+            address: input.poolAddress as Address,
+            abi: CREATOR_POOL_ABI,
+            functionName: "pendingReward",
+            args: [input.userAddress as Address],
+          },
+        ],
+      });
+
+      const fanStakes =
+        results[0].status === "success"
+          ? (results[0].result as bigint).toString()
+          : "0";
+      const pendingReward =
+        results[1].status === "success"
+          ? (results[1].result as bigint).toString()
+          : "0";
+
+      const data = { fanStakes, pendingReward };
+
+      await cache.set(cacheKey, data, CACHE_TTL.LIVE_USER_POOL_DATA);
+
+      return data;
     }),
 
   confirmClaim: privateProcedure
@@ -1942,6 +2052,20 @@ export const poolsFanRouter = router({
             lastClaim: new Date(),
           },
         });
+
+        // Invalidate caches after successful claim
+        try {
+          const pool = await prisma.creatorPool.findUnique({
+            where: { id: input.poolId },
+            select: { chainId: true },
+          });
+          if (pool) {
+            await cache.delete(getUserStakedCacheKey(pool.chainId, userId));
+          }
+          await cache.delete(getWalletStatsCacheKey(userId));
+        } catch (cacheError) {
+          console.error("Failed to invalidate cache after claim:", cacheError);
+        }
 
         return {
           success: true,
@@ -2080,14 +2204,18 @@ export const poolsFanRouter = router({
         })) as Address[];
 
         let totalSystemStake = 0n;
-        for (const node of nodes) {
-          const delegation = (await publicClient.readContract({
+        const delegationResults = await publicClient.multicall({
+          contracts: nodes.map(node => ({
             address: chain.contracts.NODE_MANAGER.address,
             abi: NODE_MANAGER_ABI,
             functionName: "nodeTotalDelegation",
             args: [node as Address],
-          })) as bigint;
-          totalSystemStake += delegation;
+          })),
+        });
+        for (const result of delegationResults) {
+          if (result.status === "success") {
+            totalSystemStake += result.result as bigint;
+          }
         }
 
         const result = {

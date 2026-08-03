@@ -28,7 +28,7 @@ export default function StakedPoolsSection() {
 
   const totalPendingRewards =
     allStakedPools?.reduce((acc, pool) => {
-      return acc + (pool.pendingRewards ? BigInt(pool.pendingRewards) : 0n);
+      return acc + (pool.pool.pendingRewards ? BigInt(pool.pool.pendingRewards) : 0n);
     }, 0n) ?? 0n;
 
   const canClaimAll = isWeb3Wallet && totalPendingRewards > 0n && !isClaiming;

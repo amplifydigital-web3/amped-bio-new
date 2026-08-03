@@ -4,12 +4,12 @@ import { getChainConfig } from "@ampedbio/web3";
 import { formatUnits, formatEther } from "viem";
 import { toast } from "react-hot-toast";
 import { usePoolReader } from "../../../hooks/usePoolReader";
-import { UserStakedPoolWithNullables } from "@ampedbio/constants";
+import { UserStakedPool } from "@ampedbio/constants";
 import { useAccount } from "wagmi";
 import { useWalletContext } from "@/contexts/WalletContext";
 
 interface StakedPoolRowProps {
-  poolData: UserStakedPoolWithNullables;
+  poolData: UserStakedPool;
   refetchAllStakedPools: () => void;
   onViewPool: (poolId: number) => void;
   currentChainId: string;
@@ -21,7 +21,7 @@ export default function StakedPoolRow({
   onViewPool,
   currentChainId,
 }: StakedPoolRowProps) {
-  const { pendingRewards, stakedByYou, pool } = poolData;
+  const { pool } = poolData;
   const [isClaiming, setIsClaiming] = React.useState(false);
 
   const { address: userAddress } = useAccount();
@@ -32,14 +32,14 @@ export default function StakedPoolRow({
     claimReward,
     pendingReward: hookPendingReward,
     fanStake: hookFanStake,
-    fetchAllData,
+    refetchLiveData,
   } = usePoolReader(
     pool.address as `0x${string}` | undefined,
     userAddress as `0x${string}` | undefined,
+    currentChainId,
     { lastClaim: pool.lastClaim }
   );
 
-  const stakedAmount = stakedByYou;
   const chainConfig = getChainConfig(parseInt(currentChainId));
   const currencySymbol = chainConfig?.nativeCurrency.symbol || "REVO";
 
@@ -55,18 +55,20 @@ export default function StakedPoolRow({
       // Show a loading toast
       toast.loading("Processing claim...", { id: "claim-process" });
 
+      // Capture before claim — hookPendingReward is stale after the async write
+      const claimedAmount = hookPendingReward ?? 0n;
+
       await claimReward(pool.id);
 
       // Show success toast
       toast.success(
-        `Successfully claimed ${hookPendingReward ? parseFloat(formatEther(hookPendingReward)).toLocaleString() : "0"} ${currencySymbol}! Your wallet has been updated.`,
+        `Successfully claimed ${claimedAmount ? parseFloat(formatEther(claimedAmount)).toLocaleString() : "0"} ${currencySymbol}! Your wallet has been updated.`,
         { id: "claim-process" }
       );
 
-      // Refetch all pool data after a successful claim to update the UI
-      await fetchAllData();
-
-      // Refetch all staked pools to update the display
+      // Wait for blockchain to update, then refetch
+      await new Promise(r => setTimeout(r, 1000));
+      await refetchLiveData();
       refetchAllStakedPools();
     } catch {
       // Show error toast
