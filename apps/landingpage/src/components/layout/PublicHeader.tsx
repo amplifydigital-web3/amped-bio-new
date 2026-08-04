@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserMenu } from "@/components/auth/UserMenu";
@@ -14,7 +15,7 @@ export function PublicHeader() {
     <header className="sticky top-0 z-30 h-16 border-b bg-white px-6 flex items-center justify-between shrink-0 shadow-sm">
       <div className="flex items-center space-x-6">
         <Link href="/" className="flex items-center">
-          <span className="text-xl font-bold text-primary">Amped Bio</span>
+          <Image src="/logo.svg" alt="Amplify Logo" width={0} height={0} className="h-8 w-auto" priority />
         </Link>
         <Link href="/i/pools" className="text-sm font-medium text-gray-700 hover:text-gray-900">
           Pools
