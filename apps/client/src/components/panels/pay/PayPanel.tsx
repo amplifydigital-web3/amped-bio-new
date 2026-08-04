@@ -21,7 +21,7 @@ import usePayDialog from "@/hooks/usePayDialog";
 import { Scanner as QRScanner } from "@yudiel/react-qr-scanner";
 import { Address, isAddress, zeroAddress } from "viem";
 import { useChainId, useAccount } from "wagmi";
-import { getChainConfig, getCurrencySymbol } from "@ampedbio/web3";
+import { getChainConfig, getCurrencySymbol } from "@repo/web3";
 import { useResolveRevoName } from "@/hooks/rns/useResolveRevoName";
 import { DOMAIN_SUFFIX } from "@/config/rns/constants";
 

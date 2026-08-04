@@ -17,7 +17,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useAccount, useSignMessage } from "wagmi";
 import { useCaptcha } from "@/hooks/useCaptcha";
 import { GoogleLoginButton } from "@/components/auth/GoogleLoginButton";
-import { CaptchaActions } from "@ampedbio/constants";
+import { CaptchaActions } from "@repo/constants";
 import {
   Check,
   Loader2,

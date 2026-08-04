@@ -4,7 +4,7 @@ import { useNavigate } from "react-router";
 import PoolSkeleton from "./PoolSkeleton";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "../../../../utils/trpc";
-import { getChainConfig } from "@ampedbio/web3";
+import { getChainConfig } from "@repo/web3";
 import PoolDetailsModal from "../ExplorePoolDetailsModal";
 import StakeModal from "../StakeModal";
 import { formatEther } from "viem";

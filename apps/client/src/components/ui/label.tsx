@@ -1,1 +1,1 @@
-export { Label } from "@ampedbio/ui";
+export { Label } from "@repo/ui";

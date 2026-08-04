@@ -3,7 +3,7 @@ import {
   HANDLE_REGEX,
   HANDLE_BASE_URL,
   HandleStatus,
-} from "@ampedbio/constants";
+} from "@repo/constants";
 import { trpcClient } from "./trpc";
 
 // Constants

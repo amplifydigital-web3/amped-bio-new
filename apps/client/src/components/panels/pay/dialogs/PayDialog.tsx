@@ -5,7 +5,7 @@ import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import SentLottie from "@/assets/lottie/sent.lottie";
 import { UsePayDialogReturns } from "@/hooks/usePayDialog";
 import { useAccount, useChainId } from "wagmi";
-import { getCurrencySymbol } from "@ampedbio/web3";
+import { getCurrencySymbol } from "@repo/web3";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 

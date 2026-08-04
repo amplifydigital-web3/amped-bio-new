@@ -20,7 +20,7 @@ import { toast } from "react-hot-toast";
 import {
   ALLOWED_BACKGROUND_FILE_TYPES,
   ALLOWED_BACKGROUND_FILE_EXTENSIONS,
-} from "@ampedbio/constants";
+} from "@repo/constants";
 import { RouterOutputs } from "@/utils/trpc/types";
 
 // Utility function to validate file for background upload

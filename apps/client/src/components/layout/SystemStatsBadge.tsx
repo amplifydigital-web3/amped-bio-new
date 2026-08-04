@@ -2,7 +2,7 @@ import { useSystemStats } from "@/hooks/useSystemStats";
 import { formatUnits } from "viem";
 import { Loader2 } from "lucide-react";
 import { useChainId } from "wagmi";
-import { getCurrencySymbol } from "@ampedbio/web3";
+import { getCurrencySymbol } from "@repo/web3";
 
 function formatREVO(wei: string | undefined): string {
   if (!wei) return "0.00";

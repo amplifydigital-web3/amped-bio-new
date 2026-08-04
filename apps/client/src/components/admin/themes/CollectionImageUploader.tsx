@@ -4,7 +4,7 @@ import { trpcClient } from "../../../utils/trpc";
 import {
   ALLOWED_COLLECTION_THUMBNAIL_FILE_EXTENSIONS,
   ALLOWED_COLLECTION_THUMBNAIL_FILE_TYPES,
-} from "@ampedbio/constants";
+} from "@repo/constants";
 import { trpc } from "../../../utils/trpc/trpc";
 import { useQuery } from "@tanstack/react-query";
 

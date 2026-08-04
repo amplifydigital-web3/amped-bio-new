@@ -8,7 +8,7 @@ import { useEditor } from "../../../contexts/EditorContext";
 import {
   ALLOWED_BACKGROUND_FILE_EXTENSIONS,
   ALLOWED_BACKGROUND_FILE_TYPES,
-} from "@ampedbio/constants";
+} from "@repo/constants";
 import { FileUpload } from "../../ui/FileUpload";
 import { useQuery } from "@tanstack/react-query";
 

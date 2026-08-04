@@ -1,5 +1,5 @@
 import type { Theme, ThemeConfig } from "../types/editor";
-import { ampedThemeImportSchema } from "@ampedbio/constants";
+import { ampedThemeImportSchema } from "@repo/constants";
 
 /**
  * Export the current theme configuration as an AmpedTheme file (.ampedtheme)

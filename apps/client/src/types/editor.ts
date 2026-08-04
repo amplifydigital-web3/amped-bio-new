@@ -4,7 +4,7 @@ import type {
   ThemeConfig,
   Background,
   BlockType,
-} from "@ampedbio/constants";
+} from "@repo/constants";
 
 export type UserProfile = {
   id: number;

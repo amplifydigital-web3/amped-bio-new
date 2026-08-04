@@ -1,6 +1,6 @@
 import { useCollections } from "../../../hooks/useCollections";
 import { BsTelegram } from "react-icons/bs";
-import { TELEGRAM_LINK, TELEGRAM_COLOR } from "@ampedbio/constants";
+import { TELEGRAM_LINK, TELEGRAM_COLOR } from "@repo/constants";
 
 interface CollectionsOverviewProps {
   onCollectionSelect: (collectionId: string) => void;

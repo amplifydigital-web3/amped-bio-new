@@ -7,7 +7,7 @@ import { TokenPriceBlock } from "./TokenPriceBlock";
 import { NFTCollectionBlock } from "./NFTCollectionBlock";
 import { UniswapBlock } from "./UniswapBlock";
 import { SubstackBlock } from "./SubstackBlock";
-import { MediaBlock as MediaBlockType } from "@ampedbio/constants";
+import { MediaBlock as MediaBlockType } from "@repo/constants";
 import { FacebookBlock } from "./FacebookBlock";
 import { TiktokBlock } from "./TiktokBlock";
 import { VimeoBlock } from "./VimeoBlock";

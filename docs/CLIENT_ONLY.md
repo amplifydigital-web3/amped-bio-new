@@ -56,7 +56,7 @@ If you need to extend or modify the mock behavior, update these files accordingl
 You can create a production build of the client in demo mode by running:
 
 ```bash
-pnpm run build:packages && pnpm run --filter @ampedbio/client build:client-only
+pnpm run build:packages && pnpm run --filter @repo/client build:client-only
 ```
 
 This is useful for deploying a demo version that doesn't require a backend server.

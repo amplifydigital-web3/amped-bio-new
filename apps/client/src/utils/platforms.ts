@@ -20,7 +20,7 @@ import {
 import { SlSocialSpotify } from "react-icons/sl";
 import { FaTiktok, FaXTwitter, FaVimeo } from "react-icons/fa6";
 import { type IconType } from "react-icons/lib";
-import { allowedPlatforms } from "@ampedbio/constants";
+import { allowedPlatforms } from "@repo/constants";
 
 export type PlatformId = (typeof allowedPlatforms)[number];
 

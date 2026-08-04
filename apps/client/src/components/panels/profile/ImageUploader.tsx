@@ -3,7 +3,7 @@ import { trpc, trpcClient } from "../../../utils/trpc/trpc";
 import {
   ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS,
   ALLOWED_AVATAR_FILE_TYPES,
-} from "@ampedbio/constants";
+} from "@repo/constants";
 import { PhotoEditor } from "./PhotoEditor";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";

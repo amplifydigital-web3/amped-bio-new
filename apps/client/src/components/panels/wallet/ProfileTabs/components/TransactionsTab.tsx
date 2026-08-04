@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useAccount, useChainId } from "wagmi";
 import { Clock, Loader, AlertCircle } from "lucide-react";
-import { getChainConfig, getCurrencySymbol } from "@ampedbio/web3";
+import { getChainConfig, getCurrencySymbol } from "@repo/web3";
 import { Address } from "viem";
 import { Tooltip } from "@/components/ui/Tooltip";
 import RenderAddressProfile from "./RenderAddressProfile";

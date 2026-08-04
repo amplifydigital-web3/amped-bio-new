@@ -13,7 +13,7 @@ import { TextBlock } from "./blocks/text/TextBlock";
 import { CreatorPoolBlock } from "./blocks/CreatorPoolBlock";
 import { ReferralBlock } from "./blocks/ReferralBlock";
 import { isHTML } from "@/utils/htmlutils";
-import { type BlockType } from "@ampedbio/constants";
+import { type BlockType } from "@repo/constants";
 import { Theme, UserProfile } from "@/types/editor";
 import { trpcClient } from "@/utils/trpc";
 import { useState } from "react";

@@ -1,5 +1,5 @@
 import { useReadContract, useWriteContract, useChainId } from "wagmi";
-import { getChainConfig, REGISTRAR_CONTROLLER_ABI } from "@ampedbio/web3";
+import { getChainConfig, REGISTRAR_CONTROLLER_ABI } from "@repo/web3";
 
 export function useRenewal(name: string, duration: bigint) {
   const { writeContractAsync } = useWriteContract();

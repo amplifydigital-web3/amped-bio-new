@@ -6,7 +6,7 @@ import { FileUpload } from "./ui/FileUpload";
 import { trpcClient } from "@/utils/trpc";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ALLOWED_POOL_IMAGE_FILE_EXTENSIONS } from "@ampedbio/constants";
+import { ALLOWED_POOL_IMAGE_FILE_EXTENSIONS } from "@repo/constants";
 
 interface ImageUploadModalProps {
   isOpen: boolean;

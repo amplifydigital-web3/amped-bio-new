@@ -7,7 +7,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/Button";
-import { AVAILABLE_CHAINS } from "@ampedbio/web3";
+import { AVAILABLE_CHAINS } from "@repo/web3";
 import { Loader2 } from "lucide-react";
 import { trpc } from "../../utils/trpc/trpc";
 import { useMutation } from "@tanstack/react-query";

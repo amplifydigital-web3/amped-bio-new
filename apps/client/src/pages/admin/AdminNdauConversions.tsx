@@ -2,8 +2,8 @@ import { FC, useState } from "react";
 import { trpc } from "@/utils/trpc/trpc";
 import { Button } from "@/components/ui/Button";
 import { useChainId } from "wagmi";
-import { getCurrencySymbol, libertasTestnet } from "@ampedbio/web3";
-import { NDAU_GROUP_LABELS } from "@ampedbio/constants";
+import { getCurrencySymbol, libertasTestnet } from "@repo/web3";
+import { NDAU_GROUP_LABELS } from "@repo/constants";
 import { createWalletClient, custom, parseEther, type Address } from "viem";
 import {
   Dialog,

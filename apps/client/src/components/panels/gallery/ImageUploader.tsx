@@ -3,7 +3,7 @@ import { Upload, Image as ImageIcon } from "lucide-react";
 import {
   ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS,
   ALLOWED_AVATAR_FILE_TYPES,
-} from "@ampedbio/constants";
+} from "@repo/constants";
 import { trpc } from "../../../utils/trpc/trpc";
 import { useQuery } from "@tanstack/react-query";
 

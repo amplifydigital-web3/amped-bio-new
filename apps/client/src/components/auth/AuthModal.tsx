@@ -14,7 +14,7 @@ import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
 import { GoogleLoginButton } from "./GoogleLoginButton";
 import { useCaptcha } from "@/hooks/useCaptcha";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
-import { CaptchaActions } from "@ampedbio/constants";
+import { CaptchaActions } from "@repo/constants";
 import { authClient } from "@/lib/auth-client";
 import { normalizeHandle, cleanHandleInput, getHandlePublicUrl } from "@/utils/handle";
 import { trackGAEvent, trackTwitterEvent, loadTwitterPixel } from "@/utils/ga";

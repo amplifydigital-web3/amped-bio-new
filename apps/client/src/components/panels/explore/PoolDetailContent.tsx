@@ -22,7 +22,7 @@ import { trpc } from "@/utils/trpc/trpc";
 import { useQuery } from "@tanstack/react-query";
 import { usePoolReader } from "../../../hooks/usePoolReader";
 import { formatEther } from "viem";
-import { getChainConfig } from "@ampedbio/web3";
+import { getChainConfig } from "@repo/web3";
 import { useWalletContext } from "@/contexts/WalletContext";
 
 import PoolDetailsModalSkeleton from "./PoolDetailsModalSkeleton";

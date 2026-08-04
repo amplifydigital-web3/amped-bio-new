@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useParams } from "react-router";
 import { trpc } from "@/utils/trpc/trpc";
-import { NDAU_TO_REVO_RATE, NDAU_GROUP_LABELS, getNdauPdfPath } from "@ampedbio/constants";
+import { NDAU_TO_REVO_RATE, NDAU_GROUP_LABELS, getNdauPdfPath } from "@repo/constants";
 import { Button } from "@/components/ui/Button";
 import { useChainId } from "wagmi";
-import { getCurrencySymbol } from "@ampedbio/web3";
+import { getCurrencySymbol } from "@repo/web3";
 import {
   ArrowLeft,
   CheckCircle2,

@@ -1,1 +1,1 @@
-export { Skeleton } from "@ampedbio/ui";
+export { Skeleton } from "@repo/ui";

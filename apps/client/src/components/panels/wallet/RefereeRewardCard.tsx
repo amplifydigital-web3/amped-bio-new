@@ -5,7 +5,7 @@ import { trpcClient } from "@/utils/trpc/trpc";
 import { Gift, ChevronDown, ChevronUp, Info, ExternalLink, Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { PROCESSING_TXID } from "@ampedbio/constants";
+import { PROCESSING_TXID } from "@repo/constants";
 
 function RefereeRewardCard() {
   const { authUser } = useAuth();

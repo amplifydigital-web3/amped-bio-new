@@ -15,7 +15,7 @@ import { privateProcedure, router } from "./trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { s3Service } from "../services/S3Service";
-import { themeConfigSchema, type ThemeConfig } from "@ampedbio/constants";
+import { themeConfigSchema, type ThemeConfig } from "@repo/constants";
 import { getFileUrl } from "../utils/fileUrlResolver";
 import { prisma } from "../services/DB";
 

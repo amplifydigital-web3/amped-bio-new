@@ -2,7 +2,7 @@
 import { Input } from "../../ui/Input";
 import { Textarea } from "../../ui/Textarea";
 import { Button } from "../../ui/Button";
-import { BlockType, LinkBlock } from "@ampedbio/constants";
+import { BlockType, LinkBlock } from "@repo/constants";
 import { PoolSearchInput } from "./PoolSearchInput";
 import {
   extractUsernameFromUrl,

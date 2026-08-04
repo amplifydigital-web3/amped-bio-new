@@ -8,7 +8,7 @@ import { trpcClient } from "@/utils/trpc";
 import type { UserProfile, Theme } from "@/types/editor";
 import { TRPCClientError } from "@trpc/client";
 import initialState from "@/store/defaults";
-import { BlockType } from "@ampedbio/constants";
+import { BlockType } from "@repo/constants";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { AuthUser } from "@/types/auth";

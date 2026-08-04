@@ -7,7 +7,7 @@ import { Web3AuthWalletProvider } from "./Web3AuthWalletProvider";
 import { WagmiProvider, createConfig, http } from "wagmi";
 import { injected } from "wagmi/connectors";
 import { MetaMaskWalletProvider } from "./MetaMaskWalletProvider";
-import { AVAILABLE_CHAINS } from "@ampedbio/web3";
+import { AVAILABLE_CHAINS } from "@repo/web3";
 import { isForceMetamask } from "../utils/auth";
 import { AuthProvider } from "../contexts/AuthContext";
 import { NdauWalletProvider } from "../ndau-wallet/contexts/NdauWalletContext";

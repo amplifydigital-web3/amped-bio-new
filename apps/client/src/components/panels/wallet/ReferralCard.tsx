@@ -15,7 +15,7 @@ import {
 import { toast } from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { PROCESSING_TXID } from "@ampedbio/constants";
+import { PROCESSING_TXID } from "@repo/constants";
 
 function ReferralCard() {
   const { authUser } = useAuth();

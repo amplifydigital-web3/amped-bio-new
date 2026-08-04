@@ -25,7 +25,7 @@ import { TransactionModal } from "./TransactionModal";
 import { PerksSection } from "./PerksSection";
 import { creatorPoolSchema } from "./types";
 import { type ContractFunctionExecutionError, decodeEventLog } from "viem";
-import { CREATOR_POOL_FACTORY_ABI } from "@ampedbio/web3";
+import { CREATOR_POOL_FACTORY_ABI } from "@repo/web3";
 import { CreatorPoolPanelSkeleton } from "./CreatorPoolPanelSkeleton";
 import DashboardPage from "./PoolDashboardPage";
 

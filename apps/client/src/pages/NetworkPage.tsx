@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
-import { AVAILABLE_CHAINS } from "@ampedbio/web3";
+import { AVAILABLE_CHAINS } from "@repo/web3";
 import { Button } from "../components/ui/Button";
 import { Wallet } from "lucide-react";
 

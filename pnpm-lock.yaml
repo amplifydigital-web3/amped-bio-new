@@ -26,15 +26,6 @@ importers:
 
   apps/client:
     dependencies:
-      '@ampedbio/constants':
-        specifier: workspace:*
-        version: link:../../packages/constants
-      '@ampedbio/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
-      '@ampedbio/web3':
-        specifier: workspace:*
-        version: link:../../packages/web3
       '@dnd-kit/core':
         specifier: ^6.1.0
         version: 6.3.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -89,6 +80,15 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: ^1.2.3
         version: 1.2.4(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@repo/constants':
+        specifier: workspace:*
+        version: link:../../packages/constants
+      '@repo/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      '@repo/web3':
+        specifier: workspace:*
+        version: link:../../packages/web3
       '@tanstack/react-query':
         specifier: 5.85.4
         version: 5.85.4(react@18.3.1)
@@ -319,14 +319,132 @@ importers:
         specifier: ^5.4.2
         version: 5.4.18(@types/node@20.19.27)
 
-  apps/server:
+  apps/landingpage:
     dependencies:
-      '@ampedbio/constants':
+      '@hookform/resolvers':
+        specifier: ^5.0.1
+        version: 5.0.1(react-hook-form@7.56.1(react@18.3.1))
+      '@radix-ui/react-avatar':
+        specifier: ^1.1.10
+        version: 1.1.10(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@radix-ui/react-collapsible':
+        specifier: ^1.1.3
+        version: 1.1.8(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@radix-ui/react-dialog':
+        specifier: ^1.1.14
+        version: 1.1.14(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@radix-ui/react-dropdown-menu':
+        specifier: ^2.1.12
+        version: 2.1.12(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@radix-ui/react-label':
+        specifier: ^2.1.6
+        version: 2.1.6(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@radix-ui/react-popover':
+        specifier: ^1.1.14
+        version: 1.1.14(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@radix-ui/react-select':
+        specifier: ^2.2.6
+        version: 2.2.6(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@radix-ui/react-slot':
+        specifier: ^1.2.2
+        version: 1.2.3(@types/react@18.3.20)(react@18.3.1)
+      '@radix-ui/react-switch':
+        specifier: ^1.2.5
+        version: 1.2.5(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@radix-ui/react-tabs':
+        specifier: ^1.1.12
+        version: 1.1.12(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@radix-ui/react-tooltip':
+        specifier: ^1.2.3
+        version: 1.2.4(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@repo/constants':
         specifier: workspace:*
         version: link:../../packages/constants
-      '@ampedbio/web3':
+      '@repo/ui':
         specifier: workspace:*
-        version: link:../../packages/web3
+        version: link:../../packages/ui
+      '@tanstack/react-query':
+        specifier: 5.85.4
+        version: 5.85.4(react@18.3.1)
+      '@trpc/client':
+        specifier: 11.1.2
+        version: 11.1.2(@trpc/server@11.1.2(typescript@5.9.2))(typescript@5.9.2)
+      '@trpc/react-query':
+        specifier: 11.1.2
+        version: 11.1.2(@tanstack/react-query@5.85.4(react@18.3.1))(@trpc/client@11.1.2(@trpc/server@11.1.2(typescript@5.9.2))(typescript@5.9.2))(@trpc/server@11.1.2(typescript@5.9.2))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.9.2)
+      '@trpc/tanstack-react-query':
+        specifier: 11.1.2
+        version: 11.1.2(@tanstack/react-query@5.85.4(react@18.3.1))(@trpc/client@11.1.2(@trpc/server@11.1.2(typescript@5.9.2))(typescript@5.9.2))(@trpc/server@11.1.2(typescript@5.9.2))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.9.2)
+      better-auth:
+        specifier: ^1.4.7
+        version: 1.4.21(@prisma/client@6.7.0(prisma@6.7.0(typescript@5.9.2))(typescript@5.9.2))(better-sqlite3@12.10.0)(drizzle-orm@0.41.0(@prisma/client@6.7.0(prisma@6.7.0(typescript@5.9.2))(typescript@5.9.2))(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.28.9)(pg@8.21.0)(prisma@6.7.0(typescript@5.9.2)))(next@15.2.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(pg@8.21.0)(prisma@6.7.0(typescript@5.9.2))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      framer-motion:
+        specifier: ^12.0.0
+        version: 12.9.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      lucide-react:
+        specifier: ^0.474.0
+        version: 0.474.0(react@18.3.1)
+      next:
+        specifier: 15.2.3
+        version: 15.2.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      next-themes:
+        specifier: ^0.4.6
+        version: 0.4.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+      react-hook-form:
+        specifier: ^7.56.1
+        version: 7.56.1(react@18.3.1)
+      react-hot-toast:
+        specifier: ^2.5.2
+        version: 2.5.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      sonner:
+        specifier: ^2.0.7
+        version: 2.0.7(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      tailwind-merge:
+        specifier: ^3.0.1
+        version: 3.3.1
+      tailwindcss-animate:
+        specifier: ^1.0.7
+        version: 1.0.7(tailwindcss@3.4.17(ts-node@10.9.2(@types/node@20.19.27)(typescript@5.9.2)))
+      zod:
+        specifier: ^3.25.64
+        version: 3.25.64
+    devDependencies:
+      '@types/node':
+        specifier: ^20.11.16
+        version: 20.19.27
+      '@types/react':
+        specifier: ^18.3.5
+        version: 18.3.20
+      '@types/react-dom':
+        specifier: ^18.3.0
+        version: 18.3.6(@types/react@18.3.20)
+      autoprefixer:
+        specifier: ^10.4.18
+        version: 10.4.21(postcss@8.5.3)
+      postcss:
+        specifier: ^8.4.35
+        version: 8.5.3
+      tailwindcss:
+        specifier: ^3.4.1
+        version: 3.4.17(ts-node@10.9.2(@types/node@20.19.27)(typescript@5.9.2))
+      typescript:
+        specifier: 5.9.2
+        version: 5.9.2
+
+  apps/server:
+    dependencies:
       '@aws-sdk/client-s3':
         specifier: ^3.965.0
         version: 3.965.0
@@ -351,6 +469,12 @@ importers:
       '@react-email/render':
         specifier: ^1.0.6
         version: 1.0.6(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@repo/constants':
+        specifier: workspace:*
+        version: link:../../packages/constants
+      '@repo/web3':
+        specifier: workspace:*
+        version: link:../../packages/web3
       '@trpc/server':
         specifier: ^11.1.2
         version: 11.1.2(typescript@5.9.2)
@@ -481,130 +605,6 @@ importers:
       tsx:
         specifier: ^4.19.4
         version: 4.19.4
-      typescript:
-        specifier: 5.9.2
-        version: 5.9.2
-
-  apps/site:
-    dependencies:
-      '@ampedbio/constants':
-        specifier: workspace:*
-        version: link:../../packages/constants
-      '@ampedbio/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
-      '@hookform/resolvers':
-        specifier: ^5.0.1
-        version: 5.0.1(react-hook-form@7.56.1(react@18.3.1))
-      '@radix-ui/react-avatar':
-        specifier: ^1.1.10
-        version: 1.1.10(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-collapsible':
-        specifier: ^1.1.3
-        version: 1.1.8(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-dialog':
-        specifier: ^1.1.14
-        version: 1.1.14(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-dropdown-menu':
-        specifier: ^2.1.12
-        version: 2.1.12(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-label':
-        specifier: ^2.1.6
-        version: 2.1.6(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-popover':
-        specifier: ^1.1.14
-        version: 1.1.14(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-select':
-        specifier: ^2.2.6
-        version: 2.2.6(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-slot':
-        specifier: ^1.2.2
-        version: 1.2.3(@types/react@18.3.20)(react@18.3.1)
-      '@radix-ui/react-switch':
-        specifier: ^1.2.5
-        version: 1.2.5(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-tabs':
-        specifier: ^1.1.12
-        version: 1.1.12(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-tooltip':
-        specifier: ^1.2.3
-        version: 1.2.4(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@tanstack/react-query':
-        specifier: 5.85.4
-        version: 5.85.4(react@18.3.1)
-      '@trpc/client':
-        specifier: 11.1.2
-        version: 11.1.2(@trpc/server@11.1.2(typescript@5.9.2))(typescript@5.9.2)
-      '@trpc/react-query':
-        specifier: 11.1.2
-        version: 11.1.2(@tanstack/react-query@5.85.4(react@18.3.1))(@trpc/client@11.1.2(@trpc/server@11.1.2(typescript@5.9.2))(typescript@5.9.2))(@trpc/server@11.1.2(typescript@5.9.2))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.9.2)
-      '@trpc/tanstack-react-query':
-        specifier: 11.1.2
-        version: 11.1.2(@tanstack/react-query@5.85.4(react@18.3.1))(@trpc/client@11.1.2(@trpc/server@11.1.2(typescript@5.9.2))(typescript@5.9.2))(@trpc/server@11.1.2(typescript@5.9.2))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.9.2)
-      better-auth:
-        specifier: ^1.4.7
-        version: 1.4.21(@prisma/client@6.7.0(prisma@6.7.0(typescript@5.9.2))(typescript@5.9.2))(better-sqlite3@12.10.0)(drizzle-orm@0.41.0(@prisma/client@6.7.0(prisma@6.7.0(typescript@5.9.2))(typescript@5.9.2))(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.28.9)(pg@8.21.0)(prisma@6.7.0(typescript@5.9.2)))(next@15.2.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(pg@8.21.0)(prisma@6.7.0(typescript@5.9.2))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      class-variance-authority:
-        specifier: ^0.7.1
-        version: 0.7.1
-      clsx:
-        specifier: ^2.1.1
-        version: 2.1.1
-      framer-motion:
-        specifier: ^12.0.0
-        version: 12.9.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      lucide-react:
-        specifier: ^0.474.0
-        version: 0.474.0(react@18.3.1)
-      next:
-        specifier: 15.2.3
-        version: 15.2.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      next-themes:
-        specifier: ^0.4.6
-        version: 0.4.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      react:
-        specifier: ^18.3.1
-        version: 18.3.1
-      react-dom:
-        specifier: ^18.3.1
-        version: 18.3.1(react@18.3.1)
-      react-hook-form:
-        specifier: ^7.56.1
-        version: 7.56.1(react@18.3.1)
-      react-hot-toast:
-        specifier: ^2.5.2
-        version: 2.5.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      sonner:
-        specifier: ^2.0.7
-        version: 2.0.7(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      tailwind-merge:
-        specifier: ^3.0.1
-        version: 3.3.1
-      tailwindcss-animate:
-        specifier: ^1.0.7
-        version: 1.0.7(tailwindcss@3.4.17(ts-node@10.9.2(@types/node@20.19.27)(typescript@5.9.2)))
-      zod:
-        specifier: ^3.25.64
-        version: 3.25.64
-    devDependencies:
-      '@types/node':
-        specifier: ^20.11.16
-        version: 20.19.27
-      '@types/react':
-        specifier: ^18.3.5
-        version: 18.3.20
-      '@types/react-dom':
-        specifier: ^18.3.0
-        version: 18.3.6(@types/react@18.3.20)
-      autoprefixer:
-        specifier: ^10.4.18
-        version: 10.4.21(postcss@8.5.3)
-      postcss:
-        specifier: ^8.4.35
-        version: 8.5.3
-      tailwindcss:
-        specifier: ^3.4.1
-        version: 3.4.17(ts-node@10.9.2(@types/node@20.19.27)(typescript@5.9.2))
       typescript:
         specifier: 5.9.2
         version: 5.9.2
@@ -10297,7 +10297,7 @@ snapshots:
       - vitest
       - vue
 
-  '@better-auth/core@1.4.10(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.7(zod@3.25.64))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0)':
+  '@better-auth/core@1.4.10(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.7(zod@4.3.5))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0)':
     dependencies:
       '@better-auth/utils': 0.3.0
       '@better-fetch/fetch': 1.1.21
@@ -10324,15 +10324,15 @@ snapshots:
       '@better-auth/utils': 0.3.0
       '@better-fetch/fetch': 1.1.21
       '@standard-schema/spec': 1.1.0
-      better-call: 1.1.8(zod@3.25.64)
+      better-call: 1.1.8(zod@4.3.5)
       jose: 6.1.3
       kysely: 0.28.9
       nanostores: 1.1.0
       zod: 4.3.5
 
-  '@better-auth/telemetry@1.4.10(@better-auth/core@1.4.10(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.7(zod@3.25.64))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0))':
+  '@better-auth/telemetry@1.4.10(@better-auth/core@1.4.10(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.7(zod@4.3.5))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0))':
     dependencies:
-      '@better-auth/core': 1.4.10(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.7(zod@3.25.64))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0)
+      '@better-auth/core': 1.4.10(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.7(zod@4.3.5))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0)
       '@better-auth/utils': 0.3.0
       '@better-fetch/fetch': 1.1.21
 
@@ -15103,8 +15103,8 @@ snapshots:
 
   better-auth@1.4.10(@prisma/client@6.7.0(prisma@6.7.0(typescript@5.9.2))(typescript@5.9.2))(better-sqlite3@12.10.0)(drizzle-orm@0.41.0(@prisma/client@5.22.0(prisma@6.7.0(typescript@5.9.2)))(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.28.9)(pg@8.21.0)(prisma@6.7.0(typescript@5.9.2)))(next@16.1.6(@babel/core@7.29.7)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(pg@8.21.0)(prisma@6.7.0(typescript@5.9.2))(react-dom@19.1.0(react@19.1.0))(react@19.1.0):
     dependencies:
-      '@better-auth/core': 1.4.10(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.7(zod@3.25.64))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0)
-      '@better-auth/telemetry': 1.4.10(@better-auth/core@1.4.10(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.7(zod@3.25.64))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0))
+      '@better-auth/core': 1.4.10(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.7(zod@4.3.5))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0)
+      '@better-auth/telemetry': 1.4.10(@better-auth/core@1.4.10(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.7(zod@4.3.5))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0))
       '@better-auth/utils': 0.3.0
       '@better-fetch/fetch': 1.1.21
       '@noble/ciphers': 2.1.1
@@ -15127,8 +15127,8 @@ snapshots:
 
   better-auth@1.4.10(@prisma/client@6.7.0(prisma@6.7.0(typescript@5.9.2))(typescript@5.9.2))(better-sqlite3@12.10.0)(drizzle-orm@0.41.0(@prisma/client@6.7.0(prisma@6.7.0(typescript@5.9.2))(typescript@5.9.2))(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.28.9)(pg@8.21.0)(prisma@6.7.0(typescript@5.9.2)))(next@16.1.6(@babel/core@7.26.10)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(pg@8.21.0)(prisma@6.7.0(typescript@5.9.2))(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
-      '@better-auth/core': 1.4.10(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.7(zod@3.25.64))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0)
-      '@better-auth/telemetry': 1.4.10(@better-auth/core@1.4.10(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.7(zod@3.25.64))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0))
+      '@better-auth/core': 1.4.10(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.7(zod@4.3.5))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0)
+      '@better-auth/telemetry': 1.4.10(@better-auth/core@1.4.10(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.7(zod@4.3.5))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0))
       '@better-auth/utils': 0.3.0
       '@better-fetch/fetch': 1.1.21
       '@noble/ciphers': 2.1.1
@@ -16681,7 +16681,7 @@ snapshots:
     dependencies:
       cookie-es: 1.2.2
       crossws: 0.3.4
-      defu: 6.1.4
+      defu: 6.1.7
       destr: 2.0.5
       iron-webcrypto: 1.2.1
       node-mock-http: 1.0.0

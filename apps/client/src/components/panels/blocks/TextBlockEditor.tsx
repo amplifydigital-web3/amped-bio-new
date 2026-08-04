@@ -1,4 +1,4 @@
-import { TextBlock } from "@ampedbio/constants";
+import { TextBlock } from "@repo/constants";
 import SlateEditor from "@/components/blocks/text/TextEditor/SlateEditor";
 import { Button } from "../../ui/Button";
 import { z } from "zod";

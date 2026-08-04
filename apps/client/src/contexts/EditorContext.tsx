@@ -11,7 +11,7 @@ import type {
 import initialState from "../store/defaults";
 import { useAuth } from "./AuthContext";
 import toast from "react-hot-toast";
-import { BlockType } from "@ampedbio/constants";
+import { BlockType } from "@repo/constants";
 import { formatHandle, normalizeHandle } from "@/utils/handle";
 import { trpcClient } from "@/utils/trpc";
 import { exportThemeConfigAsJson, importThemeConfigFromJson } from "@/utils/theme";

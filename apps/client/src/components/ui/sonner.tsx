@@ -1,1 +1,1 @@
-export { Toaster } from "@ampedbio/ui";
+export { Toaster } from "@repo/ui";

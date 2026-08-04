@@ -5,11 +5,11 @@ import { useNdauSigner } from "@/ndau-wallet/hooks/useNdauSigner";
 import { NdauConnect } from "@/ndau-wallet/components/NdauConnect";
 import { trpc, trpcClient } from "@/utils/trpc/trpc";
 import { Button } from "@/components/ui/Button";
-import { NDAU_TO_REVO_RATE, calculateRevoAmount, createConversionMessage, KNOWN_NDAU_GROUPS, getNdauPdfPath, getDocumentHash } from "@ampedbio/constants";
+import { NDAU_TO_REVO_RATE, calculateRevoAmount, createConversionMessage, KNOWN_NDAU_GROUPS, getNdauPdfPath, getDocumentHash } from "@repo/constants";
 import { toast } from "sonner";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useSignMessage, useChainId } from "wagmi";
-import { getCurrencySymbol } from "@ampedbio/web3";
+import { getCurrencySymbol } from "@repo/web3";
 
 import {
   CheckCircle2,

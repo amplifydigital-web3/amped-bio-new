@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "../../../components/ui/select";
 import { useState, useEffect } from "react";
-import { BannerData } from "@ampedbio/constants";
+import { BannerData } from "@repo/constants";
 
 export function AdminBannerSettings() {
   const queryClient = useQueryClient();

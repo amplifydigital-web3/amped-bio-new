@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Search, Users, Loader2 } from "lucide-react";
 import { useDebounce } from "@/hooks/useDebounce";
 import { trpc } from "@/utils/trpc";
-import type { PoolSearchResult } from "@ampedbio/constants";
+import type { PoolSearchResult } from "@repo/constants";
 
 interface PoolSearchInputProps {
   onPoolSelect: (pool: PoolSearchResult) => void;

@@ -1,10 +1,10 @@
 import { publicProcedure, privateProcedure, router } from "./trpc";
 import { TRPCError } from "@trpc/server";
 import { getFileUrl } from "../utils/fileUrlResolver";
-import { ThemeConfig } from "@ampedbio/constants";
+import { ThemeConfig } from "@repo/constants";
 import { prisma } from "../services/DB";
 import { z } from "zod";
-import { HANDLE_MIN_LENGTH, HANDLE_REGEX } from "@ampedbio/constants";
+import { HANDLE_MIN_LENGTH, HANDLE_REGEX } from "@repo/constants";
 import { env } from "../env";
 import { logger } from "better-auth";
 

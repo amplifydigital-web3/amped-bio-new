@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { formatHandle } from "../../utils/handle";
 import { ExternalLink, Loader2, RefreshCw } from "lucide-react";
-import { getChainConfig } from "@ampedbio/web3";
+import { getChainConfig } from "@repo/web3";
 import SyncTransactionDialog from "./SyncTransactionDialog";
 import SetTxidDialog from "./SetTxidDialog";
 import SyncPoolProgressDialog from './SyncPoolProgressDialog';

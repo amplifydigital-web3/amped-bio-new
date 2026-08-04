@@ -25,13 +25,13 @@ import ExplorePoolDetailsModal from "../explore/ExplorePoolDetailsModal";
 import { trpc } from "@/utils/trpc";
 import { useMutation } from "@tanstack/react-query";
 import { useAccount, useChainId, useReadContract } from "wagmi";
-import { CREATOR_POOL_ABI, getChainConfig } from "@ampedbio/web3";
+import { CREATOR_POOL_ABI, getChainConfig } from "@repo/web3";
 import { Address, formatEther } from "viem";
 import { useQuery } from "@tanstack/react-query";
 import { trpcClient } from "@/utils/trpc";
 import { formatNumberWithSeparators } from "@/utils/numberUtils";
 import { ImageUploadModal } from "@/components/ImageUploadModal";
-import { RewardPool, TELEGRAM_LINK, TELEGRAM_COLOR } from "@ampedbio/constants";
+import { RewardPool, TELEGRAM_LINK, TELEGRAM_COLOR } from "@repo/constants";
 import { PoolDashboardSkeleton } from "./PoolDashboardSkeleton";
 import { formatDistanceToNow } from "date-fns";
 

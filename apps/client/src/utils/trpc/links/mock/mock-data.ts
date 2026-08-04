@@ -1,4 +1,4 @@
-import { BlockType, LinkBlock, MediaBlock, TextBlock } from "@ampedbio/constants";
+import { BlockType, LinkBlock, MediaBlock, TextBlock } from "@repo/constants";
 
 // Demo user for authentication
 export const demoUser = {

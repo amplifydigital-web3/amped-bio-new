@@ -2,7 +2,7 @@ import { useParams, useNavigate } from "react-router";
 import { usePublicClient } from "wagmi";
 import { useChainId } from "wagmi";
 import { useState, useEffect } from "react";
-import { calculatePoolAPYDebug, APYDebugInfo } from "@ampedbio/web3";
+import { calculatePoolAPYDebug, APYDebugInfo } from "@repo/web3";
 import { Button } from "../components/ui/Button";
 
 export function PoolAPYDebugPage() {
@@ -28,7 +28,7 @@ export function PoolAPYDebugPage() {
       try {
         setIsLoading(true);
 
-        const { CREATOR_POOL_ABI } = await import("@ampedbio/web3");
+        const { CREATOR_POOL_ABI } = await import("@repo/web3");
 
         try {
           const poolNameResult = await publicClient.readContract({
