@@ -15,7 +15,7 @@ apps/client/postcss\.config\..*
 apps/client/tsconfig.*\.json
 apps/client/components\.json
 apps/client/Dockerfile
-apps/client/nginx\.conf
+apps/client/lighttpd\.conf
 
 # Shared packages the client depends on
 packages/ui/src/.*

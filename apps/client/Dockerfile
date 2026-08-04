@@ -1,45 +1,52 @@
-# Multi-stage build for efficient client production image
-# Stage 1: Build the client application
-FROM node:24-alpine as builder
+FROM node:24-alpine AS base
 
-# Install Python, build tools and Python build dependencies
-RUN apk add --no-cache python3 make g++ py3-pip py3-setuptools
+ENV NODE_ENV=production
+ENV TURBO_TELEMETRY_DISABLED=1
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME/bin:$PNPM_HOME:$PATH"
+ENV CI=1
+ARG APP_NAME=client
 
-# Install pnpm globally
-RUN npm install -g pnpm
-
-# Set the working directory inside the container
 WORKDIR /app
 
-# Copy the root package files
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+# =========================================================================== #
 
-# Copy the packages directories
-COPY packages ./packages
+FROM base AS builder-base
 
-# Copy the client app
-COPY apps/client ./apps/client
+RUN corepack enable pnpm
 
-# Install dependencies using pnpm
-RUN pnpm install --frozen-lockfile --filter=@ampedbio/client...
+# =========================================================================== #
 
-# Change to the client app directory for building
-WORKDIR /app/apps/client
+FROM builder-base AS pruner
 
-# Build the client app
-RUN pnpm run build
+RUN pnpm install --global turbo@^2
 
-# Stage 2: Serve the client application using nginx
-FROM nginx:alpine
+COPY . .
+COPY .turbo/config.json ./
 
-# Copy the built assets from the builder stage
-COPY --from=builder /app/apps/client/dist /usr/share/nginx/html
+RUN turbo prune ${APP_NAME} --docker
 
-# Copy custom nginx configuration
-COPY apps/client/nginx.conf /etc/nginx/nginx.conf
+# =========================================================================== #
 
-# Expose port 80
+FROM builder-base AS builder
+
+COPY --from=pruner /app/out/json/ ./
+RUN pnpm ci
+
+COPY --from=pruner /app/out/full/ ./
+COPY tsconfig.json ./
+COPY --from=pruner /app/.turbo/config.json ./.turbo/config.json
+RUN pnpm build
+
+# =========================================================================== #
+
+FROM alpine:3.21
+
+RUN apk add --no-cache lighttpd
+
+COPY --from=builder /app/apps/client/dist /var/www/localhost/htdocs
+COPY apps/client/lighttpd.conf /etc/lighttpd/lighttpd.conf
+
 EXPOSE 80
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["lighttpd", "-D", "-f", "/etc/lighttpd/lighttpd.conf"]
