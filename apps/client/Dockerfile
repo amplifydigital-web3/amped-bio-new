@@ -7,6 +7,12 @@ RUN corepack enable pnpm
 
 WORKDIR /app
 
+ARG VITE_WEB3AUTH_CLIENT_ID
+ARG VITE_WEB3AUTH_NETWORK
+ARG VITE_CAPTCHA_SITE_KEY
+ARG VITE_DEMO_MODE=false
+ARG VITE_API_URL
+
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
 COPY packages/typescript-config ./packages/typescript-config
 COPY packages/constants ./packages/constants
