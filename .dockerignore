@@ -1,0 +1,6 @@
+.git/
+.next/
+dist/
+*.tsbuildinfo
+node_modules/
+.vercel/
