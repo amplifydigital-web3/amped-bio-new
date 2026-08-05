@@ -6,6 +6,7 @@ import { trpcClient } from "@/lib/trpc";
 import { normalizeHandle } from "@/lib/handle";
 import { Skeleton } from "@repo/ui";
 import { cn } from "@repo/ui";
+import { ParticlesBackground } from "@/components/ParticlesBackground";
 import {
   getButtonBaseStyle,
   getButtonEffectStyle,
@@ -236,7 +237,9 @@ export function ProfileView({ handle: rawHandle }: { handle?: string }) {
               }}
             />
           ) : null}
-          <div className="absolute inset-0" />
+          <div className="absolute inset-0">
+            <ParticlesBackground effect={themeConfig?.particlesEffect ?? 0} />
+          </div>
         </div>
 
         {/* Content Layer */}
@@ -247,7 +250,7 @@ export function ProfileView({ handle: rawHandle }: { handle?: string }) {
               className={cn("w-full space-y-8 p-8", getContainerStyle(themeConfig?.containerStyle))}
               style={{
                 backgroundColor: `${themeConfig?.containerColor || "#ffffff"}${Math.round(
-                  ((themeConfig?.transparency ?? 100) * 2.55)
+                  ((themeConfig?.transparency ?? 0) * 2.55)
                 )
                   .toString(16)
                   .padStart(2, "0")}`,
