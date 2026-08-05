@@ -18,7 +18,7 @@ app.use(
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
 
-      const allowedOrigins = [env.FRONTEND_URL];
+      const allowedOrigins = [env.FRONTEND_URL, env.SITE_URL];
 
       if (env.APP_ENV === "development" || env.APP_ENV === "testing") {
         allowedOrigins.push(
