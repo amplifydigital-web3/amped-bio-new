@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Link } from "lucide-react";
+import { Link, Check, Copy, ExternalLink } from "lucide-react";
 import { trpcClient } from "@/lib/trpc";
 import { normalizeHandle } from "@/lib/handle";
 import { Skeleton } from "@repo/ui";
 import { cn } from "@repo/ui";
 import { ParticlesBackground } from "@/components/ParticlesBackground";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { BlockErrorFallback } from "@/components/blocks/BlockErrorFallback";
+import { TextBlock } from "@/components/blocks/text/TextBlock";
 import {
   getButtonBaseStyle,
   getButtonEffectStyle,
@@ -24,6 +27,7 @@ interface UserProfile {
   email: string;
   bio: string;
   photoUrl?: string;
+  photoCmp?: string;
   revoName?: string;
 }
 
@@ -131,9 +135,10 @@ function getPlatformIcon(platformId: string) {
 
 function extractRootDomain(url: string): string {
   try {
-    return new URL(url).hostname;
+    const urlString = url.startsWith("http") ? url : `https://${url}`;
+    return new URL(urlString).hostname;
   } catch {
-    return "";
+    return url;
   }
 }
 
@@ -142,9 +147,16 @@ export function ProfileView({ handle: rawHandle }: { handle?: string }) {
   const [blocks, setBlocks] = useState<BlockType[]>([]);
   const [theme, setTheme] = useState<Theme | null>(null);
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
 
   const effectiveHandle = rawHandle || DEFAULT_HANDLE;
   const normalizedHandle = normalizeHandle(effectiveHandle);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(profile?.revoName ?? "");
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -161,10 +173,11 @@ export function ProfileView({ handle: rawHandle }: { handle?: string }) {
             email: user.email,
             bio: user.description ?? "",
             photoUrl: user.image ?? "",
+            photoCmp: user.photoCmp ?? "",
             revoName: user.revoName ?? "",
           });
           setTheme(themeData);
-          setBlocks([...blocksRaw].sort((a, b) => a.order - b.order));
+          setBlocks([...blocksRaw].sort((a: any, b: any) => a.order - b.order));
         }
       })
       .catch(() => {
@@ -249,8 +262,8 @@ export function ProfileView({ handle: rawHandle }: { handle?: string }) {
             <div
               className={cn("w-full space-y-8 p-8", getContainerStyle(themeConfig?.containerStyle))}
               style={{
-                backgroundColor: `${themeConfig?.containerColor || "#ffffff"}${Math.round(
-                  ((themeConfig?.transparency ?? 0) * 2.55)
+                backgroundColor: `${themeConfig?.containerColor}${Math.round(
+                  (themeConfig?.transparency ?? 0) * 2.55
                 )
                   .toString(16)
                   .padStart(2, "0")}`,
@@ -268,6 +281,11 @@ export function ProfileView({ handle: rawHandle }: { handle?: string }) {
                     <div className="absolute -inset-1 rounded-full" />
                   </div>
                 )}
+                {profile.photoCmp && (
+                  <div className="relative">
+                    <img src={profile.photoCmp} alt={profile.name} className="w-32 h-auto" />
+                  </div>
+                )}
                 <div className="space-y-4 w-full">
                   <div className="w-full">
                     <h1
@@ -282,6 +300,32 @@ export function ProfileView({ handle: rawHandle }: { handle?: string }) {
                     >
                       {profile.name}
                     </h1>
+                    {profile.revoName && (
+                      <div
+                        className={cn(
+                          "font-bold tracking-tight flex items-center justify-center gap-1 w-full overflow-hidden",
+                          getHeroEffectStyle(themeConfig?.heroEffect)
+                        )}
+                        style={{
+                          fontFamily: themeConfig?.fontFamily,
+                          color: themeConfig?.fontColor,
+                        }}
+                      >
+                        <button
+                          onClick={handleCopy}
+                          className="text-sm font-bold transition-all duration-300 shrink-0"
+                        >
+                          {!copied ? (
+                            <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                          ) : (
+                            <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" />
+                          )}
+                        </button>
+                        <span className="font-medium min-w-0">
+                          <span className="break-all">{profile.revoName}</span>
+                        </span>
+                      </div>
+                    )}
                   </div>
                   {profile.bio && (
                     isHTML(profile.bio) ? (
@@ -314,6 +358,7 @@ export function ProfileView({ handle: rawHandle }: { handle?: string }) {
               <div className="space-y-4">
                 {blocks.map(block => {
                   if (block.type === "link") {
+                    const Icon = getPlatformIcon(block.config.platform);
                     const element =
                       block.config.platform === "custom" ? (
                         <img
@@ -322,58 +367,48 @@ export function ProfileView({ handle: rawHandle }: { handle?: string }) {
                           alt=""
                         />
                       ) : (
-                        getPlatformIcon(block.config.platform)
+                        Icon
                       );
 
                     return (
-                      <a
-                        key={block.id}
-                        href={block.config.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={cn(
-                          "w-full px-4 py-3 flex items-center space-x-3",
-                          "transition-all duration-200",
-                          getButtonBaseStyle(themeConfig?.buttonStyle),
-                          getButtonEffectStyle(themeConfig?.buttonEffect)
-                        )}
-                        style={{
-                          backgroundColor: themeConfig?.buttonColor,
-                          fontFamily: themeConfig?.fontFamily,
-                          fontSize: themeConfig?.fontSize,
-                          color: themeConfig?.fontColor,
-                        }}
-                      >
-                        {element}
-                        <span className="flex-1 text-center">{block.config.label}</span>
-                      </a>
+                      <ErrorBoundary key={block.id.toString()} fallback={<BlockErrorFallback platform={block.config.platform} />}>
+                        <a
+                          href={block.config.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={cn(
+                            "w-full px-4 py-3 flex items-center space-x-3",
+                            "transition-all duration-200",
+                            getButtonBaseStyle(themeConfig?.buttonStyle),
+                            getButtonEffectStyle(themeConfig?.buttonEffect)
+                          )}
+                          style={{
+                            backgroundColor: themeConfig?.buttonColor,
+                            fontFamily: themeConfig?.fontFamily,
+                            fontSize: themeConfig?.fontSize,
+                            color: themeConfig?.fontColor,
+                          }}
+                        >
+                          {element}
+                          <span className="flex-1 text-center">{block.config.label}</span>
+                        </a>
+                      </ErrorBoundary>
                     );
                   }
-
-                  if (block.type === "text") {
-                    const textConfig = block.config as unknown as { content?: string };
-                    return (
-                      <div
-                        key={block.id}
-                        className="px-4 py-2 text-gray-700 whitespace-pre-wrap"
-                        style={{
-                          fontFamily: themeConfig?.fontFamily,
-                          color: themeConfig?.fontColor,
-                        }}
-                      >
-                        {textConfig.content || ""}
-                      </div>
-                    );
-                  }
-
-                  return null;
+                  return (
+                    <ErrorBoundary key={block.id} fallback={<BlockErrorFallback platform="content" />}>
+                      <TextBlock block={block as any} theme={themeConfig as any} />
+                    </ErrorBoundary>
+                  );
                 })}
               </div>
 
               {/* Powered by footer */}
               <div className="pt-4 text-center">
-                <a
-                  href={process.env.NEXT_PUBLIC_PANEL_URL || "/register"}
+                <button
+                  onClick={() => {
+                    window.location.href = process.env.NEXT_PUBLIC_PANEL_URL || "/register";
+                  }}
                   className="text-sm opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
                   style={{
                     fontFamily: themeConfig?.fontFamily,
@@ -382,11 +417,10 @@ export function ProfileView({ handle: rawHandle }: { handle?: string }) {
                     outline: "none",
                     background: "none",
                     padding: 0,
-                    display: "inline",
                   }}
                 >
                   Claim your own Amped.Bio
-                </a>
+                </button>
               </div>
             </div>
           </div>
