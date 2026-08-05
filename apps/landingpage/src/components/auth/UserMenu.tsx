@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { User } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 
 export function UserMenu() {
+  const router = useRouter();
   const [session, setSession] = useState<{ user?: { name?: string; email?: string; image?: string | null } } | null>(null);
   const [open, setOpen] = useState(false);
 
@@ -18,24 +20,18 @@ export function UserMenu() {
     await authClient.signOut();
     setSession(null);
     setOpen(false);
+    router.refresh();
   };
 
   if (!session?.user) {
     return (
-      <div className="flex items-center space-x-3">
-        <Link
-          href="/login"
-          className="text-sm font-medium text-gray-700 hover:text-gray-900"
-        >
-          Sign In
-        </Link>
-        <Link
-          href="/register"
-          className="text-sm font-medium px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-        >
-          Sign Up
-        </Link>
-      </div>
+      <button
+        onClick={() => router.push("/login")}
+        className="inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-50 disabled:pointer-events-none bg-blue-600 text-white hover:bg-blue-700 h-9 px-4 text-sm space-x-2"
+      >
+        <User className="w-4 h-4" />
+        <span>Sign In</span>
+      </button>
     );
   }
 
@@ -52,7 +48,7 @@ export function UserMenu() {
             className="w-8 h-8 rounded-full object-cover"
           />
         ) : (
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-sm font-medium">
+          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium">
             {session.user.name?.charAt(0) || "U"}
           </div>
         )}
@@ -63,13 +59,16 @@ export function UserMenu() {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
-            <Link
-              href={`/${session.user.name?.toLowerCase() || ""}`}
-              className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              onClick={() => setOpen(false)}
+            <button
+              onClick={() => {
+                const handle = session.user.name?.toLowerCase() || "";
+                router.push(`/${handle}`);
+                setOpen(false);
+              }}
+              className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
             >
               My Profile
-            </Link>
+            </button>
             <button
               onClick={handleLogout}
               className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"

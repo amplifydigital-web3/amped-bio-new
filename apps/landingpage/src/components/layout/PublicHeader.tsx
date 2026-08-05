@@ -4,10 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserMenu } from "@/components/auth/UserMenu";
+import { SystemStatsBadge } from "./SystemStatsBadge";
 
 export function PublicHeader() {
   const pathname = usePathname();
   const isStandaloneAuthPage = pathname.startsWith("/auth/") || pathname === "/sign";
+  const isLandingPage = pathname === "/";
 
   if (isStandaloneAuthPage) return null;
 
@@ -22,6 +24,11 @@ export function PublicHeader() {
         </Link>
       </div>
       <div className="flex items-center space-x-4">
+        {isLandingPage && (
+          <div className="hidden md:block">
+            <SystemStatsBadge />
+          </div>
+        )}
         <UserMenu />
       </div>
     </header>
