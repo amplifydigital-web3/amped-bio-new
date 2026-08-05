@@ -36,6 +36,11 @@ export const env = cleanEnv(process.env, {
     default: "",
     example: ".amped.bio",
   }),
+  CORS_ORIGINS: str({
+    desc: "Comma-separated list of allowed CORS origins",
+    default: "http://localhost:5173,http://localhost:3000",
+    example: "https://app.amped.bio,https://amped.bio",
+  }),
   API_HOST: str({
     desc: "Host for the API",
     default: "localhost:43000",
