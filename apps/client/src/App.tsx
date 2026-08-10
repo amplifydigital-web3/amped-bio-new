@@ -1,25 +1,15 @@
 import { useEffect, lazy, Suspense } from "react";
-import { BrowserRouter, Routes, Route } from "react-router";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import { Editor } from "./pages/Editor";
-import { View } from "./pages/View";
-import { SignPage } from "./pages/SignPage";
-import PoolsPage from "./pages/PoolsPage";
-import { PoolDetailsPage } from "./pages/PoolDetailsPage";
-import { PoolDebugPage } from "./pages/PoolDebugPage";
-import { PoolAPYDebugPage } from "./pages/PoolAPYDebugPage";
-import NetworkPage from "./pages/NetworkPage";
-import NdauConversionPage from "./pages/NdauConversionPage";
-import NdauConversionReceiptPage from "./pages/NdauConversionReceiptPage";
-import PublicLayout from "./components/layout/PublicLayout";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { initParticlesEngine } from "@tsparticles/react";
 import { loadAll } from "@tsparticles/all";
-import { EmailVerification, EmailVerificationResent, PasswordReset, TwoFactorChallenge } from "./pages/auth";
 import { Toaster } from "react-hot-toast";
 import { EditorProvider } from "./contexts/EditorContext";
 import { useTokenExpiration } from "./hooks/useTokenExpiration";
 import { useReferralHandler } from "./hooks/useReferralHandler";
+import { SITE_URL } from "@/utils/siteUrl";
 
 // Lazy load admin components - they will only be loaded when needed
 const AdminLayout = lazy(() =>
@@ -61,94 +51,6 @@ function AppRouter() {
           <ProtectedRoute>
             <Editor />
           </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/"
-        element={
-          <PublicLayout>
-            <View />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/:handle"
-        element={
-          <PublicLayout>
-            <View />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/register"
-        element={
-          <PublicLayout>
-            <View />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/login"
-        element={
-          <PublicLayout>
-            <View />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/i/pools"
-        element={
-          <PublicLayout>
-            <PoolsPage />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/i/pools/:address"
-        element={
-          <PublicLayout>
-            <PoolDetailsPage />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/i/pools/:address/debug"
-        element={
-          <PublicLayout>
-            <PoolDebugPage />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/i/pools/:address/debug-apy"
-        element={
-          <PublicLayout>
-            <PoolAPYDebugPage />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/i/network"
-        element={
-          <PublicLayout>
-            <NetworkPage />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/i/ndau-conversion"
-        element={
-          <PublicLayout>
-            <NdauConversionPage />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/i/ndau-conversion/receipt/:ndauAddress"
-        element={
-          <PublicLayout>
-            <NdauConversionReceiptPage />
-          </PublicLayout>
         }
       />
 
@@ -221,14 +123,8 @@ function AppRouter() {
         />
       </Route>
 
-      {/* Sign route */}
-      <Route path="/sign" element={<SignPage />} />
-
-      {/* Authentication Routes */}
-      <Route path="/auth/verify-email/:token?" element={<EmailVerification />} />
-      <Route path="/auth/resend-verification" element={<EmailVerificationResent />} />
-      <Route path="/auth/reset-password/:token?" element={<PasswordReset />} />
-<Route path="/auth/two-factor" element={<TwoFactorChallenge />} />
+      {/* All public pages live on the public site; redirect anything else there */}
+      <Route path="*" element={<Navigate to={SITE_URL} replace />} />
     </Routes>
   );
 }

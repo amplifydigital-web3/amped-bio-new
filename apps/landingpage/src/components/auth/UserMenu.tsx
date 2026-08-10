@@ -61,7 +61,7 @@ export function UserMenu() {
           <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
             <button
               onClick={() => {
-                const handle = session.user.name?.toLowerCase() || "";
+                const handle = session.user?.name?.toLowerCase() || "";
                 router.push(`/${handle}`);
                 setOpen(false);
               }}

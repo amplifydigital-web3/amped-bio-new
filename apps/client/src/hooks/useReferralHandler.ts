@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { getCookie, setCookie, eraseCookie } from "../utils/cookies";
+import { SITE_URL } from "@/utils/siteUrl";
 
 export const useReferralHandler = () => {
   useEffect(() => {
@@ -42,7 +43,7 @@ export const useReferralHandler = () => {
   const handleReferrerClick = (userId: number): void => {
     const userIdHex = `0x${userId.toString(16)}`;
     overwriteReferrerId(userId, 30);
-    window.location.href = `/register?r=${userIdHex}`;
+    window.location.href = `${SITE_URL}/register?r=${userIdHex}`;
   };
 
   return {

@@ -22,7 +22,7 @@ importers:
         version: 4.19.4
       turbo:
         specifier: latest
-        version: 2.10.8
+        version: 2.10.9
 
   apps/client:
     dependencies:
@@ -121,19 +121,19 @@ importers:
         version: 1.0.0
       '@wagmi/core':
         specifier: 2.18.0
-        version: 2.18.0(@tanstack/query-core@5.85.4)(@types/react@18.3.20)(immer@10.1.1)(react@18.3.1)(typescript@5.9.2)(use-sync-external-store@1.4.0(react@18.3.1))(viem@2.34.0(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.64))
+        version: 2.18.0(@tanstack/query-core@5.85.4)(@types/react@18.3.20)(immer@10.1.1)(react@18.3.1)(typescript@5.9.2)(use-sync-external-store@1.5.0(react@18.3.1))(viem@2.34.0(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.64))
       '@web3auth/base':
         specifier: 9.7.0
         version: 9.7.0(@babel/runtime@7.28.2)(bufferutil@4.0.9)(utf-8-validate@5.0.10)
       '@web3auth/modal':
         specifier: 10.0.7
-        version: 10.0.7(@babel/runtime@7.28.2)(@coinbase/wallet-sdk@4.3.6(@types/react@18.3.20)(bufferutil@4.0.9)(immer@10.1.1)(react@18.3.1)(typescript@5.9.2)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@3.25.64))(@sentry/core@9.46.0)(@solana/web3.js@1.98.4(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10))(bufferutil@4.0.9)(ioredis@5.10.0)(ox@0.8.7(typescript@5.9.2)(zod@3.25.64))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.9.2)(utf-8-validate@5.0.10)(viem@2.34.0(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.64))(zod@3.25.64)
+        version: 10.0.7(@babel/runtime@7.28.2)(@coinbase/wallet-sdk@4.3.6(@types/react@18.3.20)(bufferutil@4.0.9)(immer@10.1.1)(react@18.3.1)(typescript@5.9.2)(use-sync-external-store@1.5.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@3.25.64))(@sentry/core@9.46.0)(@solana/web3.js@1.98.4(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10))(bufferutil@4.0.9)(ioredis@5.10.0)(ox@0.8.7(typescript@5.9.2)(zod@3.25.64))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.9.2)(utf-8-validate@5.0.10)(viem@2.34.0(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.64))(zod@3.25.64)
       '@yudiel/react-qr-scanner':
         specifier: ^2.3.1
         version: 2.3.1(@types/emscripten@1.40.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       better-auth:
         specifier: ^1.4.7
-        version: 1.4.10(@prisma/client@6.7.0(prisma@6.7.0(typescript@5.9.2))(typescript@5.9.2))(better-sqlite3@12.10.0)(drizzle-orm@0.41.0(@prisma/client@6.7.0(prisma@6.7.0(typescript@5.9.2))(typescript@5.9.2))(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.28.9)(pg@8.21.0)(prisma@6.7.0(typescript@5.9.2)))(next@16.3.0(@babel/core@7.26.10)(@types/node@20.19.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(pg@8.21.0)(prisma@6.7.0(typescript@5.9.2))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 1.4.10(@prisma/client@6.7.0(prisma@6.7.0(typescript@5.9.2))(typescript@5.9.2))(better-sqlite3@12.10.0)(drizzle-orm@0.41.0(@prisma/client@6.7.0(prisma@6.7.0(typescript@5.9.2))(typescript@5.9.2))(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.28.9)(pg@8.21.0)(prisma@6.7.0(typescript@5.9.2)))(next@16.3.0(@types/node@20.19.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(pg@8.21.0)(prisma@6.7.0(typescript@5.9.2))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -363,6 +363,9 @@ importers:
       '@repo/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@repo/web3':
+        specifier: workspace:^
+        version: link:../../packages/web3
       '@tanstack/react-query':
         specifier: 5.85.4
         version: 5.85.4(react@18.3.1)
@@ -385,14 +388,17 @@ importers:
         specifier: ^3.0.0
         version: 3.0.0(@tsparticles/engine@3.8.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       better-auth:
-        specifier: ^1.4.7
-        version: 1.4.21(@prisma/client@6.7.0(prisma@6.7.0(typescript@5.9.2))(typescript@5.9.2))(better-sqlite3@12.10.0)(drizzle-orm@0.41.0(@prisma/client@6.7.0(prisma@6.7.0(typescript@5.9.2))(typescript@5.9.2))(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.28.9)(pg@8.21.0)(prisma@6.7.0(typescript@5.9.2)))(next@16.3.0(@types/node@20.19.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(pg@8.21.0)(prisma@6.7.0(typescript@5.9.2))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: ^1.4.10
+        version: 1.4.10(@prisma/client@6.7.0(prisma@6.7.0(typescript@5.9.2))(typescript@5.9.2))(better-sqlite3@12.10.0)(drizzle-orm@0.41.0(@prisma/client@6.7.0(prisma@6.7.0(typescript@5.9.2))(typescript@5.9.2))(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.28.9)(pg@8.21.0)(prisma@6.7.0(typescript@5.9.2)))(next@16.3.0(@types/node@20.19.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(pg@8.21.0)(prisma@6.7.0(typescript@5.9.2))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      decimal.js:
+        specifier: ^10.6.0
+        version: 10.6.0
       framer-motion:
         specifier: ^12.0.0
         version: 12.9.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -405,6 +411,9 @@ importers:
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      qrcode.react:
+        specifier: ^4.2.0
+        version: 4.2.0(react@18.3.1)
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -417,6 +426,18 @@ importers:
       react-hot-toast:
         specifier: ^2.5.2
         version: 2.5.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react-icons:
+        specifier: ^5.5.0
+        version: 5.5.0(react@18.3.1)
+      react-social-media-embed:
+        specifier: ^2.5.18
+        version: 2.5.18(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react-tweet:
+        specifier: ^3.3.0
+        version: 3.3.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      socket.io-client:
+        specifier: ^4.8.3
+        version: 4.8.3(bufferutil@4.0.9)(utf-8-validate@5.0.10)
       sonner:
         specifier: ^2.0.7
         version: 2.0.7(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -426,6 +447,12 @@ importers:
       tailwindcss-animate:
         specifier: ^1.0.7
         version: 1.0.7(tailwindcss@3.4.17(ts-node@10.9.2(@types/node@20.19.27)(typescript@5.9.2)))
+      viem:
+        specifier: 2.34.0
+        version: 2.34.0(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.64)
+      wagmi:
+        specifier: 2.14.8
+        version: 2.14.8(@tanstack/query-core@5.85.4)(@tanstack/react-query@5.85.4(react@18.3.1))(@types/react@18.3.20)(bufferutil@4.0.9)(immer@10.1.1)(ioredis@5.10.0)(react@18.3.1)(typescript@5.9.2)(utf-8-validate@5.0.10)(viem@2.34.0(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.64))(zod@3.25.64)
       zod:
         specifier: ^3.25.64
         version: 3.25.64
@@ -571,7 +598,7 @@ importers:
     devDependencies:
       '@better-auth/cli':
         specifier: ^1.4.21
-        version: 1.4.21(@better-fetch/fetch@1.1.21)(better-call@1.1.8(zod@3.25.64))(jose@5.10.0)(kysely@0.28.9)(nanostores@1.1.0)(next@16.3.0(@babel/core@7.29.7)(@types/node@24.10.4)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(prisma@6.7.0(typescript@5.9.2))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+        version: 1.4.21(@better-fetch/fetch@1.1.21)(better-call@1.1.8(zod@4.3.5))(jose@5.10.0)(kysely@0.28.9)(nanostores@1.1.0)(next@16.3.0(@babel/core@7.29.7)(@types/node@24.10.4)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(prisma@6.7.0(typescript@5.9.2))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@react-email/preview-server':
         specifier: 5.2.8
         version: 5.2.8(@babel/core@7.29.7)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -2530,7 +2557,7 @@ packages:
 
   '@paulmillr/qr@0.2.1':
     resolution: {integrity: sha512-IHnV6A+zxU7XwmKFinmYjUcwlyK9+xkG3/s9KcQhI9BjQKycrJ1JRO+FbNYPwZiPKW3je/DR0k7w8/gLa5eaxQ==}
-    deprecated: 'The package is now available as "qr": npm install qr'
+    deprecated: 'Switch to "qr" (new package name) for security updates: npm install qr'
 
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
@@ -3426,6 +3453,7 @@ packages:
   '@safe-global/safe-gateway-typescript-sdk@3.23.1':
     resolution: {integrity: sha512-6ORQfwtEJYpalCeVO21L4XXGSdbEMfyp2hEv6cP82afKXSwvse6d3sdelgaPWUxHIsFRkWvHDdzh8IyyKHZKxw==}
     engines: {node: '>=16'}
+    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
 
   '@scure/base@1.1.9':
     resolution: {integrity: sha512-8YKhl8GHiNI/pU2VMaofa2Tor7PJRAjwQLBBuilkJ9L5+13yVbC7JO/wS7piioAvPSwR3JKM1IJ/u4xQzbcXKg==}
@@ -4311,33 +4339,33 @@ packages:
   '@tsparticles/updater-wobble@3.8.1':
     resolution: {integrity: sha512-PkjVgeSkW0EebJQ9PdpwSMWU2fAvKsVSuH4KGmodYlgGkH0/zvKjMOPMEI6YRAor1/vF1soFyLYp9Vax7Ae13g==}
 
-  '@turbo/darwin-64@2.10.8':
-    resolution: {integrity: sha512-po+7rfJfUnFXjWlcoN2RwhErgzCdRtBc1T26vYPcywHlggmCQiQe1uWaE4j+BibI2uY9/2pDoFzMN0rmSaPFOw==}
+  '@turbo/darwin-64@2.10.9':
+    resolution: {integrity: sha512-Jh+pTGXLNz8+1tkUU13TI/f+ZOI+OvC4YbHi1H+57iSpLt5DR3xgptd+4sA07RdjdRR/RX/01uQQu2OkbzIefA==}
     cpu: [x64]
     os: [darwin]
 
-  '@turbo/darwin-arm64@2.10.8':
-    resolution: {integrity: sha512-+zB2btDJ00lnPRuqOvpVvgl4x34k/djZQGZTTCfjn7JgNCl8QFY5Njo5+dqkY1g/+9gbbsnAvWm9CmJg9ebcXA==}
+  '@turbo/darwin-arm64@2.10.9':
+    resolution: {integrity: sha512-aqtpPkiIC4IUas8Vv27oJ3aDfTuP1d5wofd01dZ7gfhHRrIKuFdqQb4imvNnVFahcOViF9Jh8Oi7feDoz8/ciA==}
     cpu: [arm64]
     os: [darwin]
 
-  '@turbo/linux-64@2.10.8':
-    resolution: {integrity: sha512-K1dxqiVisyN7cViVsfQLs6xscQbYuI8aO2nbUhFURDACgEDfZRdP/b4CCxeosBJpcMfhYyiibWqJorCnvz9kKg==}
+  '@turbo/linux-64@2.10.9':
+    resolution: {integrity: sha512-XyAneUBsS5uNOUOjBSs81zyigMVwwhVUd3u7F2JFMKGQk6F7eNAiOEBASJ+aHLldjYsOEjhfW+5gWIqwziyFFw==}
     cpu: [x64]
     os: [android, linux]
 
-  '@turbo/linux-arm64@2.10.8':
-    resolution: {integrity: sha512-Gi77ibVnrE1fEmvr+/wBD/yvRqhwp/RQuCp2+//lv1U1wNFFyVg0V7Wj8FG9FXPFAw5QHReo8rxc9+wBSDZjzA==}
+  '@turbo/linux-arm64@2.10.9':
+    resolution: {integrity: sha512-5jAcldLnkuWIjujGhCn2MGIeUwW8IVNOq9Sce4EEzzgLcxmhTasbV0RiW6ZkaRdOjmOCGzeNXPLkDJEOIucOLw==}
     cpu: [arm64]
     os: [android, linux]
 
-  '@turbo/windows-64@2.10.8':
-    resolution: {integrity: sha512-znnLO1haJPYTHoKMKwlAvlkjRiYbbhBzME6wIGaMd+fwir23U6jVd1ecaTWWi1fbnRVqxMfgDBKseQ/hLKb83g==}
+  '@turbo/windows-64@2.10.9':
+    resolution: {integrity: sha512-u1xGpGlefzuhBedbt/VR2nWdftfFVZwPeDg9e5uZl68sV1fL3HNYTNr5VyHkzgtPK2VTYg1x4OKZuGrh1Gvhtg==}
     cpu: [x64]
     os: [win32]
 
-  '@turbo/windows-arm64@2.10.8':
-    resolution: {integrity: sha512-VN30vh3b3Czh2WzYHNTfF1FE0YMZ5aHsLO8dBMGHJewA6792wX6iJR8ZxlzFW6WdOu0gEAKIvlYhfyT81Wkm4Q==}
+  '@turbo/windows-arm64@2.10.9':
+    resolution: {integrity: sha512-W2Ub165Qv0iMFljbYKxxbZN+2dVSngnzEjQNEFXtnz5oJVx9XSypmNmUvMtuYMeZ3kdVC1zI7yd/rtuX+SDnbg==}
     cpu: [arm64]
     os: [win32]
 
@@ -5725,9 +5753,6 @@ packages:
   define-properties@1.2.1:
     resolution: {integrity: sha512-8QmQKqEASLd5nx0U1B1okLElbUuuttJ/AnYmRXbbbGDWh6uS208EjD4Xqq/I9wK7u0v6O08XhTWnt5XtEbR6Dg==}
     engines: {node: '>= 0.4'}
-
-  defu@6.1.4:
-    resolution: {integrity: sha512-mEQCMmwJu317oSz8CwdIOdwf3xMif1ttiM8LTufzc3g6kR+9Pe236twL8j3IYT1F7GfRgGcW6MWxzZjLIkuHIg==}
 
   defu@6.1.7:
     resolution: {integrity: sha512-7z22QmUWiQ/2d0KkdYmANbRUVABpZ9SNYyH5vx6PZ+nE5bcC0l7uFvEfHlyld/HcGBFTL536ClDt3DEcSlEJAQ==}
@@ -8900,8 +8925,8 @@ packages:
   tunnel-agent@0.6.0:
     resolution: {integrity: sha512-McnNiV1l8RYeY8tBgEpuodCC1mLUdbSN+CYBL7kJsJNInOP8UjDDEwdk6Mw60vdLLrr5NHKZhMAOSrR2NZuQ+w==}
 
-  turbo@2.10.8:
-    resolution: {integrity: sha512-9+8YX5QOkGXzZxcIykTHgaooRHGMWO+jfdyRK0o+rN0U7hBIig2MrJ8r/aNzIPDPhdA73SGb0O+tIztaModTMg==}
+  turbo@2.10.9:
+    resolution: {integrity: sha512-Yl9+ukxH+UmPtKidpDkjn82tvPoEvFNb9UACd9vUomN1Ft0cwl3rx0P8yC1D93W9EOsWRMjllvIDG8y25sFOog==}
     hasBin: true
 
   tween-functions@1.2.0:
@@ -10290,7 +10315,7 @@ snapshots:
       '@babel/helper-string-parser': 7.29.7
       '@babel/helper-validator-identifier': 7.29.7
 
-  '@better-auth/cli@1.4.21(@better-fetch/fetch@1.1.21)(better-call@1.1.8(zod@3.25.64))(jose@5.10.0)(kysely@0.28.9)(nanostores@1.1.0)(next@16.3.0(@babel/core@7.29.7)(@types/node@24.10.4)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(prisma@6.7.0(typescript@5.9.2))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
+  '@better-auth/cli@1.4.21(@better-fetch/fetch@1.1.21)(better-call@1.1.8(zod@4.3.5))(jose@5.10.0)(kysely@0.28.9)(nanostores@1.1.0)(next@16.3.0(@babel/core@7.29.7)(@types/node@24.10.4)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(prisma@6.7.0(typescript@5.9.2))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
     dependencies:
       '@babel/core': 7.29.7
       '@babel/preset-react': 7.29.7(@babel/core@7.29.7)
@@ -10378,13 +10403,13 @@ snapshots:
       '@better-auth/utils': 0.3.0
       '@better-fetch/fetch': 1.1.21
       '@standard-schema/spec': 1.1.0
-      better-call: 1.1.8(zod@3.25.64)
+      better-call: 1.1.8(zod@4.3.5)
       jose: 5.10.0
       kysely: 0.28.9
       nanostores: 1.1.0
       zod: 4.3.5
 
-  '@better-auth/core@1.4.21(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.8(zod@3.25.64))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0)':
+  '@better-auth/core@1.4.21(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.8(zod@4.3.5))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0)':
     dependencies:
       '@better-auth/utils': 0.3.0
       '@better-fetch/fetch': 1.1.21
@@ -10404,12 +10429,6 @@ snapshots:
   '@better-auth/telemetry@1.4.21(@better-auth/core@1.4.21(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.8(zod@3.25.64))(jose@5.10.0)(kysely@0.28.9)(nanostores@1.1.0))':
     dependencies:
       '@better-auth/core': 1.4.21(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.8(zod@3.25.64))(jose@5.10.0)(kysely@0.28.9)(nanostores@1.1.0)
-      '@better-auth/utils': 0.3.0
-      '@better-fetch/fetch': 1.1.21
-
-  '@better-auth/telemetry@1.4.21(@better-auth/core@1.4.21(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.8(zod@3.25.64))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0))':
-    dependencies:
-      '@better-auth/core': 1.4.21(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.8(zod@3.25.64))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0)
       '@better-auth/utils': 0.3.0
       '@better-fetch/fetch': 1.1.21
 
@@ -10466,7 +10485,7 @@ snapshots:
       eventemitter3: 5.0.1
       preact: 10.27.0
 
-  '@coinbase/wallet-sdk@4.3.6(@types/react@18.3.20)(bufferutil@4.0.9)(immer@10.1.1)(react@18.3.1)(typescript@5.9.2)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@3.25.64)':
+  '@coinbase/wallet-sdk@4.3.6(@types/react@18.3.20)(bufferutil@4.0.9)(immer@10.1.1)(react@18.3.1)(typescript@5.9.2)(use-sync-external-store@1.5.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@3.25.64)':
     dependencies:
       '@noble/hashes': 1.4.0
       clsx: 1.2.1
@@ -10475,7 +10494,7 @@ snapshots:
       ox: 0.6.9(typescript@5.9.2)(zod@3.25.64)
       preact: 10.24.2
       viem: 2.34.0(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.64)
-      zustand: 5.0.3(@types/react@18.3.20)(immer@10.1.1)(react@18.3.1)(use-sync-external-store@1.4.0(react@18.3.1))
+      zustand: 5.0.3(@types/react@18.3.20)(immer@10.1.1)(react@18.3.1)(use-sync-external-store@1.5.0(react@18.3.1))
     transitivePeerDependencies:
       - '@types/react'
       - bufferutil
@@ -11388,7 +11407,7 @@ snapshots:
       '@ethereumjs/tx': 4.2.0
       '@types/debug': 4.1.12
       debug: 4.4.1(supports-color@8.1.1)
-      semver: 7.7.4
+      semver: 7.8.5
       superstruct: 1.0.4
     transitivePeerDependencies:
       - supports-color
@@ -11402,7 +11421,7 @@ snapshots:
       '@types/debug': 4.1.12
       debug: 4.4.1(supports-color@8.1.1)
       pony-cause: 2.1.11
-      semver: 7.7.4
+      semver: 7.8.5
       uuid: 9.0.1
     transitivePeerDependencies:
       - supports-color
@@ -11416,7 +11435,7 @@ snapshots:
       '@types/debug': 4.1.12
       debug: 4.4.1(supports-color@8.1.1)
       pony-cause: 2.1.11
-      semver: 7.7.4
+      semver: 7.8.5
       uuid: 9.0.1
     transitivePeerDependencies:
       - supports-color
@@ -12453,7 +12472,7 @@ snapshots:
 
   '@scure/bip32@1.7.0':
     dependencies:
-      '@noble/curves': 1.9.6
+      '@noble/curves': 1.9.7
       '@noble/hashes': 1.8.0
       '@scure/base': 1.2.6
 
@@ -12893,7 +12912,7 @@ snapshots:
   '@solana/web3.js@1.98.4(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)':
     dependencies:
       '@babel/runtime': 7.28.2
-      '@noble/curves': 1.9.6
+      '@noble/curves': 1.9.7
       '@noble/hashes': 1.8.0
       '@solana/buffer-layout': 4.0.1
       '@solana/codecs-numbers': 2.3.0(typescript@5.9.2)
@@ -13825,22 +13844,22 @@ snapshots:
     dependencies:
       '@tsparticles/engine': 3.8.1
 
-  '@turbo/darwin-64@2.10.8':
+  '@turbo/darwin-64@2.10.9':
     optional: true
 
-  '@turbo/darwin-arm64@2.10.8':
+  '@turbo/darwin-arm64@2.10.9':
     optional: true
 
-  '@turbo/linux-64@2.10.8':
+  '@turbo/linux-64@2.10.9':
     optional: true
 
-  '@turbo/linux-arm64@2.10.8':
+  '@turbo/linux-arm64@2.10.9':
     optional: true
 
-  '@turbo/windows-64@2.10.8':
+  '@turbo/windows-64@2.10.9':
     optional: true
 
-  '@turbo/windows-arm64@2.10.8':
+  '@turbo/windows-arm64@2.10.9':
     optional: true
 
   '@types/babel__core@7.20.5':
@@ -14202,12 +14221,12 @@ snapshots:
       - react
       - use-sync-external-store
 
-  '@wagmi/core@2.18.0(@tanstack/query-core@5.85.4)(@types/react@18.3.20)(immer@10.1.1)(react@18.3.1)(typescript@5.9.2)(use-sync-external-store@1.4.0(react@18.3.1))(viem@2.34.0(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.64))':
+  '@wagmi/core@2.18.0(@tanstack/query-core@5.85.4)(@types/react@18.3.20)(immer@10.1.1)(react@18.3.1)(typescript@5.9.2)(use-sync-external-store@1.5.0(react@18.3.1))(viem@2.34.0(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.64))':
     dependencies:
       eventemitter3: 5.0.1
       mipd: 0.0.7(typescript@5.9.2)
       viem: 2.34.0(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.64)
-      zustand: 5.0.0(@types/react@18.3.20)(immer@10.1.1)(react@18.3.1)(use-sync-external-store@1.4.0(react@18.3.1))
+      zustand: 5.0.0(@types/react@18.3.20)(immer@10.1.1)(react@18.3.1)(use-sync-external-store@1.5.0(react@18.3.1))
     optionalDependencies:
       '@tanstack/query-core': 5.85.4
       typescript: 5.9.2
@@ -14833,7 +14852,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@web3auth/modal@10.0.7(@babel/runtime@7.28.2)(@coinbase/wallet-sdk@4.3.6(@types/react@18.3.20)(bufferutil@4.0.9)(immer@10.1.1)(react@18.3.1)(typescript@5.9.2)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@3.25.64))(@sentry/core@9.46.0)(@solana/web3.js@1.98.4(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10))(bufferutil@4.0.9)(ioredis@5.10.0)(ox@0.8.7(typescript@5.9.2)(zod@3.25.64))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.9.2)(utf-8-validate@5.0.10)(viem@2.34.0(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.64))(zod@3.25.64)':
+  '@web3auth/modal@10.0.7(@babel/runtime@7.28.2)(@coinbase/wallet-sdk@4.3.6(@types/react@18.3.20)(bufferutil@4.0.9)(immer@10.1.1)(react@18.3.1)(typescript@5.9.2)(use-sync-external-store@1.5.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@3.25.64))(@sentry/core@9.46.0)(@solana/web3.js@1.98.4(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10))(bufferutil@4.0.9)(ioredis@5.10.0)(ox@0.8.7(typescript@5.9.2)(zod@3.25.64))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.9.2)(utf-8-validate@5.0.10)(viem@2.34.0(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.64))(zod@3.25.64)':
     dependencies:
       '@babel/runtime': 7.28.2
       '@hcaptcha/react-hcaptcha': 1.12.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -14841,7 +14860,7 @@ snapshots:
       '@toruslabs/base-controllers': 8.7.0(@babel/runtime@7.28.2)(@sentry/core@9.46.0)(bufferutil@4.0.9)(color@5.0.2)(utf-8-validate@5.0.10)
       '@toruslabs/http-helpers': 8.1.1(@babel/runtime@7.28.2)(@sentry/core@9.46.0)
       '@web3auth/auth': 10.5.0(@babel/runtime@7.28.2)(@sentry/core@9.46.0)(bufferutil@4.0.9)(color@5.0.2)(utf-8-validate@5.0.10)
-      '@web3auth/no-modal': 10.5.0(@babel/runtime@7.28.2)(@coinbase/wallet-sdk@4.3.6(@types/react@18.3.20)(bufferutil@4.0.9)(immer@10.1.1)(react@18.3.1)(typescript@5.9.2)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@3.25.64))(@sentry/core@9.46.0)(bufferutil@4.0.9)(color@5.0.2)(ioredis@5.10.0)(ox@0.8.7(typescript@5.9.2)(zod@3.25.64))(react@18.3.1)(typescript@5.9.2)(utf-8-validate@5.0.10)(viem@2.34.0(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.64))(zod@3.25.64)
+      '@web3auth/no-modal': 10.5.0(@babel/runtime@7.28.2)(@coinbase/wallet-sdk@4.3.6(@types/react@18.3.20)(bufferutil@4.0.9)(immer@10.1.1)(react@18.3.1)(typescript@5.9.2)(use-sync-external-store@1.5.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@3.25.64))(@sentry/core@9.46.0)(bufferutil@4.0.9)(color@5.0.2)(ioredis@5.10.0)(ox@0.8.7(typescript@5.9.2)(zod@3.25.64))(react@18.3.1)(typescript@5.9.2)(utf-8-validate@5.0.10)(viem@2.34.0(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.64))(zod@3.25.64)
       bowser: 2.11.0
       classnames: 2.5.1
       clsx: 2.1.1
@@ -14855,7 +14874,7 @@ snapshots:
       react-qrcode-logo: 3.0.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       tailwind-merge: 3.3.1
     optionalDependencies:
-      '@coinbase/wallet-sdk': 4.3.6(@types/react@18.3.20)(bufferutil@4.0.9)(immer@10.1.1)(react@18.3.1)(typescript@5.9.2)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@3.25.64)
+      '@coinbase/wallet-sdk': 4.3.6(@types/react@18.3.20)(bufferutil@4.0.9)(immer@10.1.1)(react@18.3.1)(typescript@5.9.2)(use-sync-external-store@1.5.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@3.25.64)
       viem: 2.34.0(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.64)
     transitivePeerDependencies:
       - '@azure/app-configuration'
@@ -14886,7 +14905,7 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@web3auth/no-modal@10.5.0(@babel/runtime@7.28.2)(@coinbase/wallet-sdk@4.3.6(@types/react@18.3.20)(bufferutil@4.0.9)(immer@10.1.1)(react@18.3.1)(typescript@5.9.2)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@3.25.64))(@sentry/core@9.46.0)(bufferutil@4.0.9)(color@5.0.2)(ioredis@5.10.0)(ox@0.8.7(typescript@5.9.2)(zod@3.25.64))(react@18.3.1)(typescript@5.9.2)(utf-8-validate@5.0.10)(viem@2.34.0(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.64))(zod@3.25.64)':
+  '@web3auth/no-modal@10.5.0(@babel/runtime@7.28.2)(@coinbase/wallet-sdk@4.3.6(@types/react@18.3.20)(bufferutil@4.0.9)(immer@10.1.1)(react@18.3.1)(typescript@5.9.2)(use-sync-external-store@1.5.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@3.25.64))(@sentry/core@9.46.0)(bufferutil@4.0.9)(color@5.0.2)(ioredis@5.10.0)(ox@0.8.7(typescript@5.9.2)(zod@3.25.64))(react@18.3.1)(typescript@5.9.2)(utf-8-validate@5.0.10)(viem@2.34.0(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.64))(zod@3.25.64)':
     dependencies:
       '@babel/runtime': 7.28.2
       '@ethereumjs/util': 9.1.0
@@ -14927,7 +14946,7 @@ snapshots:
       ts-custom-error: 3.3.1
       xrpl: 2.14.3(bufferutil@4.0.9)(utf-8-validate@5.0.10)
     optionalDependencies:
-      '@coinbase/wallet-sdk': 4.3.6(@types/react@18.3.20)(bufferutil@4.0.9)(immer@10.1.1)(react@18.3.1)(typescript@5.9.2)(use-sync-external-store@1.4.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@3.25.64)
+      '@coinbase/wallet-sdk': 4.3.6(@types/react@18.3.20)(bufferutil@4.0.9)(immer@10.1.1)(react@18.3.1)(typescript@5.9.2)(use-sync-external-store@1.5.0(react@18.3.1))(utf-8-validate@5.0.10)(zod@3.25.64)
       react: 18.3.1
       viem: 2.34.0(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.64)
     transitivePeerDependencies:
@@ -15210,7 +15229,7 @@ snapshots:
       '@noble/ciphers': 2.1.1
       '@noble/hashes': 2.0.1
       better-call: 1.1.7(zod@4.3.5)
-      defu: 6.1.4
+      defu: 6.1.7
       jose: 6.1.3
       kysely: 0.28.9
       nanostores: 1.1.0
@@ -15225,7 +15244,7 @@ snapshots:
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
 
-  better-auth@1.4.10(@prisma/client@6.7.0(prisma@6.7.0(typescript@5.9.2))(typescript@5.9.2))(better-sqlite3@12.10.0)(drizzle-orm@0.41.0(@prisma/client@6.7.0(prisma@6.7.0(typescript@5.9.2))(typescript@5.9.2))(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.28.9)(pg@8.21.0)(prisma@6.7.0(typescript@5.9.2)))(next@16.3.0(@babel/core@7.26.10)(@types/node@20.19.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(pg@8.21.0)(prisma@6.7.0(typescript@5.9.2))(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  better-auth@1.4.10(@prisma/client@6.7.0(prisma@6.7.0(typescript@5.9.2))(typescript@5.9.2))(better-sqlite3@12.10.0)(drizzle-orm@0.41.0(@prisma/client@6.7.0(prisma@6.7.0(typescript@5.9.2))(typescript@5.9.2))(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.28.9)(pg@8.21.0)(prisma@6.7.0(typescript@5.9.2)))(next@16.3.0(@types/node@20.19.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(pg@8.21.0)(prisma@6.7.0(typescript@5.9.2))(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
       '@better-auth/core': 1.4.10(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.7(zod@3.25.64))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0)
       '@better-auth/telemetry': 1.4.10(@better-auth/core@1.4.10(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.7(zod@3.25.64))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0))
@@ -15234,7 +15253,7 @@ snapshots:
       '@noble/ciphers': 2.1.1
       '@noble/hashes': 2.0.1
       better-call: 1.1.7(zod@4.3.5)
-      defu: 6.1.4
+      defu: 6.1.7
       jose: 6.1.3
       kysely: 0.28.9
       nanostores: 1.1.0
@@ -15251,7 +15270,7 @@ snapshots:
 
   better-auth@1.4.21(@prisma/client@5.22.0(prisma@6.7.0(typescript@5.9.2)))(better-sqlite3@12.10.0)(drizzle-orm@0.41.0(@prisma/client@5.22.0(prisma@6.7.0(typescript@5.9.2)))(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.28.9)(pg@8.21.0)(prisma@6.7.0(typescript@5.9.2)))(next@16.3.0(@babel/core@7.29.7)(@types/node@24.10.4)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(pg@8.21.0)(prisma@6.7.0(typescript@5.9.2))(react-dom@19.1.0(react@19.1.0))(react@19.1.0):
     dependencies:
-      '@better-auth/core': 1.4.21(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.8(zod@3.25.64))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0)
+      '@better-auth/core': 1.4.21(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.8(zod@4.3.5))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0)
       '@better-auth/telemetry': 1.4.21(@better-auth/core@1.4.21(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.8(zod@3.25.64))(jose@5.10.0)(kysely@0.28.9)(nanostores@1.1.0))
       '@better-auth/utils': 0.3.0
       '@better-fetch/fetch': 1.1.21
@@ -15273,30 +15292,6 @@ snapshots:
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
 
-  better-auth@1.4.21(@prisma/client@6.7.0(prisma@6.7.0(typescript@5.9.2))(typescript@5.9.2))(better-sqlite3@12.10.0)(drizzle-orm@0.41.0(@prisma/client@6.7.0(prisma@6.7.0(typescript@5.9.2))(typescript@5.9.2))(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.28.9)(pg@8.21.0)(prisma@6.7.0(typescript@5.9.2)))(next@16.3.0(@types/node@20.19.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(pg@8.21.0)(prisma@6.7.0(typescript@5.9.2))(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
-    dependencies:
-      '@better-auth/core': 1.4.21(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.8(zod@3.25.64))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0)
-      '@better-auth/telemetry': 1.4.21(@better-auth/core@1.4.21(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.8(zod@3.25.64))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0))
-      '@better-auth/utils': 0.3.0
-      '@better-fetch/fetch': 1.1.21
-      '@noble/ciphers': 2.1.1
-      '@noble/hashes': 2.0.1
-      better-call: 1.1.8(zod@4.3.5)
-      defu: 6.1.7
-      jose: 6.1.3
-      kysely: 0.28.9
-      nanostores: 1.1.0
-      zod: 4.3.5
-    optionalDependencies:
-      '@prisma/client': 6.7.0(prisma@6.7.0(typescript@5.9.2))(typescript@5.9.2)
-      better-sqlite3: 12.10.0
-      drizzle-orm: 0.41.0(@prisma/client@6.7.0(prisma@6.7.0(typescript@5.9.2))(typescript@5.9.2))(@types/pg@8.20.0)(better-sqlite3@12.10.0)(kysely@0.28.9)(pg@8.21.0)(prisma@6.7.0(typescript@5.9.2))
-      next: 16.3.0(@types/node@20.19.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      pg: 8.21.0
-      prisma: 6.7.0(typescript@5.9.2)
-      react: 18.3.1
-      react-dom: 18.3.1(react@18.3.1)
-
   better-call@1.1.7(zod@4.3.5):
     dependencies:
       '@better-auth/utils': 0.3.0
@@ -15305,15 +15300,6 @@ snapshots:
       set-cookie-parser: 2.7.2
     optionalDependencies:
       zod: 4.3.5
-
-  better-call@1.1.8(zod@3.25.64):
-    dependencies:
-      '@better-auth/utils': 0.3.0
-      '@better-fetch/fetch': 1.1.21
-      rou3: 0.7.12
-      set-cookie-parser: 2.7.2
-    optionalDependencies:
-      zod: 3.25.64
 
   better-call@1.1.8(zod@4.3.5):
     dependencies:
@@ -15921,8 +15907,6 @@ snapshots:
       has-property-descriptors: 1.0.2
       object-keys: 1.1.1
 
-  defu@6.1.4: {}
-
   defu@6.1.7: {}
 
   delay@5.0.0: {}
@@ -16032,7 +16016,7 @@ snapshots:
     dependencies:
       '@ecies/ciphers': 0.2.4(@noble/ciphers@1.3.0)
       '@noble/ciphers': 1.3.0
-      '@noble/curves': 1.9.6
+      '@noble/curves': 1.9.7
       '@noble/hashes': 1.8.0
 
   ee-first@1.1.1: {}
@@ -17535,32 +17519,6 @@ snapshots:
       - babel-plugin-macros
     optional: true
 
-  next@16.3.0(@types/node@20.19.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
-    dependencies:
-      '@next/env': 16.3.0
-      '@swc/helpers': 0.5.15
-      baseline-browser-mapping: 2.9.19
-      caniuse-lite: 1.0.30001715
-      postcss: 8.5.23
-      react: 18.3.1
-      react-dom: 18.3.1(react@18.3.1)
-      styled-jsx: 5.1.6(@babel/core@7.26.10)(react@18.3.1)
-    optionalDependencies:
-      '@next/swc-darwin-arm64': 16.3.0
-      '@next/swc-darwin-x64': 16.3.0
-      '@next/swc-linux-arm64-gnu': 16.3.0
-      '@next/swc-linux-arm64-musl': 16.3.0
-      '@next/swc-linux-x64-gnu': 16.3.0
-      '@next/swc-linux-x64-musl': 16.3.0
-      '@next/swc-win32-arm64-msvc': 16.3.0
-      '@next/swc-win32-x64-msvc': 16.3.0
-      sharp: 0.35.3(@types/node@20.19.27)
-    transitivePeerDependencies:
-      - '@babel/core'
-      - '@types/node'
-      - babel-plugin-macros
-    optional: true
-
   node-abi@3.92.0:
     dependencies:
       semver: 7.7.4
@@ -17726,11 +17684,11 @@ snapshots:
     dependencies:
       '@adraffy/ens-normalize': 1.11.0
       '@noble/ciphers': 1.3.0
-      '@noble/curves': 1.9.6
+      '@noble/curves': 1.9.7
       '@noble/hashes': 1.8.0
       '@scure/bip32': 1.7.0
       '@scure/bip39': 1.6.0
-      abitype: 1.0.8(typescript@5.9.2)(zod@3.25.64)
+      abitype: 1.1.1(typescript@5.9.2)(zod@3.25.64)
       eventemitter3: 5.0.1
     optionalDependencies:
       typescript: 5.9.2
@@ -18475,7 +18433,7 @@ snapshots:
 
   ripple-keypairs@2.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10):
     dependencies:
-      '@noble/curves': 1.9.6
+      '@noble/curves': 1.9.7
       '@xrplf/isomorphic': 1.0.1(bufferutil@4.0.9)(utf-8-validate@5.0.10)
       ripple-address-codec: 5.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
     transitivePeerDependencies:
@@ -18575,8 +18533,7 @@ snapshots:
 
   semver@7.7.4: {}
 
-  semver@7.8.5:
-    optional: true
+  semver@7.8.5: {}
 
   send@0.19.0:
     dependencies:
@@ -19429,14 +19386,14 @@ snapshots:
     dependencies:
       safe-buffer: 5.2.1
 
-  turbo@2.10.8:
+  turbo@2.10.9:
     optionalDependencies:
-      '@turbo/darwin-64': 2.10.8
-      '@turbo/darwin-arm64': 2.10.8
-      '@turbo/linux-64': 2.10.8
-      '@turbo/linux-arm64': 2.10.8
-      '@turbo/windows-64': 2.10.8
-      '@turbo/windows-arm64': 2.10.8
+      '@turbo/darwin-64': 2.10.9
+      '@turbo/darwin-arm64': 2.10.9
+      '@turbo/linux-64': 2.10.9
+      '@turbo/linux-arm64': 2.10.9
+      '@turbo/windows-64': 2.10.9
+      '@turbo/windows-arm64': 2.10.9
 
   tween-functions@1.2.0: {}
 
@@ -19688,7 +19645,7 @@ snapshots:
 
   webauthn-p256@0.0.5:
     dependencies:
-      '@noble/curves': 1.9.6
+      '@noble/curves': 1.9.7
       '@noble/hashes': 1.8.0
 
   webextension-polyfill@0.10.0: {}
@@ -19871,12 +19828,19 @@ snapshots:
       react: 18.3.1
       use-sync-external-store: 1.4.0(react@18.3.1)
 
-  zustand@5.0.3(@types/react@18.3.20)(immer@10.1.1)(react@18.3.1)(use-sync-external-store@1.4.0(react@18.3.1)):
+  zustand@5.0.0(@types/react@18.3.20)(immer@10.1.1)(react@18.3.1)(use-sync-external-store@1.5.0(react@18.3.1)):
     optionalDependencies:
       '@types/react': 18.3.20
       immer: 10.1.1
       react: 18.3.1
-      use-sync-external-store: 1.4.0(react@18.3.1)
+      use-sync-external-store: 1.5.0(react@18.3.1)
+
+  zustand@5.0.3(@types/react@18.3.20)(immer@10.1.1)(react@18.3.1)(use-sync-external-store@1.5.0(react@18.3.1)):
+    optionalDependencies:
+      '@types/react': 18.3.20
+      immer: 10.1.1
+      react: 18.3.1
+      use-sync-external-store: 1.5.0(react@18.3.1)
     optional: true
 
   zxing-wasm@2.2.1(@types/emscripten@1.40.1):

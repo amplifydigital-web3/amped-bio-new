@@ -10,7 +10,6 @@ import { MetaMaskWalletProvider } from "./MetaMaskWalletProvider";
 import { AVAILABLE_CHAINS } from "@repo/web3";
 import { isForceMetamask } from "../utils/auth";
 import { AuthProvider } from "../contexts/AuthContext";
-import { NdauWalletProvider } from "../ndau-wallet/contexts/NdauWalletContext";
 
 // Standard Wagmi config for direct MetaMask mode
 const wagmiConfig = createConfig({
@@ -30,9 +29,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
     return (
       <WagmiProvider config={wagmiConfig}>
         <AuthProvider>
-          <NdauWalletProvider>
-            <MetaMaskWalletProvider>{children}</MetaMaskWalletProvider>
-          </NdauWalletProvider>
+          <MetaMaskWalletProvider>{children}</MetaMaskWalletProvider>
         </AuthProvider>
       </WagmiProvider>
     );
@@ -42,9 +39,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
     <Web3AuthProvider config={web3AuthContextConfig}>
       <Web3AuthWagmiProvider>
         <AuthProvider>
-          <NdauWalletProvider>
-            <Web3AuthWalletProvider>{children}</Web3AuthWalletProvider>
-          </NdauWalletProvider>
+          <Web3AuthWalletProvider>{children}</Web3AuthWalletProvider>
         </AuthProvider>
       </Web3AuthWagmiProvider>
     </Web3AuthProvider>
