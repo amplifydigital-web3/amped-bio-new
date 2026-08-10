@@ -5,6 +5,10 @@ ENV NODE_OPTIONS=--max-old-space-size=4096
 RUN apk add --no-cache python3 make g++
 RUN corepack enable pnpm
 
+# Skip the Cypress binary download: it is a test-only dependency and is not
+# available for Alpine linux-arm64
+ENV CYPRESS_INSTALL_BINARY=0
+
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
@@ -14,7 +18,7 @@ COPY packages/web3 ./packages/web3
 COPY packages/ui ./packages/ui
 COPY apps/client ./apps/client
 
-RUN pnpm install --frozen-lockfile --filter=@ampedbio/client...
+RUN pnpm install --frozen-lockfile --filter=@repo/client...
 
 WORKDIR /app/apps/client
 RUN pnpm exec vite build
@@ -25,6 +29,9 @@ RUN apk add --no-cache lighttpd
 
 COPY --from=builder /app/apps/client/dist /var/www/localhost/htdocs
 COPY apps/client/lighttpd.conf /etc/lighttpd/lighttpd.conf
+
+# Run lighttpd workers as the unprivileged lighttpd user
+RUN chown -R lighttpd:lighttpd /var/www/localhost/htdocs
 
 EXPOSE 80
 

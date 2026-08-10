@@ -39,6 +39,10 @@ WORKDIR /app/apps/landingpage
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Run as non-root user to reduce the impact of a container compromise
+RUN chown -R node:node /app
+USER node
+
 EXPOSE 3000
 
 CMD ["pnpm", "start"]
