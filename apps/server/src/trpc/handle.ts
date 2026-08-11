@@ -178,15 +178,30 @@ const appRouter = router({
           legacyImageField: null,
           imageFileId: themeConfig.background.fileId,
         });
-
-        (theme as any)!.config = themeConfig;
       }
+
+      // Return a clean DTO instead of the raw Prisma row (no relations) so the
+      // tRPC output stays shallow and type-safe for consumers
+      const publicTheme = theme
+        ? { id: theme.id, name: theme.name, config: themeConfig ?? null }
+        : null;
 
       const blocks = await prisma.block.findMany({
         where: {
           user_id: Number(user_id),
         },
       });
+
+      const publicBlocks = blocks.map(block => ({
+        id: block.id,
+        user_id: block.user_id,
+        type: block.type,
+        order: block.order,
+        clicks: block.clicks,
+        config: block.config,
+        created_at: block.created_at,
+        updated_at: block.updated_at,
+      }));
 
       const resolvedImageUrl = await getFileUrl({
         legacyImageField: image,
@@ -278,8 +293,8 @@ const appRouter = router({
           description,
           image: resolvedImageUrl,
         },
-        theme,
-        blocks,
+        theme: publicTheme,
+        blocks: publicBlocks,
         hasCreatorPool,
       };
 

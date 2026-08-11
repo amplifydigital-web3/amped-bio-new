@@ -23,27 +23,15 @@ import {
   getHeroEffectStyle,
   isHTML,
 } from "@/lib/styles";
-import type { BlockType, ThemeConfig } from "@repo/constants";
-
-interface UserProfile {
-  id: number;
-  name: string;
-  handle: string;
-  handleFormatted: string;
-  email: string;
-  bio: string;
-  photoUrl?: string;
-  photoCmp?: string;
-  revoName?: string;
-}
-
-interface Theme {
-  id: number;
-  name: string;
-  config: ThemeConfig;
-}
-
-const DEFAULT_HANDLE = "landingpage";
+import type { BlockType } from "@repo/constants";
+import {
+  DEFAULT_HANDLE,
+  DEFAULT_PROFILE_DATA,
+  mapGetHandleData,
+  type ProfilePageData,
+  type Theme,
+  type UserProfile,
+} from "@/lib/profilePageData";
 
 function ProfileSkeleton() {
   return (
@@ -148,12 +136,18 @@ function extractRootDomain(url: string): string {
   }
 }
 
-export function ProfileView({ handle: rawHandle }: { handle?: string }) {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [blocks, setBlocks] = useState<BlockType[]>([]);
-  const [theme, setTheme] = useState<Theme | null>(null);
-  const [hasCreatorPool, setHasCreatorPool] = useState(false);
-  const [loading, setLoading] = useState(true);
+export function ProfileView({
+  handle: rawHandle,
+  initialData,
+}: {
+  handle?: string;
+  initialData?: ProfilePageData | null;
+}) {
+  const [profile, setProfile] = useState<UserProfile | null>(initialData?.profile ?? null);
+  const [blocks, setBlocks] = useState<BlockType[]>(initialData?.blocks ?? []);
+  const [theme, setTheme] = useState<Theme | null>(initialData?.theme ?? null);
+  const [hasCreatorPool, setHasCreatorPool] = useState(initialData?.hasCreatorPool ?? false);
+  const [loading, setLoading] = useState(!initialData);
   const [copied, setCopied] = useState(false);
 
   const { authUser } = useAuth();
@@ -177,47 +171,32 @@ export function ProfileView({ handle: rawHandle }: { handle?: string }) {
   };
 
   useEffect(() => {
+    if (initialData) return;
     setLoading(true);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (trpcClient.handle.getHandle.query as any)({ handle: normalizedHandle })
-      .then((onlinkData: any) => {
+    (async () => {
+      try {
+        const onlinkData = await trpcClient.handle.getHandle.query({
+          handle: normalizedHandle,
+        });
         if (onlinkData) {
-          const { user, theme: themeData, blocks: blocksRaw, hasCreatorPool: hasPool } = onlinkData;
-          setProfile({
-            id: user.id,
-            name: user.name,
-            handle: normalizedHandle,
-            handleFormatted: `@${normalizedHandle}`,
-            email: user.email,
-            bio: user.description ?? "",
-            photoUrl: user.image ?? "",
-            photoCmp: user.photoCmp ?? "",
-            revoName: user.revoName ?? "",
-          });
-          setTheme(themeData);
-          setBlocks([...blocksRaw].sort((a: any, b: any) => a.order - b.order));
-          setHasCreatorPool(!!hasPool);
+          const data = mapGetHandleData(onlinkData, normalizedHandle);
+          setProfile(data.profile);
+          setTheme(data.theme);
+          setBlocks(data.blocks);
+          setHasCreatorPool(data.hasCreatorPool);
         }
-      })
-      .catch(() => {
+      } catch {
         if (normalizedHandle === DEFAULT_HANDLE) {
-          setProfile({
-            id: 0,
-            name: "Amplify Digital",
-            handle: "amped.bio",
-            handleFormatted: "@amped.bio",
-            email: "info@amplifydigital.ai",
-            bio: "Empowering individuals and communities, enabling seamless transactions without intermediaries",
-          });
-          setBlocks([
-            { id: 1, order: 0, type: "link", config: { platform: "twitter", url: "https://x.com/amped_bio", label: "Follow on X" } },
-            { id: 2, order: 1, type: "link", config: { platform: "github", url: "https://github.com/amplifydigital-web3", label: "Check out our Github" } },
-            { id: 3, order: 2, type: "link", config: { platform: "telegram", url: "https://t.me/npayme_network", label: "Connect on Telegram" } },
-          ]);
+          setProfile(DEFAULT_PROFILE_DATA.profile);
+          setTheme(DEFAULT_PROFILE_DATA.theme);
+          setBlocks(DEFAULT_PROFILE_DATA.blocks);
+          setHasCreatorPool(DEFAULT_PROFILE_DATA.hasCreatorPool);
         }
-      })
-      .finally(() => setLoading(false));
-  }, [normalizedHandle]);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [normalizedHandle, initialData]);
 
   if (loading) return <ProfileSkeleton />;
   if (!profile) return <ProfileSkeleton />;
