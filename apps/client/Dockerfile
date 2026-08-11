@@ -32,7 +32,8 @@ COPY apps/client/lighttpd.conf /etc/lighttpd/lighttpd.conf
 
 # lighttpd drops privileges to the lighttpd user before opening its errorlog,
 # so give it a writable directory for the log and pid files
-RUN mkdir -p /var/log/lighttpd && chown -R lighttpd:lighttpd /var/log/lighttpd
+RUN mkdir -p /var/log/lighttpd && touch /var/log/lighttpd/error.log && \
+    chown -R lighttpd:lighttpd /var/log/lighttpd
 
 # Run lighttpd workers as the unprivileged lighttpd user
 RUN chown -R lighttpd:lighttpd /var/www/localhost/htdocs
