@@ -11,6 +11,7 @@ import { formatEther } from "viem";
 import { useChainId } from "wagmi";
 import Decimal from "decimal.js";
 import { formatNumberWithSeparators } from "@/utils/numberUtils";
+import type { PoolsPageData } from "@/lib/getPoolsData";
 
 // Define filter and sort types
 export type PoolFilter = "all" | "no-fans" | "more-than-10-fans" | "more-than-10k-stake";
@@ -20,9 +21,15 @@ interface PoolsTabProps {
   searchQuery: string;
   poolFilter: PoolFilter;
   poolSort: PoolSort;
+  initialData?: PoolsPageData | null;
 }
 
-const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }) => {
+const PoolsTab: React.FC<PoolsTabProps> = ({
+  searchQuery,
+  poolFilter,
+  poolSort,
+  initialData,
+}) => {
   const router = useRouter();
   const chainId = useChainId();
 
@@ -37,6 +44,7 @@ const PoolsTab: React.FC<PoolsTabProps> = ({ searchQuery, poolFilter, poolSort }
       sort: poolSort,
     }),
     enabled: !!chainId,
+    initialData: initialData ?? undefined,
   });
 
   const handleViewPool = (poolAddress: string) => {
