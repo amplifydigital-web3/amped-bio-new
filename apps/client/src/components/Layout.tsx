@@ -5,7 +5,6 @@ import { Preview } from "./Preview";
 import { UserMenu } from "./auth/UserMenu";
 import SaveButton from "./panels/SaveButton.tsx";
 import { useEditor } from "../contexts/EditorContext";
-import { SITE_URL } from "@/utils/siteUrl";
 import { ProfilePanel } from "./panels/profile/ProfilePanel";
 import { GalleryPanel } from "./panels/gallery/GalleryPanel";
 import { BlocksPanel } from "./panels/blocks/BlocksPanel";
@@ -108,7 +107,7 @@ export function Layout({ handle, bannerData, bannerLoading }: LayoutProps) {
             {/* View Button - Only show for logged in users */}
             <div className="flex gap-10 max-h-10 flex-shrink-0">
               <a
-                href={`${SITE_URL}/${handle}`}
+                href={`${import.meta.env.VITE_LANDING_URL}/${handle}`}
                 className="px-2 py-1 md:px-4 md:py-2 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-colors flex items-center space-x-1 md:space-x-2"
               >
                 <Eye className="w-3 h-3 md:w-4 md:h-4" />

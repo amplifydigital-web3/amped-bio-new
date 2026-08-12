@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router";
 import { formatHandle } from "@/utils/handle";
-import { SITE_URL } from "@/utils/siteUrl";
 import { cn } from "@/lib/utils";
 import { useWalletContext } from "@/contexts/WalletContext";
 import { AuthUser } from "@/types/auth";
@@ -66,7 +65,7 @@ export function UserMenu() {
     try {
       await signOut();
       setDefault();
-      window.location.href = SITE_URL;
+      window.location.href = import.meta.env.VITE_LANDING_URL;
       toast.success("Signed out successfully");
     } catch {
       toast.error("Failed to sign out");
@@ -74,7 +73,7 @@ export function UserMenu() {
   };
 
   const handleNavtoHome = () => {
-    window.location.href = `${SITE_URL}/@${authUser?.handle}`;
+    window.location.href = `${import.meta.env.VITE_LANDING_URL}/@${authUser?.handle}`;
   };
 
   const handleNavigateToWallet = () => {

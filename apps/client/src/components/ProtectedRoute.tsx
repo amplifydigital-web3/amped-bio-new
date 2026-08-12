@@ -5,15 +5,10 @@ import { Loader2 } from "lucide-react";
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  redirectTo?: string;
   adminOnly?: boolean;
 }
 
-export function ProtectedRoute({
-  children,
-  redirectTo = "/",
-  adminOnly = false,
-}: ProtectedRouteProps) {
+export function ProtectedRoute({ children, adminOnly = false }: ProtectedRouteProps) {
   const { isPending, authUser } = useAuth();
 
   // Show loading while checking authentication status
@@ -32,9 +27,9 @@ export function ProtectedRoute({
     );
   }
 
-  // Redirect if not authenticated
+  // Redirect to the public site with the login popup open if not authenticated
   if (authUser === null) {
-    return <Navigate to={redirectTo} replace />;
+    return <Navigate to={`${import.meta.env.VITE_LANDING_URL}/login`} replace />;
   }
 
   // Check admin access if required

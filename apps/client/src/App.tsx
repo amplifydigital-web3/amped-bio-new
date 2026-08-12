@@ -9,7 +9,8 @@ import { Toaster } from "react-hot-toast";
 import { EditorProvider } from "./contexts/EditorContext";
 import { useTokenExpiration } from "./hooks/useTokenExpiration";
 import { useReferralHandler } from "./hooks/useReferralHandler";
-import { SITE_URL } from "@/utils/siteUrl";
+import { useAuth } from "./contexts/AuthContext";
+import { Loader2 } from "lucide-react";
 
 // Lazy load admin components - they will only be loaded when needed
 const AdminLayout = lazy(() =>
@@ -123,9 +124,30 @@ function AppRouter() {
         />
       </Route>
 
-      {/* All public pages live on the public site; redirect anything else there */}
-      <Route path="*" element={<Navigate to={SITE_URL} replace />} />
+      {/* All public pages live on the public site. Send unauthenticated users
+          there with the login popup open; redirect everything else to the site. */}
+      <Route path="*" element={<PublicSiteRedirect />} />
     </Routes>
+  );
+}
+
+// Redirects to the public site, opening the login popup for unauthenticated users
+function PublicSiteRedirect() {
+  const { authUser, isPending } = useAuth();
+
+  if (isPending) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  return (
+    <Navigate
+      to={authUser === null ? `${import.meta.env.VITE_LANDING_URL}/login` : import.meta.env.VITE_LANDING_URL}
+      replace
+    />
   );
 }
 
