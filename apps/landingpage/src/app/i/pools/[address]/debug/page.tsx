@@ -9,6 +9,7 @@ import { formatEther } from "viem";
 import { getChainConfig } from "@repo/web3";
 import { Button } from "@repo/ui";
 import { useEffect, useState } from "react";
+import { PublicHeader } from "@/components/layout/PublicHeader";
 
 export default function PoolDebugPage({
   params,
@@ -147,7 +148,9 @@ export default function PoolDebugPage({
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white p-6">
+      <>
+        <PublicHeader />
+        <div className="min-h-screen bg-gray-900 text-white p-6">
         <div className="max-w-6xl mx-auto">
           <div className="bg-gray-800 rounded-lg p-6">
             <h1 className="text-2xl font-bold mb-4">Pool Debug - Loading...</h1>
@@ -159,12 +162,15 @@ export default function PoolDebugPage({
           </div>
         </div>
       </div>
+    </>
     );
   }
 
   if (error || !contractData) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white p-6">
+      <>
+        <PublicHeader />
+        <div className="min-h-screen bg-gray-900 text-white p-6">
         <div className="max-w-6xl mx-auto">
           <div className="bg-gray-800 rounded-lg p-6">
             <h1 className="text-2xl font-bold mb-4">Pool Debug - Error</h1>
@@ -177,6 +183,7 @@ export default function PoolDebugPage({
           </div>
         </div>
       </div>
+    </>
     );
   }
 
@@ -184,7 +191,9 @@ export default function PoolDebugPage({
   const currencySymbol = chainConfig?.nativeCurrency.symbol || "REVO";
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-4 md:p-6">
+    <>
+      <PublicHeader />
+      <div className="min-h-screen bg-gray-900 text-white p-4 md:p-6">
       <div className="max-w-6xl mx-auto">
         <div className="bg-gray-800 rounded-lg p-6">
           {/* Header */}
@@ -323,5 +332,6 @@ Creator's Reward Debt: ${String((creatorRewardDebtData as any)?.result || 0n)}
         </div>
       </div>
     </div>
+    </>
   );
 }

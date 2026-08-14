@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
-import { Card, CardContent } from "@repo/ui";
+import { AuthHeader } from "@/components/auth/AuthHeader";
 
 function EmailVerificationForm({ token: initialToken }: { token: string }) {
   const router = useRouter();
@@ -71,11 +71,8 @@ function EmailVerificationForm({ token: initialToken }: { token: string }) {
   }, [initialToken, email, statusParam, errorParam, searchParams, router]);
 
   return (
-    <Card className="w-full max-w-md p-8">
-      <CardContent className="space-y-4">
-        <div className="text-center space-y-2">
-          <h1 className="text-xl font-semibold text-gray-800">Email Verification</h1>
-        </div>
+    <div className="w-full max-w-md p-8 space-y-4 bg-white rounded-xl shadow-md">
+        <AuthHeader title="Email Verification" />
 
         {status === "loading" && (
           <div className="text-center space-y-3">
@@ -102,7 +99,9 @@ function EmailVerificationForm({ token: initialToken }: { token: string }) {
               </svg>
             </div>
             <h2 className="text-xl font-semibold text-gray-800">Email Verified Successfully!</h2>
-            <p className="text-gray-600">Your email has been verified.</p>
+            <p className="text-gray-600">
+              Your email has been verified. You can now access all features of your account.
+            </p>
             {handle ? (
               <Link
                 href={`/${handle}`}
@@ -142,6 +141,7 @@ function EmailVerificationForm({ token: initialToken }: { token: string }) {
             <p className="text-gray-600">
               {message || "There was a problem verifying your email."}
             </p>
+            <p className="text-gray-600">Please try again or request a new verification link.</p>
             <Link
               href={`/auth/resend-verification?email=${encodeURIComponent(email)}`}
               className="inline-block mt-4 px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors"
@@ -150,8 +150,7 @@ function EmailVerificationForm({ token: initialToken }: { token: string }) {
             </Link>
           </div>
         )}
-      </CardContent>
-    </Card>
+    </div>
   );
 }
 

@@ -9,6 +9,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import { AuthHeader } from "@/components/auth/AuthHeader";
 
 // Define the validation schema using Zod
 const emailSchema = z.object({
@@ -122,9 +123,7 @@ function ResendVerificationForm() {
 
   return (
     <div className="w-full max-w-md p-8 space-y-4 bg-white rounded-xl shadow-md">
-      <div className="text-center space-y-2">
-        <h1 className="text-xl font-semibold text-gray-800">Email Verification</h1>
-      </div>
+      <AuthHeader title="Email Verification" />
 
       {status === "loading" && (
         <div className="text-center space-y-3">

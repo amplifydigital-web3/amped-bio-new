@@ -7,6 +7,7 @@ import { useChainId } from "wagmi";
 import { useState, useEffect } from "react";
 import { calculatePoolAPYDebug, APYDebugInfo } from "@repo/web3";
 import { Button } from "@repo/ui";
+import { PublicHeader } from "@/components/layout/PublicHeader";
 
 export default function PoolAPYDebugPage({
   params,
@@ -86,7 +87,9 @@ export default function PoolAPYDebugPage({
 
   if (isLoading || !debugData) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white p-6">
+      <>
+        <PublicHeader />
+        <div className="min-h-screen bg-gray-900 text-white p-6">
         <div className="max-w-4xl mx-auto">
           <div className="bg-gray-800 rounded-lg p-6">
             <h1 className="text-2xl font-bold mb-4">APY Debug - Loading...</h1>
@@ -98,12 +101,15 @@ export default function PoolAPYDebugPage({
           </div>
         </div>
       </div>
+    </>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white p-6">
+      <>
+        <PublicHeader />
+        <div className="min-h-screen bg-gray-900 text-white p-6">
         <div className="max-w-4xl mx-auto">
           <div className="bg-gray-800 rounded-lg p-6">
             <h1 className="text-2xl font-bold mb-4">APY Debug - Error</h1>
@@ -116,11 +122,14 @@ export default function PoolAPYDebugPage({
           </div>
         </div>
       </div>
+    </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-6">
+    <>
+      <PublicHeader />
+      <div className="min-h-screen bg-gray-900 text-white p-6">
       <div className="max-w-4xl mx-auto">
         <div className="bg-gray-800 rounded-lg p-6">
           <div className="flex items-center justify-between mb-6">
@@ -229,5 +238,6 @@ Node Cut: ${debugData.step3_nodeData.nodeCutBps} bps (${debugData.step3_nodeData
         </div>
       </div>
     </div>
+    </>
   );
 }

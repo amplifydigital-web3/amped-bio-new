@@ -36,6 +36,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
+import { PublicHeader } from "@/components/layout/PublicHeader";
+
 type Step = 1 | 2 | 3 | 4 | 5;
 
 const StepIndicator = ({
@@ -592,6 +594,7 @@ function NdauConversionContent() {
                 </p>
                 <Button
                   onClick={() => window.open(`/i/ndau-conversion/receipt/${ndauAddress}`, "_blank")}
+                  variant="confirm"
                   size="sm"
                   className="w-full"
                 >
@@ -1130,6 +1133,7 @@ function NdauConversionContent() {
 
                 <Button
                   onClick={() => window.open(`/i/ndau-conversion/receipt/${ndauAddress}`, "_blank")}
+                  variant="confirm"
                   size="sm"
                   className="w-full"
                 >
@@ -1181,8 +1185,13 @@ function NdauConversionContent() {
 
 export default function NdauConversionPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
-      <NdauConversionContent />
-    </Suspense>
+    <div className="min-h-screen flex flex-col">
+      <PublicHeader />
+      <main className="flex-grow">
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+          <NdauConversionContent />
+        </Suspense>
+      </main>
+    </div>
   );
 }

@@ -8,10 +8,10 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader, Check, X, Eye, EyeOff } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
-import { Card, CardContent } from "@repo/ui";
 import { Button } from "@repo/ui";
-import { Input } from "@repo/ui";
+import { Input } from "@/components/ui/Input";
 import { Label } from "@repo/ui";
+import { AuthHeader } from "@/components/auth/AuthHeader";
 
 const PasswordStrengthIndicator = ({ password }: { password: string }) => {
   const hasMinLength = password.length >= 8;
@@ -59,7 +59,7 @@ const passwordResetSchema = z
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords do not match",
+    message: "Passwords don't match",
     path: ["confirmPassword"],
   });
 
@@ -139,11 +139,8 @@ export default function PasswordResetPage({ params }: { params: Promise<{ token?
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
-      <Card className="w-full max-w-md p-8">
-        <CardContent className="space-y-4">
-          <div className="text-center space-y-2">
-            <h1 className="text-xl font-semibold text-gray-800">Reset Your Password</h1>
-          </div>
+      <div className="w-full max-w-md p-8 space-y-4 bg-white rounded-xl shadow-md">
+        <AuthHeader title="Reset Your Password" />
 
           {status === "success" ? (
             <div className="text-center space-y-4">
@@ -216,8 +213,7 @@ export default function PasswordResetPage({ params }: { params: Promise<{ token?
               </Button>
             </form>
           )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
+          </div>
+        </div>
+      );
+    }

@@ -603,6 +603,7 @@ export default function SignPage() {
             <CardFooter>
               <Button
                 onClick={handleCloseWindow}
+                variant="confirm"
                 className="w-full"
               >
                 <X className="mr-2 h-5 w-5" />

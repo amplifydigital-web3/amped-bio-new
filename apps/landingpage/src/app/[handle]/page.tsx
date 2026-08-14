@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { ProfileView } from "@/components/ProfileView";
 import { normalizeHandle } from "@/lib/handle";
@@ -18,13 +18,13 @@ export default async function HandlePage({ params }: { params: Promise<{ handle:
     if (normalizedHandle === DEFAULT_HANDLE) {
       initialData = DEFAULT_PROFILE_DATA;
     } else {
-      notFound();
+      redirect("/");
     }
   }
 
   return (
     <div className="min-h-screen flex flex-col">
-      <PublicHeader />
+      {normalizedHandle === DEFAULT_HANDLE && <PublicHeader />}
       <main className="flex-grow">
         <ProfileView handle={handle} initialData={initialData} />
       </main>
