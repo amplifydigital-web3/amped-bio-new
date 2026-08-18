@@ -1,20 +1,13 @@
 import { ImageResponse } from "next/og";
+import type { NextRequest } from "next/server";
 
 export const runtime = "edge";
-export const alt = "Amped.Bio";
-export const size = { width: 1200, height: 630 };
-export const contentType = "image/png";
 
 const FALLBACK_TITLE = "Your digital identity, amplified.";
 const MAX_LARGE_TITLE = 56;
 
-interface OgImageProps {
-  searchParams: Promise<{ title?: string }>;
-}
-
-export default async function OgImage({ searchParams }: OgImageProps) {
-  const { title } = await searchParams;
-  const heading = title ?? FALLBACK_TITLE;
+export async function GET(request: NextRequest) {
+  const heading = request.nextUrl.searchParams.get("title") ?? FALLBACK_TITLE;
   const isLongTitle = heading.length > MAX_LARGE_TITLE;
 
   return new ImageResponse(
@@ -90,6 +83,6 @@ export default async function OgImage({ searchParams }: OgImageProps) {
         </div>
       </div>
     ),
-    size
+    { width: 1200, height: 630 }
   );
 }

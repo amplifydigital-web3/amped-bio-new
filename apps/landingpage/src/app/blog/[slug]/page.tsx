@@ -8,6 +8,7 @@ import {
   formatPostDate,
   getBlogPostBySlug,
   getBlogPosts,
+  getPostCoverImage,
   getPostFeaturedImage,
   stripHtml,
 } from "@/lib/blog";
@@ -31,7 +32,15 @@ export async function generateMetadata({ params }: BlogPostPageProps): Promise<M
 
   const title = `${post.title.rendered} | Amped.Bio`;
   const description = stripHtml(post.excerpt.rendered);
-  const ogUrl = `/og?title=${encodeURIComponent(stripHtml(post.title.rendered))}`;
+  const featured = getPostFeaturedImage(post);
+  const ogImage = featured
+    ? { url: featured, alt: post.title.rendered }
+    : {
+        url: `/og?title=${encodeURIComponent(stripHtml(post.title.rendered))}`,
+        width: 1200,
+        height: 630,
+        alt: post.title.rendered,
+      };
 
   return {
     title,
@@ -40,13 +49,13 @@ export async function generateMetadata({ params }: BlogPostPageProps): Promise<M
       title,
       description,
       type: "article",
-      images: [{ url: ogUrl, width: 1200, height: 630, alt: post.title.rendered }],
+      images: [ogImage],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [ogUrl],
+      images: [ogImage.url],
     },
   };
 }
@@ -57,7 +66,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
   if (!post) notFound();
 
-  const image = getPostFeaturedImage(post);
+  const image = getPostCoverImage(post);
 
   return (
     <div className="min-h-screen flex flex-col bg-white">

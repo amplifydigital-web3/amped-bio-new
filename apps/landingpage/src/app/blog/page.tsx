@@ -6,7 +6,7 @@ import {
   formatPostDate,
   getBlogPosts,
   getPostCategory,
-  getPostFeaturedImage,
+  getPostCoverImage,
   stripHtml,
 } from "@/lib/blog";
 
@@ -44,7 +44,7 @@ export default async function BlogPage() {
           ) : (
             <div className="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
               {posts.map((post) => {
-                const image = getPostFeaturedImage(post);
+                const image = getPostCoverImage(post);
                 const category = getPostCategory(post);
                 return (
                   <Link
@@ -53,15 +53,13 @@ export default async function BlogPage() {
                     className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:shadow-md"
                   >
                     <div className="relative h-48 w-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600">
-                      {image ? (
-                        <Image
-                          src={image}
-                          alt={post.title.rendered}
-                          fill
-                          className="object-cover transition group-hover:scale-105"
-                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                        />
-                      ) : null}
+                      <Image
+                        src={image}
+                        alt={post.title.rendered}
+                        fill
+                        className="object-cover transition group-hover:scale-105"
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      />
                     </div>
                     <div className="flex flex-col flex-grow p-5">
                       <div className="flex items-center gap-2 text-xs text-gray-500">

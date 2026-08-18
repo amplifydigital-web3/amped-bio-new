@@ -68,6 +68,14 @@ export function getPostFeaturedImage(post: WordPressPost): string | undefined {
   return media?.media_details?.sizes?.large?.source_url ?? media?.source_url ?? undefined;
 }
 
+/**
+ * Cover image for a post: the WordPress featured image when set, otherwise a
+ * generated branded image served by the /og route (same design as the OG).
+ */
+export function getPostCoverImage(post: WordPressPost): string {
+  return getPostFeaturedImage(post) ?? `/og?title=${encodeURIComponent(stripHtml(post.title.rendered))}`;
+}
+
 /** First assigned category, if any. */
 export function getPostCategory(post: WordPressPost):
   | { id: number; name: string; slug: string }
