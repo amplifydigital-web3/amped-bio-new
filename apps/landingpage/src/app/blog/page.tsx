@@ -16,6 +16,16 @@ export const revalidate = 600;
 export const metadata: Metadata = {
   title: "Blog | Amped.Bio",
   description: "News and updates from the Amped Bio team.",
+  openGraph: {
+    title: "Blog | Amped.Bio",
+    description: "News and updates from the Amped Bio team.",
+    images: [{ url: "/og?title=News%20and%20updates", width: 1200, height: 630, alt: "Amped.Bio Blog" }],
+  },
+  twitter: {
+    title: "Blog | Amped.Bio",
+    description: "News and updates from the Amped Bio team.",
+    images: ["/og?title=News%20and%20updates"],
+  },
 };
 
 export default async function BlogPage() {

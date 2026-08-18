@@ -9,6 +9,7 @@ import {
   getBlogPostBySlug,
   getBlogPosts,
   getPostFeaturedImage,
+  stripHtml,
 } from "@/lib/blog";
 
 // Statically generate each post; revalidate every 10 minutes
@@ -27,7 +28,27 @@ export async function generateMetadata({ params }: BlogPostPageProps): Promise<M
   const { slug } = await params;
   const post = await getBlogPostBySlug(slug);
   if (!post) return { title: "Post not found | Amped.Bio" };
-  return { title: `${post.title.rendered} | Amped.Bio` };
+
+  const title = `${post.title.rendered} | Amped.Bio`;
+  const description = stripHtml(post.excerpt.rendered);
+  const ogUrl = `/og?title=${encodeURIComponent(stripHtml(post.title.rendered))}`;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: "article",
+      images: [{ url: ogUrl, width: 1200, height: 630, alt: post.title.rendered }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogUrl],
+    },
+  };
 }
 
 export default async function BlogPostPage({ params }: BlogPostPageProps) {
