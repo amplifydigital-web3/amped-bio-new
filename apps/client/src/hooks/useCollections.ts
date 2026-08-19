@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { trpc } from "@/utils/trpc/trpc";
+import { trpc } from "@repo/ui";
 import { collections as hardcodedCollections } from "@/utils/themes";
 import { Collection } from "@repo/constants";
 

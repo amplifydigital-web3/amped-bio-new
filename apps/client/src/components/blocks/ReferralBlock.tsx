@@ -1,5 +1,5 @@
 import { Gift } from "lucide-react";
-import { trpc } from "@/utils/trpc";
+import { trpc } from "@repo/ui";
 import { useQuery } from "@tanstack/react-query";
 import type { ReferralBlock, ThemeConfig } from "@repo/constants";
 import { useReferralHandler } from "@/hooks/useReferralHandler";

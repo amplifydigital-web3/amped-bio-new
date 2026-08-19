@@ -6,8 +6,8 @@ import SentLottie from "@/assets/lottie/sent.lottie";
 import { UsePayDialogReturns } from "@/hooks/usePayDialog";
 import { useAccount, useChainId } from "wagmi";
 import { getCurrencySymbol } from "@repo/web3";
-import { Tooltip } from "@/components/ui/Tooltip";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tooltip } from "@repo/ui";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@repo/ui";
 
 interface PayModalProps {
   hook: UsePayDialogReturns;

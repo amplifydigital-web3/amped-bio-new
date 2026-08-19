@@ -15,7 +15,7 @@ import { ReferralBlock } from "./blocks/ReferralBlock";
 import { isHTML } from "@/utils/htmlutils";
 import { type BlockType } from "@repo/constants";
 import { Theme, UserProfile } from "@/types/editor";
-import { trpcClient } from "@/utils/trpc";
+import { trpcClient } from "@repo/ui";
 import { useState } from "react";
 import { Check, Copy, ExternalLink } from "lucide-react";
 import { useReferralHandler } from "@/hooks/useReferralHandler";

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { FaXTwitter } from "react-icons/fa6";
-import { Input } from "../../ui/Input";
+import { Input } from "@repo/ui";
 import { scrapeTwitterProfile } from "../../../utils/twitter";
 import type { UserProfile } from "../../../types/editor";
 

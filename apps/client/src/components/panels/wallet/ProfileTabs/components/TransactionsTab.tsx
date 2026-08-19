@@ -3,11 +3,11 @@ import { useAccount, useChainId } from "wagmi";
 import { Clock, Loader, AlertCircle } from "lucide-react";
 import { getChainConfig, getCurrencySymbol } from "@repo/web3";
 import { Address } from "viem";
-import { Tooltip } from "@/components/ui/Tooltip";
+import { Tooltip } from "@repo/ui";
 import RenderAddressProfile from "./RenderAddressProfile";
 import { Transaction, TransactionsResponse } from "../types";
 import { formatHash, timeAgo, formatValue, formatFee, getMethodSelector } from "../utils";
-import { trpcClient } from "@/utils/trpc";
+import { trpcClient } from "@repo/ui";
 import { useAddressProfiles } from "../../hooks/useAddressProfiles";
 
 const TransactionsTab: React.FC = () => {

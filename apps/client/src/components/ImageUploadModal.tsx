@@ -1,9 +1,9 @@
 import React, { useState, useCallback } from "react";
 import { UploadCloud, Loader2 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
-import { Button } from "./ui/Button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@repo/ui";
+import { Button } from "@repo/ui";
 import { FileUpload } from "./ui/FileUpload";
-import { trpcClient } from "@/utils/trpc";
+import { trpcClient } from "@repo/ui";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ALLOWED_POOL_IMAGE_FILE_EXTENSIONS } from "@repo/constants";

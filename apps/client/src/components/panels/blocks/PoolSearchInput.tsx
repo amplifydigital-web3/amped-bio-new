@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, Users, Loader2 } from "lucide-react";
 import { useDebounce } from "@/hooks/useDebounce";
-import { trpc } from "@/utils/trpc";
+import { trpc } from "@repo/ui";
 import type { PoolSearchResult } from "@repo/constants";
 
 interface PoolSearchInputProps {

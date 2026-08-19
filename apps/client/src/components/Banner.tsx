@@ -49,14 +49,8 @@ export const Banner: React.FC<BannerProps> = ({ message, type = "info", show = t
 
   const handleClick = () => {
     if (profile && profile.handle) {
-      if (panel) {
-        // If a panel is specified, navigate to the user's editor route with panel state
-        // The Editor component will handle setting the active panel from location.state
-        navigate(`/@${profile.handle}/edit`, { state: { panel } });
-      } else {
-        // If no panel is specified, just navigate to the user's editor route
-        navigate(`/@${profile.handle}/edit`);
-      }
+      // The dashboard belongs to the logged-in user; panels are path segments
+      navigate(panel ? `/${panel}` : "/");
     } else {
       // Fallback if profile is not available (shouldn't happen in the editor context)
       console.error("Banner: Profile not available, cannot navigate to editor");

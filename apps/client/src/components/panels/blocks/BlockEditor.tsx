@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
-import { Input } from "../../ui/Input";
-import { Textarea } from "../../ui/Textarea";
-import { Button } from "../../ui/Button";
+import { Input } from "@repo/ui";
+import { Textarea } from "@repo/ui";
+import { Button } from "@repo/ui";
 import { BlockType, LinkBlock } from "@repo/constants";
 import { PoolSearchInput } from "./PoolSearchInput";
 import {
@@ -16,7 +16,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useChainId } from "wagmi";
 import { LinkFormInputs, linkFormSchema } from "./LinkForm";
 import { useCallback, useMemo } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@repo/ui";
 
 // Helper function to validate YouTube URLs
 const isValidYouTubeUrl = (url: string): boolean => {

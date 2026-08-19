@@ -1,11 +1,11 @@
 import { useState, useRef, ChangeEvent } from "react";
-import { trpc, trpcClient } from "../../../utils/trpc/trpc";
+import { trpc, trpcClient } from "@repo/ui";
 import {
   ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS,
   ALLOWED_AVATAR_FILE_TYPES,
 } from "@repo/constants";
 import { PhotoEditor } from "./PhotoEditor";
-import { useAuth } from "../../../contexts/AuthContext";
+import { useAuth } from "@repo/ui";
 import { useQuery } from "@tanstack/react-query";
 
 interface ImageUploaderProps {

@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense } from "react";
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import { Editor } from "./pages/Editor";
 
@@ -9,36 +9,8 @@ import { Toaster } from "react-hot-toast";
 import { EditorProvider } from "./contexts/EditorContext";
 import { useTokenExpiration } from "./hooks/useTokenExpiration";
 import { useReferralHandler } from "./hooks/useReferralHandler";
-import { useAuth } from "./contexts/AuthContext";
+import { useAuth } from "@repo/ui";
 import { Loader2 } from "lucide-react";
-
-// Lazy load admin components - they will only be loaded when needed
-const AdminLayout = lazy(() =>
-  import("./pages/admin/AdminLayout").then(module => ({ default: module.AdminLayout }))
-);
-const AdminDashboard = lazy(() =>
-  import("./pages/admin/AdminDashboard").then(module => ({ default: module.AdminDashboard }))
-);
-const AdminUsers = lazy(() =>
-  import("./pages/admin/AdminUsers").then(module => ({ default: module.AdminUsers }))
-);
-const AdminThemes = lazy(() =>
-  import("./pages/admin/AdminThemes").then(module => ({ default: module.AdminThemes }))
-);
-const AdminBlocks = lazy(() =>
-  import("./pages/admin/AdminBlocks").then(module => ({ default: module.AdminBlocks }))
-);
-const AdminFiles = lazy(() =>
-  import("./pages/admin/AdminFiles").then(module => ({ default: module.AdminFiles }))
-);
-const AdminPools = lazy(() =>
-  import("./pages/admin/AdminPools").then(module => ({ default: module.AdminPools }))
-);
-const AdminNdauConversions = lazy(() =>
-  import("./pages/admin/AdminNdauConversions").then(module => ({
-    default: module.AdminNdauConversions,
-  }))
-);
 
 function AppRouter() {
   // Use the token expiration hook inside the router context
@@ -46,8 +18,9 @@ function AppRouter() {
 
   return (
     <Routes>
+      {/* Legacy /@handle/edit/... URLs are normalized to the panel route by Editor */}
       <Route
-        path="/:handle/edit"
+        path="/:handle/edit/:panel?"
         element={
           <ProtectedRoute>
             <Editor />
@@ -55,74 +28,16 @@ function AppRouter() {
         }
       />
 
-      {/* Admin Routes with nested routing - lazy loaded with Suspense */}
+      {/* The client only serves the dashboard of the logged-in user; the panel
+          (home, gallery, wallet, ...) is the route */}
       <Route
-        path="/i/admin"
+        path="/:panel?"
         element={
-          <ProtectedRoute adminOnly>
-            <Suspense fallback={<div>Loading admin...</div>}>
-              <AdminLayout />
-            </Suspense>
+          <ProtectedRoute>
+            <Editor />
           </ProtectedRoute>
         }
-      >
-        <Route
-          index
-          element={
-            <Suspense fallback={<div>Loading dashboard...</div>}>
-              <AdminDashboard />
-            </Suspense>
-          }
-        />
-        <Route
-          path="users"
-          element={
-            <Suspense fallback={<div>Loading users...</div>}>
-              <AdminUsers />
-            </Suspense>
-          }
-        />
-        <Route
-          path="themes"
-          element={
-            <Suspense fallback={<div>Loading themes...</div>}>
-              <AdminThemes />
-            </Suspense>
-          }
-        />
-        <Route
-          path="blocks"
-          element={
-            <Suspense fallback={<div>Loading blocks...</div>}>
-              <AdminBlocks />
-            </Suspense>
-          }
-        />
-        <Route
-          path="files"
-          element={
-            <Suspense fallback={<div>Loading files...</div>}>
-              <AdminFiles />
-            </Suspense>
-          }
-        />
-        <Route
-          path="pools"
-          element={
-            <Suspense fallback={<div>Loading pools...</div>}>
-              <AdminPools />
-            </Suspense>
-          }
-        />
-        <Route
-          path="ndau-conversions"
-          element={
-            <Suspense fallback={<div>Loading conversions...</div>}>
-              <AdminNdauConversions />
-            </Suspense>
-          }
-        />
-      </Route>
+      />
 
       {/* All public pages live on the public site. Send unauthenticated users
           there with the login popup open; redirect everything else to the site. */}

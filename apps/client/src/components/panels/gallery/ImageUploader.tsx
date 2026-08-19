@@ -4,7 +4,7 @@ import {
   ALLOWED_AVATAR_IMAGE_FILE_EXTENSIONS,
   ALLOWED_AVATAR_FILE_TYPES,
 } from "@repo/constants";
-import { trpc } from "../../../utils/trpc/trpc";
+import { trpc } from "@repo/ui";
 import { useQuery } from "@tanstack/react-query";
 
 interface ImageUploaderProps {

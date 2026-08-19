@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { trpc } from "@/utils/trpc/trpc";
-import { trpcClient } from "@/utils/trpc/trpc";
+import { trpc } from "@repo/ui";
+import { trpcClient } from "@repo/ui";
 import {
   Copy,
   Check,
@@ -13,8 +13,8 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { useAuth } from "@/contexts/AuthContext";
-import { Tooltip } from "@/components/ui/Tooltip";
+import { useAuth } from "@repo/ui";
+import { Tooltip } from "@repo/ui";
 import { PROCESSING_TXID } from "@repo/constants";
 
 function ReferralCard() {
@@ -63,7 +63,7 @@ function ReferralCard() {
   });
 
   const userIdHex = authUser ? `0x${authUser.id.toString(16)}` : "";
-  const referralLink = userIdHex ? `${window.location.origin}/register?r=${userIdHex}` : "";
+  const referralLink = userIdHex ? `${import.meta.env.VITE_LANDING_URL}/register?r=${userIdHex}` : "";
 
   const copyToClipboard = async () => {
     try {
@@ -217,7 +217,7 @@ function ReferralCard() {
                                 {referral.name}
                               </p>
                               <a
-                                href={`${window.location.origin}/@${referral.handle}`}
+                                href={`${import.meta.env.VITE_LANDING_URL}/@${referral.handle}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-xs text-blue-600 hover:text-blue-800 hover:underline truncate"

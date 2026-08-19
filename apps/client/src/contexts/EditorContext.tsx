@@ -9,12 +9,12 @@ import type {
   EditorPanelType,
 } from "../types/editor";
 import initialState from "../store/defaults";
-import { useAuth } from "./AuthContext";
+import { useAuth } from "@repo/ui";
 import toast from "react-hot-toast";
 import { BlockType } from "@repo/constants";
-import { formatHandle, normalizeHandle } from "@/utils/handle";
-import { trpcClient } from "@/utils/trpc";
-import { exportThemeConfigAsJson, importThemeConfigFromJson } from "@/utils/theme";
+import { formatHandle, normalizeHandle } from "@repo/ui";
+import { trpcClient } from "@repo/ui";
+import { exportThemeConfigAsJson, importThemeConfigFromJson } from "@repo/ui";
 import { mergeTheme } from "@/utils/mergeTheme";
 import { useNavigate, useLocation } from "react-router";
 
@@ -268,9 +268,10 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     (activePanel: EditorPanelType, tabs?: string) => {
       setActivePanel(activePanel);
 
-      // Update the URL with the panel and tabs parameters
+      // Panels live as path segments (e.g. /gallery); tabs stay as ?t=
+      const basePath = "";
       const searchParams = new URLSearchParams(location.search);
-      searchParams.set("p", activePanel);
+      searchParams.delete("p");
 
       if (tabs) {
         searchParams.set("t", tabs);
@@ -279,9 +280,10 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         searchParams.delete("t");
       }
 
-      navigate(`${location.pathname}?${searchParams.toString()}`, { replace: true });
+      const query = searchParams.toString();
+      navigate(`${basePath}/${activePanel}${query ? `?${query}` : ""}`, { replace: true });
     },
-    [navigate, location]
+    [navigate, location, setActivePanel]
   );
 
   const setBackground = useCallback((background: Background) => {

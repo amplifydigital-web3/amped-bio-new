@@ -3,7 +3,7 @@ import { useAccount, useChainId } from "wagmi";
 import { ArrowLeftRight, Loader, AlertCircle } from "lucide-react";
 import { getChainConfig } from "@repo/web3";
 import { Address } from "viem";
-import { Tooltip } from "@/components/ui/Tooltip";
+import { Tooltip } from "@repo/ui";
 import RenderAddressProfile from "./RenderAddressProfile";
 import { Transfer, TransfersResponse } from "../types";
 import { formatHash, timeAgo } from "../utils";

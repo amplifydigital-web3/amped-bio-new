@@ -4,7 +4,7 @@ import { useChainId } from "wagmi";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Suspense } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@repo/ui";
 import { useEditor } from "@/contexts/EditorContext";
 import { StatsSection } from "./StatsSection";
 import { type StatBoxProps } from "./types";

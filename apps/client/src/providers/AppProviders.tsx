@@ -9,7 +9,7 @@ import { injected } from "wagmi/connectors";
 import { MetaMaskWalletProvider } from "./MetaMaskWalletProvider";
 import { AVAILABLE_CHAINS } from "@repo/web3";
 import { isForceMetamask } from "../utils/auth";
-import { AuthProvider } from "../contexts/AuthContext";
+import { AuthProvider } from "@repo/ui";
 
 // Standard Wagmi config for direct MetaMask mode
 const wagmiConfig = createConfig({

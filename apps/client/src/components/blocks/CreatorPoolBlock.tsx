@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { CoinsIcon, Users, DollarSign, ExternalLink, Loader2 } from "lucide-react";
 import type { ThemeConfig } from "../../types/editor";
 import { PoolBlock } from "@repo/constants";
-import { trpc } from "@/utils/trpc";
+import { trpc } from "@repo/ui";
 import { useQuery } from "@tanstack/react-query";
 
 interface CreatorPoolBlockProps {

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { trpc } from "../../../../utils/trpc";
+import { trpc } from "@repo/ui";
 import { useAccount, useReadContracts, useWriteContract } from "wagmi";
 import { CREATOR_POOL_ABI, getChainConfig, multicall3Abi } from "@repo/web3";
 import { useMemo } from "react";

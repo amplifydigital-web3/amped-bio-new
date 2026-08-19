@@ -5,8 +5,8 @@ import { LinkBlock } from "@repo/constants";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Input } from "../../ui/Input";
-import { Button } from "../../ui/Button";
+import { Input } from "@repo/ui";
+import { Button } from "@repo/ui";
 
 interface LinkFormProps {
   onAdd: (block: LinkBlock) => void;

@@ -1,21 +1,44 @@
-import * as React from "react";
-import { cn } from "./utils";
+import React, { forwardRef } from "react";
 
-const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
-  ({ className, type, ...props }, ref) => {
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  label?: string;
+  leftText?: string;
+  pattern?: string;
+  error?: string;
+}
+
+export const Input = forwardRef<HTMLInputElement, InputProps>(
+  ({ label, leftText, pattern, error, ...props }, ref) => {
     return (
-      <input
-        type={type}
-        className={cn(
-          "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-          className
+      <div className="space-y-1">
+        {label && <label className="block text-sm font-medium text-gray-700">{label}</label>}
+        {leftText && (
+          <div
+            className={`flex overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 focus-within:rounded-md ${error ? "border-red-500" : ""}`}
+          >
+            <div className="flex items-center px-3 border-t border-b border-l border-gray-300 rounded-md rounded-r-none text-gray-500 bg-gray-50">
+              {leftText}
+            </div>
+            <input
+              className={`flex-1 px-3 py-2 border rounded-md rounded-l-none ${error ? "border-red-500" : "border-gray-300"} focus:ring-0 focus:outline-none`}
+              pattern={pattern}
+              ref={ref}
+              {...props}
+            />
+          </div>
         )}
-        ref={ref}
-        {...props}
-      />
+        {!leftText && (
+          <input
+            className={`w-full px-3 py-2 border rounded-md ${error ? "border-red-500" : "border-gray-300"} shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+            pattern={pattern}
+            ref={ref}
+            {...props}
+          />
+        )}
+        {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+      </div>
     );
   }
 );
-Input.displayName = "Input";
 
-export { Input };
+Input.displayName = "Input";

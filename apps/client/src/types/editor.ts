@@ -35,20 +35,23 @@ export type Theme = {
   config: ThemeConfig;
 };
 
-export type EditorPanelType =
-  | "home"
-  | "explore"
-  | "profile"
-  | "reward"
-  | "gallery"
-  | "blocks"
-  | "rewardPools"
-  | "createRewardPool"
-  | "leaderboard"
-  | "rns"
-  | "wallet"
-  | "pay"
-  | "account";
+export const EDITOR_PANELS = [
+  "home",
+  "explore",
+  "profile",
+  "reward",
+  "gallery",
+  "blocks",
+  "rewardPools",
+  "createRewardPool",
+  "leaderboard",
+  "rns",
+  "wallet",
+  "pay",
+  "account",
+] as const;
+
+export type EditorPanelType = (typeof EDITOR_PANELS)[number];
 
 export type EditorState = {
   profile: UserProfile;
