@@ -1183,15 +1183,13 @@ function NdauConversionContent() {
   );
 }
 
+// The NDAU blockchain is unavailable, so send conversion portal visitors to
+// the official conversion instructions on ndau.io instead of the in-app flow.
+const NDAU_CONVERSION_REDIRECT_URL = "https://ndau.io/knowledge-base/ndau-to-revo-conversions/";
+
 export default function NdauConversionPage() {
-  return (
-    <div className="min-h-screen flex flex-col">
-      <PublicHeader />
-      <main className="flex-grow">
-        <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
-          <NdauConversionContent />
-        </Suspense>
-      </main>
-    </div>
-  );
+  useEffect(() => {
+    window.location.replace(NDAU_CONVERSION_REDIRECT_URL);
+  }, []);
+  return null;
 }

@@ -16,8 +16,8 @@
   "scripts": {
     "build": "turbo build",
     "build:packages": "turbo build --filter=\"@repo/constants\"",
-    "build:apps": "turbo build --filter=\"@repo/client\" --filter=\"@repo/server\" --filter=\"@repo/site\"",
-    "dev:site": "pnpm run --filter @repo/site dev",
+    "build:apps": "turbo build --filter=\"@repo/client\" --filter=\"@repo/server\" --filter=\"@repo/landingpage\" --filter=\"@repo/admin\"",
+    "dev:site": "pnpm run --filter @repo/landingpage dev",
     "prebuild": "pnpm run build:packages",
     "dev": "pnpm run dev:client",
     "dev:client": "pnpm run build:packages && pnpm run --filter @repo/client dev:client-only",
