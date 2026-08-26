@@ -4,10 +4,13 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { User } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import { getPanelEditUrl } from "@/lib/panel";
 
 export function UserMenu() {
   const router = useRouter();
-  const [session, setSession] = useState<{ user?: { name?: string; email?: string; image?: string | null } } | null>(null);
+  const [session, setSession] = useState<{
+    user?: { name?: string; email?: string; image?: string | null; handle?: string | null } | null;
+  } | null>(null);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -61,8 +64,8 @@ export function UserMenu() {
           <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
             <button
               onClick={() => {
-                const handle = session.user?.name?.toLowerCase() || "";
-                router.push(`/${handle}`);
+                const handle = session.user?.handle || session.user?.name || "";
+                window.location.href = getPanelEditUrl(handle);
                 setOpen(false);
               }}
               className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"

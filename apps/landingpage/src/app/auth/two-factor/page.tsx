@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Shield, AlertCircle, Loader2, KeyRound, LogOut } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import { getPanelEditUrl } from "@/lib/panel";
 import { Button } from "@repo/ui";
 import {
   InputOTP,
@@ -14,6 +15,15 @@ import {
 
 export default function TwoFactorChallengePage() {
   const router = useRouter();
+
+  // Private areas live in apps/client, so after a successful 2FA challenge the
+  // user is sent to the panel instead of the public site.
+  const redirectToPanel = async () => {
+    const { data: sessionData } = await authClient.getSession();
+    const user = sessionData?.user as { handle?: string } | undefined;
+    window.location.href = getPanelEditUrl(user?.handle || "");
+  };
+
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -35,8 +45,8 @@ export default function TwoFactorChallengePage() {
         return;
       }
       if (data) {
-        router.push("/");
-        router.refresh();
+        await redirectToPanel();
+        return;
       }
     } catch (err) {
       setError((err as Error).message || "Verification failed. Please try again.");
@@ -59,8 +69,8 @@ export default function TwoFactorChallengePage() {
         return;
       }
       if (data) {
-        router.push("/");
-        router.refresh();
+        await redirectToPanel();
+        return;
       }
     } catch (err) {
       setError((err as Error).message || "Verification failed. Please try again.");

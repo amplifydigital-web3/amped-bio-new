@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import { getPanelEditUrl } from "@/lib/panel";
 import { AuthHeader } from "@/components/auth/AuthHeader";
 
 function EmailVerificationForm({ token: initialToken }: { token: string }) {
@@ -103,12 +104,12 @@ function EmailVerificationForm({ token: initialToken }: { token: string }) {
               Your email has been verified. You can now access all features of your account.
             </p>
             {handle ? (
-              <Link
-                href={`/${handle}`}
+              <a
+                href={getPanelEditUrl(handle)}
                 className="inline-block mt-4 px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors"
               >
                 Go to Your Profile
-              </Link>
+              </a>
             ) : (
               <Link
                 href="/"
