@@ -185,9 +185,9 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
       // Refetch all pool data after successful claim
       await fetchAllData();
 
-      // Show success toast
+      // Show success toast - the claim is processed asynchronously, so set expectations
       toast.success(
-        `Rewards claimed successfully! Your wallet has been updated with ${formatEther(pendingReward || pool.pendingRewards || BigInt(0))} ${currencySymbol}`
+        `Claim submitted! Your rewards of ${formatEther(pendingReward || pool.pendingRewards || BigInt(0))} ${currencySymbol} will arrive in your wallet within a few hours.`
       );
     } catch (error) {
       console.error("Failed to claim rewards:", error);

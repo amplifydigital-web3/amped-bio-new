@@ -144,6 +144,13 @@ export function useFundWalletDialog(params: {
         setTxInfo({ txid: result.transaction.hash });
         setShowSuccessDialog(true);
 
+        // Notify the user that the tokens arrive within a few hours (not instant)
+        toast.success(
+          faucetAmount
+            ? `Faucet request submitted! Your ${faucetAmount.amount} ${faucetAmount.currency} tokens will arrive in your wallet within a few hours.`
+            : "Faucet request submitted! Your tokens will arrive in your wallet within a few hours."
+        );
+
         // Update faucet state after successful claim
         const now = new Date();
         const nextDate = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
