@@ -196,7 +196,8 @@ export default function StakedPoolRow({
           className="flex items-center space-x-1 flex-shrink-0 ml-2"
           style={{ flexBasis: "12%" }}
         >
-          <button
+          {/* Claim button disabled by design: users must open the pool modal to claim rewards. */}
+          {/* <button
             onClick={handleClaim}
             className={`px-2 py-1.5 text-white text-xs font-medium rounded-md transition-colors duration-200 ${
               isWeb3Wallet
@@ -238,14 +239,14 @@ export default function StakedPoolRow({
                 <span className="sm:hidden">💰</span>
               </>
             )}
-          </button>
+          </button> */}
 
           <button
             onClick={handleViewPool}
             className="px-2 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors duration-200"
-            title="View pool details"
+            title="Manage pool details"
           >
-            <span className="hidden sm:inline">View</span>
+            <span className="hidden sm:inline">Manage</span>
             <span className="sm:hidden">👁️</span>
           </button>
         </div>
