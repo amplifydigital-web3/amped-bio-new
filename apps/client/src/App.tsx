@@ -17,6 +17,7 @@ import { initParticlesEngine } from "@tsparticles/react";
 import { loadAll } from "@tsparticles/all";
 import { EmailVerification, EmailVerificationResent, PasswordReset, TwoFactorChallenge } from "./pages/auth";
 import { Toaster } from "react-hot-toast";
+import { Toaster as AppToaster } from "@/components/ui/toast";
 import { EditorProvider } from "./contexts/EditorContext";
 import { useTokenExpiration } from "./hooks/useTokenExpiration";
 import { useReferralHandler } from "./hooks/useReferralHandler";
@@ -244,6 +245,7 @@ function App() {
       <EditorProvider>
         <AppRouter />
         <Toaster />
+        <AppToaster />
       </EditorProvider>
     </BrowserRouter>
   );
