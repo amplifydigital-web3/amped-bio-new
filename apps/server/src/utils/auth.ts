@@ -193,7 +193,7 @@ export const auth = betterAuth({
       create: {
         before: async (session: any) => {
           const user = await prisma.user.findUnique({
-            where: { id: session.userId },
+            where: { id: Number(session.userId) },
             select: { block: true },
           });
 
