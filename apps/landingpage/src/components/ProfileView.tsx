@@ -103,7 +103,6 @@ export function ProfileView({
 
   const effectiveHandle = rawHandle || DEFAULT_HANDLE;
   const normalizedHandle = normalizeHandle(effectiveHandle);
-  const isInitialPage = !rawHandle;
   const showRns = process.env.NEXT_PUBLIC_SHOW_RNS === "true";
 
   const handleCopy = () => {
@@ -434,7 +433,7 @@ export function ProfileView({
             <span>View Creator Pool</span>
           </a>
         )}
-        {authUser && (isInitialPage || authUser.email === profile.email) && (
+        {authUser && authUser.handle === normalizedHandle && (
           <a
             href={`${process.env.NEXT_PUBLIC_PANEL_URL || ""}/${formatHandle(authUser.handle)}/edit`}
             className="p-3 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-colors flex items-center space-x-2"
