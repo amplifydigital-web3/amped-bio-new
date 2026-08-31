@@ -49,7 +49,7 @@ export default async function BlogPage() {
                 return (
                   <Link
                     key={post.id}
-                    href={`/blog/${post.slug}`}
+                    href={`/i/blog/${post.slug}`}
                     className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:shadow-md"
                   >
                     <div className="relative h-48 w-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600">

@@ -74,7 +74,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
       <main className="flex-grow">
         <article className="mx-auto max-w-3xl px-6 py-12">
           <Link
-            href="/blog"
+            href="/i/blog"
             className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900"
           >
             <ArrowLeft className="h-4 w-4" />
