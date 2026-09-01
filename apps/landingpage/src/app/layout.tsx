@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@repo/ui";
 import { ParticlesProvider } from "@/components/ParticlesProvider";
@@ -6,6 +7,8 @@ import { AppProviders } from "@/components/providers/AppProviders";
 import "@/styles/globals.css";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://amped.bio";
+const CAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_CAPTCHA_SITE_KEY;
+const GA_ID = "G-SK6H61G3S1";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -48,6 +51,28 @@ export default function RootLayout({
             <Toaster />
           </AppProviders>
         </ThemeProvider>
+        {GA_ID && (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+              strategy="afterInteractive"
+            />
+            <Script id="gtag-init" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${GA_ID}');
+              `}
+            </Script>
+          </>
+        )}
+        {CAPTCHA_SITE_KEY && (
+          <Script
+            src={`https://www.google.com/recaptcha/enterprise.js?render=${CAPTCHA_SITE_KEY}`}
+            strategy="afterInteractive"
+          />
+        )}
       </body>
     </html>
   );
