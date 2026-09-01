@@ -20,10 +20,16 @@ export function UserMenu() {
   }, []);
 
   const handleLogout = async () => {
-    await authClient.signOut();
-    setSession(null);
-    setOpen(false);
-    router.refresh();
+    try {
+      await authClient.signOut();
+    } catch (error) {
+      console.error("Sign out failed:", error);
+    } finally {
+      setSession(null);
+      setOpen(false);
+      // Force a fresh session read so the UI reflects the logged-out state
+      window.location.href = "/";
+    }
   };
 
   if (!session?.user) {

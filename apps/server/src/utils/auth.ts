@@ -35,7 +35,13 @@ export const JWT_KEYS = {
 // ================ better-auth configuration ==================
 export const auth = betterAuth({
   basePath: "/auth",
-  trustedOrigins: [env.FRONTEND_URL, env.SITE_URL],
+  trustedOrigins: [
+    env.FRONTEND_URL,
+    env.SITE_URL,
+    ...env.CORS_ORIGINS.split(",")
+      .map(origin => origin.trim())
+      .filter(Boolean),
+  ],
   plugins: [
     customSession(async ({ user, session }) => {
       const u = user as unknown as EnrichedUser;

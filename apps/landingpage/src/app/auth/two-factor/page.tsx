@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Shield, AlertCircle, Loader2, KeyRound, LogOut } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
@@ -14,8 +13,6 @@ import {
 } from "@/components/ui/input-otp";
 
 export default function TwoFactorChallengePage() {
-  const router = useRouter();
-
   // Private areas live in apps/client, so after a successful 2FA challenge the
   // user is sent to the panel instead of the public site.
   const redirectToPanel = async () => {
@@ -80,8 +77,13 @@ export default function TwoFactorChallengePage() {
   };
 
   const handleCancel = async () => {
-    await authClient.signOut();
-    router.push("/");
+    try {
+      await authClient.signOut();
+    } catch (error) {
+      console.error("Sign out failed:", error);
+    } finally {
+      window.location.href = "/";
+    }
   };
 
   return (
