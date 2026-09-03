@@ -1,199 +1,150 @@
-import { cleanEnv, str, port, bool, num } from "envalid";
+import { z } from "zod";
 
-export const env = cleanEnv(process.env, {
-  APP_ENV: str({
-    desc: "The environment the app is running in",
-    choices: ["development", "production", "testing", "staging"],
-    default: "development",
-    example: "development",
-  }),
+// ================ validation helpers ================
+// These helpers mirror the semantics previously provided by the `envalid`
+// package so the migration does not change runtime behavior:
+// - defaults only apply when the variable is not set at all
+// - booleans accept true/t/1 and false/f/0 (case-sensitive, like envalid)
+// - numbers are parsed with parseFloat and must not be NaN
+// - ports must be an integer between 1 and 65535
 
-  JWT_PRIVATE_KEY: str({
-    desc: "Private key for JWT signing",
-  }),
-  JWT_AUDIENCE: str({
-    desc: "Audience of the JWT token",
-    default: "amped.bio",
-    example: "amped.bio",
-  }),
+function boolSchema(fallback: boolean) {
+  return z
+    .preprocess(value => {
+      if (value === true || value === "true" || value === "t" || value === "1") return true;
+      if (value === false || value === "false" || value === "f" || value === "0") return false;
+      return value;
+    }, z.boolean())
+    .default(fallback);
+}
 
-  PORT: port({
-    desc: "Port for the server to listen on",
-    default: 43000,
-  }),
-  FRONTEND_URL: str({
-    desc: "URL for the app in production",
-    default: "http://localhost:5173",
-    example: "https://app.amped.bio",
-  }),
-  SITE_URL: str({
-    desc: "URL for the public Next.js site (for cross-subdomain auth)",
-    default: "http://localhost:3000",
-    example: "https://amped.bio",
-  }),
-  COOKIE_DOMAIN: str({
-    desc: "Cookie domain for cross-subdomain auth (e.g. .amped.bio). Leave empty for localhost.",
-    default: "",
-    example: ".amped.bio",
-  }),
-  CORS_ORIGINS: str({
-    desc: "Comma-separated list of allowed CORS origins",
-    default: "http://localhost:5173,http://localhost:3000",
-    example: "https://app.amped.bio,https://amped.bio",
-  }),
-  API_HOST: str({
-    desc: "Host for the API",
-    default: "localhost:43000",
-    example: "api.amped.bio",
-  }),
+function numSchema(fallback: number) {
+  return z
+    .preprocess(
+      value => parseFloat(value as string),
+      z.number().refine(n => !Number.isNaN(n))
+    )
+    .default(fallback);
+}
+
+function portSchema(fallback: number) {
+  return z.preprocess(value => Number(value), z.number().int().min(1).max(65535)).default(fallback);
+}
+
+// ================ environment schema ================
+const envSchema = z.object({
+  // The environment the app is running in
+  APP_ENV: z.enum(["development", "production", "testing", "staging"]).default("development"),
+
+  // Private key for JWT signing
+  JWT_PRIVATE_KEY: z.string(),
+  // Audience of the JWT token
+  JWT_AUDIENCE: z.string().default("amped.bio"),
+
+  // Port for the server to listen on
+  PORT: portSchema(43000),
+  // URL for the app in production
+  FRONTEND_URL: z.string().default("http://localhost:5173"),
+  // URL for the public Next.js site (for cross-subdomain auth)
+  SITE_URL: z.string().default("http://localhost:3000"),
+  // Cookie domain for cross-subdomain auth (e.g. .amped.bio). Leave empty for localhost.
+  COOKIE_DOMAIN: z.string().default(""),
+  // Comma-separated list of allowed CORS origins
+  CORS_ORIGINS: z.string().default("http://localhost:5173,http://localhost:3000"),
+  // Host for the API
+  API_HOST: z.string().default("localhost:43000"),
+
   // New SMTP variables with MailDev defaults
-  SMTP_HOST: str({
-    desc: "SMTP server host",
-    default: "localhost", // Default for MailDev
-    example: "smtp.gmail.com",
-  }),
-  SMTP_PORT: port({
-    desc: "SMTP server port",
-    default: 1025, // Default for MailDev
-    example: "587",
-  }),
-  SMTP_SECURE: bool({
-    desc: "Whether to use secure connection (TLS)",
-    default: false,
-    example: "true",
-  }),
-  SMTP_USER: str({
-    desc: "SMTP authentication username",
-    default: "", // MailDev doesn't require authentication
-    example: "user@example.com",
-  }),
-  SMTP_PASSWORD: str({
-    desc: "SMTP authentication password",
-    default: "", // MailDev doesn't require authentication
-    example: "your-smtp-password",
-  }),
-  SMTP_FROM_EMAIL: str({
-    desc: "Email address to use as sender",
-    default: "noreply@amped.bio",
-    example: "noreply@yourdomain.com",
-  }),
+  // SMTP server host
+  SMTP_HOST: z.string().default("localhost"), // Default for MailDev
+  // SMTP server port
+  SMTP_PORT: portSchema(1025), // Default for MailDev
+  // Whether to use secure connection (TLS)
+  SMTP_SECURE: boolSchema(false),
+  // SMTP authentication username
+  SMTP_USER: z.string().default(""), // MailDev doesn't require authentication
+  // SMTP authentication password
+  SMTP_PASSWORD: z.string().default(""), // MailDev doesn't require authentication
+  // Email address to use as sender
+  SMTP_FROM_EMAIL: z.string().default("noreply@amped.bio"),
+
   // Faucet configuration
-  FAUCET_PRIVATE_KEY: str({
-    desc: "Private key for the faucet wallet to send tokens from",
-    default: "",
-  }),
-  FAUCET_AMOUNT: str({
-    desc: "Amount of tokens to send from the faucet",
-    default: "0.001",
-    example: "0.001",
-  }),
-  FAUCET_MOCK_MODE: str({
-    desc: "If true, don't actually send funds but return a dummy transaction hash",
-    default: "false",
-    choices: ["true", "false"],
-    example: "true",
-  }),
+  // Private key for the faucet wallet to send tokens from
+  FAUCET_PRIVATE_KEY: z.string().default(""),
+  // Amount of tokens to send from the faucet
+  FAUCET_AMOUNT: z.string().default("0.001"),
+  // If true, don't actually send funds but return a dummy transaction hash
+  FAUCET_MOCK_MODE: z.enum(["true", "false"]).default("false"),
 
   // Affiliate Rewards Configuration
-  AFFILIATES_PRIVATE_KEY: str({
-    desc: "Private key for the affiliate rewards wallet",
-    default: "",
-  }),
+  // Private key for the affiliate rewards wallet
+  AFFILIATES_PRIVATE_KEY: z.string().default(""),
 
   // NDAU Conversion Configuration
-  NDAU_CONVERSION_PRIVATE_KEY: str({
-    desc: "Private key for NDAU conversion REVO payouts",
-    default: "",
-  }),
+  // Private key for NDAU conversion REVO payouts
+  NDAU_CONVERSION_PRIVATE_KEY: z.string().default(""),
 
   // AWS S3 Configuration for profile picture uploads
-  AWS_REGION: str({
-    desc: "AWS Region",
-    example: "us-west-2",
-  }),
-  AWS_ACCESS_KEY_ID: str({
-    desc: "AWS Access Key ID",
-  }),
-  AWS_SECRET_ACCESS_KEY: str({
-    desc: "AWS Secret Access Key",
-  }),
-  AWS_S3_BUCKET_NAME: str({
-    desc: "AWS S3 Bucket Name for file uploads",
-    default: "amped-bio", // Matches the initialBuckets in docker-compose
-  }),
-  AWS_S3_PUBLIC_URL: str({
-    desc: "Public URL for S3 bucket (can use CloudFront URL)",
-    default: "",
-    example: "https://assets.amped.bio",
-  }),
-  AWS_S3_ENDPOINT: str({
-    desc: "Custom S3 endpoint URL (for S3-compatible services like MinIO or S3Mock)",
-    default: "",
-    example: "http://localhost:9090",
-  }),
-  CAPTCHA_SECRET_KEY: str({
-    desc: "Secret key for Google reCAPTCHA verification",
-    default: "",
-  }),
+  // AWS Region
+  AWS_REGION: z.string(),
+  // AWS Access Key ID
+  AWS_ACCESS_KEY_ID: z.string(),
+  // AWS Secret Access Key
+  AWS_SECRET_ACCESS_KEY: z.string(),
+  // AWS S3 Bucket Name for file uploads
+  AWS_S3_BUCKET_NAME: z.string().default("amped-bio"), // Matches the initialBuckets in docker-compose
+  // Public URL for S3 bucket (can use CloudFront URL)
+  AWS_S3_PUBLIC_URL: z.string().default(""),
+  // Custom S3 endpoint URL (for S3-compatible services like MinIO or S3Mock)
+  AWS_S3_ENDPOINT: z.string().default(""),
+
+  // Secret key for Google reCAPTCHA verification
+  CAPTCHA_SECRET_KEY: z.string().default(""),
 
   // File upload size limits (in MB)
-  UPLOAD_LIMIT_BACKGROUND_MB: num({
-    desc: "Maximum file size in MB for background uploads",
-    default: 5,
-    example: "5",
-  }),
-  UPLOAD_LIMIT_PROFILE_PHOTO_MB: num({
-    desc: "Maximum file size in MB for profile photo uploads",
-    default: 1,
-    example: "1",
-  }),
-  UPLOAD_LIMIT_POOL_IMAGE_MB: num({
-    desc: "Maximum file size in MB for pool image uploads",
-    default: 2,
-    example: "2",
-  }),
-  UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB: num({
-    desc: "Maximum file size in MB for collection thumbnail uploads",
-    default: 2,
-    example: "2",
-  }),
+  // Maximum file size in MB for background uploads
+  UPLOAD_LIMIT_BACKGROUND_MB: numSchema(5),
+  // Maximum file size in MB for profile photo uploads
+  UPLOAD_LIMIT_PROFILE_PHOTO_MB: numSchema(1),
+  // Maximum file size in MB for pool image uploads
+  UPLOAD_LIMIT_POOL_IMAGE_MB: numSchema(2),
+  // Maximum file size in MB for collection thumbnail uploads
+  UPLOAD_LIMIT_COLLECTION_THUMBNAIL_MB: numSchema(2),
 
   // oauth vars
-  GOOGLE_CLIENT_SECRET: str({
-    desc: "Google OAuth 2.0 Client Secret",
-    default: "",
-  }),
-  GOOGLE_CLIENT_ID: str({
-    desc: "Google OAuth 2.0 Client ID",
-    default: "",
-  }),
+  // Google OAuth 2.0 Client Secret
+  GOOGLE_CLIENT_SECRET: z.string().default(""),
+  // Google OAuth 2.0 Client ID
+  GOOGLE_CLIENT_ID: z.string().default(""),
 
-  BETTER_AUTH_SECRET: str({
-    desc: "Better Auth secret for authentication",
-  }),
+  // Better Auth secret for authentication
+  BETTER_AUTH_SECRET: z.string(),
 
   // Redis Configuration
-  REDIS_HOST: str({
-    desc: "Redis server host",
-    default: "localhost",
-    example: "localhost",
-  }),
-  REDIS_PORT: port({
-    desc: "Redis server port",
-    default: 26379,
-  }),
-  REDIS_PASSWORD: str({
-    desc: "Redis authentication password",
-    default: "",
-  }),
-  REDIS_TLS: bool({
-    desc: "Enable TLS connection for Redis (required for Upstash)",
-    default: false,
-  }),
+  // Redis server host
+  REDIS_HOST: z.string().default("localhost"),
+  // Redis server port
+  REDIS_PORT: portSchema(26379),
+  // Redis authentication password
+  REDIS_PASSWORD: z.string().default(""),
+  // Enable TLS connection for Redis (required for Upstash)
+  REDIS_TLS: boolSchema(false),
 
-  SUBGRAPH_URL: str({
-    desc: "URL for the RNS subgraph to validate name ownership and expiry",
-    default: "",
-    example: "https://graph.libertas.revolutionchain.io/subgraphs/name/subgraph/rns",
-  }),
+  // URL for the RNS subgraph to validate name ownership and expiry
+  SUBGRAPH_URL: z.string().default(""),
 });
+
+// ================ parse & export ================
+const result = envSchema.safeParse(process.env);
+
+if (!result.success) {
+  const issues = result.error.issues
+    .map(issue => `  ${issue.path.join(".") || "(root)"}: ${issue.message}`)
+    .sort();
+  console.error("Invalid environment variables:");
+  console.error(issues.join("\n"));
+  console.error("\n Exiting with error code 1");
+  process.exit(1);
+}
+
+export const env = result.data;
