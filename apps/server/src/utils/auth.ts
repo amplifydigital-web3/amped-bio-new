@@ -3,7 +3,7 @@ import { env } from "../env";
 import { processEmailToUniqueHandle } from "./onelink-generator";
 import { sendEmailVerification, sendPasswordResetEmail, sendWelcomeEmail } from "./email/email";
 import { hashPassword, verifyPassword } from "./password";
-import { betterAuth } from "better-auth";
+import { APIError, betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { captcha, jwt, customSession, twoFactor } from "better-auth/plugins";
 import crypto from "crypto";
@@ -196,6 +196,23 @@ export const auth = betterAuth({
               } catch (error) {
                 console.error("Error sending welcome email (ignored):", error);
               }
+            });
+          }
+        },
+      },
+    },
+    session: {
+      create: {
+        before: async (session: any) => {
+          const user = await prisma.user.findUnique({
+            where: { id: Number(session.userId) },
+            select: { block: true },
+          });
+
+          if (user?.block === "yes") {
+            throw new APIError("FORBIDDEN", {
+              message:
+                "Your amped.bio account has been blocked. For more information, please submit a support ticket. https://amplifydigital.freshdesk.com/support/tickets/new",
             });
           }
         },

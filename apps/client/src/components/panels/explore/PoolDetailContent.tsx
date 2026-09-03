@@ -12,7 +12,7 @@ import {
   Percent,
   Info,
 } from "lucide-react";
-import { toast } from "react-hot-toast";
+import { toast } from "@/components/ui/toast";
 import StakeModal from "./StakeModal";
 import UnstakeModal from "./UnstakeModal";
 import { ImageUploadModal } from "@/components/ImageUploadModal";
@@ -168,7 +168,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
       navigator.clipboard
         .writeText(urlToShare)
         .then(() => {
-          toast.success("Pool link copied to clipboard");
+          toast.add({ title: "Pool link copied to clipboard", type: "success" });
         })
         .catch(console.error);
     }
@@ -185,14 +185,18 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
       // Refetch all pool data after successful claim
       await fetchAllData();
 
-      // Show success toast
-      toast.success(
-        `Rewards claimed successfully! Your wallet has been updated with ${formatEther(pendingReward || pool.pendingRewards || BigInt(0))} ${currencySymbol}`
-      );
+      // Show success toast - the claim is processed asynchronously, so set expectations.
+      // Keep it open until the user dismisses it manually (duration: Infinity).
+      toast.add({
+        title: "Claim submitted!",
+        description: `Your rewards of ${formatEther(pendingReward || pool.pendingRewards || BigInt(0))} ${currencySymbol} will arrive in your wallet within a few hours.`,
+        type: "success",
+        duration: Infinity,
+      });
     } catch (error) {
       console.error("Failed to claim rewards:", error);
       // Show error toast
-      toast.error("Failed to claim rewards. Please try again.");
+      toast.add({ title: "Failed to claim rewards. Please try again.", type: "error" });
     } finally {
       setIsClaiming(false);
     }
@@ -204,7 +208,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
       const explorerUrl = `${chain.blockExplorers.default.url}/address/${pool.address}`;
       window.open(explorerUrl, "_blank");
     } else {
-      toast.error("Could not find explorer URL for this chain.");
+      toast.add({ title: "Could not find explorer URL for this chain.", type: "error" });
     }
   };
 

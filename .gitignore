@@ -61,3 +61,4 @@ packages/web3/tsconfig.tsbuildinfo
 packages/web3/tsconfig.tsbuildinfo
 .env
 apps/server/src/lib/prisma
+.playwright-mcp/
