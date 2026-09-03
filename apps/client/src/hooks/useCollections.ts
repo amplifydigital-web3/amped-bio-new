@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { trpc } from "@/utils/trpc/trpc";
+import { trpc } from "@repo/ui";
 import { collections as hardcodedCollections } from "@/utils/themes";
-import { Collection } from "@ampedbio/constants";
+import { Collection } from "@repo/constants";
 
 // Utility function to merge server collections with hardcoded collections
 function mergeCollections(

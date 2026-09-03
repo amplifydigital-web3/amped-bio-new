@@ -22,16 +22,16 @@ import {
 } from "lucide-react";
 import { BsTelegram } from "react-icons/bs";
 import ExplorePoolDetailsModal from "../explore/ExplorePoolDetailsModal";
-import { trpc } from "@/utils/trpc";
+import { trpc } from "@repo/ui";
 import { useMutation } from "@tanstack/react-query";
 import { useAccount, useChainId, useReadContract } from "wagmi";
-import { CREATOR_POOL_ABI, getChainConfig } from "@ampedbio/web3";
+import { CREATOR_POOL_ABI, getChainConfig } from "@repo/web3";
 import { Address, formatEther } from "viem";
 import { useQuery } from "@tanstack/react-query";
-import { trpcClient } from "@/utils/trpc";
+import { trpcClient } from "@repo/ui";
 import { formatNumberWithSeparators } from "@/utils/numberUtils";
 import { ImageUploadModal } from "@/components/ImageUploadModal";
-import { RewardPool, TELEGRAM_LINK, TELEGRAM_COLOR } from "@ampedbio/constants";
+import { RewardPool, TELEGRAM_LINK, TELEGRAM_COLOR } from "@repo/constants";
 import { PoolDashboardSkeleton } from "./PoolDashboardSkeleton";
 import { formatDistanceToNow } from "date-fns";
 
@@ -1009,7 +1009,7 @@ export default function DashboardPage() {
 
                   <div>
                     <a
-                      href={`/@${fan.handle}`}
+                      href={`${import.meta.env.VITE_LANDING_URL}/@${fan.handle}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-medium text-gray-900 hover:text-blue-600 transition-colors duration-200"
@@ -1142,7 +1142,7 @@ export default function DashboardPage() {
 
                 <div>
                   <a
-                    href={`/@${activity.user}`}
+                    href={`${import.meta.env.VITE_LANDING_URL}/@${activity.user}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="font-medium text-gray-900 hover:text-blue-600 transition-colors duration-200"

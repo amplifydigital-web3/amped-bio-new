@@ -1,5 +1,5 @@
 import { TRPCClientError } from "@trpc/client";
-import { ERROR_CAUSES } from "@ampedbio/constants";
+import { ERROR_CAUSES } from "@repo/constants";
 
 /**
  * Utility function to check if a tRPC error is due to token expiration

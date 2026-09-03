@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { User, ChevronLeft, ChevronRight } from "lucide-react";
 import UserSkeleton from "./UserSkeleton";
 import { useQuery } from "@tanstack/react-query";
-import { trpc } from "../../../../utils/trpc";
+import { trpc } from "@repo/ui";
 
 // Define filter and sort types
 type UserFilter = "all" | "active-7-days" | "has-creator-pool";

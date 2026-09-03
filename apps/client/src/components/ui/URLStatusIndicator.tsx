@@ -1,7 +1,7 @@
 import React from "react";
 import { CheckCircle, XCircle, Clock, AlertCircle } from "lucide-react";
-import { Tooltip } from "./Tooltip";
-import { HandleStatus } from "@/utils/handle";
+import { Tooltip } from "@repo/ui";
+import { HandleStatus } from "@repo/ui";
 
 interface URLStatusIndicatorProps {
   status: HandleStatus;

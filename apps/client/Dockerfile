@@ -1,45 +1,44 @@
-# Multi-stage build for efficient client production image
-# Stage 1: Build the client application
-FROM node:24-alpine as builder
+FROM node:24-alpine AS builder
 
-# Install Python, build tools and Python build dependencies
-RUN apk add --no-cache python3 make g++ py3-pip py3-setuptools
+ENV NODE_OPTIONS=--max-old-space-size=4096
 
-# Install pnpm globally
-RUN npm install -g pnpm
+RUN apk add --no-cache python3 make g++
+RUN corepack enable pnpm
 
-# Set the working directory inside the container
+# Skip the Cypress binary download: it is a test-only dependency and is not
+# available for Alpine linux-arm64
+ENV CYPRESS_INSTALL_BINARY=0
+
 WORKDIR /app
 
-# Copy the root package files
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
-
-# Copy the packages directories
-COPY packages ./packages
-
-# Copy the client app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
+COPY packages/typescript-config ./packages/typescript-config
+COPY packages/constants ./packages/constants
+COPY packages/web3 ./packages/web3
+COPY packages/ui ./packages/ui
 COPY apps/client ./apps/client
 
-# Install dependencies using pnpm
-RUN pnpm install --frozen-lockfile --filter=@ampedbio/client...
+RUN pnpm install --frozen-lockfile --filter=@repo/client...
 
-# Change to the client app directory for building
 WORKDIR /app/apps/client
+RUN pnpm exec vite build
 
-# Build the client app
-RUN pnpm run build
+FROM alpine:3.21
 
-# Stage 2: Serve the client application using nginx
-FROM nginx:alpine
+RUN apk add --no-cache lighttpd
 
-# Copy the built assets from the builder stage
-COPY --from=builder /app/apps/client/dist /usr/share/nginx/html
+COPY --from=builder /app/apps/client/dist /var/www/localhost/htdocs
+COPY apps/client/lighttpd.conf /etc/lighttpd/lighttpd.conf
 
-# Copy custom nginx configuration
-COPY apps/client/nginx.conf /etc/nginx/nginx.conf
+# lighttpd drops privileges to the lighttpd user before opening its errorlog,
+# so give it a writable directory for the log and pid files
+RUN mkdir -p /var/log/lighttpd && touch /var/log/lighttpd/error.log && \
+    chown -R lighttpd:lighttpd /var/log/lighttpd
 
-# Expose port 80
+# Run lighttpd workers as the unprivileged lighttpd user
+RUN chown -R lighttpd:lighttpd /var/www/localhost/htdocs
+
 EXPOSE 80
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Mirror the errorlog to stdout so container logs stay visible
+CMD ["sh", "-c", "tail -f /var/log/lighttpd/error.log & exec lighttpd -D -f /etc/lighttpd/lighttpd.conf"]

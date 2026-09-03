@@ -18,14 +18,14 @@ import {
   Zap,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { trpcClient } from "@/utils/trpc";
+import { trpcClient } from "@repo/ui";
 import { useCreatorPool } from "@/hooks/useCreatorPool";
 import { PoolSummaryModal } from "./PoolSummaryModal";
 import { TransactionModal } from "./TransactionModal";
 import { PerksSection } from "./PerksSection";
 import { creatorPoolSchema } from "./types";
 import { type ContractFunctionExecutionError, decodeEventLog } from "viem";
-import { CREATOR_POOL_FACTORY_ABI } from "@ampedbio/web3";
+import { CREATOR_POOL_FACTORY_ABI } from "@repo/web3";
 import { CreatorPoolPanelSkeleton } from "./CreatorPoolPanelSkeleton";
 import DashboardPage from "./PoolDashboardPage";
 
@@ -122,7 +122,7 @@ const parseTRPCError = (error: unknown): string => {
 
 import type { CreatorPoolFormValues, TierIconEntry } from "./types";
 import { useWalletContext } from "@/contexts/WalletContext";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@repo/ui";
 
 export function CreatorPoolPanel() {
   const client = usePublicClient();

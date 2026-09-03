@@ -42,7 +42,7 @@ export const useReferralHandler = () => {
   const handleReferrerClick = (userId: number): void => {
     const userIdHex = `0x${userId.toString(16)}`;
     overwriteReferrerId(userId, 30);
-    window.location.href = `/register?r=${userIdHex}`;
+    window.location.href = `${import.meta.env.VITE_LANDING_URL}/register?r=${userIdHex}`;
   };
 
   return {

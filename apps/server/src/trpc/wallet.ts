@@ -6,10 +6,10 @@ import { createWalletClient, http, parseEther, Address, createPublicClient, kecc
 import { privateKeyToAccount } from "viem/accounts";
 import { getAddress } from "viem/utils";
 import { prisma } from "../services/DB";
-import { getChainConfig } from "@ampedbio/web3";
+import { getChainConfig } from "@repo/web3";
 import * as jose from "jose";
 import Decimal from "decimal.js";
-import { SITE_SETTINGS } from "@ampedbio/constants";
+import { SITE_SETTINGS } from "@repo/constants";
 import { cache, CACHE_TTL, getMethodSignatureCacheKey } from "../utils/cache";
 
 const themeConfigSchema = z.object({

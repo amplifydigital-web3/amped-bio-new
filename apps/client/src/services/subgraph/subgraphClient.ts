@@ -1,4 +1,4 @@
-import { getChainConfig } from "@ampedbio/web3";
+import { getChainConfig } from "@repo/web3";
 import { GraphQLClient } from "graphql-request";
 import { useMemo } from "react";
 import { useChainId } from "wagmi";

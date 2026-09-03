@@ -1,9 +1,9 @@
 import React, { useState, useRef } from "react";
 import ReactCrop, { type Crop, centerCrop, makeAspectCrop } from "react-image-crop";
 import { Slider } from "../../ui/Slider";
-import { Button } from "../../ui/Button";
+import { Button } from "@repo/ui";
 import "react-image-crop/dist/ReactCrop.css";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@repo/ui";
 
 interface PhotoEditorProps {
   imageUrl: string;

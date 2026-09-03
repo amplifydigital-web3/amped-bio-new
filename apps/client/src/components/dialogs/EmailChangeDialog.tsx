@@ -3,7 +3,7 @@ import { Loader2, Check, AlertCircle } from "lucide-react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { trpcClient } from "@/utils/trpc";
+import { trpcClient } from "@repo/ui";
 import {
   InputOTP,
   InputOTPGroup,
@@ -17,9 +17,9 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { useAuth } from "@/contexts/AuthContext";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+} from "@repo/ui";
+import { useAuth } from "@repo/ui";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@repo/ui";
 
 // Define validation schemas using Zod
 const initiateEmailSchema = z

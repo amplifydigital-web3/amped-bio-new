@@ -1,18 +1,18 @@
 import { useState, useEffect, useRef } from "react";
 import { Coins, TrendingUp, AlertCircle, Check } from "lucide-react";
 import { BsTelegram } from "react-icons/bs";
-import { getChainConfig } from "@ampedbio/web3";
+import { getChainConfig } from "@repo/web3";
 import { useStakingManager } from "@/hooks/useStakingManager";
 import { formatNumberWithSeparators } from "@/utils/numberUtils";
 import { useWalletContext } from "@/contexts/WalletContext";
-import { TELEGRAM_LINK, TELEGRAM_COLOR } from "@ampedbio/constants";
+import { TELEGRAM_LINK, TELEGRAM_COLOR } from "@repo/constants";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/components/ui/dialog";
+} from "@repo/ui";
 
 interface UnstakeModalProps {
   isOpen: boolean;

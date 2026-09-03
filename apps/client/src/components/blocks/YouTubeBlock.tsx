@@ -1,6 +1,6 @@
 import { Youtube } from "lucide-react";
 import type { ThemeConfig } from "../../types/editor";
-import { MediaBlock } from "@ampedbio/constants";
+import { MediaBlock } from "@repo/constants";
 
 interface YouTubeBlockProps {
   block: MediaBlock;

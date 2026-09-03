@@ -1,4 +1,4 @@
-import { getChainConfig, RESOLVER_ABI } from "@ampedbio/web3";
+import { getChainConfig, RESOLVER_ABI } from "@repo/web3";
 import { namehash } from "viem";
 import { useAccount, useReadContract } from "wagmi";
 import { DOMAIN_SUFFIX } from "@/config/rns/constants";

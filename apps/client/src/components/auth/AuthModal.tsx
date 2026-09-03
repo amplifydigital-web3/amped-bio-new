@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Eye, EyeOff, Check, X as XIcon, AlertCircle, Gift } from "lucide-react";
-import { useAuth } from "../../contexts/AuthContext";
-import { Input } from "../ui/Input";
-import { Button } from "../ui/Button";
-import type { AuthUser } from "../../types/auth";
+import { useAuth } from "@repo/ui";
+import { Input } from "@repo/ui";
+import { Button } from "@repo/ui";
+import type { AuthUser } from "@repo/ui";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -14,18 +14,18 @@ import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
 import { GoogleLoginButton } from "./GoogleLoginButton";
 import { useCaptcha } from "@/hooks/useCaptcha";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
-import { CaptchaActions } from "@ampedbio/constants";
-import { authClient } from "@/lib/auth-client";
-import { normalizeHandle, cleanHandleInput, getHandlePublicUrl } from "@/utils/handle";
+import { CaptchaActions } from "@repo/constants";
+import { authClient } from "@repo/ui";
+import { normalizeHandle, cleanHandleInput, getHandlePublicUrl } from "@repo/ui";
 import { trackGAEvent, trackTwitterEvent, loadTwitterPixel } from "@/utils/ga";
-import { trpc } from "@/utils/trpc/trpc";
+import { trpc } from "@repo/ui";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@repo/ui";
 
 // Extended user type for better-auth session
 interface BetterAuthUser {
@@ -572,7 +572,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
                     <p className="text-sm text-gray-700">
                       You have been referred by{" "}
                       <a
-                        href={`/${referrerInfo.handle}`}
+                        href={`${import.meta.env.VITE_LANDING_URL}/@${referrerInfo.handle}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:text-blue-700 font-medium"

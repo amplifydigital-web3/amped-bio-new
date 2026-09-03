@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { trpc } from "../../../../utils/trpc";
+import { trpc } from "@repo/ui";
 import { useAccount, useReadContracts, useWriteContract } from "wagmi";
-import { CREATOR_POOL_ABI, getChainConfig, multicall3Abi } from "@ampedbio/web3";
+import { CREATOR_POOL_ABI, getChainConfig, multicall3Abi } from "@repo/web3";
 import { useMemo } from "react";
 import { type Address, encodeFunctionData } from "viem";
-import { UserStakedPoolWithNullables } from "@ampedbio/constants";
+import { UserStakedPoolWithNullables } from "@repo/constants";
 import { toast } from "react-hot-toast";
 import { useWalletContext } from "@/contexts/WalletContext";
 

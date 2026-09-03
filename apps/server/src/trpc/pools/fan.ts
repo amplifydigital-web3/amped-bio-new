@@ -10,7 +10,7 @@ import {
   NODE_MANAGER_ABI,
   getPoolName,
   calculatePoolAPY,
-} from "@ampedbio/web3";
+} from "@repo/web3";
 import { s3Service } from "../../services/S3Service";
 import {
   cache,
@@ -25,7 +25,7 @@ import {
   PoolDetailsForModal,
   SlimPoolForUserStakedPool,
   PoolSearchResult,
-} from "@ampedbio/constants";
+} from "@repo/constants";
 
 export const poolsFanRouter = router({
   getPoolByAddress: publicProcedure

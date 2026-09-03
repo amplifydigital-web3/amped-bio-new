@@ -1,7 +1,7 @@
 import { useChainId, useReadContract } from "wagmi";
 import { formatEther } from "viem";
 import { REGISTRATION_DURATIONS } from "@/config/rns/constants";
-import { getChainConfig, REGISTRAR_CONTROLLER_ABI } from "@ampedbio/web3";
+import { getChainConfig, REGISTRAR_CONTROLLER_ABI } from "@repo/web3";
 
 export function useNameAvailability(
   name: string,

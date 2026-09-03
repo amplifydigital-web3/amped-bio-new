@@ -1,65 +1,17 @@
-import { useEffect, lazy, Suspense } from "react";
-import { BrowserRouter, Routes, Route } from "react-router";
+import { useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import { Editor } from "./pages/Editor";
-import { View } from "./pages/View";
-import { SignPage } from "./pages/SignPage";
-import PoolsPage from "./pages/PoolsPage";
-import { PoolDetailsPage } from "./pages/PoolDetailsPage";
-import { PoolDebugPage } from "./pages/PoolDebugPage";
-import { PoolAPYDebugPage } from "./pages/PoolAPYDebugPage";
-import NetworkPage from "./pages/NetworkPage";
-// import NdauConversionPage from "./pages/NdauConversionPage";
-// import NdauConversionReceiptPage from "./pages/NdauConversionReceiptPage";
-import PublicLayout from "./components/layout/PublicLayout";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { initParticlesEngine } from "@tsparticles/react";
 import { loadAll } from "@tsparticles/all";
-import { EmailVerification, EmailVerificationResent, PasswordReset, TwoFactorChallenge } from "./pages/auth";
 import { Toaster } from "react-hot-toast";
 import { Toaster as AppToaster } from "@/components/ui/toast";
 import { EditorProvider } from "./contexts/EditorContext";
 import { useTokenExpiration } from "./hooks/useTokenExpiration";
 import { useReferralHandler } from "./hooks/useReferralHandler";
-
-// Lazy load admin components - they will only be loaded when needed
-const AdminLayout = lazy(() =>
-  import("./pages/admin/AdminLayout").then(module => ({ default: module.AdminLayout }))
-);
-const AdminDashboard = lazy(() =>
-  import("./pages/admin/AdminDashboard").then(module => ({ default: module.AdminDashboard }))
-);
-const AdminUsers = lazy(() =>
-  import("./pages/admin/AdminUsers").then(module => ({ default: module.AdminUsers }))
-);
-const AdminThemes = lazy(() =>
-  import("./pages/admin/AdminThemes").then(module => ({ default: module.AdminThemes }))
-);
-const AdminBlocks = lazy(() =>
-  import("./pages/admin/AdminBlocks").then(module => ({ default: module.AdminBlocks }))
-);
-const AdminFiles = lazy(() =>
-  import("./pages/admin/AdminFiles").then(module => ({ default: module.AdminFiles }))
-);
-const AdminPools = lazy(() =>
-  import("./pages/admin/AdminPools").then(module => ({ default: module.AdminPools }))
-);
-const AdminNdauConversions = lazy(() =>
-  import("./pages/admin/AdminNdauConversions").then(module => ({
-    default: module.AdminNdauConversions,
-  }))
-);
-
-// The NDAU blockchain is unavailable, so send conversion portal visitors to
-// the official conversion instructions on ndau.io instead of the in-app flow.
-const NDAU_CONVERSION_REDIRECT_URL = "https://ndau.io/knowledge-base/ndau-to-revo-conversions/";
-
-function NdauConversionRedirect() {
-  useEffect(() => {
-    window.location.replace(NDAU_CONVERSION_REDIRECT_URL);
-  }, []);
-  return null;
-}
+import { useAuth } from "@repo/ui";
+import { Loader2 } from "lucide-react";
 
 function AppRouter() {
   // Use the token expiration hook inside the router context
@@ -67,167 +19,51 @@ function AppRouter() {
 
   return (
     <Routes>
+      {/* Legacy /@handle/edit/... URLs are normalized to the panel route by Editor */}
       <Route
-        path="/:handle/edit"
+        path="/:handle/edit/:panel?"
         element={
           <ProtectedRoute>
             <Editor />
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/"
-        element={
-          <PublicLayout>
-            <View />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/:handle"
-        element={
-          <PublicLayout>
-            <View />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/register"
-        element={
-          <PublicLayout>
-            <View />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/login"
-        element={
-          <PublicLayout>
-            <View />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/i/pools"
-        element={
-          <PublicLayout>
-            <PoolsPage />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/i/pools/:address"
-        element={
-          <PublicLayout>
-            <PoolDetailsPage />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/i/pools/:address/debug"
-        element={
-          <PublicLayout>
-            <PoolDebugPage />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/i/pools/:address/debug-apy"
-        element={
-          <PublicLayout>
-            <PoolAPYDebugPage />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/i/network"
-        element={
-          <PublicLayout>
-            <NetworkPage />
-          </PublicLayout>
-        }
-      />
-      <Route path="/i/ndau-conversion" element={<NdauConversionRedirect />} />
-      <Route path="/i/ndau-conversion/receipt/:ndauAddress" element={<NdauConversionRedirect />} />
 
-      {/* Admin Routes with nested routing - lazy loaded with Suspense */}
+      {/* The client only serves the dashboard of the logged-in user; the panel
+          (home, gallery, wallet, ...) is the route */}
       <Route
-        path="/i/admin"
+        path="/:panel?"
         element={
-          <ProtectedRoute adminOnly>
-            <Suspense fallback={<div>Loading admin...</div>}>
-              <AdminLayout />
-            </Suspense>
+          <ProtectedRoute>
+            <Editor />
           </ProtectedRoute>
         }
-      >
-        <Route
-          index
-          element={
-            <Suspense fallback={<div>Loading dashboard...</div>}>
-              <AdminDashboard />
-            </Suspense>
-          }
-        />
-        <Route
-          path="users"
-          element={
-            <Suspense fallback={<div>Loading users...</div>}>
-              <AdminUsers />
-            </Suspense>
-          }
-        />
-        <Route
-          path="themes"
-          element={
-            <Suspense fallback={<div>Loading themes...</div>}>
-              <AdminThemes />
-            </Suspense>
-          }
-        />
-        <Route
-          path="blocks"
-          element={
-            <Suspense fallback={<div>Loading blocks...</div>}>
-              <AdminBlocks />
-            </Suspense>
-          }
-        />
-        <Route
-          path="files"
-          element={
-            <Suspense fallback={<div>Loading files...</div>}>
-              <AdminFiles />
-            </Suspense>
-          }
-        />
-        <Route
-          path="pools"
-          element={
-            <Suspense fallback={<div>Loading pools...</div>}>
-              <AdminPools />
-            </Suspense>
-          }
-        />
-        <Route
-          path="ndau-conversions"
-          element={
-            <Suspense fallback={<div>Loading conversions...</div>}>
-              <AdminNdauConversions />
-            </Suspense>
-          }
-        />
-      </Route>
+      />
 
-      {/* Sign route */}
-      <Route path="/sign" element={<SignPage />} />
-
-      {/* Authentication Routes */}
-      <Route path="/auth/verify-email/:token?" element={<EmailVerification />} />
-      <Route path="/auth/resend-verification" element={<EmailVerificationResent />} />
-      <Route path="/auth/reset-password/:token?" element={<PasswordReset />} />
-<Route path="/auth/two-factor" element={<TwoFactorChallenge />} />
+      {/* All public pages live on the public site. Send unauthenticated users
+          there with the login popup open; redirect everything else to the site. */}
+      <Route path="*" element={<PublicSiteRedirect />} />
     </Routes>
+  );
+}
+
+// Redirects to the public site, opening the login popup for unauthenticated users
+function PublicSiteRedirect() {
+  const { authUser, isPending } = useAuth();
+
+  if (isPending) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  return (
+    <Navigate
+      to={authUser === null ? `${import.meta.env.VITE_LANDING_URL}/login` : import.meta.env.VITE_LANDING_URL}
+      replace
+    />
   );
 }
 

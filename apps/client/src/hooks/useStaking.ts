@@ -1,8 +1,8 @@
 import { useState, useMemo } from "react";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import { parseEther } from "viem";
-import { L2_BASE_TOKEN_ABI, getChainConfig } from "@ampedbio/web3";
-import { trpc } from "../utils/trpc";
+import { L2_BASE_TOKEN_ABI, getChainConfig } from "@repo/web3";
+import { trpc } from "@repo/ui";
 import { useMutation } from "@tanstack/react-query";
 
 interface StakingPoolData {

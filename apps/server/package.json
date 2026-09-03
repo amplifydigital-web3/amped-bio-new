@@ -1,5 +1,5 @@
 {
-  "name": "@ampedbio/server",
+  "name": "@repo/server",
   "version": "1.0.0",
   "type": "module",
   "private": true,
@@ -24,8 +24,8 @@
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf coverage"
   },
   "dependencies": {
-    "@ampedbio/constants": "workspace:*",
-    "@ampedbio/web3": "workspace:*",
+    "@repo/constants": "workspace:*",
+    "@repo/web3": "workspace:*",
     "@aws-sdk/client-s3": "^3.965.0",
     "@aws-sdk/s3-request-presigner": "^3.965.0",
     "@noble/ed25519": "^3.1.0",

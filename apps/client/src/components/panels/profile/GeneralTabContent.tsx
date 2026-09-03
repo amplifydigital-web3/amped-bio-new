@@ -4,7 +4,7 @@ import { ImageUploader } from "./ImageUploader";
 import { URLPicker } from "./URLPicker";
 import { SecurityTabContent } from "./SecurityTabContent";
 import { useEditor } from "../../../contexts/EditorContext";
-import { useAuth } from "../../../contexts/AuthContext";
+import { useAuth } from "@repo/ui";
 import { EmailChangeDialog } from "../../dialogs/EmailChangeDialog";
 import useGetAllRegisteredNames from "@/hooks/rns/useGetAllRegisteredNames";
 import { useAccount } from "wagmi";

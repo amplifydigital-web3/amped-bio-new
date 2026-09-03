@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { trpc } from "../utils/trpc";
+import { trpc } from "@repo/ui";
 import { toast } from "react-hot-toast";
 
 /**

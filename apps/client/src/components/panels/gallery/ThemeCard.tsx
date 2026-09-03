@@ -1,7 +1,7 @@
 import { AlertTriangle } from "lucide-react";
 import type { MarketplaceTheme } from "../../../types/editor";
 import { HoverPopover } from "../../ui/popover";
-import { trpc } from "../../../utils/trpc";
+import { trpc } from "@repo/ui";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { useEditor } from "../../../contexts/EditorContext";
