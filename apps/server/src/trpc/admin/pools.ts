@@ -252,6 +252,20 @@ export const adminPoolsRouter = router({
         console.info("[syncPool]", ...args);
       };
 
+      // Converts any failure into an explicit error event so the client shows the message
+      // and stops — instead of tRPC serializing it as INTERNAL_SERVER_ERROR, which the SSE
+      // client treats as retryable and re-subscribes from scratch (infinite scan loop).
+      const failEvent = (error: unknown) => {
+        console.error("[syncPool] Sync failed:", error);
+        const message =
+          error instanceof TRPCError
+            ? error.message
+            : error instanceof Error
+              ? error.message
+              : String(error);
+        return emitProgress(999, "error", `Sync failed: ${message}`);
+      };
+
       verboseLog("=== START ===", { poolId });
       yield tracked(`sync-${poolId}-0`, emitProgress(0, "init", "Finding pool in database..."));
 
@@ -333,10 +347,8 @@ export const adminPoolsRouter = router({
         latestBlock = await publicClient.getBlockNumber();
       } catch (error) {
         console.error("Error fetching latest block number:", error);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: `Failed to fetch latest block number: ${(error as Error).message}`,
-        });
+        yield tracked(`sync-${poolId}-error`, failEvent(error));
+        return;
       }
 
       const totalBlocks = latestBlock - creationBlock + 1n;
@@ -421,10 +433,8 @@ export const adminPoolsRouter = router({
           );
         } catch (error) {
           console.error(`Error fetching pool logs [${chunkCursor}-${chunkTo}]:`, error);
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: `Failed to fetch pool logs at block range ${chunkCursor}-${chunkTo}: ${(error as Error).message}`,
-          });
+          yield tracked(`sync-${poolId}-error`, failEvent(error));
+          return;
         }
 
         const scannedBlocks = chunkTo - creationBlock + 1n;
@@ -531,11 +541,19 @@ export const adminPoolsRouter = router({
         for (let i = 0; i < uniqueBlockNumbers.length; i += BATCH_SIZE) {
           checkAborted();
           const batch = uniqueBlockNumbers.slice(i, i + BATCH_SIZE);
-          const blocks = await Promise.all(
-            batch.map(bn => publicClient.getBlock({ blockNumber: bn }))
-          );
-          for (const block of blocks) {
-            blockTimestamps.set(block.number!, new Date(Number(block.timestamp) * 1000));
+          try {
+            const blocks = await Promise.all(
+              batch.map(bn => publicClient.getBlock({ blockNumber: bn }))
+            );
+            for (const block of blocks) {
+              blockTimestamps.set(block.number!, new Date(Number(block.timestamp) * 1000));
+            }
+          } catch (error) {
+            console.error(
+              "[syncPool] Failed to fetch block timestamps — continuing with fallback dates:",
+              error
+            );
+            break;
           }
           // Keep the SSE subscription alive while fetching timestamps in batches
           yield tracked(
@@ -576,10 +594,17 @@ export const adminPoolsRouter = router({
 
         // --- Batch-find all wallets ---
         const uniqueAddresses = [...new Set(allEvents.map(e => e.address))];
-        const wallets = await prisma.userWallet.findMany({
-          where: { address: { in: uniqueAddresses } },
-          select: { id: true, address: true },
-        });
+        let wallets: { id: number; address: string }[];
+        try {
+          wallets = await prisma.userWallet.findMany({
+            where: { address: { in: uniqueAddresses } },
+            select: { id: true, address: true },
+          });
+        } catch (error) {
+          console.error("[syncPool] Failed to look up wallets:", error);
+          yield tracked(`sync-${poolId}-error`, failEvent(error));
+          return;
+        }
         const walletByAddress = new Map(wallets.map(w => [w.address.toLowerCase(), w.id]));
 
         // Filter events to only those with known wallets
@@ -639,48 +664,53 @@ export const adminPoolsRouter = router({
             unstakesSkipped: summaryUnstakesSkipped,
           }));
 
-          // SINGLE TRANSACTION: delete all existing records, then insert fresh
-          await prisma.$transaction(async (tx) => {
-            // Delete all stake events for this pool
-            await tx.stakeEvent.deleteMany({
-              where: { poolId: pool.id },
-            });
+          try {
+            await prisma.$transaction(async (tx) => {
+              // Delete all stake events for this pool
+              await tx.stakeEvent.deleteMany({
+                where: { poolId: pool.id },
+              });
 
-            // Delete all staked pools for this pool
-            await tx.stakedPool.deleteMany({
-              where: { poolId: pool.id },
-            });
+              // Delete all staked pools for this pool
+              await tx.stakedPool.deleteMany({
+                where: { poolId: pool.id },
+              });
 
-            // Insert all stake events (known wallets only)
-            await tx.stakeEvent.createMany({
-              data: knownEvents.map(e => ({
-                userWalletId: walletByAddress.get(e.address)!,
-                poolId: pool.id,
-                amount: e.amount.toString(),
-                eventType: e.type,
-                transactionHash: e.txHash,
-                createdAt: blockTimestamps.get(e.blockNumber) ?? new Date(),
-              })),
-            });
-
-            // Insert staked pools for wallets with positive net amount
-            const stakedPoolRows: { userWalletId: number; poolId: number; stakeAmount: string }[] = [];
-            for (const [walletId, netAmount] of netAmounts) {
-              if (netAmount > 0n) {
-                stakedPoolRows.push({
-                  userWalletId: walletId,
+              // Insert all stake events (known wallets only)
+              await tx.stakeEvent.createMany({
+                data: knownEvents.map(e => ({
+                  userWalletId: walletByAddress.get(e.address)!,
                   poolId: pool.id,
-                  stakeAmount: netAmount.toString(),
+                  amount: e.amount.toString(),
+                  eventType: e.type,
+                  transactionHash: e.txHash,
+                  createdAt: blockTimestamps.get(e.blockNumber) ?? new Date(),
+                })),
+              });
+
+              // Insert staked pools for wallets with positive net amount
+              const stakedPoolRows: { userWalletId: number; poolId: number; stakeAmount: string }[] = [];
+              for (const [walletId, netAmount] of netAmounts) {
+                if (netAmount > 0n) {
+                  stakedPoolRows.push({
+                    userWalletId: walletId,
+                    poolId: pool.id,
+                    stakeAmount: netAmount.toString(),
+                  });
+                }
+              }
+
+              if (stakedPoolRows.length > 0) {
+                await tx.stakedPool.createMany({
+                  data: stakedPoolRows,
                 });
               }
-            }
-
-            if (stakedPoolRows.length > 0) {
-              await tx.stakedPool.createMany({
-                data: stakedPoolRows,
-              });
-            }
-          });
+            });
+          } catch (error) {
+            console.error("[syncPool] Database transaction failed:", error);
+            yield tracked(`sync-${poolId}-error`, failEvent(error));
+            return;
+          }
 
           verboseLog(
             `Transaction complete: ${knownEvents.length} events inserted, ${fansCount} stakedPools created`
@@ -691,10 +721,16 @@ export const adminPoolsRouter = router({
           fansCount = 0;
           zeroBalanceCount = 0;
 
-          await prisma.$transaction(async (tx) => {
-            await tx.stakeEvent.deleteMany({ where: { poolId: pool.id } });
-            await tx.stakedPool.deleteMany({ where: { poolId: pool.id } });
-          });
+          try {
+            await prisma.$transaction(async (tx) => {
+              await tx.stakeEvent.deleteMany({ where: { poolId: pool.id } });
+              await tx.stakedPool.deleteMany({ where: { poolId: pool.id } });
+            });
+          } catch (error) {
+            console.error("[syncPool] Database cleanup failed:", error);
+            yield tracked(`sync-${poolId}-error`, failEvent(error));
+            return;
+          }
 
           verboseLog("No known wallets — existing pool data cleared");
         }
@@ -705,10 +741,16 @@ export const adminPoolsRouter = router({
         unknownAddressCount = uniqueOnChainAddresses.size - uniqueKnownAddresses.size;
       } else {
         // No on-chain events found — clean up existing data to stay consistent
-        await prisma.$transaction(async (tx) => {
-          await tx.stakeEvent.deleteMany({ where: { poolId: pool.id } });
-          await tx.stakedPool.deleteMany({ where: { poolId: pool.id } });
-        });
+        try {
+          await prisma.$transaction(async (tx) => {
+            await tx.stakeEvent.deleteMany({ where: { poolId: pool.id } });
+            await tx.stakedPool.deleteMany({ where: { poolId: pool.id } });
+          });
+        } catch (error) {
+          console.error("[syncPool] Database cleanup failed:", error);
+          yield tracked(`sync-${poolId}-error`, failEvent(error));
+          return;
+        }
         verboseLog("No on-chain events found — existing pool data cleared");
       }
 
@@ -721,13 +763,19 @@ export const adminPoolsRouter = router({
         unstakesSkipped: summaryUnstakesSkipped,
       }));
 
-      await prisma.creatorPool.update({
-        where: { id: pool.id },
-        data: {
-          revoStaked: totalStaked,
-          fans: fansCount,
-        },
-      });
+      try {
+        await prisma.creatorPool.update({
+          where: { id: pool.id },
+          data: {
+            revoStaked: totalStaked,
+            fans: fansCount,
+          },
+        });
+      } catch (error) {
+        console.error("[syncPool] Failed to update pool totals:", error);
+        yield tracked(`sync-${poolId}-error`, failEvent(error));
+        return;
+      }
 
       verboseLog("=== END ===");
       verboseLog(`Final state: ${fansCount} active fans, ${zeroBalanceCount} zero-balance records, ${totalStaked} total REVO staked`);
