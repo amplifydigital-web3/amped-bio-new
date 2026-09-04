@@ -91,7 +91,8 @@ export default function SetTxidDialog({
         chainId: parseInt(chainId),
       });
       setValue("txid", result.creationTxid);
-      toast.success("Creation txid fetched successfully.");
+      // Save automatically so the admin doesn't need a second click
+      setTxidMutation.mutate({ poolId, creationTxid: result.creationTxid });
     } catch (err: any) {
       toast.error(`Failed to fetch txid: ${err.message}`);
     } finally {
