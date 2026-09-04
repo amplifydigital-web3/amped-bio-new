@@ -367,65 +367,91 @@ export const adminPoolsRouter = router({
       const stakeLogs: Log[] = [];
       const unstakeLogs: Log[] = [];
 
-      // 4. Fetch Stake and Unstake logs in parallel (both events on the same block range)
+      // 4. Fetch Stake and Unstake logs chunk by chunk (both events share the same block range
+      //    and are fetched in parallel per chunk), yielding progress after every chunk.
+      //    Without per-chunk events a long scan exceeds the SSE inactivity window, the client
+      //    reconnects, and the sync restarts from the beginning indefinitely.
       checkAborted();
+      const SCAN_START_PERCENT = 5;
+      const SCAN_END_PERCENT = 90;
+      const totalScanBlocks = latestBlock - creationBlock + 1n;
+
       yield tracked(
         `sync-${poolId}-scan-start`,
-        emitProgress(10, "scanning", `Scanning Stake & Unstake events in parallel (${totalBlocks.toString()} blocks)...`, {
-          percent: 5,
-          currentBlock: creationBlock.toString(),
-          latestBlock: latestBlock.toString(),
-        })
+        emitProgress(
+          10,
+          "scanning",
+          `Scanning Stake & Unstake events in ${totalBlocks.toString()} blocks...`,
+          {
+            percent: SCAN_START_PERCENT,
+            currentBlock: creationBlock.toString(),
+            latestBlock: latestBlock.toString(),
+          }
+        )
       );
 
-      // Paginated fetch helper (no yield inside — called from Promise.all)
-      const fetchLogsPaginated = async (
-        eventDef: typeof STAKE_EVENT | typeof UNSTAKE_EVENT,
-        label: string
-      ): Promise<Log[]> => {
-        const logs: Log[] = [];
-        let from = creationBlock;
-
-        while (from <= latestBlock) {
-          checkAborted();
-          const to = from + BLOCK_RANGE - 1n > latestBlock ? latestBlock : from + BLOCK_RANGE - 1n;
-          try {
-            const chunk = await publicClient.getLogs({
+      let chunkCursor = creationBlock;
+      while (chunkCursor <= latestBlock) {
+        checkAborted();
+        const chunkTo =
+          chunkCursor + BLOCK_RANGE - 1n > latestBlock
+            ? latestBlock
+            : chunkCursor + BLOCK_RANGE - 1n;
+        try {
+          const [stakeChunk, unstakeChunk] = await Promise.all([
+            publicClient.getLogs({
               address: tokenAddress,
-              event: eventDef,
+              event: STAKE_EVENT,
               args: { pool: poolAddress } as any,
-              fromBlock: from,
-              toBlock: to,
-            });
-            logs.push(...chunk);
-            verboseLog(`  ${label} [${from}-${to}]: ${chunk.length} logs`);
-          } catch (error) {
-            console.error(`Error fetching ${label} logs [${from}-${to}]:`, error);
-            throw new TRPCError({
-              code: "INTERNAL_SERVER_ERROR",
-              message: `Failed to fetch ${label} logs at block range ${from}-${to}: ${(error as Error).message}`,
-            });
-          }
-          from = to + 1n;
+              fromBlock: chunkCursor,
+              toBlock: chunkTo,
+            }),
+            publicClient.getLogs({
+              address: tokenAddress,
+              event: UNSTAKE_EVENT,
+              args: { pool: poolAddress } as any,
+              fromBlock: chunkCursor,
+              toBlock: chunkTo,
+            }),
+          ]);
+          stakeLogs.push(...stakeChunk);
+          unstakeLogs.push(...unstakeChunk);
+          verboseLog(
+            `  scan [${chunkCursor}-${chunkTo}]: +${stakeChunk.length} stake, +${unstakeChunk.length} unstake logs`
+          );
+        } catch (error) {
+          console.error(`Error fetching pool logs [${chunkCursor}-${chunkTo}]:`, error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: `Failed to fetch pool logs at block range ${chunkCursor}-${chunkTo}: ${(error as Error).message}`,
+          });
         }
-        return logs;
-      };
 
-      try {
-        const [stakes, unstakes] = await Promise.all([
-          fetchLogsPaginated(STAKE_EVENT, "Stake"),
-          fetchLogsPaginated(UNSTAKE_EVENT, "Unstake"),
-        ]);
-        stakeLogs.push(...stakes);
-        unstakeLogs.push(...unstakes);
-        verboseLog(`Total: ${stakes.length} Stake, ${unstakes.length} Unstake logs`);
-      } catch (error) {
-        if (error instanceof TRPCError) throw error;
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: `Failed to fetch events: ${(error as Error).message}`,
-        });
+        const scannedBlocks = chunkTo - creationBlock + 1n;
+        const scanPercent =
+          SCAN_START_PERCENT +
+          Number((scannedBlocks * BigInt(SCAN_END_PERCENT - SCAN_START_PERCENT)) / totalScanBlocks);
+
+        yield tracked(
+          `sync-${poolId}-scan-${chunkTo}`,
+          emitProgress(
+            10,
+            "scanning",
+            `Scanning Stake & Unstake events... (${stakeLogs.length} stake, ${unstakeLogs.length} unstake found)`,
+            {
+              percent: scanPercent,
+              currentBlock: chunkTo.toString(),
+              latestBlock: latestBlock.toString(),
+              stakesFound: stakeLogs.length,
+              unstakesFound: unstakeLogs.length,
+            }
+          )
+        );
+
+        chunkCursor = chunkTo + 1n;
       }
+
+      verboseLog(`Total: ${stakeLogs.length} Stake, ${unstakeLogs.length} Unstake logs`);
 
       // 5. Initialize summary counters
       let summaryStakesProcessed = 0;
@@ -511,6 +537,20 @@ export const adminPoolsRouter = router({
           for (const block of blocks) {
             blockTimestamps.set(block.number!, new Date(Number(block.timestamp) * 1000));
           }
+          // Keep the SSE subscription alive while fetching timestamps in batches
+          yield tracked(
+            `sync-${poolId}-timestamps-${i}`,
+            emitProgress(
+              500,
+              "processing",
+              `Fetched block timestamps for ${blockTimestamps.size}/${uniqueBlockNumbers.length} blocks...`,
+              {
+                percent: 100,
+                stakesFound: stakeLogs.length,
+                unstakesFound: unstakeLogs.length,
+              }
+            )
+          );
         }
         verboseLog(`Block timestamps fetched: ${blockTimestamps.size} blocks`);
       }
