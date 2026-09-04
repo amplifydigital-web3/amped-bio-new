@@ -266,13 +266,36 @@ export const adminPoolsRouter = router({
         return emitProgress(999, "error", `Sync failed: ${message}`);
       };
 
+      const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+
+      // The on-chain scan can keep pooled DB connections idle long enough for the database to
+      // close them; recover by retrying once the pool re-establishes the connections.
+      const withDbRetry = async <T>(label: string, fn: () => Promise<T>, retries = 2): Promise<T> => {
+        for (let attempt = 0; ; attempt++) {
+          try {
+            return await fn();
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            const isConnectionError =
+              /server has closed the connection|connection (lost|closed|reset)|econnreset|etimedout|can't reach database|pool timeout/i.test(
+                message
+              );
+            if (!isConnectionError || attempt >= retries) throw error;
+            console.warn(`[syncPool] ${label} failed (${message}) — retrying ${attempt + 1}/${retries}...`);
+            await sleep(1000 * (attempt + 1));
+          }
+        }
+      };
+
       verboseLog("=== START ===", { poolId });
       yield tracked(`sync-${poolId}-0`, emitProgress(0, "init", "Finding pool in database..."));
 
       // 1. Find the pool in DB
-      const pool = await prisma.creatorPool.findUnique({
-        where: { id: poolId },
-      });
+      const pool = await withDbRetry("pool lookup", () =>
+        prisma.creatorPool.findUnique({
+          where: { id: poolId },
+        })
+      );
 
       if (!pool) {
         throw new TRPCError({
@@ -585,6 +608,9 @@ export const adminPoolsRouter = router({
       let unknownAddressCount = 0;
 
       // 7. Look up wallets, compute net amounts, then replace everything in a single transaction
+      // Reconnect to the DB first — the scan may have kept pooled connections idle long enough
+      // for the database to close them ("Server has closed the connection").
+      await withDbRetry("database ping", () => prisma.$queryRaw`SELECT 1`);
       if (allEvents.length > 0) {
         yield tracked(`sync-${poolId}-200`, emitProgress(200, "processing", `Looking up ${allEvents.length} wallets in database...`, {
           percent: 100,
@@ -596,10 +622,12 @@ export const adminPoolsRouter = router({
         const uniqueAddresses = [...new Set(allEvents.map(e => e.address))];
         let wallets: { id: number; address: string }[];
         try {
-          wallets = await prisma.userWallet.findMany({
-            where: { address: { in: uniqueAddresses } },
-            select: { id: true, address: true },
-          });
+          wallets = await withDbRetry("wallet lookup", () =>
+            prisma.userWallet.findMany({
+              where: { address: { in: uniqueAddresses } },
+              select: { id: true, address: true },
+            })
+          );
         } catch (error) {
           console.error("[syncPool] Failed to look up wallets:", error);
           yield tracked(`sync-${poolId}-error`, failEvent(error));
