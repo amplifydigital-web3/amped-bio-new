@@ -84,6 +84,24 @@ const STEPS: StepInfo[] = [
   { label: "Recalculating pool totals", icon: <BarChart3 className="h-4 w-4" />, phase: "finalizing" },
 ];
 
+// Raw on-chain amounts use 18 decimals; format them as human-readable REVO.
+const REVO_DECIMALS = 18n;
+
+const formatRevoAmount = (raw?: string | number | null): string => {
+  if (raw === undefined || raw === null || raw === "") return "0";
+  try {
+    const wei = BigInt(raw);
+    const scaled = wei / 10n ** (REVO_DECIMALS - 3n);
+    const amount = Number(scaled) / 1000;
+    return amount.toLocaleString(undefined, { maximumFractionDigits: 3 });
+  } catch {
+    return String(raw);
+  }
+};
+
+const formatCount = (value: number | undefined): string =>
+  (value ?? 0).toLocaleString();
+
 export default function SyncPoolProgressDialog({
   isOpen,
   onClose,
@@ -279,7 +297,7 @@ export default function SyncPoolProgressDialog({
           )}
 
           {/* Live counters */}
-          {currentEvent && currentEvent.phase !== "init" && !error && (
+          {!isCompleted && currentEvent && currentEvent.phase !== "init" && !error && (
             <div className="grid grid-cols-2 gap-2 text-xs">
               {currentEvent.stakesFound > 0 && (
                 <div className="bg-gray-50 dark:bg-gray-800 rounded-md p-2">
@@ -328,7 +346,11 @@ export default function SyncPoolProgressDialog({
               ) : (
                 <Loader2 className="h-4 w-4 animate-spin text-blue-500 flex-shrink-0 mt-0.5" />
               )}
-              <span>{currentEvent.message}</span>
+              <span>
+                {currentEvent.phase === "complete"
+                  ? "Sync completed successfully."
+                  : currentEvent.message}
+              </span>
             </div>
           )}
 
@@ -369,7 +391,7 @@ export default function SyncPoolProgressDialog({
                     <div className="bg-gray-50 dark:bg-gray-800 rounded-md p-1.5 col-span-2">
                       <span className="text-gray-500 dark:text-gray-400">Blocks Scanned:</span>
                       <span className="ml-1 font-semibold">{Number(currentEvent.summary.scope.totalBlocks).toLocaleString()}</span>
-                      <span className="text-gray-400 ml-1">(chunks of {currentEvent.summary.scope.blockRange})</span>
+                      <span className="text-gray-400 ml-1">(chunks of {currentEvent.summary.scope.blockRange.toLocaleString()})</span>
                     </div>
                   </div>
                 </div>
@@ -381,19 +403,19 @@ export default function SyncPoolProgressDialog({
                 <div className="grid grid-cols-2 gap-1.5 text-xs">
                   <div className="bg-gray-50 dark:bg-gray-800 rounded-md p-1.5">
                     <span className="text-gray-500 dark:text-gray-400">On-Chain Events:</span>
-                    <span className="ml-1 font-semibold">{currentEvent.summary.totalOnChainEvents ?? (currentEvent.summary.stakes.processed + currentEvent.summary.unstakes.processed + currentEvent.summary.stakes.alreadyIndexed + currentEvent.summary.unstakes.alreadyIndexed + currentEvent.summary.stakes.skipped + currentEvent.summary.unstakes.skipped)}</span>
+                    <span className="ml-1 font-semibold">{formatCount(currentEvent.summary.totalOnChainEvents ?? (currentEvent.summary.stakes.processed + currentEvent.summary.unstakes.processed + currentEvent.summary.stakes.alreadyIndexed + currentEvent.summary.unstakes.alreadyIndexed + currentEvent.summary.stakes.skipped + currentEvent.summary.unstakes.skipped))}</span>
                   </div>
                   <div className="bg-gray-50 dark:bg-gray-800 rounded-md p-1.5">
                     <span className="text-gray-500 dark:text-gray-400">Unique Addresses:</span>
-                    <span className="ml-1 font-semibold">{currentEvent.summary.uniqueOnChainAddresses ?? "?"}</span>
+                    <span className="ml-1 font-semibold">{currentEvent.summary.uniqueOnChainAddresses !== undefined ? formatCount(currentEvent.summary.uniqueOnChainAddresses) : "?"}</span>
                   </div>
                   <div className="bg-green-50 dark:bg-green-900/20 rounded-md p-1.5">
                     <span className="text-gray-500 dark:text-gray-400">Stakes New:</span>
-                    <span className="ml-1 font-semibold text-green-700 dark:text-green-300">{currentEvent.summary.stakes.processed}</span>
+                    <span className="ml-1 font-semibold text-green-700 dark:text-green-300">{formatCount(currentEvent.summary.stakes.processed)}</span>
                   </div>
                   <div className="bg-red-50 dark:bg-red-900/20 rounded-md p-1.5">
                     <span className="text-gray-500 dark:text-gray-400">Unstakes New:</span>
-                    <span className="ml-1 font-semibold text-red-700 dark:text-red-300">{currentEvent.summary.unstakes.processed}</span>
+                    <span className="ml-1 font-semibold text-red-700 dark:text-red-300">{formatCount(currentEvent.summary.unstakes.processed)}</span>
                   </div>
                 </div>
               </div>
@@ -405,17 +427,17 @@ export default function SyncPoolProgressDialog({
                   <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-md p-1.5">
                     <span className="text-gray-500 dark:text-gray-400">Already Indexed:</span>
                     <span className="ml-1 font-semibold text-yellow-700 dark:text-yellow-300">
-                      {currentEvent.summary.stakes.alreadyIndexed + currentEvent.summary.unstakes.alreadyIndexed}
+                      {formatCount(currentEvent.summary.stakes.alreadyIndexed + currentEvent.summary.unstakes.alreadyIndexed)}
                     </span>
                   </div>
                   <div className="bg-orange-50 dark:bg-orange-900/20 rounded-md p-1.5">
                     <span className="text-gray-500 dark:text-gray-400">Unknown Wallets:</span>
-                    <span className="ml-1 font-semibold text-orange-700 dark:text-orange-300">{currentEvent.summary.unknownAddressCount ?? (currentEvent.summary.stakes.skipped + currentEvent.summary.unstakes.skipped)}</span>
+                    <span className="ml-1 font-semibold text-orange-700 dark:text-orange-300">{formatCount(currentEvent.summary.unknownAddressCount ?? (currentEvent.summary.stakes.skipped + currentEvent.summary.unstakes.skipped))}</span>
                   </div>
                 </div>
                 {(currentEvent.summary.unknownAddressCount ?? 0) > 0 && (
                   <div className="mt-1.5 text-xs text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/10 rounded-md p-2">
-                    <strong>⚠️ {(currentEvent.summary.stakes.skipped + currentEvent.summary.unstakes.skipped)} events skipped</strong> — {currentEvent.summary.unknownAddressCount} addresses are not registered in amped.bio. These stakers won't appear in wallet views until they connect their wallet.
+                    <strong>⚠️ {formatCount((currentEvent.summary.stakes.skipped + currentEvent.summary.unstakes.skipped))} events skipped</strong> — {formatCount(currentEvent.summary.unknownAddressCount)} addresses are not registered in amped.bio. These stakers won't appear in wallet views until they connect their wallet.
                   </div>
                 )}
               </div>
@@ -426,16 +448,16 @@ export default function SyncPoolProgressDialog({
                 <div className="grid grid-cols-2 gap-1.5 text-xs">
                   <div className="bg-blue-50 dark:bg-blue-900/20 rounded-md p-1.5">
                     <span className="text-gray-500 dark:text-gray-400">Active Fans:</span>
-                    <span className="ml-1 font-semibold text-blue-700 dark:text-blue-300">{currentEvent.summary.fansCount}</span>
+                    <span className="ml-1 font-semibold text-blue-700 dark:text-blue-300">{formatCount(currentEvent.summary.fansCount)}</span>
                   </div>
                   <div className="bg-blue-50 dark:bg-blue-900/20 rounded-md p-1.5">
                     <span className="text-gray-500 dark:text-gray-400">Total Staked:</span>
-                    <span className="ml-1 font-semibold text-blue-700 dark:text-blue-300">{currentEvent.summary.totalStaked} REVO</span>
+                    <span className="ml-1 font-semibold text-blue-700 dark:text-blue-300">{formatRevoAmount(currentEvent.summary.totalStaked)} REVO</span>
                   </div>
                   {currentEvent.summary.zeroBalanceCount !== undefined && (
                     <div className="bg-gray-50 dark:bg-gray-800 rounded-md p-1.5 col-span-2">
                       <span className="text-gray-500 dark:text-gray-400">Zero-Balance Records:</span>
-                      <span className="ml-1 font-semibold">{currentEvent.summary.zeroBalanceCount}</span>
+                      <span className="ml-1 font-semibold">{formatCount(currentEvent.summary.zeroBalanceCount)}</span>
                       <span className="block text-gray-400 mt-0.5 text-[10px]">(unstaked completely — kept for history)</span>
                     </div>
                   )}
