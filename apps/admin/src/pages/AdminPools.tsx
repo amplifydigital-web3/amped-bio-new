@@ -46,6 +46,20 @@ export const AdminPools: FC = () => {
   const [syncProgressDialogOpen, setSyncProgressDialogOpen] = useState(false);
 
   const handleSyncPool = (poolId: number) => {
+    const pool = pools?.find(p => p.id === poolId);
+    if (!pool) return;
+
+    if (!pool.poolAddress) {
+      toast.error(`Pool #${poolId} has no pool address yet — sync the pool creation first.`);
+      return;
+    }
+
+    if (!pool.creationTxid) {
+      toast.error(`Pool #${poolId} has no creation txid yet. Define it first to sync on-chain events.`);
+      handleOpenSetTxid(pool.id, pool.poolAddress, pool.chainId, pool.creationTxid);
+      return;
+    }
+
     setSyncingPoolId(poolId);
     setSyncProgressDialogOpen(true);
   };
@@ -247,7 +261,9 @@ export const AdminPools: FC = () => {
                       title={
                         !pool.poolAddress
                           ? "Pool has no address — sync creation first"
-                          : "Sync all on-chain events for this pool"
+                          : !pool.creationTxid
+                            ? "Pool has no creation txid — set it first"
+                            : "Sync all on-chain events for this pool"
                       }
                     >
                       {syncingPoolId === pool.id ? (
