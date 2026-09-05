@@ -12,17 +12,27 @@ ENV NODE_OPTIONS=--max-old-space-size=4096
 # Set the working directory inside the container
 WORKDIR /app
 
-# Copy the root package files
+# ---------------------------------------------------------------------------
+# Dependency layer — kept stable so `pnpm install` is cached between builds.
+# Only the files needed to resolve the workspace and run the install-time
+# lifecycle scripts are copied before installing:
+#   - the workspace packages' sources (their `prepare` builds them via tsup)
+#   - the server manifest (defines `postinstall`)
+#   - the Prisma schema (used by `postinstall` -> `prisma generate`)
+# App source changes therefore never invalidate this layer.
+# ---------------------------------------------------------------------------
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
-
-# Copy the packages directories
 COPY packages ./packages
-
-# Copy the server app
-COPY apps/server ./apps/server
+COPY apps/server/package.json ./apps/server/package.json
+COPY apps/server/prisma ./apps/server/prisma
 
 # Install dependencies using pnpm
 RUN pnpm install --frozen-lockfile --filter=@ampedbio/server...
+
+# ---------------------------------------------------------------------------
+# Source + build layer — invalidated on every app source change
+# ---------------------------------------------------------------------------
+COPY apps/server ./apps/server
 
 # Change to the server app directory for building
 WORKDIR /app/apps/server
@@ -37,5 +47,6 @@ USER node
 # Expose port 3000 (or whatever port your server uses)
 EXPOSE 3000
 
-# Start the server
-CMD ["pnpm", "start"]
+# Start the server. Running node directly (instead of `pnpm start`) avoids a
+# corepack download from the registry on every container start.
+CMD ["node", "dist/local.js"]

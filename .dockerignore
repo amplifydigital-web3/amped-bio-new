@@ -1,0 +1,25 @@
+# Dependencies — never send node_modules to the Docker build daemon
+**/node_modules
+
+# Build outputs
+**/dist
+**/.turbo
+**/coverage
+**/*.tsbuildinfo
+**/.vercel
+
+# Git / CI / IDE
+.git
+.github
+.gitignore
+.idea
+.vscode
+
+# Local environment files & secrets — never bake these into an image
+.env
+.env.*
+!.env.example
+
+# Logs and misc
+*.log
+.DS_Store

@@ -5,23 +5,29 @@ FROM node:24-alpine as builder
 # Install Python, build tools and Python build dependencies
 RUN apk add --no-cache python3 make g++ py3-pip py3-setuptools
 
-# Install pnpm globally
-RUN npm install -g pnpm
+# Install pnpm via corepack (pinned by packageManager), like the server
+RUN corepack enable pnpm
 
 # Set the working directory inside the container
 WORKDIR /app
 
-# Copy the root package files
+# ---------------------------------------------------------------------------
+# Dependency layer — kept stable so `pnpm install` is cached between builds.
+# The workspace packages' sources are required here because their `prepare`
+# script builds them during install. App source changes never invalidate
+# this layer.
+# ---------------------------------------------------------------------------
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
-
-# Copy the packages directories
 COPY packages ./packages
-
-# Copy the client app
-COPY apps/client ./apps/client
+COPY apps/client/package.json ./apps/client/package.json
 
 # Install dependencies using pnpm
 RUN pnpm install --frozen-lockfile --filter=@ampedbio/client...
+
+# ---------------------------------------------------------------------------
+# Source + build layer — invalidated on every app source change
+# ---------------------------------------------------------------------------
+COPY apps/client ./apps/client
 
 # Change to the client app directory for building
 WORKDIR /app/apps/client
