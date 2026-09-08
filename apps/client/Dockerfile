@@ -1,28 +1,45 @@
+# Multi-stage build for efficient client production image
+# Stage 1: Build the client application
 FROM node:24-alpine AS builder
 
 ENV NODE_OPTIONS=--max-old-space-size=4096
 
+# Install Python and build tools
 RUN apk add --no-cache python3 make g++
+
+# Install pnpm via corepack (pinned by packageManager), like the server
 RUN corepack enable pnpm
 
 # Skip the Cypress binary download: it is a test-only dependency and is not
 # available for Alpine linux-arm64
 ENV CYPRESS_INSTALL_BINARY=0
 
+# Set the working directory inside the container
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
-COPY packages/typescript-config ./packages/typescript-config
-COPY packages/constants ./packages/constants
-COPY packages/web3 ./packages/web3
-COPY packages/ui ./packages/ui
-COPY apps/client ./apps/client
+# ---------------------------------------------------------------------------
+# Dependency layer — kept stable so `pnpm install` is cached between builds.
+# The workspace packages' sources are required here because their `prepare`
+# script builds them during install. App source changes never invalidate
+# this layer.
+# ---------------------------------------------------------------------------
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY packages ./packages
+COPY apps/client/package.json ./apps/client/package.json
 
+# Install dependencies using pnpm
 RUN pnpm install --frozen-lockfile --filter=@repo/client...
 
+# ---------------------------------------------------------------------------
+# Source + build layer — invalidated on every app source change
+# ---------------------------------------------------------------------------
+COPY apps/client ./apps/client
+
+# Change to the client app directory for building
 WORKDIR /app/apps/client
 RUN pnpm exec vite build
 
+# Stage 2: Serve the client application using lighttpd
 FROM alpine:3.21
 
 RUN apk add --no-cache lighttpd
@@ -38,6 +55,7 @@ RUN mkdir -p /var/log/lighttpd && touch /var/log/lighttpd/error.log && \
 # Run lighttpd workers as the unprivileged lighttpd user
 RUN chown -R lighttpd:lighttpd /var/www/localhost/htdocs
 
+# Expose port 80
 EXPOSE 80
 
 # Health check: "/" serves the built index.html and always returns 200
