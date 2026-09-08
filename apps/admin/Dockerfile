@@ -40,5 +40,9 @@ RUN chown -R lighttpd:lighttpd /var/www/localhost/htdocs
 
 EXPOSE 80
 
+# Health check: "/" serves the built index.html and always returns 200
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -q -O /dev/null http://127.0.0.1/ || exit 1
+
 # Mirror the errorlog to stdout so container logs stay visible
 CMD ["sh", "-c", "tail -f /var/log/lighttpd/error.log & exec lighttpd -D -f /etc/lighttpd/lighttpd.conf"]
