@@ -1,10 +1,10 @@
 import { useEffect, ReactNode, useRef, useState, useMemo } from "react";
 import { useBalance } from "wagmi";
 import { TRPCClientError } from "@trpc/client";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "@repo/ui";
 import { WalletContext } from "../contexts/WalletContext";
 import { useWeb3AuthWallet } from "../hooks/useWallet";
-import { trpcClient } from "../utils/trpc";
+import { trpcClient } from "@repo/ui";
 import { type Address } from "viem";
 
 const THROTTLE_DURATION = 3_000; // 3 seconds in milliseconds

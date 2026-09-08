@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { BASE_REGISTRAR_ABI, getChainConfig, REGISTRAR_CONTROLLER_ABI } from "@ampedbio/web3";
+import { BASE_REGISTRAR_ABI, getChainConfig, REGISTRAR_CONTROLLER_ABI } from "@repo/web3";
 import { useAccount, useWriteContract, usePublicClient } from "wagmi";
 
 import { ContractStep, TxStatus, TxStep } from "@/types/rns/common";

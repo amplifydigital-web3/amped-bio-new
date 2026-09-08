@@ -2,7 +2,7 @@ import { privateProcedure, publicProcedure, router } from "./trpc";
 import { z } from "zod";
 import { prisma } from "../services/DB";
 import { TRPCError } from "@trpc/server";
-import { addBlockSchema, blockIdParamSchema, editBlocksSchema } from "@ampedbio/constants";
+import { addBlockSchema, blockIdParamSchema, editBlocksSchema } from "@repo/constants";
 
 export const blocksRouter = router({
   // Get all blocks for the user

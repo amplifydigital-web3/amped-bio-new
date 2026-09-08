@@ -8,12 +8,12 @@ import {
   CREATOR_POOL_FACTORY_ABI,
   CREATOR_POOL_ABI,
   getPoolName,
-} from "@ampedbio/web3";
+} from "@repo/web3";
 import {
   ALLOWED_POOL_IMAGE_FILE_EXTENSIONS,
   ALLOWED_POOL_IMAGE,
   RewardPool,
-} from "@ampedbio/constants";
+} from "@repo/constants";
 import { env } from "../../env";
 import { s3Service } from "../../services/S3Service";
 import { uploadedFileService } from "../../services/UploadedFileService";

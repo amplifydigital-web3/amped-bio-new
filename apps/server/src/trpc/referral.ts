@@ -10,8 +10,8 @@ import {
 import { env } from "../env";
 import { privateKeyToAccount } from "viem/accounts";
 import { createWalletClient, createPublicClient, http } from "viem";
-import { getChainConfig } from "@ampedbio/web3";
-import { AFFILIATES_CHAIN_ID, SITE_SETTINGS, PROCESSING_TXID } from "@ampedbio/constants";
+import { getChainConfig } from "@repo/web3";
+import { AFFILIATES_CHAIN_ID, SITE_SETTINGS, PROCESSING_TXID } from "@repo/constants";
 import { cache, CacheKeys } from "../utils/cache";
 
 // Helper function to check affiliate wallet balance

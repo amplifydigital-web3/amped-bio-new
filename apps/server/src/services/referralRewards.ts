@@ -1,5 +1,5 @@
 import { parseEther, Address, WalletClient, PublicClient } from "viem";
-import { SIMPLE_BATCH_SEND_ABI } from "@ampedbio/web3";
+import { SIMPLE_BATCH_SEND_ABI } from "@repo/web3";
 
 interface FindTransactionResult {
   txid?: string;

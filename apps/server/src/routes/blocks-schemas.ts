@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { linkConfigSchema, mediaConfigSchema } from "@ampedbio/constants";
+import { linkConfigSchema, mediaConfigSchema } from "@repo/constants";
 
 const blocksSchemasRouter: Router = Router();
 

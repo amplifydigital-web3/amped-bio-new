@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { trpc } from "@/utils/trpc/trpc";
-import { trpcClient } from "@/utils/trpc/trpc";
+import { trpc } from "@repo/ui";
+import { trpcClient } from "@repo/ui";
 import { Gift, ChevronDown, ChevronUp, Info, ExternalLink, Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { useAuth } from "@/contexts/AuthContext";
-import { PROCESSING_TXID } from "@ampedbio/constants";
+import { useAuth } from "@repo/ui";
+import { PROCESSING_TXID } from "@repo/constants";
 
 function RefereeRewardCard() {
   const { authUser } = useAuth();
@@ -225,7 +225,7 @@ function RefereeRewardCard() {
               <span className="text-xs text-gray-600">
                 Referred by{" "}
                 <a
-                  href={`/${myReferrer.referrer.handle}`}
+                  href={`${import.meta.env.VITE_LANDING_URL}/${myReferrer.referrer.handle}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-medium text-blue-600 hover:text-blue-800 hover:underline"

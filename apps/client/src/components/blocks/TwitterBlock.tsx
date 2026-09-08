@@ -2,7 +2,7 @@
 
 import { FaXTwitter } from "react-icons/fa6";
 import type { ThemeConfig } from "../../types/editor";
-import { MediaBlock } from "@ampedbio/constants";
+import { MediaBlock } from "@repo/constants";
 import { EmbeddedTweet, TweetSkeleton } from "react-tweet";
 import { useTweet } from "react-tweet";
 import type { Tweet, TweetEntities } from "react-tweet/api";

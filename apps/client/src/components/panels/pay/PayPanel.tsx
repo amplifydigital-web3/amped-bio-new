@@ -1,4 +1,4 @@
-import { Tooltip } from "@/components/ui/Tooltip";
+import { Tooltip } from "@repo/ui";
 import { useMemo, useState, useEffect } from "react";
 import {
   Search,
@@ -13,7 +13,7 @@ import {
   AlertCircle,
   CheckCircle,
 } from "lucide-react";
-import { trpc } from "@/utils/trpc/trpc";
+import { trpc } from "@repo/ui";
 import { useQuery } from "@tanstack/react-query";
 import ReceiveDialog from "../wallet/dialogs/ReceiveDialog";
 import PayModal from "./dialogs/PayDialog";
@@ -21,7 +21,7 @@ import usePayDialog from "@/hooks/usePayDialog";
 import { Scanner as QRScanner } from "@yudiel/react-qr-scanner";
 import { Address, isAddress, zeroAddress } from "viem";
 import { useChainId, useAccount } from "wagmi";
-import { getChainConfig, getCurrencySymbol } from "@ampedbio/web3";
+import { getChainConfig, getCurrencySymbol } from "@repo/web3";
 import { useResolveRevoName } from "@/hooks/rns/useResolveRevoName";
 import { DOMAIN_SUFFIX } from "@/config/rns/constants";
 
@@ -319,7 +319,7 @@ export default function PayPanel() {
               <div className="flex-1">
                 <div className="flex items-center space-x-2 text-sm text-gray-600">
                   <a
-                    href={`/@${user.username}`}
+                    href={`${import.meta.env.VITE_LANDING_URL}/@${user.username}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="hover:underline"
@@ -530,8 +530,7 @@ const PayRow: React.FC<{
 }> = ({ transaction, explorerUrl, formatAddress, timeAgo, formatValue, chain, payDialog }) => {
   const { data } = useQuery(trpc.wallet.getUserByAddress.queryOptions({ address: transaction.to }));
 
-  const currentUrl = window.location.origin;
-
+  
   return (
     <div
       key={transaction.hash}
@@ -564,7 +563,7 @@ const PayRow: React.FC<{
                 {data?.handle && (
                   <>
                     <a
-                      href={`${currentUrl}/@${data.handle}`}
+                      href={`${import.meta.env.VITE_LANDING_URL}/@${data.handle}`}
                       target="_blank"
                       rel="noopener noreferrer"
                     >

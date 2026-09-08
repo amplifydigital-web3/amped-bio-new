@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { domainName, scannerURL } from "@/utils/rns";
 import { Copy, ExternalLink } from "lucide-react";
 import { useAccount, useChainId } from "wagmi";
-import { getCurrencySymbol } from "@ampedbio/web3";
+import { getCurrencySymbol } from "@repo/web3";
 import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
 import { ProfileCard } from "@/components/rns/profile/ProfileCard";
 import { ProfileNav } from "@/components/rns/profile/ProfileNav";

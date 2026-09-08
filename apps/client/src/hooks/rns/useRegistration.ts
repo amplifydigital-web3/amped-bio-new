@@ -2,7 +2,7 @@ import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagm
 import { encodeFunctionData, namehash, parseEther } from "viem";
 import { normalize } from "viem/ens";
 import { domainName } from "@/utils/rns";
-import { getChainConfig, REGISTRAR_CONTROLLER_ABI, RESOLVER_ABI } from "@ampedbio/web3";
+import { getChainConfig, REGISTRAR_CONTROLLER_ABI, RESOLVER_ABI } from "@repo/web3";
 import { useState } from "react";
 
 export function useRegistration() {

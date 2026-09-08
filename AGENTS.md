@@ -25,6 +25,7 @@ ALWAYS run typecheck and build commands to validate your modifications before cl
 - **Icons**: Prefer `lucide-react` for icons. Only use `react-icons` as a fallback if the specific icon is unavailable in `lucide-react`.
 - **Schema Validation**: Implement `zod` for all schema definitions and data validations. No other validation libraries.
 - **Alerts & Warnings**: When implementing alerts or warnings, style them using Tailwind CSS classes and include an appropriate icon from `lucide-react`.
+- **Browser Automation**: When viewing or interacting with websites in the browser, use the `agent-browser` MCP exclusively. Do NOT use `playwright` or any other browser automation tool.
 
 # CONTAINERIZATION - APPLE NATIVE PRIORITY
 

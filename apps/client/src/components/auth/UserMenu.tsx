@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { LogOut, User, ArrowRight, Wallet } from "lucide-react";
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "@repo/ui";
 import { useEditor } from "../../contexts/EditorContext";
 import { AuthModal } from "./AuthModal";
 import toast from "react-hot-toast";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@repo/ui";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,10 +12,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router";
-import { formatHandle } from "@/utils/handle";
 import { cn } from "@/lib/utils";
 import { useWalletContext } from "@/contexts/WalletContext";
-import { AuthUser } from "@/types/auth";
+import { AuthUser } from "@repo/ui";
 import { trackGAEvent } from "@/utils/ga";
 
 export function UserMenu() {
@@ -44,15 +43,14 @@ export function UserMenu() {
 
     // Redirect to the edit page instead of public profile
     if (user && user.handle) {
-      const formattedHandle = formatHandle(user.handle);
-      // Check if there's a panel parameter in the current URL
+      // Keep the panel from the current URL as a path segment if present
       const searchParams = new URLSearchParams(window.location.search);
       const panelParam = searchParams.get("p");
 
       if (panelParam) {
-        return navigate(`/${formattedHandle}/edit?p=${panelParam}`);
+        return navigate(`/${panelParam}`);
       }
-      return navigate(`/${formattedHandle}/edit`);
+      return navigate("/");
     }
     return navigate("/");
   };
@@ -65,7 +63,7 @@ export function UserMenu() {
     try {
       await signOut();
       setDefault();
-      navigate("/");
+      window.location.href = import.meta.env.VITE_LANDING_URL;
       toast.success("Signed out successfully");
     } catch {
       toast.error("Failed to sign out");
@@ -73,18 +71,18 @@ export function UserMenu() {
   };
 
   const handleNavtoHome = () => {
-    return navigate(`/@${authUser?.handle}`);
+    window.location.href = `${import.meta.env.VITE_LANDING_URL}/@${authUser?.handle}`;
   };
 
   const handleNavigateToWallet = () => {
     if (authUser?.handle) {
-      return navigate(`/${formatHandle(authUser.handle)}/edit?p=wallet`);
+      return navigate("/wallet");
     }
   };
 
   const handleNavigateToProfile = () => {
     if (authUser?.handle) {
-      return navigate(`/${formatHandle(authUser.handle)}/edit?p=profile`);
+      return navigate("/profile");
     }
   };
 

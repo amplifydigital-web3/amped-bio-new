@@ -1,6 +1,6 @@
 import React from "react";
 import { User } from "lucide-react";
-import { Tooltip } from "@/components/ui/Tooltip";
+import { Tooltip } from "@repo/ui";
 import { formatAddress } from "../utils";
 import { AddressProfile } from "../../hooks/useAddressProfiles";
 
@@ -12,7 +12,6 @@ interface RenderAddressProfileProps {
 
 const RenderAddressProfile: React.FC<RenderAddressProfileProps> = React.memo(
   ({ address, explorerUrl, profile }) => {
-    const currentUrl = window.location.origin;
 
     if (!profile?.handle) {
       return (
@@ -32,7 +31,7 @@ const RenderAddressProfile: React.FC<RenderAddressProfileProps> = React.memo(
     return (
       <Tooltip content={profile.handle}>
         <a
-          href={`${currentUrl}/@${profile.handle}`}
+          href={`${import.meta.env.VITE_LANDING_URL}/@${profile.handle}`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-blue-600 hover:underline cursor-pointer flex items-center"

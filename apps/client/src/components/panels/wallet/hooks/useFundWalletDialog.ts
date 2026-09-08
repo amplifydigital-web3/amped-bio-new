@@ -1,5 +1,5 @@
 import { useWalletContext } from "@/contexts/WalletContext";
-import { trpcClient } from "@/utils/trpc";
+import { trpcClient } from "@repo/ui";
 import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { useAccount } from "wagmi";

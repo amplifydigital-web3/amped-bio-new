@@ -1,14 +1,14 @@
 import { useState, useEffect } from "react";
 import { useEditor } from "../../../contexts/EditorContext";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@repo/ui";
 import { useNavigate } from "react-router";
 import { Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useHandleAvailability } from "@/hooks/useHandleAvailability";
 import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
-import { normalizeHandle, formatHandle, cleanHandleInput } from "@/utils/handle";
-import { useAuth } from "@/contexts/AuthContext";
-import { trpcClient } from "@/utils/trpc";
+import { normalizeHandle, formatHandle, cleanHandleInput } from "@repo/ui";
+import { useAuth } from "@repo/ui";
+import { trpcClient } from "@repo/ui";
 
 export function URLPicker() {
   // Extract profile data safely from the store

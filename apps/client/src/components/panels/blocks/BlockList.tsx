@@ -17,7 +17,7 @@ import {
 import { SortableItem } from "./SortableItem";
 import { BlockEditor } from "./BlockEditor";
 import { TextBlockEditor } from "./TextBlockEditor";
-import { type BlockType, type TextBlock } from "@ampedbio/constants";
+import { type BlockType, type TextBlock } from "@repo/constants";
 
 interface BlockListProps {
   blocks: BlockType[];

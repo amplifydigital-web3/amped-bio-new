@@ -1,6 +1,6 @@
-import { Button } from "@/components/ui/Button";
+import { Button } from "@repo/ui";
 import { CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@repo/ui";
 import { ArrowUpRight, DollarSign, User, Wallet } from "lucide-react";
 
 interface ProfileOptionsDialogProps {

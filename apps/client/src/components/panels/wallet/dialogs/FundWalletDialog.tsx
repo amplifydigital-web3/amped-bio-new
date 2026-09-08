@@ -4,7 +4,7 @@ import MoonpayIcon from "@/assets/icons/moonpay.png";
 import OnRampIcon from "@/assets/icons/onramp.png";
 import { useState, useEffect } from "react";
 import { useFundWalletDialog } from "../hooks/useFundWalletDialog";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@repo/ui";
 import { FaucetRequirementsChecklist } from "./FaucetRequirementsChecklist";
 
 // Component to display countdown timer

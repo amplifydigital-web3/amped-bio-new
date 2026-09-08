@@ -3,8 +3,8 @@ import { useBalance } from "wagmi";
 import { TRPCClientError } from "@trpc/client";
 import { WalletContext } from "../contexts/WalletContext";
 import { useMetaMaskWallet } from "../hooks/useWallet";
-import { trpcClient } from "../utils/trpc";
-import { useAuth } from "../contexts/AuthContext";
+import { trpcClient } from "@repo/ui";
+import { useAuth } from "@repo/ui";
 import { type Address } from "viem";
 
 export const MetaMaskWalletProvider = ({ children }: { children: ReactNode }) => {

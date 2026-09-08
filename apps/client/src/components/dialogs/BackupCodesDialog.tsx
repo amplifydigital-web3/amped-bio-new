@@ -1,12 +1,12 @@
 import { Copy, Download } from "lucide-react";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@repo/ui";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from "@/components/ui/dialog";
+} from "@repo/ui";
 import { toast } from "sonner";
 
 interface BackupCodesDialogProps {

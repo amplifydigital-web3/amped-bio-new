@@ -3,12 +3,12 @@ import { Check, ExternalLink } from "lucide-react";
 import type { Background } from "../../../types/editor";
 import { gradients, photos, videos, backgroundColors } from "../../../utils/backgrounds";
 import CollapsiblePanelWrapper from "../CollapsiblePanelWrapper";
-import { trpc, trpcClient } from "../../../utils/trpc";
+import { trpc, trpcClient } from "@repo/ui";
 import { useEditor } from "../../../contexts/EditorContext";
 import {
   ALLOWED_BACKGROUND_FILE_EXTENSIONS,
   ALLOWED_BACKGROUND_FILE_TYPES,
-} from "@ampedbio/constants";
+} from "@repo/constants";
 import { FileUpload } from "../../ui/FileUpload";
 import { useQuery } from "@tanstack/react-query";
 

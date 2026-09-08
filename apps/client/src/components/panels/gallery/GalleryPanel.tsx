@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { trpc } from "../../../utils/trpc/trpc";
+import { trpc } from "@repo/ui";
 import { useEditor } from "../../../contexts/EditorContext";
 import { useCollections } from "../../../hooks/useCollections";
 import type { MarketplaceTheme } from "../../../types/editor";

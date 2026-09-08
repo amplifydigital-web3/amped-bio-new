@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Users, Coins } from "lucide-react";
-import { useNavigate } from "react-router";
 import PoolSkeleton from "./PoolSkeleton";
 import { useQuery } from "@tanstack/react-query";
-import { trpc } from "../../../../utils/trpc";
-import { getChainConfig } from "@ampedbio/web3";
+import { trpc } from "@repo/ui";
+import { getChainConfig } from "@repo/web3";
 import PoolDetailsModal from "../ExplorePoolDetailsModal";
 import StakeModal from "../StakeModal";
 import { formatEther } from "viem";
@@ -29,7 +28,6 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
   poolSort,
   shouldOpenModal = false,
 }) => {
-  const navigate = useNavigate();
   const chainId = useChainId();
 
   const {
@@ -105,8 +103,8 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
           setSelectedPoolAddress(pool.address);
           setIsPoolModalOpen(true);
         } else {
-          // Navigate to the dedicated pool page
-          navigate(`/i/pools/${pool.address}`);
+          // The dedicated pool page lives on the public site
+          window.location.href = `${import.meta.env.VITE_LANDING_URL}/i/pools/${pool.address}`;
         }
       }
     }

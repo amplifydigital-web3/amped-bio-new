@@ -9,7 +9,7 @@ import {
   fetchOwnershipDetails,
   fetchDateDetails,
 } from "@/services/subgraph/queries";
-import { getChainConfig, REGISTRAR_CONTROLLER_ABI, RESOLVER_ABI } from "@ampedbio/web3";
+import { getChainConfig, REGISTRAR_CONTROLLER_ABI, RESOLVER_ABI } from "@repo/web3";
 
 export function useNameDetails(name: string) {
   const { address: connectedWallet, chainId } = useAccount();
