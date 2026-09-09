@@ -74,13 +74,14 @@ export const libertasTestnet = {
     NODE: { address: "0x019bbe745b5c9b70060408Bf720B1E5172EEa5A3" as Address },
     CREATOR_POOL_FACTORY: { address: "0x38df3c6acEe3511c088c84d0191f550b24726f0f" as Address },
     multicall3: { address: "0x97cb78d5be963e2534a2156c88093a49f15315c8" as Address },
-    REGISTRAR_CONTROLLER: { address: "0x12E361E2dAEaD5b25e50c70700d1B8943A34a076" as Address },
-    L2_RESOLVER: { address: "0xeFC372f73Ee92fDb1Fe8A34E294A4aD28cF506C6" as Address },
-    BASE_REGISTRAR: { address: "0x203cf3B1e39F2003453C89f26756d41264BA67e4" as Address },
-    REVERSE_REGISTRAR: { address: "0x025b5154733E93a95F9e196c7fdAffF4584cdb5C" as Address },
+    REGISTRAR_CONTROLLER: { address: "0x38e319C46f53B856dD903c31C01E0538cEA08466" as Address },
+    L2_RESOLVER: { address: "0x41BAb42bD5C428E5dF47383b1FB3f99398E1202C" as Address },
+    BASE_REGISTRAR: { address: "0xeCe9b122ac1f8FF0226C4e66c06D77D918cD91e2" as Address },
+    REVERSE_REGISTRAR: { address: "0x0e7016Cc6fB99d432889c47A08a4973049f8bda7" as Address },
     SIMPLE_BATCH_SEND: { address: "0x8309858De3fc6B0A2bF5f63Fe3E793F90d4A14f9" as Address },
   },
-  subgraphUrl: "https://graph.libertas.revolutionchain.io/subgraphs/name/subgraph/rns",
+  subgraphUrl:
+    "https://graph-q101yuw854jc2su8q4h83f1b.groundhog.revoscan.io/subgraphs/name/uat/revonames",
   gas: 5_000_000,
 } as const;
 
