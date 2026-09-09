@@ -3,7 +3,7 @@ import { env } from "../env";
 import { processEmailToUniqueHandle } from "./onelink-generator";
 import { sendEmailVerification, sendPasswordResetEmail, sendWelcomeEmail } from "./email/email";
 import { hashPassword, verifyPassword } from "./password";
-import { betterAuth } from "better-auth";
+import { APIError, betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { captcha, jwt, customSession, twoFactor } from "better-auth/plugins";
 import crypto from "crypto";
@@ -35,7 +35,13 @@ export const JWT_KEYS = {
 // ================ better-auth configuration ==================
 export const auth = betterAuth({
   basePath: "/auth",
-  trustedOrigins: [env.FRONTEND_URL],
+  trustedOrigins: [
+    env.FRONTEND_URL,
+    env.SITE_URL,
+    ...env.CORS_ORIGINS.split(",")
+      .map(origin => origin.trim())
+      .filter(Boolean),
+  ],
   plugins: [
     customSession(async ({ user, session }) => {
       const u = user as unknown as EnrichedUser;
@@ -130,6 +136,12 @@ export const auth = betterAuth({
     provider: "mysql",
   }),
   advanced: {
+    crossSubDomainCookies: env.COOKIE_DOMAIN
+      ? {
+          enabled: true,
+          domain: env.COOKIE_DOMAIN,
+        }
+      : undefined,
     database: {
       useNumberId: true,
       // generateId: options => {
@@ -184,6 +196,23 @@ export const auth = betterAuth({
               } catch (error) {
                 console.error("Error sending welcome email (ignored):", error);
               }
+            });
+          }
+        },
+      },
+    },
+    session: {
+      create: {
+        before: async (session: any) => {
+          const user = await prisma.user.findUnique({
+            where: { id: Number(session.userId) },
+            select: { block: true },
+          });
+
+          if (user?.block === "yes") {
+            throw new APIError("FORBIDDEN", {
+              message:
+                "Your amped.bio account has been blocked. For more information, please submit a support ticket. https://amplifydigital.freshdesk.com/support/tickets/new",
             });
           }
         },

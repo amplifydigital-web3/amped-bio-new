@@ -8,8 +8,8 @@ import { PoolDetailsPage } from "./pages/PoolDetailsPage";
 import { PoolDebugPage } from "./pages/PoolDebugPage";
 import { PoolAPYDebugPage } from "./pages/PoolAPYDebugPage";
 import NetworkPage from "./pages/NetworkPage";
-import NdauConversionPage from "./pages/NdauConversionPage";
-import NdauConversionReceiptPage from "./pages/NdauConversionReceiptPage";
+// import NdauConversionPage from "./pages/NdauConversionPage";
+// import NdauConversionReceiptPage from "./pages/NdauConversionReceiptPage";
 import PublicLayout from "./components/layout/PublicLayout";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -17,6 +17,7 @@ import { initParticlesEngine } from "@tsparticles/react";
 import { loadAll } from "@tsparticles/all";
 import { EmailVerification, EmailVerificationResent, PasswordReset, TwoFactorChallenge } from "./pages/auth";
 import { Toaster } from "react-hot-toast";
+import { Toaster as AppToaster } from "@/components/ui/toast";
 import { EditorProvider } from "./contexts/EditorContext";
 import { useTokenExpiration } from "./hooks/useTokenExpiration";
 import { useReferralHandler } from "./hooks/useReferralHandler";
@@ -48,6 +49,17 @@ const AdminNdauConversions = lazy(() =>
     default: module.AdminNdauConversions,
   }))
 );
+
+// The NDAU blockchain is unavailable, so send conversion portal visitors to
+// the official conversion instructions on ndau.io instead of the in-app flow.
+const NDAU_CONVERSION_REDIRECT_URL = "https://ndau.io/knowledge-base/ndau-to-revo-conversions/";
+
+function NdauConversionRedirect() {
+  useEffect(() => {
+    window.location.replace(NDAU_CONVERSION_REDIRECT_URL);
+  }, []);
+  return null;
+}
 
 function AppRouter() {
   // Use the token expiration hook inside the router context
@@ -135,22 +147,8 @@ function AppRouter() {
           </PublicLayout>
         }
       />
-      <Route
-        path="/i/ndau-conversion"
-        element={
-          <PublicLayout>
-            <NdauConversionPage />
-          </PublicLayout>
-        }
-      />
-      <Route
-        path="/i/ndau-conversion/receipt/:ndauAddress"
-        element={
-          <PublicLayout>
-            <NdauConversionReceiptPage />
-          </PublicLayout>
-        }
-      />
+      <Route path="/i/ndau-conversion" element={<NdauConversionRedirect />} />
+      <Route path="/i/ndau-conversion/receipt/:ndauAddress" element={<NdauConversionRedirect />} />
 
       {/* Admin Routes with nested routing - lazy loaded with Suspense */}
       <Route
@@ -247,6 +245,7 @@ function App() {
       <EditorProvider>
         <AppRouter />
         <Toaster />
+        <AppToaster />
       </EditorProvider>
     </BrowserRouter>
   );

@@ -95,6 +95,11 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
     faucetInfo.requirements.bio &&
     faucetInfo.requirements.minLinks;
 
+  // True while the most recent faucet request is still being processed (tokens arrive within a few hours)
+  const isProcessingRequest =
+    !!faucetInfo.lastRequestDate &&
+    Date.now() - faucetInfo.lastRequestDate.getTime() < 6 * 60 * 60 * 1000;
+
   useEffect(() => {
     setRewardClaimed(!faucetInfo.canRequestNow);
   }, [faucetInfo.canRequestNow]);
@@ -179,7 +184,15 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
                           "The faucet is temporarily out of funds. Please check back later."
                         ) : !faucetInfo.canRequestNow && faucetInfo.nextAvailableDate ? (
                           <>
-                            <span className="text-amber-600 font-medium">Available in: </span>
+                            {isProcessingRequest && (
+                              <span className="text-amber-600 font-medium">
+                                Your request is being processed — tokens arrive within a few
+                                hours.{" "}
+                              </span>
+                            )}
+                            <span className="text-amber-600 font-medium">
+                              Next claim available in:{" "}
+                            </span>
                             <CountdownTimer
                               targetDate={new Date(faucetInfo.nextAvailableDate)}
                               onComplete={() => {
