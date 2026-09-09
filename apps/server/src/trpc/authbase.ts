@@ -36,10 +36,16 @@ export const authbaseRouter = router({
               message: "Authbase rate limited, try again shortly",
             });
           }
-          // Any other upstream failure (4xx/5xx/network) → bad gateway.
+          // Any other upstream failure (4xx/5xx/network) → bad gateway. Log the
+          // raw detail (may carry an upstream status/body slice) for debugging,
+          // but keep it off the client — the user-facing copy stays generic.
+          console.error("[authbase] upstream failure", {
+            httpStatus: err.httpStatus,
+            message: err.message,
+          });
           throw new TRPCError({
             code: "BAD_GATEWAY",
-            message: err.message,
+            message: "Authbase verification is temporarily unavailable. Please try again later.",
           });
         }
         console.error("[authbase] unexpected error", err);
