@@ -1,4 +1,4 @@
-import { DateTime } from "luxon";
+import { parseISO, isValid, format } from "date-fns";
 import { Ban, Copy, ExternalLink } from "lucide-react";
 import type {
   AuthbaseBadge,
@@ -66,8 +66,8 @@ const hasAttestation = (d: AuthbaseWalletStatus): d is AttestedStatus =>
 const attestedTier = (d: AttestedStatus): AuthbaseTier => d.badge?.tier ?? d.verification.type;
 
 const formatDate = (iso: string): string => {
-  const dt = DateTime.fromISO(iso);
-  return dt.isValid ? dt.toLocaleString(DateTime.DATE_MED) : iso;
+  const dt = parseISO(iso);
+  return isValid(dt) ? format(dt, "MMM d, yyyy") : iso;
 };
 
 const shortAddress = (addr: string): string =>
@@ -82,8 +82,12 @@ const buildMrz = (
   tier: AuthbaseTier
 ): string => {
   const holder = `${holderAddress.slice(0, 6)}···${holderAddress.slice(-6)}`.toUpperCase();
-  const start = DateTime.fromISO(verification.verified_at).toFormat("yyyyLLdd");
-  const end = DateTime.fromISO(verification.valid_until).toFormat("yyyyLLdd");
+  const compact = (iso: string): string => {
+    const dt = parseISO(iso);
+    return isValid(dt) ? format(dt, "yyyyMMdd") : iso;
+  };
+  const start = compact(verification.verified_at);
+  const end = compact(verification.valid_until);
   return `REVO :: AUTHBASE :: ${holder} :: TIER-${TIER_META[tier].letter} :: ${start}/${end}`;
 };
 
