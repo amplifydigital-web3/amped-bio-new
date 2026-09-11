@@ -2,9 +2,15 @@ interface ProfileNavProps {
   name: string;
   activeTab?: "details" | "ownership" | "identity";
   onTabChange: (tab: "details" | "ownership" | "identity") => void;
+  // Hidden when the Authbase integration isn't configured server-side.
+  showIdentity?: boolean;
 }
 
-export const ProfileNav = ({ activeTab = "details", onTabChange }: ProfileNavProps) => {
+export const ProfileNav = ({
+  activeTab = "details",
+  onTabChange,
+  showIdentity = true,
+}: ProfileNavProps) => {
   const navItems = [
     {
       label: "Profile",
@@ -14,10 +20,14 @@ export const ProfileNav = ({ activeTab = "details", onTabChange }: ProfileNavPro
       label: "Ownership",
       tab: "ownership" as const,
     },
-    {
-      label: "Identity",
-      tab: "identity" as const,
-    },
+    ...(showIdentity
+      ? [
+          {
+            label: "Identity",
+            tab: "identity" as const,
+          },
+        ]
+      : []),
   ];
 
   return (

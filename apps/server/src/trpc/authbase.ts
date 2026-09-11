@@ -2,9 +2,14 @@ import { publicProcedure, router } from "./trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { isAddress } from "viem";
-import { AuthbaseError, getAuthbaseWalletStatus } from "../services/authbase";
+import { AuthbaseError, getAuthbaseWalletStatus, isAuthbaseConfigured } from "../services/authbase";
 
 export const authbaseRouter = router({
+  // Whether the integration is configured server-side. The client gates the
+  // Identity tab on this so an unconfigured deployment hides the feature
+  // instead of showing every visitor an "Unavailable" error.
+  isConfigured: publicProcedure.query(() => ({ configured: isAuthbaseConfigured() })),
+
   // Public identity lookup for any wallet — mirrors the rns-backend proxy at
   // GET /api/authbase/wallets/:address/status. No auth: a wallet's verification
   // status is public, and the profile view calls it for arbitrary addresses.

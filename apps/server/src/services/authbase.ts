@@ -83,10 +83,21 @@ export class AuthbaseError extends Error {
 
 const REQUEST_TIMEOUT_MS = 5_000;
 
+/**
+ * Whether the Authbase integration has all three required env vars. The client
+ * reads this (via the isConfigured procedure) to hide the Identity tab entirely
+ * rather than surfacing an "Unavailable" error when the feature is simply off.
+ */
+export function isAuthbaseConfigured(): boolean {
+  return Boolean(env.AUTHBASE_BASE_URL && env.AUTHBASE_API_KEY && env.AUTHBASE_API_SECRET);
+}
+
 function assertConfigured(): void {
-  if (!env.AUTHBASE_BASE_URL || !env.AUTHBASE_API_KEY || !env.AUTHBASE_API_SECRET) {
-    // Config error — surfaced as a non-retryable 401-class failure so the
-    // router maps it to a 503 the same way a bad key would.
+  if (!isAuthbaseConfigured()) {
+    console.error(
+      "[authbase] Integration is not configured. " +
+        "Missing AUTHBASE_BASE_URL, AUTHBASE_API_KEY, or AUTHBASE_API_SECRET."
+    );
     throw new AuthbaseError(
       "Authbase integration not configured (AUTHBASE_BASE_URL / AUTHBASE_API_KEY / AUTHBASE_API_SECRET)",
       401,
