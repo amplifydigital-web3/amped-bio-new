@@ -64,9 +64,7 @@ export default function NameSearchForm() {
     if (!value) return;
 
     if (isAddress) {
-      if (resolvedName) {
-        navigateToAddress(value);
-      }
+      navigateToAddress(value);
     } else if (!isValidName) {
       console.error("Cannot submit invalid name");
       return;

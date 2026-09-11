@@ -1,10 +1,10 @@
 import { getChainConfig, RESOLVER_ABI } from "@ampedbio/web3";
 import { namehash } from "viem";
-import { useAccount, useReadContract } from "wagmi";
+import { useChainId, useReadContract } from "wagmi";
 import { DOMAIN_SUFFIX } from "@/config/rns/constants";
 
 export function useResolveRevoName(name: string) {
-  const { chainId } = useAccount();
+  const chainId = useChainId();
   const networkConfig = getChainConfig(chainId ?? 0);
 
   // Only resolve if name is valid

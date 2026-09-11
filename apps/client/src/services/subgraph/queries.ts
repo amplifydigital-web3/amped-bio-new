@@ -5,6 +5,15 @@ import { GetAllNamesResult, SubgraphResult } from "@/types/subgraph";
 import { NameDetail, RevoName } from "@/types/rns/name";
 import { RegistrationData } from "@/types/rns/registration";
 import { z } from "zod";
+import {
+  ChainConfig,
+  onchainDateDetails,
+  onchainNameDetails,
+  onchainOwnershipDetails,
+  onchainRegistrationData,
+} from "./onchainFallback";
+
+const NO_SUBGRAPH_ERROR = "Subgraph client not available for current network";
 
 const OwnershipDetailsSchema = z.object({
   revoNames: z.array(
@@ -46,12 +55,12 @@ export const queryGetAllRegisteredNamesOfOwner = gql`
   }
 `;
 
-export const queryGetAllRegisteredNamesOfOwnerWithoutExpiredName = gql`
-  query getAllNames($owner: String!, $currentTimestamp: BigInt!) {
+export const queryGetActiveRegisteredNamesOfOwner = gql`
+  query getActiveNames($owner: String!, $now: BigInt!) {
     revoNames(
       orderBy: expiryDateWithGrace
       orderDirection: desc
-      where: { owner: $owner, name_not: null, expiryDateWithGrace_gt: $currentTimestamp }
+      where: { owner: $owner, name_not: null, expiryDateWithGrace_gt: $now }
     ) {
       name
       labelName
@@ -140,26 +149,27 @@ export const queryGetRecords = gql`
   }
 `;
 
+// A synced subgraph that responds with no record for a name is indistinguishable
+// from one that is simply lagging behind chain head (e.g. a name registered in a
+// block it hasn't indexed yet). When the subgraph reports "empty", confirm on-chain
+// and prefer that data if the token actually exists.
+async function reconcileEmpty<T>(
+  result: SubgraphResult<T>,
+  isEmpty: boolean,
+  fallback: () => Promise<SubgraphResult<T>>
+): Promise<SubgraphResult<T>> {
+  if (!isEmpty) return result;
+  const fb = await fallback();
+  return fb.data ? fb : result;
+}
+
 export async function fetchAllRegisteredNamesOfOwner(
   owner: Address,
-  graphClient?: GraphQLClient | null,
-  unexpiredOnly: boolean = false
+  graphClient?: GraphQLClient | null
 ): Promise<SubgraphResult<RevoName[]>> {
   try {
     if (!graphClient) {
       return { data: null, error: "Subgraph client not available for current network" };
-    }
-
-    if (unexpiredOnly) {
-      const currentTimestamp = Math.floor(Date.now() / 1000).toString();
-      const data = await graphClient.request<GetAllNamesResult>(
-        queryGetAllRegisteredNamesOfOwnerWithoutExpiredName,
-        {
-          owner,
-          currentTimestamp,
-        }
-      );
-      return { data: data.revoNames, error: null };
     }
 
     const variables = { owner };
@@ -175,14 +185,40 @@ export async function fetchAllRegisteredNamesOfOwner(
   }
 }
 
-export async function fetchRegistrationData(
-  labelHash: string,
+export async function fetchActiveRegisteredNamesOfOwner(
+  owner: Address,
   graphClient?: GraphQLClient | null
-): Promise<SubgraphResult<RegistrationData>> {
+): Promise<SubgraphResult<RevoName[]>> {
   try {
     if (!graphClient) {
       return { data: null, error: "Subgraph client not available for current network" };
     }
+    const now = Math.floor(Date.now() / 1000).toString();
+    const variables = { owner, now };
+    const data = await graphClient.request<GetAllNamesResult>(
+      queryGetActiveRegisteredNamesOfOwner,
+      variables
+    );
+
+    return { data: data.revoNames, error: null };
+  } catch (err) {
+    console.error("Error Fetching active names", err);
+    return { data: null, error: "Failed to Fetch Names" };
+  }
+}
+
+export async function fetchRegistrationData(
+  labelHash: string,
+  graphClient?: GraphQLClient | null,
+  chainConfig?: ChainConfig | null
+): Promise<SubgraphResult<RegistrationData>> {
+  const fallback = (): Promise<SubgraphResult<RegistrationData>> =>
+    chainConfig
+      ? onchainRegistrationData(chainConfig, labelHash)
+      : Promise.resolve({ data: null, error: NO_SUBGRAPH_ERROR });
+
+  try {
+    if (!graphClient) return fallback();
 
     const variables = { labelHash };
     const data = await graphClient.request<RegistrationData>(
@@ -190,69 +226,81 @@ export async function fetchRegistrationData(
       variables
     );
 
-    return { data: data, error: null };
+    return reconcileEmpty({ data, error: null }, !data.revoNames?.length, fallback);
   } catch (err) {
-    console.error("Error Fetching details", err);
-    return { data: null, error: "Failed to get Registration Data" };
+    console.warn("Subgraph registration fetch failed, falling back to on-chain read", err);
+    return fallback();
   }
 }
 
 // Fetch only ownership details - optimized for transfer refresh
 export async function fetchOwnershipDetails(
   labelHash: string,
-  graphClient?: GraphQLClient | null
+  graphClient?: GraphQLClient | null,
+  chainConfig?: ChainConfig | null
 ): Promise<SubgraphResult<OwnershipDetailsResult>> {
+  const fallback = (): Promise<SubgraphResult<OwnershipDetailsResult>> =>
+    chainConfig
+      ? onchainOwnershipDetails(chainConfig, labelHash)
+      : Promise.resolve({ data: null, error: NO_SUBGRAPH_ERROR });
+
   try {
-    if (!graphClient) {
-      return { data: null, error: "Subgraph client not available for current network" };
-    }
+    if (!graphClient) return fallback();
 
     const variables = { labelHash };
-    const data = await graphClient.request(queryOwnershipDetails, variables);
+    const data = await graphClient.request<OwnershipDetailsResult>(queryOwnershipDetails, variables);
 
-    return { data: data, error: null };
+    return reconcileEmpty({ data, error: null }, !data.revoNames?.length, fallback);
   } catch (err) {
-    console.error("Error Fetching ownership details", err);
-    return { data: null, error: "Failed to get Ownership Data" };
+    console.warn("Subgraph ownership fetch failed, falling back to on-chain read", err);
+    return fallback();
   }
 }
 
 // Fetch only dates details - optimized for renewal refresh
 export async function fetchDateDetails(
   labelHash: string,
-  graphClient?: GraphQLClient | null
+  graphClient?: GraphQLClient | null,
+  chainConfig?: ChainConfig | null
 ): Promise<SubgraphResult<DateDetailsResult>> {
+  const fallback = (): Promise<SubgraphResult<DateDetailsResult>> =>
+    chainConfig
+      ? onchainDateDetails(chainConfig, labelHash)
+      : Promise.resolve({ data: null, error: NO_SUBGRAPH_ERROR });
+
   try {
-    if (!graphClient) {
-      return { data: null, error: "Subgraph client not available for current network" };
-    }
+    if (!graphClient) return fallback();
 
     const variables = { labelHash };
-    const data = await graphClient.request(queryDateDetails, variables);
+    const data = await graphClient.request<DateDetailsResult>(queryDateDetails, variables);
 
-    return { data: data, error: null };
+    return reconcileEmpty({ data, error: null }, !data.revoNames?.length, fallback);
   } catch (err) {
-    console.error("Error Fetching date details", err);
-    return { data: null, error: "Failed to get Date Data" };
+    console.warn("Subgraph date fetch failed, falling back to on-chain read", err);
+    return fallback();
   }
 }
 
 export async function fetchGetNameDetails(
   labelName: string,
-  graphClient?: GraphQLClient | null
+  graphClient?: GraphQLClient | null,
+  chainConfig?: ChainConfig | null
 ): Promise<SubgraphResult<NameDetail[]>> {
+  const fallback = (): Promise<SubgraphResult<NameDetail[]>> =>
+    chainConfig
+      ? onchainNameDetails(chainConfig, labelName)
+      : Promise.resolve({ data: null, error: NO_SUBGRAPH_ERROR });
+
   try {
-    if (!graphClient) {
-      return { data: null, error: "Subgraph client not available for current network" };
-    }
+    if (!graphClient) return fallback();
 
     const data = await graphClient.request<{ revoNames: NameDetail[] }>(queryGetNameDetails, {
       labelName,
     });
-    return { data: data.revoNames, error: null };
+    return reconcileEmpty({ data: data.revoNames, error: null }, !data.revoNames?.length, fallback);
   } catch (err) {
-    console.error("Error Fetching details", err);
-    return { data: null, error: "Failed to Fetch Name Details" };
+    console.warn("Subgraph name-details fetch failed, falling back to on-chain read", err);
+    return fallback();
   }
 }
 

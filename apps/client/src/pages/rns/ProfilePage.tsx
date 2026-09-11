@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import { domainName, scannerURL } from "@/utils/rns";
 import { Copy, ExternalLink } from "lucide-react";
-import { useAccount, useChainId } from "wagmi";
+import { useChainId } from "wagmi";
+import { useWalletContext } from "@/contexts/WalletContext";
 import { getCurrencySymbol } from "@ampedbio/web3";
 import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
 import { ProfileCard } from "@/components/rns/profile/ProfileCard";
 import { ProfileNav } from "@/components/rns/profile/ProfileNav";
 import OwnershipDetail from "@/components/rns/profile/ProfileOwnership";
 import { useNameDetails } from "@/hooks/rns/useNameDetails";
+import { useAuthbaseConfigured } from "@/hooks/rns/useAuthbaseConfigured";
 import VerificationDetail from "@/components/rns/verification/VerificationDetails";
 
 interface ProfilePageProps {
@@ -39,7 +41,8 @@ export default function ProfilePage({ name }: ProfilePageProps) {
     textRecords,
     textRecordsLoading,
   } = useNameDetails(name);
-  const { address: connectedWallet } = useAccount();
+  const authbaseConfigured = useAuthbaseConfigured();
+  const { address: connectedWallet } = useWalletContext();
   const chainId = useChainId();
   const currencySymbol = getCurrencySymbol(chainId);
   const { navigateToHome, navigateToRegister } = useRNSNavigation();
@@ -55,6 +58,14 @@ export default function ProfilePage({ name }: ProfilePageProps) {
       navigateToRegister(name);
     }
   }, [isLoading, isNameAvailable, navigateToRegister, name]);
+
+  // If the Identity tab is hidden (integration unconfigured) but somehow active,
+  // fall back to the Profile tab so we never render an orphaned/empty view.
+  useEffect(() => {
+    if (!authbaseConfigured && activeTab === "identity") {
+      setActiveTab("details");
+    }
+  }, [authbaseConfigured, activeTab]);
 
   if (isLoading || redirecting || isNameAvailable === undefined) {
     return (
@@ -89,8 +100,12 @@ export default function ProfilePage({ name }: ProfilePageProps) {
       </div>
 
       <div className="flex flex-col-reverse sm:flex-row sm:justify-between px-5 gap-1">
-        <ProfileNav name={name} activeTab={activeTab} onTabChange={handleTabChange} />
-
+        <ProfileNav
+          name={name}
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          showIdentity={authbaseConfigured}
+        />
         {ownerAddress && (
           <a
             href={scannerURL("address", ownerAddress)}
@@ -103,7 +118,6 @@ export default function ProfilePage({ name }: ProfilePageProps) {
           </a>
         )}
       </div>
-
       {activeTab === "details" && (
         <ProfileCard
           name={name}
@@ -134,7 +148,9 @@ export default function ProfilePage({ name }: ProfilePageProps) {
           resolver={resolver}
         />
       )}
-      {activeTab === "identity" && <VerificationDetail isOwner={isCurrentOwner} />}
+      {activeTab === "identity" && authbaseConfigured && (
+        <VerificationDetail isOwner={isCurrentOwner} ownerAddress={ownerAddress} />
+      )}
     </div>
   );
 }

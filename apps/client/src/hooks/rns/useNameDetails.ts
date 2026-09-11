@@ -1,6 +1,7 @@
-import { useReadContract, useAccount, useReadContracts } from "wagmi";
+import { useReadContract, useChainId, useReadContracts } from "wagmi";
+import { useWalletContext } from "@/contexts/WalletContext";
 import { keccak256, namehash, toBytes } from "viem";
-import { domainName, formatDateTime } from "@/utils/rns";
+import { domainName, formatDateTime, FormattedDateTime } from "@/utils/rns";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { RegistrationData } from "@/types/rns/registration";
 import { useSubgraphClient } from "@/services/subgraph/subgraphClient";
@@ -11,8 +12,13 @@ import {
 } from "@/services/subgraph/queries";
 import { getChainConfig, REGISTRAR_CONTROLLER_ABI, RESOLVER_ABI } from "@ampedbio/web3";
 
+// Rendered when the registration date is unknown (e.g. on-chain fallback with no
+// reachable NameRegistered event) — avoids Number('') === 0 formatting as 1970.
+const EMPTY_DATE: FormattedDateTime = { date: "", time: "", timestamp: 0, relative: "" };
+
 export function useNameDetails(name: string) {
-  const { address: connectedWallet, chainId } = useAccount();
+  const { address: connectedWallet } = useWalletContext();
+  const chainId = useChainId();
   const networkConfig = getChainConfig(chainId ?? 0);
   const subgraphClient = useSubgraphClient();
 
@@ -30,7 +36,7 @@ export function useNameDetails(name: string) {
       setIsLoading(true);
       try {
         const labelHash = keccak256(toBytes(name));
-        const response = await fetchRegistrationData(labelHash, subgraphClient);
+        const response = await fetchRegistrationData(labelHash, subgraphClient, networkConfig);
         setNames(response.data);
         setError(response.error);
       } catch {
@@ -41,7 +47,7 @@ export function useNameDetails(name: string) {
     };
 
     getNameDetails();
-  }, [name, refreshKey, subgraphClient]);
+  }, [name, refreshKey, subgraphClient, networkConfig]);
 
   const nameOwnerAddress = names?.revoNames?.[0]?.owner;
 
@@ -113,7 +119,7 @@ export function useNameDetails(name: string) {
   const fetchOwnershipData = useCallback(async () => {
     try {
       const labelHash = keccak256(toBytes(name));
-      const response = await fetchOwnershipDetails(labelHash, subgraphClient);
+      const response = await fetchOwnershipDetails(labelHash, subgraphClient, networkConfig);
 
       if (response.data?.revoNames) {
         // Merge ownership data with existing names
@@ -136,13 +142,13 @@ export function useNameDetails(name: string) {
     } catch {
       setError("Error While Fetching Ownership Data");
     }
-  }, [name, subgraphClient]);
+  }, [name, subgraphClient, networkConfig]);
 
   // Internal fetch function - dates only (optimized)
   const fetchDatesData = useCallback(async () => {
     try {
       const labelHash = keccak256(toBytes(name));
-      const response = await fetchDateDetails(labelHash, subgraphClient);
+      const response = await fetchDateDetails(labelHash, subgraphClient, networkConfig);
 
       if (response.data && (response.data.revoNames || response.data.registration)) {
         // Merge dates data with existing names
@@ -165,7 +171,7 @@ export function useNameDetails(name: string) {
     } catch {
       setError("Error While Fetching Date Data");
     }
-  }, [name, subgraphClient]);
+  }, [name, subgraphClient, networkConfig]);
 
   // Full refetch - updates all data
   const refetchNameDetails = useCallback(() => {
@@ -241,7 +247,10 @@ export function useNameDetails(name: string) {
     dates: {
       expiry: formatDateTime(Number(names?.registration?.expiryDate)),
       gracePeriod: formatDateTime(Number(names?.revoNames?.[0]?.expiryDateWithGrace)),
-      registration: formatDateTime(Number(names?.registration?.registrationDate)),
+      registration:
+        Number(names?.registration?.registrationDate) > 0
+          ? formatDateTime(Number(names?.registration?.registrationDate))
+          : EMPTY_DATE,
     },
     error,
 

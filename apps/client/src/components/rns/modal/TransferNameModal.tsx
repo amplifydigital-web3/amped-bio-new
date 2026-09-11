@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useAccount } from "wagmi";
 import { keccak256, toBytes } from "viem";
+import { useWalletContext } from "@/contexts/WalletContext";
 
 import { StepState } from "@/hooks/rns/useTransferOwnership";
 import SearchStep from "./TransferSteps/SearchStep";
@@ -43,7 +43,7 @@ const TransferNameModal: React.FC<TransferNameModalProps> = ({
   const [nameError, setNameError] = useState<string | null>(null);
   const [transferStarted, setTransferStarted] = useState(false);
 
-  const { address } = useAccount();
+  const { address } = useWalletContext();
 
   const domain = ensName?.split(".")[0] || "";
   // Compute nftId directly from domain — no need for a separate useNameDetails call

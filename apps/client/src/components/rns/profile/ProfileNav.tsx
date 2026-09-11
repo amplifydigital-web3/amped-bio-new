@@ -1,11 +1,16 @@
-
 interface ProfileNavProps {
   name: string;
   activeTab?: "details" | "ownership" | "identity";
   onTabChange: (tab: "details" | "ownership" | "identity") => void;
+  // Hidden when the Authbase integration isn't configured server-side.
+  showIdentity?: boolean;
 }
 
-export const ProfileNav = ({ activeTab = "details", onTabChange }: ProfileNavProps) => {
+export const ProfileNav = ({
+  activeTab = "details",
+  onTabChange,
+  showIdentity = true,
+}: ProfileNavProps) => {
   const navItems = [
     {
       label: "Profile",
@@ -15,10 +20,14 @@ export const ProfileNav = ({ activeTab = "details", onTabChange }: ProfileNavPro
       label: "Ownership",
       tab: "ownership" as const,
     },
-    {
-      label: "Identity",
-      tab: "identity" as const,
-    },
+    ...(showIdentity
+      ? [
+          {
+            label: "Identity",
+            tab: "identity" as const,
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -31,14 +40,9 @@ export const ProfileNav = ({ activeTab = "details", onTabChange }: ProfileNavPro
             <button
               key={item.label}
               onClick={() => onTabChange(item.tab)}
-              className={`relative py-2 px-2 sm:px-2 text-lg font-bold whitespace-nowrap ${isActive ? "text-blue-500" : "text-gray-400 border-transparent hover:text-gray-600 hover:border-gray-300"}`}
+              className={`py-2 px-2 sm:px-2 text-lg font-bold whitespace-nowrap ${isActive ? "text-blue-500" : "text-gray-400 border-transparent hover:text-gray-600 hover:border-gray-300"}`}
             >
               {item.label}
-              {item.tab === "identity" && (
-                <span className="absolute top-1 -right-2 text-[9px] font-semibold bg-yellow-100 text-yellow-700 px-1 py-0.5 rounded-full leading-none">
-                  Soon
-                </span>
-              )}
             </button>
           );
         })}

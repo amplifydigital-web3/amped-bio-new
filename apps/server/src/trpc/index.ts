@@ -12,6 +12,7 @@ import { poolsRouter } from "./pools/index";
 import { publicSettingsRouter } from "./publicSettings";
 import { referralRouter } from "./referral";
 import { ndauConversionRouter } from "./ndauConversion";
+import { authbaseRouter } from "./authbase";
 import { inferRouterOutputs } from "@trpc/server";
 
 // Merge all routers
@@ -29,6 +30,7 @@ const mergedRouter = router({
   pools: poolsRouter,
   public: publicSettingsRouter,
   ndauConversion: ndauConversionRouter,
+  authbase: authbaseRouter,
 });
 
 export type AppRouter = typeof mergedRouter;

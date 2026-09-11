@@ -132,6 +132,13 @@ const envSchema = z.object({
 
   // URL for the RNS subgraph to validate name ownership and expiry
   SUBGRAPH_URL: z.string().default(""),
+
+  // Authbase identity verification API (wallet KYC status lookups)
+  AUTHBASE_BASE_URL: z.string().default(""),
+  // Authbase API key (Basic auth username)
+  AUTHBASE_API_KEY: z.string().default(""),
+  // Authbase API secret (Basic auth password)
+  AUTHBASE_API_SECRET: z.string().default(""),
 });
 
 // ================ parse & export ================

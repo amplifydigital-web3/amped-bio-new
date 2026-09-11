@@ -1,9 +1,21 @@
 import { Button } from "@/components/ui/Button";
 import { domainName } from "@/utils/rns";
-import { Camera, Copy, ExternalLink, Loader, Plus, Save, Trash2, X, Edit2 } from "lucide-react";
+import {
+  Camera,
+  Copy,
+  ExternalLink,
+  Loader,
+  Plus,
+  Save,
+  Trash2,
+  X,
+  Edit2,
+  ShieldCheck,
+} from "lucide-react";
 import ImageUploadButton from "../ui/ImageUploadButton";
 import { useSignedUpload } from "@/hooks/rns/useSignedUpload";
 import { ProfileUpdates, useProfileRecords } from "@/hooks/rns/useProfileRecords";
+import { useAuthbaseIdentityStatus } from "@/hooks/rns/useAuthbaseIdentityStatus";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import BannerEditorModal, { BannerFit, BannerState } from "./BannerEditorModal";
@@ -144,6 +156,14 @@ export const ProfileCard = ({
 
   const { setRecords, txHash, isPending, isConfirming, isConfirmed } = useProfileRecords(name);
   const { uploadAll } = useSignedUpload();
+
+  // Authbase consent-shared identity (shares the cached query with the Identity
+  // tab). The display name is only surfaced for a currently-valid (verified)
+  // attestation; an expired one reports verified:false, so nothing is shown.
+  const { data: authbaseStatus } = useAuthbaseIdentityStatus(addressFull);
+  const sharedName = authbaseStatus?.verified
+    ? authbaseStatus.attributes?.name?.trim() || null
+    : null;
 
   useEffect(() => {
     if (!isConfirmed) return;
@@ -389,10 +409,21 @@ export const ProfileCard = ({
                 ))}
             </div>
 
-            <div className="flex flex-col mt-4 w-full min-w-0">
-              <h2 className="text-sm sm:text-xl font-bold text-gray-900 mb-1 break-all">
-                {domainName(name)}
-              </h2>
+            <div className="flex flex-col w-full min-w-0">
+              {sharedName && (
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-1 flex items-center gap-2 min-w-0">
+                  <span className="break-all min-w-0">{sharedName}</span>
+                  <button
+                    type="button"
+                    onClick={() => onTabChange?.("identity")}
+                    className="shrink-0 text-blue-600 hover:text-blue-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 rounded-full"
+                    aria-label="Identity verified — view details"
+                    title="Identity verified — view details"
+                  >
+                    <ShieldCheck className="w-5 h-5" />
+                  </button>
+                </h2>
+              )}
               {isEditing ? (
                 <>
                   <textarea
@@ -481,7 +512,6 @@ export const ProfileCard = ({
           <h2 className="font-bold text-gray-400 mb-4">Addresses</h2>
           <div className="bg-gray-50 rounded-lg p-3 sm:p-4 mb-8 inline-flex items-center gap-2 w-auto">
             <span className="font-mono text-md mr-2">{addressFormatted}</span>
-            <Copy className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-muted-foreground/60" />
             <button
               type="button"
               className="text-gray-400 hover:text-gray-600 ml-2 flex-shrink-0"

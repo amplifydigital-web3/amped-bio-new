@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Calendar, ChevronDown, HelpCircle, User } from "lucide-react";
-import { useAccount } from "wagmi";
+import { useWalletContext } from "@/contexts/WalletContext";
 import useGetAllRegisteredNames from "@/hooks/rns/useGetAllRegisteredNames";
 import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
 import { RevoName } from "@/types/rns/name";
@@ -8,7 +8,8 @@ import { DOMAIN_SUFFIX } from "@/config/rns/constants";
 import { FaSpinner } from "react-icons/fa6";
 
 const MyNamesPage = () => {
-  const { address, isConnected } = useAccount();
+  const { address } = useWalletContext();
+  const isConnected = Boolean(address);
   const {
     isFetching,
     revoNames,

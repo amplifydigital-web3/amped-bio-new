@@ -1,6 +1,6 @@
 import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
 import { Home } from "lucide-react";
-import { useAccount } from "wagmi";
+import { useWalletContext } from "@/contexts/WalletContext";
 
 interface RNSHeaderProps {
   /** Render mobile variant (visible only on small screens) */
@@ -9,7 +9,7 @@ interface RNSHeaderProps {
 
 export function RNSHeader({ mobile = false }: RNSHeaderProps) {
   const { navigateToHome, navigateToMyNames } = useRNSNavigation();
-  const { address: ownerAddress } = useAccount();
+  const { address: ownerAddress } = useWalletContext();
 
   const containerClass = mobile
     ? "flex sm:hidden items-center gap-4"
