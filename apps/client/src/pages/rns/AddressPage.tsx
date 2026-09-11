@@ -32,8 +32,13 @@ const AddressPage = ({ address: addressParam }: AddressPageProps) => {
 
   const [searchQuery, setSearchQuery] = useState("");
 
-  const formatExpiry = (expires: string) =>
-    `Expires on ${format(fromUnixTime(Number(expires)), "MMMM dd, yyyy")}`;
+  const formatExpiry = (expires?: string | null) => {
+    // Subgraph values are typed `string` but not runtime-validated; a missing or
+    // non-numeric expiry would make date-fns throw a RangeError while rendering.
+    const timestamp = Number(expires);
+    if (!expires || !Number.isFinite(timestamp)) return "Expiry unavailable";
+    return `Expires on ${format(fromUnixTime(timestamp), "MMMM dd, yyyy")}`;
+  };
 
   const formatAddress = (addr: string) => {
     if (!addr) return "";
@@ -196,7 +201,9 @@ const AddressPage = ({ address: addressParam }: AddressPageProps) => {
                   <div className="w-11 h-11 rounded-full bg-gradient-to-br from-green-300 to-green-100 shrink-0"></div>
                   <div className="min-w-0 flex-1">
                     <span className="text-gray-900 font-semibold break-all">{item.name}</span>
-                    <p className="text-sm text-gray-400">{formatExpiry(item.expiryDateWithGrace)}</p>
+                    <p className="text-sm text-gray-400">
+                      {formatExpiry(item.expiryDateWithGrace)}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {isPrimary && (

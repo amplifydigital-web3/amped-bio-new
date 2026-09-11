@@ -12,16 +12,21 @@ export default function useGetAllRegisteredNames(
   isConnected: boolean,
   activeOnly: boolean = false
 ) {
-  const [isFetching, setIsFetching] = useState(false);
+  const subgraphClient = useSubgraphClient();
+
   const [revoNames, setRevoNames] = useState<RevoName[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const subgraphClient = useSubgraphClient();
+  const [isFetching, setIsFetching] = useState<boolean>(Boolean(address) && isConnected);
 
   const fetchData = useCallback(async () => {
-    if (!address || !subgraphClient || !isConnected) return;
+    if (!address || !isConnected) {
+      setIsFetching(false);
+      return;
+    }
 
     setIsFetching(true);
+    setError(null);
     try {
       const response = activeOnly
         ? await fetchActiveRegisteredNamesOfOwner(address, subgraphClient)
