@@ -81,6 +81,21 @@ const resolverOf = (chain: ChainConfig): `0x${string}` =>
 
 const labelHashFromName = (name: string) => keccak256(toBytes(name));
 
+// Registration grace period (seconds) baked into the BaseRegistrar. `ownerOf`
+// reverts at raw expiry, but the name stays renewable — and the subgraph keeps
+// reporting it live via `expiryDateWithGrace` — until expiry + GRACE_PERIOD.
+// Consumers compare `expiryDateWithGrace` against the wall clock, so the
+// fallback must add the same offset the subgraph does; exposing the raw
+// registration expiry here would flag a grace-period name as expired a full
+// grace period early. Mirrors GRACE_PERIOD in the RNS L2 contracts
+// (util/Constants.sol: `1 days`). `nameExpires` itself stays on
+// registration.expiryDate untouched.
+const GRACE_PERIOD_SECONDS = 86_400n;
+
+/** Registration expiry (from nameExpires) plus the on-chain grace period. */
+const expiryWithGrace = (expiry: string): string =>
+  (BigInt(expiry) + GRACE_PERIOD_SECONDS).toString();
+
 /**
  * Reads owner + expiry for a name token directly from the BaseRegistrar.
  * Returns null when the token is unregistered/expired or the RPC read fails.
@@ -162,13 +177,17 @@ async function withCore<T>(
   map: (core: OnchainNameCore, registrationDate: string) => T,
   includeRegistrationDate = false
 ): Promise<SubgraphResult<T>> {
-  const [core, registrationDate] = await Promise.all([
-    readOnchainNameCore(chain, tokenId),
-    includeRegistrationDate ? readRegistrationTimestamp(chain, tokenId) : Promise.resolve(""),
-  ]);
-  return core
-    ? { data: map(core, registrationDate), error: null }
-    : { data: null, error: FALLBACK_ERROR };
+  // Resolve ownership first: an unregistered/expired name (or failed read)
+  // short-circuits to the fallback error without ever scanning registration
+  // logs. Only once the name is known to exist do we reconstruct its
+  // registration date, and only when the caller asked for it.
+  const core = await readOnchainNameCore(chain, tokenId);
+  if (!core) return { data: null, error: FALLBACK_ERROR };
+
+  const registrationDate = includeRegistrationDate
+    ? await readRegistrationTimestamp(chain, tokenId)
+    : "";
+  return { data: map(core, registrationDate), error: null };
 }
 
 export const onchainRegistrationData = (
@@ -183,7 +202,7 @@ export const onchainRegistrationData = (
         {
           name: "",
           owner: core.owner,
-          expiryDateWithGrace: core.expiry,
+          expiryDateWithGrace: expiryWithGrace(core.expiry),
           resolver: { texts: [], address: resolverOf(chain) },
         },
       ],
@@ -209,7 +228,7 @@ export const onchainDateDetails = (
     chain,
     BigInt(labelHash),
     (core, registrationDate) => ({
-      revoNames: [{ expiryDateWithGrace: core.expiry }],
+      revoNames: [{ expiryDateWithGrace: expiryWithGrace(core.expiry) }],
       registration: { registrationDate, expiryDate: core.expiry },
     }),
     true
@@ -227,7 +246,7 @@ export const onchainNameDetails = (
       {
         name: domainName(labelName),
         labelHash,
-        expiryDateWithGrace: core.expiry,
+        expiryDateWithGrace: expiryWithGrace(core.expiry),
         owner: core.owner,
         registration: { registrationDate, expiryDate: core.expiry },
         resolver: { address: resolverOf(chain) },
