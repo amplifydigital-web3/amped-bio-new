@@ -1,64 +1,77 @@
+import { z } from "zod";
 import { env } from "../env";
 
-export type AuthbaseTier = "STANDARD" | "ENHANCED";
+// ── Upstream payload schemas ───────────────────────────────────
+// The public status endpoint is untrusted input, so the whole response is
+// validated with zod (project convention) before we derive anything off it — a
+// missing or mistyped field is rejected here rather than cast away and surfaced
+// later as a response that lies about its declared contract.
 
-export interface AuthbaseVerification {
-  type: AuthbaseTier;
-  verified_at: string;
-  valid_until: string;
-}
+const tierSchema = z.enum(["STANDARD", "ENHANCED"]);
 
-export interface AuthbaseBadge {
-  tier: AuthbaseTier;
+const verificationSchema = z.object({
+  type: tierSchema,
+  verified_at: z.string(),
+  valid_until: z.string(),
+});
+
+const badgeSchema = z.object({
+  tier: tierSchema,
   // uint256 string — never coerce with Number()
-  token_id: string;
-  transaction_hash: string;
-  minted_at: string;
-}
+  token_id: z.string(),
+  transaction_hash: z.string(),
+  minted_at: z.string(),
+});
 
-interface AuthbaseStatusBase {
-  wallet_address: string;
-  message: string;
-  // Consent-filtered PII: only attributes the user actively shared with this
-  // platform that also have a stored value. Un-granted/empty keys are absent
-  // (never null), so "denied" and "empty" are indistinguishable. {} when
-  // nothing shared. Governed purely by consent, independent of status.
-  attributes: Record<string, string>;
-}
+// Consent-filtered PII: only attributes the user actively shared with this
+// platform that also have a stored value. Un-granted/empty keys are absent
+// (never null), so "denied" and "empty" are indistinguishable — an absent map
+// means "nothing shared" and defaults to {}, while present values are still
+// validated as strings. Governed purely by consent, independent of status.
+const attributesSchema = z.record(z.string(), z.string()).default({});
 
-export type AuthbaseNotLinked = AuthbaseStatusBase & {
-  status: "NOT_LINKED";
-  authbase_wallet_address: null;
-  verification: null;
-  badge: null;
-};
+// Fields shared by every variant; spread into each member of the union below.
+const baseShape = {
+  wallet_address: z.string(),
+  message: z.string(),
+  attributes: attributesSchema,
+} as const;
 
-export type AuthbaseNotVerified = AuthbaseStatusBase & {
-  status: "NOT_VERIFIED";
-  authbase_wallet_address: string;
-  verification: null;
-  badge: null;
-};
+const walletStatusSchema = z.discriminatedUnion("status", [
+  z.object({
+    ...baseShape,
+    status: z.literal("NOT_LINKED"),
+    authbase_wallet_address: z.null(),
+    verification: z.null(),
+    badge: z.null(),
+  }),
+  z.object({
+    ...baseShape,
+    status: z.literal("NOT_VERIFIED"),
+    authbase_wallet_address: z.string(),
+    verification: z.null(),
+    badge: z.null(),
+  }),
+  z.object({
+    ...baseShape,
+    status: z.literal("VERIFIED"),
+    authbase_wallet_address: z.string(),
+    verification: verificationSchema,
+    badge: z.null(),
+  }),
+  z.object({
+    ...baseShape,
+    status: z.literal("VERIFIED_WITH_BADGE"),
+    authbase_wallet_address: z.string(),
+    verification: verificationSchema,
+    badge: badgeSchema,
+  }),
+]);
 
-export type AuthbaseVerified = AuthbaseStatusBase & {
-  status: "VERIFIED";
-  authbase_wallet_address: string;
-  verification: AuthbaseVerification;
-  badge: null;
-};
-
-export type AuthbaseVerifiedWithBadge = AuthbaseStatusBase & {
-  status: "VERIFIED_WITH_BADGE";
-  authbase_wallet_address: string;
-  verification: AuthbaseVerification;
-  badge: AuthbaseBadge;
-};
-
-export type AuthbaseWalletStatus =
-  | AuthbaseNotLinked
-  | AuthbaseNotVerified
-  | AuthbaseVerified
-  | AuthbaseVerifiedWithBadge;
+export type AuthbaseTier = z.infer<typeof tierSchema>;
+export type AuthbaseVerification = z.infer<typeof verificationSchema>;
+export type AuthbaseBadge = z.infer<typeof badgeSchema>;
+export type AuthbaseWalletStatus = z.infer<typeof walletStatusSchema>;
 
 export type AuthbaseWalletStatusResponse = AuthbaseWalletStatus & {
   verified: boolean;
@@ -113,18 +126,12 @@ function buildAuthHeader(): string {
   return `Basic ${token}`;
 }
 
-function isVerificationShape(v: unknown): boolean {
-  return (
-    typeof v === "object" &&
-    v !== null &&
-    typeof (v as Record<string, unknown>).valid_until === "string"
-  );
-}
-
 /**
- * Parse and shape-check an upstream 200 body before we trust it. Without this,
- * a malformed payload (e.g. status "VERIFIED" with verification: null) would
- * later crash the verified/badge derivation with a TypeError.
+ * Parse and fully validate an upstream 200 body before we trust it. The payload
+ * is untrusted input, so it is checked against {@link walletStatusSchema} rather
+ * than shape-sniffed — a missing or mistyped field (e.g. status "VERIFIED" with
+ * a null/partial verification, or a non-string badge token) is rejected here
+ * instead of being cast away and crashing the verified/badge derivation later.
  */
 function parseWalletStatus(bodyText: string): AuthbaseWalletStatus {
   let raw: unknown;
@@ -134,23 +141,14 @@ function parseWalletStatus(bodyText: string): AuthbaseWalletStatus {
     throw new AuthbaseError("Authbase returned malformed JSON", 502, false);
   }
 
-  const o = raw as Record<string, unknown>;
-  const valid =
-    typeof o === "object" &&
-    o !== null &&
-    typeof o.wallet_address === "string" &&
-    (o.status === "NOT_LINKED" ||
-      o.status === "NOT_VERIFIED" ||
-      (o.status === "VERIFIED" && isVerificationShape(o.verification)) ||
-      (o.status === "VERIFIED_WITH_BADGE" &&
-        isVerificationShape(o.verification) &&
-        typeof o.badge === "object" &&
-        o.badge !== null));
-
-  if (!valid) {
+  const parsed = walletStatusSchema.safeParse(raw);
+  if (!parsed.success) {
+    // Log the validation detail server-side for debugging; keep it off the
+    // client, which only ever sees the generic "unavailable" mapping.
+    console.error("[authbase] payload failed schema validation", parsed.error.flatten());
     throw new AuthbaseError("Authbase returned an unexpected payload shape", 502, false);
   }
-  return raw as AuthbaseWalletStatus;
+  return parsed.data;
 }
 
 async function fetchWalletStatus(address: string): Promise<AuthbaseWalletStatus> {
