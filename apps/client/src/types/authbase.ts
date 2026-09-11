@@ -19,10 +19,11 @@ export interface AuthbaseBadge {
 interface AuthbaseBase {
   wallet_address: string;
   message: string;
-  // Backend-derived. `verified` already folds in the `valid_until > now`
-  // check, so an expired attestation returns verified:false even though
-  // `status` is still VERIFIED / VERIFIED_WITH_BADGE. Always render off these
-  // two booleans, never off the raw `status` string.
+  // Backend-derived. `verified` mirrors a VERIFIED* status. The upstream
+  // Authbase backend enforces `valid_until > now` at the source — an expired
+  // attestation comes back as NOT_VERIFIED, never as VERIFIED* with a stale
+  // date — so a VERIFIED* status (and thus `verified: true`) is always
+  // currently valid. Render off these booleans, never off the raw `status`.
   verified: boolean;
   hasBadge: boolean;
   // Consent-filtered PII. Only keys the holder chose to share are present;

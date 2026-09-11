@@ -56,8 +56,9 @@ const STATUS_META: Record<AuthbaseStatus, StatusMeta> = {
 
 // ── Helpers ────────────────────────────────────────────────────
 // A wallet carries an attestation record (VERIFIED*) — narrows the union so
-// `verification` is non-null. Says nothing about current validity: an expired
-// record is still VERIFIED* (gate on backend `verified` alongside this).
+// `verification` is non-null. Upstream only emits VERIFIED* for a currently
+// valid attestation (an expired one comes back as NOT_VERIFIED), so a VERIFIED*
+// status is always currently valid.
 type AttestedStatus = Extract<AuthbaseWalletStatus, { status: "VERIFIED" | "VERIFIED_WITH_BADGE" }>;
 const hasAttestation = (d: AuthbaseWalletStatus): d is AttestedStatus =>
   d.status === "VERIFIED" || d.status === "VERIFIED_WITH_BADGE";
@@ -309,37 +310,26 @@ function AttributesSection({ attributes }: { attributes: Record<string, string> 
   );
 }
 
-// ── Body: pending (not linked / unverified / expired) ──────────
-// `expired` covers a wallet whose attestation exists but is no longer valid
-// (status is VERIFIED* yet backend `verified` is false).
+// ── Body: pending (not linked / unverified) ────────────────────
+// Upstream collapses an expired attestation back to NOT_VERIFIED, so there is
+// no separate "expired" state to surface here.
 function PendingBody({
   isOwner,
   linkedAddress,
-  expired,
 }: {
   isOwner: boolean;
   linkedAddress: string | null;
-  expired: boolean;
 }) {
   const isLinked = linkedAddress !== null;
-  const seal: StatusMeta = isLinked
-    ? {
-        ...STATUS_META.NOT_VERIFIED,
-        eyebrow: expired ? "Verification expired" : STATUS_META.NOT_VERIFIED.eyebrow,
-      }
-    : STATUS_META.NOT_LINKED;
+  const seal: StatusMeta = isLinked ? STATUS_META.NOT_VERIFIED : STATUS_META.NOT_LINKED;
 
-  const message = expired
-    ? isOwner
-      ? "Your Authbase verification has expired. Re-verify to restore your verified status."
-      : "This wallet's Authbase verification has expired."
-    : isOwner
-      ? isLinked
-        ? "Your wallet is linked to Authbase, but identity verification is not yet complete."
-        : "This wallet is not yet linked to Authbase Verification."
-      : isLinked
-        ? "This wallet is linked to Authbase but has not yet completed identity verification."
-        : "This wallet has not been linked to Authbase.";
+  const message = isOwner
+    ? isLinked
+      ? "Your wallet is linked to Authbase, but identity verification is not yet complete."
+      : "This wallet is not yet linked to Authbase Verification."
+    : isLinked
+      ? "This wallet is linked to Authbase but has not yet completed identity verification."
+      : "This wallet has not been linked to Authbase.";
 
   return (
     <div className="px-4 sm:px-6 py-6 space-y-6">
@@ -369,7 +359,7 @@ function PendingBody({
             onMouseEnter={e => (e.currentTarget.style.background = seal.colorHover)}
             onMouseLeave={e => (e.currentTarget.style.background = seal.color)}
           >
-            {expired ? "Re-verify" : isLinked ? "Complete KYC" : "Link to Authbase"}
+            {isLinked ? "Complete KYC" : "Link to Authbase"}
             <ExternalLink className="h-3.5 w-3.5" />
           </a>
         )}
@@ -430,16 +420,18 @@ function NoAddressBody() {
 const VerificationDetail = ({ isOwner, ownerAddress }: VerificationDetailProps) => {
   const { data, isLoading, isError, error } = useAuthbaseIdentityStatus(ownerAddress);
 
-  // Render off backend-derived `verified` / `hasBadge`. `status` narrows the
-  // union (so `verification` / `badge` are non-null) but does NOT by itself
-  // mean "currently valid" — an expired record is VERIFIED* with verified:false.
-  const attested = !!data && data.verified && hasAttestation(data);
-  // Linked-but-not-currently-valid: a linked wallet whose attestation expired.
-  const expired = !!data && !data.verified && hasAttestation(data);
+  // The attested record, or null. Keeping the narrowed value (rather than only a
+  // boolean) lets `verification` / `badge` / `authbase_wallet_address` be read
+  // as non-null downstream. Gated on backend `verified` AND a VERIFIED* status —
+  // upstream only emits VERIFIED* for a currently-valid attestation, so the two
+  // always agree, but we keep both as a belt-and-braces guard.
+  const attestedData: AttestedStatus | null =
+    !!data && data.verified && hasAttestation(data) ? data : null;
+  const attested = attestedData !== null;
 
-  // Status pill — one per outcome. Blue = valid now, amber = action needed,
-  // gray = neutral, red = lookup failed. Never render a "verified" pill off
-  // the raw status string (an expired record must read amber, not blue).
+  // Status pill — one per outcome. Blue = verified, gray = neutral/pending,
+  // red = lookup failed. Render off backend `verified` (via `attested`), never
+  // off the raw status string.
   const pill: Pill | null = isError
     ? { label: "Unavailable", color: "#B91C1C" } // red-700
     : !data
@@ -453,20 +445,20 @@ const VerificationDetail = ({ isOwner, ownerAddress }: VerificationDetailProps) 
             label: "Verified",
             color: STATUS_META.VERIFIED.color,
           }
-        : expired
-          ? { label: "Expired", color: STATUS_META.NOT_VERIFIED.color }
-          : data.status === "NOT_LINKED"
-            ? { label: "Not linked", color: STATUS_META.NOT_LINKED.color }
-            : { label: "Not verified", color: STATUS_META.NOT_VERIFIED.color };
+        : data.status === "NOT_LINKED"
+          ? { label: "Not linked", color: STATUS_META.NOT_LINKED.color }
+          : { label: "Not verified", color: STATUS_META.NOT_VERIFIED.color };
 
-  const displayTier: AuthbaseTier | null = attested ? attestedTier(data) : null;
-  const mrz =
-    attested && displayTier
-      ? buildMrz(data.verification, data.authbase_wallet_address, displayTier)
-      : null;
+  const mrz = attestedData
+    ? buildMrz(
+        attestedData.verification,
+        attestedData.authbase_wallet_address,
+        attestedTier(attestedData)
+      )
+    : null;
 
   // Consent-filtered PII is independent of verification state — surface it in
-  // every data-bearing outcome (verified, pending, expired, not-linked).
+  // every data-bearing outcome (verified, not-verified, not-linked).
   const attributes = data?.attributes ?? {};
 
   return (
@@ -478,19 +470,15 @@ const VerificationDetail = ({ isOwner, ownerAddress }: VerificationDetailProps) 
         <LoadingSkeleton />
       ) : isError ? (
         <ErrorBody message={error?.message ?? "Could not load Authbase status."} />
-      ) : attested ? (
+      ) : attestedData ? (
         <AttestedBody
-          tier={displayTier as AuthbaseTier}
-          verification={data.verification}
-          badge={data.badge}
-          holderAddress={data.authbase_wallet_address}
+          tier={attestedTier(attestedData)}
+          verification={attestedData.verification}
+          badge={attestedData.badge}
+          holderAddress={attestedData.authbase_wallet_address}
         />
       ) : data ? (
-        <PendingBody
-          isOwner={isOwner}
-          linkedAddress={data.authbase_wallet_address}
-          expired={expired}
-        />
+        <PendingBody isOwner={isOwner} linkedAddress={data.authbase_wallet_address} />
       ) : (
         <NoAddressBody />
       )}
