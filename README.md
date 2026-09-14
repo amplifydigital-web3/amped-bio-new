@@ -408,6 +408,15 @@ To run the client container:
 docker run -p 80:80 amped-bio-client
 ```
 
+The bundle is built from the committed env file of the selected mode
+(`apps/client/.env.staging` by default), so the image always carries the values in
+the repository. For another environment, commit its `apps/client/.env.<mode>` file
+and select the mode when building:
+
+```bash
+docker build -f apps/client/Dockerfile --build-arg VITE_MODE=production -t amped-bio-client .
+```
+
 The port lighttpd listens on inside the container is read from the `PORT` environment
 variable (defaults to `80`), so it can be changed without rebuilding the image:
 
