@@ -1,12 +1,15 @@
 # Multi-stage build for efficient client production image
 # Stage 1: Build the client application
-FROM node:24-alpine as builder
+FROM node:24-alpine AS builder
 
 # Install Python, build tools and Python build dependencies
 RUN apk add --no-cache python3 make g++ py3-pip py3-setuptools
 
-# Install pnpm globally
-RUN npm install -g pnpm
+# Install pnpm via corepack (pinned by packageManager), like the other apps
+RUN corepack enable pnpm
+
+# Type-checking the client pulls in the server router types, which needs more heap than the default
+ENV NODE_OPTIONS=--max-old-space-size=4096
 
 # Set the working directory inside the container
 WORKDIR /app
@@ -20,8 +23,12 @@ COPY packages ./packages
 # Copy the client app
 COPY apps/client ./apps/client
 
+# Copy the server app: the client type-checks against the server's
+# tRPC router and auth types, so its sources and dependencies are required at build time
+COPY apps/server ./apps/server
+
 # Install dependencies using pnpm
-RUN pnpm install --frozen-lockfile --filter=@ampedbio/client...
+RUN pnpm install --frozen-lockfile --filter=@ampedbio/client... --filter=@ampedbio/server...
 
 # Change to the client app directory for building
 WORKDIR /app/apps/client
