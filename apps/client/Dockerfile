@@ -78,17 +78,21 @@ ENV VITE_API_URL=$VITE_API_URL \
 # Build the client app
 RUN pnpm run build
 
-# Stage 2: Serve the client application using nginx
-FROM nginx:alpine
+# Stage 2: Serve the client application using lighttpd
+FROM alpine:3.21
+
+RUN apk add --no-cache lighttpd
 
 # Copy the built assets from the builder stage
-COPY --from=builder /app/apps/client/dist /usr/share/nginx/html
+COPY --from=builder /app/apps/client/dist /var/www/localhost/htdocs
 
-# Copy custom nginx configuration
-COPY apps/client/nginx.conf /etc/nginx/nginx.conf
+COPY apps/client/lighttpd.conf /etc/lighttpd/lighttpd.conf
 
-# Expose port 80
+# Default listening port, overridable at runtime with -e PORT=<port>
+ENV PORT=80
+
+# Expose the default port (metadata only, use PORT to change it)
 EXPOSE 80
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Start lighttpd on the port provided through the PORT environment variable
+CMD ["sh", "-c", "sed -i \"s/^server.port.*/server.port = ${PORT:-80}/\" /etc/lighttpd/lighttpd.conf && exec lighttpd -D -f /etc/lighttpd/lighttpd.conf"]

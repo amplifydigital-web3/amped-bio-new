@@ -363,7 +363,7 @@ This project includes Dockerfiles for both the server and client applications, a
 ### Dockerfiles
 
 - `apps/server/Dockerfile` - Builds the server application
-- `apps/client/Dockerfile` - Builds the client application (multi-stage build with nginx)
+- `apps/client/Dockerfile` - Builds the client application (multi-stage build with lighttpd)
 
 ### Prerequisites
 
@@ -406,4 +406,11 @@ To run the client container:
 
 ```bash
 docker run -p 80:80 amped-bio-client
+```
+
+The port lighttpd listens on inside the container is read from the `PORT` environment
+variable (defaults to `80`), so it can be changed without rebuilding the image:
+
+```bash
+docker run -e PORT=8080 -p 8080:8080 amped-bio-client
 ```
