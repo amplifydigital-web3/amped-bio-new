@@ -6,7 +6,7 @@ import {
   useIdentityToken,
 } from "@web3auth/modal/react";
 import { useCallback, useEffect, useRef } from "react";
-import { trpcClient } from "../utils/trpc";
+import { trpcClient } from "@repo/ui";
 import { WALLET_CONNECTORS, AUTH_CONNECTION } from "@web3auth/modal";
 
 export const useMetaMaskWallet = () => {

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { TRPCError, tracked } from "@trpc/server";
 import { prisma } from "../../services/DB";
 import { createPublicClient, http, decodeEventLog, type Address, type Log } from "viem";
-import { getChainConfig, L2_BASE_TOKEN_ABI, CREATOR_POOL_FACTORY_ABI } from "@ampedbio/web3";
+import { getChainConfig, L2_BASE_TOKEN_ABI, CREATOR_POOL_FACTORY_ABI } from "@repo/web3";
 
 export const adminPoolsRouter = router({
   getAllPools: adminProcedure.query(async () => {

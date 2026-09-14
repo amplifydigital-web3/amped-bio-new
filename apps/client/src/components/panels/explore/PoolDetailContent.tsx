@@ -18,17 +18,17 @@ import StakeModal from "./StakeModal";
 import UnstakeModal from "./UnstakeModal";
 import { ImageUploadModal } from "@/components/ImageUploadModal";
 import { useAccount } from "wagmi";
-import { trpcClient } from "@/utils/trpc";
-import { trpc } from "@/utils/trpc/trpc";
+import { trpcClient } from "@repo/ui";
+import { trpc } from "@repo/ui";
 import { useQuery } from "@tanstack/react-query";
 import { usePoolReader } from "../../../hooks/usePoolReader";
 import { formatEther } from "viem";
-import { getChainConfig } from "@ampedbio/web3";
+import { getChainConfig } from "@repo/web3";
 import { useWalletContext } from "@/contexts/WalletContext";
 
 import PoolDetailsModalSkeleton from "./PoolDetailsModalSkeleton";
-import { formatHandle } from "@/utils/handle";
-import { Button } from "@/components/ui/Button";
+import { formatHandle } from "@repo/ui";
+import { Button } from "@repo/ui";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatNumberWithSeparators } from "@/utils/numberUtils";
 
@@ -155,7 +155,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
   }
 
   const handleShare = () => {
-    const urlToShare = shareUrl || `${window.location.origin}/i/pools/${pool.address}`;
+    const urlToShare = shareUrl || `${import.meta.env.VITE_LANDING_URL}/i/pools/${pool.address}`;
 
     if (navigator.share) {
       navigator
@@ -259,7 +259,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                   <p className="text-sm text-gray-500 mt-1">
                     Created by{" "}
                     <a
-                      href={`/${formatHandle(pool.creator.handle)}`}
+                      href={`${import.meta.env.VITE_LANDING_URL}/${formatHandle(pool.creator.handle)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-600 hover:underline"
@@ -367,7 +367,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                         {(pool.apy / 100).toFixed(2)}%
                       </div>
                       <a
-                        href={`/i/pools/${pool.address}/debug-apy`}
+                        href={`${import.meta.env.VITE_LANDING_URL}/i/pools/${pool.address}/debug-apy`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center space-x-1 text-xs text-green-700 hover:text-green-800 mt-1 transition-colors duration-200"

@@ -1,6 +1,6 @@
 import SlateEditor from "@/components/blocks/text/TextEditor/SlateEditor";
 import type { UserProfile } from "../../../types/editor";
-import { Input } from "@/components/ui/Input";
+import { Input } from "@repo/ui";
 import { Label } from "@/components/ui/label";
 import { RevoName } from "@/types/rns/name";
 import {
@@ -9,8 +9,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
+} from "@repo/ui";
+import { Badge } from "@repo/ui";
 import { Link } from "react-router";
 
 interface ProfileFormProps {
@@ -87,7 +87,7 @@ export function ProfileForm({
             </SelectContent>
           </Select>
           <Link
-            to={`?p=rns&t=my-names`}
+            to={`/rns?t=my-names`}
             className="inline-flex items-center gap-1.5 text-sm font-medium text-[#6366f1] hover:underline"
           >
             Manage names → RNS

@@ -72,7 +72,7 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
   };
 
   const handleViewProfile = (username: string) => {
-    window.open(`${window.location.origin}/${username}`, "_blank", "noopener,noreferrer");
+    window.open(`${import.meta.env.VITE_LANDING_URL}/${username}`, "_blank", "noopener,noreferrer");
   };
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-8 py-8">

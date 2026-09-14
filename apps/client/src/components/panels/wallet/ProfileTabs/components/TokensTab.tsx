@@ -1,6 +1,6 @@
 import React from "react";
 import { useChainId } from "wagmi";
-import { getCurrencySymbol } from "@ampedbio/web3";
+import { getCurrencySymbol } from "@repo/web3";
 import { Coins, Loader } from "lucide-react";
 import { useWalletContext } from "@/contexts/WalletContext";
 

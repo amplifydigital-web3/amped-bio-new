@@ -4,6 +4,7 @@
 # Build outputs
 **/dist
 **/.turbo
+**/.next
 **/coverage
 **/*.tsbuildinfo
 **/.vercel

@@ -1,6 +1,6 @@
 import React from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { trpc } from "@/utils/trpc/trpc";
+import { Dialog, DialogContent } from "@repo/ui";
+import { trpc } from "@repo/ui";
 import { useQuery } from "@tanstack/react-query";
 import { useAccount } from "wagmi";
 import PoolDetailContent from "./PoolDetailContent";
@@ -46,7 +46,7 @@ export default function ExplorePoolDetailsModal({
             poolAddress={finalPoolAddress}
             onClose={onClose}
             onStakeSuccess={onStakeSuccess}
-            shareUrl={`${window.location.origin}/i/pools/${finalPoolAddress}`}
+            shareUrl={`${import.meta.env.VITE_LANDING_URL}/i/pools/${finalPoolAddress}`}
           />
         </DialogContent>
       </Dialog>

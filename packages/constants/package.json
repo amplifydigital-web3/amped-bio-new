@@ -1,5 +1,5 @@
 {
-  "name": "@ampedbio/constants",
+  "name": "@repo/constants",
   "version": "0.1.0",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

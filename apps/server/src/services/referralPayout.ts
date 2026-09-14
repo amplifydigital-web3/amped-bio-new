@@ -1,11 +1,11 @@
 import { prisma } from "./DB";
 import { sendReferralRewards } from "./referralRewards";
-import { PROCESSING_TXID } from "@ampedbio/constants";
+import { PROCESSING_TXID } from "@repo/constants";
 import { env } from "../env";
 import { createWalletClient, createPublicClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { getChainConfig } from "@ampedbio/web3";
-import { AFFILIATES_CHAIN_ID, SITE_SETTINGS } from "@ampedbio/constants";
+import { getChainConfig } from "@repo/web3";
+import { AFFILIATES_CHAIN_ID, SITE_SETTINGS } from "@repo/constants";
 import { cache, CacheKeys } from "../utils/cache";
 
 /**

@@ -1,6 +1,6 @@
 import { PROFILE_KEYS, ProfileKey } from "@/types/rns/name";
 import { domainName } from "@/utils/rns";
-import { getChainConfig, RESOLVER_ABI } from "@ampedbio/web3";
+import { getChainConfig, RESOLVER_ABI } from "@repo/web3";
 import { encodeFunctionData, namehash } from "viem";
 import { useChainId, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 

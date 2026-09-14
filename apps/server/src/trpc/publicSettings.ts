@@ -1,7 +1,7 @@
 import { publicProcedure, router } from "./trpc";
 import { prisma } from "../services/DB";
 import { z } from "zod";
-import { SITE_SETTINGS } from "@ampedbio/constants";
+import { SITE_SETTINGS } from "@repo/constants";
 
 export const publicSettingsRouter = router({
   getBanner: publicProcedure

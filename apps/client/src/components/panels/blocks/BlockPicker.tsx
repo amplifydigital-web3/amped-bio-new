@@ -6,7 +6,7 @@ import {
   TextBlock,
   PoolBlock,
   ReferralBlock,
-} from "@ampedbio/constants";
+} from "@repo/constants";
 import { getPlatformIcon } from "@/utils/platforms";
 import { FileText, LucideIcon, Coins, Lock, Link2 } from "lucide-react";
 import { IconType } from "react-icons/lib";

@@ -1,5 +1,5 @@
 import { useChainId, useReadContract } from "wagmi";
-import { getChainConfig, RESOLVER_ABI, REVERSE_REGISTRAR_ABI } from "@ampedbio/web3";
+import { getChainConfig, RESOLVER_ABI, REVERSE_REGISTRAR_ABI } from "@repo/web3";
 
 export function useReverseLookup(address: `0x${string}`) {
   const chainId = useChainId();

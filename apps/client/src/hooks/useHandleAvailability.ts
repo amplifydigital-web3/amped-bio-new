@@ -6,7 +6,7 @@ import {
   validateHandleLength,
   isEquivalentHandle,
   checkHandle,
-} from "@/utils/handle";
+} from "@repo/ui";
 
 // Re-export the HandleStatus type for backward compatibility
 export type URLStatus = HandleStatus;

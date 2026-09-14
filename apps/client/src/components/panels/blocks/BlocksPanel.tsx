@@ -4,7 +4,7 @@ import { LinkForm } from "./LinkForm";
 import { useEditor } from "../../../contexts/EditorContext";
 import { GripVertical } from "lucide-react";
 import { BsTelegram } from "react-icons/bs";
-import { TELEGRAM_LINK, TELEGRAM_COLOR } from "@ampedbio/constants";
+import { TELEGRAM_LINK, TELEGRAM_COLOR } from "@repo/constants";
 
 export function BlocksPanel() {
   const { blocks, addBlock, removeBlock, updateBlock, reorderBlocks } = useEditor();

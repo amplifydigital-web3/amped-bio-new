@@ -1,4 +1,4 @@
-import { CaptchaActions } from "@ampedbio/constants";
+import { CaptchaActions } from "@repo/constants";
 
 // Hook for managing invisible captcha
 export const useCaptcha = () => {

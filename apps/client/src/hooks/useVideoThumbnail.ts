@@ -6,7 +6,7 @@ import {
   getVideoDuration,
   ThumbnailOptions,
   ThumbnailResult,
-} from "../utils/videoThumbnail";
+} from "@repo/ui";
 
 interface UseVideoThumbnailOptions {
   width?: number;
