@@ -72,7 +72,7 @@ app.use("/api/blocks/schemas", blocksSchemasRouter);
 app.use("/health", healthRouter);
 
 app.get("/", (req, res) => {
-  res.redirect(env.FRONTEND_URL);
+  res.redirect(env.APP_URL);
 });
 
 function logErrors(err: any, req: Request, res: Response, next: NextFunction) {

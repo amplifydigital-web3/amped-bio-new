@@ -43,10 +43,10 @@ const envSchema = z.object({
 
   // Port for the server to listen on
   PORT: portSchema(43000),
-  // URL for the app in production
-  FRONTEND_URL: z.string().default("http://localhost:5173"),
-  // URL for the public Next.js site (for cross-subdomain auth)
-  SITE_URL: z.string().default("http://localhost:3000"),
+  // URL for the client app (apps/client)
+  APP_URL: z.string().default("http://localhost:5173"),
+  // URL for the public landing page (apps/landingpage)
+  LANDINGPAGE_URL: z.string().default("http://localhost:3000"),
   // Cookie domain for cross-subdomain auth (e.g. .amped.bio). Leave empty for localhost.
   COOKIE_DOMAIN: z.string().default(""),
   // Comma-separated list of allowed CORS origins

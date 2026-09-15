@@ -36,8 +36,8 @@ export const JWT_KEYS = {
 export const auth = betterAuth({
   basePath: "/auth",
   trustedOrigins: [
-    env.FRONTEND_URL,
-    env.SITE_URL,
+    env.APP_URL,
+    env.LANDINGPAGE_URL,
     ...env.CORS_ORIGINS.split(",")
       .map(origin => origin.trim())
       .filter(Boolean),

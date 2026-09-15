@@ -16,9 +16,6 @@ build
 # Turborepo
 .turbo
 
-# Vercel
-.vercel
-
 # Build outputs
 dist
 dist-ssr

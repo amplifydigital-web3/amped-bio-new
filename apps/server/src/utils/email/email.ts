@@ -6,7 +6,7 @@ import emailChangeTemplate from "./EmailChangeTemplate";
 import welcomeEmailTemplate from "./WelcomeEmailTemplate";
 import { env } from "../../env";
 
-const baseURL = env.FRONTEND_URL;
+const baseURL = env.APP_URL;
 
 type EmailOptions = {
   to: string | string[];

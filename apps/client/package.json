@@ -54,7 +54,6 @@
     "@tsparticles/react": "^3.0.0",
     "@types/jsonwebtoken": "^9.0.5",
     "@types/react-google-recaptcha": "^2.1.9",
-    "@vercel/related-projects": "^1.0.0",
     "@wagmi/core": "2.18.0",
     "@web3auth/base": "9.7.0",
     "@web3auth/modal": "10.0.7",
