@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react";
 import { Shield, ShieldCheck, AlertCircle, Loader2, Eye } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { useAuth } from "@/contexts/AuthContext";
-import { authClient } from "@/lib/auth-client";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { useAuth } from "@repo/ui";
+import { authClient } from "@repo/ui";
+import { Button } from "@repo/ui";
+import { Input } from "@repo/ui";
 import {
   InputOTP,
   InputOTPGroup,
@@ -16,10 +16,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from "@/components/ui/dialog";
+} from "@repo/ui";
 import { BackupCodesDialog } from "@/components/dialogs/BackupCodesDialog";
 import { toast } from "sonner";
-import { twoFactorPasswordSchema, totpCodeSchema } from "@/schemas";
+import { twoFactorPasswordSchema, totpCodeSchema } from "@repo/ui";
 
 type SetupStep = "idle" | "confirm-password" | "setup" | "enabled";
 

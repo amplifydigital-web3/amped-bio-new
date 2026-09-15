@@ -1,8 +1,8 @@
 import { useReadContracts, useWriteContract, useReadContract, useConfig } from "wagmi";
 import { type Address } from "viem";
-import { CREATOR_POOL_ABI } from "@ampedbio/web3";
+import { CREATOR_POOL_ABI } from "@repo/web3";
 import React from "react";
-import { trpcClient } from "../utils/trpc/trpc";
+import { trpcClient } from "@repo/ui";
 
 interface UsePoolReaderOptions {
   initialFanStake?: bigint;

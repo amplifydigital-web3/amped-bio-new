@@ -3,7 +3,7 @@ import { z } from "zod";
 import { TRPCError, tracked } from "@trpc/server";
 import { prisma } from "../../services/DB";
 import { createPublicClient, http, decodeEventLog, type Address, type Log } from "viem";
-import { getChainConfig, L2_BASE_TOKEN_ABI, CREATOR_POOL_FACTORY_ABI } from "@ampedbio/web3";
+import { getChainConfig, L2_BASE_TOKEN_ABI, CREATOR_POOL_FACTORY_ABI } from "@repo/web3";
 
 export const adminPoolsRouter = router({
   getAllPools: adminProcedure.query(async () => {
@@ -252,13 +252,50 @@ export const adminPoolsRouter = router({
         console.info("[syncPool]", ...args);
       };
 
+      // Converts any failure into an explicit error event so the client shows the message
+      // and stops — instead of tRPC serializing it as INTERNAL_SERVER_ERROR, which the SSE
+      // client treats as retryable and re-subscribes from scratch (infinite scan loop).
+      const failEvent = (error: unknown) => {
+        console.error("[syncPool] Sync failed:", error);
+        const message =
+          error instanceof TRPCError
+            ? error.message
+            : error instanceof Error
+              ? error.message
+              : String(error);
+        return emitProgress(999, "error", `Sync failed: ${message}`);
+      };
+
+      const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+
+      // The on-chain scan can keep pooled DB connections idle long enough for the database to
+      // close them; recover by retrying once the pool re-establishes the connections.
+      const withDbRetry = async <T>(label: string, fn: () => Promise<T>, retries = 2): Promise<T> => {
+        for (let attempt = 0; ; attempt++) {
+          try {
+            return await fn();
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            const isConnectionError =
+              /server has closed the connection|connection (lost|closed|reset)|econnreset|etimedout|can't reach database|pool timeout/i.test(
+                message
+              );
+            if (!isConnectionError || attempt >= retries) throw error;
+            console.warn(`[syncPool] ${label} failed (${message}) — retrying ${attempt + 1}/${retries}...`);
+            await sleep(1000 * (attempt + 1));
+          }
+        }
+      };
+
       verboseLog("=== START ===", { poolId });
       yield tracked(`sync-${poolId}-0`, emitProgress(0, "init", "Finding pool in database..."));
 
       // 1. Find the pool in DB
-      const pool = await prisma.creatorPool.findUnique({
-        where: { id: poolId },
-      });
+      const pool = await withDbRetry("pool lookup", () =>
+        prisma.creatorPool.findUnique({
+          where: { id: poolId },
+        })
+      );
 
       if (!pool) {
         throw new TRPCError({
@@ -333,10 +370,8 @@ export const adminPoolsRouter = router({
         latestBlock = await publicClient.getBlockNumber();
       } catch (error) {
         console.error("Error fetching latest block number:", error);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: `Failed to fetch latest block number: ${(error as Error).message}`,
-        });
+        yield tracked(`sync-${poolId}-error`, failEvent(error));
+        return;
       }
 
       const totalBlocks = latestBlock - creationBlock + 1n;
@@ -367,65 +402,89 @@ export const adminPoolsRouter = router({
       const stakeLogs: Log[] = [];
       const unstakeLogs: Log[] = [];
 
-      // 4. Fetch Stake and Unstake logs in parallel (both events on the same block range)
+      // 4. Fetch Stake and Unstake logs chunk by chunk (both events share the same block range
+      //    and are fetched in parallel per chunk), yielding progress after every chunk.
+      //    Without per-chunk events a long scan exceeds the SSE inactivity window, the client
+      //    reconnects, and the sync restarts from the beginning indefinitely.
       checkAborted();
+      const SCAN_START_PERCENT = 5;
+      const SCAN_END_PERCENT = 90;
+      const totalScanBlocks = latestBlock - creationBlock + 1n;
+
       yield tracked(
         `sync-${poolId}-scan-start`,
-        emitProgress(10, "scanning", `Scanning Stake & Unstake events in parallel (${totalBlocks.toString()} blocks)...`, {
-          percent: 5,
-          currentBlock: creationBlock.toString(),
-          latestBlock: latestBlock.toString(),
-        })
+        emitProgress(
+          10,
+          "scanning",
+          `Scanning Stake & Unstake events in ${totalBlocks.toString()} blocks...`,
+          {
+            percent: SCAN_START_PERCENT,
+            currentBlock: creationBlock.toString(),
+            latestBlock: latestBlock.toString(),
+          }
+        )
       );
 
-      // Paginated fetch helper (no yield inside — called from Promise.all)
-      const fetchLogsPaginated = async (
-        eventDef: typeof STAKE_EVENT | typeof UNSTAKE_EVENT,
-        label: string
-      ): Promise<Log[]> => {
-        const logs: Log[] = [];
-        let from = creationBlock;
-
-        while (from <= latestBlock) {
-          checkAborted();
-          const to = from + BLOCK_RANGE - 1n > latestBlock ? latestBlock : from + BLOCK_RANGE - 1n;
-          try {
-            const chunk = await publicClient.getLogs({
+      let chunkCursor = creationBlock;
+      while (chunkCursor <= latestBlock) {
+        checkAborted();
+        const chunkTo =
+          chunkCursor + BLOCK_RANGE - 1n > latestBlock
+            ? latestBlock
+            : chunkCursor + BLOCK_RANGE - 1n;
+        try {
+          const [stakeChunk, unstakeChunk] = await Promise.all([
+            publicClient.getLogs({
               address: tokenAddress,
-              event: eventDef,
+              event: STAKE_EVENT,
               args: { pool: poolAddress } as any,
-              fromBlock: from,
-              toBlock: to,
-            });
-            logs.push(...chunk);
-            verboseLog(`  ${label} [${from}-${to}]: ${chunk.length} logs`);
-          } catch (error) {
-            console.error(`Error fetching ${label} logs [${from}-${to}]:`, error);
-            throw new TRPCError({
-              code: "INTERNAL_SERVER_ERROR",
-              message: `Failed to fetch ${label} logs at block range ${from}-${to}: ${(error as Error).message}`,
-            });
-          }
-          from = to + 1n;
+              fromBlock: chunkCursor,
+              toBlock: chunkTo,
+            }),
+            publicClient.getLogs({
+              address: tokenAddress,
+              event: UNSTAKE_EVENT,
+              args: { pool: poolAddress } as any,
+              fromBlock: chunkCursor,
+              toBlock: chunkTo,
+            }),
+          ]);
+          stakeLogs.push(...stakeChunk);
+          unstakeLogs.push(...unstakeChunk);
+          verboseLog(
+            `  scan [${chunkCursor}-${chunkTo}]: +${stakeChunk.length} stake, +${unstakeChunk.length} unstake logs`
+          );
+        } catch (error) {
+          console.error(`Error fetching pool logs [${chunkCursor}-${chunkTo}]:`, error);
+          yield tracked(`sync-${poolId}-error`, failEvent(error));
+          return;
         }
-        return logs;
-      };
 
-      try {
-        const [stakes, unstakes] = await Promise.all([
-          fetchLogsPaginated(STAKE_EVENT, "Stake"),
-          fetchLogsPaginated(UNSTAKE_EVENT, "Unstake"),
-        ]);
-        stakeLogs.push(...stakes);
-        unstakeLogs.push(...unstakes);
-        verboseLog(`Total: ${stakes.length} Stake, ${unstakes.length} Unstake logs`);
-      } catch (error) {
-        if (error instanceof TRPCError) throw error;
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: `Failed to fetch events: ${(error as Error).message}`,
-        });
+        const scannedBlocks = chunkTo - creationBlock + 1n;
+        const scanPercent =
+          SCAN_START_PERCENT +
+          Number((scannedBlocks * BigInt(SCAN_END_PERCENT - SCAN_START_PERCENT)) / totalScanBlocks);
+
+        yield tracked(
+          `sync-${poolId}-scan-${chunkTo}`,
+          emitProgress(
+            10,
+            "scanning",
+            `Scanning Stake & Unstake events... (${stakeLogs.length} stake, ${unstakeLogs.length} unstake found)`,
+            {
+              percent: scanPercent,
+              currentBlock: chunkTo.toString(),
+              latestBlock: latestBlock.toString(),
+              stakesFound: stakeLogs.length,
+              unstakesFound: unstakeLogs.length,
+            }
+          )
+        );
+
+        chunkCursor = chunkTo + 1n;
       }
+
+      verboseLog(`Total: ${stakeLogs.length} Stake, ${unstakeLogs.length} Unstake logs`);
 
       // 5. Initialize summary counters
       let summaryStakesProcessed = 0;
@@ -505,12 +564,34 @@ export const adminPoolsRouter = router({
         for (let i = 0; i < uniqueBlockNumbers.length; i += BATCH_SIZE) {
           checkAborted();
           const batch = uniqueBlockNumbers.slice(i, i + BATCH_SIZE);
-          const blocks = await Promise.all(
-            batch.map(bn => publicClient.getBlock({ blockNumber: bn }))
-          );
-          for (const block of blocks) {
-            blockTimestamps.set(block.number!, new Date(Number(block.timestamp) * 1000));
+          try {
+            const blocks = await Promise.all(
+              batch.map(bn => publicClient.getBlock({ blockNumber: bn }))
+            );
+            for (const block of blocks) {
+              blockTimestamps.set(block.number!, new Date(Number(block.timestamp) * 1000));
+            }
+          } catch (error) {
+            console.error(
+              "[syncPool] Failed to fetch block timestamps — continuing with fallback dates:",
+              error
+            );
+            break;
           }
+          // Keep the SSE subscription alive while fetching timestamps in batches
+          yield tracked(
+            `sync-${poolId}-timestamps-${i}`,
+            emitProgress(
+              500,
+              "processing",
+              `Fetched block timestamps for ${blockTimestamps.size}/${uniqueBlockNumbers.length} blocks...`,
+              {
+                percent: 100,
+                stakesFound: stakeLogs.length,
+                unstakesFound: unstakeLogs.length,
+              }
+            )
+          );
         }
         verboseLog(`Block timestamps fetched: ${blockTimestamps.size} blocks`);
       }
@@ -527,6 +608,9 @@ export const adminPoolsRouter = router({
       let unknownAddressCount = 0;
 
       // 7. Look up wallets, compute net amounts, then replace everything in a single transaction
+      // Reconnect to the DB first — the scan may have kept pooled connections idle long enough
+      // for the database to close them ("Server has closed the connection").
+      await withDbRetry("database ping", () => prisma.$queryRaw`SELECT 1`);
       if (allEvents.length > 0) {
         yield tracked(`sync-${poolId}-200`, emitProgress(200, "processing", `Looking up ${allEvents.length} wallets in database...`, {
           percent: 100,
@@ -536,10 +620,19 @@ export const adminPoolsRouter = router({
 
         // --- Batch-find all wallets ---
         const uniqueAddresses = [...new Set(allEvents.map(e => e.address))];
-        const wallets = await prisma.userWallet.findMany({
-          where: { address: { in: uniqueAddresses } },
-          select: { id: true, address: true },
-        });
+        let wallets: { id: number; address: string }[];
+        try {
+          wallets = await withDbRetry("wallet lookup", () =>
+            prisma.userWallet.findMany({
+              where: { address: { in: uniqueAddresses } },
+              select: { id: true, address: true },
+            })
+          );
+        } catch (error) {
+          console.error("[syncPool] Failed to look up wallets:", error);
+          yield tracked(`sync-${poolId}-error`, failEvent(error));
+          return;
+        }
         const walletByAddress = new Map(wallets.map(w => [w.address.toLowerCase(), w.id]));
 
         // Filter events to only those with known wallets
@@ -599,48 +692,53 @@ export const adminPoolsRouter = router({
             unstakesSkipped: summaryUnstakesSkipped,
           }));
 
-          // SINGLE TRANSACTION: delete all existing records, then insert fresh
-          await prisma.$transaction(async (tx) => {
-            // Delete all stake events for this pool
-            await tx.stakeEvent.deleteMany({
-              where: { poolId: pool.id },
-            });
+          try {
+            await prisma.$transaction(async (tx) => {
+              // Delete all stake events for this pool
+              await tx.stakeEvent.deleteMany({
+                where: { poolId: pool.id },
+              });
 
-            // Delete all staked pools for this pool
-            await tx.stakedPool.deleteMany({
-              where: { poolId: pool.id },
-            });
+              // Delete all staked pools for this pool
+              await tx.stakedPool.deleteMany({
+                where: { poolId: pool.id },
+              });
 
-            // Insert all stake events (known wallets only)
-            await tx.stakeEvent.createMany({
-              data: knownEvents.map(e => ({
-                userWalletId: walletByAddress.get(e.address)!,
-                poolId: pool.id,
-                amount: e.amount.toString(),
-                eventType: e.type,
-                transactionHash: e.txHash,
-                createdAt: blockTimestamps.get(e.blockNumber) ?? new Date(),
-              })),
-            });
-
-            // Insert staked pools for wallets with positive net amount
-            const stakedPoolRows: { userWalletId: number; poolId: number; stakeAmount: string }[] = [];
-            for (const [walletId, netAmount] of netAmounts) {
-              if (netAmount > 0n) {
-                stakedPoolRows.push({
-                  userWalletId: walletId,
+              // Insert all stake events (known wallets only)
+              await tx.stakeEvent.createMany({
+                data: knownEvents.map(e => ({
+                  userWalletId: walletByAddress.get(e.address)!,
                   poolId: pool.id,
-                  stakeAmount: netAmount.toString(),
+                  amount: e.amount.toString(),
+                  eventType: e.type,
+                  transactionHash: e.txHash,
+                  createdAt: blockTimestamps.get(e.blockNumber) ?? new Date(),
+                })),
+              });
+
+              // Insert staked pools for wallets with positive net amount
+              const stakedPoolRows: { userWalletId: number; poolId: number; stakeAmount: string }[] = [];
+              for (const [walletId, netAmount] of netAmounts) {
+                if (netAmount > 0n) {
+                  stakedPoolRows.push({
+                    userWalletId: walletId,
+                    poolId: pool.id,
+                    stakeAmount: netAmount.toString(),
+                  });
+                }
+              }
+
+              if (stakedPoolRows.length > 0) {
+                await tx.stakedPool.createMany({
+                  data: stakedPoolRows,
                 });
               }
-            }
-
-            if (stakedPoolRows.length > 0) {
-              await tx.stakedPool.createMany({
-                data: stakedPoolRows,
-              });
-            }
-          });
+            });
+          } catch (error) {
+            console.error("[syncPool] Database transaction failed:", error);
+            yield tracked(`sync-${poolId}-error`, failEvent(error));
+            return;
+          }
 
           verboseLog(
             `Transaction complete: ${knownEvents.length} events inserted, ${fansCount} stakedPools created`
@@ -651,10 +749,16 @@ export const adminPoolsRouter = router({
           fansCount = 0;
           zeroBalanceCount = 0;
 
-          await prisma.$transaction(async (tx) => {
-            await tx.stakeEvent.deleteMany({ where: { poolId: pool.id } });
-            await tx.stakedPool.deleteMany({ where: { poolId: pool.id } });
-          });
+          try {
+            await prisma.$transaction(async (tx) => {
+              await tx.stakeEvent.deleteMany({ where: { poolId: pool.id } });
+              await tx.stakedPool.deleteMany({ where: { poolId: pool.id } });
+            });
+          } catch (error) {
+            console.error("[syncPool] Database cleanup failed:", error);
+            yield tracked(`sync-${poolId}-error`, failEvent(error));
+            return;
+          }
 
           verboseLog("No known wallets — existing pool data cleared");
         }
@@ -665,10 +769,16 @@ export const adminPoolsRouter = router({
         unknownAddressCount = uniqueOnChainAddresses.size - uniqueKnownAddresses.size;
       } else {
         // No on-chain events found — clean up existing data to stay consistent
-        await prisma.$transaction(async (tx) => {
-          await tx.stakeEvent.deleteMany({ where: { poolId: pool.id } });
-          await tx.stakedPool.deleteMany({ where: { poolId: pool.id } });
-        });
+        try {
+          await prisma.$transaction(async (tx) => {
+            await tx.stakeEvent.deleteMany({ where: { poolId: pool.id } });
+            await tx.stakedPool.deleteMany({ where: { poolId: pool.id } });
+          });
+        } catch (error) {
+          console.error("[syncPool] Database cleanup failed:", error);
+          yield tracked(`sync-${poolId}-error`, failEvent(error));
+          return;
+        }
         verboseLog("No on-chain events found — existing pool data cleared");
       }
 
@@ -681,13 +791,19 @@ export const adminPoolsRouter = router({
         unstakesSkipped: summaryUnstakesSkipped,
       }));
 
-      await prisma.creatorPool.update({
-        where: { id: pool.id },
-        data: {
-          revoStaked: totalStaked,
-          fans: fansCount,
-        },
-      });
+      try {
+        await prisma.creatorPool.update({
+          where: { id: pool.id },
+          data: {
+            revoStaked: totalStaked,
+            fans: fansCount,
+          },
+        });
+      } catch (error) {
+        console.error("[syncPool] Failed to update pool totals:", error);
+        yield tracked(`sync-${poolId}-error`, failEvent(error));
+        return;
+      }
 
       verboseLog("=== END ===");
       verboseLog(`Final state: ${fansCount} active fans, ${zeroBalanceCount} zero-balance records, ${totalStaked} total REVO staked`);

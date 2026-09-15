@@ -3,7 +3,7 @@ import { domainName, scannerURL } from "@/utils/rns";
 import { Copy, ExternalLink } from "lucide-react";
 import { useChainId } from "wagmi";
 import { useWalletContext } from "@/contexts/WalletContext";
-import { getCurrencySymbol } from "@ampedbio/web3";
+import { getCurrencySymbol } from "@repo/web3";
 import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
 import { ProfileCard } from "@/components/rns/profile/ProfileCard";
 import { ProfileNav } from "@/components/rns/profile/ProfileNav";

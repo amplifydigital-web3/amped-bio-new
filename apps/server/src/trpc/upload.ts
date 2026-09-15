@@ -9,7 +9,7 @@ import {
   ALLOWED_BACKGROUND_FILE_EXTENSIONS,
   ALLOWED_BACKGROUND_FILE_TYPES,
   ThemeConfig,
-} from "@ampedbio/constants";
+} from "@repo/constants";
 import { prisma } from "../services/DB";
 import { env } from "../env";
 

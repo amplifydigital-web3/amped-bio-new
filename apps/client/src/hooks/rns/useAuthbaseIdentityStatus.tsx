@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { isAddress } from "viem";
-import { trpc } from "@/utils/trpc";
+import { trpc } from "@repo/ui";
 
 export function useAuthbaseIdentityStatus(address: string | null | undefined) {
   // Validate + canonicalize. `isAddress` (strict) rejects malformed or

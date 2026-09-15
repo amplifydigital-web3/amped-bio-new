@@ -6,11 +6,11 @@ import {
   createNdauConversionPayloadYaml,
   KNOWN_NDAU_GROUPS,
   VALID_DOCUMENT_HASHES,
-} from "@ampedbio/constants";
+} from "@repo/constants";
 import { prisma } from "../services/DB";
 import type { NdauConversion } from "../lib/prisma/index.js";
 import { createPublicClient, http, parseEther, formatEther } from "viem";
-import { libertasTestnet } from "@ampedbio/web3";
+import { libertasTestnet } from "@repo/web3";
 import { verifyConversionSignature, verifyNdauSignature } from "../utils/ndau";
 import { recoverAddress, hashMessage } from "viem";
 

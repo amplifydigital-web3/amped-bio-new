@@ -14,7 +14,9 @@
 
 # VCS and local tooling
 .git
+.gitignore
 .github
+.idea
 .playwright-mcp
 .vscode
 
@@ -27,3 +29,7 @@ apps/server/.env
 # purpose: the client build inlines the selected one.
 **/.env.local
 **/.env.*.local
+
+# Logs and OS noise
+*.log
+.DS_Store

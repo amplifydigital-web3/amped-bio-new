@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { trpc } from "@/utils/trpc";
+import { trpc } from "@repo/ui";
 import { formatUnits } from "viem";
-import { RouterOutput } from "@/utils/trpc/types";
+import { RouterOutput } from "@repo/ui";
 
 type WalletStatsOutput = RouterOutput<"wallet", "getWalletStats">;
 

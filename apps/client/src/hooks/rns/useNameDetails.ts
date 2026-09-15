@@ -10,7 +10,7 @@ import {
   fetchOwnershipDetails,
   fetchDateDetails,
 } from "@/services/subgraph/queries";
-import { getChainConfig, REGISTRAR_CONTROLLER_ABI, RESOLVER_ABI } from "@ampedbio/web3";
+import { getChainConfig, REGISTRAR_CONTROLLER_ABI, RESOLVER_ABI } from "@repo/web3";
 
 // Rendered when the registration date is unknown (e.g. on-chain fallback with no
 // reachable NameRegistered event) — avoids Number('') === 0 formatting as 1970.

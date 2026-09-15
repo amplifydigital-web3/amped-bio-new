@@ -1,4 +1,4 @@
-import { Button } from "../ui/Button";
+import { Button } from "@repo/ui";
 import { FaGoogle } from "react-icons/fa6";
 
 interface GoogleLoginButtonProps {

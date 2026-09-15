@@ -7,7 +7,7 @@ import {
   toBytes,
   zeroAddress,
 } from "viem";
-import { BASE_REGISTRAR_ABI, getChainConfig } from "@ampedbio/web3";
+import { BASE_REGISTRAR_ABI, getChainConfig } from "@repo/web3";
 
 import { NameDetail } from "@/types/rns/name";
 import { RegistrationData } from "@/types/rns/registration";

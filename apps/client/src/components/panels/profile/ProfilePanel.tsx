@@ -11,8 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from "../../ui/dialog";
-import { Button } from "../../ui/Button";
+} from "@repo/ui";
+import { Button } from "@repo/ui";
 
 export function ProfilePanel() {
   const { theme, exportTheme, importTheme, expiredRevoName, lostRevoName, dismissRevoName } =

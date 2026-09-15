@@ -4,31 +4,44 @@ FROM node:24-alpine
 # Install Python, build tools and Python build dependencies
 RUN apk add --no-cache python3 make g++ py3-pip py3-setuptools
 
-# Keep the corepack-managed pnpm in a shared location. By default corepack caches
-# it under $HOME/.cache, i.e. /root during the build, which the non-root user
-# below cannot read: every container start would then try to download pnpm from
-# the registry, and fail when the container has no network at runtime.
-ENV COREPACK_HOME=/usr/local/share/corepack
-
 # Install pnpm via corepack (pinned by packageManager), like the other apps
 RUN corepack enable pnpm
+
+# Keep corepack's cache inside /app so the unprivileged node user can read it
+# at runtime (the default under root's $HOME would be root-owned)
+ENV COREPACK_HOME=/app/.corepack
 
 ENV NODE_OPTIONS=--max-old-space-size=4096
 
 # Set the working directory inside the container
 WORKDIR /app
 
-# Copy the root package files
+# ---------------------------------------------------------------------------
+# Dependency layer — kept stable so `pnpm install` is cached between builds.
+# Only the files needed to resolve the workspace and run the install-time
+# lifecycle scripts are copied before installing:
+#   - the workspace packages' sources (their `prepare` builds them via tsup)
+#   - the server manifest (defines `postinstall`)
+#   - the Prisma schema (used by `postinstall` -> `prisma generate`)
+# App source changes therefore never invalidate this layer.
+# ---------------------------------------------------------------------------
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
-
-# Copy the packages directories
 COPY packages ./packages
+COPY apps/server/package.json ./apps/server/package.json
+COPY apps/server/prisma ./apps/server/prisma
 
-# Copy the server app
-COPY apps/server ./apps/server
+# Pre-download the pnpm version pinned in package.json (pnpm@9.15.1) so the
+# runtime CMD ["pnpm", "start"] never triggers a network fetch. Keep this in
+# sync with the packageManager field in /app/package.json.
+RUN corepack prepare pnpm@9.15.1 --activate
 
 # Install dependencies using pnpm
-RUN pnpm install --frozen-lockfile --filter=@ampedbio/server...
+RUN pnpm install --frozen-lockfile --filter=@repo/server...
+
+# ---------------------------------------------------------------------------
+# Source + build layer — invalidated on every app source change
+# ---------------------------------------------------------------------------
+COPY apps/server ./apps/server
 
 # Change to the server app directory for building
 WORKDIR /app/apps/server

@@ -1,10 +1,10 @@
 import React from "react";
 import { Trophy, Link, TrendingUp } from "lucide-react";
-import { getChainConfig } from "@ampedbio/web3";
+import { getChainConfig } from "@repo/web3";
 import { formatUnits, formatEther } from "viem";
 import { toast } from "react-hot-toast";
 import { usePoolReader } from "../../../hooks/usePoolReader";
-import { UserStakedPoolWithNullables } from "@ampedbio/constants";
+import { UserStakedPoolWithNullables } from "@repo/constants";
 import { useAccount } from "wagmi";
 import { useWalletContext } from "@/contexts/WalletContext";
 

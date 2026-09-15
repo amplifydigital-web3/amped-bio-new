@@ -8,6 +8,10 @@ RUN apk add --no-cache python3 make g++ py3-pip py3-setuptools
 # Install pnpm via corepack (pinned by packageManager), like the other apps
 RUN corepack enable pnpm
 
+# Skip the Cypress binary download: it is a test-only dependency and is not
+# available for Alpine linux-arm64
+ENV CYPRESS_INSTALL_BINARY=0
+
 # Type-checking the client pulls in the server router types, which needs more heap than the default
 ENV NODE_OPTIONS=--max-old-space-size=4096
 
@@ -28,7 +32,7 @@ COPY apps/client ./apps/client
 COPY apps/server ./apps/server
 
 # Install dependencies using pnpm
-RUN pnpm install --frozen-lockfile --filter=@ampedbio/client... --filter=@ampedbio/server...
+RUN pnpm install --frozen-lockfile --filter=@repo/client... --filter=@repo/server...
 
 # Change to the client app directory for building
 WORKDIR /app/apps/client

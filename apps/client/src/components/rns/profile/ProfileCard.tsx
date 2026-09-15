@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/Button";
+import { Button } from "@repo/ui";
 import { domainName } from "@/utils/rns";
 import {
   Camera,

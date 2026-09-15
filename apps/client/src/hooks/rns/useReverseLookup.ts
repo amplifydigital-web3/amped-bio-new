@@ -5,7 +5,7 @@ import {
   getChainConfig,
   RESOLVER_ABI,
   REVERSE_REGISTRAR_ABI,
-} from "@ampedbio/web3";
+} from "@repo/web3";
 
 export function useReverseLookup(address: `0x${string}`) {
   const chainId = useChainId();
