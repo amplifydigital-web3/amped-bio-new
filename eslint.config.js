@@ -7,7 +7,9 @@ import eslintPluginPrettier from 'eslint-plugin-prettier';
 import unusedImports from 'eslint-plugin-unused-imports';
 
 export default tseslint.config(
-  { ignores: ['**/dist/**'] },
+  // apps/server/src/lib/prisma is the generated Prisma client (gitignored, ~21MB);
+  // linting it makes ESLint crash with "RangeError: Invalid string length".
+  { ignores: ['**/dist/**', '**/src/lib/prisma/**'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{js,ts,tsx}'],

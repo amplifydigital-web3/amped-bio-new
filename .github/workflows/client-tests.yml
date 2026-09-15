@@ -103,7 +103,9 @@ jobs:
         run: |
           cd apps/server
           pnpm build
-          NODE_ENV=testing pnpm start &
+          # The step above loads apps/server/.env.example (PORT=24300), but the client is
+          # built in testing mode against 43000, so pin the port to what this job probes.
+          NODE_ENV=testing PORT=43000 pnpm start &
           echo "Waiting for backend on port 43000"
           wait-for-it -t 30 localhost:43000
           if [ $? -ne 0 ]; then

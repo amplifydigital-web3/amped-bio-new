@@ -64,5 +64,12 @@ ENV PORT=80
 # Expose the default port (metadata only, use PORT to change it)
 EXPOSE 80
 
+# Report container health from inside the image so any orchestrator can act on it.
+# lighttpd serves index.html for every path (url.rewrite-if-not-file), so a request
+# to / is enough to prove the web server is accepting traffic. PORT is expanded by
+# the shell at runtime, keeping the check aligned with -e PORT=<port>.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD wget -q -O /dev/null "http://127.0.0.1:${PORT:-80}/" || exit 1
+
 # Start lighttpd on the port provided through the PORT environment variable
 CMD ["sh", "-c", "sed -i \"s/^server.port.*/server.port = ${PORT:-80}/\" /etc/lighttpd/lighttpd.conf && exec lighttpd -D -f /etc/lighttpd/lighttpd.conf"]

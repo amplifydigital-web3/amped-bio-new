@@ -9,6 +9,7 @@ import { auth } from "../utils/auth";
 import { toNodeHandler } from "better-auth/node";
 import wellKnownRouter from "../routes/well-known";
 import blocksSchemasRouter from "../routes/blocks-schemas";
+import healthRouter from "../routes/health";
 
 const app: Application = express();
 
@@ -68,6 +69,7 @@ app.use(cookieParser());
 app.use("/trpc", trpcMiddleware as any);
 app.use("/.well-known", wellKnownRouter);
 app.use("/api/blocks/schemas", blocksSchemasRouter);
+app.use("/health", healthRouter);
 
 app.get("/", (req, res) => {
   res.redirect(env.FRONTEND_URL);
