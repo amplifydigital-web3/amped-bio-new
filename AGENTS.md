@@ -6,6 +6,16 @@ NEVER execute the 'dev' command under any circumstances! This starts the develop
 
 NEVER merge any branch into 'main' without explicit user authorization! Under no circumstances should you perform any git merge operations to the main branch unless the user clearly instructs you to do so. DO NOT ASSUME that merge operations are desired.
 
+## BRANCHES AND ENVIRONMENTS
+
+The `development` branch is the staging environment. Work merged or pushed to `development` is deployed to staging, so treat it as shared, non-production infrastructure:
+
+- App (client): https://app.staging.amped.bio
+- Landing page: https://staging.amped.bio
+- API (server): https://api.staging.amped.bio
+
+Any change that introduces or edits a staging URL MUST use the hosts above, and staging values belong in the `*.env.staging` files (`apps/client`, `apps/admin`, `apps/landingpage`) rather than in the production env files.
+
 ## VALIDATION REQUIREMENTS - MANDATORY
 
 ALWAYS run typecheck and build commands to validate your modifications before claiming completion. NO EXCEPTIONS. Failure to do so will result in immediate rejection of your work.
