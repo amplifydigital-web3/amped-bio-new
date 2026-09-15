@@ -5,6 +5,7 @@ export * from "./pools";
 export * from "./abis/multicall3";
 export * from "./abis/rns/index";
 export * from "./apy";
+export * from "./batches";
 
 export const revolutionDevnet = {
   ...chainConfig,

@@ -1,9 +1,9 @@
 import type { Address, PublicClient, Abi } from "viem";
 import { formatUnits } from "viem";
 import { NODE_MANAGER_ABI, CREATOR_POOL_ABI, getChainConfig } from "./index";
+import { getBatchCadence } from "./batches";
 
 const CONFIG = {
-  batchesPerYear: 525600, // 60 batches/hour × 24 × 365
   tokenDecimals: 18,
   defaultNodeCutBps: 2000, // 20%
 };
@@ -21,6 +21,9 @@ export interface APYDebugInfo {
     totalSystemStake: number;
     batchCount: bigint;
     rewardPerBatch: number;
+    batchesPerHour: number;
+    batchesPerYear: number;
+    batchesPerHourSource: "explorer" | "fallback";
     annualSystemRewards: number;
   };
   step3_nodeData: {
@@ -64,6 +67,9 @@ export interface APYDebugInfo {
     totalSystemStake: number;
     batchCount: bigint;
     rewardPerBatch: number;
+    batchesPerHour: number;
+    batchesPerYear: number;
+    batchesPerHourSource: "explorer" | "fallback";
     annualSystemRewards: number;
   };
   step3_nodeData: {
@@ -277,7 +283,9 @@ export async function calculatePoolAPY(
     const [rewardPerBatchWei] = await batchMulticall(rewardCall, publicClient, 5);
 
     const rewardPerBatch = Number(formatUnits(rewardPerBatchWei as bigint, CONFIG.tokenDecimals));
-    const annualSystemRewards = rewardPerBatch * CONFIG.batchesPerYear;
+    const { batchesPerHour, batchesPerYear, source: batchesPerHourSource } =
+      await getBatchCadence(chainId);
+    const annualSystemRewards = rewardPerBatch * batchesPerYear;
 
     console.log(`[APY DEBUG] Global system data summary:`);
     console.log(`  - Total nodes: ${nodes.length}`);
@@ -286,6 +294,8 @@ export async function calculatePoolAPY(
     );
     console.log(`  - Batch count: ${batchCount}`);
     console.log(`  - Reward per batch: ${rewardPerBatch} tokens`);
+    console.log(`  - Batches per hour: ${batchesPerHour} (source: ${batchesPerHourSource})`);
+    console.log(`  - Batches per year: ${batchesPerYear}`);
     console.log(`  - Annual system rewards: ${annualSystemRewards} tokens`);
 
     // 3. Get node data for unique nodes
@@ -405,7 +415,8 @@ export async function calculatePoolAPYDebug(
 
   try {
     const tokenDecimals = CONFIG.tokenDecimals;
-    const batchesPerYear = CONFIG.batchesPerYear;
+    const { batchesPerHour, batchesPerYear, source: batchesPerHourSource } =
+      await getBatchCadence(chainId);
 
     const nodeAddr = (await publicClient.readContract({
       address: poolAddress,
@@ -481,6 +492,9 @@ export async function calculatePoolAPYDebug(
       totalSystemStake: Number(formatUnits(totalSystemStake, tokenDecimals)),
       batchCount,
       rewardPerBatch,
+      batchesPerHour,
+      batchesPerYear,
+      batchesPerHourSource,
       annualSystemRewards,
     };
 

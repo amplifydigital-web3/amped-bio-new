@@ -167,7 +167,8 @@ Total System Stake: ${debugData.step2_globalSystemData.totalSystemStake.toFixed(
 Batch Count: ${debugData.step2_globalSystemData.batchCount.toString()}
 Reward Per Batch: ${debugData.step2_globalSystemData.rewardPerBatch.toFixed(6)} tokens
 Annual System Rewards: ${debugData.step2_globalSystemData.annualSystemRewards.toFixed(6)} tokens
-Batches Per Year: 525,600 (60 batches/hour × 24 × 365)`}
+Batches Per Hour: ${debugData.step2_globalSystemData.batchesPerHour.toFixed(2)} (${debugData.step2_globalSystemData.batchesPerHourSource})
+Batches Per Year: ${Math.round(debugData.step2_globalSystemData.batchesPerYear).toLocaleString("en-US")}`}
               </pre>
             </div>
 
