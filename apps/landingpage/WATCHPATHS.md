@@ -14,6 +14,10 @@ apps/landingpage/postcss\.config\..*
 apps/landingpage/tsconfig\.json
 apps/landingpage/Dockerfile
 
+# Env files are inlined into the bundle at build time, so a change to the
+# selected one must trigger a redeploy
+apps/landingpage/\.env\.(staging|production)
+
 # Shared packages the site depends on
 packages/ui/src/.*
 packages/ui/package\.json
