@@ -16,6 +16,7 @@
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf .next && rm -rf dist"
   },
   "dependencies": {
+    "@cap.js/widget": "0.1.57",
     "@hookform/resolvers": "^5.0.1",
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-collapsible": "^1.1.3",

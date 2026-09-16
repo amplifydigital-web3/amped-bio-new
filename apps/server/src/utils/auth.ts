@@ -86,8 +86,11 @@ export const auth = betterAuth({
       };
     }),
     captcha({
-      provider: "google-recaptcha",
+      // Cap exposes a reCAPTCHA-shaped `/siteverify` endpoint, so the hCaptcha
+      // handler (which only checks `success`) verifies Cap tokens as-is.
+      provider: "hcaptcha",
       secretKey: env.CAPTCHA_SECRET_KEY,
+      siteVerifyURLOverride: `${env.CAPTCHA_SERVER_URL}/${env.CAPTCHA_SITE_KEY}/siteverify`,
     }),
     twoFactor({
       issuer: "Amped.Bio",

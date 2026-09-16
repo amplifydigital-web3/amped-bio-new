@@ -7,7 +7,6 @@ import { AppProviders } from "@/components/providers/AppProviders";
 import "@/styles/globals.css";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://amped.bio";
-const CAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_CAPTCHA_SITE_KEY;
 const GA_ID = "G-SK6H61G3S1";
 
 export const metadata: Metadata = {
@@ -66,12 +65,6 @@ export default function RootLayout({
               `}
             </Script>
           </>
-        )}
-        {CAPTCHA_SITE_KEY && (
-          <Script
-            src={`https://www.google.com/recaptcha/enterprise.js?render=${CAPTCHA_SITE_KEY}`}
-            strategy="afterInteractive"
-          />
         )}
       </body>
     </html>

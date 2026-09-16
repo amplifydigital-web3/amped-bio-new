@@ -1,25 +1,27 @@
 import { env } from "../env";
 
 // Better Auth's captcha plugin silently returns a 403 ("Captcha verification failed")
-// whenever Google rejects the token, so the reason (invalid secret, expired/duplicate
-// token, low score, ...) never reaches the server logs. This instruments the
-// siteverify call to surface Google's verdict.
+// whenever the provider rejects the token, so the reason (invalid secret, expired or
+// already redeemed token, ...) never reaches the server logs. This instruments the
+// Cap siteverify call to surface the provider's verdict.
 
-const CAPTCHA_VERIFY_URL_PATTERNS = [
-  "/recaptcha/api/siteverify",
-  "recaptchaenterprise.googleapis.com",
-];
+function verifyUrlPatterns(): string[] {
+  const patterns = ["/siteverify"];
 
-// Mirrors the plugin default (`minScore` in the google-recaptcha handler).
-const MIN_SCORE = 0.5;
+  if (env.CAPTCHA_SERVER_URL) {
+    try {
+      patterns.push(new URL(env.CAPTCHA_SERVER_URL).host);
+    } catch {
+      // Ignore malformed URLs; the path pattern still matches.
+    }
+  }
+
+  return patterns;
+}
 
 type CaptchaVerdict = {
   success?: boolean;
-  score?: number;
-  action?: string;
-  hostname?: string;
-  "error-codes"?: string[];
-  challenge_ts?: string;
+  error?: string;
 };
 
 let installed = false;
@@ -48,20 +50,14 @@ async function logCaptchaVerdict(response: Response, request: Record<string, unk
     return;
   }
 
-  const score = typeof verdict.score === "number" ? verdict.score : undefined;
-  const failed = verdict.success !== true || (score !== undefined && score < MIN_SCORE);
-
   const details = {
     ...request,
+    status: response.status,
     success: verdict.success,
-    score,
-    action: verdict.action,
-    hostname: verdict.hostname,
-    errorCodes: verdict["error-codes"],
-    challengeTs: verdict.challenge_ts,
+    error: verdict.error,
   };
 
-  if (failed) {
+  if (verdict.success !== true) {
     console.error("[captcha] verification failed", JSON.stringify(details));
     return;
   }
@@ -78,10 +74,12 @@ export function instrumentCaptchaVerification(): void {
   const originalFetch = globalThis.fetch;
   if (typeof originalFetch !== "function") return;
 
+  const patterns = verifyUrlPatterns();
+
   globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
 
-    if (!CAPTCHA_VERIFY_URL_PATTERNS.some(pattern => url.includes(pattern))) {
+    if (!patterns.some(pattern => url.includes(pattern))) {
       return originalFetch(input, init);
     }
 

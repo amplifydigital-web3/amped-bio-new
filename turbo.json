@@ -24,6 +24,8 @@
         "AWS_S3_BUCKET_NAME",
         "AWS_S3_ENDPOINT",
         "AWS_S3_PUBLIC_URL",
+        "CAPTCHA_SERVER_URL",
+        "CAPTCHA_SITE_KEY",
         "CAPTCHA_SECRET_KEY",
         "GOOGLE_CLIENT_SECRET",
         "GOOGLE_CLIENT_ID",

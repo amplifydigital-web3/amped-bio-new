@@ -19,7 +19,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useAccount, useSignMessage } from "wagmi";
 import { useCaptcha } from "@/hooks/useCaptcha";
 import { GoogleLoginButton } from "@/components/auth/GoogleLoginButton";
-import { CaptchaActions } from "@repo/constants";
 import {
   Check,
   Loader2,
@@ -263,16 +262,16 @@ export default function SignPage() {
     setIsLoggingIn(true);
     setLoginError(null);
     try {
-      const recaptchaToken = await executeCaptcha(CaptchaActions.LOGIN);
+      const captchaToken = await executeCaptcha();
       const response = await authClient.signIn.email({
         email: data.email,
         password: data.password,
         callbackURL: window.location.href,
         rememberMe: true,
         fetchOptions: {
-          headers: recaptchaToken
+          headers: captchaToken
             ? {
-                "x-captcha-response": recaptchaToken,
+                "x-captcha-response": captchaToken,
               }
             : undefined,
         },
