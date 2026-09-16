@@ -14,7 +14,6 @@ import { URLStatusIndicator } from "@/components/ui/URLStatusIndicator";
 import { GoogleLoginButton } from "./GoogleLoginButton";
 import { useCaptcha } from "@/hooks/useCaptcha";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
-import { CaptchaActions } from "@repo/constants";
 import { authClient } from "@repo/ui";
 import { normalizeHandle, cleanHandleInput, getHandlePublicUrl } from "@repo/ui";
 import { trackGAEvent, trackTwitterEvent, loadTwitterPixel } from "@/utils/ga";
@@ -288,8 +287,8 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setLoading(true);
     setLoginError(null);
     try {
-      // Get reCAPTCHA token using the invisible captcha
-      const recaptchaToken = await executeCaptcha(CaptchaActions.LOGIN);
+      // Get a captcha token using the invisible Cap widget
+      const captchaToken = await executeCaptcha();
 
       // Using better-auth for email/password login
       const response = await authClient.signIn.email({
@@ -298,9 +297,9 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         callbackURL: window.location.href,
         rememberMe: true,
         fetchOptions: {
-          headers: recaptchaToken
+          headers: captchaToken
             ? {
-                "x-captcha-response": recaptchaToken!,
+                "x-captcha-response": captchaToken!,
               }
             : undefined,
         },
@@ -384,7 +383,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setLoading(true);
     setRegisterError(null);
     try {
-      const recaptchaToken = await executeCaptcha(CaptchaActions.REGISTER);
+      const captchaToken = await executeCaptcha();
       const referrerId = getReferrerId();
 
       const response = await authClient.signUp.email({
@@ -395,9 +394,9 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
         callbackURL: window.location.href,
         fetchOptions: {
           query: referrerId ? { referrerId } : undefined,
-          headers: recaptchaToken
+          headers: captchaToken
             ? {
-                "x-captcha-response": recaptchaToken!,
+                "x-captcha-response": captchaToken!,
               }
             : undefined,
         },
@@ -440,9 +439,9 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     setResetSuccess(false);
 
     try {
-      // Get reCAPTCHA token using the invisible captcha
-      const recaptchaToken = await executeCaptcha(CaptchaActions.RESET_PASSWORD);
-      const response = await resetPassword(data.email, recaptchaToken);
+      // Get a captcha token using the invisible Cap widget
+      const captchaToken = await executeCaptcha();
+      const response = await resetPassword(data.email, captchaToken);
       if (response.success) {
         setResetSuccess(true);
       } else {

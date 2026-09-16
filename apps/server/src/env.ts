@@ -98,7 +98,12 @@ const envSchema = z.object({
   // Custom S3 endpoint URL (for S3-compatible services like MinIO or S3Mock)
   AWS_S3_ENDPOINT: z.string().default(""),
 
-  // Secret key for Google reCAPTCHA verification
+  // Self-hosted Cap captcha configuration
+  // Base URL of the Cap instance
+  CAPTCHA_SERVER_URL: z.string().default(""),
+  // Cap site key that scopes token verification
+  CAPTCHA_SITE_KEY: z.string().default(""),
+  // Cap secret key used for server-side verification
   CAPTCHA_SECRET_KEY: z.string().default(""),
 
   // File upload size limits (in MB)

@@ -16,6 +16,7 @@ interface ImportMetaEnv {
   readonly VITE_SHOW_WALLET: string;
   readonly VITE_DEFAULT_NETWORK_ID_HEX: `0x${string}`;
   // google
+  readonly VITE_CAPTCHA_SERVER_URL: string;
   readonly VITE_CAPTCHA_SITE_KEY: string;
   readonly VITE_GOOGLE_CLIENT_ID: string;
   // ndau account
@@ -35,12 +36,6 @@ interface Window {
   };
   FreshworksWidget?: any;
   gtag?: (...args: any[]) => void;
-  grecaptcha?: {
-    enterprise?: {
-      ready: (callback: () => void) => Promise<void>;
-      execute: (siteKey: string, options: { action: string }) => Promise<string>;
-    };
-  };
   ethereum?: {
     request: (args: { method: string; params?: Array<unknown> }) => Promise<unknown>;
     on: (event: string, handler: (arg: unknown) => void) => void;
