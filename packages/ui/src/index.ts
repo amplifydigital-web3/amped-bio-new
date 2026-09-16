@@ -13,6 +13,7 @@ export * from "./select";
 export * from "./Tooltip";
 export { Textarea } from "./Textarea";
 export { cn } from "./utils";
+export { ExternalRedirect } from "./external-redirect";
 
 // Auth
 export { AuthProvider, useAuth } from "./auth-context";

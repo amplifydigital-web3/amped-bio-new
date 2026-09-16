@@ -1,6 +1,5 @@
 import { ReactNode } from "react";
-import { Navigate } from "react-router";
-import { useAuth } from "@repo/ui";
+import { ExternalRedirect, useAuth } from "@repo/ui";
 import { Loader2 } from "lucide-react";
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -24,12 +23,12 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
 
   // Redirect to the public site with the login popup open if not authenticated
   if (authUser === null) {
-    return <Navigate to={`${import.meta.env.VITE_LANDING_URL}/login`} replace />;
+    return <ExternalRedirect to={`${import.meta.env.VITE_LANDING_URL}/login`} />;
   }
 
   // Only admins can access this app
   if (!authUser.role.includes("admin")) {
-    return <Navigate to={import.meta.env.VITE_LANDING_URL} replace />;
+    return <ExternalRedirect to={import.meta.env.VITE_LANDING_URL} />;
   }
 
   return <>{children}</>;

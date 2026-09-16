@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router";
+import { BrowserRouter, Routes, Route } from "react-router";
 import { Editor } from "./pages/Editor";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -10,7 +10,7 @@ import { Toaster as AppToaster } from "@/components/ui/toast";
 import { EditorProvider } from "./contexts/EditorContext";
 import { useTokenExpiration } from "./hooks/useTokenExpiration";
 import { useReferralHandler } from "./hooks/useReferralHandler";
-import { useAuth } from "@repo/ui";
+import { ExternalRedirect, useAuth } from "@repo/ui";
 import { Loader2 } from "lucide-react";
 
 function AppRouter() {
@@ -60,9 +60,8 @@ function PublicSiteRedirect() {
   }
 
   return (
-    <Navigate
+    <ExternalRedirect
       to={authUser === null ? `${import.meta.env.VITE_LANDING_URL}/login` : import.meta.env.VITE_LANDING_URL}
-      replace
     />
   );
 }
