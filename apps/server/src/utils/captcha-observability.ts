@@ -42,22 +42,27 @@ function describeRequest(body: unknown) {
 }
 
 async function logCaptchaVerdict(response: Response, request: Record<string, unknown>) {
-  let verdict: CaptchaVerdict;
+  const body = await response.clone().text();
+
+  let verdict: CaptchaVerdict | null;
   try {
-    verdict = (await response.clone().json()) as CaptchaVerdict;
+    verdict = JSON.parse(body) as CaptchaVerdict;
   } catch {
-    console.error("[captcha] siteverify returned a non-JSON response", JSON.stringify(request));
-    return;
+    verdict = null;
   }
 
   const details = {
     ...request,
     status: response.status,
-    success: verdict.success,
-    error: verdict.error,
+    success: verdict?.success,
+    error: verdict?.error,
+    // A 2xx response without `success: true` (for example an HTML page from a
+    // misconfigured host) is indistinguishable from a rejection, so keep the
+    // provider body around to see what actually answered.
+    body: body.slice(0, 300),
   };
 
-  if (verdict.success !== true) {
+  if (verdict?.success !== true) {
     console.error("[captcha] verification failed", JSON.stringify(details));
     return;
   }
@@ -75,6 +80,19 @@ export function instrumentCaptchaVerification(): void {
   if (typeof originalFetch !== "function") return;
 
   const patterns = verifyUrlPatterns();
+
+  // Printed once per boot: the fastest way to tell whether the deployed image
+  // actually carries this instrumentation and whether the captcha env is set.
+  console.info(
+    "[captcha] siteverify instrumentation active",
+    JSON.stringify({
+      patterns,
+      siteVerifyURL: `${env.CAPTCHA_SERVER_URL}/${env.CAPTCHA_SITE_KEY}/siteverify`,
+      serverUrlConfigured: env.CAPTCHA_SERVER_URL.length > 0,
+      siteKeyConfigured: env.CAPTCHA_SITE_KEY.length > 0,
+      secretConfigured: env.CAPTCHA_SECRET_KEY.length > 0,
+    })
+  );
 
   globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
