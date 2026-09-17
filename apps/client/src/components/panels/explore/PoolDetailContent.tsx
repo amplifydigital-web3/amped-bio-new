@@ -371,7 +371,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                         className="flex items-center space-x-1 text-xs text-green-700 hover:text-green-800 mt-1 transition-colors duration-200"
                       >
                         <Info className="w-3 h-3" />
-                        <span>View APR details</span>
+                        <span>View 24-Hour Average APR details</span>
                       </a>
                     </div>
                   )}
@@ -487,7 +487,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                       className="inline-flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-700 hover:underline transition-colors duration-200"
                     >
                       <ExternalLink className="w-4 h-4" />
-                      <span>How are Staking Rewards and Pool APR Calculated?</span>
+                      <span>How are Staking Rewards and 24-Hour Average APR Calculated?</span>
                     </a>
                   </div>
                 </div>
