@@ -11,6 +11,7 @@
     "start": "node dist/app.js",
     "start-local": "node dist/local.js",
     "dev": "tsx watch -r dotenv/config src/local.ts",
+    "prebuild": "node ./scripts/log-better-auth-secret.mjs",
     "build": "tsc && ts-add-js-extension --dir=dist",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix --exit-on-fatal-error",
