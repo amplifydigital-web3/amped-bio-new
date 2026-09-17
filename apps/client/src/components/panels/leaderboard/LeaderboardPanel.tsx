@@ -172,9 +172,8 @@ export function LeaderboardPanel() {
                     <TrendingUp className="w-5 h-5 text-purple-600" />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">APR</p>
+                    <p className="text-sm text-gray-500">24-Hour Average APR</p>
                     <p className="font-medium">{pool.apr}%</p>
-                    <p className="text-xs text-gray-500">Annual yield</p>
                   </div>
                 </div>
 

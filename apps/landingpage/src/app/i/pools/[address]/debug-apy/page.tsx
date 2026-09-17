@@ -9,11 +9,7 @@ import { calculatePoolAPYDebug, APYDebugInfo } from "@repo/web3";
 import { Button } from "@repo/ui";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 
-export default function PoolAPYDebugPage({
-  params,
-}: {
-  params: Promise<{ address: string }>;
-}) {
+export default function PoolAPYDebugPage({ params }: { params: Promise<{ address: string }> }) {
   const { address: poolAddress } = use(params);
   const router = useRouter();
   const publicClient = usePublicClient();
@@ -59,8 +55,8 @@ export default function PoolAPYDebugPage({
         setTimestamp(new Date());
         setError(null);
       } catch (err) {
-        console.error("Error fetching APY debug data:", err);
-        setError(err instanceof Error ? err.message : "Failed to fetch APY debug data");
+        console.error("Error fetching 24-Hour Average APR data:", err);
+        setError(err instanceof Error ? err.message : "Failed to fetch 24-Hour Average APR data");
       } finally {
         setIsLoading(false);
       }
@@ -90,18 +86,18 @@ export default function PoolAPYDebugPage({
       <>
         <PublicHeader />
         <div className="min-h-screen bg-gray-900 text-white p-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-gray-800 rounded-lg p-6">
-            <h1 className="text-2xl font-bold mb-4">APY Debug - Loading...</h1>
-            <div className="animate-pulse">
-              <div className="h-4 bg-gray-700 rounded mb-2"></div>
-              <div className="h-4 bg-gray-700 rounded mb-2 w-3/4"></div>
-              <div className="h-4 bg-gray-700 rounded mb-4 w-1/2"></div>
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-gray-800 rounded-lg p-6">
+              <h1 className="text-2xl font-bold mb-4">24-Hour Average APR - Loading...</h1>
+              <div className="animate-pulse">
+                <div className="h-4 bg-gray-700 rounded mb-2"></div>
+                <div className="h-4 bg-gray-700 rounded mb-2 w-3/4"></div>
+                <div className="h-4 bg-gray-700 rounded mb-4 w-1/2"></div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </>
+      </>
     );
   }
 
@@ -110,19 +106,19 @@ export default function PoolAPYDebugPage({
       <>
         <PublicHeader />
         <div className="min-h-screen bg-gray-900 text-white p-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-gray-800 rounded-lg p-6">
-            <h1 className="text-2xl font-bold mb-4">APY Debug - Error</h1>
-            <div className="bg-red-900/50 border border-red-700 rounded-lg p-4">
-              <p className="text-red-300">{error}</p>
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-gray-800 rounded-lg p-6">
+              <h1 className="text-2xl font-bold mb-4">24-Hour Average APR - Error</h1>
+              <div className="bg-red-900/50 border border-red-700 rounded-lg p-4">
+                <p className="text-red-300">{error}</p>
+              </div>
+              <Button onClick={handleBack} className="mt-4">
+                Back to Pool
+              </Button>
             </div>
-            <Button onClick={handleBack} className="mt-4">
-              Back to Pool
-            </Button>
           </div>
         </div>
-      </div>
-    </>
+      </>
     );
   }
 
@@ -130,60 +126,64 @@ export default function PoolAPYDebugPage({
     <>
       <PublicHeader />
       <div className="min-h-screen bg-gray-900 text-white p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-gray-800 rounded-lg p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold">APY Debug: {poolName}</h1>
-              <p className="text-gray-400 text-sm mt-1">{poolAddress}</p>
-              {timestamp && (
-                <p className="text-gray-500 text-xs mt-2">
-                  Last updated: {formatTimestamp(timestamp)}
-                </p>
-              )}
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-gray-800 rounded-lg p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h1 className="text-2xl font-bold">24-Hour Average APR: {poolName}</h1>
+                <p className="text-gray-400 text-sm mt-1">{poolAddress}</p>
+                {timestamp && (
+                  <p className="text-gray-500 text-xs mt-2">
+                    Last updated: {formatTimestamp(timestamp)}
+                  </p>
+                )}
+              </div>
+              <Button onClick={handleBack} variant="outline">
+                Back to Pool
+              </Button>
             </div>
-            <Button onClick={handleBack} variant="outline">
-              Back to Pool
-            </Button>
-          </div>
 
-          <div className="space-y-6 font-mono text-sm">
-            <div>
-              <h2 className="text-lg font-bold text-blue-400 mb-3">STEP 1: Pool Data</h2>
-              <pre className="bg-gray-900 rounded-lg p-4 whitespace-pre-wrap text-xs">
-                {`Node Address: ${debugData.step1_poolData.nodeAddr}
+            <div className="space-y-6 font-mono text-sm">
+              <div>
+                <h2 className="text-lg font-bold text-blue-400 mb-3">STEP 1: Pool Data</h2>
+                <pre className="bg-gray-900 rounded-lg p-4 whitespace-pre-wrap text-xs">
+                  {`Node Address: ${debugData.step1_poolData.nodeAddr}
 Creator Cut: ${debugData.step1_poolData.creatorCutBps} bps (${(Number(debugData.step1_poolData.creatorCutBps) / 100).toFixed(2)}%)
 Creator Staked: ${debugData.step1_poolData.creatorStaked.toFixed(6)} tokens
 Total Fan Staked: ${debugData.step1_poolData.totalFanStaked.toFixed(6)} tokens
 Pool Effective Stake: ${debugData.step1_poolData.poolEffectiveStake.toFixed(6)} tokens`}
-              </pre>
-            </div>
+                </pre>
+              </div>
 
-            <div>
-              <h2 className="text-lg font-bold text-green-400 mb-3">STEP 2: Global System Data</h2>
-              <pre className="bg-gray-900 rounded-lg p-4 whitespace-pre-wrap text-xs">
-                {`Total Nodes: ${debugData.step2_globalSystemData.totalNodes}
+              <div>
+                <h2 className="text-lg font-bold text-green-400 mb-3">
+                  STEP 2: Global System Data
+                </h2>
+                <pre className="bg-gray-900 rounded-lg p-4 whitespace-pre-wrap text-xs">
+                  {`Total Nodes: ${debugData.step2_globalSystemData.totalNodes}
 Total System Stake: ${debugData.step2_globalSystemData.totalSystemStake.toFixed(6)} tokens
 Batch Count: ${debugData.step2_globalSystemData.batchCount.toString()}
 Reward Per Batch: ${debugData.step2_globalSystemData.rewardPerBatch.toFixed(6)} tokens
 Annual System Rewards: ${debugData.step2_globalSystemData.annualSystemRewards.toFixed(6)} tokens
 Batches Per Hour: ${debugData.step2_globalSystemData.batchesPerHour.toFixed(2)} (${debugData.step2_globalSystemData.batchesPerHourSource})
 Batches Per Year: ${Math.round(debugData.step2_globalSystemData.batchesPerYear).toLocaleString("en-US")}`}
-              </pre>
-            </div>
+                </pre>
+              </div>
 
-            <div>
-              <h2 className="text-lg font-bold text-yellow-400 mb-3">STEP 3: Node Data</h2>
-              <pre className="bg-gray-900 rounded-lg p-4 whitespace-pre-wrap text-xs">
-                {`Node Total Stake: ${debugData.step3_nodeData.nodeTotalStake.toFixed(6)} tokens
+              <div>
+                <h2 className="text-lg font-bold text-yellow-400 mb-3">STEP 3: Node Data</h2>
+                <pre className="bg-gray-900 rounded-lg p-4 whitespace-pre-wrap text-xs">
+                  {`Node Total Stake: ${debugData.step3_nodeData.nodeTotalStake.toFixed(6)} tokens
 Node Cut: ${debugData.step3_nodeData.nodeCutBps} bps (${debugData.step3_nodeData.nodeCutPercentage.toFixed(2)}%)`}
-              </pre>
-            </div>
+                </pre>
+              </div>
 
-            <div>
-              <h2 className="text-lg font-bold text-purple-400 mb-3">STEP 4: APY Calculation</h2>
-              <pre className="bg-gray-900 rounded-lg p-4 whitespace-pre-wrap text-xs">
-                {`1. Total System Stake (tokens): ${debugData.step4_calculation.totalSystemStakeTokens.toFixed(6)}
+              <div>
+                <h2 className="text-lg font-bold text-purple-400 mb-3">
+                  STEP 4: 24-Hour Average APR Calculation
+                </h2>
+                <pre className="bg-gray-900 rounded-lg p-4 whitespace-pre-wrap text-xs">
+                  {`1. Total System Stake (tokens): ${debugData.step4_calculation.totalSystemStakeTokens.toFixed(6)}
 
 2. Node Win Probability:
    ${debugData.step3_nodeData.nodeTotalStake.toFixed(6)} / ${debugData.step4_calculation.totalSystemStakeTokens.toFixed(6)}
@@ -209,36 +209,38 @@ Node Cut: ${debugData.step3_nodeData.nodeCutBps} bps (${debugData.step3_nodeData
    ${debugData.step4_calculation.poolAnnualRewards.toFixed(6)} × (10000 - ${debugData.step1_poolData.creatorCutBps}) / 10000
    = ${debugData.step4_calculation.fanAnnualToPool.toFixed(6)} tokens/year
 
-8. APY Calculation:
+8. 24-Hour Average APR Calculation:
    (${debugData.step4_calculation.fanAnnualToPool.toFixed(6)} / ${debugData.step1_poolData.totalFanStaked.toFixed(6)}) × 100
    = ${debugData.step4_calculation.apy.toFixed(4)}%
 
-9. Final APY (in basis points):
+9. Final 24-Hour Average APR (in basis points):
    ${debugData.step4_calculation.apy.toFixed(2)} × 100 = ${debugData.step4_calculation.finalApy} bps`}
-              </pre>
-            </div>
+                </pre>
+              </div>
 
-            <div>
-              <h2 className="text-lg font-bold text-red-400 mb-3">FINAL RESULT</h2>
-              <pre className="bg-gray-900 rounded-lg p-4 whitespace-pre-wrap text-xs">
-                {`APY: ${debugData.step4_calculation.finalApy} bps (${debugData.step4_calculation.apyPercentage}%)`}
-              </pre>
-            </div>
+              <div>
+                <h2 className="text-lg font-bold text-red-400 mb-3">FINAL RESULT</h2>
+                <pre className="bg-gray-900 rounded-lg p-4 whitespace-pre-wrap text-xs">
+                  {`24-Hour Average APR: ${debugData.step4_calculation.finalApy} bps (${debugData.step4_calculation.apyPercentage}%)`}
+                </pre>
+              </div>
 
-            <div className="mt-8 p-4 bg-blue-900/30 border border-blue-700 rounded-lg">
-              <h3 className="text-sm font-semibold text-blue-300 mb-2">APY Formula Explanation:</h3>
-              <p className="text-xs text-blue-200">
-                APY = (Annual Rewards / Total Fan Staked) × 100
-              </p>
-              <p className="text-xs text-blue-200 mt-2">
-                Annual Rewards = System Annual Rewards × Node Win Probability × (1 - Node Cut) ×
-                Pool Share × (1 - Creator Cut)
-              </p>
+              <div className="mt-8 p-4 bg-blue-900/30 border border-blue-700 rounded-lg">
+                <h3 className="text-sm font-semibold text-blue-300 mb-2">
+                  24-Hour Average APR Formula Explanation:
+                </h3>
+                <p className="text-xs text-blue-200">
+                  24-Hour Average APR = (Annual Rewards / Total Fan Staked) × 100
+                </p>
+                <p className="text-xs text-blue-200 mt-2">
+                  Annual Rewards = System Annual Rewards × Node Win Probability × (1 - Node Cut) ×
+                  Pool Share × (1 - Creator Cut)
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
     </>
   );
 }

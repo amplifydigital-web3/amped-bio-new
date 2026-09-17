@@ -328,28 +328,26 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                     </div>
                   )}
 
-                  {/* Estimated Annualized Yield card */}
+                  {/* 24-Hour Average APR card */}
                   {pool?.apy !== undefined && pool.apy !== null && (
                     <div className="rounded-xl p-4 border border-green-100 flex flex-col justify-center">
                       <div className="flex items-center space-x-2 mb-2">
                         <Percent className="w-4 h-4 text-green-600" />
                         <span className="text-sm font-medium text-green-700">
-                          Estimated Annualized Yield
+                          24-Hour Average APR
                         </span>
                         <Popover>
                           <PopoverTrigger asChild>
                             <button
                               type="button"
-                              aria-label="How is the Estimated Annualized Yield calculated?"
+                              aria-label="How is the 24-Hour Average APR calculated?"
                               className="text-green-600 hover:text-green-800 transition-colors duration-200"
                             >
                               <HelpCircle className="w-4 h-4" />
                             </button>
                           </PopoverTrigger>
                           <PopoverContent align="start" className="w-72 space-y-2 text-sm">
-                            <p className="font-semibold text-gray-900">
-                              Estimated Annualized Yield
-                            </p>
+                            <p className="font-semibold text-gray-900">24-Hour Average APR</p>
                             <p className="text-gray-700">
                               This value is an instantaneous estimate of the annualized return based
                               on the current state of the pool.
@@ -357,7 +355,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                             <p className="text-gray-700">
                               It changes on every block as rewards accrue and the total amount
                               staked fluctuates. Each new stake or unstake also changes the result,
-                              so the displayed yield is only a snapshot of this moment and is not a
+                              so the displayed APR is only a snapshot of this moment and is not a
                               guaranteed rate.
                             </p>
                           </PopoverContent>
@@ -373,7 +371,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                         className="flex items-center space-x-1 text-xs text-green-700 hover:text-green-800 mt-1 transition-colors duration-200"
                       >
                         <Info className="w-3 h-3" />
-                        <span>View APY details</span>
+                        <span>View APR details</span>
                       </a>
                     </div>
                   )}
@@ -489,7 +487,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                       className="inline-flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-700 hover:underline transition-colors duration-200"
                     >
                       <ExternalLink className="w-4 h-4" />
-                      <span>How are Staking Rewards and Pool APY Calculated?</span>
+                      <span>How are Staking Rewards and Pool APR Calculated?</span>
                     </a>
                   </div>
                 </div>

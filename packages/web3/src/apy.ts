@@ -31,64 +31,25 @@ export interface APYDebugInfo {
     nodeCutBps: bigint;
     nodeCutPercentage: number;
   };
-  step4_calculation: {
-    totalSystemStakeTokens: number;
-    nodeWinProb: number;
-    nodeAnnualGross: number;
-    nodeAnnualNet: number;
-    poolShare: number;
-    poolAnnualRewards: number;
-    fanAnnualToPool: number;
-    apy: number;
-    finalApy: number;
-    apyPercentage: string;
-  };
+  step4_calculation: PoolAprBreakdown;
 }
 
 /**
- * Calculates the APY (Annual Percentage Yield) for a creator pool.
- * Returns APY in basis points (e.g., 1250 for 12.5%).
- *
- * @param poolAddress - The address of the creator pool
- * @param chainId - The chain ID
- * @param publicClient - The viem public client for making contract calls
- * @returns APY in basis points, or null if calculation fails
+ * Intermediate values of the 24-hour average APR calculation for a single pool.
+ * Shared by the user-facing calculation and the debug page so both cannot drift apart.
  */
-export interface APYDebugInfo {
-  step1_poolData: {
-    nodeAddr: string;
-    creatorCutBps: bigint;
-    creatorStaked: number;
-    totalFanStaked: number;
-    poolEffectiveStake: number;
-  };
-  step2_globalSystemData: {
-    totalNodes: number;
-    totalSystemStake: number;
-    batchCount: bigint;
-    rewardPerBatch: number;
-    batchesPerHour: number;
-    batchesPerYear: number;
-    batchesPerHourSource: "explorer" | "fallback";
-    annualSystemRewards: number;
-  };
-  step3_nodeData: {
-    nodeTotalStake: number;
-    nodeCutBps: bigint;
-    nodeCutPercentage: number;
-  };
-  step4_calculation: {
-    totalSystemStakeTokens: number;
-    nodeWinProb: number;
-    nodeAnnualGross: number;
-    nodeAnnualNet: number;
-    poolShare: number;
-    poolAnnualRewards: number;
-    fanAnnualToPool: number;
-    apy: number;
-    finalApy: number;
-    apyPercentage: string;
-  };
+export interface PoolAprBreakdown {
+  totalSystemStakeTokens: number;
+  nodeWinProb: number;
+  nodeAnnualGross: number;
+  nodeAnnualNet: number;
+  poolShare: number;
+  poolAnnualRewards: number;
+  fanAnnualToPool: number;
+  apy: number;
+  /** APR in basis points, i.e. `apy * 100` rounded, the value shown in the UI. */
+  finalApy: number;
+  apyPercentage: string;
 }
 
 async function batchMulticall(
@@ -110,6 +71,74 @@ async function batchMulticall(
   return allResults;
 }
 
+/**
+ * Computes the 24-hour average APR breakdown for a single pool from the shared
+ * system/node/pool snapshots. Returns null when any required stake is zero, as the
+ * APR is undefined in that case.
+ */
+function computePoolApr(
+  poolData: {
+    creatorCutBps: bigint;
+    totalFanStaked: number;
+    poolEffectiveStake: number;
+  },
+  nodeData: {
+    nodeTotalStake: number;
+    nodeCutBps: bigint;
+  },
+  totalSystemStake: bigint,
+  annualSystemRewards: number
+): PoolAprBreakdown | null {
+  const { creatorCutBps, totalFanStaked, poolEffectiveStake } = poolData;
+  const { nodeTotalStake, nodeCutBps } = nodeData;
+
+  if (
+    totalSystemStake === 0n ||
+    totalFanStaked === 0 ||
+    poolEffectiveStake === 0 ||
+    nodeTotalStake === 0
+  ) {
+    return null;
+  }
+
+  const totalSystemStakeTokens = Number(formatUnits(totalSystemStake, CONFIG.tokenDecimals));
+  const nodeWinProb = nodeTotalStake / totalSystemStakeTokens;
+
+  const nodeAnnualGross = annualSystemRewards * nodeWinProb;
+  const nodeAnnualNet = (nodeAnnualGross * (10000 - Number(nodeCutBps))) / 10000;
+
+  const poolShare = poolEffectiveStake / nodeTotalStake;
+  const poolAnnualRewards = nodeAnnualNet * poolShare;
+
+  const fanAnnualToPool = (poolAnnualRewards * (10000 - Number(creatorCutBps))) / 10000;
+
+  const apy = (fanAnnualToPool / totalFanStaked) * 100;
+  const finalApy = Math.round(apy * 100);
+
+  return {
+    totalSystemStakeTokens,
+    nodeWinProb,
+    nodeAnnualGross,
+    nodeAnnualNet,
+    poolShare,
+    poolAnnualRewards,
+    fanAnnualToPool,
+    apy,
+    finalApy,
+    apyPercentage: (finalApy / 100).toFixed(2),
+  };
+}
+
+/**
+ * Calculates the 24-hour average APR for one or more creator pools, deriving the batch
+ * sealing rate from the batches sealed over the last 24 hours.
+ * Returns APR in basis points (e.g., 1250 for 12.5%).
+ *
+ * @param poolAddresses - The addresses of the creator pools
+ * @param chainId - The chain ID
+ * @param publicClient - The viem public client for making contract calls
+ * @returns APR in basis points per pool, or null when it cannot be computed
+ */
 export async function calculatePoolAPY(
   poolAddresses: Address[],
   chainId: number,
@@ -350,41 +379,22 @@ export async function calculatePoolAPY(
       const poolData = poolDataMap.get(poolAddress);
       if (!poolData) continue;
 
-      const { nodeAddr, creatorCutBps, totalFanStaked, poolEffectiveStake } = poolData;
-
-      if (totalFanStaked === 0) {
-        console.log(`[APY DEBUG] Pool ${poolAddress}: No fan stake, returning null`);
-        continue;
-      }
-
-      const nodeData = nodeDataMap.get(nodeAddr);
+      const nodeData = nodeDataMap.get(poolData.nodeAddr);
       if (!nodeData) continue;
 
-      const { nodeTotalStake, nodeCutBps } = nodeData;
+      const breakdown = computePoolApr(poolData, nodeData, totalSystemStake, annualSystemRewards);
 
-      if (totalSystemStake === 0n || nodeTotalStake === 0 || poolEffectiveStake === 0) {
-        console.log(`[APY DEBUG] Pool ${poolAddress}: Zero stakes detected, returning null`);
+      if (!breakdown) {
+        console.log(
+          `[APY DEBUG] Pool ${poolAddress}: Zero fan, pool, node or system stake, returning null`
+        );
         continue;
       }
 
-      const totalSystemStakeTokens = Number(formatUnits(totalSystemStake, CONFIG.tokenDecimals));
-      const nodeWinProb = nodeTotalStake / totalSystemStakeTokens;
-
-      const nodeAnnualGross = annualSystemRewards * nodeWinProb;
-      const nodeAnnualNet = (nodeAnnualGross * (10000 - Number(nodeCutBps))) / 10000;
-
-      const poolShare = poolEffectiveStake / nodeTotalStake;
-      const poolAnnualRewards = nodeAnnualNet * poolShare;
-
-      const fanAnnualToPool = (poolAnnualRewards * (10000 - Number(creatorCutBps))) / 10000;
-
-      const apy = (fanAnnualToPool / totalFanStaked) * 100;
-      const finalApy = Math.round(apy * 100);
-
-      result[poolAddress] = finalApy;
+      result[poolAddress] = breakdown.finalApy;
 
       console.log(
-        `[APY DEBUG] Pool ${poolAddress}: APY=${finalApy} bps (${(finalApy / 100).toFixed(2)}%)`
+        `[APY DEBUG] Pool ${poolAddress}: APR=${breakdown.finalApy} bps (${breakdown.apyPercentage}%)`
       );
     }
 
@@ -526,56 +536,22 @@ export async function calculatePoolAPYDebug(
       nodeCutPercentage,
     };
 
-    const totalSystemStakeTokens = Number(formatUnits(totalSystemStake, tokenDecimals));
+    const step4_calculation = computePoolApr(
+      { creatorCutBps, totalFanStaked, poolEffectiveStake },
+      { nodeTotalStake, nodeCutBps },
+      totalSystemStake,
+      annualSystemRewards
+    );
 
-    if (totalSystemStakeTokens === 0) {
+    if (!step4_calculation) {
       console.log(
-        `[APY DEBUG] Pool ${poolAddress}: totalSystemStakeTokens is zero, returning null`
+        `[APY DEBUG] Pool ${poolAddress}: Zero fan, pool, node or system stake, returning null`
       );
       return null;
     }
 
-    const nodeWinProb = nodeTotalStake / totalSystemStakeTokens;
-    const nodeAnnualGross = annualSystemRewards * nodeWinProb;
-
-    const nodeCutBpsNum = Number(nodeCutBps);
-    const nodeAnnualNet = (nodeAnnualGross * (10000 - nodeCutBpsNum)) / 10000;
-
-    if (nodeTotalStake === 0) {
-      console.log(`[APY DEBUG] Pool ${poolAddress}: nodeTotalStake is zero, returning null`);
-      return null;
-    }
-
-    let poolShare = poolEffectiveStake / nodeTotalStake;
-    poolShare = Math.max(0, Math.min(1, poolShare));
-    const poolAnnualRewards = nodeAnnualNet * poolShare;
-
-    const creatorCutBpsNum = Number(creatorCutBps);
-    const fanAnnualToPool = (poolAnnualRewards * (10000 - creatorCutBpsNum)) / 10000;
-
-    if (totalFanStaked === 0) {
-      console.log(`[APY DEBUG] Pool ${poolAddress}: totalFanStaked is zero, returning null`);
-      return null;
-    }
-
-    const apy = (fanAnnualToPool / totalFanStaked) * 100;
-    const finalApy = Math.round(apy * 100);
-
-    const step4_calculation = {
-      totalSystemStakeTokens,
-      nodeWinProb,
-      nodeAnnualGross,
-      nodeAnnualNet,
-      poolShare,
-      poolAnnualRewards,
-      fanAnnualToPool,
-      apy,
-      finalApy,
-      apyPercentage: (finalApy / 100).toFixed(2),
-    };
-
     console.log(
-      `[APY DEBUG] Pool ${poolAddress}: APY=${finalApy} bps (${step4_calculation.apyPercentage}%)`
+      `[APY DEBUG] Pool ${poolAddress}: APR=${step4_calculation.finalApy} bps (${step4_calculation.apyPercentage}%)`
     );
 
     return {
