@@ -452,7 +452,7 @@ export const AdminNdauConversions: FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                     {conversion.user?.handle ? (
                       <a
-                        href={`${import.meta.env.VITE_LANDING_URL}/${formatHandle(conversion.user.handle)}`}
+                        href={`${import.meta.env.VITE_LANDINGPAGE_URL}/${formatHandle(conversion.user.handle)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:underline"

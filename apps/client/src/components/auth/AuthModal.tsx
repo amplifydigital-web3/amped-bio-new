@@ -571,7 +571,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
                     <p className="text-sm text-gray-700">
                       You have been referred by{" "}
                       <a
-                        href={`${import.meta.env.VITE_LANDING_URL}/@${referrerInfo.handle}`}
+                        href={`${import.meta.env.VITE_LANDINGPAGE_URL}/@${referrerInfo.handle}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:text-blue-700 font-medium"

@@ -95,7 +95,7 @@ export function Editor() {
     // public profile lives on the landing site, so redirect there.
     if (rawPanel && !(EDITOR_PANELS as readonly string[]).includes(rawPanel)) {
       if (validateHandleFormat(normalizeHandle(rawPanel))) {
-        window.location.href = `${import.meta.env.VITE_LANDING_URL}/${formatHandle(rawPanel)}`;
+        window.location.href = `${import.meta.env.VITE_LANDINGPAGE_URL}/${formatHandle(rawPanel)}`;
         return;
       }
     }
@@ -113,7 +113,7 @@ export function Editor() {
     if (!isLoggedIn) {
       // User is not logged in, redirect to the login page on the public site
       toast.error("You need to log in to use the dashboard");
-      window.location.href = `${import.meta.env.VITE_LANDING_URL}/login`;
+      window.location.href = `${import.meta.env.VITE_LANDINGPAGE_URL}/login`;
       return;
     }
 

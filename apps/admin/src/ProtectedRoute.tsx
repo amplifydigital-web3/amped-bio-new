@@ -23,12 +23,12 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
 
   // Redirect to the public site with the login popup open if not authenticated
   if (authUser === null) {
-    return <ExternalRedirect to={`${import.meta.env.VITE_LANDING_URL}/login`} />;
+    return <ExternalRedirect to={`${import.meta.env.VITE_LANDINGPAGE_URL}/login`} />;
   }
 
   // Only admins can access this app
   if (!authUser.role.includes("admin")) {
-    return <ExternalRedirect to={import.meta.env.VITE_LANDING_URL} />;
+    return <ExternalRedirect to={import.meta.env.VITE_LANDINGPAGE_URL} />;
   }
 
   return <>{children}</>;

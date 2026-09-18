@@ -1009,7 +1009,7 @@ export default function DashboardPage() {
 
                   <div>
                     <a
-                      href={`${import.meta.env.VITE_LANDING_URL}/@${fan.handle}`}
+                      href={`${import.meta.env.VITE_LANDINGPAGE_URL}/@${fan.handle}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-medium text-gray-900 hover:text-blue-600 transition-colors duration-200"
@@ -1142,7 +1142,7 @@ export default function DashboardPage() {
 
                 <div>
                   <a
-                    href={`${import.meta.env.VITE_LANDING_URL}/@${activity.user}`}
+                    href={`${import.meta.env.VITE_LANDINGPAGE_URL}/@${activity.user}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="font-medium text-gray-900 hover:text-blue-600 transition-colors duration-200"

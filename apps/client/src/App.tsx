@@ -61,7 +61,7 @@ function PublicSiteRedirect() {
 
   return (
     <ExternalRedirect
-      to={authUser === null ? `${import.meta.env.VITE_LANDING_URL}/login` : import.meta.env.VITE_LANDING_URL}
+      to={authUser === null ? `${import.meta.env.VITE_LANDINGPAGE_URL}/login` : import.meta.env.VITE_LANDINGPAGE_URL}
     />
   );
 }

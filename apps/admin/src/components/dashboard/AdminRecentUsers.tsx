@@ -45,7 +45,7 @@ export const AdminRecentUsers = ({
   // Handle handle click
   const openHandle = (handle: string | null) => {
     if (handle) {
-      window.open(`${import.meta.env.VITE_LANDING_URL}/@${handle}`, "_blank");
+      window.open(`${import.meta.env.VITE_LANDINGPAGE_URL}/@${handle}`, "_blank");
     }
   };
 

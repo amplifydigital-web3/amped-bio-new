@@ -63,7 +63,7 @@ function ReferralCard() {
   });
 
   const userIdHex = authUser ? `0x${authUser.id.toString(16)}` : "";
-  const referralLink = userIdHex ? `${import.meta.env.VITE_LANDING_URL}/register?r=${userIdHex}` : "";
+  const referralLink = userIdHex ? `${import.meta.env.VITE_LANDINGPAGE_URL}/register?r=${userIdHex}` : "";
 
   const copyToClipboard = async () => {
     try {
@@ -217,7 +217,7 @@ function ReferralCard() {
                                 {referral.name}
                               </p>
                               <a
-                                href={`${import.meta.env.VITE_LANDING_URL}/@${referral.handle}`}
+                                href={`${import.meta.env.VITE_LANDINGPAGE_URL}/@${referral.handle}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-xs text-blue-600 hover:text-blue-800 hover:underline truncate"
