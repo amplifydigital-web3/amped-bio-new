@@ -7,7 +7,7 @@ import {
 } from "@web3auth/modal/react";
 import { useCallback, useEffect, useRef } from "react";
 import { trpcClient } from "@repo/ui";
-import { WALLET_CONNECTORS, AUTH_CONNECTION } from "@web3auth/modal";
+import { WALLET_CONNECTORS, AUTH_CONNECTION, CONNECTOR_STATUS } from "@web3auth/modal";
 
 export const useMetaMaskWallet = () => {
   const { connect, connectors } = useConnect();
@@ -55,8 +55,21 @@ export const useWeb3AuthWallet = () => {
   const { getIdentityToken } = useIdentityToken();
   const publicClient = usePublicClient();
   const benchmarkDoneRef = useRef(false);
+  const connectInFlightRef = useRef(false);
+  const { web3Auth } = dataWeb3Auth;
 
   const getTokenAndConnect = useCallback(async () => {
+    // Web3Auth throws `WalletLoginError: Failed to connect with wallet. Already
+    // connected` when a connection is attempted while a session is still active.
+    // This happens on rehydration, when the core session is restored before the
+    // React status reflects it, so guard against redundant attempts here.
+    const coreStatus = web3Auth?.status;
+    if (connectInFlightRef.current) return;
+    if (coreStatus === CONNECTOR_STATUS.CONNECTED || coreStatus === CONNECTOR_STATUS.CONNECTING) {
+      return;
+    }
+
+    connectInFlightRef.current = true;
     try {
       const { walletToken } = await trpcClient.auth.getWalletToken.query();
 
@@ -79,8 +92,10 @@ export const useWeb3AuthWallet = () => {
       });
     } catch (err) {
       console.error("Error fetching wallet token:", err);
+    } finally {
+      connectInFlightRef.current = false;
     }
-  }, [connectTo]);
+  }, [connectTo, web3Auth]);
 
   useEffect(() => {
     if (dataWeb3Auth.status === "connected" && publicClient && !benchmarkDoneRef.current) {

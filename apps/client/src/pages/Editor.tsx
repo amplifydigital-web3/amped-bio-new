@@ -89,7 +89,8 @@ export function Editor() {
         ? (rawPanel as EditorPanelType)
         : ((location.state?.panel as EditorPanelType | undefined) ?? "home");
 
-    const target = `/${panel}${query ? `?${query}` : ""}`;
+    const targetPath = `/${panel}`;
+    const targetSearch = query ? `?${query}` : "";
 
     // If the segment is not a known panel and looks like a profile handle, the
     // public profile lives on the landing site, so redirect there.
@@ -100,8 +101,11 @@ export function Editor() {
       }
     }
 
-    if (location.pathname !== target || hadPanelParam) {
-      nav(target, { replace: true });
+    // Compare path and search separately: `location.pathname` never contains the
+    // query string, so comparing it against a target that includes `?query`
+    // would always be truthy and navigate on every render (replaceState loop).
+    if (location.pathname !== targetPath || location.search !== targetSearch || hadPanelParam) {
+      nav(`${targetPath}${targetSearch}`, { replace: true });
     }
     setActivePanel(panel);
   }, [panelParam, legacyHandle, location, nav, setActivePanel]);

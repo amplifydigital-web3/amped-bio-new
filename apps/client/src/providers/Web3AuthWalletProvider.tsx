@@ -14,6 +14,15 @@ const TOKEN_EXPIRATION_BUFFER = 60_000; // Refresh if token expires in less than
 export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) => {
   const { authUser, updateAuthUser } = useAuth();
   const wallet = useWeb3AuthWallet();
+  const {
+    status: walletStatus,
+    address: walletAddress,
+    connect: walletConnect,
+    disconnect: walletDisconnect,
+    getIdentityToken: walletGetIdentityToken,
+    provider: walletProvider,
+    error: walletError,
+  } = wallet;
 
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [isUSD, setIsUSD] = useState(false);
@@ -46,35 +55,35 @@ export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) =>
   }, []);
 
   useEffect(() => {
-    if (wallet.error) {
-      console.error("Wallet connection error:", wallet.error);
+    if (walletError) {
+      console.error("Wallet connection error:", walletError);
     }
-  }, [wallet.error]);
+  }, [walletError]);
 
   useEffect(() => {
-    if (authUser && wallet && wallet.status !== "connected" && wallet.status !== "connecting") {
+    if (authUser && walletStatus !== "connected" && walletStatus !== "connecting") {
       const now = Date.now();
       if (now - lastConnectAttemptRef.current >= THROTTLE_DURATION) {
         lastConnectAttemptRef.current = now;
-        wallet.connect();
+        walletConnect();
       }
     }
-  }, [authUser, wallet]);
+  }, [authUser, walletStatus, walletConnect]);
 
   useEffect(() => {
-    if (!authUser && wallet.status === "connected") {
+    if (!authUser && walletStatus === "connected") {
       console.info("Disconnecting wallet due to user logout");
       localStorage.removeItem("walletTokenExpiration");
-      wallet.disconnect();
+      walletDisconnect();
     }
-  }, [authUser, wallet.status, wallet.disconnect]);
+  }, [authUser, walletStatus, walletDisconnect]);
 
   useEffect(() => {
     const getAndSetPublicKey = async () => {
-      if (wallet.provider) {
+      if (walletProvider) {
         try {
           // @ts-ignore
-          const pubKey = await wallet.provider.request({ method: "public_key" });
+          const pubKey = await walletProvider.request({ method: "public_key" });
           setPublicKey(pubKey as string);
         } catch (error) {
           console.error("Error getting public key:", error);
@@ -86,7 +95,7 @@ export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) =>
     };
 
     getAndSetPublicKey();
-  }, [wallet.provider, setPublicKey]);
+  }, [walletProvider, setPublicKey]);
 
   useEffect(() => {
     const linkAddress = async () => {
@@ -100,21 +109,21 @@ export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) =>
         // Link wallet if user is authenticated, wallet is connected, and user doesn't have a wallet linked yet
         if (
           authUser &&
-          wallet.status === "connected" &&
-          wallet.address &&
+          walletStatus === "connected" &&
+          walletAddress &&
           !authUser.wallet &&
           publicKey
         ) {
           try {
             // @ts-ignore
-            const idToken = await wallet.getIdentityToken();
+            const idToken = await walletGetIdentityToken();
 
             await trpcClient.wallet.linkWalletAddress.mutate({
               publicKey: publicKey as string,
               idToken: idToken,
             });
             console.info("Wallet address linked successfully");
-            updateAuthUser({ wallet: wallet.address });
+            updateAuthUser({ wallet: walletAddress });
           } catch (err) {
             if (err instanceof TRPCClientError && err.data?.code === "CONFLICT") {
               console.info("Wallet already linked.");
@@ -129,11 +138,11 @@ export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) =>
       }
     };
     linkAddress();
-  }, [authUser, wallet.status, wallet.address, wallet, publicKey]);
+  }, [authUser, walletStatus, walletAddress, walletGetIdentityToken, publicKey, updateAuthUser]);
 
   useEffect(() => {
     const refreshTokenIfNeeded = async () => {
-      if (!authUser || wallet.status !== "connected" || refreshTokenRunningRef.current) {
+      if (!authUser || walletStatus !== "connected" || refreshTokenRunningRef.current) {
         return;
       }
 
@@ -151,8 +160,8 @@ export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) =>
         refreshTokenRunningRef.current = true;
 
         try {
-          await wallet.disconnect();
-          await wallet.connect();
+          await walletDisconnect();
+          await walletConnect();
           console.info("Token refreshed successfully");
         } catch (error) {
           console.error("Error refreshing token:", error);
@@ -165,11 +174,11 @@ export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) =>
     const interval = setInterval(refreshTokenIfNeeded, TOKEN_REFRESH_CHECK_INTERVAL);
 
     return () => clearInterval(interval);
-  }, [authUser, wallet.status, wallet.connect, wallet.disconnect, tokenExpiration]);
+  }, [authUser, walletStatus, walletConnect, walletDisconnect, tokenExpiration]);
 
   const address = useMemo(() => {
-    return (authUser?.wallet ?? wallet.address) as Address | undefined;
-  }, [authUser, wallet.address]);
+    return (authUser?.wallet ?? walletAddress) as Address | undefined;
+  }, [authUser, walletAddress]);
 
   const balance = useBalance({
     address: address,
@@ -183,17 +192,17 @@ export const Web3AuthWalletProvider = ({ children }: { children: ReactNode }) =>
   return (
     <WalletContext.Provider
       value={{
-        connecting: wallet.status === "connecting",
-        connect: wallet.connect,
-        disconnect: wallet.disconnect,
+        connecting: walletStatus === "connecting",
+        connect: walletConnect,
+        disconnect: walletDisconnect,
         balance,
         isUSD,
         setIsUSD,
         updateBalanceDelayed,
         publicKey,
         address: address,
-        getIdentityToken: wallet.getIdentityToken,
-        isWeb3Wallet: wallet?.address !== undefined,
+        getIdentityToken: walletGetIdentityToken,
+        isWeb3Wallet: walletAddress !== undefined,
       }}
     >
       {children}
