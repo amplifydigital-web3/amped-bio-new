@@ -1,0 +1,77 @@
+---
+title: OAuth reference
+description: Endpoints, discovery documents, parameters and token lifetimes.
+order: 10
+group: Reference
+---
+
+## Discovery
+
+| Document | URL |
+| --- | --- |
+| OpenID Connect discovery | `https://api.amped.bio/auth/.well-known/openid-configuration` |
+| OAuth authorization server metadata | `https://api.amped.bio/auth/.well-known/oauth-authorization-server` |
+| OAuth authorization server metadata (RFC 8414 path form) | `https://api.amped.bio/.well-known/oauth-authorization-server/auth` |
+| Protected resource metadata (MCP) | `https://api.amped.bio/.well-known/oauth-protected-resource/mcp` |
+| JSON Web Key Set | `https://api.amped.bio/.well-known/jwks.json` |
+
+The issuer is `https://api.amped.bio/auth`. Clients that only probe the origin root are redirected to the
+canonical documents.
+
+## Endpoints
+
+| Endpoint | Path | Notes |
+| --- | --- | --- |
+| Authorization | `/auth/oauth2/authorize` | `response_type=code` only, PKCE `S256` |
+| Token | `/auth/oauth2/token` | `authorization_code`, `refresh_token`, `client_credentials`, device grant |
+| Consent | `/auth/oauth2/consent` | Used by our hosted consent screen |
+| UserInfo | `/auth/oauth2/userinfo` | Requires the `openid` scope |
+| Introspection | `/auth/oauth2/introspect` | RFC 7662, client authentication required |
+| Revocation | `/auth/oauth2/revoke` | RFC 7009 |
+| Dynamic registration | `/auth/oauth2/register` | Enabled for machine clients with an initial access token |
+| Client management | `/auth/oauth2/create-client`, `/auth/oauth2/get-clients`, `/auth/oauth2/update-client`, `/auth/oauth2/delete-client`, `/auth/oauth2/client/rotate-secret` | Session authenticated |
+| Device authorization | `/auth/device/code`, `/auth/device/token` | RFC 8628 |
+| Device approval page | `/oauth/device` | Redirects to the hosted approval page |
+
+## Authorization request
+
+| Parameter | Required | Notes |
+| --- | --- | --- |
+| `client_id` | yes | |
+| `redirect_uri` | yes | Exact match against the registered URIs |
+| `response_type` | yes | `code` |
+| `scope` | no | Space separated; defaults to the client's registered scopes |
+| `state` | recommended | Echoed back, use it to prevent CSRF |
+| `code_challenge` / `code_challenge_method` | yes for public clients | `S256` only |
+| `nonce` | recommended for OIDC | Included in the ID token |
+| `prompt` | no | `login`, `consent`, `create`, `select_account`, `none` |
+| `resource` | no | RFC 8707 protected resource identifier, required to receive a resource bound token |
+
+The authorization response always includes `iss` (RFC 9207) so clients can detect mix-up attacks.
+
+## Client authentication
+
+| Method | When to use |
+| --- | --- |
+| `client_secret_basic` | Confidential clients (default) |
+| `client_secret_post` | Confidential clients that cannot send Authorization headers |
+| `private_key_jwt` | Confidential clients using asymmetric keys |
+| `none` | Public clients (SPAs, mobile apps, CLIs) with PKCE |
+
+## Token lifetimes
+
+| Token | Lifetime |
+| --- | --- |
+| Authorization code | 10 minutes |
+| Access token | 15 minutes (per resource policy when a `resource` is requested) |
+| ID token | 10 hours |
+| Refresh token | 30 days, rotated on every use |
+
+Because access tokens are stateless JWTs they cannot be revoked individually: end the session by revoking
+the refresh token, and keep lifetimes short.
+
+## Errors
+
+Authorization errors are returned to your `redirect_uri` as `error` and `error_description`. Token endpoint
+errors use the OAuth taxonomy (`invalid_request`, `invalid_client`, `invalid_grant`, `invalid_scope`,
+`invalid_target`) with an appropriate HTTP status.

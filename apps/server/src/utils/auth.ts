@@ -4,8 +4,13 @@ import { processEmailToUniqueHandle } from "./onelink-generator";
 import { sendEmailVerification, sendPasswordResetEmail, sendWelcomeEmail } from "./email/email";
 import { hashPassword, verifyPassword } from "./password";
 import { APIError, betterAuth } from "better-auth";
+import type { BetterAuthPlugin } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { captcha, jwt, customSession, twoFactor } from "better-auth/plugins";
+import { cimd } from "@better-auth/cimd";
+import { fetchClientMetadataResource } from "@better-auth/cimd/node";
+import { mcp } from "@better-auth/mcp";
+import { oauthDeviceAuthorization } from "@better-auth/oauth-provider";
 import crypto from "crypto";
 import { JWTPayload, SignJWT } from "jose";
 import type { EnrichedUser } from "../types/auth-helpers";
@@ -19,6 +24,15 @@ const pk = crypto.createPrivateKey({
 
 const pb = crypto.createPublicKey(pk);
 
+// Public origin of the auth server. The OAuth/OIDC issuer is this origin plus
+// the `/auth` base path; every token this server signs must carry it as `iss`
+// so access tokens, ID tokens and the app session JWTs verify consistently.
+export const AUTH_BASE_URL = (
+  env.BETTER_AUTH_URL || (env.API_HOST.startsWith("http") ? env.API_HOST : `https://${env.API_HOST}`)
+).replace(/\/+$/, "");
+
+export const OAUTH_ISSUER = `${AUTH_BASE_URL}/auth`;
+
 export const JWT_KEYS = {
   alg: "RS256" as const,
   privateKey: pk,
@@ -29,8 +43,38 @@ export const JWT_KEYS = {
     .digest("hex")
     .substring(0, 16), // Key ID for the JWT
   aud: env.JWT_AUDIENCE,
-  iss: env.APP_ENV === "development" ? "api.staging.amped.bio" : env.API_HOST,
+  iss: OAUTH_ISSUER,
 };
+
+// ================ OAuth 2.1 provider settings ==================
+// Paths are resolved against the API origin by Better Auth, so the Express app
+// redirects them to the landing page (see services/API.ts).
+export const OAUTH_LOGIN_PATH = "/oauth/login";
+export const OAUTH_CONSENT_PATH = "/oauth/consent";
+export const OAUTH_DEVICE_PATH = "/oauth/device";
+
+// Scopes every OAuth client may request. `openid` is what makes this an OIDC
+// provider; `mcp:read` is bound to the protected MCP resource.
+export const OAUTH_SCOPES = ["openid", "profile", "email", "offline_access", "mcp:read"] as const;
+
+// Identity-only scopes granted by default to dynamically registered clients.
+export const IDENTITY_SCOPES = ["openid", "profile", "email", "offline_access"] as const;
+
+// Identity access tokens are short lived; long lived access is delegated to
+// refresh tokens (`offline_access`).
+export const OAUTH_ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
+
+// First-party clients skip the consent screen.
+const trustedOAuthClientIds = env.OAUTH_TRUSTED_CLIENT_IDS.split(",")
+  .map(clientId => clientId.trim())
+  .filter(Boolean);
+
+// In this pnpm workspace the @better-auth/* packages resolve their own copy of
+// @better-auth/core, so their plugin objects are structurally different from
+// better-auth's `BetterAuthPlugin` even though they are compatible at runtime.
+// The intersection keeps the plugin's own types (its endpoints feed `auth.api`)
+// while still satisfying the plugins array.
+const asBetterAuthPlugin = <T>(plugin: T) => plugin as unknown as BetterAuthPlugin & T;
 
 // ================ better-auth configuration ==================
 export const auth = betterAuth({
@@ -110,11 +154,19 @@ export const auth = betterAuth({
     jwt({
       disableSettingJwtHeader: true,
       jwt: {
+        // The OAuth provider validates `iss` against its own issuer, so both the
+        // plugin and our signing override must use OAUTH_ISSUER.
+        issuer: OAUTH_ISSUER,
         sign: async (jwtPayload: JWTPayload) => {
-          return await new SignJWT(jwtPayload)
-            .setIssuedAt()
-            .setAudience(JWT_KEYS.aud)
-            .setIssuer(JWT_KEYS.iss)
+          const builder = new SignJWT(jwtPayload).setIssuedAt();
+
+          // Resource-bound access tokens carry their own `aud` (the protected
+          // resource) and the issuer; only fall back to the application
+          // defaults for tokens that do not define them.
+          if (!jwtPayload.aud) builder.setAudience(JWT_KEYS.aud);
+          if (!jwtPayload.iss) builder.setIssuer(OAUTH_ISSUER);
+
+          return await builder
             .setProtectedHeader({
               alg: JWT_KEYS.alg,
               kid: JWT_KEYS.kid,
@@ -124,16 +176,41 @@ export const auth = betterAuth({
         },
       },
       jwks: {
-        remoteUrl: new URL(
-          "/.well-known/jwks.json",
-          env.API_HOST.startsWith("http") ? env.API_HOST : `https://${env.API_HOST}`
-        ).href,
+        // Public URL of the JWKS that verifies every token this server issues
+        // (OAuth access tokens, ID tokens and the app session JWTs).
+        remoteUrl: new URL("/.well-known/jwks.json", AUTH_BASE_URL).href,
         keyPairConfig: {
           alg: JWT_KEYS.alg,
         },
       },
     }),
     // oneTap(),
+    // OAuth 2.1 / OIDC provider behind "Sign in with Amped.bio".
+    // mcp() *is* the OAuth provider configured for MCP resource binding, so it
+    // must never be combined with a separate oauthProvider() plugin.
+    asBetterAuthPlugin(
+      mcp({
+        loginPage: OAUTH_LOGIN_PATH,
+        consentPage: OAUTH_CONSENT_PATH,
+        resource: env.MCP_RESOURCE_URL,
+        scopes: [...OAUTH_SCOPES],
+        accessTokenExpiresIn: OAUTH_ACCESS_TOKEN_TTL_SECONDS,
+        allowDynamicClientRegistration: true,
+        clientRegistrationClientSecretExpiration: "30d",
+        clientRegistrationDefaultScopes: [...IDENTITY_SCOPES],
+        cachedTrustedClients: new Set(trustedOAuthClientIds),
+      })
+    ),
+    // Client ID Metadata Documents: lets MCP clients identify themselves with a
+    // hosted metadata document instead of dynamic registration.
+    asBetterAuthPlugin(
+      cimd({
+        fetchClientMetadataResource,
+        metadataProfile: "mcp-2026-07-28",
+      })
+    ),
+    // Device authorization grant (RFC 8628) for CLIs and limited-input clients.
+    asBetterAuthPlugin(oauthDeviceAuthorization({ verificationUri: OAUTH_DEVICE_PATH })),
   ],
   database: prismaAdapter(prisma, {
     provider: "mysql",
@@ -146,7 +223,9 @@ export const auth = betterAuth({
         }
       : undefined,
     database: {
-      useNumberId: true,
+      // Let the database generate numeric ids (all application tables use
+      // autoincrement integer primary keys).
+      generateId: "serial",
       // generateId: options => {
       //   // Let the database auto-generate IDs for 'user' and 'users' tables
       //   if (options.model === "user" || options.model === "users") {
@@ -222,28 +301,28 @@ export const auth = betterAuth({
       },
     },
   },
+  // Required to send the verification email. Top-level since Better Auth 1.7.
+  emailVerification: {
+    sendVerificationEmail: async ({ user, url, token }: { user: any; url: any; token: any }) => {
+      console.info("Sending email verification to:", JSON.stringify({ user, url, token }));
+      sendEmailVerification(user.email, token);
+    },
+    sendOnSignUp: true,
+    autoSignInAfterVerification: true,
+    expiresIn: 1 * 60 * 60, // 1 hour
+  },
   user: {
     changeEmail: {
       enabled: true,
     },
-    emailVerification: {
-      // Required to send the verification email
-      sendVerificationEmail: async ({ user, url, token }: { user: any; url: any; token: any }) => {
-        console.info("Sending email verification to:", JSON.stringify({ user, url, token }));
-        sendEmailVerification(user.email, token);
-      },
-      sendOnSignUp: true,
-      autoSignInAfterVerification: true,
-      expiresIn: 1 * 60 * 60, // 1 hour
-    },
-    modelName: "User",
+    // Only core user columns are mapped here; `handle`, `role` and
+    // `twoFactorEnabled` are declared in `additionalFields` below and their
+    // Prisma field names already match the Better Auth field keys.
     fields: {
       emailVerified: "email_verified",
       createdAt: "created_at",
       updatedAt: "updated_at",
       name: "name",
-      handle: "handle",
-      role: "role",
       image: "image",
     },
     additionalFields: {
@@ -275,7 +354,6 @@ export const auth = betterAuth({
     accountLinking: {
       trustedProviders: ["google"],
     },
-    modelName: "Account",
   },
   emailAndPassword: {
     enabled: true,

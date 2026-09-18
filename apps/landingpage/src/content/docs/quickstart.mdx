@@ -1,0 +1,115 @@
+---
+title: Quickstart
+description: Register an application and complete your first sign in.
+order: 2
+group: Getting started
+---
+
+## 1. Register your application
+
+Create an OAuth application in **Developers → OAuth applications** inside the Amped.bio app. You will get a
+`client_id`, and a `client_secret` shown only once.
+
+Rules for redirect URIs:
+
+- `Web` applications require `https` redirect URIs.
+- `Native` applications may use `http://localhost:<port>/...` while developing.
+
+## 2. Add the sign in button
+
+Send the user to the authorization endpoint. Generate and store a `state` and a PKCE verifier first.
+
+```js
+const verifier = crypto.randomUUID();
+const challenge = base64UrlEncode(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)));
+
+sessionStorage.setItem("pkce_verifier", verifier);
+
+const params = new URLSearchParams({
+  client_id: "YOUR_CLIENT_ID",
+  redirect_uri: "https://your-app.example.com/callback",
+  response_type: "code",
+  scope: "openid profile email",
+  state: crypto.randomUUID(),
+  code_challenge: challenge,
+  code_challenge_method: "S256",
+});
+
+window.location.href = `https://api.amped.bio/auth/oauth2/authorize?${params}`;
+```
+
+The user signs in and, unless you are a trusted first party client, sees a consent screen listing the scopes
+you asked for.
+
+## 3. Exchange the code
+
+Back on your `redirect_uri`, verify `state`, then exchange `code` at the token endpoint.
+
+```bash
+curl -sS https://api.amped.bio/auth/oauth2/token \
+  -H "content-type: application/x-www-form-urlencoded" \
+  -d grant_type=authorization_code \
+  -d code=CODE_FROM_CALLBACK \
+  -d redirect_uri=https://your-app.example.com/callback \
+  -d client_id=YOUR_CLIENT_ID \
+  -d client_secret=YOUR_CLIENT_SECRET \
+  -d code_verifier=YOUR_PKCE_VERIFIER
+```
+
+The response contains an `access_token` (valid for 15 minutes), an `id_token` when `openid` was requested,
+and a `refresh_token` when `offline_access` was requested.
+
+## 4. Read the user profile
+
+```bash
+curl -sS https://api.amped.bio/auth/oauth2/userinfo \
+  -H "authorization: Bearer ACCESS_TOKEN"
+```
+
+```json
+{
+  "sub": "42",
+  "name": "Ada Lovelace",
+  "given_name": "Ada",
+  "family_name": "Lovelace",
+  "email": "ada@example.com",
+  "email_verified": true
+}
+```
+
+## 5. Refresh when the access token expires
+
+```bash
+curl -sS https://api.amped.bio/auth/oauth2/token \
+  -H "content-type: application/x-www-form-urlencoded" \
+  -d grant_type=refresh_token \
+  -d refresh_token=YOUR_REFRESH_TOKEN \
+  -d client_id=YOUR_CLIENT_ID \
+  -d client_secret=YOUR_CLIENT_SECRET
+```
+
+Refresh tokens rotate: store the new one from every response.
+
+## Using Better Auth
+
+If your application already uses [Better Auth](https://better-auth.com), add us as a social provider:
+
+```ts
+import { betterAuth } from "better-auth";
+
+export const auth = betterAuth({
+  plugins: [],
+  socialProviders: {
+    "amped-bio": {
+      clientId: process.env.AMPED_CLIENT_ID!,
+      clientSecret: process.env.AMPED_CLIENT_SECRET!,
+      authorizationEndpoint: "https://api.amped.bio/auth/oauth2/authorize",
+      tokenEndpoint: "https://api.amped.bio/auth/oauth2/token",
+      userInfoEndpoint: "https://api.amped.bio/auth/oauth2/userinfo",
+      scopes: ["openid", "profile", "email"],
+    },
+  },
+});
+```
+
+See [Integrations](/docs/integrations) for framework specific snippets.

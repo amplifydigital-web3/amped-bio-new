@@ -1,0 +1,45 @@
+---
+title: Scopes and claims
+description: What each scope grants and which claims come back.
+order: 11
+group: Reference
+---
+
+## Supported scopes
+
+| Scope | Grants | UserInfo claims |
+| --- | --- | --- |
+| `openid` | Identity (required for OIDC) | `sub` |
+| `profile` | Basic profile | `name`, `given_name`, `family_name`, `picture` |
+| `email` | Email address | `email`, `email_verified` |
+| `offline_access` | Refresh token | - |
+| `mcp:read` | Read access to the MCP resource | - |
+
+Only ask for what you need: every scope is shown to the user on the consent screen, and users can revoke
+access at any time from **Developers → Authorized applications**.
+
+## Claims in the ID token
+
+The ID token always contains `iss`, `sub`, `aud`, `exp`, `iat`, `sid` and the `nonce` you sent. Profile and
+email claims are served through the userinfo endpoint instead of being duplicated in the ID token, so treat
+the access token as the source of truth for API calls.
+
+## Claims in the access token
+
+| Claim | Meaning |
+| --- | --- |
+| `sub` | Amped.bio user id |
+| `client_id` / `azp` | Your `client_id` |
+| `scope` | Granted scopes |
+| `sid` | Session id (tokens stop verifying once the session ends) |
+| `aud` | Requested `resource`, or the userinfo endpoint |
+
+## Requesting specific claims
+
+OpenID Connect lets a client ask for individual claims:
+
+```
+claims={"userinfo":{"email":null,"email_verified":null}}
+```
+
+Claims that no granted scope covers are omitted rather than returned as `null`.

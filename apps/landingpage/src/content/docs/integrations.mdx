@@ -1,0 +1,65 @@
+---
+title: Integrations
+description: Framework snippets for adding Sign in with Amped.bio.
+order: 20
+group: Guides
+---
+
+## Better Auth (recommended for TypeScript apps)
+
+```ts
+// auth.ts
+import { betterAuth } from "better-auth";
+
+export const auth = betterAuth({
+  socialProviders: {
+    "amped-bio": {
+      clientId: process.env.AMPED_CLIENT_ID!,
+      clientSecret: process.env.AMPED_CLIENT_SECRET!,
+      authorizationEndpoint: "https://api.amped.bio/auth/oauth2/authorize",
+      tokenEndpoint: "https://api.amped.bio/auth/oauth2/token",
+      userInfoEndpoint: "https://api.amped.bio/auth/oauth2/userinfo",
+      scopes: ["openid", "profile", "email"],
+    },
+  },
+});
+```
+
+```ts
+// sign in
+await authClient.signIn.social({
+  provider: "amped-bio",
+  callbackURL: "/dashboard",
+});
+```
+
+Use the client secret at the server only. Confidential clients authenticate at the token endpoint, so the
+exchange must not happen in the browser.
+
+## Any OAuth library (Auth.js, NextAuth, Passport)
+
+Every library that speaks generic OAuth 2.0 or OIDC works with the discovery document:
+
+- **Issuer**: `https://api.amped.bio/auth`
+- **Discovery**: `https://api.amped.bio/auth/.well-known/openid-configuration`
+- **Scopes**: `openid profile email`
+
+## Single page applications (public client)
+
+SPAs cannot keep a secret, so register a `none` (public) client and always send PKCE:
+
+1. Generate a verifier, store it in memory or `sessionStorage`.
+2. Send its `S256` challenge to `/auth/oauth2/authorize`.
+3. On the callback, exchange the code with `client_id` and `code_verifier` only.
+4. Keep the access token in memory; rely on the refresh token (`offline_access`) for long sessions.
+
+The token endpoint accepts cross-origin requests from public clients, so no proxy is required.
+
+## Server to server
+
+If your service acts on its own behalf, use the `client_credentials` grant with a confidential client that
+has `client_credentials_scopes` assigned by an administrator, and require the resource you are calling.
+
+## Widget and brand assets
+
+The official button, colour and copy rules live in [Brand and button](/docs/brand).

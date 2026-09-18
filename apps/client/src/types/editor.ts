@@ -49,6 +49,7 @@ export const EDITOR_PANELS = [
   "wallet",
   "pay",
   "account",
+  "developer",
 ] as const;
 
 export type EditorPanelType = (typeof EDITOR_PANELS)[number];
