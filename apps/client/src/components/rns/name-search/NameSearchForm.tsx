@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, Check } from "lucide-react";
+import { Search, Check, AlertCircle } from "lucide-react";
 import { useReverseLookup } from "@/hooks/rns/useReverseLookup";
 import { useNameAvailability } from "@/hooks/rns/useNameAvailability";
 import { normalize } from "viem/ens";
@@ -17,10 +17,10 @@ export default function NameSearchForm() {
   const { navigateToAddress, navigateToRegister, navigateToProfile } = useRNSNavigation();
 
   const { name: resolvedName, isLoadingAddr: isLoadingAddr } = useReverseLookup(
-    value as `0x${string}`
+    debouncedValue as `0x${string}`
   );
 
-  const { isAvailable, isLoading: isCheckingAvailability } = useNameAvailability(
+  const { isAvailable, isLoading: isCheckingAvailability, availabilityError } = useNameAvailability(
     isAddress ? "" : debouncedValue
   );
 
@@ -72,6 +72,10 @@ export default function NameSearchForm() {
       let cleanName = value;
       if (cleanName.endsWith(".eth")) {
         cleanName = cleanName.substring(0, cleanName.length - 4);
+      }
+
+      if (isAvailable === undefined) {
+        return;
       }
 
       if (isAvailable) {
@@ -161,7 +165,12 @@ export default function NameSearchForm() {
                       <span className="text-blue-600">{value}</span>
                       <span className="text-gray-400">{DOMAIN_SUFFIX}</span>
                     </span>
-                    {isAvailable ? (
+                    {availabilityError ? (
+                      <span className="text-sm text-red-500 font-medium flex items-center gap-2 shrink-0">
+                        <AlertCircle className="w-4 h-4" />
+                        Error
+                      </span>
+                    ) : isAvailable ? (
                       <span className="text-sm text-emerald-500 font-medium flex items-center gap-2 shrink-0">
                         <Check className="w-4 h-4" />
                         Available

@@ -151,7 +151,7 @@ async function readRegistrationTimestamp(chain: ChainConfig, tokenId: bigint): P
           address: baseRegistrar,
           event,
           args: { id: tokenId },
-          fromBlock: "earliest",
+          fromBlock: chain.rnsDeployBlock ?? "earliest",
           toBlock: "latest",
         })
       )

@@ -11,6 +11,12 @@ export function useReverseLookup(address: `0x${string}`) {
   const chainId = useChainId();
   const networkConfig = getChainConfig(chainId);
 
+  // Only query with a fully-formed address (42 chars: 0x + 40 hex).
+  // Prevents wasted RPC calls while the user is still typing.
+  const isValidAddress = Boolean(
+    address && address.length === 42 && networkConfig?.contracts?.REVERSE_REGISTRAR.address
+  );
+
   // Reverse node for the address (namehash of `<address>.addr.reverse`).
   const { data: reverseNode, isLoading: isLoadingNode } = useReadContract({
     address: networkConfig?.contracts?.REVERSE_REGISTRAR.address,
@@ -18,7 +24,7 @@ export function useReverseLookup(address: `0x${string}`) {
     functionName: "node",
     args: [address],
     query: {
-      enabled: Boolean(address && networkConfig?.contracts?.REVERSE_REGISTRAR.address),
+      enabled: isValidAddress,
     },
   });
 
