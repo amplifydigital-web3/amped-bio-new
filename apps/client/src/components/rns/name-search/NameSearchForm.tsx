@@ -17,7 +17,7 @@ export default function NameSearchForm() {
   const { navigateToAddress, navigateToRegister, navigateToProfile } = useRNSNavigation();
 
   const { name: resolvedName, isLoadingAddr: isLoadingAddr } = useReverseLookup(
-    value as `0x${string}`
+    debouncedValue as `0x${string}`
   );
 
   const { isAvailable, isLoading: isCheckingAvailability } = useNameAvailability(
