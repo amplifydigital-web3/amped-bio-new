@@ -45,9 +45,16 @@ export function useNameAvailability(
   });
 
   // Destructure results safely; `status === "failure"` yields `undefined`.
-  const isAvailable = data?.[0]?.status === "success" ? data[0].result : undefined;
+  const availabilityResult = data?.[0];
+  const isAvailable = availabilityResult?.status === "success" ? availabilityResult.result : undefined;
   const price = data?.[1]?.status === "success" ? data[1].result : undefined;
   const minDuration = data?.[2]?.status === "success" ? data[2].result : undefined;
+
+  // Capture explicit failure from the available contract call
+  const availabilityError =
+    availabilityResult?.status === "failure"
+      ? (availabilityResult.error ?? null)
+      : (error ?? null);
 
   return {
     isAvailable,
@@ -55,9 +62,6 @@ export function useNameAvailability(
     isPriceLoading: isLoading,
     isLoading: enabled && isLoading,
     minDuration: minDuration as bigint | undefined,
-    errors: {
-      availability: error,
-      price: error,
-    },
+    availabilityError,
   };
 }
