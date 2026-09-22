@@ -66,6 +66,19 @@ export default function SignPage() {
   useEffect(() => {
     openerOriginRef.current = openerOrigin;
   }, [openerOrigin]);
+
+  // After a full-page redirect (e.g. Google OAuth callback), React state is
+  // lost and window.opener may be null in some browsers.  Recover the origin
+  // from sessionStorage, which survives the navigation.
+  useEffect(() => {
+    const savedOrigin = sessionStorage.getItem("sign_opener_origin");
+    if (savedOrigin) {
+      openerOriginRef.current = savedOrigin;
+      setOpenerOrigin(savedOrigin);
+      sessionStorage.removeItem("sign_opener_origin");
+    }
+    sessionStorage.removeItem("sign_is_popup");
+  }, []);
   const [messageToSign, setMessageToSign] = useState<string | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
@@ -266,7 +279,6 @@ export default function SignPage() {
       const response = await authClient.signIn.email({
         email: data.email,
         password: data.password,
-        callbackURL: window.location.href,
         rememberMe: true,
         fetchOptions: {
           headers: captchaToken
@@ -279,6 +291,10 @@ export default function SignPage() {
       if (response?.error) {
         throw new Error(response.error.message || "Login failed");
       }
+      // No callbackURL needed — authClient.useSession() will detect the new
+      // session and set authUser, and the useEffect below transitions from
+      // "login" → "wallet_wait" / "announcing" automatically, without a full
+      // page reload that would reset all signing flow state.
     } catch (error) {
       setLoginError((error as Error).message || "Login failed");
     } finally {
@@ -289,6 +305,13 @@ export default function SignPage() {
   const handleGoogleLogin = async () => {
     setIsLoggingIn(true);
     setLoginError(null);
+
+    // Save popup state to sessionStorage before the full-page OAuth redirect,
+    // so it can be restored when the user is redirected back to /sign.
+    sessionStorage.setItem("sign_is_popup", "true");
+    if (openerOriginRef.current) {
+      sessionStorage.setItem("sign_opener_origin", openerOriginRef.current);
+    }
 
     try {
       const response = await authClient.signIn.social({
