@@ -16,7 +16,7 @@ import {
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useAccount, useSignMessage } from "wagmi";
+import { useAccount, useConnect, useSignMessage } from "wagmi";
 import { useCaptcha } from "@/hooks/useCaptcha";
 import { GoogleLoginButton } from "@/components/auth/GoogleLoginButton";
 import {
@@ -54,8 +54,20 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export default function SignPage() {
   const { authUser, isPending: isAuthPending } = useAuth();
   const { address, isConnected } = useAccount();
+  const { connect: connectWallet, connectors } = useConnect();
   const { signMessageAsync, isPending: isSigning } = useSignMessage();
   const { executeCaptcha } = useCaptcha();
+
+  const handleConnectWallet = useCallback(async () => {
+    const injectedConnector = connectors.find(c => c.type === "injected");
+    if (injectedConnector) {
+      try {
+        connectWallet({ connector: injectedConnector });
+      } catch (error) {
+        console.log('[S] Wallet connection failed:', error);
+      }
+    }
+  }, [connectWallet, connectors]);
 
   const isPopup = typeof window !== "undefined" && !!window.opener;
 
@@ -119,10 +131,12 @@ export default function SignPage() {
       setFlowStep("wallet_wait");
       console.log('[S] flowStep changed: login → wallet_wait');
       setStatusMessage("Connecting wallet...");
+      // Try to auto-connect the injected wallet (MetaMask, etc.)
+      handleConnectWallet();
     } else {
       startAnnouncing();
     }
-  }, [authUser, isConnected, flowStep, startAnnouncing]);
+  }, [authUser, isConnected, flowStep, startAnnouncing, handleConnectWallet]);
 
   // Transition: wallet connects
   useEffect(() => {
@@ -418,10 +432,17 @@ export default function SignPage() {
         {/* Wallet Wait Step */}
         {!errorState && flowStep === "wallet_wait" && (
           <Card className="w-full">
-            <CardContent className="py-12">
+            <CardContent className="py-8">
               <div className="flex flex-col items-center gap-4">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
                 <p className="text-sm text-gray-500">{statusMessage}</p>
+                <Button
+                  variant="outline"
+                  className="mt-2"
+                  onClick={handleConnectWallet}
+                >
+                  Connect Wallet
+                </Button>
               </div>
             </CardContent>
           </Card>
