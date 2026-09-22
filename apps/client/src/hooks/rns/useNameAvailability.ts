@@ -1,4 +1,4 @@
-import { useChainId, useReadContract } from "wagmi";
+import { useChainId, useReadContracts } from "wagmi";
 import { formatEther } from "viem";
 import { REGISTRATION_DURATIONS } from "@/config/rns/constants";
 import { getChainConfig, REGISTRAR_CONTROLLER_ABI } from "@repo/web3";
@@ -11,57 +11,57 @@ export function useNameAvailability(
   const networkConfig = getChainConfig(chainId);
   const registrarAddress = networkConfig?.contracts.REGISTRAR_CONTROLLER.address;
 
-  const {
-    data: isAvailable,
-    isLoading: isCheckingAvailability,
-    error: availabilityError,
-  } = useReadContract({
-    address: registrarAddress,
-    abi: REGISTRAR_CONTROLLER_ABI,
-    functionName: "available",
-    args: [name],
+  const enabled = Boolean(name && registrarAddress);
+
+  const { data, isLoading, error } = useReadContracts({
+    contracts: [
+      {
+        address: registrarAddress as `0x${string}`,
+        abi: REGISTRAR_CONTROLLER_ABI,
+        functionName: "available",
+        args: [name],
+      },
+      {
+        address: registrarAddress as `0x${string}`,
+        abi: REGISTRAR_CONTROLLER_ABI,
+        functionName: "registerPrice",
+        args: [name, BigInt(duration)],
+      },
+      {
+        address: registrarAddress as `0x${string}`,
+        abi: REGISTRAR_CONTROLLER_ABI,
+        functionName: "minRegistrationDuration",
+        args: [],
+      },
+    ],
     query: {
-      enabled: Boolean(name && registrarAddress),
+      enabled,
+      staleTime: 30_000, // 30s — re-validate availability so expired names aren't stale
+      gcTime: 5 * 60_000, // 5 min
+      refetchOnMount: true,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
     },
   });
 
-  const priceQueryEnabled = Boolean(
-    name && registrarAddress && isAvailable !== undefined && isAvailable !== null
-  );
+  // Destructure results safely; `status === "failure"` yields `undefined`.
+  const availabilityResult = data?.[0];
+  const isAvailable = availabilityResult?.status === "success" ? availabilityResult.result : undefined;
+  const price = data?.[1]?.status === "success" ? data[1].result : undefined;
+  const minDuration = data?.[2]?.status === "success" ? data[2].result : undefined;
 
-  const {
-    data: price,
-    isLoading: isLoadingPrice,
-    error: priceError,
-  } = useReadContract({
-    address: registrarAddress as `0x${string}`,
-    abi: REGISTRAR_CONTROLLER_ABI,
-    functionName: "registerPrice",
-    args: [name, BigInt(duration)],
-    query: {
-      enabled: priceQueryEnabled,
-    },
-  });
-
-  const { data: minDuration } = useReadContract({
-    address: registrarAddress as `0x${string}`,
-    abi: REGISTRAR_CONTROLLER_ABI,
-    functionName: "minRegistrationDuration",
-    args: [],
-    query: {
-      enabled: Boolean(registrarAddress),
-    },
-  });
+  // Capture explicit failure from the available contract call
+  const availabilityError =
+    availabilityResult?.status === "failure"
+      ? (availabilityResult.error ?? null)
+      : (error ?? null);
 
   return {
     isAvailable,
-    price: price ? formatEther(price) : null,
-    isPriceLoading: isLoadingPrice,
-    isLoading: isCheckingAvailability,
-    minDuration,
-    errors: {
-      availability: availabilityError,
-      price: priceError,
-    },
+    price: price ? formatEther(price as bigint) : null,
+    isPriceLoading: isLoading,
+    isLoading: enabled && isLoading,
+    minDuration: minDuration as bigint | undefined,
+    availabilityError,
   };
 }

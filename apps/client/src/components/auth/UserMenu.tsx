@@ -63,7 +63,7 @@ export function UserMenu() {
     try {
       await signOut();
       setDefault();
-      window.location.href = import.meta.env.VITE_LANDING_URL;
+      window.location.href = import.meta.env.VITE_LANDINGPAGE_URL;
       toast.success("Signed out successfully");
     } catch {
       toast.error("Failed to sign out");
@@ -71,7 +71,7 @@ export function UserMenu() {
   };
 
   const handleNavtoHome = () => {
-    window.location.href = `${import.meta.env.VITE_LANDING_URL}/@${authUser?.handle}`;
+    window.location.href = `${import.meta.env.VITE_LANDINGPAGE_URL}/@${authUser?.handle}`;
   };
 
   const handleNavigateToWallet = () => {

@@ -6,7 +6,7 @@ import { ParticlesProvider } from "@/components/ParticlesProvider";
 import { AppProviders } from "@/components/providers/AppProviders";
 import "@/styles/globals.css";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://amped.bio";
+const SITE_URL = process.env.NEXT_PUBLIC_LANDINGPAGE_URL ?? "https://amped.bio";
 const GA_ID = "G-SK6H61G3S1";
 
 export const metadata: Metadata = {

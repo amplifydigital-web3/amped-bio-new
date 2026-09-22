@@ -716,7 +716,7 @@ export function UserManagement() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {user.referralsReceived && user.referralsReceived.length > 0 ? (
                           <a
-                            href={`${import.meta.env.VITE_LANDING_URL}/@${user.referralsReceived[0].referrer.handle}`}
+                            href={`${import.meta.env.VITE_LANDINGPAGE_URL}/@${user.referralsReceived[0].referrer.handle}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-blue-600 hover:text-blue-900"
@@ -759,7 +759,7 @@ export function UserManagement() {
                           className="text-blue-600 hover:text-blue-900 mr-3"
                           onClick={() => {
                             if (user.handle) {
-                              window.open(`${import.meta.env.VITE_LANDING_URL}/@${user.handle}`, "_blank");
+                              window.open(`${import.meta.env.VITE_LANDINGPAGE_URL}/@${user.handle}`, "_blank");
                             }
                           }}
                         >

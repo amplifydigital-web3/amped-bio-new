@@ -104,7 +104,7 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
           setIsPoolModalOpen(true);
         } else {
           // The dedicated pool page lives on the public site
-          window.location.href = `${import.meta.env.VITE_LANDING_URL}/i/pools/${pool.address}`;
+          window.location.href = `${import.meta.env.VITE_LANDINGPAGE_URL}/i/pools/${pool.address}`;
         }
       }
     }

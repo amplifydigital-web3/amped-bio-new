@@ -31,7 +31,7 @@ const RenderAddressProfile: React.FC<RenderAddressProfileProps> = React.memo(
     return (
       <Tooltip content={profile.handle}>
         <a
-          href={`${import.meta.env.VITE_LANDING_URL}/@${profile.handle}`}
+          href={`${import.meta.env.VITE_LANDINGPAGE_URL}/@${profile.handle}`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-blue-600 hover:underline cursor-pointer flex items-center"

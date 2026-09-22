@@ -44,6 +44,8 @@ export const revolutionDevnet = {
   },
   subgraphUrl: "",
   gas: 5_000_000,
+  /** First block where the RNS infrastructure (BaseRegistrar etc.) exists. */
+  rnsDeployBlock: 0n,
 } as const;
 
 export const libertasTestnet = {
@@ -84,6 +86,8 @@ export const libertasTestnet = {
   subgraphUrl:
     "https://graph-q101yuw854jc2su8q4h83f1b.groundhog.revoscan.io/subgraphs/name/uat/revonames",
   gas: 5_000_000,
+  /** First block where the RNS infrastructure (BaseRegistrar etc.) exists. */
+  rnsDeployBlock: 504472n,
 } as const;
 
 export const AVAILABLE_CHAINS = [libertasTestnet, revolutionDevnet] as const;

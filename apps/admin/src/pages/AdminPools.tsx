@@ -197,7 +197,7 @@ export const AdminPools: FC = () => {
                       )}
                       {pool.poolAddress && (
                         <a
-                          href={`${import.meta.env.VITE_LANDING_URL}/i/pools/${pool.poolAddress}`}
+                          href={`${import.meta.env.VITE_LANDINGPAGE_URL}/i/pools/${pool.poolAddress}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-green-600 hover:text-green-800 hover:underline"
@@ -215,7 +215,7 @@ export const AdminPools: FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-500 dark:text-gray-400">
                     {pool.wallet?.user?.handle ? (
                       <a
-                        href={`${import.meta.env.VITE_LANDING_URL}/${formatHandle(pool.wallet.user.handle)}`}
+                        href={`${import.meta.env.VITE_LANDINGPAGE_URL}/${formatHandle(pool.wallet.user.handle)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:underline"

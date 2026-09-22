@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { User } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
@@ -8,16 +8,10 @@ import { getPanelEditUrl } from "@/lib/panel";
 
 export function UserMenu() {
   const router = useRouter();
-  const [session, setSession] = useState<{
-    user?: { name?: string; email?: string; image?: string | null; handle?: string | null } | null;
-  } | null>(null);
+  // Reactive session hook: refetches on window focus and syncs across tabs, so
+  // signing in elsewhere (client app, OAuth popup) is reflected without a reload.
+  const { data: session } = authClient.useSession();
   const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    authClient.getSession().then(({ data }) => {
-      setSession(data);
-    });
-  }, []);
 
   const handleLogout = async () => {
     try {
@@ -25,7 +19,6 @@ export function UserMenu() {
     } catch (error) {
       console.error("Sign out failed:", error);
     } finally {
-      setSession(null);
       setOpen(false);
       // Force a fresh session read so the UI reflects the logged-out state
       window.location.href = "/";

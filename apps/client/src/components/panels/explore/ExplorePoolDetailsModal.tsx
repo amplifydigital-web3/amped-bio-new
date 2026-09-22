@@ -46,7 +46,7 @@ export default function ExplorePoolDetailsModal({
             poolAddress={finalPoolAddress}
             onClose={onClose}
             onStakeSuccess={onStakeSuccess}
-            shareUrl={`${import.meta.env.VITE_LANDING_URL}/i/pools/${finalPoolAddress}`}
+            shareUrl={`${import.meta.env.VITE_LANDINGPAGE_URL}/i/pools/${finalPoolAddress}`}
           />
         </DialogContent>
       </Dialog>

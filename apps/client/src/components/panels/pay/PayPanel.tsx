@@ -319,7 +319,7 @@ export default function PayPanel() {
               <div className="flex-1">
                 <div className="flex items-center space-x-2 text-sm text-gray-600">
                   <a
-                    href={`${import.meta.env.VITE_LANDING_URL}/@${user.username}`}
+                    href={`${import.meta.env.VITE_LANDINGPAGE_URL}/@${user.username}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="hover:underline"
@@ -563,7 +563,7 @@ const PayRow: React.FC<{
                 {data?.handle && (
                   <>
                     <a
-                      href={`${import.meta.env.VITE_LANDING_URL}/@${data.handle}`}
+                      href={`${import.meta.env.VITE_LANDINGPAGE_URL}/@${data.handle}`}
                       target="_blank"
                       rel="noopener noreferrer"
                     >

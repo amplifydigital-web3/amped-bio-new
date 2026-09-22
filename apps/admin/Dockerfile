@@ -7,9 +7,9 @@ RUN corepack enable pnpm
 
 WORKDIR /app
 
-# Vite mode selects the env file baked into the build: production (.env.production)
-# is the default, pass --build-arg VITE_BUILD_MODE=staging for staging builds
-ARG VITE_BUILD_MODE=production
+# Vite mode selects the env file baked into the build: staging (.env.staging) is the
+# default, pass --build-arg VITE_BUILD_MODE=production for production builds
+ARG VITE_BUILD_MODE=staging
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
 COPY packages/typescript-config ./packages/typescript-config

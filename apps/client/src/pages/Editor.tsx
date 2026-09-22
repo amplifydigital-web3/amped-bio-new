@@ -89,19 +89,23 @@ export function Editor() {
         ? (rawPanel as EditorPanelType)
         : ((location.state?.panel as EditorPanelType | undefined) ?? "home");
 
-    const target = `/${panel}${query ? `?${query}` : ""}`;
+    const targetPath = `/${panel}`;
+    const targetSearch = query ? `?${query}` : "";
 
     // If the segment is not a known panel and looks like a profile handle, the
     // public profile lives on the landing site, so redirect there.
     if (rawPanel && !(EDITOR_PANELS as readonly string[]).includes(rawPanel)) {
       if (validateHandleFormat(normalizeHandle(rawPanel))) {
-        window.location.href = `${import.meta.env.VITE_LANDING_URL}/${formatHandle(rawPanel)}`;
+        window.location.href = `${import.meta.env.VITE_LANDINGPAGE_URL}/${formatHandle(rawPanel)}`;
         return;
       }
     }
 
-    if (location.pathname !== target || hadPanelParam) {
-      nav(target, { replace: true });
+    // Compare path and search separately: `location.pathname` never contains the
+    // query string, so comparing it against a target that includes `?query`
+    // would always be truthy and navigate on every render (replaceState loop).
+    if (location.pathname !== targetPath || location.search !== targetSearch || hadPanelParam) {
+      nav(`${targetPath}${targetSearch}`, { replace: true });
     }
     setActivePanel(panel);
   }, [panelParam, legacyHandle, location, nav, setActivePanel]);
@@ -113,7 +117,7 @@ export function Editor() {
     if (!isLoggedIn) {
       // User is not logged in, redirect to the login page on the public site
       toast.error("You need to log in to use the dashboard");
-      window.location.href = `${import.meta.env.VITE_LANDING_URL}/login`;
+      window.location.href = `${import.meta.env.VITE_LANDINGPAGE_URL}/login`;
       return;
     }
 

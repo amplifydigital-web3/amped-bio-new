@@ -29,7 +29,7 @@ export function ProtectedRoute({ children, adminOnly = false }: ProtectedRoutePr
 
   // Redirect to the public site with the login popup open if not authenticated
   if (authUser === null) {
-    return <ExternalRedirect to={`${import.meta.env.VITE_LANDING_URL}/login`} />;
+    return <ExternalRedirect to={`${import.meta.env.VITE_LANDINGPAGE_URL}/login`} />;
   }
 
   // Check admin access if required

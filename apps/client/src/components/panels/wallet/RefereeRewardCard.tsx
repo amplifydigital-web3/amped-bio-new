@@ -225,7 +225,7 @@ function RefereeRewardCard() {
               <span className="text-xs text-gray-600">
                 Referred by{" "}
                 <a
-                  href={`${import.meta.env.VITE_LANDING_URL}/${myReferrer.referrer.handle}`}
+                  href={`${import.meta.env.VITE_LANDINGPAGE_URL}/${myReferrer.referrer.handle}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
