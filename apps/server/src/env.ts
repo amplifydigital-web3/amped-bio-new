@@ -144,6 +144,14 @@ const envSchema = z.object({
   AUTHBASE_API_KEY: z.string().default(""),
   // Authbase API secret (Basic auth password)
   AUTHBASE_API_SECRET: z.string().default(""),
+
+  // Daily Airdrop Batch Configuration
+  // Hour (UTC) when the daily airdrop batch is sent (0-23)
+  DAILY_AIRDROP_BATCH_HOUR: numSchema(14),
+  // Minimum number of queue entries before triggering the batch send
+  DAILY_AIRDROP_MIN_ENTRIES: numSchema(5),
+  // Maximum hours to wait before forcibly sending the batch
+  DAILY_AIRDROP_MAX_WAIT_HOURS: numSchema(6),
 });
 
 // ================ parse & export ================
