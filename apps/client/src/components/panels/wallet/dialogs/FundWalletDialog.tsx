@@ -1,4 +1,4 @@
-import { Gift, ArrowLeftRight, Zap, ArrowRight, Check } from "lucide-react";
+import { Gift, ArrowLeftRight, Zap, ArrowRight, Check, Clock, Send, ExternalLink, Loader2, Info } from "lucide-react";
 import CoinbaseIcon from "@/assets/icons/coinbase.png";
 import MoonpayIcon from "@/assets/icons/moonpay.png";
 import OnRampIcon from "@/assets/icons/onramp.png";
@@ -16,45 +16,29 @@ function CountdownTimer({ targetDate, onComplete }: { targetDate: Date; onComple
   }>({ hours: 0, minutes: 0, seconds: 0 });
 
   useEffect(() => {
-    // Function to calculate time left
     const calculateTimeLeft = () => {
       const difference = targetDate.getTime() - new Date().getTime();
-
-      if (difference <= 0) {
-        // Time's up
-        return { hours: 0, minutes: 0, seconds: 0 };
-      }
-
-      // Calculate hours, minutes, seconds
+      if (difference <= 0) return { hours: 0, minutes: 0, seconds: 0 };
       const hours = Math.floor(difference / (1000 * 60 * 60));
       const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((difference % (1000 * 60)) / 1000);
-
       return { hours, minutes, seconds };
     };
 
-    // Set initial time
     setTimeLeft(calculateTimeLeft());
 
-    // Update every second
     const timer = setInterval(() => {
       const timeRemaining = calculateTimeLeft();
       setTimeLeft(timeRemaining);
-
-      // When countdown reaches zero, trigger onComplete callback
       if (timeRemaining.hours === 0 && timeRemaining.minutes === 0 && timeRemaining.seconds === 0) {
         clearInterval(timer);
-        if (onComplete) {
-          onComplete();
-        }
+        if (onComplete) onComplete();
       }
     }, 1000);
 
-    // Clean up
     return () => clearInterval(timer);
   }, [targetDate, onComplete]);
 
-  // Format with leading zeros
   const formatTime = (num: number) => num.toString().padStart(2, "0");
 
   return (
@@ -64,7 +48,27 @@ function CountdownTimer({ targetDate, onComplete }: { targetDate: Date; onComple
   );
 }
 
-// Hook to control the wallet funding dialog
+// Component to show countdown to next batch send time
+function BatchCountdown({ targetDate }: { targetDate: Date }) {
+  const [timeLeft, setTimeLeft] = useState("");
+
+  useEffect(() => {
+    const calculate = () => {
+      const diff = targetDate.getTime() - new Date().getTime();
+      if (diff <= 0) return "Any moment now";
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      if (hours > 0) return `${hours}h ${minutes}m`;
+      return `${minutes}m`;
+    };
+
+    setTimeLeft(calculate());
+    const timer = setInterval(() => setTimeLeft(calculate()), 60_000);
+    return () => clearInterval(timer);
+  }, [targetDate]);
+
+  return <span>{timeLeft}</span>;
+}
 
 interface FundWalletDialogProps {
   open: boolean;
@@ -81,12 +85,15 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
     setFaucetInfo,
     handleClaim,
     walletAddress,
+    claimStatus,
+    queueStatus,
+    isInstant,
+    txInfo,
   } = useFundWalletDialog({
     open,
     onOpenChange,
   });
 
-  const [rewardClaimed, setRewardClaimed] = useState(!faucetInfo.canRequestNow);
   const [showRequirementsModal, setShowRequirementsModal] = useState(false);
 
   const allRequirementsMet =
@@ -95,18 +102,8 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
     faucetInfo.requirements.bio &&
     faucetInfo.requirements.minLinks;
 
-  // True while the most recent faucet request is still being processed (tokens arrive within a few hours)
-  const isProcessingRequest =
-    !!faucetInfo.lastRequestDate &&
-    Date.now() - faucetInfo.lastRequestDate.getTime() < 6 * 60 * 60 * 1000;
-
-  useEffect(() => {
-    setRewardClaimed(!faucetInfo.canRequestNow);
-  }, [faucetInfo.canRequestNow]);
-
   const handleClaimDailyReward = async () => {
     await handleClaim();
-    setRewardClaimed(true);
   };
 
   const handleBridge = () => {
@@ -122,6 +119,207 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
     openReceiveModal();
   };
 
+  // Render the daily reward card content based on claim status
+  const renderDailyRewardCard = () => {
+    // ── INSTANT SUCCESS ──
+    if (claimStatus === "instant") {
+      return (
+        <div className="rounded-lg p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 transition-all duration-500">
+          <div className="flex items-center space-x-3 mb-3">
+            <div className="p-2 rounded-lg bg-green-100">
+              <Send className="w-5 h-5 text-green-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-green-900">Daily REVO Received!</h3>
+              <p className="text-sm text-green-700">
+                Your {faucetAmount?.amount} {faucetAmount?.currency} has arrived.
+              </p>
+            </div>
+          </div>
+          <div className="bg-white/60 rounded-lg p-3 border border-green-200">
+            <div className="flex items-start gap-2">
+              <Info className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-green-800 leading-relaxed">
+                <strong>Instant delivery!</strong> Since this is your first REVO, we sent it
+                right away so you can start exploring. 🚀
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── QUEUED FOR BATCH ──
+    if (claimStatus === "queued" && queueStatus) {
+      const estimatedDate = new Date(queueStatus.estimatedTime);
+      return (
+        <div className="rounded-lg p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 transition-all duration-500">
+          <div className="flex items-center space-x-3 mb-3">
+            <div className="p-2 rounded-lg bg-blue-100">
+              <Clock className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-blue-900">Queued for Batch Processing</h3>
+              <p className="text-sm text-blue-700">
+                Position #{queueStatus.position} of {queueStatus.totalInBatch}
+              </p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {/* Progress bar */}
+            <div className="w-full bg-blue-200 rounded-full h-2">
+              <div
+                className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+                style={{
+                  width: `${Math.min(
+                    ((queueStatus.position - 1) / Math.max(queueStatus.totalInBatch, 1)) * 100,
+                    100
+                  )}%`,
+                }}
+              />
+            </div>
+            <div className="flex justify-between text-xs text-blue-600">
+              <span>Waiting for batch...</span>
+              <span className="font-medium">
+                <BatchCountdown targetDate={estimatedDate} />
+              </span>
+            </div>
+            {/* Explanation tooltip */}
+            <div className="bg-white/60 rounded-lg p-3 border border-blue-200 mt-2">
+              <div className="flex items-start gap-2">
+                <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-blue-800 leading-relaxed">
+                  <strong>Why batch?</strong> You already have REVO in your wallet, so your daily
+                  reward joins the next batch to save on network fees.{" "}
+                  <strong>New users receive their first REVO instantly.</strong>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── COOLDOWN (already claimed) ──
+    if (claimStatus === "cooldown" || (!faucetInfo.canRequestNow && claimStatus !== "queued")) {
+      return (
+        <div className="rounded-lg p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 transition-all duration-500">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 rounded-lg bg-blue-100 animate-bounce">
+              <Check className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-blue-900">Request Submitted</h3>
+              <p className="text-sm text-blue-700">
+                Your tokens are on the way!{" "}
+              </p>
+              {faucetInfo.nextAvailableDate && (
+                <p className="text-xs text-amber-600 font-medium mt-1">
+                  Next claim in:{" "}
+                  <CountdownTimer
+                    targetDate={new Date(faucetInfo.nextAvailableDate)}
+                    onComplete={() => {
+                      setFaucetInfo(prev => ({ ...prev, canRequestNow: true }));
+                    }}
+                  />
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── IDLE (ready to claim) ──
+    return (
+      <div className="rounded-lg p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 transition-all duration-500">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 rounded-lg bg-green-100">
+              <Gift className="w-5 h-5 text-green-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-green-900">
+                {isLoadingFaucetAmount
+                  ? "Loading..."
+                  : "Daily Reward Available!"}
+              </h3>
+              <p className="text-sm text-green-700">
+                {isLoadingFaucetAmount
+                  ? "Loading faucet amount..."
+                  : faucetAmount
+                    ? `Get ${faucetAmount.amount} ${faucetAmount.currency} every day`
+                    : "Get your free tokens every day"}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleClaimDailyReward}
+            disabled={
+              !faucetInfo.faucetEnabled ||
+              claimingFaucet ||
+              !faucetInfo.canRequestNow ||
+              !faucetInfo.hasSufficientFunds ||
+              !allRequirementsMet
+            }
+            className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 flex items-center space-x-2 ${
+              !faucetInfo.faucetEnabled
+                ? "bg-gray-400 text-white cursor-not-allowed"
+                : claimingFaucet || !faucetInfo.hasSufficientFunds || !allRequirementsMet
+                  ? "bg-gray-400 text-white cursor-not-allowed"
+                  : "bg-green-600 hover:bg-green-700 text-white hover:scale-105"
+            }`}
+          >
+            {claimingFaucet ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Claiming...</span>
+              </>
+            ) : !faucetInfo.faucetEnabled ? (
+              <>
+                <Gift className="w-4 h-4" />
+                <span>Disabled</span>
+              </>
+            ) : !faucetInfo.hasSufficientFunds ? (
+              <>
+                <Gift className="w-4 h-4" />
+                <span>Out of Funds</span>
+              </>
+            ) : !allRequirementsMet ? (
+              <>
+                <Gift className="w-4 h-4" />
+                <span>Complete Profile</span>
+              </>
+            ) : (
+              <>
+                <Gift className="w-4 h-4" />
+                <span>Claim</span>
+              </>
+            )}
+          </button>
+        </div>
+        {/* Instant/Batch badge */}
+        {!isLoadingFaucetAmount && faucetInfo.canRequestNow && faucetInfo.faucetEnabled && (
+          <div className="mt-3">
+            <span
+              className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+                isInstant
+                  ? "bg-green-100 text-green-700"
+                  : "bg-blue-100 text-blue-700"
+              }`}
+            >
+              {isInstant ? (
+                <>⚡ Instant — first REVO</>
+              ) : (
+                <>⏳ Batch — you already have REVO</>
+              )}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <>
       {/* Main Dialog */}
@@ -135,137 +333,10 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
             {/* Modal Content */}
             <div className="space-y-4">
               {/* Daily Reward Notification Bar */}
-              <div
-                className={`rounded-lg p-4  transition-all duration-500 ${
-                  rewardClaimed
-                    ? "bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 "
-                    : "bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div
-                      className={`p-2 rounded-lg transition-all duration-300 ${
-                        rewardClaimed ? "bg-blue-100 animate-bounce" : "bg-green-100"
-                      }`}
-                    >
-                      {rewardClaimed ? (
-                        <Check className="w-5 h-5 text-blue-600" />
-                      ) : (
-                        <Gift className="w-5 h-5 text-green-600" />
-                      )}
-                    </div>
-                    <div>
-                      <h3
-                        className={`font-semibold transition-colors duration-300 ${
-                          rewardClaimed ? "text-blue-900" : "text-green-900"
-                        }`}
-                      >
-                        {isLoadingFaucetAmount
-                          ? "Loading Faucet Info..."
-                          : !faucetInfo.faucetEnabled
-                            ? "Faucet Temporarily Disabled"
-                            : !faucetInfo.hasSufficientFunds
-                              ? "Faucet Out of Funds"
-                              : faucetInfo.canRequestNow
-                                ? "Daily Reward Available!"
-                                : "Faucet on Cooldown"}
-                      </h3>
-                      <p
-                        className={`text-sm transition-colors duration-300 ${
-                          rewardClaimed ? "text-blue-700" : "text-green-700"
-                        }`}
-                      >
-                        {isLoadingFaucetAmount ? (
-                          "Loading faucet amount..."
-                        ) : !faucetInfo.faucetEnabled ? (
-                          "The faucet is temporarily disabled. Please check back later."
-                        ) : !faucetInfo.hasSufficientFunds ? (
-                          "The faucet is temporarily out of funds. Please check back later."
-                        ) : !faucetInfo.canRequestNow && faucetInfo.nextAvailableDate ? (
-                          <>
-                            {isProcessingRequest && (
-                              <span className="text-amber-600 font-medium">
-                                Your request is being processed — tokens arrive within a few
-                                hours.{" "}
-                              </span>
-                            )}
-                            <span className="text-amber-600 font-medium">
-                              Next claim available in:{" "}
-                            </span>
-                            <CountdownTimer
-                              targetDate={new Date(faucetInfo.nextAvailableDate)}
-                              onComplete={() => {
-                                // Updates the state to enable the button when the timer ends
-                                const newFaucetInfo = { ...faucetInfo, canRequestNow: true };
-                                setFaucetInfo(newFaucetInfo);
-                              }}
-                            />
-                          </>
-                        ) : faucetAmount ? (
-                          `Get ${faucetAmount.amount} ${faucetAmount.currency} tokens every day`
-                        ) : (
-                          "Get your free tokens every day"
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleClaimDailyReward}
-                    disabled={
-                      !faucetInfo.faucetEnabled ||
-                      claimingFaucet ||
-                      !faucetInfo.canRequestNow ||
-                      !faucetInfo.hasSufficientFunds ||
-                      !allRequirementsMet
-                    }
-                    className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 flex items-center space-x-2 ${
-                      !faucetInfo.faucetEnabled
-                        ? "bg-gray-400 text-white cursor-not-allowed"
-                        : !faucetInfo.canRequestNow
-                          ? "bg-blue-600 text-white cursor-default"
-                          : claimingFaucet || !faucetInfo.hasSufficientFunds || !allRequirementsMet
-                            ? "bg-gray-400 text-white cursor-not-allowed"
-                            : "bg-green-600 hover:bg-green-700 text-white hover:scale-105"
-                    }`}
-                  >
-                    {claimingFaucet ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        <span>Claiming...</span>
-                      </>
-                    ) : !faucetInfo.faucetEnabled ? (
-                      <>
-                        <Gift className="w-4 h-4" />
-                        <span>Disabled</span>
-                      </>
-                    ) : !faucetInfo.canRequestNow ? (
-                      <>
-                        <Check className="w-4 h-4" />
-                        <span>Claimed!</span>
-                      </>
-                    ) : !faucetInfo.hasSufficientFunds ? (
-                      <>
-                        <Gift className="w-4 h-4" />
-                        <span>Out of Funds</span>
-                      </>
-                    ) : !allRequirementsMet ? (
-                      <>
-                        <Gift className="w-4 h-4" />
-                        <span>Complete Profile</span>
-                      </>
-                    ) : (
-                      <>
-                        <Gift className="w-4 h-4" />
-                        <span>Claim</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
+              {renderDailyRewardCard()}
 
               {/* Requirements */}
-              {!isLoadingFaucetAmount && faucetInfo.faucetEnabled && (
+              {!isLoadingFaucetAmount && faucetInfo.faucetEnabled && claimStatus === "idle" && (
                 <button
                   onClick={() => setShowRequirementsModal(true)}
                   className={`w-full rounded-lg p-3 text-sm font-medium transition-colors ${
@@ -398,31 +469,30 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
             </div>
             {/* Footer */}
             <div className="p-6 pt-6 text-center">
-              <button
-                onClick={handleManualDeposit}
-                className="text-sm text-gray-600 hover:text-gray-800 underline transition-colors duration-200"
-              >
-                Deposit Funds Manually
-              </button>
+              {/* View on Explorer link for successful claims */}
+              {(claimStatus === "instant") && txInfo?.txid && (
+                <a
+                  href={`https://libertas.revoscan.io/tx/${txInfo.txid}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  View transaction on explorer
+                </a>
+              )}
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Requirements Modal */}
-      <Dialog open={showRequirementsModal} onOpenChange={setShowRequirementsModal}>
-        <DialogContent className="max-w-md rounded-xl p-0 bg-white">
-          <div className="flex items-center justify-between p-6 border-b border-gray-200">
-            <h2 className="text-xl font-bold text-gray-900">Profile Requirements</h2>
-          </div>
-          <div className="p-6">
-            <FaucetRequirementsChecklist
-              requirements={faucetInfo.requirements}
-              onActionClick={() => setShowRequirementsModal(false)}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Requirements Checklist Modal */}
+      <FaucetRequirementsChecklist
+        open={showRequirementsModal}
+        onOpenChange={setShowRequirementsModal}
+        requirements={faucetInfo.requirements}
+        allRequirementsMet={allRequirementsMet}
+      />
     </>
   );
 }

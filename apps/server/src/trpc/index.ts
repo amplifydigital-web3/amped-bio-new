@@ -13,6 +13,7 @@ import { publicSettingsRouter } from "./publicSettings";
 import { referralRouter } from "./referral";
 import { ndauConversionRouter } from "./ndauConversion";
 import { authbaseRouter } from "./authbase";
+import { dailyAirdropRouter } from "./dailyAirdrop";
 import { inferRouterOutputs } from "@trpc/server";
 
 // Merge all routers
@@ -31,6 +32,7 @@ const mergedRouter = router({
   public: publicSettingsRouter,
   ndauConversion: ndauConversionRouter,
   authbase: authbaseRouter,
+  dailyAirdrop: dailyAirdropRouter,
 });
 
 export type AppRouter = typeof mergedRouter;

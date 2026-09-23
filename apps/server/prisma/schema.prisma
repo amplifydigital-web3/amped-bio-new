@@ -209,6 +209,7 @@ model UserWallet {
   creatorPools         CreatorPool[]
   stakedPools          StakedPool[]
   stakeEvents          StakeEvent[]
+  airdropQueue         AirdropQueueEntry[]
 
   @@map("user_wallets")
 }
@@ -345,4 +346,15 @@ model TwoFactor {
   @@unique([userId])
   @@map("two_factor")
   @@index([secret(length: 191)])
+}
+
+model AirdropQueueEntry {
+  id           Int       @id @default(autoincrement())
+  userWalletId Int       @unique
+  amount       String    @db.Text
+  createdAt    DateTime  @default(now())
+
+  userWallet UserWallet @relation(fields: [userWalletId], references: [id], onDelete: Cascade)
+
+  @@map("airdrop_queue")
 }

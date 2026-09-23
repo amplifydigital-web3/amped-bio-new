@@ -10,6 +10,7 @@ import { getChainConfig } from "@repo/web3";
 import * as jose from "jose";
 import Decimal from "decimal.js";
 import { SITE_SETTINGS } from "@repo/constants";
+import { DAILY_AIRDROP_COOLDOWN_MS } from "@repo/constants";
 import { cache, CACHE_TTL, getMethodSignatureCacheKey } from "../utils/cache";
 
 const themeConfigSchema = z.object({
@@ -346,7 +347,7 @@ export const walletRouter = router({
           // Check if it's been less than 24 hours since the last request
           const now = new Date();
           const timeSinceLastRequest = now.getTime() - lastRequestDate.getTime();
-          const timeRequired = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+          const timeRequired = DAILY_AIRDROP_COOLDOWN_MS;
 
           if (timeSinceLastRequest < timeRequired) {
             // Calculate when they can request again
@@ -562,9 +563,8 @@ export const walletRouter = router({
           if (wallet.last_airdrop_request) {
             const lastClaimTime = wallet.last_airdrop_request;
 
-            if (now.getTime() - lastClaimTime.getTime() < 24 * 60 * 60 * 1000) {
-              // Calculate when they can request again
-              const nextAvailableTime = new Date(lastClaimTime.getTime() + 24 * 60 * 60 * 1000);
+            if (now.getTime() - lastClaimTime.getTime() < DAILY_AIRDROP_COOLDOWN_MS) {
+              const nextAvailableTime = new Date(lastClaimTime.getTime() + DAILY_AIRDROP_COOLDOWN_MS);
 
               throw new TRPCError({
                 code: "TOO_MANY_REQUESTS",
