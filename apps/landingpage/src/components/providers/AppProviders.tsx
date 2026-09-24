@@ -28,27 +28,23 @@ const wagmiConfig = createConfig({
 });
 
 export function AppProviders({ children }: { children: ReactNode }) {
-  if (isForceMetamask) {
-    return (
-      <WagmiProvider config={wagmiConfig}>
-        <QueryClientProvider client={queryClient}>
-          <AuthProvider>
-            <NdauWalletProvider>{children}</NdauWalletProvider>
-          </AuthProvider>
-        </QueryClientProvider>
-      </WagmiProvider>
-    );
-  }
-
   return (
-    <Web3AuthProvider config={web3AuthContextConfig}>
-      <Web3AuthWagmiProvider>
-        <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={queryClient}>
+      {isForceMetamask ? (
+        <WagmiProvider config={wagmiConfig}>
           <AuthProvider>
             <NdauWalletProvider>{children}</NdauWalletProvider>
           </AuthProvider>
-        </QueryClientProvider>
-      </Web3AuthWagmiProvider>
-    </Web3AuthProvider>
+        </WagmiProvider>
+      ) : (
+        <Web3AuthProvider config={web3AuthContextConfig}>
+          <Web3AuthWagmiProvider>
+            <AuthProvider>
+              <NdauWalletProvider>{children}</NdauWalletProvider>
+            </AuthProvider>
+          </Web3AuthWagmiProvider>
+        </Web3AuthProvider>
+      )}
+    </QueryClientProvider>
   );
 }
