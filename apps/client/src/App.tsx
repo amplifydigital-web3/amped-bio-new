@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router";
+import { BrowserRouter, Routes, Route } from "react-router";
 import { Editor } from "./pages/Editor";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -48,6 +48,8 @@ function AppRouter() {
 }
 
 // Redirects to the public site, opening the login popup for unauthenticated users
+// Uses window.location.href because Navigate with replace uses history.replaceState()
+// which cannot change domains (app.amped.bio -> amped.bio)
 function PublicSiteRedirect() {
   const { authUser, isPending } = useAuth();
 
@@ -59,12 +61,12 @@ function PublicSiteRedirect() {
     );
   }
 
-  return (
-    <Navigate
-      to={authUser === null ? `${import.meta.env.VITE_LANDING_URL}/login` : import.meta.env.VITE_LANDING_URL}
-      replace
-    />
-  );
+  // Must use window.location.href for cross-origin navigation
+  const targetUrl = authUser === null
+    ? `${import.meta.env.VITE_LANDING_URL}/login`
+    : import.meta.env.VITE_LANDING_URL;
+  window.location.href = targetUrl;
+  return null;
 }
 
 function App() {

@@ -1,5 +1,4 @@
 import { ReactNode } from "react";
-import { Navigate } from "react-router";
 import { useAuth } from "@repo/ui";
 import { Loader2 } from "lucide-react";
 
@@ -23,13 +22,17 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   }
 
   // Redirect to the public site with the login popup open if not authenticated
+  // Uses window.location.href because Navigate with replace uses history.replaceState()
+  // which cannot change domains (app.amped.bio -> landing page)
   if (authUser === null) {
-    return <Navigate to={`${import.meta.env.VITE_LANDING_URL}/login`} replace />;
+    window.location.href = `${import.meta.env.VITE_LANDING_URL}/login`;
+    return null;
   }
 
   // Only admins can access this app
   if (!authUser.role.includes("admin")) {
-    return <Navigate to={import.meta.env.VITE_LANDING_URL} replace />;
+    window.location.href = import.meta.env.VITE_LANDING_URL;
+    return null;
   }
 
   return <>{children}</>;

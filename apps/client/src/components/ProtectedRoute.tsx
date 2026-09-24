@@ -1,14 +1,12 @@
 import { ReactNode } from "react";
-import { Navigate } from "react-router";
 import { useAuth } from "@repo/ui";
 import { Loader2 } from "lucide-react";
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  adminOnly?: boolean;
 }
 
-export function ProtectedRoute({ children, adminOnly = false }: ProtectedRouteProps) {
+export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isPending, authUser } = useAuth();
 
   // Show loading while checking authentication status
@@ -28,13 +26,11 @@ export function ProtectedRoute({ children, adminOnly = false }: ProtectedRoutePr
   }
 
   // Redirect to the public site with the login popup open if not authenticated
+  // Must use window.location.href for cross-origin navigations since history.replaceState
+  // cannot change domains (app.amped.bio -> amped.bio)
   if (authUser === null) {
-    return <Navigate to={`${import.meta.env.VITE_LANDING_URL}/login`} replace />;
-  }
-
-  // Check admin access if required
-  if (adminOnly && !authUser.role.includes("admin")) {
-    return <Navigate to="/" replace />;
+    window.location.href = `${import.meta.env.VITE_LANDING_URL}/login`;
+    return null;
   }
 
   // User is authenticated, render children
