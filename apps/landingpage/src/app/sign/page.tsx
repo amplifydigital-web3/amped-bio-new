@@ -16,7 +16,7 @@ import {
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useAccount, useConnect, useSignMessage } from "wagmi";
+import { useAccount, useSignMessage } from "wagmi";
 import { useCaptcha } from "@/hooks/useCaptcha";
 import { GoogleLoginButton } from "@/components/auth/GoogleLoginButton";
 import {
@@ -34,6 +34,9 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { useWeb3Auth, useWeb3AuthConnect } from "@web3auth/modal/react";
+import { WALLET_CONNECTORS, AUTH_CONNECTION, CONNECTOR_STATUS } from "@web3auth/modal";
+import { trpcClient } from "@/lib/trpc";
 
 type FlowStep =
   | "login"
@@ -54,20 +57,13 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export default function SignPage() {
   const { authUser, isPending: isAuthPending } = useAuth();
   const { address, isConnected } = useAccount();
-  const { connect: connectWallet, connectors } = useConnect();
   const { signMessageAsync, isPending: isSigning } = useSignMessage();
   const { executeCaptcha } = useCaptcha();
 
-  const handleConnectWallet = useCallback(async () => {
-    const injectedConnector = connectors.find(c => c.type === "injected");
-    if (injectedConnector) {
-      try {
-        connectWallet({ connector: injectedConnector });
-      } catch (error) {
-        console.log('[S] Wallet connection failed:', error);
-      }
-    }
-  }, [connectWallet, connectors]);
+  // Web3Auth
+  const dataWeb3Auth = useWeb3Auth();
+  const { connectTo, error: web3AuthError } = useWeb3AuthConnect();
+  const { web3Auth } = dataWeb3Auth;
 
   const isPopup = typeof window !== "undefined" && !!window.opener;
 
@@ -134,6 +130,51 @@ export default function SignPage() {
     setStatusMessage("Waiting for message to sign...");
   }, [sendToOpener]);
 
+  const connectInFlightRef = useRef(false);
+
+  const connectWeb3Auth = useCallback(async () => {
+    if (connectInFlightRef.current) return;
+    const coreStatus = web3Auth?.status;
+    if (coreStatus === CONNECTOR_STATUS.CONNECTED || coreStatus === CONNECTOR_STATUS.CONNECTING) {
+      return;
+    }
+
+    connectInFlightRef.current = true;
+    try {
+      console.log('[S] Fetching wallet token from server...');
+      const { walletToken } = await trpcClient.auth.getWalletToken.query();
+
+      // Check token expiry
+      try {
+        const payload = JSON.parse(atob(walletToken.token.split(".")[1]));
+        if (payload.exp) {
+          const expirationTime = payload.exp * 1000;
+          localStorage.setItem("walletTokenExpiration", expirationTime.toString());
+        }
+      } catch (error) {
+        console.error("Error decoding token expiration:", error);
+      }
+
+      console.log('[S] Connecting to Web3Auth...');
+      await connectTo(WALLET_CONNECTORS.AUTH, {
+        authConnection: AUTH_CONNECTION.CUSTOM,
+        authConnectionId: process.env.NEXT_PUBLIC_WEB3AUTH_AUTH_CONNECTION_ID,
+        idToken: walletToken.token,
+        extraLoginOptions: { isUserIdCaseSensitive: false },
+      });
+      console.log('[S] Web3Auth connected successfully');
+    } catch (err) {
+      console.error('[S] Web3Auth connection error:', err);
+      setErrorState(
+        err instanceof Error
+          ? err.message
+          : "Failed to connect wallet. Please try again."
+      );
+    } finally {
+      connectInFlightRef.current = false;
+    }
+  }, [connectTo, web3Auth]);
+
   // Transition: user logs in
   useEffect(() => {
     if (!authUser) return;
@@ -143,13 +184,13 @@ export default function SignPage() {
       prevFlowStep.current = "wallet_wait";
       setFlowStep("wallet_wait");
       console.log('[S] flowStep changed: login → wallet_wait');
-      setStatusMessage("Connecting wallet...");
-      // Try to auto-connect the injected wallet (MetaMask, etc.)
-      handleConnectWallet();
+      setStatusMessage("Connecting wallet via Web3Auth...");
+      // Auto-connect via Web3Auth (no injected wallet needed)
+      connectWeb3Auth();
     } else {
       startAnnouncing();
     }
-  }, [authUser, isConnected, flowStep, startAnnouncing, handleConnectWallet]);
+  }, [authUser, isConnected, flowStep, startAnnouncing, connectWeb3Auth]);
 
   // Transition: wallet connects
   useEffect(() => {
@@ -452,20 +493,13 @@ export default function SignPage() {
           </Card>
         )}
 
-        {/* Wallet Wait Step */}
+        {/* Wallet Wait Step — connects via Web3Auth automatically */}
         {!errorState && flowStep === "wallet_wait" && (
           <Card className="w-full">
             <CardContent className="py-8">
               <div className="flex flex-col items-center gap-4">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
                 <p className="text-sm text-gray-500">{statusMessage}</p>
-                <Button
-                  variant="outline"
-                  className="mt-2"
-                  onClick={handleConnectWallet}
-                >
-                  Connect Wallet
-                </Button>
               </div>
             </CardContent>
           </Card>
