@@ -139,6 +139,7 @@ export default function SignPage() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [errorState, setErrorState] = useState<string | null>(null);
+  const [originFailed, setOriginFailed] = useState(false);
   const prevFlowStep = useRef<FlowStep>("login");
 
   const {
@@ -226,6 +227,7 @@ export default function SignPage() {
       const origin = event.origin;
 
       if (!origin || origin === "null") {
+        setOriginFailed(true);
         setErrorState(
           "Unable to verify requesting site — Cannot determine the origin of the request."
         );
@@ -525,7 +527,7 @@ export default function SignPage() {
         )}
 
         {/* Trust Step */}
-        {!errorState && flowStep === "trust" && openerOrigin === null && (
+        {!errorState && flowStep === "trust" && originFailed && (
           <Card className="w-full border-red-200">
             <CardContent className="py-12">
               <div className="flex flex-col items-center gap-4 text-center">
@@ -539,7 +541,18 @@ export default function SignPage() {
           </Card>
         )}
 
-        {!errorState && flowStep === "trust" && openerOrigin !== null && (
+        {!errorState && flowStep === "trust" && !originFailed && openerOrigin === null && (
+          <Card className="w-full">
+            <CardContent className="py-8">
+              <div className="flex flex-col items-center gap-4">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                <p className="text-sm text-gray-500">Preparing verification...</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {!errorState && flowStep === "trust" && !originFailed && openerOrigin !== null && (
           <Card className="w-full">
             <CardHeader>
               <div className="flex items-center gap-2 text-blue-600">
