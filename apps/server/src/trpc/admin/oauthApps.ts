@@ -39,7 +39,7 @@ export const oauthAppsAdminRouter = router({
         createdAt: true,
         userId: true,
         referenceId: true,
-        clientSecret: true,
+        clientSecret: true, // needed for hasSecret check; stripped from response below
       },
     });
 

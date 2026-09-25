@@ -251,7 +251,7 @@ export const auth = betterAuth({
           "deviceCode",
         ];
         if (oauthModels.includes(options.model)) {
-          return uuidv7().toString("hex");
+          return uuidv7();
         }
         return false;
       },
