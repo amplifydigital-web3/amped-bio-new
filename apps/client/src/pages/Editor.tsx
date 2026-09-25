@@ -100,7 +100,8 @@ export function Editor() {
       }
     }
 
-    if (location.pathname !== target || hadPanelParam) {
+    const currentUrl = location.pathname + location.search;
+    if (currentUrl !== target || hadPanelParam) {
       nav(target, { replace: true });
     }
     setActivePanel(panel);
