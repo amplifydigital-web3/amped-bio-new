@@ -200,6 +200,53 @@ export const auth = betterAuth({
         clientRegistrationClientSecretExpiration: "30d",
         clientRegistrationDefaultScopes: [...IDENTITY_SCOPES],
         cachedTrustedClients: new Set(trustedOAuthClientIds),
+
+        /**
+         * Expose the user's wallet address in the userinfo endpoint so
+         * third-party sites (OAuth clients) can read it without needing
+         * a separate API call.
+         */
+        // Advertise the custom wallet claim on the OIDC discovery document so
+        // third-party clients know they can request it.
+        advertisedMetadata: {
+          claims_supported: ["wallet"],
+        },
+
+        customUserInfoClaims: async ({ user, scopes, requestedClaims, jwt }: { user: any; scopes: string[]; requestedClaims: string[]; jwt?: any }) => {
+          const claims: Record<string, unknown> = {};
+
+          // Return wallet (or null) whenever the client requests it or has the
+          // "profile" scope. Sites terceiros podem sempre esperar o campo,
+          // mesmo que seja null (usuário ainda não vinculou carteira).
+          if (requestedClaims.includes("wallet") || scopes.includes("profile")) {
+            const wallet = await prisma.userWallet.findUnique({
+              where: { userId: parseInt(user.id) },
+              select: { address: true },
+            });
+            claims.wallet = wallet?.address ?? null;
+          }
+
+          return claims;
+        },
+
+        /**
+         * Also embed the wallet in the access token so MCP tools like
+         * list_creator_pools can read it straight from the token claims
+         * instead of querying the database again.
+         */
+        customAccessTokenClaims: async ({ user, scopes }: { user: any; scopes: string[] }) => {
+          const claims: Record<string, unknown> = {};
+
+          if (scopes.includes("mcp:read") || scopes.includes("profile")) {
+            const wallet = await prisma.userWallet.findUnique({
+              where: { userId: parseInt(user.id) },
+              select: { address: true },
+            });
+            claims.wallet = wallet?.address ?? null;
+          }
+
+          return claims;
+        },
       })
     ),
     // Client ID Metadata Documents: lets MCP clients identify themselves with a

@@ -14,11 +14,17 @@ const mcpServer = new McpServer({
 });
 
 function claimsFromAuthInfo(authInfo?: AuthInfo) {
-  const extra = (authInfo?.extra ?? {}) as { sub?: string; email?: string; scope?: string };
+  const extra = (authInfo?.extra ?? {}) as {
+    sub?: string;
+    email?: string;
+    scope?: string;
+    wallet?: string;
+  };
 
   return {
     sub: extra.sub ?? null,
     email: extra.email ?? null,
+    wallet: extra.wallet ?? null,
     scope: extra.scope ?? "",
     scopes: (extra.scope ?? "").split(" ").filter(Boolean),
   };
