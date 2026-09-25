@@ -6,9 +6,12 @@ ALTER TABLE `jwks` ADD COLUMN `alg` VARCHAR(191) NULL,
 ALTER TABLE `two_factor` ADD COLUMN `failed_verification_count` INTEGER NULL DEFAULT 0,
     ADD COLUMN `locked_until` DATETIME(3) NULL;
 
--- CreateTable
+-- CreateTable: OAuth 2.1 provider tables
+-- Primary keys use BINARY(16) for UUID v7 (RFC 9562) — unpredictable,
+-- time-ordered, 16 bytes raw instead of 36-char hex strings.
+
 CREATE TABLE `oauth_client` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `id` BINARY(16) NOT NULL,
     `client_id` VARCHAR(255) NOT NULL,
     `client_secret` TEXT NULL,
     `client_discovery_id` VARCHAR(191) NULL,
@@ -50,9 +53,8 @@ CREATE TABLE `oauth_client` (
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- CreateTable
 CREATE TABLE `oauth_resource` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `id` BINARY(16) NOT NULL,
     `identifier` VARCHAR(255) NOT NULL,
     `name` VARCHAR(191) NOT NULL,
     `access_token_ttl` INTEGER NULL,
@@ -72,9 +74,8 @@ CREATE TABLE `oauth_resource` (
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- CreateTable
 CREATE TABLE `oauth_client_resource` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `id` BINARY(16) NOT NULL,
     `client_id` VARCHAR(255) NOT NULL,
     `resource_id` VARCHAR(255) NOT NULL,
     `metadata` JSON NULL,
@@ -86,9 +87,8 @@ CREATE TABLE `oauth_client_resource` (
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- CreateTable
 CREATE TABLE `oauth_refresh_token` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `id` BINARY(16) NOT NULL,
     `token` VARCHAR(255) NOT NULL,
     `client_id` VARCHAR(255) NOT NULL,
     `session_id` INTEGER NULL,
@@ -115,9 +115,8 @@ CREATE TABLE `oauth_refresh_token` (
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- CreateTable
 CREATE TABLE `oauth_access_token` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `id` BINARY(16) NOT NULL,
     `token` VARCHAR(255) NOT NULL,
     `client_id` VARCHAR(255) NOT NULL,
     `session_id` INTEGER NULL,
@@ -126,7 +125,7 @@ CREATE TABLE `oauth_access_token` (
     `authorization_code_id` VARCHAR(255) NULL,
     `resources` TEXT NULL,
     `requested_user_info_claims` TEXT NULL,
-    `refresh_id` INTEGER NULL,
+    `refresh_id` BINARY(16) NULL,
     `scopes` TEXT NOT NULL,
     `expires_at` DATETIME(3) NOT NULL,
     `created_at` DATETIME(3) NOT NULL,
@@ -142,9 +141,8 @@ CREATE TABLE `oauth_access_token` (
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- CreateTable
 CREATE TABLE `oauth_consent` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `id` BINARY(16) NOT NULL,
     `client_id` VARCHAR(255) NOT NULL,
     `user_id` INTEGER NULL,
     `reference_id` VARCHAR(191) NULL,
@@ -159,17 +157,15 @@ CREATE TABLE `oauth_consent` (
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- CreateTable
 CREATE TABLE `oauth_client_assertion` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `id` BINARY(16) NOT NULL,
     `expires_at` DATETIME(3) NOT NULL,
 
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- CreateTable
 CREATE TABLE `device_code` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `id` BINARY(16) NOT NULL,
     `device_code` VARCHAR(255) NOT NULL,
     `user_code` VARCHAR(255) NOT NULL,
     `user_id` VARCHAR(255) NULL,
@@ -190,36 +186,24 @@ CREATE TABLE `device_code` (
 -- AddForeignKey
 ALTER TABLE `oauth_client` ADD CONSTRAINT `oauth_client_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE `oauth_client_resource` ADD CONSTRAINT `oauth_client_resource_client_id_fkey` FOREIGN KEY (`client_id`) REFERENCES `oauth_client`(`client_id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE `oauth_client_resource` ADD CONSTRAINT `oauth_client_resource_resource_id_fkey` FOREIGN KEY (`resource_id`) REFERENCES `oauth_resource`(`identifier`) ON DELETE CASCADE ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE `oauth_refresh_token` ADD CONSTRAINT `oauth_refresh_token_client_id_fkey` FOREIGN KEY (`client_id`) REFERENCES `oauth_client`(`client_id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE `oauth_refresh_token` ADD CONSTRAINT `oauth_refresh_token_session_id_fkey` FOREIGN KEY (`session_id`) REFERENCES `session`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE `oauth_refresh_token` ADD CONSTRAINT `oauth_refresh_token_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE `oauth_access_token` ADD CONSTRAINT `oauth_access_token_client_id_fkey` FOREIGN KEY (`client_id`) REFERENCES `oauth_client`(`client_id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE `oauth_access_token` ADD CONSTRAINT `oauth_access_token_session_id_fkey` FOREIGN KEY (`session_id`) REFERENCES `session`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE `oauth_access_token` ADD CONSTRAINT `oauth_access_token_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE `oauth_access_token` ADD CONSTRAINT `oauth_access_token_refresh_id_fkey` FOREIGN KEY (`refresh_id`) REFERENCES `oauth_refresh_token`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE `oauth_consent` ADD CONSTRAINT `oauth_consent_client_id_fkey` FOREIGN KEY (`client_id`) REFERENCES `oauth_client`(`client_id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE `oauth_consent` ADD CONSTRAINT `oauth_consent_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
-

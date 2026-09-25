@@ -364,7 +364,7 @@ model TwoFactor {
 // and the adapter serializes `string[]` fields when `supportsArrays` is false.
 
 model OauthClient {
-  id                               Int       @id @default(autoincrement())
+  id                               Bytes     @id @db.Binary(16)
   clientId                         String    @unique @map("client_id") @db.VarChar(255)
   clientSecret                     String?   @map("client_secret") @db.Text
   clientDiscoveryId                String?   @map("client_discovery_id")
@@ -412,7 +412,7 @@ model OauthClient {
 }
 
 model OauthResource {
-  id                          Int       @id @default(autoincrement())
+  id                          Bytes     @id @db.Binary(16)
   identifier                  String    @unique @db.VarChar(255)
   name                        String
   accessTokenTtl              Int?      @map("access_token_ttl")
@@ -434,7 +434,7 @@ model OauthResource {
 }
 
 model OauthClientResource {
-  id         Int       @id @default(autoincrement())
+  id         Bytes     @id @db.Binary(16)
   clientId   String    @map("client_id") @db.VarChar(255)
   resourceId String    @map("resource_id") @db.VarChar(255)
   metadata   Json?
@@ -450,7 +450,7 @@ model OauthClientResource {
 }
 
 model OauthRefreshToken {
-  id                     Int       @id @default(autoincrement())
+  id                     Bytes     @id @db.Binary(16)
   token                  String    @unique @db.VarChar(255)
   clientId               String    @map("client_id") @db.VarChar(255)
   sessionId              Int?      @map("session_id")
@@ -482,7 +482,7 @@ model OauthRefreshToken {
 }
 
 model OauthAccessToken {
-  id                     Int       @id @default(autoincrement())
+  id                     Bytes     @id @db.Binary(16)
   token                  String    @unique @db.VarChar(255)
   clientId               String    @map("client_id") @db.VarChar(255)
   sessionId              Int?      @map("session_id")
@@ -491,7 +491,7 @@ model OauthAccessToken {
   authorizationCodeId    String?   @map("authorization_code_id") @db.VarChar(255)
   resources              String?   @db.Text
   requestedUserInfoClaims String?  @map("requested_user_info_claims") @db.Text
-  refreshId              Int?      @map("refresh_id")
+  refreshId              Bytes?    @map("refresh_id")
   scopes                 String    @db.Text
   expiresAt              DateTime  @map("expires_at")
   createdAt              DateTime  @map("created_at")
@@ -512,7 +512,7 @@ model OauthAccessToken {
 }
 
 model OauthConsent {
-  id                     Int       @id @default(autoincrement())
+  id                     Bytes     @id @db.Binary(16)
   clientId               String    @map("client_id") @db.VarChar(255)
   userId                 Int?      @map("user_id")
   referenceId            String?   @map("reference_id")
@@ -531,14 +531,14 @@ model OauthConsent {
 }
 
 model OauthClientAssertion {
-  id        Int      @id @default(autoincrement())
+  id        Bytes    @id @db.Binary(16)
   expiresAt DateTime @map("expires_at")
 
   @@map("oauth_client_assertion")
 }
 
 model DeviceCode {
-  id               Int       @id @default(autoincrement())
+  id               Bytes     @id @db.Binary(16)
   deviceCode       String    @unique @map("device_code") @db.VarChar(255)
   userCode         String    @map("user_code") @db.VarChar(255)
   userId           String?   @map("user_id") @db.VarChar(255)

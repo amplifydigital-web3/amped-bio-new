@@ -84,9 +84,29 @@ curl -sSi -X POST "$BETTER_AUTH_URL/mcp" -H 'content-type: application/json' -d 
 
 ## Known limitations
 
-- `private_key_jwt` client assertions rely on a primary key digest for replay protection; numeric
-  autoincrement ids weaken that guarantee, so prefer `client_secret_*` or public clients.
 - Access tokens are stateless JWTs and cannot be revoked individually: revoking the refresh token ends the
   session and every token bound to it.
 - The landing page runs React 18, so documentation `.mdx` files are rendered as Markdown (no JSX) until the
   app moves to React 19.
+
+## ID generation
+
+OAuth / OIDC tables (`oauth_*`, `device_code`) use **UUID v7** as their primary key, stored as
+`BINARY(16)` (16 raw bytes), generated server-side in `apps/server/src/utils/uuid-v7.ts`.
+
+UUID v7 is time-ordered (first 48 bits are the Unix timestamp in ms), which keeps MySQL B-tree
+indexes compact — avoiding the random-write performance degradation of UUID v4 — while still
+providing unpredictable identifiers that strengthen `private_key_jwt` replay protection and
+similar security properties.
+
+Storing as `BINARY(16)` rather than a 36-character hex string (`VARCHAR(36)`):
+- **48 % less storage** — 16 bytes vs ~36 bytes per row
+- **Denser indexes** — fewer B-tree pages to scan, more rows per page
+- **No collation overhead** — binary comparison is faster than string collation
+
+The core application tables (`users`, `session`, `account`, `verification`, etc.) keep their
+existing `Int` auto-increment primary keys for backward compatibility.
+
+The Better Auth `generateId` callback in `apps/server/src/utils/auth.ts` dispatches based on the
+model name: OAuth models get a UUID v7 `Buffer`, all others return `false` to let the database
+handle generation.

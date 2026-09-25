@@ -14,6 +14,7 @@ import { oauthDeviceAuthorization } from "@better-auth/oauth-provider";
 import crypto from "crypto";
 import { JWTPayload, SignJWT } from "jose";
 import type { EnrichedUser } from "../types/auth-helpers";
+import { uuidv7 } from "./uuid-v7";
 
 // === jwt private key generation  ===
 const pk = crypto.createPrivateKey({
@@ -223,17 +224,31 @@ export const auth = betterAuth({
         }
       : undefined,
     database: {
-      // Let the database generate numeric ids (all application tables use
-      // autoincrement integer primary keys).
-      generateId: "serial",
-      // generateId: options => {
-      //   // Let the database auto-generate IDs for 'user' and 'users' tables
-      //   if (options.model === "user" || options.model === "users") {
-      //     return false;
-      //   }
-      //   // Generate UUIDs for all other tables
-      //   return crypto.randomUUID();
-      // },
+      // Tables managed by Better Auth fall into two groups:
+      //   1. Core tables (user, session, account, verification, jwks, twoFactor)
+      //      Keep database auto-increment / cuid for backward compatibility.
+      //   2. OAuth / OIDC tables (oauth*, device_code)
+      //      Use UUID v7 to avoid predictable sequential primary keys, which
+      //      strengthens private_key_jwt replay protection and other security
+      //      properties that depend on ID unpredictability.
+      generateId: options => {
+        const oauthModels = [
+          "oauthClient",
+          "oauthResource",
+          "oauthClientResource",
+          "oauthRefreshToken",
+          "oauthAccessToken",
+          "oauthConsent",
+          "oauthClientAssertion",
+          "deviceCode",
+        ];
+        if (oauthModels.includes(options.model)) {
+          return uuidv7();
+        }
+        // Let the database handle ID generation for all other tables
+        // (auto-increment or cuid defaults in the schema).
+        return false;
+      },
     },
   },
   databaseHooks: {

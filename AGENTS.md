@@ -54,6 +54,91 @@ ALWAYS run typecheck and build commands to validate your modifications before cl
 - **Prisma Migrations**: After changing the Prisma schema and creating a new migration, you MUST run `pnpm run --filter server run prisma:generate`.
 - **Client Package Installation**: When installing packages or running commands specific to the client application (e.g., `shadcn`, `tailwind`, `magicui`), you MUST always filter by the client package (e.g., `pnpm run --filter client add <package-name>` or `pnpm dlx --filter client <command>`).
 
+# PRIMARY KEY STRATEGY — UUID v7 BINARY(16)
+
+All new database entities MUST use UUID v7 (RFC 9562) as their primary key, stored as
+`BINARY(16)` in MySQL and `Bytes @id @db.Binary(16)` in the Prisma schema.
+
+**Rationale:**
+- **Security**: Unpredictable IDs prevent enumeration attacks and strengthen
+  `private_key_jwt` replay protection.
+- **Performance**: Time-ordering keeps B-tree indexes compact — unlike UUID v4,
+  new inserts append near the end of the index rather than scattering randomly.
+- **Storage**: `BINARY(16)` is 55% smaller than `VARCHAR(36)` (16 vs ~36 bytes),
+  producing denser indexes and fewer B-tree pages to scan.
+
+**How to implement:**
+
+1. In the Prisma schema, define the id as:
+   ```prisma
+   model NewEntity {
+     id  Bytes  @id @db.Binary(16)
+     ...
+   }
+   ```
+2. In the Better Auth `generateId` callback (`apps/server/src/utils/auth.ts`),
+   add the model name to the `oauthModels` list if it is managed by Better Auth.
+   Otherwise, generate the ID server-side with:
+   ```ts
+   import { uuidv7 } from "../utils/uuid-v7";
+   // ...
+   const id = uuidv7(); // returns Buffer (16 bytes)
+   ```
+3. Never use `@default(autoincrement())` or `Int` for new entities.
+
+Existing core tables (`users`, `session`, `account`, `verification`, `jwks`,
+`two_factor`, and all business tables) retain their `Int` auto-increment PKs for
+backward compatibility. Only **new** entities follow this rule.
+
+# TESTING — OAUTH E SERVER
+
+Tests live in `apps/server/src/__tests__/` and use **Vitest**. There are three categories:
+
+## 1. Unit tests (no external dependencies)
+
+```bash
+cd apps/server && pnpm test
+```
+
+Runs all `*.test.ts` files. Covers UUID v7 generation, OAuth scope constants,
+TRPC utility functions (`parseRedirectUris`), and scope descriptions.
+
+## 2. Integration tests (against a live API)
+
+```bash
+TEST_API_URL=https://api.staging.amped.bio pnpm test -- src/__tests__/oauth-endpoints.test.ts
+```
+
+Tests well-known metadata (OIDC discovery, JWKS, AS metadata, MCP protected resource),
+CORS headers, and login/consent/device page redirects. Defaults to staging if
+`TEST_API_URL` is not set.
+
+## 3. E2E tests (full OAuth flows — requires registered client)
+
+```bash
+TEST_CLIENT_ID=<client_id>                   \
+TEST_CLIENT_SECRET=<client_secret>           \
+TEST_USER_EMAIL=<email>                      \
+TEST_USER_PASSWORD=<password>                \
+TEST_API_URL=https://api.staging.amped.bio   \
+pnpm test:e2e
+```
+
+Tests authorization_code + PKCE, token exchange, userinfo, introspection, revocation,
+device authorization grant, and dynamic client registration. Tests that require
+a client_id are skipped with a warning when `TEST_CLIENT_ID` is not set.
+
+## Test files
+
+| File | Type | What it covers |
+|------|------|---------------|
+| `uuid-v7.test.ts` | Unit | Buffer size, version, variant, ordering, uniqueness |
+| `oauth-scopes.test.ts` | Unit | Server constants (scopes, issuer, TTL) |
+| `oauth-scope-descriptions.test.ts` | Unit | Consent screen descriptions |
+| `oauth-trpc.test.ts` | Unit | `parseRedirectUris` — JSON parsing edge cases |
+| `oauth-endpoints.test.ts` | Integration | Metadata, JWKS, CORS, redirects |
+| `oauth-e2e.test.ts` | E2E | Full OAuth 2.1 / OIDC flows |
+
 # CODE QUALITY STANDARDS - NON-NEGOTIABLE
 
 - **Code Quality**: You must produce clean, readable, and maintainable code. Adhere to linting rules and formatting standards without exception.
@@ -61,3 +146,14 @@ ALWAYS run typecheck and build commands to validate your modifications before cl
 - **Error Handling**: Implement robust error handling mechanisms where appropriate. No exceptions.
 - **Modularity Requirement**: Design solutions with modularity in mind, promoting reusability and easier maintenance.
 - **Security First**: You must always consider security implications and follow best practices to prevent vulnerabilities.
+
+# OAUTH E2E TEST REQUIREMENTS
+
+Before running E2E tests (`oauth-e2e.test.ts`), ensure:
+
+1. A client is registered in the target environment (admin panel or TRPC).
+2. A test user exists with known email/password.
+3. The OAuth server is reachable at the configured `TEST_API_URL`.
+4. The environment variables are set as shown above.
+
+Test configuration is documented in `apps/server/src/__tests__/test-setup.ts`.
