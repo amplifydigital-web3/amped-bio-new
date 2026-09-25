@@ -7,6 +7,7 @@ import { z } from "zod";
 import { HANDLE_MIN_LENGTH, HANDLE_REGEX } from "@repo/constants";
 import { env } from "../env";
 import { logger } from "better-auth";
+import { getPublicTrackingPixels } from "./trackingPixels";
 
 // Create a base schema for handle validation
 export const handleBaseSchema = z
@@ -296,6 +297,7 @@ const appRouter = router({
         theme: publicTheme,
         blocks: publicBlocks,
         hasCreatorPool,
+        trackingPixels: await getPublicTrackingPixels(user_id),
       };
 
       return result;

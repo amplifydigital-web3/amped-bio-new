@@ -41,6 +41,10 @@ model User {
   referralsReceived Referral[]  @relation("ReferredReferrals")
   twoFactorEnabled  Boolean     @default(false) @map("two_factor_enabled")
   twoFactor         TwoFactor?
+  analyticsEvents    AnalyticsEvent[]
+  trackingPixels     TrackingPixels?
+  analyticsCampaigns AnalyticsCampaign[]
+  analyticsConsents  AnalyticsConsent[]
 
   @@unique([email])
   @@map("users")
@@ -141,7 +145,8 @@ model Block {
   created_at DateTime  @default(now())
   updated_at DateTime? @updatedAt
 
-  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user            User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  analyticsEvents AnalyticsEvent[]
 
   @@map("blocks")
 }
@@ -345,4 +350,107 @@ model TwoFactor {
   @@unique([userId])
   @@map("two_factor")
   @@index([secret(length: 191)])
+}
+
+enum AnalyticsEventType {
+  view
+  click
+  engage
+}
+
+// Cookieless creator analytics. Raw IP addresses are never stored: visitor_hash
+// is derived from a daily rotating salt, the page owner, IP and user agent.
+model AnalyticsEvent {
+  id                 BigInt             @id @default(autoincrement())
+  // Client generated UUID. Unique, so retried deliveries are stored once.
+  event_id           String?            @unique @db.VarChar(36)
+  user_id            Int
+  block_id           Int?
+  campaign_id        Int?
+  type               AnalyticsEventType
+  visitor_hash       String             @db.VarChar(32)
+  // Only with the visitor's "return visits" consent: keyed hash of a long-lived
+  // browser ID, scoped to this creator so visitors cannot be linked across creators
+  persistent_visitor String?            @db.VarChar(32)
+  // Per page-load (or per tab session with consent) identifier
+  session_id         String?            @db.VarChar(36)
+  // Signed-in Amped account of the visitor, only with consent, verified server side
+  visitor_user_id    Int?
+  duration_ms  Int?
+  source       String             @db.VarChar(32)
+  referrer     String?            @db.VarChar(255)
+  utm_source   String?            @db.VarChar(100)
+  utm_medium   String?            @db.VarChar(100)
+  utm_campaign String?            @db.VarChar(100)
+  country      String?            @db.VarChar(2)
+  city         String?            @db.VarChar(100)
+  device       String             @db.VarChar(16)
+  os           String?            @db.VarChar(32)
+  browser      String?            @db.VarChar(32)
+  created_at   DateTime           @default(now())
+
+  user     User               @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  block    Block?             @relation(fields: [block_id], references: [id], onDelete: SetNull)
+  campaign AnalyticsCampaign? @relation(fields: [campaign_id], references: [id], onDelete: SetNull)
+
+  @@index([user_id, created_at])
+  @@index([user_id, type, created_at])
+  @@index([block_id, created_at])
+  @@index([user_id, persistent_visitor, created_at])
+  @@index([campaign_id, created_at])
+  @@map("analytics_events")
+}
+
+// Named campaigns a creator creates for tagged links and QR codes.
+// Links carry the ID as utm_id so reporting does not depend on free text.
+model AnalyticsCampaign {
+  id          Int       @id @default(autoincrement())
+  user_id     Int
+  name        String    @db.VarChar(80)
+  slug        String    @db.VarChar(80)
+  channel     String    @db.VarChar(32)
+  archived_at DateTime?
+  created_at  DateTime  @default(now())
+
+  user   User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  events AnalyticsEvent[]
+
+  @@unique([user_id, slug])
+  @@map("analytics_campaigns")
+}
+
+// Proof of each visitor consent decision (GDPR accountability).
+model AnalyticsConsent {
+  id                 BigInt   @id @default(autoincrement())
+  user_id            Int
+  visitor_hash       String   @db.VarChar(32)
+  persistent_visitor String?  @db.VarChar(32)
+  analytics          Boolean
+  advertising        Boolean
+  policy_version     String   @db.VarChar(16)
+  source             String   @db.VarChar(16)
+  created_at         DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, created_at])
+  @@map("analytics_consents")
+}
+
+// Third-party measurement tags a creator connects to their public page.
+// API tokens are stored encrypted (AES-256-GCM) and never returned to clients.
+model TrackingPixels {
+  id                      Int       @id @default(autoincrement())
+  user_id                 Int       @unique
+  ga4_measurement_id      String?   @db.VarChar(32)
+  meta_pixel_id           String?   @db.VarChar(32)
+  meta_capi_token_enc     String?   @db.Text
+  tiktok_pixel_id         String?   @db.VarChar(32)
+  tiktok_events_token_enc String?   @db.Text
+  created_at              DateTime  @default(now())
+  updated_at              DateTime? @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("tracking_pixels")
 }
