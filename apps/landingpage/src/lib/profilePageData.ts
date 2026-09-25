@@ -1,4 +1,4 @@
-import type { BlockType, ThemeConfig } from "@repo/constants";
+import type { BlockType, PublicTrackingPixels, ThemeConfig } from "@repo/constants";
 import type { RouterOutputs } from "../../../server/src/trpc";
 
 // Inferred directly from the tRPC router so the SSR page data can never drift
@@ -30,6 +30,7 @@ export interface ProfilePageData {
   blocks: BlockType[];
   theme: Theme | null;
   hasCreatorPool: HandleOutput["hasCreatorPool"];
+  trackingPixels: PublicTrackingPixels | null;
 }
 
 export const DEFAULT_HANDLE = "landingpage";
@@ -50,6 +51,7 @@ export const DEFAULT_PROFILE_DATA: ProfilePageData = {
   ],
   theme: null,
   hasCreatorPool: false,
+  trackingPixels: null,
 };
 
 /**
@@ -58,7 +60,7 @@ export const DEFAULT_PROFILE_DATA: ProfilePageData = {
  * config, block config) meet the app's typed schemas.
  */
 export function mapGetHandleData(result: HandleOutput, handle: string): ProfilePageData {
-  const { user, theme, blocks: blocksRaw, hasCreatorPool } = result;
+  const { user, theme, blocks: blocksRaw, hasCreatorPool, trackingPixels } = result;
   return {
     profile: {
       id: user.id,
@@ -74,5 +76,6 @@ export function mapGetHandleData(result: HandleOutput, handle: string): ProfileP
     theme: theme ? (theme as unknown as Theme) : null,
     blocks: [...blocksRaw].sort((a, b) => a.order - b.order) as unknown as BlockType[],
     hasCreatorPool,
+    trackingPixels: trackingPixels ?? null,
   };
 }
