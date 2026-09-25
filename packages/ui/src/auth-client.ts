@@ -46,11 +46,16 @@ export const authClient = createAuthClient({
     //   clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
     // }),
   ],
-  /** The base URL of the server (optional if you're using the same domain) */
+  /** The base URL of the auth subdomain */
   baseURL:
-    (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_API_URL ??
-    (typeof process !== "undefined" ? process.env.NEXT_PUBLIC_API_URL : undefined),
-  basePath: "/auth",
+    (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_AUTH_URL ??
+    (typeof process !== "undefined" ? process.env.NEXT_PUBLIC_AUTH_URL : undefined) ??
+    "https://auth.amped.bio",
+  /** basePath is empty because Better Auth now operates at the root of the auth subdomain */
+  basePath: "",
+  fetchOptions: {
+    credentials: "include",
+  },
 });
 
 export const oneTapCall = async () => {

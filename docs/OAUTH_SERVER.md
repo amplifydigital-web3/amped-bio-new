@@ -2,39 +2,39 @@
 
 Amped.bio is an OAuth 2.1 authorization server with OpenID Connect, built on
 [Better Auth](https://better-auth.com) and exposed through the `mcp()` provider plugin
-(`apps/server/src/utils/auth.ts`). Public documentation for integrators lives in
-`apps/landingpage/src/content/docs`.
+(`apps/auth-server/src/utils/auth.ts`). The auth server runs as a **dedicated subdomain**
+(`auth.amped.bio`) separate from the API server (`api.amped.bio`).
+
+Public documentation for integrators lives in `apps/landingpage/src/content/docs`.
 
 ## Issuer and endpoints
 
 | Thing | Value |
 | --- | --- |
-| Issuer | `<BETTER_AUTH_URL>/auth` (production `https://api.amped.bio/auth`) |
+| Issuer | `BETTER_AUTH_URL` (production `https://auth.amped.bio`) |
 | OIDC discovery | `<issuer>/.well-known/openid-configuration` |
-| OAuth AS metadata | `<issuer>/.well-known/oauth-authorization-server` and `/.well-known/oauth-authorization-server/auth` |
-| MCP resource | `MCP_RESOURCE_URL` (`https://api.amped.bio/mcp`) |
-| Protected resource metadata | `/.well-known/oauth-protected-resource` and `/.well-known/oauth-protected-resource/mcp` |
-| JWKS | `/.well-known/jwks.json` and `/auth/jwks` (same key set) |
+| OAuth AS metadata | `<issuer>/.well-known/oauth-authorization-server` |
+| Protected resource metadata (MCP) | `https://api.amped.bio/.well-known/oauth-protected-resource/mcp` |
+| JWKS | `https://auth.amped.bio/.well-known/jwks.json` |
 
-The issuer has a path, so Better Auth serves its own documents under `/auth`; the Express app
-(`apps/server/src/services/API.ts`) also exposes the RFC 8414 path form and the RFC 9728 protected
-resource metadata at the API origin root, and redirects naive root probes to the canonical documents.
+The issuer is on its own subdomain (no path suffix), so RFC 8414 metadata is served directly
+at `/.well-known/oauth-authorization-server` on `auth.amped.bio`.
 
 ## Environment variables
 
 | Variable | Purpose |
 | --- | --- |
-| `BETTER_AUTH_URL` | Public origin of the API. The issuer is this origin plus `/auth`. |
+| `BETTER_AUTH_URL` | Public origin of the auth subdomain, e.g. `https://auth.amped.bio`. |
 | `MCP_RESOURCE_URL` | Canonical protected resource identifier of the MCP server (HTTPS, no query). |
 | `OAUTH_TRUSTED_CLIENT_IDS` | Comma separated client ids that skip the consent screen. |
 
 ## Hosted pages
 
 `loginPage`, `consentPage` and the device `verificationUri` are configured as paths, which Better Auth
-resolves against the API origin. `apps/server/src/services/API.ts` redirects those three paths to the
-landing page, preserving the signed query string:
+resolves against the auth subdomain origin. `apps/auth-server/src/services/API.ts` redirects those three
+paths to the landing page, preserving the signed query string:
 
-| API path | Landing page |
+| Auth subdomain path | Landing page |
 | --- | --- |
 | `/oauth/login` | `/oauth/login` |
 | `/oauth/consent` | `/oauth/consent` |
@@ -71,17 +71,19 @@ Migration: `apps/server/prisma/migrations/20260918120000_add_oauth_provider`.
 
 ```bash
 # OIDC discovery
-curl -sS "$BETTER_AUTH_URL/auth/.well-known/openid-configuration" | jq '{issuer, authorization_endpoint, jwks_uri}'
+curl -sS "$BETTER_AUTH_URL/.well-known/openid-configuration" | jq '{issuer, authorization_endpoint, jwks_uri}'
 
-# RFC 8414 form and MCP protected resource metadata
-curl -sS "$BETTER_AUTH_URL/.well-known/oauth-authorization-server/auth" | jq .issuer
-curl -sS "$BETTER_AUTH_URL/.well-known/oauth-protected-resource/mcp" | jq .
+# OAuth AS metadata (RFC 8414)
+curl -sS "$BETTER_AUTH_URL/.well-known/oauth-authorization-server" | jq .issuer
 
 # JWKS
 curl -sS "$BETTER_AUTH_URL/.well-known/jwks.json" | jq '.keys[0] | {kty, alg, kid}'
 
+# Protected resource metadata (MCP) - served from api subdomain
+curl -sS "https://api.amped.bio/.well-known/oauth-protected-resource/mcp" | jq .
+
 # MCP endpoint must answer a challenge when unauthenticated
-curl -sSi -X POST "$BETTER_AUTH_URL/mcp" -H 'content-type: application/json' -d '{}' | grep -i www-authenticate
+curl -sSi -X POST "https://api.amped.bio/mcp" -H 'content-type: application/json' -d '{}' | grep -i www-authenticate
 ```
 
 ## Known limitations
@@ -109,6 +111,6 @@ Storing as `BINARY(16)` rather than a 36-character hex string (`VARCHAR(36)`):
 The core application tables (`users`, `session`, `account`, `verification`, etc.) keep their
 existing `Int` auto-increment primary keys for backward compatibility.
 
-The Better Auth `generateId` callback in `apps/server/src/utils/auth.ts` dispatches based on the
+The Better Auth `generateId` callback in `apps/auth-server/src/utils/auth.ts` dispatches based on the
 model name: OAuth models get a UUID v7 `Buffer`, all others return `false` to let the database
 handle generation.

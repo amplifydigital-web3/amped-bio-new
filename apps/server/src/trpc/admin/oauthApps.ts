@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { adminProcedure, router } from "../trpc";
 import { auth } from "../../utils/auth";
-import { prisma } from "../../services/DB";
+import { prisma } from "@repo/database";
 
 function toTRPCError(error: unknown): never {
   if (error instanceof TRPCError) throw error;

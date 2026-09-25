@@ -1,7 +1,7 @@
 import { adminProcedure, router } from "../trpc";
 import { z } from "zod";
 import { DateRangeSchema, PaginationSchema, BlockTypeFilterSchema } from "./schemas";
-import { prisma } from "../../services/DB";
+import { prisma } from "@repo/database";
 
 export const blocksRouter = router({
   getBlockStats: adminProcedure.input(DateRangeSchema.optional()).query(async ({ input }) => {

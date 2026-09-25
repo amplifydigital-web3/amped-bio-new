@@ -40,12 +40,12 @@ describe("OAuth scopes and constants", () => {
   });
 
   describe("OAUTH_ISSUER", () => {
-    it("is derived from BETTER_AUTH_URL + /auth", () => {
-      expect(OAUTH_ISSUER).toBe(`${AUTH_BASE_URL}/auth`);
+    it("equals the BETTER_AUTH_URL without any path suffix", () => {
+      expect(OAUTH_ISSUER).toBe(AUTH_BASE_URL);
     });
 
-    it("includes the /auth path suffix", () => {
-      expect(OAUTH_ISSUER).toMatch(/\/auth$/);
+    it("does NOT include the /auth path suffix", () => {
+      expect(OAUTH_ISSUER).not.toContain("/auth");
     });
   });
 });

@@ -9,28 +9,29 @@ group: Reference
 
 | Document | URL |
 | --- | --- |
-| OpenID Connect discovery | `https://api.amped.bio/auth/.well-known/openid-configuration` |
-| OAuth authorization server metadata | `https://api.amped.bio/auth/.well-known/oauth-authorization-server` |
-| OAuth authorization server metadata (RFC 8414 path form) | `https://api.amped.bio/.well-known/oauth-authorization-server/auth` |
+| OpenID Connect discovery | `https://auth.amped.bio/.well-known/openid-configuration` |
+| OAuth authorization server metadata | `https://auth.amped.bio/.well-known/oauth-authorization-server` |
 | Protected resource metadata (MCP) | `https://api.amped.bio/.well-known/oauth-protected-resource/mcp` |
-| JSON Web Key Set | `https://api.amped.bio/.well-known/jwks.json` |
+| JSON Web Key Set | `https://auth.amped.bio/.well-known/jwks.json` |
 
-The issuer is `https://api.amped.bio/auth`. Clients that only probe the origin root are redirected to the
-canonical documents.
+The issuer is `https://auth.amped.bio`.
 
 ## Endpoints
 
+All OAuth/OIDC endpoints are served from the `auth.amped.bio` subdomain. Replace the host with
+`localhost:44000` for local development.
+
 | Endpoint | Path | Notes |
 | --- | --- | --- |
-| Authorization | `/auth/oauth2/authorize` | `response_type=code` only, PKCE `S256` |
-| Token | `/auth/oauth2/token` | `authorization_code`, `refresh_token`, `client_credentials`, device grant |
-| Consent | `/auth/oauth2/consent` | Used by our hosted consent screen |
-| UserInfo | `/auth/oauth2/userinfo` | Requires the `openid` scope |
-| Introspection | `/auth/oauth2/introspect` | RFC 7662, client authentication required |
-| Revocation | `/auth/oauth2/revoke` | RFC 7009 |
-| Dynamic registration | `/auth/oauth2/register` | Enabled for machine clients with an initial access token |
-| Client management | `/auth/oauth2/create-client`, `/auth/oauth2/get-clients`, `/auth/oauth2/update-client`, `/auth/oauth2/delete-client`, `/auth/oauth2/client/rotate-secret` | Session authenticated |
-| Device authorization | `/auth/device/code`, `/auth/device/token` | RFC 8628 |
+| Authorization | `/oauth2/authorize` | `response_type=code` only, PKCE `S256` |
+| Token | `/oauth2/token` | `authorization_code`, `refresh_token`, `client_credentials`, device grant |
+| Consent | `/oauth2/consent` | Used by our hosted consent screen |
+| UserInfo | `/oauth2/userinfo` | Requires the `openid` scope |
+| Introspection | `/oauth2/introspect` | RFC 7662, client authentication required |
+| Revocation | `/oauth2/revoke` | RFC 7009 |
+| Dynamic registration | `/oauth2/register` | Enabled for machine clients with an initial access token |
+| Client management | `/oauth2/create-client`, `/oauth2/get-clients`, `/oauth2/update-client`, `/oauth2/delete-client`, `/oauth2/client/rotate-secret` | Session authenticated |
+| Device authorization | `/device/code`, `/device/token` | RFC 8628 |
 | Device approval page | `/oauth/device` | Redirects to the hosted approval page |
 
 ## Authorization request

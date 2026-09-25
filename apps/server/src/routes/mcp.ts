@@ -4,7 +4,7 @@ import type { AuthInfo, CallToolResult, ServerContext } from "@modelcontextproto
 import { requireMcpAuth } from "@better-auth/mcp";
 import { auth } from "../utils/auth";
 import { env } from "../env";
-import { prisma } from "../services/DB";
+import { prisma } from "@repo/database";
 import { z } from "zod";
 
 const READ_SCOPE = "mcp:read";

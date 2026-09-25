@@ -15,7 +15,7 @@ described in this documentation.
 ## How clients connect
 
 1. The client fetches the resource metadata, which lists our authorization server.
-2. It discovers `https://api.amped.bio/auth/.well-known/oauth-authorization-server`.
+2. It discovers `https://auth.amped.bio/.well-known/oauth-authorization-server`.
 3. It authorizes with the `mcp:read` scope, requesting `resource=https://api.amped.bio/mcp`.
 4. Tokens are audience bound to the MCP resource, so they cannot be replayed against another API.
 

@@ -1,7 +1,7 @@
 import { privateProcedure, router } from "../trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { prisma } from "../../services/DB";
+import { prisma } from "@repo/database";
 import { Address, createPublicClient, http, zeroAddress } from "viem";
 import {
   getChainConfig,

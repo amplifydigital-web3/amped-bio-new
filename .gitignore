@@ -58,4 +58,5 @@ packages/web3/tsconfig.tsbuildinfo
 packages/web3/tsconfig.tsbuildinfo
 .env
 apps/server/src/lib/prisma
+packages/database/src/generated
 .playwright-mcp/

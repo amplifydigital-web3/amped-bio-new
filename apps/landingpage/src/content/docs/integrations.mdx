@@ -16,9 +16,9 @@ export const auth = betterAuth({
     "amped-bio": {
       clientId: process.env.AMPED_CLIENT_ID!,
       clientSecret: process.env.AMPED_CLIENT_SECRET!,
-      authorizationEndpoint: "https://api.amped.bio/auth/oauth2/authorize",
-      tokenEndpoint: "https://api.amped.bio/auth/oauth2/token",
-      userInfoEndpoint: "https://api.amped.bio/auth/oauth2/userinfo",
+      authorizationEndpoint: "https://auth.amped.bio/oauth2/authorize",
+      tokenEndpoint: "https://auth.amped.bio/oauth2/token",
+      userInfoEndpoint: "https://auth.amped.bio/oauth2/userinfo",
       scopes: ["openid", "profile", "email"],
     },
   },
@@ -40,8 +40,8 @@ exchange must not happen in the browser.
 
 Every library that speaks generic OAuth 2.0 or OIDC works with the discovery document:
 
-- **Issuer**: `https://api.amped.bio/auth`
-- **Discovery**: `https://api.amped.bio/auth/.well-known/openid-configuration`
+- **Issuer**: `https://auth.amped.bio`
+- **Discovery**: `https://auth.amped.bio/.well-known/openid-configuration`
 - **Scopes**: `openid profile email`
 
 ## Single page applications (public client)
@@ -49,7 +49,7 @@ Every library that speaks generic OAuth 2.0 or OIDC works with the discovery doc
 SPAs cannot keep a secret, so register a `none` (public) client and always send PKCE:
 
 1. Generate a verifier, store it in memory or `sessionStorage`.
-2. Send its `S256` challenge to `/auth/oauth2/authorize`.
+2. Send its `S256` challenge to `/oauth2/authorize` on `https://auth.amped.bio`.
 3. On the callback, exchange the code with `client_id` and `code_verifier` only.
 4. Keep the access token in memory; rely on the refresh token (`offline_access`) for long sessions.
 

@@ -9,7 +9,7 @@ Amped.bio runs an OAuth 2.1 authorization server with OpenID Connect on top. Any
 users sign in with their Amped.bio account instead of creating another password.
 
 - **Protocol**: OAuth 2.1 authorization code flow with PKCE, plus OpenID Connect for identity.
-- **Issuer**: `https://api.amped.bio/auth` (staging: `https://api.staging.amped.bio/auth`).
+- **Issuer**: `https://auth.amped.bio` (staging: `https://auth.staging.amped.bio`).
 - **Tokens**: RS256 signed JWTs, verified against our public JWKS.
 - **Scopes**: identity only (`openid`, `profile`, `email`) plus `offline_access` for refresh tokens and
   `mcp:read` for the MCP endpoint.

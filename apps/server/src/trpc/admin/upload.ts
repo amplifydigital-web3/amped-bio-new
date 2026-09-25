@@ -11,7 +11,7 @@ import {
   ALLOWED_BACKGROUND_FILE_TYPES,
   ThemeConfig,
 } from "@repo/constants";
-import { prisma } from "../../services/DB";
+import { prisma } from "@repo/database";
 
 const requestThemeCollectionImageSchema = z.object({
   collectionId: z.number().positive(),

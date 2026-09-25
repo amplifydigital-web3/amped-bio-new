@@ -35,7 +35,7 @@ const params = new URLSearchParams({
   code_challenge_method: "S256",
 });
 
-window.location.href = `https://api.amped.bio/auth/oauth2/authorize?${params}`;
+window.location.href = `https://auth.amped.bio/oauth2/authorize?${params}`;
 ```
 
 The user signs in and, unless you are a trusted first party client, sees a consent screen listing the scopes
@@ -46,7 +46,7 @@ you asked for.
 Back on your `redirect_uri`, verify `state`, then exchange `code` at the token endpoint.
 
 ```bash
-curl -sS https://api.amped.bio/auth/oauth2/token \
+curl -sS https://auth.amped.bio/oauth2/token \
   -H "content-type: application/x-www-form-urlencoded" \
   -d grant_type=authorization_code \
   -d code=CODE_FROM_CALLBACK \
@@ -62,7 +62,7 @@ and a `refresh_token` when `offline_access` was requested.
 ## 4. Read the user profile
 
 ```bash
-curl -sS https://api.amped.bio/auth/oauth2/userinfo \
+curl -sS https://auth.amped.bio/oauth2/userinfo \
   -H "authorization: Bearer ACCESS_TOKEN"
 ```
 
@@ -80,7 +80,7 @@ curl -sS https://api.amped.bio/auth/oauth2/userinfo \
 ## 5. Refresh when the access token expires
 
 ```bash
-curl -sS https://api.amped.bio/auth/oauth2/token \
+curl -sS https://auth.amped.bio/oauth2/token \
   -H "content-type: application/x-www-form-urlencoded" \
   -d grant_type=refresh_token \
   -d refresh_token=YOUR_REFRESH_TOKEN \
@@ -103,9 +103,9 @@ export const auth = betterAuth({
     "amped-bio": {
       clientId: process.env.AMPED_CLIENT_ID!,
       clientSecret: process.env.AMPED_CLIENT_SECRET!,
-      authorizationEndpoint: "https://api.amped.bio/auth/oauth2/authorize",
-      tokenEndpoint: "https://api.amped.bio/auth/oauth2/token",
-      userInfoEndpoint: "https://api.amped.bio/auth/oauth2/userinfo",
+      authorizationEndpoint: "https://auth.amped.bio/oauth2/authorize",
+      tokenEndpoint: "https://auth.amped.bio/oauth2/token",
+      userInfoEndpoint: "https://auth.amped.bio/oauth2/userinfo",
       scopes: ["openid", "profile", "email"],
     },
   },

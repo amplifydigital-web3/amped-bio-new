@@ -1,4 +1,4 @@
-import { prisma } from "../services/DB";
+import { prisma } from "@repo/database";
 import { env } from "../env";
 import { processEmailToUniqueHandle } from "./onelink-generator";
 import { sendEmailVerification, sendPasswordResetEmail, sendWelcomeEmail } from "./email/email";
@@ -25,14 +25,14 @@ const pk = crypto.createPrivateKey({
 
 const pb = crypto.createPublicKey(pk);
 
-// Public origin of the auth server. The OAuth/OIDC issuer is this origin plus
-// the `/auth` base path; every token this server signs must carry it as `iss`
-// so access tokens, ID tokens and the app session JWTs verify consistently.
+// Public origin of the auth server, now on the dedicated auth subdomain.
+// Every token this server signs must carry it as `iss` so access tokens,
+// ID tokens and the app session JWTs verify consistently.
 export const AUTH_BASE_URL = (
   env.BETTER_AUTH_URL || (env.API_HOST.startsWith("http") ? env.API_HOST : `https://${env.API_HOST}`)
 ).replace(/\/+$/, "");
 
-export const OAUTH_ISSUER = `${AUTH_BASE_URL}/auth`;
+export const OAUTH_ISSUER = AUTH_BASE_URL;
 
 export const JWT_KEYS = {
   alg: "RS256" as const,

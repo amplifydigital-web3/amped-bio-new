@@ -10,10 +10,10 @@ Access tokens are RS256 signed JWTs. Verify them locally against our JWKS:
 ```ts
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
-const jwks = createRemoteJWKSet(new URL("https://api.amped.bio/.well-known/jwks.json"));
+const jwks = createRemoteJWKSet(new URL("https://auth.amped.bio/.well-known/jwks.json"));
 
 const { payload } = await jwtVerify(accessToken, jwks, {
-  issuer: "https://api.amped.bio/auth",
+  issuer: "https://auth.amped.bio",
   audience: "https://your-api.example.com", // the resource you registered
 });
 
@@ -25,7 +25,7 @@ Checklist:
 
 1. **Signature** - verified with the JWKS above. Key ids (`kid`) are rotated by adding keys, never by
    replacing them.
-2. **Issuer** - must be `https://api.amped.bio/auth`.
+2. **Issuer** - must be `https://auth.amped.bio`.
 3. **Audience** - the `resource` the client requested. Reject tokens minted for another resource.
 4. **Expiry** - `exp` is 15 minutes from issuance by default.
 5. **Scopes** - require the scopes your endpoint needs.
@@ -40,7 +40,7 @@ import { requestToResourceInput, verifyAccessTokenRequest } from "better-auth/oa
 
 const payload = await verifyAccessTokenRequest(requestToResourceInput(request), {
   verifyOptions: {
-    issuer: "https://api.amped.bio/auth",
+    issuer: "https://auth.amped.bio",
     audience: "https://your-api.example.com",
   },
   requiredScopes: ["mcp:read"],
@@ -53,13 +53,13 @@ If your client cannot accept JWTs, send the token to the introspection endpoint 
 requires client authentication and returns the same claims plus `active`.
 
 ```bash
-curl -sS https://api.amped.bio/auth/oauth2/introspect \
+curl -sS https://auth.amped.bio/oauth2/introspect \
   -u "YOUR_CLIENT_ID:YOUR_CLIENT_SECRET" \
   -d token=ACCESS_TOKEN
 ```
 
 ## Ending access
 
-- `POST /auth/oauth2/revoke` with `token_type_hint=refresh_token` cuts off refresh, and every access token
+- `POST /oauth2/revoke` with `token_type_hint=refresh_token` cuts off refresh, and every access token
   that carries the same session id stops verifying immediately.
 - Users can revoke your application from **Developers → Authorized applications**.

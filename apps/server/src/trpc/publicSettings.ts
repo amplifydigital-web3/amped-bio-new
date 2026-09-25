@@ -1,5 +1,5 @@
 import { publicProcedure, router } from "./trpc";
-import { prisma } from "../services/DB";
+import { prisma } from "@repo/database";
 import { z } from "zod";
 import { SITE_SETTINGS } from "@repo/constants";
 

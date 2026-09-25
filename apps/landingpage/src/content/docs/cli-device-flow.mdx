@@ -5,13 +5,10 @@ order: 22
 group: Guides
 ---
 
-Command line tools use the OAuth 2.0 Device Authorization Grant (RFC 8628): the user approves a short code
-in the browser while the CLI polls for tokens.
-
 ## 1. Request a device code
 
 ```bash
-curl -sS https://api.amped.bio/auth/device/code \
+curl -sS https://auth.amped.bio/device/code \
   -H "content-type: application/x-www-form-urlencoded" \
   -d client_id=YOUR_CLIENT_ID \
   -d scope="openid profile"
@@ -21,7 +18,7 @@ curl -sS https://api.amped.bio/auth/device/code \
 {
   "device_code": "…",
   "user_code": "WDJB-MJHT",
-  "verification_uri": "https://api.amped.bio/oauth/device",
+  "verification_uri": "https://auth.amped.bio/oauth/device",
   "expires_in": 1800,
   "interval": 5
 }
@@ -29,13 +26,13 @@ curl -sS https://api.amped.bio/auth/device/code \
 
 ## 2. Show the code to the user
 
-Display `user_code` and send the user to `https://api.amped.bio/oauth/device`, which redirects to our hosted
+Display `user_code` and send the user to `https://auth.amped.bio/oauth/device`, which redirects to our hosted
 approval page. The user signs in if needed, types the code and approves it.
 
 ## 3. Poll for the token
 
 ```bash
-curl -sS https://api.amped.bio/auth/device/token \
+curl -sS https://auth.amped.bio/device/token \
   -H "content-type: application/x-www-form-urlencoded" \
   -d grant_type=urn:ietf:params:oauth:grant-type:device_code \
   -d device_code=DEVICE_CODE \
