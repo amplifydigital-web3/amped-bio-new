@@ -39,6 +39,8 @@
     "@tsparticles/all": "^3.8.1",
     "@tsparticles/engine": "^3.8.1",
     "@tsparticles/react": "^3.0.0",
+    "@web3auth/base": "9.7.0",
+    "@web3auth/modal": "10.0.7",
     "better-auth": "catalog:",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

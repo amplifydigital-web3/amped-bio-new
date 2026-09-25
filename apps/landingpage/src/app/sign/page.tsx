@@ -19,6 +19,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useAccount, useSignMessage } from "wagmi";
 import { useCaptcha } from "@/hooks/useCaptcha";
 import { GoogleLoginButton } from "@/components/auth/GoogleLoginButton";
+import { useWeb3Auth, useWeb3AuthConnect } from "@web3auth/modal/react";
+import { WALLET_CONNECTORS, AUTH_CONNECTION, CONNECTOR_STATUS } from "@web3auth/modal";
+import { trpcClient } from "@/lib/trpc";
 import {
   Check,
   Loader2,
@@ -57,6 +60,55 @@ export default function SignPage() {
   const { signMessageAsync, isPending: isSigning } = useSignMessage();
   const { executeCaptcha } = useCaptcha();
 
+  // Web3Auth
+  const dataWeb3Auth = useWeb3Auth();
+  const { connectTo, error: web3AuthError } = useWeb3AuthConnect();
+  const { web3Auth } = dataWeb3Auth;
+
+  const connectInFlightRef = useRef(false);
+
+  const connectWeb3Auth = useCallback(async () => {
+    if (connectInFlightRef.current) return;
+    const coreStatus = web3Auth?.status;
+    if (coreStatus === CONNECTOR_STATUS.CONNECTED || coreStatus === CONNECTOR_STATUS.CONNECTING) {
+      return;
+    }
+
+    connectInFlightRef.current = true;
+    try {
+      console.log('[S] Fetching wallet token from server...');
+      const { walletToken } = await trpcClient.auth.getWalletToken.query();
+
+      try {
+        const payload = JSON.parse(atob(walletToken.token.split(".")[1]));
+        if (payload.exp) {
+          const expirationTime = payload.exp * 1000;
+          localStorage.setItem("walletTokenExpiration", expirationTime.toString());
+        }
+      } catch (error) {
+        console.error("Error decoding token expiration:", error);
+      }
+
+      console.log('[S] Connecting to Web3Auth...');
+      await connectTo(WALLET_CONNECTORS.AUTH, {
+        authConnection: AUTH_CONNECTION.CUSTOM,
+        authConnectionId: process.env.NEXT_PUBLIC_WEB3AUTH_AUTH_CONNECTION_ID,
+        idToken: walletToken.token,
+        extraLoginOptions: { isUserIdCaseSensitive: false },
+      });
+      console.log('[S] Web3Auth connected successfully');
+    } catch (err) {
+      console.error('[S] Web3Auth connection error:', err);
+      setErrorState(
+        err instanceof Error
+          ? err.message
+          : "Failed to connect wallet. Please try again."
+      );
+    } finally {
+      connectInFlightRef.current = false;
+    }
+  }, [connectTo, web3Auth]);
+
   const isPopup = typeof window !== "undefined" && !!window.opener;
 
   const [flowStep, setFlowStep] = useState<FlowStep>("login");
@@ -66,6 +118,19 @@ export default function SignPage() {
   useEffect(() => {
     openerOriginRef.current = openerOrigin;
   }, [openerOrigin]);
+
+  // After a full-page redirect (e.g. Google OAuth callback), React state is
+  // lost and window.opener may be null in some browsers.  Recover the origin
+  // from sessionStorage, which survives the navigation.
+  useEffect(() => {
+    const savedOrigin = sessionStorage.getItem("sign_opener_origin");
+    if (savedOrigin) {
+      openerOriginRef.current = savedOrigin;
+      setOpenerOrigin(savedOrigin);
+      sessionStorage.removeItem("sign_opener_origin");
+    }
+    sessionStorage.removeItem("sign_is_popup");
+  }, []);
   const [messageToSign, setMessageToSign] = useState<string | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
@@ -74,6 +139,7 @@ export default function SignPage() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [errorState, setErrorState] = useState<string | null>(null);
+  const [originFailed, setOriginFailed] = useState(false);
   const prevFlowStep = useRef<FlowStep>("login");
 
   const {
@@ -117,12 +183,14 @@ export default function SignPage() {
     if (!isConnected) {
       prevFlowStep.current = "wallet_wait";
       setFlowStep("wallet_wait");
-      console.log('[S] flowStep changed: login → wallet_wait');
-      setStatusMessage("Connecting wallet...");
+      console.log('[S] flowStep changed: login \u2192 wallet_wait');
+      setStatusMessage("Connecting wallet via Web3Auth...");
+      // Auto-connect via Web3Auth (no injected wallet needed)
+      connectWeb3Auth();
     } else {
       startAnnouncing();
     }
-  }, [authUser, isConnected, flowStep, startAnnouncing]);
+  }, [authUser, isConnected, flowStep, startAnnouncing, connectWeb3Auth]);
 
   // Transition: wallet connects
   useEffect(() => {
@@ -159,6 +227,7 @@ export default function SignPage() {
       const origin = event.origin;
 
       if (!origin || origin === "null") {
+        setOriginFailed(true);
         setErrorState(
           "Unable to verify requesting site — Cannot determine the origin of the request."
         );
@@ -266,7 +335,6 @@ export default function SignPage() {
       const response = await authClient.signIn.email({
         email: data.email,
         password: data.password,
-        callbackURL: window.location.href,
         rememberMe: true,
         fetchOptions: {
           headers: captchaToken
@@ -289,6 +357,13 @@ export default function SignPage() {
   const handleGoogleLogin = async () => {
     setIsLoggingIn(true);
     setLoginError(null);
+
+    // Save popup state to sessionStorage before the full-page OAuth redirect,
+    // so it can be restored when the user is redirected back to /sign.
+    sessionStorage.setItem("sign_is_popup", "true");
+    if (openerOriginRef.current) {
+      sessionStorage.setItem("sign_opener_origin", openerOriginRef.current);
+    }
 
     try {
       const response = await authClient.signIn.social({
@@ -415,10 +490,10 @@ export default function SignPage() {
           </Card>
         )}
 
-        {/* Wallet Wait Step */}
+        {/* Wallet Wait Step — connects via Web3Auth automatically */}
         {!errorState && flowStep === "wallet_wait" && (
           <Card className="w-full">
-            <CardContent className="py-12">
+            <CardContent className="py-8">
               <div className="flex flex-col items-center gap-4">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
                 <p className="text-sm text-gray-500">{statusMessage}</p>
@@ -452,7 +527,7 @@ export default function SignPage() {
         )}
 
         {/* Trust Step */}
-        {!errorState && flowStep === "trust" && openerOrigin === null && (
+        {!errorState && flowStep === "trust" && originFailed && (
           <Card className="w-full border-red-200">
             <CardContent className="py-12">
               <div className="flex flex-col items-center gap-4 text-center">
@@ -466,7 +541,18 @@ export default function SignPage() {
           </Card>
         )}
 
-        {!errorState && flowStep === "trust" && openerOrigin !== null && (
+        {!errorState && flowStep === "trust" && !originFailed && openerOrigin === null && (
+          <Card className="w-full">
+            <CardContent className="py-8">
+              <div className="flex flex-col items-center gap-4">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                <p className="text-sm text-gray-500">Preparing verification...</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {!errorState && flowStep === "trust" && !originFailed && openerOrigin !== null && (
           <Card className="w-full">
             <CardHeader>
               <div className="flex items-center gap-2 text-blue-600">
