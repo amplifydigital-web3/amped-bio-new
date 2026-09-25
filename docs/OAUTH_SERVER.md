@@ -61,7 +61,9 @@ The shared, headless screens live in `packages/ui/src/oauth` and are consumed by
 
 MySQL has no array type, so Better Auth stores `string[]` fields (redirect URIs, scopes, resources) as
 JSON encoded strings in `TEXT` columns, and `json` fields in native `JSON` columns. `advanced.database.generateId`
-is `"serial"` because every table uses an autoincrement integer primary key.
+is configured to return `false` (database-managed) for most models; OAuth tables use **UUID v7** stored as
+`BINARY(16)` (see [ID generation](#id-generation) below), while legacy core tables keep their existing
+`Int` autoincrement primary keys.
 
 Migration: `apps/server/prisma/migrations/20260918120000_add_oauth_provider`.
 
