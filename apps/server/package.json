@@ -50,6 +50,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.18.2",
     "express-async-errors": "^3.1.1",
+    "fast-geoip": "^1.1.88",
     "google-auth-library": "^10.2.1",
     "helmet": "^8.1.0",
     "ioredis": "^5.10.0",
