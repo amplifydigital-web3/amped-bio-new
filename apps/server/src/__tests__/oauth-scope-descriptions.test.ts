@@ -5,7 +5,7 @@ import { describe, it, expect } from "vitest";
 import {
   OAUTH_SCOPE_DESCRIPTIONS,
   describeOAuthScope,
-} from "../../../packages/ui/src/oauth/oauth-scopes";
+} from "@repo/ui/oauth/oauth-scopes";
 
 describe("OAUTH_SCOPE_DESCRIPTIONS", () => {
   it("describes openid scope", () => {
@@ -29,7 +29,7 @@ describe("OAUTH_SCOPE_DESCRIPTIONS", () => {
   it("describes offline_access scope", () => {
     const desc = OAUTH_SCOPE_DESCRIPTIONS.offline_access;
     expect(desc.title).toContain("Stay signed in");
-    expect(desc.description).toContain("refresh");
+    expect(desc.description).toContain("revoke");
   });
 
   it("describes mcp:read scope", () => {

@@ -29,3 +29,6 @@ process.env.SMTP_PORT = "1025";
 process.env.AWS_REGION = "us-east-1";
 process.env.AWS_ACCESS_KEY_ID = "test";
 process.env.AWS_SECRET_ACCESS_KEY = "test";
+
+// Database connection for tests that import auth.ts (which creates Prisma client)
+process.env.DATABASE_URL = "mysql://amped_user:amped_password@localhost:23306/amped_bio";
