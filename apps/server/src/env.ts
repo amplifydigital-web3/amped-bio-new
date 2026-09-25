@@ -144,6 +144,21 @@ const envSchema = z.object({
   AUTHBASE_API_KEY: z.string().default(""),
   // Authbase API secret (Basic auth password)
   AUTHBASE_API_SECRET: z.string().default(""),
+
+  // Creator analytics
+  // Secret mixed into the daily visitor hash salt. Falls back to BETTER_AUTH_SECRET when empty.
+  ANALYTICS_SALT_SECRET: z.string().default(""),
+  // Optional Anthropic API key. When set, the analytics dashboard adds an AI written summary.
+  ANTHROPIC_API_KEY: z.string().default(""),
+  // Anthropic model used for the AI analytics summary
+  ANTHROPIC_MODEL: z.string().default("claude-haiku-4-5-20251001"),
+
+  // Creator tracking pixels
+  // Secret used to encrypt creators' Meta and TikTok API tokens. Falls back to BETTER_AUTH_SECRET.
+  // Changing it makes stored tokens unreadable, so creators would need to re-enter them.
+  TRACKING_TOKEN_SECRET: z.string().default(""),
+  // Meta Graph API version used for the Conversions API
+  META_GRAPH_API_VERSION: z.string().default("v24.0"),
 });
 
 // ================ parse & export ================
