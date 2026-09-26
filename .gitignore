@@ -46,16 +46,17 @@ lerna-debug.log*
 # Local env files
 /apps/server/.env
 /apps/server/.env*.local
+/apps/auth-server/.env
+/apps/auth-server/.env*.local
+
+# Build outputs
+*.tsbuildinfo
+*.bak
 
 # Mac OS
 .DS_Store
-apps/server/tsconfig.tsbuildinfo
 apps/client/cypress/screenshots
 apps/client/.env
-apps/client/tsconfig.node.tsbuildinfo
-apps/client/tsconfig.app.tsbuildinfo
-packages/web3/tsconfig.tsbuildinfo
-packages/web3/tsconfig.tsbuildinfo
 .env
 apps/server/src/lib/prisma
 packages/database/src/generated
