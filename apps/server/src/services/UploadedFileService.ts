@@ -1,5 +1,4 @@
-import { FileStatus } from "../lib/prisma/index.js";
-import { prisma } from "./DB";
+import { FileStatus, prisma } from "@repo/database";
 
 export interface CreateUploadedFileParams {
   s3Key: string;

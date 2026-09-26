@@ -13,7 +13,7 @@ import {
   ThemeUpdateSchema,
   ThemeCategoryUpdateSchema,
 } from "./schemas";
-import { prisma } from "../../services/DB";
+import { prisma } from "@repo/database";
 
 export const themesRouter = router({
   getThemeStats: adminProcedure.input(DateRangeSchema.optional()).query(async ({ input }) => {

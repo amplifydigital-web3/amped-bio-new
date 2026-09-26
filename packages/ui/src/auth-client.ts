@@ -1,6 +1,10 @@
 "use client";
 import { createAuthClient } from "better-auth/react";
 import { inferAdditionalFields, jwtClient, twoFactorClient } from "better-auth/client/plugins";
+import {
+  oauthDeviceAuthorizationClient,
+  oauthProviderClient,
+} from "@better-auth/oauth-provider/client";
 
 // Client-side mirror of the server auth schema (see apps/server/src/utils/auth.ts).
 // Defined inline so this package stays decoupled from the server implementation.
@@ -29,6 +33,10 @@ export const authClient = createAuthClient({
       },
     }),
     jwtClient(),
+    // OAuth 2.1 provider surfaces: consent/authorized applications and the
+    // device authorization grant used by CLIs.
+    oauthProviderClient(),
+    oauthDeviceAuthorizationClient(),
     twoFactorClient({
       onTwoFactorRedirect() {
         window.location.href = "/auth/two-factor";
@@ -38,9 +46,16 @@ export const authClient = createAuthClient({
     //   clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
     // }),
   ],
-  /** The base URL of the server (optional if you're using the same domain) */
-  baseURL: (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_API_URL,
-  basePath: "/auth",
+  /** The base URL of the auth subdomain */
+  baseURL:
+    (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_AUTH_URL ??
+    (typeof process !== "undefined" ? process.env.NEXT_PUBLIC_AUTH_URL : undefined) ??
+    "https://auth.amped.bio",
+  /** basePath is empty because Better Auth now operates at the root of the auth subdomain */
+  basePath: "",
+  fetchOptions: {
+    credentials: "include",
+  },
 });
 
 export const oneTapCall = async () => {

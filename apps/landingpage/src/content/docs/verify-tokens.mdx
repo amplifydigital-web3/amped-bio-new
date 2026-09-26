@@ -1,0 +1,65 @@
+---
+title: Verify tokens
+description: Validate the access token in your API without calling Amped.bio on every request.
+order: 12
+group: Reference
+---
+
+Access tokens are RS256 signed JWTs. Verify them locally against our JWKS:
+
+```ts
+import { createRemoteJWKSet, jwtVerify } from "jose";
+
+const jwks = createRemoteJWKSet(new URL("https://auth.amped.bio/.well-known/jwks.json"));
+
+const { payload } = await jwtVerify(accessToken, jwks, {
+  issuer: "https://auth.amped.bio",
+  audience: "https://your-api.example.com", // the resource you registered
+});
+
+const userId = payload.sub as string;
+const scopes = String(payload.scope ?? "").split(" ").filter(Boolean);
+```
+
+Checklist:
+
+1. **Signature** - verified with the JWKS above. Key ids (`kid`) are rotated by adding keys, never by
+   replacing them.
+2. **Issuer** - must be `https://auth.amped.bio`.
+3. **Audience** - the `resource` the client requested. Reject tokens minted for another resource.
+4. **Expiry** - `exp` is 15 minutes from issuance by default.
+5. **Scopes** - require the scopes your endpoint needs.
+
+## Using the Better Auth resource server helper
+
+If your API already depends on Better Auth, `verifyAccessTokenRequest` performs the same checks, including
+DPoP proofs and replay protection when present:
+
+```ts
+import { requestToResourceInput, verifyAccessTokenRequest } from "better-auth/oauth2";
+
+const payload = await verifyAccessTokenRequest(requestToResourceInput(request), {
+  verifyOptions: {
+    issuer: "https://auth.amped.bio",
+    audience: "https://your-api.example.com",
+  },
+  requiredScopes: ["mcp:read"],
+});
+```
+
+## Opaque tokens
+
+If your client cannot accept JWTs, send the token to the introspection endpoint instead. Introspection
+requires client authentication and returns the same claims plus `active`.
+
+```bash
+curl -sS https://auth.amped.bio/oauth2/introspect \
+  -u "YOUR_CLIENT_ID:YOUR_CLIENT_SECRET" \
+  -d token=ACCESS_TOKEN
+```
+
+## Ending access
+
+- `POST /oauth2/revoke` with `token_type_hint=refresh_token` cuts off refresh, and every access token
+  that carries the same session id stops verifying immediately.
+- Users can revoke your application from **Developers → Authorized applications**.

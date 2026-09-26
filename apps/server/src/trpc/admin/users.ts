@@ -3,7 +3,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { getFileUrl } from "../../utils/fileUrlResolver";
 import { PaginationSchema, UserFilterSchema, UserSearchSchema, UserUpdateSchema } from "./schemas";
-import { prisma } from "../../services/DB";
+import { prisma } from "@repo/database";
 
 export const usersRouter = router({
   getUsers: adminProcedure

@@ -1,5 +1,5 @@
 import { adminProcedure, router } from "../trpc";
-import { prisma } from "../../services/DB";
+import { prisma } from "@repo/database";
 import { z } from "zod";
 import { bannerSchema } from "../../schemas/banner";
 import { SITE_SETTINGS } from "@repo/constants";

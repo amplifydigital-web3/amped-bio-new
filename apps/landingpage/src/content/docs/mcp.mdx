@@ -1,0 +1,47 @@
+---
+title: MCP
+description: Connect Model Context Protocol clients to the Amped.bio MCP endpoint.
+order: 21
+group: Guides
+---
+
+Amped.bio exposes a Model Context Protocol server whose authorization is delegated to the OAuth provider
+described in this documentation.
+
+- **Protected resource**: `https://api.amped.bio/mcp`
+- **Resource metadata**: `https://api.amped.bio/.well-known/oauth-protected-resource/mcp`
+- **Required scope**: `mcp:read`
+
+## How clients connect
+
+1. The client fetches the resource metadata, which lists our authorization server.
+2. It discovers `https://auth.amped.bio/.well-known/oauth-authorization-server`.
+3. It authorizes with the `mcp:read` scope, requesting `resource=https://api.amped.bio/mcp`.
+4. Tokens are audience bound to the MCP resource, so they cannot be replayed against another API.
+
+Clients that identify themselves with a hosted metadata document (Client ID Metadata Documents) are
+supported, which is the recommended way for MCP clients. Older clients can also use dynamic client
+registration with an initial access token issued to them by us.
+
+## Testing with the Inspector
+
+```bash
+npx @modelcontextprotocol/inspector
+```
+
+Point the Inspector at `https://api.amped.bio/mcp`, choose OAuth, and complete the consent screen. A first
+tool call returns the account the token belongs to:
+
+```json
+{ "sub": "42", "scope": "openid profile email mcp:read" }
+```
+
+## Available tools
+
+| Tool | Description | Scope |
+| --- | --- | --- |
+| `whoami` | The account the access token belongs to | `mcp:read` |
+| `list_creator_pools` | Creator pools owned by the linked wallet | `mcp:read` |
+
+Unauthenticated requests receive a `401` with a `WWW-Authenticate` header pointing at the resource metadata,
+which is what lets MCP clients start the flow without manual configuration.

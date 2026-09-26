@@ -6,3 +6,4 @@ export { AdminFiles } from "./AdminFiles";
 export { AdminLayout } from "./AdminLayout";
 export { AdminPools } from "./AdminPools";
 export { AdminNdauConversions } from "./AdminNdauConversions";
+export { AdminOAuthClients } from "./AdminOAuthClients";

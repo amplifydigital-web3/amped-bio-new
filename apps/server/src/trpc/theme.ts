@@ -17,7 +17,7 @@ import { TRPCError } from "@trpc/server";
 import { s3Service } from "../services/S3Service";
 import { themeConfigSchema, type ThemeConfig } from "@repo/constants";
 import { getFileUrl } from "../utils/fileUrlResolver";
-import { prisma } from "../services/DB";
+import { prisma } from "@repo/database";
 
 // Schema for theme ID parameter
 const themeIdSchema = z.object({
