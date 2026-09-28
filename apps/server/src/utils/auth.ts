@@ -212,7 +212,7 @@ export const auth = betterAuth({
           claims_supported: ["wallet"],
         },
 
-        customUserInfoClaims: async ({ user, scopes, requestedClaims, jwt }: { user: any; scopes: string[]; requestedClaims: string[]; jwt?: any }) => {
+        customUserInfoClaims: async ({ user, scopes, requestedClaims }: { user: any; scopes: string[]; requestedClaims: string[]; jwt?: any }) => {
           const claims: Record<string, unknown> = {};
 
           // Return wallet (or null) whenever the client requests it or has the
@@ -234,10 +234,10 @@ export const auth = betterAuth({
          * list_creator_pools can read it straight from the token claims
          * instead of querying the database again.
          */
-        customAccessTokenClaims: async ({ user, scopes }: { user: any; scopes: string[] }) => {
+        customAccessTokenClaims: async ({ user, scopes }: { user?: any; scopes: any }) => {
           const claims: Record<string, unknown> = {};
 
-          if (scopes.includes("mcp:read") || scopes.includes("profile")) {
+          if (user && (scopes.includes("mcp:read") || scopes.includes("profile"))) {
             const wallet = await prisma.userWallet.findUnique({
               where: { userId: parseInt(user.id) },
               select: { address: true },
@@ -290,7 +290,7 @@ export const auth = betterAuth({
           "deviceCode",
         ];
         if (oauthModels.includes(options.model)) {
-          return uuidv7();
+          return uuidv7() as unknown as string;
         }
         // Let the database handle ID generation for all other tables
         // (auto-increment or cuid defaults in the schema).

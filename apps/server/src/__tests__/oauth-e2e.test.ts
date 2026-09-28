@@ -27,7 +27,7 @@ const USER_PASSWORD = process.env.TEST_USER_PASSWORD || "test-user-not-configure
 
 const REDIRECT_URI = "https://e2e-test.example.com/callback";
 
-function base64UrlEncode(buffer: ArrayBuffer): string {
+function base64UrlEncode(buffer: ArrayBuffer | Uint8Array): string {
   const bytes = new Uint8Array(buffer);
   let binary = "";
   for (let i = 0; i < bytes.length; i++) {

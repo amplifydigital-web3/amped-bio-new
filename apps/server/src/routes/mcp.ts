@@ -5,7 +5,7 @@ import { requireMcpAuth } from "@better-auth/mcp";
 import { auth } from "../utils/auth";
 import { env } from "../env";
 import { prisma } from "@repo/database";
-import { z } from "zod";
+import { z } from "zod-v4";
 
 const READ_SCOPE = "mcp:read";
 
@@ -125,13 +125,13 @@ mcpServer.registerTool(
     description:
       "Resolve a REVO Name Service (RNS) name (e.g. \"foo.revo\") to its owner wallet, expiry date, " +
       "and whether the owner has a linked Amped.bio profile.",
-    parameters: z.object({
+    inputSchema: {
       name: z
         .string()
         .describe(
           "The full RNS name to look up, e.g. \"foo.revo\" or just \"foo\" (the .revo suffix is optional)."
         ),
-    }),
+    },
   },
   async (params: { name: string }): Promise<CallToolResult> => {
     try {
@@ -196,9 +196,9 @@ mcpServer.registerTool(
     title: "RNS reverse lookup",
     description:
       "Given a wallet address, list all REVO Name Service (RNS) names owned by that address.",
-    parameters: z.object({
+    inputSchema: {
       wallet: z.string().describe("The wallet address to look up RNS names for."),
-    }),
+    },
   },
   async (params: { wallet: string }): Promise<CallToolResult> => {
     try {

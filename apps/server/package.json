@@ -70,12 +70,14 @@
     "socket.io": "^4.8.3",
     "viem": "2.34.0",
     "yaml": "^2.8.3",
-    "zod": "3.25.64"
+    "zod": "3.25.64",
+    "zod-v4": "npm:zod@4.6.5"
   },
   "devDependencies": {
     "@better-auth/cli": "catalog:",
     "@react-email/preview-server": "5.2.8",
     "@repo/typescript-config": "workspace:*",
+    "@repo/ui": "workspace:*",
     "@types/bcrypt": "^5.0.2",
     "@types/compression": "^1.7.5",
     "@types/cookie-parser": "^1.4.9",

@@ -75,7 +75,6 @@ const trustedOAuthClientIds = env.OAUTH_TRUSTED_CLIENT_IDS.split(",")
 const asBetterAuthPlugin = <T>(plugin: T) => plugin as unknown as BetterAuthPlugin & T;
 
 // ================ better-auth configuration ==================
-// @ts-expect-error - Inferred type exceeds serialization limit; this is a known Better Auth / Zod issue.
 export const auth = betterAuth({
   basePath: "",
   trustedOrigins: [
@@ -249,7 +248,7 @@ export const auth = betterAuth({
           "deviceCode",
         ];
         if (oauthModels.includes(options.model)) {
-          return uuidv7();
+          return uuidv7() as unknown as string;
         }
         return false;
       },
