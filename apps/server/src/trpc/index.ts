@@ -15,6 +15,7 @@ import { ndauConversionRouter } from "./ndauConversion";
 import { authbaseRouter } from "./authbase";
 import { analyticsRouter } from "./analytics";
 import { trackingPixelsRouter } from "./trackingPixels";
+import { oauthAppsRouter } from "./oauthApps";
 import { inferRouterOutputs } from "@trpc/server";
 
 // Merge all routers
@@ -35,6 +36,7 @@ const mergedRouter = router({
   authbase: authbaseRouter,
   analytics: analyticsRouter,
   trackingPixels: trackingPixelsRouter,
+  oauthApps: oauthAppsRouter,
 });
 
 export type AppRouter = typeof mergedRouter;

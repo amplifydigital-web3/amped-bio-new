@@ -2,7 +2,7 @@ import { router, publicProcedure, privateProcedure } from "./trpc";
 import { TRPCError } from "@trpc/server";
 import { getFileUrl } from "../utils/fileUrlResolver";
 import { env } from "../env";
-import { prisma } from "../services/DB";
+import { prisma } from "@repo/database";
 import { auth } from "../utils/auth";
 import type { EnrichedSessionUser } from "../types/auth-helpers";
 

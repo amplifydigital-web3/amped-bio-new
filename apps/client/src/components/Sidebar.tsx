@@ -10,6 +10,7 @@ import {
   Send,
   Search,
   BarChart3,
+  KeyRound,
 } from "lucide-react";
 import { EditorPanelType } from "@/types/editor";
 
@@ -61,6 +62,7 @@ const allNavItems: Array<{
   //   alwaysShow: false,
   // },
   { id: "rns", icon: AtSign, label: "RNS", environmentFlag: "VITE_SHOW_RNS", alwaysShow: false },
+  { id: "developer", icon: KeyRound, label: "Developers", alwaysShow: false },
 ];
 
 export function Sidebar() {

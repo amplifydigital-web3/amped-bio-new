@@ -1,7 +1,7 @@
 import { adminProcedure, router } from "../trpc";
 import { z } from "zod";
 import { TRPCError, tracked } from "@trpc/server";
-import { prisma } from "../../services/DB";
+import { prisma } from "@repo/database";
 import { createPublicClient, http, decodeEventLog, type Address, type Log } from "viem";
 import { getChainConfig, L2_BASE_TOKEN_ABI, CREATOR_POOL_FACTORY_ABI } from "@repo/web3";
 

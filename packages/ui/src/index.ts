@@ -28,6 +28,14 @@ export { queryClient, trpcClient, trpc } from "./trpc";
 export type { RouterOutputs } from "./trpc";
 export * from "./trpc-types";
 
+// OAuth 2.1 provider hosted pages ("Sign in with Amped.bio")
+export { OAuthShell } from "./oauth/oauth-shell";
+export { OAuthLoginScreen } from "./oauth/oauth-login-screen";
+export { OAuthConsentScreen } from "./oauth/oauth-consent-screen";
+export { OAuthDeviceScreen } from "./oauth/oauth-device-screen";
+export { describeOAuthScope, OAUTH_SCOPE_DESCRIPTIONS } from "./oauth/oauth-scopes";
+export { navigateToProviderRedirect, useOAuthFlowQuery, type OAuthFlowQuery } from "./oauth/use-oauth-flow-query";
+
 // Utilities
 export * from "./handle";
 export * from "./schemas";

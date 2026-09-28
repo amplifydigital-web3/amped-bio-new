@@ -3,7 +3,7 @@ import { env } from "../../env";
 import { createPublicClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { AVAILABLE_CHAINS } from "@repo/web3";
-import { prisma } from "../../services/DB";
+import { prisma } from "@repo/database";
 import { AFFILIATES_CHAIN_ID, SITE_SETTINGS } from "@repo/constants";
 
 export const affiliateAdminRouter = router({

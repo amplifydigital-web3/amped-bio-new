@@ -1,0 +1,37 @@
+---
+title: Introduction
+description: What "Sign in with Amped.bio" is and when to use it.
+order: 1
+group: Getting started
+---
+
+Amped.bio runs an OAuth 2.1 authorization server with OpenID Connect on top. Any application can let its
+users sign in with their Amped.bio account instead of creating another password.
+
+- **Protocol**: OAuth 2.1 authorization code flow with PKCE, plus OpenID Connect for identity.
+- **Issuer**: `https://auth.amped.bio` (staging: `https://auth.staging.amped.bio`).
+- **Tokens**: RS256 signed JWTs, verified against our public JWKS.
+- **Scopes**: identity only (`openid`, `profile`, `email`) plus `offline_access` for refresh tokens and
+  `mcp:read` for the MCP endpoint.
+
+## What you can build
+
+| Use case | What you need |
+| --- | --- |
+| Sign in with Amped.bio | `openid profile email` scopes, the authorization code flow |
+| Long lived API access on behalf of a user | add `offline_access` and store the refresh token |
+| MCP clients (agents, IDEs) | register as a client and request the `mcp:read` scope |
+
+## How the flow works
+
+1. You send the user to the authorization endpoint with your `client_id`, `redirect_uri` and requested scopes.
+2. The user signs in (or is already signed in) and reviews a consent screen listing every scope.
+3. We redirect back to your `redirect_uri` with a single use `code` and your `state`.
+4. You exchange the code at the token endpoint for an access token (and an ID token when you asked for
+   `openid`).
+5. You call the userinfo endpoint or verify the access token yourself with our JWKS.
+
+## Next steps
+
+- [Quickstart](/docs/quickstart) to register an application and complete a first sign in.
+- [OAuth reference](/docs/oauth-reference) for every endpoint and supported parameter.

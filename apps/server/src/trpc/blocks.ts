@@ -1,6 +1,6 @@
 import { privateProcedure, publicProcedure, router } from "./trpc";
 import { z } from "zod";
-import { prisma } from "../services/DB";
+import { prisma } from "@repo/database";
 import { TRPCError } from "@trpc/server";
 import { addBlockSchema, blockIdParamSchema, editBlocksSchema } from "@repo/constants";
 

@@ -1,6 +1,6 @@
 import { router, privateProcedure, publicProcedure } from "./trpc";
 import { z } from "zod";
-import { prisma } from "../services/DB";
+import { prisma } from "@repo/database";
 import { TRPCError } from "@trpc/server";
 import {
   sendReferralRewards,

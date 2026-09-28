@@ -10,6 +10,7 @@ import {
   AdminFiles,
   AdminPools,
   AdminNdauConversions,
+  AdminOAuthClients,
 } from "./pages";
 
 function AppRouter() {
@@ -30,6 +31,7 @@ function AppRouter() {
         <Route path="files" element={<AdminFiles />} />
         <Route path="pools" element={<AdminPools />} />
         <Route path="ndau-conversions" element={<AdminNdauConversions />} />
+        <Route path="oauth-clients" element={<AdminOAuthClients />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

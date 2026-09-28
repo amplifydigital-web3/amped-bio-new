@@ -76,6 +76,11 @@ export function SecurityTabContent() {
         password,
       });
       if (enableError) throw new Error(enableError.message || "Failed to enable 2FA");
+      // Better Auth returns a discriminated union; only the TOTP variant carries
+      // the provisioning URI and backup codes.
+      if (!result || !("totpURI" in result)) {
+        throw new Error("Unexpected two-factor response");
+      }
       setTotpUri(result.totpURI);
       setSetupBackupCodes(result.backupCodes);
       setStep("setup");
