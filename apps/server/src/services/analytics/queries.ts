@@ -1,4 +1,4 @@
-import { Prisma } from "../../lib/prisma/index.js";
+import { Prisma } from "@repo/database";
 import type {
   AnalyticsBreakdownDimension,
   AnalyticsRangeInput,

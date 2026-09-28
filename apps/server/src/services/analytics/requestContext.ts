@@ -17,16 +17,10 @@ export function isBot(userAgent: string): boolean {
 }
 
 export function getClientIp(req: Request): string {
-  const header = (name: string) => {
-    const value = req.headers[name];
-    return Array.isArray(value) ? value[0] : value;
-  };
-
-  const forwarded = header("cf-connecting-ip") || header("x-real-ip") || header("x-forwarded-for");
-  if (forwarded) {
-    return forwarded.split(",")[0].trim();
-  }
-  return req.socket.remoteAddress ?? "";
+  // req.ip honours Express `trust proxy` (see services/API.ts), so forwarded
+  // headers are only used for hops we trust and cannot be spoofed by clients.
+  const ip = req.ip || req.socket.remoteAddress || "";
+  return ip.replace(/^::ffff:/, "");
 }
 
 /**

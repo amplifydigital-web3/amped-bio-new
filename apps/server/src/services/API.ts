@@ -13,6 +13,13 @@ import mcpRouter from "../routes/mcp";
 
 const app: Application = express();
 
+// Only trust forwarded client IPs from the proxies we configure. Without this,
+// req.ip stays the socket address and X-Forwarded-For is ignored, so clients
+// cannot spoof the address used for rate limiting and visitor hashing.
+if (env.TRUST_PROXY) {
+  app.set("trust proxy", env.TRUST_PROXY);
+}
+
 // Origins allowed to send credentialed (cookie carrying) requests.
 const allowedOrigins = env.CORS_ORIGINS.split(",").map(o => o.trim());
 

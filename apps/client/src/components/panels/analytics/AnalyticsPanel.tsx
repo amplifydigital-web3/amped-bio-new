@@ -69,7 +69,7 @@ export function AnalyticsPanel() {
       anchor.href = url;
       anchor.download = `amped-bio-analytics-${profile.handle}-${range}.csv`;
       anchor.click();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 0);
       toast.success(
         result.truncated
           ? `Exported the first ${result.rowCount.toLocaleString()} events`

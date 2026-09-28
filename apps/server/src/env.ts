@@ -53,6 +53,11 @@ const envSchema = z.object({
   CORS_ORIGINS: z.string().default("http://localhost:5173,http://localhost:3000"),
   // Host for the API
   API_HOST: z.string().default("localhost:43000"),
+  // How many proxies (or which addresses) sit in front of the server, so
+  // Express derives req.ip from X-Forwarded-For only for trusted hops.
+  // Accepts an Express trust proxy expression: a hop count ("1"), "loopback",
+  // a subnet ("10.0.0.0/8") or a comma-separated list. Empty disables trust.
+  TRUST_PROXY: z.string().default(""),
 
   // New SMTP variables with MailDev defaults
   // SMTP server host

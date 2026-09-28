@@ -1,6 +1,6 @@
 import type { Request } from "express";
 import type { AnalyticsCollectPayload } from "@repo/constants";
-import { Prisma } from "../../lib/prisma/index.js";
+import { Prisma } from "@repo/database";
 import { prisma } from "../DB";
 import { auth } from "../../utils/auth";
 import { resolveLocation } from "./geo";

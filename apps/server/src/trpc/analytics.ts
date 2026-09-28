@@ -7,6 +7,8 @@ import {
   analyticsRangeSchema,
 } from "@repo/constants";
 import { privateProcedure, router } from "./trpc";
+import { Prisma } from "@repo/database";
+import { env } from "../env";
 import { prisma } from "../services/DB";
 import { cache } from "../utils/cache";
 import {
@@ -174,8 +176,9 @@ export const analyticsRouter = router({
   // AI written summary. Returns enabled=false when no model key is configured.
   aiSummary: privateProcedure.input(analyticsRangeSchema).query(async ({ ctx, input }) => {
     const userId = ctx.user!.sub;
-    const cacheKey = `analytics:ai-summary:${userId}:${input.range}`;
+    const cacheKey = `analytics:ai-summary:${userId}:${input.range}:${input.tzOffsetMinutes}`;
     try {
+      if (!env.ANTHROPIC_API_KEY) return { enabled: false, text: null, generatedAt: null };
       const cached = await cache.get<{ text: string; generatedAt: string }>(cacheKey);
       if (cached) return { enabled: true, ...cached };
 
@@ -184,7 +187,7 @@ export const analyticsRouter = router({
 
       const text = await generateAiSummary({ ...data, rangeLabel: input.range });
       if (text === null) {
-        return { enabled: false, text: null, generatedAt: null };
+        return { enabled: true, text: null, generatedAt: null };
       }
 
       const result = { text, generatedAt: new Date().toISOString() };
@@ -247,7 +250,8 @@ export const analyticsRouter = router({
             where: { user_id_slug: { user_id: userId, slug } },
             select: { id: true },
           });
-          if (!exists) {
+          if (exists) continue;
+          try {
             const campaign = await prisma.analyticsCampaign.create({
               data: {
                 id: newAnalyticsId(),
@@ -259,6 +263,12 @@ export const analyticsRouter = router({
               select: { id: true, name: true, slug: true, channel: true, created_at: true },
             });
             return { ...campaign, id: idToHex(campaign.id) };
+          } catch (error) {
+            // A concurrent call claimed this slug first; try the next suffix
+            if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+              continue;
+            }
+            throw error;
           }
         }
         throw new TRPCError({ code: "CONFLICT", message: "Choose a different campaign name" });
