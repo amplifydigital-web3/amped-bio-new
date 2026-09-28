@@ -5,6 +5,7 @@ import type {
   AnalyticsRangePreset,
 } from "@repo/constants";
 import { prisma } from "../DB";
+import { idToHex } from "./ids";
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
@@ -352,7 +353,7 @@ export async function getRealtime(userId: number) {
     views: toNumber(row.views),
     clicks: toNumber(row.clicks),
     recent: recent.map(event => ({
-      id: event.id.toString(),
+      id: idToHex(event.id),
       type: event.type,
       source: event.source,
       country: event.country,
@@ -440,7 +441,7 @@ export async function exportEventsCsv(userId: number, from: Date, to: Date) {
       event.utm_source,
       event.utm_medium,
       event.utm_campaign,
-      event.campaign?.id,
+      event.campaign?.id ? idToHex(event.campaign.id) : null,
       event.campaign?.name,
       event.country,
       event.city,
@@ -593,7 +594,7 @@ export async function getRetentionCohorts(
 // ---------------------------------------------------------------------------
 
 export type CampaignPerformance = {
-  id: number;
+  id: string;
   name: string;
   slug: string;
   channel: string;
@@ -625,7 +626,7 @@ export async function getCampaignPerformance(
     ORDER BY (c.archived_at IS NULL) DESC, c.created_at DESC
   `;
   return rows.map(row => ({
-    id: toNumber(row.id),
+    id: idToHex(row.id as Buffer),
     name: String(row.name),
     slug: String(row.slug),
     channel: String(row.channel),

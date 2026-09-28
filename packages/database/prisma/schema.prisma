@@ -373,12 +373,12 @@ enum AnalyticsEventType {
 // Cookieless creator analytics. Raw IP addresses are never stored: visitor_hash
 // is derived from a daily rotating salt, the page owner, IP and user agent.
 model AnalyticsEvent {
-  id                 BigInt             @id @default(autoincrement())
+  id                 Bytes              @id @db.Binary(16)
   // Client generated UUID. Unique, so retried deliveries are stored once.
   event_id           String?            @unique @db.VarChar(36)
   user_id            Int
   block_id           Int?
-  campaign_id        Int?
+  campaign_id        Bytes?             @db.Binary(16)
   type               AnalyticsEventType
   visitor_hash       String             @db.VarChar(32)
   // Only with the visitor's "return visits" consent: keyed hash of a long-lived
@@ -416,7 +416,7 @@ model AnalyticsEvent {
 // Named campaigns a creator creates for tagged links and QR codes.
 // Links carry the ID as utm_id so reporting does not depend on free text.
 model AnalyticsCampaign {
-  id          Int       @id @default(autoincrement())
+  id          Bytes     @id @db.Binary(16)
   user_id     Int
   name        String    @db.VarChar(80)
   slug        String    @db.VarChar(80)
@@ -433,7 +433,7 @@ model AnalyticsCampaign {
 
 // Proof of each visitor consent decision (GDPR accountability).
 model AnalyticsConsent {
-  id                 BigInt   @id @default(autoincrement())
+  id                 Bytes    @id @db.Binary(16)
   user_id            Int
   visitor_hash       String   @db.VarChar(32)
   persistent_visitor String?  @db.VarChar(32)
@@ -452,7 +452,7 @@ model AnalyticsConsent {
 // Third-party measurement tags a creator connects to their public page.
 // API tokens are stored encrypted (AES-256-GCM) and never returned to clients.
 model TrackingPixels {
-  id                      Int       @id @default(autoincrement())
+  id                      Bytes     @id @db.Binary(16)
   user_id                 Int       @unique
   ga4_measurement_id      String?   @db.VarChar(32)
   meta_pixel_id           String?   @db.VarChar(32)

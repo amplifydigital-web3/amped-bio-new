@@ -52,13 +52,13 @@ export function getPersistentVisitorHash(userId: number, pvid: string) {
   return createHmac("sha256", secret).update(`pv|${userId}|${pvid}`).digest("hex").slice(0, 32);
 }
 
-/** Reads the numeric campaign ID that tagged links carry as utm_id. */
-export function getCampaignIdFromUrl(pageUrl?: string): number | null {
+/** Reads the campaign ID (UUID v7, 32 hex chars) that tagged links carry as utm_id. */
+export function getCampaignIdFromUrl(pageUrl?: string): Buffer | null {
   if (!pageUrl) return null;
   try {
     const value = new URL(pageUrl).searchParams.get("utm_id");
-    const id = value && /^\d{1,9}$/.test(value) ? Number(value) : null;
-    return id && id > 0 ? id : null;
+    if (!value || !/^[0-9a-f]{32}$/i.test(value)) return null;
+    return Buffer.from(value, "hex");
   } catch {
     return null;
   }

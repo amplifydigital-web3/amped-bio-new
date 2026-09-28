@@ -24,6 +24,7 @@ import {
   resolveRange,
 } from "../services/analytics/queries";
 import { buildInsights, generateAiSummary } from "../services/analytics/insights";
+import { hexToId, idToHex, newAnalyticsId } from "../services/analytics/ids";
 
 // cache.set takes seconds
 const AI_SUMMARY_TTL_SECONDS = 6 * 60 * 60;
@@ -247,10 +248,17 @@ export const analyticsRouter = router({
             select: { id: true },
           });
           if (!exists) {
-            return await prisma.analyticsCampaign.create({
-              data: { user_id: userId, name: input.name, slug, channel: input.channel },
+            const campaign = await prisma.analyticsCampaign.create({
+              data: {
+                id: newAnalyticsId(),
+                user_id: userId,
+                name: input.name,
+                slug,
+                channel: input.channel,
+              },
               select: { id: true, name: true, slug: true, channel: true, created_at: true },
             });
+            return { ...campaign, id: idToHex(campaign.id) };
           }
         }
         throw new TRPCError({ code: "CONFLICT", message: "Choose a different campaign name" });
@@ -265,7 +273,7 @@ export const analyticsRouter = router({
       const userId = ctx.user!.sub;
       try {
         const result = await prisma.analyticsCampaign.updateMany({
-          where: { id: input.id, user_id: userId },
+          where: { id: hexToId(input.id), user_id: userId },
           data: { archived_at: input.archived ? new Date() : null },
         });
         if (result.count === 0) {

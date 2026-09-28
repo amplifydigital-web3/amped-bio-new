@@ -229,4 +229,8 @@ export const analyticsCampaignCreateSchema = z.object({
   channel: z.enum(CAMPAIGN_CHANNELS),
 });
 
-export const analyticsCampaignIdSchema = z.object({ id: z.number().int().positive() });
+// Campaign IDs are UUID v7 values stored as BINARY(16); the API exposes them as
+// a lowercase 32 character hex string.
+export const analyticsCampaignIdSchema = z.object({
+  id: z.string().regex(/^[0-9a-f]{32}$/, "Invalid campaign ID"),
+});

@@ -4,6 +4,7 @@ import { privateProcedure, router } from "./trpc";
 import { prisma } from "../services/DB";
 import { encryptSecret } from "../services/analytics/secretBox";
 import { invalidatePixelConfig } from "../services/analytics/pixelForwarding";
+import { newAnalyticsId } from "../services/analytics/ids";
 
 type TrackingPixelsRow = Awaited<ReturnType<typeof prisma.trackingPixels.findUnique>>;
 
@@ -66,7 +67,7 @@ export const trackingPixelsRouter = router({
     try {
       const row = await prisma.trackingPixels.upsert({
         where: { user_id: userId },
-        create: { user_id: userId, ...data },
+        create: { id: newAnalyticsId(), user_id: userId, ...data },
         update: data,
       });
       invalidatePixelConfig(userId);

@@ -5,6 +5,7 @@ import { prisma } from "../DB";
 import { auth } from "../../utils/auth";
 import { resolveLocation } from "./geo";
 import { forwardToAdPlatforms } from "./pixelForwarding";
+import { idToHex, newAnalyticsId } from "./ids";
 import {
   getCampaignIdFromUrl,
   getClientIp,
@@ -64,7 +65,7 @@ function isValidTarget(userId: number, blockId: number | undefined, now: number)
 async function resolveCampaignId(userId: number, pageUrl: string | undefined, now: number) {
   const campaignId = getCampaignIdFromUrl(pageUrl);
   if (!campaignId) return null;
-  const owned = await cachedCheck(`campaign:${userId}:${campaignId}`, now, async () => {
+  const owned = await cachedCheck(`campaign:${userId}:${idToHex(campaignId)}`, now, async () => {
     const campaign = await prisma.analyticsCampaign.findUnique({
       where: { id: campaignId },
       select: { user_id: true },
@@ -121,6 +122,7 @@ export async function collectAnalyticsEvent(
   if (payload.type === "consent") {
     await prisma.analyticsConsent.create({
       data: {
+        id: newAnalyticsId(),
         user_id: payload.userId,
         visitor_hash: visitorHash,
         persistent_visitor:
@@ -151,7 +153,7 @@ export async function collectAnalyticsEvent(
   if (payload.type === "engage") {
     try {
       await prisma.analyticsEvent.create({
-        data: { ...identity, type: "engage", duration_ms: payload.durationMs, source: "Direct" },
+        data: { ...identity, id: newAnalyticsId(), type: "engage", duration_ms: payload.durationMs, source: "Direct" },
       });
     } catch (error) {
       if (isDuplicateEvent(error)) return "duplicate";
@@ -186,6 +188,7 @@ export async function collectAnalyticsEvent(
     await prisma.analyticsEvent.create({
       data: {
         ...identity,
+        id: newAnalyticsId(),
         block_id: blockId ?? null,
         campaign_id: campaignId,
         visitor_user_id: visitorUserId,
