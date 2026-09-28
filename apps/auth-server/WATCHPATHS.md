@@ -1,20 +1,18 @@
-# Coolify WATCHPATHS — files that trigger a redeploy for the API server
+# Coolify WATCHPATHS — files that trigger a redeploy for the auth server (OAuth/OIDC)
 # Patterns are regex matched against file paths relative to the repo root.
 # Lines starting with ! are excluded from monitoring.
 
 # Application source
-apps/server/src/.*
+apps/auth-server/src/.*
 
 # Application configuration
-apps/server/package\.json
-apps/server/tsconfig\.json
-apps/server/Dockerfile
+apps/auth-server/package\.json
+apps/auth-server/tsconfig\.json
+apps/auth-server/Dockerfile
 
-# Shared packages the server depends on
+# Shared packages the auth server depends on
 packages/constants/src/.*
 packages/constants/package\.json
-packages/web3/src/.*
-packages/web3/package\.json
 packages/database/src/.*
 packages/database/prisma/.*
 packages/database/package\.json
@@ -27,10 +25,10 @@ packages/database/package\.json
 ^tsconfig\.json
 
 # Exclude build artifacts and noise
-!apps/server/dist/.*
-!apps/server/node_modules/.*
-!apps/server/\.turbo/.*
-!apps/server/.*\.tsbuildinfo
+!apps/auth-server/dist/.*
+!apps/auth-server/node_modules/.*
+!apps/auth-server/\.turbo/.*
+!apps/auth-server/.*\.tsbuildinfo
 !.*\.md
 !\.git/.*
 !\.github/.*
