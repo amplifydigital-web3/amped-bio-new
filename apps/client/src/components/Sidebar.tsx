@@ -9,6 +9,7 @@ import {
   Wallet,
   Send,
   Search,
+  BarChart3,
   KeyRound,
 } from "lucide-react";
 import { EditorPanelType } from "@/types/editor";
@@ -22,6 +23,7 @@ const allNavItems: Array<{
   environmentFlag?: string;
 }> = [
   { id: "home", icon: Home, label: "Home", alwaysShow: true },
+  { id: "analytics", icon: BarChart3, label: "Analytics", alwaysShow: true },
   {
     id: "explore",
     icon: Search,

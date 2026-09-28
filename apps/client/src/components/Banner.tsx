@@ -9,6 +9,7 @@ interface BannerProps {
   show?: boolean;
   panel?:
     | "home"
+    | "analytics"
     | "profile"
     | "reward"
     | "gallery"

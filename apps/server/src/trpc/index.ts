@@ -13,6 +13,8 @@ import { publicSettingsRouter } from "./publicSettings";
 import { referralRouter } from "./referral";
 import { ndauConversionRouter } from "./ndauConversion";
 import { authbaseRouter } from "./authbase";
+import { analyticsRouter } from "./analytics";
+import { trackingPixelsRouter } from "./trackingPixels";
 import { oauthAppsRouter } from "./oauthApps";
 import { inferRouterOutputs } from "@trpc/server";
 
@@ -32,6 +34,8 @@ const mergedRouter = router({
   public: publicSettingsRouter,
   ndauConversion: ndauConversionRouter,
   authbase: authbaseRouter,
+  analytics: analyticsRouter,
+  trackingPixels: trackingPixelsRouter,
   oauthApps: oauthAppsRouter,
 });
 

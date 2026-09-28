@@ -52,6 +52,7 @@ ALWAYS run typecheck and build commands to validate your modifications before cl
 - **Shared Code**: Place all code intended for use by both the server and client in the `packages/constants` directory. This is mandatory.
 - **Backend API**: The server utilizes `tRPC` for type-safe API development, replacing traditional Express REST APIs.
 - **Prisma Migrations**: After changing the Prisma schema and creating a new migration, you MUST run `pnpm run --filter server run prisma:generate`.
+- **Database Package**: The Prisma client, schema, migrations, and generated types live in the `packages/database` workspace package (`@repo/database`). ALWAYS import them from `@repo/database` (e.g. `import { prisma, Prisma } from "@repo/database";`). NEVER import from a local, git-ignored generated path such as `lib/prisma` — those files are not versioned and break on a clean checkout/CI.
 - **Client Package Installation**: When installing packages or running commands specific to the client application (e.g., `shadcn`, `tailwind`, `magicui`), you MUST always filter by the client package (e.g., `pnpm run --filter client add <package-name>` or `pnpm dlx --filter client <command>`).
 
 # PRIMARY KEY STRATEGY — UUID v7 BINARY(16)

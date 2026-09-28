@@ -19,6 +19,7 @@ import { EditorPanelType } from "@/types/editor.ts";
 import PayPanel from "./panels/pay/PayPanel.tsx";
 // import RewardsPage from "./panels/rewardpools/RewardsPanel.tsx";
 import ExplorePage from "./panels/explore/ExplorePanel.tsx";
+import { AnalyticsPanel } from "./panels/analytics/AnalyticsPanel";
 import RNSHeader from "./rns/RNSHeader.tsx";
 
 interface LayoutProps {
@@ -28,6 +29,7 @@ interface LayoutProps {
     type: "info" | "warning" | "success" | "error";
     panel?:
       | "home"
+      | "analytics"
       | "profile"
       | "reward"
       | "gallery"
@@ -56,6 +58,7 @@ export function Layout({ handle, bannerData, bannerLoading }: LayoutProps) {
   const panelConfigs: Record<EditorPanelType, PanelConfig> = {
     // Single column pages (full width)
     home: { layout: "single", width: "full" },
+    analytics: { layout: "single", width: "full" },
     explore: { layout: "single", width: "full" },
     reward: { layout: "single", width: "full" },
     wallet: { layout: "single", width: "full" },
@@ -138,6 +141,7 @@ export function Layout({ handle, bannerData, bannerLoading }: LayoutProps) {
               style={{ height: "calc(100vh - 64px)" }}
             >
               {activePanel === "home" && <HomePanel />}
+              {activePanel === "analytics" && <AnalyticsPanel />}
               {activePanel === "explore" && <ExplorePage />}
               {activePanel === "profile" && <ProfilePanel />}
               {activePanel === "reward" && <RewardPanel />}

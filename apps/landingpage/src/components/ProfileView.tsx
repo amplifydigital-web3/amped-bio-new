@@ -18,6 +18,27 @@ import { SystemStatsBadge } from "@/components/layout/SystemStatsBadge";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
 import { useAuth } from "@/contexts/AuthContext";
 import {
+  recordConsent,
+  startEngagementTracking,
+  trackConsentedPageView,
+  trackLinkClick,
+  trackProfileView,
+} from "@/lib/analytics";
+import {
+  firePixelLinkClick,
+  firePixelPageView,
+  hasAnyPixel,
+  loadPixels,
+  pixelServiceNames,
+} from "@/lib/adPixels";
+import {
+  getAdsConsent,
+  getAnalyticsConsent,
+  hasGlobalPrivacyControl,
+  saveConsent,
+} from "@/lib/consent";
+import { TrackingConsentBanner, type ConsentChoice } from "@/components/TrackingConsentBanner";
+import {
   getButtonBaseStyle,
   getButtonEffectStyle,
   getContainerStyle,
@@ -95,10 +116,17 @@ export function ProfileView({
   const [blocks, setBlocks] = useState<BlockType[]>(initialData?.blocks ?? []);
   const [theme, setTheme] = useState<Theme | null>(initialData?.theme ?? null);
   const [hasCreatorPool, setHasCreatorPool] = useState(initialData?.hasCreatorPool ?? false);
+  const [trackingPixels, setTrackingPixels] = useState(initialData?.trackingPixels ?? null);
+  // null until read on the client; each value is null until the visitor chooses
+  const [consent, setConsent] = useState<{
+    analytics: boolean | null;
+    ads: boolean | null;
+  } | null>(null);
+  const [bannerMode, setBannerMode] = useState<"hidden" | "prompt" | "settings">("hidden");
   const [loading, setLoading] = useState(!initialData);
   const [copied, setCopied] = useState(false);
 
-  const { authUser } = useAuth();
+  const { authUser, isPending: authPending } = useAuth();
   const { handleReferrerClick } = useReferralHandler();
 
   const effectiveHandle = rawHandle || DEFAULT_HANDLE;
@@ -111,10 +139,64 @@ export function ProfileView({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleLinkClick = (block: BlockType) => {
-    if (block.type === "link") {
-      trpcClient.blocks.registerClick.mutate({ id: block.id });
+  // Owners browsing their own page are not counted
+  const isOwnerView = !!authUser && !!profile && authUser.id === profile.id;
+  const trackableProfileId = profile && profile.id > 0 && !isOwnerView ? profile.id : null;
+
+  const pixelsEnabled = trackableProfileId !== null && hasAnyPixel(trackingPixels);
+
+  useEffect(() => {
+    if (authPending || trackableProfileId === null) return;
+    const analytics = getAnalyticsConsent();
+    const ads = pixelsEnabled ? getAdsConsent(trackableProfileId) : null;
+    setConsent({ analytics, ads });
+    // Ask when a choice is missing: return visits site-wide, ads per creator
+    if (analytics === null || (pixelsEnabled && ads === null)) setBannerMode("prompt");
+
+    // Pixels load only after this visitor allowed this creator's tags
+    if (trackingPixels && pixelsEnabled && ads === true) {
+      loadPixels(trackingPixels);
+      trackProfileView(trackableProfileId, firePixelPageView(trackingPixels));
+    } else {
+      trackProfileView(trackableProfileId);
     }
+    return startEngagementTracking(trackableProfileId);
+    // trackingPixels is fixed for a given profile
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authPending, trackableProfileId]);
+
+  const handleConsent = (choice: ConsentChoice) => {
+    if (trackableProfileId === null) return;
+    const advertising = pixelsEnabled && choice.advertising && !hasGlobalPrivacyControl();
+    saveConsent({
+      analytics: choice.analytics,
+      creatorId: trackableProfileId,
+      ads: pixelsEnabled ? advertising : undefined,
+    });
+    recordConsent(
+      trackableProfileId,
+      { analytics: choice.analytics, advertising },
+      bannerMode === "settings" ? "settings" : "banner"
+    );
+    const adsNewlyGranted = advertising && consent?.ads !== true;
+    setConsent({ analytics: choice.analytics, ads: pixelsEnabled ? advertising : null });
+    setBannerMode("hidden");
+    if (adsNewlyGranted && trackingPixels) {
+      loadPixels(trackingPixels);
+      trackConsentedPageView(trackableProfileId, firePixelPageView(trackingPixels));
+    }
+  };
+
+  const handleLinkClick = (block: BlockType) => {
+    if (block.type !== "link" || trackableProfileId === null) return;
+    const ad =
+      pixelsEnabled && consent?.ads === true && trackingPixels
+        ? firePixelLinkClick(trackingPixels, {
+            label: block.config.label,
+            url: block.config.url,
+          })
+        : undefined;
+    trackLinkClick(trackableProfileId, block.id, ad);
   };
 
   useEffect(() => {
@@ -131,6 +213,7 @@ export function ProfileView({
           setTheme(data.theme);
           setBlocks(data.blocks);
           setHasCreatorPool(data.hasCreatorPool);
+          setTrackingPixels(data.trackingPixels);
         }
       } catch {
         if (normalizedHandle === DEFAULT_HANDLE) {
@@ -156,6 +239,17 @@ export function ProfileView({
 
   return (
     <div className="min-h-screen flex flex-col">
+      {bannerMode !== "hidden" && trackableProfileId !== null && (
+        <TrackingConsentBanner
+          key={bannerMode}
+          ownerName={profile.name || "This creator"}
+          adServices={pixelsEnabled && trackingPixels ? pixelServiceNames(trackingPixels) : []}
+          adsBlockedByBrowser={hasGlobalPrivacyControl()}
+          initial={{ analytics: consent?.analytics === true, advertising: consent?.ads === true }}
+          startExpanded={bannerMode === "settings"}
+          onSave={handleConsent}
+        />
+      )}
       {normalizedHandle === DEFAULT_HANDLE && (
         <div className="md:hidden flex justify-center py-2 relative z-10">
           <SystemStatsBadge />
@@ -416,6 +510,15 @@ export function ProfileView({
                   >
                     Claim your own Amped.Bio
                   </button>
+                  {trackableProfileId !== null && consent !== null && (
+                    <button
+                      onClick={() => setBannerMode("settings")}
+                      className="block mx-auto mt-2 text-xs opacity-60 hover:opacity-100 transition-opacity underline"
+                      style={{ fontFamily: themeConfig?.fontFamily, color: themeConfig?.fontColor }}
+                    >
+                      Privacy choices
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
