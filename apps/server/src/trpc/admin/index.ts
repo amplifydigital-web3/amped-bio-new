@@ -9,6 +9,7 @@ import { walletAdminRouter } from "./wallet";
 import { settingsRouter } from "./settings";
 import { adminPoolsRouter } from "./pools";
 import { affiliateAdminRouter } from "./affiliate";
+import { oauthAppsAdminRouter } from "./oauthApps";
 
 export const adminRouter = router({
   // User Management
@@ -40,4 +41,7 @@ export const adminRouter = router({
 
   // Affiliate Rewards Management
   affiliate: affiliateAdminRouter,
+
+  // OAuth Applications
+  oauthApps: oauthAppsAdminRouter,
 });

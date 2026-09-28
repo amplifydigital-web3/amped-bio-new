@@ -1,0 +1,46 @@
+---
+title: Brand and button
+description: How to present "Sign in with Amped.bio" in your product.
+order: 23
+group: Guides
+---
+
+Use the name and mark exactly as written so users recognise the account they are signing in with.
+
+## Button copy
+
+- **Do** use "Sign in with Amped.bio" or "Continue with Amped.bio".
+- **Do not** use "Login with Amped", "Amped login", "amped.bio OAuth" or translated variants.
+
+## Button markup
+
+```html
+<button type="button" class="amped-sign-in">
+  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+    <!-- Amped.bio mark -->
+  </svg>
+  Sign in with Amped.bio
+</button>
+```
+
+Keep the mark at least 18px tall, preserve its proportions, and never place it on a low contrast background.
+
+## Colours
+
+| Usage | Colour |
+| --- | --- |
+| Primary button background | `#2563EB` |
+| Button label | `#FFFFFF` |
+| Outline button border | `#D1D5DB` |
+| Outline button label | `#111827` |
+
+## Consent screen
+
+Our consent screen is hosted by us and cannot be restyled. You may show your own explanation of what you do
+with the data before redirecting, but you must not ask users to hand over their Amped.bio password anywhere
+except on our own pages.
+
+## Support
+
+Questions about an integration, rate limits or a redirect URI change? Contact the Amped.bio team through the
+support channel listed in your application's review email.

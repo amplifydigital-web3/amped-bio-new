@@ -4,7 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { uploadedFileService } from "../../services/UploadedFileService";
 import { s3Service } from "../../services/S3Service";
 import { PaginationSchema, FileFilterSchema, FileActionSchema } from "./schemas";
-import { prisma } from "../../services/DB";
+import { prisma } from "@repo/database";
 
 export const filesRouter = router({
   getFiles: adminProcedure

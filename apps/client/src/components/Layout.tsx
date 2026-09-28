@@ -12,6 +12,7 @@ import { LeaderboardPanel } from "./panels/leaderboard/LeaderboardPanel";
 import { RNSPanel } from "./panels/rns/RNSPanel";
 import { HomePanel } from "./panels/home/HomePanel";
 import { MyWalletPanel } from "./panels/wallet/MyWalletPanel";
+import { DeveloperPanel } from "./panels/developer/DeveloperPanel";
 import { Eye } from "lucide-react";
 import RewardPanel from "./panels/reward/RewardPanel.tsx";
 import { EditorPanelType } from "@/types/editor.ts";
@@ -60,6 +61,7 @@ export function Layout({ handle, bannerData, bannerLoading }: LayoutProps) {
     wallet: { layout: "single", width: "full" },
     pay: { layout: "single", width: "full" },
     account: { layout: "single", width: "full" },
+    developer: { layout: "single", width: "full" },
 
     // Two column pages with wide panels (for data-heavy content)
     rewardPools: { layout: "single", width: "full" },
@@ -146,6 +148,7 @@ export function Layout({ handle, bannerData, bannerLoading }: LayoutProps) {
               {/* {activePanel === "rewardPools" && <RewardsPage />} */}
               {activePanel === "createRewardPool" && <CreatorPoolPanel />}
               {activePanel === "leaderboard" && <LeaderboardPanel />}
+              {activePanel === "developer" && <DeveloperPanel />}
               {activePanel === "rns" && import.meta.env.VITE_SHOW_RNS === "true" && <RNSPanel />}
             </div>
 

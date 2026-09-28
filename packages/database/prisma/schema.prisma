@@ -1,7 +1,7 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/lib/prisma"
+  output   = "../src/generated"
 }
 
 datasource db {
@@ -42,6 +42,11 @@ model User {
   twoFactorEnabled  Boolean     @default(false) @map("two_factor_enabled")
   twoFactor         TwoFactor?
 
+  oauthClients      OauthClient[]
+  oauthRefreshTokens OauthRefreshToken[]
+  oauthAccessTokens OauthAccessToken[]
+  oauthConsents     OauthConsent[]
+
   @@unique([email])
   @@map("users")
 }
@@ -56,6 +61,9 @@ model Session {
   userAgent String?
   userId    Int
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  oauthRefreshTokens OauthRefreshToken[]
+  oauthAccessTokens  OauthAccessToken[]
 
   @@unique([token])
   @@map("session")
@@ -306,6 +314,8 @@ model Jwks {
   privateKey String    @db.LongText
   createdAt  DateTime  @default(now())
   expiresAt  DateTime?
+  alg        String?
+  crv        String?
 
   @@map("jwks")
 }
@@ -334,15 +344,213 @@ model NdauConversion {
 }
 
 model TwoFactor {
-  id          String  @id @default(cuid())
-  userId      Int     @map("user_id")
-  secret      String  @db.Text
-  backupCodes String  @map("backup_codes") @db.Text
-  verified    Boolean @default(false)
+  id                     String  @id @default(cuid())
+  userId                 Int     @map("user_id")
+  secret                 String  @db.Text
+  backupCodes            String  @map("backup_codes") @db.Text
+  verified               Boolean @default(false)
+  failedVerificationCount Int?   @default(0) @map("failed_verification_count")
+  lockedUntil            DateTime? @map("locked_until")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId])
   @@map("two_factor")
   @@index([secret(length: 191)])
+}
+
+// ===== OAuth 2.1 provider (Better Auth oauth-provider / MCP plugins) =====
+// Multi-value fields are stored as JSON strings because MySQL has no array type
+// and the adapter serializes `string[]` fields when `supportsArrays` is false.
+
+model OauthClient {
+  id                               Bytes     @id @db.Binary(16)
+  clientId                         String    @unique @map("client_id") @db.VarChar(255)
+  clientSecret                     String?   @map("client_secret") @db.Text
+  clientDiscoveryId                String?   @map("client_discovery_id")
+  disabled                         Boolean?  @default(false)
+  skipConsent                      Boolean?  @map("skip_consent")
+  enableEndSession                 Boolean?  @map("enable_end_session")
+  subjectType                      String?   @map("subject_type")
+  scopes                           String?   @db.Text
+  clientCredentialsScopes          String?   @map("client_credentials_scopes") @db.Text
+  userId                           Int?      @map("user_id")
+  createdAt                        DateTime? @map("created_at")
+  updatedAt                        DateTime? @map("updated_at")
+  name                             String?
+  uri                              String?
+  icon                             String?   @db.Text
+  contacts                         String?   @db.Text
+  tos                              String?
+  policy                           String?
+  softwareId                       String?   @map("software_id")
+  softwareVersion                  String?   @map("software_version")
+  softwareStatement                String?   @map("software_statement") @db.Text
+  redirectUris                     String    @map("redirect_uris") @db.Text
+  postLogoutRedirectUris           String?   @map("post_logout_redirect_uris") @db.Text
+  backchannelLogoutUri             String?   @map("backchannel_logout_uri")
+  backchannelLogoutSessionRequired Boolean?  @map("backchannel_logout_session_required")
+  tokenEndpointAuthMethod          String?   @map("token_endpoint_auth_method")
+  applicationType                  String?   @map("application_type")
+  jwks                             String?   @db.Text
+  jwksUri                          String?   @map("jwks_uri")
+  grantTypes                       String?   @map("grant_types") @db.Text
+  responseTypes                    String?   @map("response_types") @db.Text
+  requirePKCE                      Boolean?  @map("require_pkce")
+  dpopBoundAccessTokens            Boolean?  @default(false) @map("dpop_bound_access_tokens")
+  referenceId                      String?   @map("reference_id")
+  metadata                         Json?
+
+  user            User?                 @relation(fields: [userId], references: [id])
+  refreshTokens   OauthRefreshToken[]
+  accessTokens    OauthAccessToken[]
+  consents        OauthConsent[]
+  clientResources OauthClientResource[]
+
+  @@index([userId])
+  @@map("oauth_client")
+}
+
+model OauthResource {
+  id                          Bytes     @id @db.Binary(16)
+  identifier                  String    @unique @db.VarChar(255)
+  name                        String
+  accessTokenTtl              Int?      @map("access_token_ttl")
+  refreshTokenTtl             Int?      @map("refresh_token_ttl")
+  signingAlgorithm            String?   @map("signing_algorithm")
+  signingKeyId                String?   @map("signing_key_id")
+  allowedScopes               String?   @map("allowed_scopes") @db.Text
+  customClaims                Json?     @map("custom_claims")
+  dpopBoundAccessTokensRequired Boolean? @default(false) @map("dpop_bound_access_tokens_required")
+  disabled                    Boolean?  @default(false)
+  createdAt                   DateTime? @map("created_at")
+  updatedAt                   DateTime? @map("updated_at")
+  policyVersion               Int?      @default(1) @map("policy_version")
+  metadata                    Json?
+
+  clientResources OauthClientResource[]
+
+  @@map("oauth_resource")
+}
+
+model OauthClientResource {
+  id         Bytes     @id @db.Binary(16)
+  clientId   String    @map("client_id") @db.VarChar(255)
+  resourceId String    @map("resource_id") @db.VarChar(255)
+  metadata   Json?
+  createdAt  DateTime? @map("created_at")
+
+  client   OauthClient   @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  resource OauthResource @relation(fields: [resourceId], references: [identifier], onDelete: Cascade)
+
+  @@unique([clientId, resourceId])
+  @@index([clientId])
+  @@index([resourceId])
+  @@map("oauth_client_resource")
+}
+
+model OauthRefreshToken {
+  id                     Bytes     @id @db.Binary(16)
+  token                  String    @unique @db.VarChar(255)
+  clientId               String    @map("client_id") @db.VarChar(255)
+  sessionId              Int?      @map("session_id")
+  userId                 Int       @map("user_id")
+  referenceId            String?   @map("reference_id")
+  authorizationCodeId    String?   @map("authorization_code_id") @db.VarChar(255)
+  resources              String?   @db.Text
+  requestedUserInfoClaims String?  @map("requested_user_info_claims") @db.Text
+  scopes                 String    @db.Text
+  expiresAt              DateTime  @map("expires_at")
+  createdAt              DateTime  @map("created_at")
+  revoked                DateTime?
+  rotatedAt              DateTime? @map("rotated_at")
+  rotationReplayResponse String?   @map("rotation_replay_response") @db.Text
+  rotationReplayExpiresAt DateTime? @map("rotation_replay_expires_at")
+  authTime               DateTime? @map("auth_time")
+  confirmation           Json?
+
+  client      OauthClient       @relation(fields: [clientId], references: [clientId])
+  session     Session?          @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  user        User              @relation(fields: [userId], references: [id])
+  accessTokens OauthAccessToken[]
+
+  @@index([clientId])
+  @@index([sessionId])
+  @@index([userId])
+  @@index([authorizationCodeId])
+  @@map("oauth_refresh_token")
+}
+
+model OauthAccessToken {
+  id                     Bytes     @id @db.Binary(16)
+  token                  String    @unique @db.VarChar(255)
+  clientId               String    @map("client_id") @db.VarChar(255)
+  sessionId              Int?      @map("session_id")
+  userId                 Int?      @map("user_id")
+  referenceId            String?   @map("reference_id")
+  authorizationCodeId    String?   @map("authorization_code_id") @db.VarChar(255)
+  resources              String?   @db.Text
+  requestedUserInfoClaims String?  @map("requested_user_info_claims") @db.Text
+  refreshId              Bytes?    @map("refresh_id")
+  scopes                 String    @db.Text
+  expiresAt              DateTime  @map("expires_at")
+  createdAt              DateTime  @map("created_at")
+  revoked                DateTime?
+  confirmation           Json?
+
+  client   OauthClient        @relation(fields: [clientId], references: [clientId])
+  session  Session?           @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  user     User?              @relation(fields: [userId], references: [id])
+  refresh  OauthRefreshToken? @relation(fields: [refreshId], references: [id])
+
+  @@index([clientId])
+  @@index([sessionId])
+  @@index([userId])
+  @@index([refreshId])
+  @@index([authorizationCodeId])
+  @@map("oauth_access_token")
+}
+
+model OauthConsent {
+  id                     Bytes     @id @db.Binary(16)
+  clientId               String    @map("client_id") @db.VarChar(255)
+  userId                 Int?      @map("user_id")
+  referenceId            String?   @map("reference_id")
+  resources              String?   @db.Text
+  requestedUserInfoClaims String?  @map("requested_user_info_claims") @db.Text
+  scopes                 String    @db.Text
+  createdAt              DateTime  @map("created_at")
+  updatedAt              DateTime  @map("updated_at")
+
+  client OauthClient @relation(fields: [clientId], references: [clientId])
+  user   User?       @relation(fields: [userId], references: [id])
+
+  @@index([clientId])
+  @@index([userId])
+  @@map("oauth_consent")
+}
+
+model OauthClientAssertion {
+  id        Bytes    @id @db.Binary(16)
+  expiresAt DateTime @map("expires_at")
+
+  @@map("oauth_client_assertion")
+}
+
+model DeviceCode {
+  id               Bytes     @id @db.Binary(16)
+  deviceCode       String    @unique @map("device_code") @db.VarChar(255)
+  userCode         String    @map("user_code") @db.VarChar(255)
+  userId           String?   @map("user_id") @db.VarChar(255)
+  expiresAt        DateTime  @map("expires_at")
+  status           String
+  lastPolledAt     DateTime? @map("last_polled_at")
+  pollingInterval  Int?      @map("polling_interval")
+  clientId         String?   @map("client_id") @db.VarChar(255)
+  scope            String?   @db.Text
+  resources        String?   @db.Text
+  oauthClientId    String?   @map("oauth_client_id") @db.VarChar(255)
+
+  @@index([clientId])
+  @@map("device_code")
 }
