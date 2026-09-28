@@ -2,9 +2,10 @@ import { privateProcedure, router } from "../trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { prisma } from "../../services/DB";
-import { Address, createPublicClient, http, zeroAddress } from "viem";
+import { Address, createPublicClient, zeroAddress } from "viem";
 import {
   getChainConfig,
+  getRpcTransport,
   CREATOR_POOL_FACTORY_ABI,
   CREATOR_POOL_ABI,
   getPoolName,
@@ -159,7 +160,7 @@ export const poolsCreatorRouter = router({
                 if (chain) {
                   const publicClient = createPublicClient({
                     chain: chain,
-                    transport: http(),
+                    transport: getRpcTransport(chain),
                   });
 
                   const fanStakeAmount = await publicClient.readContract({
@@ -192,7 +193,7 @@ export const poolsCreatorRouter = router({
           try {
             const publicClient = createPublicClient({
               chain: chain,
-              transport: http(),
+              transport: getRpcTransport(chain),
             });
 
             // Use the pendingReward function to get the user's pending rewards
@@ -279,7 +280,7 @@ export const poolsCreatorRouter = router({
 
       const publicClient = createPublicClient({
         chain: chain,
-        transport: http(),
+        transport: getRpcTransport(chain),
       });
 
       try {
@@ -410,7 +411,7 @@ export const poolsCreatorRouter = router({
 
       const publicClient = createPublicClient({
         chain: chain,
-        transport: http(),
+        transport: getRpcTransport(chain),
       });
 
       let poolAddress: Address;

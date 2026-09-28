@@ -2,8 +2,13 @@ import { adminProcedure, router } from "../trpc";
 import { z } from "zod";
 import { TRPCError, tracked } from "@trpc/server";
 import { prisma } from "../../services/DB";
-import { createPublicClient, http, decodeEventLog, type Address, type Log } from "viem";
-import { getChainConfig, L2_BASE_TOKEN_ABI, CREATOR_POOL_FACTORY_ABI } from "@repo/web3";
+import { createPublicClient, decodeEventLog, type Address, type Log } from "viem";
+import {
+  getChainConfig,
+  getRpcTransport,
+  L2_BASE_TOKEN_ABI,
+  CREATOR_POOL_FACTORY_ABI,
+} from "@repo/web3";
 
 export const adminPoolsRouter = router({
   getAllPools: adminProcedure.query(async () => {
@@ -146,7 +151,7 @@ export const adminPoolsRouter = router({
 
       const publicClient = createPublicClient({
         chain: chain,
-        transport: http(),
+        transport: getRpcTransport(chain),
       });
 
       try {
@@ -331,7 +336,7 @@ export const adminPoolsRouter = router({
 
       const publicClient = createPublicClient({
         chain: chain,
-        transport: http(),
+        transport: getRpcTransport(chain),
       });
 
       const tokenAddress = chain.contracts.L2_BASE_TOKEN.address;
@@ -913,7 +918,7 @@ export const adminPoolsRouter = router({
 
         const publicClient = createPublicClient({
           chain: chain,
-          transport: http(),
+          transport: getRpcTransport(chain),
         });
 
         console.log("Fetching transaction receipt...");
