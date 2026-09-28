@@ -28,9 +28,7 @@ const pb = crypto.createPublicKey(pk);
 // The OAuth/OIDC issuer is the auth subdomain itself (no path suffix).
 // Every token this server signs must carry it as `iss` so access tokens,
 // ID tokens and the app session JWTs verify consistently.
-export const AUTH_BASE_URL = (
-  env.BETTER_AUTH_URL || `https://auth.amped.bio`
-).replace(/\/+$/, "");
+export const AUTH_BASE_URL = env.BETTER_AUTH_URL.replace(/\/+$/, "");
 
 export const OAUTH_ISSUER = AUTH_BASE_URL;
 
