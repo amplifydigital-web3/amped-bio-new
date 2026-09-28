@@ -22,7 +22,9 @@ function portSchema(fallback: number) {
 
 // ================ environment schema ================
 // Variables shared with apps/server use the exact same validation and
-// defaults as apps/server/src/env.ts. Keep both files in sync.
+// defaults as apps/server/src/env.ts. Keep both files in sync. The only
+// exceptions are BETTER_AUTH_URL and MCP_RESOURCE_URL: the auth server is the
+// OAuth issuer and cannot boot without them, so they are required URLs here.
 const envSchema = z.object({
   // ---------- Runtime ----------
   // The environment the app is running in
@@ -37,7 +39,7 @@ const envSchema = z.object({
   // Better Auth secret for authentication
   BETTER_AUTH_SECRET: z.string(),
   // Public origin of the auth subdomain, e.g. https://auth.amped.bio
-  BETTER_AUTH_URL: z.string().default(""),
+  BETTER_AUTH_URL: z.string().url(),
 
   // ---------- JWT ----------
   // Private key for JWT signing
@@ -47,7 +49,7 @@ const envSchema = z.object({
 
   // ---------- OAuth ----------
   // Canonical protected resource identifier of the MCP server (RFC 8707/RFC 9728).
-  MCP_RESOURCE_URL: z.string().default(""),
+  MCP_RESOURCE_URL: z.string().url(),
   // Comma-separated list of OAuth client ids that skip the consent screen.
   OAUTH_TRUSTED_CLIENT_IDS: z.string().default(""),
   // Comma-separated list of allowed CORS origins
@@ -90,5 +92,18 @@ const envSchema = z.object({
   SMTP_FROM_EMAIL: z.string().default("noreply@amped.bio"),
 });
 
-export const env = envSchema.parse(process.env);
+// ================ parse & export ================
+const result = envSchema.safeParse(process.env);
+
+if (!result.success) {
+  const issues = result.error.issues
+    .map(issue => `  ${issue.path.join(".") || "(root)"}: ${issue.message}`)
+    .sort();
+  console.error("Invalid environment variables:");
+  console.error(issues.join("\n"));
+  console.error("\n Exiting with error code 1");
+  process.exit(1);
+}
+
+export const env = result.data;
 export type Env = z.infer<typeof envSchema>;
