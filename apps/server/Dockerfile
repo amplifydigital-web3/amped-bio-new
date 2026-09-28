@@ -20,15 +20,14 @@ WORKDIR /app
 # Dependency layer — kept stable so `pnpm install` is cached between builds.
 # Only the files needed to resolve the workspace and run the install-time
 # lifecycle scripts are copied before installing:
-#   - the workspace packages' sources (their `prepare` builds them via tsup)
-#   - the server manifest (defines `postinstall`)
-#   - the Prisma schema (used by `postinstall` -> `prisma generate`)
+#   - the workspace packages' sources, including `@repo/database` (its sources,
+#     its Prisma schema and its `postinstall` -> `prisma generate`)
+#   - the server manifest
 # App source changes therefore never invalidate this layer.
 # ---------------------------------------------------------------------------
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 COPY packages ./packages
 COPY apps/server/package.json ./apps/server/package.json
-COPY apps/server/prisma ./apps/server/prisma
 
 # Pre-download the pnpm version pinned in package.json (pnpm@9.15.1) so the
 # runtime CMD ["pnpm", "start"] never triggers a network fetch. Keep this in
