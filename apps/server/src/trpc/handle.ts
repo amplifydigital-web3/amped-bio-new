@@ -37,6 +37,106 @@ const RevoNameSubgraphSchema = z.object({
   }),
 });
 
+type RevoNameStatus = "active" | "expired" | "taken" | null;
+
+// Load the user's theme and resolve its background file into a public URL
+async function getPublicTheme(themeId: number) {
+  const theme = await prisma.theme.findUnique({
+    where: {
+      id: themeId,
+    },
+  });
+
+  if (!theme) return null;
+
+  const themeConfig = theme.config as ThemeConfig | undefined;
+
+  if (themeConfig && themeConfig.background?.fileId) {
+    themeConfig.background.value = await getFileUrl({
+      legacyImageField: null,
+      imageFileId: themeConfig.background.fileId,
+    });
+  }
+
+  // Return a clean DTO instead of the raw Prisma row (no relations) so the
+  // tRPC output stays shallow and type-safe for consumers
+  return { id: theme.id, name: theme.name, config: themeConfig ?? null };
+}
+
+// Validate revoName on-chain: check expiry and ownership
+async function validateRevoName(
+  revoName: string | null,
+  walletAddress: string | null
+): Promise<{ revoName: string | null; status: RevoNameStatus }> {
+  const cleared = { revoName: null, status: null };
+
+  if (!revoName) return cleared;
+
+  const SUBGRAPH_URL = env.SUBGRAPH_URL;
+  if (!SUBGRAPH_URL) {
+    // No subgraph URL configured — cannot validate ownership/expiry, clear the name
+    console.warn("[revoName] SUBGRAPH_URL not configured, clearing revoName");
+    return cleared;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  try {
+    const labelName = revoName.split(".")[0];
+    const res = await fetch(SUBGRAPH_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        query: `query ($l: String!) { revoNames(where: { labelName: $l }) { expiryDateWithGrace owner } }`,
+        variables: { l: labelName },
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error(`Subgraph responded with status ${res.status}`);
+    }
+
+    const json = await res.json();
+
+    if (json?.errors?.length) {
+      console.warn("[revoName] Subgraph returned GraphQL errors:", json.errors);
+    }
+
+    const parsed = RevoNameSubgraphSchema.safeParse(json);
+    if (!parsed.success) {
+      console.warn("[revoName] Subgraph returned invalid data:", parsed.error.flatten());
+      return cleared;
+    }
+
+    const details = parsed.data.data.revoNames[0];
+    if (!details) return cleared;
+
+    const expiryTimestamp = Number(details.expiryDateWithGrace);
+    const nowInSeconds = Math.floor(Date.now() / 1000);
+    if (expiryTimestamp > 0 && expiryTimestamp < nowInSeconds) {
+      return { revoName: null, status: "expired" };
+    }
+    if (walletAddress && details.owner.toLowerCase() !== walletAddress.toLowerCase()) {
+      return { revoName: null, status: "taken" };
+    }
+
+    return { revoName, status: "active" };
+  } catch (err) {
+    console.warn("[revoName] Subgraph validation failed, clearing revoName:", err);
+    return cleared;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// Unwrap an optional result: log the failure and fall back instead of failing the request
+function settledOrFallback<T>(result: PromiseSettledResult<T>, fallback: T, label: string): T {
+  if (result.status === "fulfilled") return result.value;
+  console.error(`[getHandle] ${label} failed, using fallback:`, result.reason);
+  return fallback;
+}
+
 const appRouter = router({
   // Check if a handle is available for use
   checkAvailability: publicProcedure.input(handleParamSchema).query(async ({ input }) => {
@@ -166,34 +266,27 @@ const appRouter = router({
         image_file_id,
       } = user;
 
-      const theme = await prisma.theme.findUnique({
-        where: {
-          id: Number(theme_id),
-        },
-      });
+      const [themeResult, blocksResult, imageResult, revoNameResult, trackingPixelsResult] =
+        await Promise.allSettled([
+          getPublicTheme(Number(theme_id)),
+          prisma.block.findMany({
+            where: {
+              user_id: Number(user_id),
+            },
+          }),
+          getFileUrl({
+            legacyImageField: image,
+            imageFileId: image_file_id,
+          }),
+          validateRevoName(revo_name ?? null, user.wallet?.address ?? null),
+          getPublicTrackingPixels(user_id),
+        ]);
 
-      const themeConfig = theme?.config as ThemeConfig | undefined;
+      // Theme and blocks are the profile itself, so their failures are fatal
+      if (themeResult.status === "rejected") throw themeResult.reason;
+      if (blocksResult.status === "rejected") throw blocksResult.reason;
 
-      if (themeConfig && themeConfig.background?.fileId) {
-        themeConfig.background.value = await getFileUrl({
-          legacyImageField: null,
-          imageFileId: themeConfig.background.fileId,
-        });
-      }
-
-      // Return a clean DTO instead of the raw Prisma row (no relations) so the
-      // tRPC output stays shallow and type-safe for consumers
-      const publicTheme = theme
-        ? { id: theme.id, name: theme.name, config: themeConfig ?? null }
-        : null;
-
-      const blocks = await prisma.block.findMany({
-        where: {
-          user_id: Number(user_id),
-        },
-      });
-
-      const publicBlocks = blocks.map(block => ({
+      const publicBlocks = blocksResult.value.map(block => ({
         id: block.id,
         user_id: block.user_id,
         type: block.type,
@@ -204,105 +297,33 @@ const appRouter = router({
         updated_at: block.updated_at,
       }));
 
-      const resolvedImageUrl = await getFileUrl({
-        legacyImageField: image,
-        imageFileId: image_file_id,
-      });
-
-      // Validate revoName on-chain: check expiry and ownership
-      const walletAddress = user.wallet?.address ?? null;
-      let resolvedRevoName: string | null = revo_name ?? null;
-      let revoNameStatus: "active" | "expired" | "taken" | null = resolvedRevoName
-        ? "active"
-        : null;
-
-      if (resolvedRevoName) {
-        const SUBGRAPH_URL = env.SUBGRAPH_URL;
-        if (!SUBGRAPH_URL) {
-          // No subgraph URL configured — cannot validate ownership/expiry, clear the name
-          console.warn("[revoName] SUBGRAPH_URL not configured, clearing revoName");
-          resolvedRevoName = null;
-          revoNameStatus = null;
-        } else {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 5000);
-          try {
-            const labelName = resolvedRevoName.split(".")[0];
-            const res = await fetch(SUBGRAPH_URL, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              signal: controller.signal,
-              body: JSON.stringify({
-                query: `query ($l: String!) { revoNames(where: { labelName: $l }) { expiryDateWithGrace owner } }`,
-                variables: { l: labelName },
-              }),
-            });
-
-            if (!res.ok) {
-              throw new Error(`Subgraph responded with status ${res.status}`);
-            }
-
-            const json = await res.json();
-
-            if (json?.errors?.length) {
-              console.warn("[revoName] Subgraph returned GraphQL errors:", json.errors);
-            }
-
-            const parsed = RevoNameSubgraphSchema.safeParse(json);
-            if (!parsed.success) {
-              console.warn("[revoName] Subgraph returned invalid data:", parsed.error.flatten());
-              resolvedRevoName = null;
-              revoNameStatus = null;
-            } else {
-              const details = parsed.data.data.revoNames[0];
-              if (!details) {
-                resolvedRevoName = null;
-                revoNameStatus = null;
-              } else {
-                const expiryTimestamp = Number(details.expiryDateWithGrace);
-                const nowInSeconds = Math.floor(Date.now() / 1000);
-                if (expiryTimestamp > 0 && expiryTimestamp < nowInSeconds) {
-                  resolvedRevoName = null;
-                  revoNameStatus = "expired";
-                } else if (
-                  walletAddress &&
-                  details.owner.toLowerCase() !== walletAddress.toLowerCase()
-                ) {
-                  resolvedRevoName = null;
-                  revoNameStatus = "taken";
-                }
-              }
-            }
-          } catch (err) {
-            console.warn("[revoName] Subgraph validation failed, clearing revoName:", err);
-            resolvedRevoName = null;
-            revoNameStatus = null;
-          } finally {
-            clearTimeout(timeout);
-          }
-        }
-      }
+      const revoName = settledOrFallback(
+        revoNameResult,
+        { revoName: null, status: null },
+        "revoName validation"
+      );
 
       const result = {
         user: {
           id: user_id,
           name,
           email,
-          revoName: resolvedRevoName,
-          revoNameStatus,
+          revoName: revoName.revoName,
+          revoNameStatus: revoName.status,
           originalRevoName: revo_name ?? null,
           description,
-          image: resolvedImageUrl,
+          image: settledOrFallback(imageResult, null, "profile image URL"),
         },
-        theme: publicTheme,
+        theme: themeResult.value,
         blocks: publicBlocks,
         hasCreatorPool,
-        trackingPixels: await getPublicTrackingPixels(user_id),
+        trackingPixels: settledOrFallback(trackingPixelsResult, null, "tracking pixels"),
       };
 
       return result;
     } catch (error) {
       if (error instanceof TRPCError) throw error;
+      console.error(`[getHandle] failed for handle "${handle}":`, error);
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: "Server error",
