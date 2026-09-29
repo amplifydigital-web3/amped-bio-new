@@ -8,6 +8,7 @@ interface ImportMetaEnv {
   readonly VITE_SHOW_RNS: string;
   readonly VITE_SHOW_GALLERY: string;
   readonly VITE_API_URL: string;
+  readonly VITE_AUTH_URL: string;
   readonly VITE_DEMO_MODE: string;
   // web3
   readonly VITE_WEB3AUTH_CLIENT_ID: string;
