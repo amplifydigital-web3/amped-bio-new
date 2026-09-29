@@ -116,6 +116,16 @@ app.get(Object.keys(OAUTH_PAGE_REDIRECTS), (req: Request, res: Response) => {
 // JWKS endpoint (also served via /.well-known/jwks.json)
 app.get("/jwks", jwksHandler);
 
+// These routes must be registered before the Better Auth catch-all below,
+// otherwise it swallows them and answers 404 (breaking the container healthcheck).
+// Unmatched /.well-known paths fall through to Better Auth's metadata endpoints.
+app.use("/.well-known", wellKnownRouter);
+app.use("/health", healthRouter);
+
+app.get("/", (req, res) => {
+  res.json({ provider: "Amped.Bio Auth", issuer: `${req.protocol}://${req.get("host")}` });
+});
+
 // The issuer is on the auth subdomain root (no /auth base path).
 // Better Auth 1.7 routes on the empty base path, so the handler receives
 // requests without any prefix stripping.
@@ -129,13 +139,6 @@ app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-
-app.use("/.well-known", wellKnownRouter);
-app.use("/health", healthRouter);
-
-app.get("/", (req, res) => {
-  res.json({ provider: "Amped.Bio Auth", issuer: `${req.protocol}://${req.get("host")}` });
-});
 
 function logErrors(err: any, req: Request, res: Response, next: NextFunction) {
   if (err.code !== 401)
