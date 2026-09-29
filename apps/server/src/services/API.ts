@@ -20,6 +20,30 @@ if (env.TRUST_PROXY) {
   app.set("trust proxy", env.TRUST_PROXY);
 }
 
+// Security headers are registered before any route, including the ones that
+// must stay ahead of the body parser. /mcp and the protected-resource redirect
+// were mounted above helmet(), so they answered without HSTS, nosniff or frame
+// protection while every other route got them.
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        baseUri: ["'none'"],
+        formAction: ["'none'"],
+        objectSrc: ["'none'"],
+        upgradeInsecureRequests: [],
+      },
+    },
+    // The JWKS and MCP protected-resource metadata are read by the auth server,
+    // MCP clients and third-party OAuth clients on other origins. same-origin
+    // would block those reads.
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+  })
+);
+
 // Origins allowed to send credentialed (cookie carrying) requests.
 const allowedOrigins = env.CORS_ORIGINS.split(",").map(o => o.trim());
 
@@ -76,7 +100,6 @@ app.get(
   }
 );
 
-app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());

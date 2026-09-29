@@ -11,6 +11,39 @@ import healthRouter from "../routes/health";
 
 const app: Application = express();
 
+// Security headers must be registered before every route and before the Better
+// Auth catch-all below, which answers every request that reaches it. Mounted
+// afterwards, helmet never ran: Express only reaches later middleware when an
+// earlier one calls next(), and the OAuth/JWKS routes plus the catch-all all
+// end the response themselves. That left /.well-known, /jwks, /health and the
+// whole auth API without HSTS, nosniff or frame protection.
+app.use(
+  helmet({
+    // The landing page serves the OAuth login/consent/device screens and the
+    // better-auth error page is HTML, but this origin only ever returns JSON or
+    // redirects. A restrictive CSP is safe and prevents any injected markup
+    // from executing if a future route renders HTML here.
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        baseUri: ["'none'"],
+        formAction: ["'none'"],
+        objectSrc: ["'none'"],
+        // Nothing is embeddable, so lock it down fully.
+        upgradeInsecureRequests: [],
+      },
+    },
+    // The JWKS and OIDC discovery documents are fetched by the Web3Auth
+    // verifier, MCP clients and third-party OAuth clients from other origins.
+    // same-origin would block those reads.
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    // This origin is an API target for browser clients on other origins.
+    // same-origin would break OAuth popups and postMessage handshakes.
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+  })
+);
+
 // Origins allowed to send credentialed (cookie carrying) requests.
 const allowedOrigins = env.CORS_ORIGINS.split(",").map(o => o.trim());
 
@@ -133,7 +166,6 @@ app.use((req, res) => {
   return void authHandler(req, res);
 });
 
-app.use(helmet());
 // Don't use express.json() before the Better Auth handler. Use it only for
 // other routes, or the client API will get stuck on "pending".
 app.use(express.json());
