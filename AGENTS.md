@@ -6,6 +6,12 @@ NEVER execute the 'dev' command under any circumstances! This starts the develop
 
 NEVER merge any branch into 'main' without explicit user authorization! Under no circumstances should you perform any git merge operations to the main branch unless the user clearly instructs you to do so. DO NOT ASSUME that merge operations are desired.
 
+## BRANCHING AND PULL REQUESTS - MANDATORY
+
+ALWAYS create new branches from 'development' (our staging environment) and ALWAYS target 'development' as the base branch when opening Pull Requests. Fetch the latest 'development' before branching.
+
+If the user asks to branch from or open a PR against 'main', you MUST first warn them that 'main' is the production branch and that the standard flow is to go through 'development' (staging). Only proceed with 'main' after the user explicitly confirms they are aware of this and still want it.
+
 ## VALIDATION REQUIREMENTS - MANDATORY
 
 ALWAYS run typecheck and build commands to validate your modifications before claiming completion. NO EXCEPTIONS. Failure to do so will result in immediate rejection of your work.
