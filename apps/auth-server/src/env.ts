@@ -22,9 +22,7 @@ function portSchema(fallback: number) {
 
 // ================ environment schema ================
 // Variables shared with apps/server use the exact same validation and
-// defaults as apps/server/src/env.ts. Keep both files in sync. The only
-// exceptions are BETTER_AUTH_URL and MCP_RESOURCE_URL: the auth server is the
-// OAuth issuer and cannot boot without them, so they are required URLs here.
+// defaults as apps/server/src/env.ts. Keep both files in sync.
 const envSchema = z.object({
   // ---------- Runtime ----------
   // The environment the app is running in

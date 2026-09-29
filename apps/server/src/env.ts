@@ -127,11 +127,12 @@ const envSchema = z.object({
   // Google OAuth 2.0 Client ID
   GOOGLE_CLIENT_ID: z.string().default(""),
 
-  // Public origin of this server, used as the OAuth/OIDC issuer base URL.
-  // Example: https://api.staging.amped.bio (the issuer becomes <base>/auth).
-  BETTER_AUTH_URL: z.string().default(""),
+  // Public origin of the auth server (apps/auth-server), used as the OAuth/OIDC
+  // issuer. Required: tokens signed here must carry the same issuer as the auth
+  // server. Example: https://auth.staging.amped.bio
+  BETTER_AUTH_URL: z.string().url(),
   // Canonical protected resource identifier of the MCP server (RFC 8707/RFC 9728).
-  MCP_RESOURCE_URL: z.string().default(""),
+  MCP_RESOURCE_URL: z.string().url(),
   // Comma-separated list of OAuth client ids that skip the consent screen.
   OAUTH_TRUSTED_CLIENT_IDS: z.string().default(""),
 

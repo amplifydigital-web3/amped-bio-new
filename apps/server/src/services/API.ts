@@ -70,9 +70,7 @@ app.get(
     "/.well-known/oauth-protected-resource/mcp",
   ],
   (req, res) => {
-    const authOrigin = env.BETTER_AUTH_URL
-      ? env.BETTER_AUTH_URL.replace(/\/+$/, "")
-      : `${req.protocol}://${req.get("host")}`;
+    const authOrigin = env.BETTER_AUTH_URL.replace(/\/+$/, "");
     // Redirect to the auth subdomain which serves the actual metadata
     return res.redirect(302, `${authOrigin}${req.path}`);
   }
