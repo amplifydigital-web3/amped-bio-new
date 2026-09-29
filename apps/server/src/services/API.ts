@@ -92,8 +92,19 @@ app.get("/", (req, res) => {
 });
 
 function logErrors(err: any, req: Request, res: Response, next: NextFunction) {
-  if (err.code !== 401)
-    console.error(req.headers["x-forwarded-for"] || req.connection.remoteAddress, err);
+  const clientIp = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+
+  // Log all errors including 401, but with different levels
+  if (err.code === 401) {
+    console.warn(`[${clientIp}] 401 Unauthorized: ${req.method} ${req.url}`, {
+      path: req.path,
+      hasCookies: !!req.headers.cookie,
+      userAgent: req.headers["user-agent"] || "(none)",
+    });
+  } else {
+    console.error(`[${clientIp}] Error:`, err);
+  }
+
   next(err);
 }
 

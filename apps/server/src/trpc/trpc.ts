@@ -42,6 +42,15 @@ export const createContext = async ({
     };
   }
 
+  // Log when session is not found - helps diagnose 401 errors
+  console.log("[tRPC] No session found", {
+    url: req.url,
+    method: req.method,
+    hasCookies: !!req.headers.cookie,
+    cookieHeader: req.headers.cookie ? "(present)" : "(missing)",
+    userAgent: req.headers["user-agent"] || "(none)",
+  });
+
   return {
     req,
     res,
@@ -74,6 +83,10 @@ export const publicProcedure = t.procedure;
 // Middleware to check if user is authenticated
 const isAuthed = t.middleware(({ ctx, next }) => {
   if (!ctx.user) {
+    console.log("[tRPC] Authentication failed - no user in context", {
+      url: ctx.req.url,
+      method: ctx.req.method,
+    });
     throw new TRPCError({
       code: "UNAUTHORIZED",
       message: "Unauthorized",
