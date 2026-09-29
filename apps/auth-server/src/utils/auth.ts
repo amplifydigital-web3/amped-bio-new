@@ -1,4 +1,4 @@
-import { prisma } from "@repo/database";
+import { prisma, withNumericIdCoercion } from "@repo/database";
 import { env } from "../env";
 import { processEmailToUniqueHandle } from "./onelink-generator";
 import { sendEmailVerification, sendPasswordResetEmail, sendWelcomeEmail } from "./email/email";
@@ -225,7 +225,7 @@ export const auth = betterAuth({
     ),
     asBetterAuthPlugin(oauthDeviceAuthorization({ verificationUri: OAUTH_DEVICE_PATH })),
   ],
-  database: prismaAdapter(prisma, {
+  database: prismaAdapter(withNumericIdCoercion(prisma), {
     provider: "mysql",
   }),
   advanced: {
