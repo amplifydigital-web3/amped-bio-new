@@ -51,6 +51,9 @@ export function Preview({ isEditing, profile, blocks, theme, userId }: PreviewPr
   const showRns = import.meta.env.VITE_SHOW_RNS === "true";
 
   const handleLinkClick = (block: BlockType) => {
+    // The editor preview is the creator looking at their own page. Those clicks
+    // are not visitor clicks and must never reach the click counter.
+    if (isEditing) return;
     if (block.type === "link") {
       trpcClient.blocks.registerClick.mutate({ id: block.id });
     }
@@ -296,6 +299,7 @@ export function Preview({ isEditing, profile, blocks, theme, userId }: PreviewPr
                           block={block}
                           theme={themeConfig}
                           pageOwnerId={userId ?? 0}
+                          isPreview={isEditing}
                         />
                       </ErrorBoundary>
                     );
@@ -312,7 +316,9 @@ export function Preview({ isEditing, profile, blocks, theme, userId }: PreviewPr
               <div className="pt-4 text-center">
                 <button
                   onClick={() => {
-                    if (profile.id) {
+                    // In the editor this would overwrite the creator's referral
+                    // cookie and navigate the editor away to /register
+                    if (profile.id && !isEditing) {
                       handleReferrerClick(profile.id);
                     }
                   }}
