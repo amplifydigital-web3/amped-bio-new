@@ -2,7 +2,14 @@
  * Tests for OAuth scope descriptions and constants
  */
 import { describe, it, expect } from "vitest";
-import { OAUTH_SCOPES, IDENTITY_SCOPES, OAUTH_ACCESS_TOKEN_TTL_SECONDS, OAUTH_ISSUER, AUTH_BASE_URL } from "../utils/auth";
+import {
+  OAUTH_SCOPES,
+  IDENTITY_SCOPES,
+  OAUTH_ACCESS_TOKEN_TTL_SECONDS,
+  OAUTH_ISSUER,
+  AUTH_BASE_URL,
+  WEB3AUTH_AUDIENCE,
+} from "../utils/auth";
 
 describe("OAuth scopes and constants", () => {
   describe("OAUTH_SCOPES", () => {
@@ -46,6 +53,17 @@ describe("OAuth scopes and constants", () => {
 
     it("does NOT include the /auth path suffix", () => {
       expect(OAUTH_ISSUER).not.toContain("/auth");
+    });
+  });
+
+  describe("WEB3AUTH_AUDIENCE", () => {
+    it("is the full landing page origin, including the scheme", () => {
+      expect(WEB3AUTH_AUDIENCE).toBe("http://localhost:3000");
+      expect(WEB3AUTH_AUDIENCE).toContain("://");
+    });
+
+    it("matches the origin parsed from LANDINGPAGE_URL", () => {
+      expect(WEB3AUTH_AUDIENCE).toBe(new URL(process.env.LANDINGPAGE_URL ?? "").origin);
     });
   });
 });

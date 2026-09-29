@@ -38,16 +38,13 @@ const envSchema = z.object({
 
   // Private key for JWT signing
   JWT_PRIVATE_KEY: z.string(),
-  // Audience of the JWT token. The Web3Auth verifier compares this literally
-  // against the `aud` claim, so it must be the full auth origin, identical to
-  // BETTER_AUTH_URL. A bare domain is rejected even when the token is valid.
-  JWT_AUDIENCE: z.string().default("https://auth.amped.bio"),
 
   // Port for the server to listen on
   PORT: portSchema(43000),
   // URL for the client app (apps/client)
   APP_URL: z.string().default("http://localhost:5173"),
-  // URL for the public landing page (apps/landingpage)
+  // URL for the public landing page (apps/landingpage). Its origin is the `aud`
+  // of the wallet token handed to Web3Auth.
   LANDINGPAGE_URL: z.string().default("http://localhost:3000"),
   // Cookie domain for cross-subdomain auth (e.g. .amped.bio). Leave empty for localhost.
   COOKIE_DOMAIN: z.string().default(""),
