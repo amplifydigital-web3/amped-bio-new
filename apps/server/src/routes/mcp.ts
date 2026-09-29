@@ -2,7 +2,7 @@ import express, { type Request as ExpressRequest, type Response, type Router } f
 import { McpServer, createMcpHandler } from "@modelcontextprotocol/server";
 import type { AuthInfo, CallToolResult, ServerContext } from "@modelcontextprotocol/server";
 import { requireMcpAuth } from "@better-auth/mcp";
-import { auth } from "../utils/auth";
+import { auth, AUTH_BASE_URL, OAUTH_ISSUER } from "../utils/auth";
 import { env } from "../env";
 import { prisma } from "@repo/database";
 import { z } from "zod-v4";
@@ -323,6 +323,11 @@ const protectedHandler = requireMcpAuth(
   {
     resource: env.MCP_RESOURCE_URL,
     requiredScopes: [READ_SCOPE],
+    // Tokens are issued by apps/auth-server on the auth subdomain root. Without
+    // these, Better Auth derives both from this server's baseURL, which carries
+    // the `/auth` base path and never matches the token `iss` or the JWKS route.
+    issuer: OAUTH_ISSUER,
+    jwksUrl: new URL("/jwks", AUTH_BASE_URL).href,
   }
 );
 
