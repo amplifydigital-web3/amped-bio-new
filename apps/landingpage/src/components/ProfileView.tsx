@@ -46,6 +46,7 @@ import {
   isHTML,
 } from "@/lib/styles";
 import type { BlockType } from "@repo/constants";
+import { sanitizeRichHtml } from "@repo/constants";
 import {
   DEFAULT_HANDLE,
   DEFAULT_PROFILE_DATA,
@@ -397,7 +398,7 @@ export function ProfileView({
                             color: themeConfig?.fontColor,
                             opacity: 0.9,
                           }}
-                          dangerouslySetInnerHTML={{ __html: profile.bio }}
+                          dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(profile.bio) }}
                         />
                       ) : (
                         <p
