@@ -42,8 +42,10 @@ const envSchema = z.object({
   // ---------- JWT ----------
   // Private key for JWT signing
   JWT_PRIVATE_KEY: z.string(),
-  // Audience of the JWT token
-  JWT_AUDIENCE: z.string().default("amped.bio"),
+  // Audience of the JWT token. The Web3Auth verifier compares this literally
+  // against the `aud` claim, so it must be the full auth origin, identical to
+  // BETTER_AUTH_URL. A bare domain is rejected even when the token is valid.
+  JWT_AUDIENCE: z.string().default("https://auth.amped.bio"),
 
   // ---------- OAuth ----------
   // Canonical protected resource identifier of the MCP server (RFC 8707/RFC 9728).
