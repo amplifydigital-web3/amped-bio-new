@@ -10,7 +10,6 @@ import {
   Gift,
   Edit3,
   Percent,
-  Info,
   HelpCircle,
 } from "lucide-react";
 import { toast } from "@/components/ui/toast";
@@ -366,15 +365,6 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                       <div className="text-xl font-bold text-green-900">
                         {(pool.apy / 100).toFixed(2)}%
                       </div>
-                      <a
-                        href={`${import.meta.env.VITE_LANDINGPAGE_URL}/i/pools/${pool.address}/debug-apy`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center space-x-1 text-xs text-green-700 hover:text-green-800 mt-1 transition-colors duration-200"
-                      >
-                        <Info className="w-3 h-3" />
-                        <span>View APY details</span>
-                      </a>
                     </div>
                   )}
 
