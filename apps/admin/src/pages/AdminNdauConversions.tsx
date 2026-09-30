@@ -3,7 +3,7 @@ import { trpc } from "@repo/ui";
 import { Button } from "@repo/ui";
 import { useChainId } from "wagmi";
 import { getCurrencySymbol, libertasTestnet } from "@repo/web3";
-import { NDAU_GROUP_LABELS } from "@repo/constants";
+import { NDAU_CONVERSION_CLAIM_TIMEOUT_MS, NDAU_GROUP_LABELS } from "@repo/constants";
 import { createWalletClient, custom, parseEther, type Address } from "viem";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@repo/ui";
 import { Badge } from "@repo/ui";
@@ -573,6 +573,16 @@ export const AdminNdauConversions: FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {getStatusBadge(conversion.status)}
+                    {conversion.status === "processing" && !conversion.txid && (
+                      <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Claimed by{" "}
+                        {conversion.claimedByCurrentUser
+                          ? "you"
+                          : (conversion.claimedBy ?? "unknown")}
+                        {conversion.claimedAt &&
+                          ` at ${new Date(conversion.claimedAt).toLocaleTimeString()}`}
+                      </div>
+                    )}
                   </td>
                   <td
                     className={`px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono text-xs cursor-pointer ${showFullData ? "" : "max-w-[150px] truncate"}`}
@@ -616,7 +626,12 @@ export const AdminNdauConversions: FC = () => {
                             size="sm"
                             variant="outline"
                             onClick={() => handleReleaseClick(conversion)}
-                            disabled={releaseMutation.isPending}
+                            disabled={releaseMutation.isPending || !conversion.canRelease}
+                            title={
+                              conversion.canRelease
+                                ? undefined
+                                : `Claimed by ${conversion.claimedBy ?? "another admin"}. Only they can release it for the first ${NDAU_CONVERSION_CLAIM_TIMEOUT_MS / 60000} minutes.`
+                            }
                           >
                             Release
                           </Button>
