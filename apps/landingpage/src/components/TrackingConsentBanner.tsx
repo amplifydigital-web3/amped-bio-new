@@ -109,7 +109,7 @@ export function TrackingConsentBanner({
               You can change your choices at any time from Privacy choices at the bottom of this
               page. Read our{" "}
               <a href="/privacy" className="underline font-medium text-gray-900">
-                Privacy Notice
+                Privacy Policy
               </a>
               .
             </p>

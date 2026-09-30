@@ -1,21 +1,21 @@
-# Amped.Bio Privacy Notice
+# Amped.Bio Privacy Policy
 
 Last updated: October 1, 2026
 
-This notice explains what personal information Amped.Bio collects, why, who receives it, and the choices you have. It applies to creators, fans and anyone who visits an Amped.Bio page.
+This policy explains what personal information Amped.Bio collects, why, who receives it, and the choices you have. It applies to creators, fans and anyone who visits an Amped.Bio page.
 
-## 1. Who we are and what this notice covers
+## 1. Who we are and what this policy covers
 
 Oneiro N.A., Inc., doing business as Amplify Digital, Boston, Massachusetts ("Amplify Digital", "Amped.Bio", "we") runs amped.bio. We decide how the personal information described here is used, except where a section says the creator decides.
 
-This notice covers:
+This policy covers:
 
 - The Amped.Bio editor, account and wallet
-- Public creator pages at amped.bio/@handle and the public site (home page, pools, blog and developer docs)
+- Public creator pages at amped.bio/handle and the public site (home page, pools, blog and developer docs)
 - Sign in with Amped.Bio, when you use your account to sign in to another app
 - Emails we send you
 
-It does not cover the creator's own tools on their page, or apps you connect through Sign in with Amped.Bio. Those follow their own privacy notices.
+It does not cover the creator's own tools on their page, or apps you connect through Sign in with Amped.Bio. Those follow their own privacy policies.
 
 Contact: privacy@amped.bio. We have not appointed a data protection officer or an EU or UK representative, as neither is required for us today.
 
@@ -70,7 +70,7 @@ A creator can ask for a written summary of their page statistics. We send only t
 
 ## 5. Creator tags on creator pages (only with your permission)
 
-Some creators connect their own Google Analytics, Meta (Facebook and Instagram) or TikTok to their page. The consent card names the creator and each service they use. These tags load only if you choose Accept all or allow Ads and analytics by that creator. They set their own cookies and receive your IP address and device information, and use it under their own privacy notices: [Google](https://policies.google.com/privacy), [Meta](https://www.facebook.com/privacy/policy/), [TikTok](https://www.tiktok.com/legal/privacy-policy).
+Some creators connect their own Google Analytics, Meta (Facebook and Instagram) or TikTok to their page. The consent card names the creator and each service they use. These tags load only if you choose Accept all or allow Ads and analytics by that creator. They set their own cookies and receive your IP address and device information, and use it under their own privacy policies: [Google](https://policies.google.com/privacy), [Meta](https://www.facebook.com/privacy/policy/), [TikTok](https://www.tiktok.com/legal/privacy-policy).
 
 If the creator also connected Meta Conversions API or TikTok Events API, we send the same page view or link click from our servers, including your IP address and browser details, only if you allowed that creator's tags. We do not store your IP address for this.
 
@@ -80,7 +80,7 @@ Your choice is saved per creator. The creator decides which tools to connect and
 
 When you sign in to another app with Amped.Bio, the consent screen names the app and lists what it will receive. We share only what you allow, for example your name and picture, your wallet address, or your email address. We keep a record of which apps you allowed, what they can access and when.
 
-You can remove an app at any time in Account settings, under Connected apps. Removing it ends its access at once. Access tokens it already holds stop working within 15 minutes. What the app did with your information before that follows the app's own privacy notice.
+You can remove an app at any time in Account settings, under Connected apps. Removing it ends its access at once. Access tokens it already holds stop working within 15 minutes. What the app did with your information before that follows the app's own privacy policy.
 
 Some Amped.Bio apps may skip the consent screen. They still appear in Connected apps.
 
@@ -143,7 +143,7 @@ Creator pages and the public site set nothing in your browser until you choose, 
 | Account, page and uploads | While your account is open, then deleted within 30 days of closing it, except what the law requires us to keep |
 | Sign in sessions | Until the session ends or expires |
 | Visit events | 25 months, then deleted or combined into totals |
-| Consent records (what you chose, when, notice version; no IP address) | 5 years |
+| Consent records (what you chose, when, policy version; no IP address) | 5 years |
 | Browser ID and Google Analytics cookies | Up to 24 months, or until you withdraw |
 | Wallet and transaction records | While your account is open, and 5 years after it closes, for disputes and legal duties |
 | ndau conversion records | 7 years after the request |
