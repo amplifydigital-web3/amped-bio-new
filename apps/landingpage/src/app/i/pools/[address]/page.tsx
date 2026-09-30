@@ -9,7 +9,7 @@ interface PoolDetailsPageProps {
 
 export async function generateMetadata({ params }: PoolDetailsPageProps): Promise<Metadata> {
   const { address } = await params;
-  const canonical = `${SITE_URL}/i/pools/${address}`;
+  const canonical = `${SITE_URL}/i/pools/${encodeURIComponent(address)}`;
 
   try {
     const pool = await trpcClient.pools.fan.getPoolByAddress.query({ poolAddress: address });
