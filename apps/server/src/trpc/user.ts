@@ -6,7 +6,7 @@ import crypto from "crypto";
 import { prisma } from "../services/DB";
 import { editUserSchema } from "../schemas/user.schema";
 import Decimal from "decimal.js";
-import { htmlToPlainText, sanitizeRichHtml } from "@repo/constants";
+import { htmlToPlainText, sanitizeRichText } from "@repo/constants";
 
 // Schema for initiating email change
 const initiateEmailChangeSchema = z.object({
@@ -61,7 +61,7 @@ export const userRouter = router({
         data: {
           name,
           // Bio HTML is stored only after the shared allowlist sanitizer runs
-          description: description == null ? description : sanitizeRichHtml(description),
+          description: sanitizeRichText(description),
           revo_name,
           theme: `${theme}`,
           image,
@@ -408,14 +408,8 @@ export const userRouter = router({
     .input(
       z.object({
         search: z.string().optional(),
-        filter: z
-          .enum(["all", "active-7-days", "has-creator-pool"])
-          .optional()
-          .default("all"),
-        sort: z
-          .enum(["newest", "name-asc", "name-desc"])
-          .optional()
-          .default("newest"),
+        filter: z.enum(["all", "active-7-days", "has-creator-pool"]).optional().default("all"),
+        sort: z.enum(["newest", "name-asc", "name-desc"]).optional().default("newest"),
         page: z.number().optional().default(1),
         limit: z.number().optional().default(20), // Default to 20 users per page, max 20
       })
@@ -491,5 +485,4 @@ export const userRouter = router({
         total,
       };
     }),
-
 });

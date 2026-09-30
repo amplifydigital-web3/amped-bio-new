@@ -32,17 +32,19 @@ const ALLOWED_TAGS: Record<string, readonly string[]> = {
   h1: ["style"],
   h2: ["style"],
   h3: ["style"],
-  ul: [],
-  ol: [],
+  ul: ["style"],
+  ol: ["style"],
   li: ["style"],
   a: ["href", "title"],
 };
 
 const VOID_TAGS = new Set(["br"]);
 
-// Removed together with everything inside them
+// Removed together with everything inside them. Only a complete opening tag counts, so
+// stray text such as "I love <svg icons" is kept (and escaped) instead of truncated.
+// An opening tag with "<" inside is left to the tag rebuilder, which drops it anyway.
 const DROP_WITH_CONTENT =
-  /<(script|style|iframe|object|embed|noscript|template|textarea|title|xmp|noembed|noframes|plaintext|svg|math)\b[\s\S]*?(?:<\/\1\s*>|$)/gi;
+  /<(script|style|iframe|object|embed|noscript|template|textarea|title|xmp|noembed|noframes|plaintext|svg|math)\b[^<>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi;
 
 // Comments, CDATA, doctype and processing instructions
 const DROP_SPECIAL = /<!--[\s\S]*?(?:-->|$)|<!\[CDATA\[[\s\S]*?(?:\]\]>|$)|<![^>]*>?|<\?[^>]*>?/g;
@@ -181,6 +183,24 @@ export function sanitizeRichHtml(html: string | null | undefined): string {
   }
   out += escapeText(input.slice(last));
   return out;
+}
+
+// Same heuristic the clients use to decide between rendering HTML and plain text
+const LOOKS_LIKE_HTML = /<\/?[a-z][\s\S]*>/i;
+
+/** True when the value contains markup, so the clients render it as HTML. */
+export function looksLikeHtml(value: string | null | undefined): boolean {
+  return !!value && LOOKS_LIKE_HTML.test(value);
+}
+
+/**
+ * Sanitizes creator text that may be HTML or plain text (bios, text blocks).
+ * Plain text is returned unchanged: the clients render it as text, so it is already
+ * safe, and escaping it would show entities such as "&amp;" literally.
+ */
+export function sanitizeRichText<T extends string | null | undefined>(value: T): T {
+  if (!value || !looksLikeHtml(value)) return value;
+  return sanitizeRichHtml(value) as T;
 }
 
 /**
