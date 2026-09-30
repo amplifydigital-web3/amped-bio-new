@@ -60,7 +60,7 @@ import { toast as hotToast } from "react-hot-toast";
 import { toast } from "@/components/ui/toast";
 
 // Internal gallery of the Prism 2.2 shared components (docs/PRISM.md).
-// Reachable only at /_prism for signed-in users. It is not linked anywhere.
+// Reachable only at /_prism for signed-in users, in non-production builds. It is not linked anywhere.
 
 function Section({
   id,

@@ -11,8 +11,11 @@ import { useTokenExpiration } from "./hooks/useTokenExpiration";
 import { useReferralHandler } from "./hooks/useReferralHandler";
 import { ExternalRedirect, ToastCard, useAuth } from "@repo/ui";
 import { Loader2 } from "lucide-react";
+import { ERROR_TOAST_DURATION } from "@/components/ui/toast";
 
-// Internal Prism component gallery for review (not linked in the app)
+// Internal Prism component gallery for review (not linked in the app). Served in
+// development, testing and staging builds only, never in production.
+const SHOW_PRISM_GALLERY = import.meta.env.MODE !== "production";
 const PrismGallery = lazy(() =>
   import("./pages/PrismGallery").then(module => ({ default: module.PrismGallery }))
 );
@@ -23,17 +26,18 @@ function AppRouter() {
 
   return (
     <Routes>
-      <Route
-        path="/_prism"
-        element={
-          <ProtectedRoute>
-            <Suspense fallback={null}>
-              <PrismGallery />
-            </Suspense>
-          </ProtectedRoute>
-        }
-      />
-
+      {SHOW_PRISM_GALLERY && (
+        <Route
+          path="/_prism"
+          element={
+            <ProtectedRoute>
+              <Suspense fallback={null}>
+                <PrismGallery />
+              </Suspense>
+            </ProtectedRoute>
+          }
+        />
+      )}
       {/* Legacy /@handle/edit/... URLs are normalized to the panel route by Editor */}
       <Route
         path="/:handle/edit/:panel?"
@@ -100,11 +104,11 @@ function App() {
         <AppRouter />
         {/* The one toast stack (Screen Review 084, D21): react-hot-toast calls and
             toast.add from components/ui/toast render as the Prism ToastCard.
-            Errors stay until dismissed; success and info leave after 5 seconds. */}
+            Errors leave after 10 seconds, success and info after 5. */}
         <Toaster
           position="bottom-left"
           containerClassName="!bottom-[104px] !left-4 sm:!bottom-[34px] sm:!left-[34px]"
-          toastOptions={{ duration: 5000, error: { duration: Infinity } }}
+          toastOptions={{ duration: 5000, error: { duration: ERROR_TOAST_DURATION } }}
         >
           {t =>
             t.type === "custom" ? (
