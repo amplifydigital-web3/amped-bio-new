@@ -79,7 +79,7 @@ const ResetPasswordTemplate = ({ url }: { url: string }) => {
               </Text>
               <Text className="text-[12px] leading-[1.5em] text-[#b0adc5] m-0">
                 <Link href="https://amped.bio/privacy" className="text-[#b0adc5] underline">
-                  Privacy Notice
+                  Privacy Policy
                 </Link>
               </Text>
             </Section>

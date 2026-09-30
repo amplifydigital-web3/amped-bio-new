@@ -14,7 +14,7 @@ import { PublicHeader } from "@/components/layout/PublicHeader";
 export const dynamic = "force-static";
 
 export const metadata: Metadata = {
-  title: "Privacy Notice | Amped.Bio",
+  title: "Privacy Policy | Amped.Bio",
   description:
     "What personal information Amped.Bio collects, why, who receives it, and the choices you have.",
   alternates: { canonical: "/privacy" },

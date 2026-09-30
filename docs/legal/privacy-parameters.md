@@ -1,6 +1,6 @@
 # Privacy parameters for code changes
 
-These rules come from the published Privacy Notice (`apps/landingpage/src/content/legal/privacy.md`, served at `/privacy`) and the decisions behind it (Screen Review rows 091, 095, 30 Sep 2026). Every change that collects, stores, sends or displays personal information must follow them. If a change needs a rule to move, update the notice first and bump `CONSENT_POLICY_VERSION`.
+These rules come from the published Privacy Policy (`apps/landingpage/src/content/legal/privacy.md`, served at `/privacy`) and the decisions behind it (Screen Review rows 091, 095, 30 Sep 2026). Every change that collects, stores, sends or displays personal information must follow them. If a change needs a rule to move, update the policy first and bump `CONSENT_POLICY_VERSION`.
 
 Operator: Oneiro N.A., Inc., dba Amplify Digital, Boston, Massachusetts. Contact: privacy@amped.bio.
 
@@ -24,9 +24,9 @@ Operator: Oneiro N.A., Inc., dba Amplify Digital, Boston, Massachusetts. Contact
 
 ## Rules for new code
 
-- No new tracker, pixel, SDK or third party recipient without adding it to the notice (sections 8 and 9) first. The X (Twitter) pixel is not in use.
-- Nothing is written to cookies or browser storage on public pages before a choice, except what the notice's storage table lists.
+- No new tracker, pixel, SDK or third party recipient without adding it to the policy (sections 8 and 9) first. The X (Twitter) pixel is not in use.
+- Nothing is written to cookies or browser storage on public pages before a choice, except what the policy's storage table lists.
 - Never send visitor level data to AI providers. Creator summaries send page totals only.
 - Minimum account age is 18.
-- Link the notice from new public surfaces and emails: `/privacy` on amped.bio, `https://amped.bio/privacy` elsewhere.
+- Link the policy from new public surfaces and emails: `/privacy` on amped.bio, `https://amped.bio/privacy` elsewhere.
 - Copy rules: no income, yield, APY or APR. Use the standard testnet line where tREVO appears.
