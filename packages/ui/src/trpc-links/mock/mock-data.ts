@@ -85,7 +85,6 @@ export const mockData = {
     getHandle: {
       user: {
         name: demoUser.name,
-        email: demoUser.email,
         description: demoUser.description,
         image: demoUser.image,
       },

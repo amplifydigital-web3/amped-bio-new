@@ -38,14 +38,13 @@ const envSchema = z.object({
 
   // Private key for JWT signing
   JWT_PRIVATE_KEY: z.string(),
-  // Audience of the JWT token
-  JWT_AUDIENCE: z.string().default("amped.bio"),
 
   // Port for the server to listen on
   PORT: portSchema(43000),
   // URL for the client app (apps/client)
   APP_URL: z.string().default("http://localhost:5173"),
-  // URL for the public landing page (apps/landingpage)
+  // URL for the public landing page (apps/landingpage). Its origin is the `aud`
+  // of the wallet token handed to Web3Auth.
   LANDINGPAGE_URL: z.string().default("http://localhost:3000"),
   // Cookie domain for cross-subdomain auth (e.g. .amped.bio). Leave empty for localhost.
   COOKIE_DOMAIN: z.string().default(""),

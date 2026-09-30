@@ -263,7 +263,6 @@ const appRouter = router({
         id: user_id,
         name,
         revo_name,
-        email,
         description,
         image,
         image_file_id,
@@ -310,7 +309,7 @@ const appRouter = router({
         user: {
           id: user_id,
           name,
-          email,
+          // Email is private. It is never part of a public profile response.
           revoName: revoName.revoName,
           revoNameStatus: revoName.status,
           originalRevoName: revo_name ?? null,

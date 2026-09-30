@@ -41,7 +41,6 @@ export const JWT_KEYS = {
     .update(pb.export({ format: "pem", type: "spki" }))
     .digest("hex")
     .substring(0, 16), // Key ID for the JWT
-  aud: env.JWT_AUDIENCE,
   iss: OAUTH_ISSUER,
 };
 
@@ -153,7 +152,9 @@ export const auth = betterAuth({
         sign: async (jwtPayload: JWTPayload) => {
           const builder = new SignJWT(jwtPayload).setIssuedAt();
 
-          if (!jwtPayload.aud) builder.setAudience(JWT_KEYS.aud);
+          // Resource-bound access tokens bind `aud` to their resource, and the
+          // plugin derives it from baseURL otherwise, so only `iss` needs a
+          // fallback here.
           if (!jwtPayload.iss) builder.setIssuer(OAUTH_ISSUER);
 
           return await builder

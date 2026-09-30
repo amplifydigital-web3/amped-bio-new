@@ -15,7 +15,6 @@ const { privateKey } = generateKeyPairSync("rsa", {
 });
 process.env.JWT_PRIVATE_KEY = privateKey;
 
-process.env.JWT_AUDIENCE = "test-amped-bio";
 process.env.BETTER_AUTH_SECRET = "test-better-auth-secret-min-32-chars!!";
 process.env.BETTER_AUTH_URL = "http://localhost:43000";
 process.env.APP_URL = "http://localhost:5173";

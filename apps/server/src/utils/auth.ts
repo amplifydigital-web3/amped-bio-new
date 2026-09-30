@@ -41,9 +41,14 @@ export const JWT_KEYS = {
     .update(pb.export({ format: "pem", type: "spki" }))
     .digest("hex")
     .substring(0, 16), // Key ID for the JWT
-  aud: env.JWT_AUDIENCE,
   iss: OAUTH_ISSUER,
 };
+
+// Audience of the wallet token handed to Web3Auth. The landing page is the
+// product's public face, so it is the token's intended audience. The Web3Auth
+// verifier must be configured with this exact origin: `https://amped.bio` in
+// production, `https://staging.amped.bio` in staging.
+export const WEB3AUTH_AUDIENCE = new URL(env.LANDINGPAGE_URL).origin;
 
 // ================ OAuth 2.1 provider settings ==================
 // Paths are resolved against the API origin by Better Auth, so the Express app
@@ -159,10 +164,9 @@ export const auth = betterAuth({
         sign: async (jwtPayload: JWTPayload) => {
           const builder = new SignJWT(jwtPayload).setIssuedAt();
 
-          // Resource-bound access tokens carry their own `aud` (the protected
-          // resource) and the issuer; only fall back to the application
-          // defaults for tokens that do not define them.
-          if (!jwtPayload.aud) builder.setAudience(JWT_KEYS.aud);
+          // Resource-bound access tokens bind `aud` to their resource, and the
+          // plugin derives it from baseURL otherwise, so only `iss` needs a
+          // fallback here.
           if (!jwtPayload.iss) builder.setIssuer(OAUTH_ISSUER);
 
           return await builder
@@ -210,7 +214,16 @@ export const auth = betterAuth({
           claims_supported: ["wallet"],
         },
 
-        customUserInfoClaims: async ({ user, scopes, requestedClaims }: { user: any; scopes: string[]; requestedClaims: string[]; jwt?: any }) => {
+        customUserInfoClaims: async ({
+          user,
+          scopes,
+          requestedClaims,
+        }: {
+          user: any;
+          scopes: string[];
+          requestedClaims: string[];
+          jwt?: any;
+        }) => {
           const claims: Record<string, unknown> = {};
 
           // Return wallet (or null) whenever the client requests it or has the

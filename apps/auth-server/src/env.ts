@@ -42,8 +42,6 @@ const envSchema = z.object({
   // ---------- JWT ----------
   // Private key for JWT signing
   JWT_PRIVATE_KEY: z.string(),
-  // Audience of the JWT token
-  JWT_AUDIENCE: z.string().default("amped.bio"),
 
   // ---------- OAuth ----------
   // Canonical protected resource identifier of the MCP server (RFC 8707/RFC 9728).

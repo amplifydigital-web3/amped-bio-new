@@ -74,8 +74,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       const { user, theme, blocks: blocks_raw, hasCreatorPool } = onlinkData;
-      const { id, name, email, revoName, revoNameStatus, originalRevoName, description, image } =
-        user;
+      const { id, name, revoName, revoNameStatus, originalRevoName, description, image } = user;
       const normalizedHandle = normalizeHandle(handle);
       const formattedHandle = formatHandle(handle);
 
@@ -93,7 +92,9 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
           handle: normalizedHandle,
           handleFormatted: formattedHandle,
           revoName: revoName ?? "",
-          email,
+          // getHandle is public and does not return email. The signed in owner's
+          // email comes from the session (authUser) where it is needed.
+          email: "",
           bio: description ?? "",
           photoUrl: image ?? "",
         },
@@ -399,8 +400,8 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     console.info("Starting save process...");
     const { profile, theme, blocks } = state;
     try {
-      if (authUser === null || authUser.email !== profile.email) {
-        console.info("❌ Save Error: No user logged in or email mismatch");
+      if (authUser === null || authUser.id !== profile.id) {
+        console.info("❌ Save Error: No user logged in or not the owner of this profile");
         toast.error("Authentication error");
         console.groupEnd();
         return;
