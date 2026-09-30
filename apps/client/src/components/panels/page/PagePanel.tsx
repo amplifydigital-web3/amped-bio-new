@@ -1,21 +1,16 @@
-import { ProfileBasics } from "../profile/ProfileSections";
-import { BlocksPanel } from "../blocks/BlocksPanel";
-import { RevoNameIssueDialog } from "./RevoNameIssueDialog";
+import { ProfileHeaderCard } from "./header/ProfileHeaderCard";
+import { BlocksSection } from "./blocks/BlocksSection";
 
 /**
- * Page destination (D01, D03). PR 3 composes the existing profile fields and
- * blocks here so the rail matches the approved structure; PR 3b replaces the
- * insides with the profile header card and inline block editing (rows 017 to
- * 020, 022, 034 to 037).
+ * Page destination (D01, D03, D18). The profile header card, then the blocks
+ * in the order visitors see them, edited inline beside the live preview.
+ * Screen Review 006, 017, 018, 022, 034 to 037.
  */
 export function PagePanel() {
   return (
-    <div className="flex flex-col">
-      <section aria-label="Profile" className="p-6 space-y-8">
-        <ProfileBasics />
-      </section>
-      <BlocksPanel />
-      <RevoNameIssueDialog />
+    <div className="flex flex-col gap-[34px]">
+      <ProfileHeaderCard />
+      <BlocksSection />
     </div>
   );
 }
