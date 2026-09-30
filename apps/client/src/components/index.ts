@@ -4,4 +4,4 @@
 export { Layout } from "./Layout";
 export { Preview } from "./Preview";
 export { ProtectedRoute } from "./ProtectedRoute";
-export { Sidebar } from "./Sidebar";
+export { Rail } from "./shell/Rail";
