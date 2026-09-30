@@ -25,6 +25,9 @@ export {
   MenuCheckboxItem,
   MenuLabel,
   MenuSeparator,
+  MenuSub,
+  MenuSubTrigger,
+  MenuSubContent,
 } from "./prism/menu";
 export {
   BottomSheet,
