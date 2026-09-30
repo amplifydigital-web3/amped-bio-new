@@ -47,7 +47,7 @@ export function TwitterImport({ onProfileUpdate }: TwitterImportProps) {
           placeholder="Enter X username"
           value={username}
           onChange={e => setUsername(e.target.value)}
-          className="flex-1"
+          containerClassName="flex-1"
         />
         <button
           onClick={handleImport}
