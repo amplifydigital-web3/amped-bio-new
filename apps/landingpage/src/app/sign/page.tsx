@@ -255,12 +255,14 @@ export default function SignPage() {
     setStatusMessage("Preparing to communicate with requesting site...");
     console.log('[S] waiting 2500ms before announcing SIGN_READY...');
     await delay(2500);
-    sendToOpener({ type: "SIGN_READY" });
+    // SIGN_READY is sent by the awaiting_message effect, only after the
+    // SIGN_MESSAGE listener is attached — otherwise a fast opener reply
+    // could arrive before the listener exists and be silently dropped.
     prevFlowStep.current = "awaiting_message";
     setFlowStep("awaiting_message");
     console.log('[S] flowStep changed: announcing → awaiting_message');
     setStatusMessage("Waiting for message to sign...");
-  }, [sendToOpener]);
+  }, []);
 
   // Transition: user logs in
   useEffect(() => {
@@ -368,6 +370,7 @@ export default function SignPage() {
     };
 
     window.addEventListener("message", handleMessage);
+    sendToOpener({ type: "SIGN_READY" });
     return () => {
       window.removeEventListener("message", handleMessage);
       clearTimeout(timeout);
