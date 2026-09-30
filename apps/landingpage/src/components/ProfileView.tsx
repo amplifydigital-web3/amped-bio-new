@@ -510,15 +510,24 @@ export function ProfileView({
                   >
                     Claim your own Amped.Bio
                   </button>
-                  {trackableProfileId !== null && consent !== null && (
-                    <button
-                      onClick={() => setBannerMode("settings")}
-                      className="block mx-auto mt-2 text-xs opacity-60 hover:opacity-100 transition-opacity underline"
+                  <div className="mt-2 flex items-center justify-center gap-3">
+                    {trackableProfileId !== null && consent !== null && (
+                      <button
+                        onClick={() => setBannerMode("settings")}
+                        className="text-xs opacity-60 hover:opacity-100 transition-opacity underline"
+                        style={{ fontFamily: themeConfig?.fontFamily, color: themeConfig?.fontColor }}
+                      >
+                        Privacy choices
+                      </button>
+                    )}
+                    <a
+                      href="/privacy"
+                      className="text-xs opacity-60 hover:opacity-100 transition-opacity underline"
                       style={{ fontFamily: themeConfig?.fontFamily, color: themeConfig?.fontColor }}
                     >
-                      Privacy choices
-                    </button>
-                  )}
+                      Privacy Notice
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>
