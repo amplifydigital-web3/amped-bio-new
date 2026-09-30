@@ -159,6 +159,10 @@ Before running E2E tests (`oauth-e2e.test.ts`), ensure:
 
 Test configuration is documented in `apps/server/src/__tests__/test-setup.ts`.
 
+## Privacy and consent
+
+Any change that collects, stores, sends or displays personal information must follow `docs/legal/privacy-parameters.md` and stay consistent with the published notice at `apps/landingpage/src/content/legal/privacy.md` (served at `/privacy`). Add new trackers, recipients or stored data to the notice before shipping them, and bump `CONSENT_POLICY_VERSION` when the notice changes materially.
+
 <!-- BEGIN:turborepo-agent-rules -->
 
 # This is NOT the Turborepo you know

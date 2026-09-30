@@ -198,13 +198,14 @@ export type PublicTrackingPixels = {
 // ---------------------------------------------------------------------------
 
 // Bump when the notice changes materially, so visitors are asked again
-export const CONSENT_POLICY_VERSION = "2026-10";
+export const CONSENT_POLICY_VERSION = "2026-10b";
 // Stores the visitor's choices: { v, analytics, ads: { [creatorId]: boolean }, at }
 export const CONSENT_STORAGE_KEY = "amped_consent_v2";
 // Long-lived visitor ID, created only after analytics consent
 export const PERSISTENT_VISITOR_STORAGE_KEY = "amped_vid";
-// Maximum lifetime of the visitor ID and of a consent decision (13 months)
-export const CONSENT_MAX_AGE_MS = 395 * 24 * 60 * 60 * 1000;
+// Maximum lifetime of the visitor ID and of a consent decision (24 months,
+// matching the Google Analytics cookie lifetime; docs/legal/privacy-parameters.md)
+export const CONSENT_MAX_AGE_MS = 730 * 24 * 60 * 60 * 1000;
 
 // ---------------------------------------------------------------------------
 // Campaigns
