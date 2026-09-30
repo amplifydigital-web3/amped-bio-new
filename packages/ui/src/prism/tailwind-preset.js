@@ -292,6 +292,109 @@ function prismComponents({ addComponents, addBase }) {
       },
     },
 
+    // v1.1 (approved in Screen Review 003 D1 and the design notes): raised glass
+    // for floating layers (dialogs, sheets, menus, toasts). The 0.84 white base
+    // keeps content underneath from reading through.
+    ".prism-raised": {
+      background:
+        "linear-gradient(180deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 40%), rgba(255,255,255,0.84)",
+      ...backdrop("blur(21px) saturate(1.6)"),
+      border: "1px solid rgba(255,255,255,0.85)",
+      boxShadow: `${WHITE_TOP}, ${HAIRLINE}, 0 4px 8px rgba(22,21,43,0.06), ${prismElevation.e3}`,
+      color: prismColors.ink,
+    },
+    // v1.1 scrim behind dialogs and sheets.
+    ".prism-scrim": {
+      backgroundColor: "rgba(22,21,43,0.18)",
+    },
+    // Status disc: 55 G1 clear circle behind a 34 icon (empty states, results).
+    ".prism-disc": {
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      width: "55px",
+      height: "55px",
+      borderRadius: "9999px",
+      background:
+        "linear-gradient(180deg, rgba(255,255,255,0.36) 0%, rgba(255,255,255,0) 40%), rgba(255,255,255,0.54)",
+      border: "1px solid rgba(255,255,255,0.85)",
+      boxShadow: `${WHITE_TOP}, ${HAIRLINE}, ${prismElevation.e1}`,
+    },
+
+    // Section 8. Buttons.
+    ".prism-btn-primary": {
+      color: "#FFFFFF",
+      background: "linear-gradient(180deg, rgba(255,255,255,0.12) 0%, transparent 55%), #5650A2",
+      boxShadow:
+        "inset 0 1px 0 rgba(255,255,255,0.35), inset 0 0 0 1px rgba(255,255,255,0.1), 0 0 0 1px #46418A, 5px 13px 26px rgba(86,80,162,0.32)",
+      "&:hover": { backgroundColor: "#46418A", backgroundImage: "none" },
+      "&:active": { backgroundColor: "#302F5D", backgroundImage: "none" },
+    },
+    ".prism-btn-commit": {
+      color: "#FFFFFF",
+      backgroundColor: "#5B2F70",
+      boxShadow:
+        "inset 0 1px 0 rgba(255,255,255,0.18), 0 0 0 1px #4E2A5E, 5px 13px 26px rgba(46,20,60,0.24)",
+      "&:hover": { backgroundColor: "#4E2A5E" },
+    },
+    ".prism-btn-secondary": {
+      color: prismColors.ink,
+      background: "linear-gradient(180deg, #FFFFFF 0%, #F6F5FB 100%)",
+      boxShadow:
+        "inset 0 1px 0 #FFFFFF, inset 0 0 0 1px rgba(22,21,43,0.18), 3px 6px 13px rgba(48,47,93,0.12)",
+      "&:hover": {
+        boxShadow:
+          "inset 0 1px 0 #FFFFFF, inset 0 0 0 1px rgba(22,21,43,0.28), 3px 8px 16px rgba(48,47,93,0.16)",
+      },
+    },
+    // Ghost shows its lens at rest (nav text on the bare room fails contrast).
+    ".prism-btn-ghost": {
+      color: prismColors.nav,
+      backgroundColor: "rgba(255,255,255,0.72)",
+      boxShadow: "inset 0 0 0 1px rgba(22,21,43,0.08)",
+      "&:hover": {
+        background: "linear-gradient(180deg, #FFFFFF 0%, #F1F0F9 100%)",
+        boxShadow: "inset 0 0 0 1px rgba(22,21,43,0.14), 3px 6px 13px rgba(48,47,93,0.10)",
+      },
+    },
+    ".prism-btn-destructive": {
+      color: "#FFFFFF",
+      backgroundColor: prismColors.danger,
+      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18), 0 0 0 1px #8F1E18",
+      "&:hover": { backgroundColor: "#8F1E18" },
+    },
+    // Disabled: 40% ink on white 0.5, dashed ring, no shadow.
+    ".prism-btn-disabled": {
+      "&:disabled, &[aria-disabled='true']": {
+        color: "rgba(22,21,43,0.4)",
+        background: "rgba(255,255,255,0.5)",
+        backgroundImage: "none",
+        boxShadow: "none",
+        outline: "1px dashed rgba(22,21,43,0.28)",
+        outlineOffset: "-1px",
+        cursor: "not-allowed",
+      },
+    },
+    ".prism-icon-btn": {
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      width: "44px",
+      height: "44px",
+      borderRadius: "9999px",
+      color: prismColors.ink,
+      background: "linear-gradient(180deg, #FFFFFF 0%, rgba(255,255,255,0.7) 100%)",
+      boxShadow: "inset 0 0 0 1px rgba(22,21,43,0.10)",
+    },
+
+    // Section 7. Unselected chip. Selected chips add prism-lens-thumb.
+    ".prism-chip": {
+      color: prismColors["ink-2"],
+      background: "linear-gradient(180deg, rgba(255,255,255,0.56), rgba(255,255,255,0.3))",
+      ...backdrop("blur(13px) saturate(1.4)"),
+      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.9), inset 0 0 0 1px rgba(22,21,43,0.18)",
+    },
+
     // Section 2 and 14. Reduce blur on mobile; respect reduced motion.
     "@media (max-width: 767px)": {
       ".prism-glass-nav, .prism-glass-clear, .prism-lens": {
