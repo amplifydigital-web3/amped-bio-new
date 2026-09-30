@@ -1,5 +1,8 @@
+import prismPreset from "../../packages/ui/src/prism/tailwind-preset.js";
+
 /** @type {import('tailwindcss').Config} */
 export default {
+  presets: [prismPreset],
   darkMode: ["class"],
   content: [
     "./index.html",
