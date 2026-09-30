@@ -328,26 +328,28 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                     </div>
                   )}
 
-                  {/* 24-Hour Average APR card */}
+                  {/* 24-Hour Average Network Rewards card */}
                   {pool?.apy !== undefined && pool.apy !== null && (
                     <div className="rounded-xl p-4 border border-green-100 flex flex-col justify-center">
                       <div className="flex items-center space-x-2 mb-2">
                         <Percent className="w-4 h-4 text-green-600" />
                         <span className="text-sm font-medium text-green-700">
-                          24-Hour Average APR
+                          24-Hour Average Network Rewards
                         </span>
                         <Popover>
                           <PopoverTrigger asChild>
                             <button
                               type="button"
-                              aria-label="How is the 24-Hour Average APR calculated?"
+                              aria-label="How is the 24-Hour Average Network Rewards calculated?"
                               className="text-green-600 hover:text-green-800 transition-colors duration-200"
                             >
                               <HelpCircle className="w-4 h-4" />
                             </button>
                           </PopoverTrigger>
                           <PopoverContent align="start" className="w-72 space-y-2 text-sm">
-                            <p className="font-semibold text-gray-900">24-Hour Average APR</p>
+                            <p className="font-semibold text-gray-900">
+                              24-Hour Average Network Rewards
+                            </p>
                             <p className="text-gray-700">
                               This value is an instantaneous estimate of the annualized return based
                               on the current state of the pool.
@@ -355,8 +357,8 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                             <p className="text-gray-700">
                               It changes on every block as rewards accrue and the total amount
                               staked fluctuates. Each new stake or unstake also changes the result,
-                              so the displayed APR is only a snapshot of this moment and is not a
-                              guaranteed rate.
+                              so the displayed Network Rewards is only a snapshot of this moment and
+                              is not a guaranteed rate.
                             </p>
                           </PopoverContent>
                         </Popover>
@@ -371,7 +373,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                         className="flex items-center space-x-1 text-xs text-green-700 hover:text-green-800 mt-1 transition-colors duration-200"
                       >
                         <Info className="w-3 h-3" />
-                        <span>View 24-Hour Average APR details</span>
+                        <span>View 24-Hour Average Network Rewards details</span>
                       </a>
                     </div>
                   )}
@@ -481,13 +483,15 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                   {/* Knowledgebase Link */}
                   <div className="mt-4 pt-4 border-t border-gray-200">
                     <a
-                      href="https://amplifydigital.freshdesk.com/support/solutions/articles/154000250365-how-is-reward-pool-apy-calculated"
+                      href="https://amplifydigital.freshdesk.com/support/solutions/articles/154000262451-how-are-staking-rewards-and-network-rewards-rate-calculated-"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-700 hover:underline transition-colors duration-200"
                     >
                       <ExternalLink className="w-4 h-4" />
-                      <span>How are Staking Rewards and 24-Hour Average APR Calculated?</span>
+                      <span>
+                        How are Staking Rewards and 24-Hour Average Network Rewards Calculated?
+                      </span>
                     </a>
                   </div>
                 </div>

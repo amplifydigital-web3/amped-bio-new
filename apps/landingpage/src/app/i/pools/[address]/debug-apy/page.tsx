@@ -55,8 +55,12 @@ export default function PoolAPYDebugPage({ params }: { params: Promise<{ address
         setTimestamp(new Date());
         setError(null);
       } catch (err) {
-        console.error("Error fetching 24-Hour Average APR data:", err);
-        setError(err instanceof Error ? err.message : "Failed to fetch 24-Hour Average APR data");
+        console.error("Error fetching 24-Hour Average Network Rewards data:", err);
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to fetch 24-Hour Average Network Rewards data"
+        );
       } finally {
         setIsLoading(false);
       }
@@ -88,7 +92,9 @@ export default function PoolAPYDebugPage({ params }: { params: Promise<{ address
         <div className="min-h-screen bg-gray-900 text-white p-6">
           <div className="max-w-4xl mx-auto">
             <div className="bg-gray-800 rounded-lg p-6">
-              <h1 className="text-2xl font-bold mb-4">24-Hour Average APR - Loading...</h1>
+              <h1 className="text-2xl font-bold mb-4">
+                24-Hour Average Network Rewards - Loading...
+              </h1>
               <div className="animate-pulse">
                 <div className="h-4 bg-gray-700 rounded mb-2"></div>
                 <div className="h-4 bg-gray-700 rounded mb-2 w-3/4"></div>
@@ -108,7 +114,7 @@ export default function PoolAPYDebugPage({ params }: { params: Promise<{ address
         <div className="min-h-screen bg-gray-900 text-white p-6">
           <div className="max-w-4xl mx-auto">
             <div className="bg-gray-800 rounded-lg p-6">
-              <h1 className="text-2xl font-bold mb-4">24-Hour Average APR - Error</h1>
+              <h1 className="text-2xl font-bold mb-4">24-Hour Average Network Rewards - Error</h1>
               <div className="bg-red-900/50 border border-red-700 rounded-lg p-4">
                 <p className="text-red-300">{error}</p>
               </div>
@@ -130,7 +136,7 @@ export default function PoolAPYDebugPage({ params }: { params: Promise<{ address
           <div className="bg-gray-800 rounded-lg p-6">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h1 className="text-2xl font-bold">24-Hour Average APR: {poolName}</h1>
+                <h1 className="text-2xl font-bold">24-Hour Average Network Rewards: {poolName}</h1>
                 <p className="text-gray-400 text-sm mt-1">{poolAddress}</p>
                 {timestamp && (
                   <p className="text-gray-500 text-xs mt-2">
@@ -180,7 +186,7 @@ Node Cut: ${debugData.step3_nodeData.nodeCutBps} bps (${debugData.step3_nodeData
 
               <div>
                 <h2 className="text-lg font-bold text-purple-400 mb-3">
-                  STEP 4: 24-Hour Average APR Calculation
+                  STEP 4: 24-Hour Average Network Rewards Calculation
                 </h2>
                 <pre className="bg-gray-900 rounded-lg p-4 whitespace-pre-wrap text-xs">
                   {`1. Total System Stake (tokens): ${debugData.step4_calculation.totalSystemStakeTokens.toFixed(6)}
@@ -209,11 +215,11 @@ Node Cut: ${debugData.step3_nodeData.nodeCutBps} bps (${debugData.step3_nodeData
    ${debugData.step4_calculation.poolAnnualRewards.toFixed(6)} × (10000 - ${debugData.step1_poolData.creatorCutBps}) / 10000
    = ${debugData.step4_calculation.fanAnnualToPool.toFixed(6)} tokens/year
 
-8. 24-Hour Average APR Calculation:
+8. 24-Hour Average Network Rewards Calculation:
    (${debugData.step4_calculation.fanAnnualToPool.toFixed(6)} / ${debugData.step1_poolData.totalFanStaked.toFixed(6)}) × 100
    = ${debugData.step4_calculation.apy.toFixed(4)}%
 
-9. Final 24-Hour Average APR (in basis points):
+9. Final 24-Hour Average Network Rewards (in basis points):
    ${debugData.step4_calculation.apy.toFixed(2)} × 100 = ${debugData.step4_calculation.finalApy} bps`}
                 </pre>
               </div>
@@ -221,16 +227,16 @@ Node Cut: ${debugData.step3_nodeData.nodeCutBps} bps (${debugData.step3_nodeData
               <div>
                 <h2 className="text-lg font-bold text-red-400 mb-3">FINAL RESULT</h2>
                 <pre className="bg-gray-900 rounded-lg p-4 whitespace-pre-wrap text-xs">
-                  {`24-Hour Average APR: ${debugData.step4_calculation.finalApy} bps (${debugData.step4_calculation.apyPercentage}%)`}
+                  {`24-Hour Average Network Rewards: ${debugData.step4_calculation.finalApy} bps (${debugData.step4_calculation.apyPercentage}%)`}
                 </pre>
               </div>
 
               <div className="mt-8 p-4 bg-blue-900/30 border border-blue-700 rounded-lg">
                 <h3 className="text-sm font-semibold text-blue-300 mb-2">
-                  24-Hour Average APR Formula Explanation:
+                  24-Hour Average Network Rewards Formula Explanation:
                 </h3>
                 <p className="text-xs text-blue-200">
-                  24-Hour Average APR = (Annual Rewards / Total Fan Staked) × 100
+                  24-Hour Average Network Rewards = (Annual Rewards / Total Fan Staked) × 100
                 </p>
                 <p className="text-xs text-blue-200 mt-2">
                   Annual Rewards = System Annual Rewards × Node Win Probability × (1 - Node Cut) ×
