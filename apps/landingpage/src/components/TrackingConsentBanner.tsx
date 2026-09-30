@@ -95,7 +95,8 @@ export function TrackingConsentBanner({
             </p>
             <p className="mt-1 text-gray-700">
               Amped Bio counts visits to this page without cookies. With your permission we also
-              remember this browser, for up to 13 months, so {ownerName} can see return visits.
+              remember this browser, for up to 13 months, so {ownerName} can see return visits, and
+              use Google Analytics to understand how Amped Bio is used.
               {hasAds && (
                 <>
                   {" "}
@@ -124,6 +125,11 @@ export function TrackingConsentBanner({
                   Return visits, if you allow it: a random ID saved in your browser. It is linked to
                   your Amped Bio account only if you are signed in. It is deleted when you withdraw.
                 </li>
+                <li>
+                  Amped Bio site analytics, if you allow it: Google Analytics sets its own cookies
+                  and receives your IP address and device information. Its cookies are deleted when
+                  you withdraw.
+                </li>
                 {hasAds && (
                   <li>
                     Ads and analytics by {ownerName}, if you allow it: {adServices.join(", ")} set
@@ -146,8 +152,8 @@ export function TrackingConsentBanner({
             />
             <ChoiceSwitch
               id={`${baseId}-analytics`}
-              label="Return visits"
-              description="Remember this browser so the creator can see returning visitors."
+              label="Return visits and site analytics"
+              description="Remember this browser so the creator can see returning visitors, and let Amped Bio use Google Analytics."
               checked={analytics}
               onChange={setAnalytics}
             />
@@ -179,7 +185,7 @@ export function TrackingConsentBanner({
           <button
             type="button"
             onClick={() => onSave({ analytics: true, advertising: !adsBlockedByBrowser })}
-            className="rounded-lg border border-gray-900 bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+            className="rounded-lg border border-gray-900 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50"
           >
             Accept all
           </button>
