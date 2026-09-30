@@ -8,7 +8,12 @@ import { normalizeHandle, formatHandle, validateHandleFormat } from "@repo/ui";
 import { toast } from "react-hot-toast";
 import { trpc } from "@repo/ui";
 import { useQuery } from "@tanstack/react-query";
-import { EDITOR_PANELS, EditorPanelType, LEGACY_PANEL_REDIRECTS } from "@/types/editor";
+import {
+  EDITOR_PANELS,
+  EditorPanelType,
+  LEGACY_PANEL_REDIRECTS,
+  LEGACY_PROFILE_TABS,
+} from "@/types/editor";
 
 export function Editor() {
   const { panel: panelParam, handle: legacyHandle } = useParams();
@@ -39,7 +44,12 @@ export function Editor() {
 
     // Legacy destinations land on their new home (Screen Review 001 I01, I12)
     const legacy = rawPanel ? LEGACY_PANEL_REDIRECTS[rawPanel] : undefined;
-    if (legacy) {
+    const profileTab =
+      rawPanel === "profile" ? LEGACY_PROFILE_TABS[searchParams.get("tab") ?? ""] : undefined;
+    if (profileTab) {
+      rawPanel = "design";
+      searchParams.set("tab", profileTab);
+    } else if (legacy) {
       rawPanel = legacy.panel;
       if (legacy.tab && !searchParams.has("tab")) searchParams.set("tab", legacy.tab);
     }
