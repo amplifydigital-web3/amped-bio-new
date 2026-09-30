@@ -42,6 +42,11 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
 
         <main className="min-w-0 flex-1">{children}</main>
       </div>
+      <footer className="border-t border-gray-200 px-6 py-6 text-center text-xs text-gray-500">
+        <Link href="/privacy" className="underline hover:text-gray-900">
+          Privacy Notice
+        </Link>
+      </footer>
     </div>
   );
 }

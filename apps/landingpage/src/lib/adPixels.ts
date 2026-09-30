@@ -5,6 +5,8 @@ import {
   type AnalyticsAdContext,
   type PublicTrackingPixels,
 } from "@repo/constants";
+import { ensureGtag, grantStorageForCreatorGa } from "@/lib/ampedAnalytics";
+import { getAnalyticsConsent } from "@/lib/consent";
 
 /**
  * Page owner tracking pixels (Google Analytics 4, Meta Pixel, TikTok Pixel).
@@ -70,18 +72,14 @@ export function loadPixels(pixels: PublicTrackingPixels) {
   const ga4 = pixels.ga4MeasurementId;
   if (ga4 && GA4_MEASUREMENT_ID_PATTERN.test(ga4) && !loaded.has(`ga4:${ga4}`)) {
     loaded.add(`ga4:${ga4}`);
+    // Shares Amped's gtag queue and Consent Mode state (lib/ampedAnalytics.ts).
+    // The creator's tag needs analytics storage; Amped's property is disabled
+    // for this page view unless the visitor also allowed Amped analytics.
+    const gtag = ensureGtag();
+    grantStorageForCreatorGa(getAnalyticsConsent() === true);
     injectExternalScript("amped-ga4", `https://www.googletagmanager.com/gtag/js?id=${ga4}`);
-    // Reuse gtag when the site already defined it, so both properties share one queue
-    if (!w.gtag) {
-      w.dataLayer = w.dataLayer || [];
-      w.gtag = function gtag() {
-        // gtag must push the arguments object itself
-        // eslint-disable-next-line prefer-rest-params
-        w.dataLayer!.push(arguments);
-      };
-      w.gtag("js", new Date());
-    }
-    w.gtag("config", ga4);
+    gtag("js", new Date());
+    gtag("config", ga4);
   }
 
   const meta = pixels.metaPixelId;

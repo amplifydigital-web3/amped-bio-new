@@ -3,7 +3,9 @@ import { ThemeProvider } from "next-themes";
 import { Toaster } from "@repo/ui";
 import { ParticlesProvider } from "@/components/ParticlesProvider";
 import { AppProviders } from "@/components/providers/AppProviders";
+import Script from "next/script";
 import { AmpedAnalytics } from "@/components/AmpedAnalytics";
+import { CONSENT_DEFAULT_SNIPPET } from "@/lib/ampedAnalytics";
 import "@/styles/globals.css";
 
 const SITE_URL = process.env.NEXT_PUBLIC_LANDINGPAGE_URL ?? "https://amped.bio";
@@ -35,6 +37,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="antialiased">
+        {/* Google Consent Mode default: denied until the visitor chooses */}
+        <Script id="amped-consent-default" strategy="beforeInteractive">
+          {CONSENT_DEFAULT_SNIPPET}
+        </Script>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link

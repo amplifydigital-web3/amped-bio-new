@@ -16,9 +16,9 @@ export default function OAuthLoginPage() {
       subtitle="Use your Amped.bio account to authorize this application."
       footer={
         <>
-          By continuing you agree to the Amped.bio terms. Need help?{" "}
-          <Link href="/i/blog" className="underline">
-            Read our blog
+          By continuing you agree to our{" "}
+          <Link href="/privacy" className="underline">
+            Privacy Policy
           </Link>
           .
         </>
