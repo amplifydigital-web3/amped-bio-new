@@ -16,11 +16,13 @@ import {
 interface EmailChangeTemplateProps {
   code?: string;
   newEmail?: string;
+  privacyUrl?: string;
 }
 
 const EmailChangeTemplate = ({
   code = "123456",
   newEmail = "new@example.com",
+  privacyUrl = "https://amped.bio/privacy",
 }: EmailChangeTemplateProps) => {
   return (
     <Html>
@@ -72,7 +74,7 @@ const EmailChangeTemplate = ({
                 © 2026 Oneiro N.A., Inc., dba Amplify Digital. All rights reserved.
               </Text>
               <Text className="text-[12px] leading-[1.5em] text-[#b0adc5] m-0">
-                <Link href="https://amped.bio/privacy" className="text-[#b0adc5] underline">
+                <Link href={privacyUrl} className="text-[#b0adc5] underline">
                   Privacy Policy
                 </Link>
               </Text>

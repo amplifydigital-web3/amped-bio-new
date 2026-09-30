@@ -14,7 +14,13 @@ import {
   Link,
 } from "@react-email/components";
 
-const ResetPasswordTemplate = ({ url }: { url: string }) => {
+const ResetPasswordTemplate = ({
+  url,
+  privacyUrl = "https://amped.bio/privacy",
+}: {
+  url: string;
+  privacyUrl?: string;
+}) => {
   return (
     <Html>
       <Tailwind>
@@ -78,7 +84,7 @@ const ResetPasswordTemplate = ({ url }: { url: string }) => {
                 © 2026 Oneiro N.A., Inc., dba Amplify Digital. All rights reserved.
               </Text>
               <Text className="text-[12px] leading-[1.5em] text-[#b0adc5] m-0">
-                <Link href="https://amped.bio/privacy" className="text-[#b0adc5] underline">
+                <Link href={privacyUrl} className="text-[#b0adc5] underline">
                   Privacy Policy
                 </Link>
               </Text>

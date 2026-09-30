@@ -32,7 +32,6 @@ type GaWindow = Window & {
   gtag?: (...args: unknown[]) => void;
   __ampedConsentDefaultSet?: boolean;
   __ampedCreatorGaActive?: boolean;
-  __ampedLastPath?: string;
   [key: `ga-disable-${string}`]: boolean | undefined;
 };
 
@@ -114,15 +113,11 @@ export function syncAmpedAnalytics(allowed: boolean, pathname: string) {
     deleteAmpedGaCookies();
   }
 
-  if (document.getElementById(SCRIPT_ID)) {
-    // Client side navigation: count the new route once
-    if (w.__ampedLastPath !== pathname) {
-      w.__ampedLastPath = pathname;
-      gtag("event", "page_view", { page_path: pathname, send_to: AMPED_GA_ID });
-    }
-    return;
-  }
-  w.__ampedLastPath = pathname;
+  // Loaded once. Client side navigations are counted by GA4 enhanced measurement
+  // ("Page changes based on browser history events"), so no page_view is sent here;
+  // sending one as well would count every navigation twice.
+  if (document.getElementById(SCRIPT_ID)) return;
+
   gtag("js", new Date());
   gtag("config", AMPED_GA_ID, { cookie_expires: GA_COOKIE_EXPIRES_SECONDS });
 

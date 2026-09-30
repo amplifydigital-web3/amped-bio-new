@@ -14,7 +14,10 @@ import {
   Link,
 } from "@react-email/components";
 
-const VerifyEmailTemplate = ({ url = "https://example.com/verify-email" }) => {
+const VerifyEmailTemplate = ({
+  url = "https://example.com/verify-email",
+  privacyUrl = "https://amped.bio/privacy",
+}) => {
   return (
     <Html>
       <Tailwind>
@@ -73,7 +76,7 @@ const VerifyEmailTemplate = ({ url = "https://example.com/verify-email" }) => {
                 © 2026 Oneiro N.A., Inc., dba Amplify Digital. All rights reserved.
               </Text>
               <Text className="text-[12px] leading-[1.5em] text-[#b0adc5] m-0">
-                <Link href="https://amped.bio/privacy" className="text-[#b0adc5] underline">
+                <Link href={privacyUrl} className="text-[#b0adc5] underline">
                   Privacy Policy
                 </Link>
               </Text>
