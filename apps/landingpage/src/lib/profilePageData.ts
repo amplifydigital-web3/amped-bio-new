@@ -11,7 +11,6 @@ export interface UserProfile {
   name: NonNullable<HandleUser["name"]>;
   handle: string;
   handleFormatted: string;
-  email: HandleUser["email"];
   bio: string;
   photoUrl?: string;
   photoCmp?: string;
@@ -41,7 +40,6 @@ export const DEFAULT_PROFILE_DATA: ProfilePageData = {
     name: "Amplify Digital",
     handle: "amped.bio",
     handleFormatted: "@amped.bio",
-    email: "info@amplifydigital.ai",
     bio: "Empowering individuals and communities, enabling seamless transactions without intermediaries",
   },
   blocks: [
@@ -67,7 +65,6 @@ export function mapGetHandleData(result: HandleOutput, handle: string): ProfileP
       name: user.name ?? "",
       handle,
       handleFormatted: `@${handle}`,
-      email: user.email,
       bio: user.description ?? "",
       photoUrl: user.image ?? "",
       photoCmp: "",
