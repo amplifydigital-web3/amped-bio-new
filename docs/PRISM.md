@@ -115,6 +115,48 @@ Rules:
 
 Below 768px the preset lowers the blur on the glass levels. The spec asks for less blur and fewer layers on mobile. Spectrum, spacing, type and activation stay the same.
 
+## Components (PR 2)
+
+All shared components live in `packages/ui` and are exported from `@repo/ui`. The existing primitives were restyled in place, so every screen that uses them changes with this PR. See them all at **`/_prism`** in the client app (signed in, not linked anywhere).
+
+### Restyled in place
+
+| Component | Prism rule |
+|---|---|
+| `Button` | `default` next step (indigo, 44), `lg` primary 55, `commit` money commit only (value deep), `secondary` and `outline` lens, `ghost` (lens shown at rest), `link`, `destructive`. `confirm` is kept for callers and maps to `default`. Every size is at least 44. Disabled: 40% ink, dashed ring, no shadow |
+| `Input`, `Textarea` | Label 16/20 600 above, G2 well 44 high r13, `helper` 13/16, `error` 13/16 danger with icon, linked by `aria-describedby`. `className` still styles the field; use `containerClassName` for the wrapper |
+| `Label` | 16/20 600 ink |
+| `Dialog` | Raised glass r21, padding 34, 508 wide, scrim. Below 640 it is a bottom sheet with r34 top corners and a grab handle. Title 20/23 700, close is a 44 icon button. Scrolls inside when taller than the viewport (fixes the Fund dialog title clipping) |
+| `Select` | Trigger is a G2 well; content is raised glass r13 with 44 rows |
+| `Switch` | Indigo when on, create-ink focus ring, 44 row |
+| `Tooltip` | White text on ink, r8, max 288 wide |
+| `Badge` | 26 high r8: `default` (selected), `secondary` (category), `success`, `warning`, `outline`, `destructive` |
+| `Card` | G1 clear r21 |
+| `Skeleton` | Line fill, no shimmer under reduced motion, `delayMs={400}` to wait before showing |
+| `Toaster` (Sonner, landing and admin) | Prism toast, bottom left, 34 from the edges |
+
+### New
+
+| Component | Use |
+|---|---|
+| `Chip`, `ChipGroup` | Filters and presets. `ChipGroup` is a radio group with arrow keys |
+| `Tabs` | G1 navigate container 55, selected tab is the lens thumb |
+| `Menu` | Raised glass r13, 44 items, `destructive` items |
+| `BottomSheet` | Mobile More sheet and choosers |
+| `EmptyState` | 34 icon in a 55 disc, title, one line, one next step |
+| `ErrorCard` | Local error with Retry. Name what failed; never show raw server text |
+| `Notice` | `info` and `success` on G1 clear; `warning` and `error` on the solid notice |
+| `ToastCard` | The one toast look. The client renders every toast with it |
+| `TESTNET_NOTICE` | The verbatim testnet line |
+
+### Toasts in the client
+
+`react-hot-toast` calls and `toast.add` from `components/ui/toast` now share one queue and one stack at the bottom left (above the dock on mobile). Errors stay until dismissed; success and info leave after 5 seconds.
+
+### Tailwind merge
+
+`cn()` in `packages/ui` knows the Prism tokens, so a caller's `h-12` replaces `h-touch` and `text-prism-label` is treated as a font size.
+
 ## Rules reviewers should enforce
 
 1. **Trust rule.** Spectacle falls as commitment rises. The Review and Confirm step uses `prism-value-panel-calm`, has no rim, uses a solid `prism-notice`, and has a required checkbox. The commit button is `value-deep`, followed by the wallet note.
@@ -127,8 +169,8 @@ Below 768px the preset lowers the blur on the glass levels. The spec asks for le
 
 The work ships in batched PRs:
 
-1. Tokens (this PR)
-2. Shared components restyled in place, with the gallery
+1. Tokens
+2. Shared components restyled in place, with the gallery (this section)
 3. App shell
 4. Money flow
 5. Screen batches by app area, each tied to Amped.Bio Screen Review row numbers
