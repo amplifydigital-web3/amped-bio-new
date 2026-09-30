@@ -283,7 +283,7 @@ export function AnalyticsPanel() {
               title="How visitor privacy works on your page"
               steps={[
                 "Every visit is counted without cookies. Visitors' IP addresses are never stored.",
-                "Visitors see a privacy banner with Accept all, Reject all and Choose. Their choice is saved for up to 13 months and can be changed from the Privacy choices link on your page.",
+                "Visitors see a privacy banner with Accept all, Reject all and Choose. Their choice is saved for up to 24 months and can be changed from the Privacy choices link on your page.",
                 "Returning visitors and retention only include visitors who allowed return visits, so those numbers show their coverage.",
                 "Your pixels load only for visitors who allow ads and analytics. Browsers that send a Global Privacy Control signal are always treated as a no.",
               ]}
