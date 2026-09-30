@@ -33,6 +33,9 @@ interface LayoutProps {
 // The live preview shows on Page and Design only (D10)
 const PREVIEW_PANELS: EditorPanelType[] = ["page", "design"];
 
+// Destinations whose screens are restyled sit directly on the room (PR 3a: Design)
+const RESTYLED_PANELS: EditorPanelType[] = ["design"];
+
 function ActivePanel({ panel }: { panel: EditorPanelType }) {
   switch (panel) {
     case "home":
@@ -89,7 +92,10 @@ function ActivePanel({ panel }: { panel: EditorPanelType }) {
  * the destinations it restyles.
  */
 export function Layout({ bannerData, bannerLoading }: LayoutProps) {
-  const { activePanel, profile, blocks, theme } = useEditor();
+  const { activePanel, profile, blocks, theme, previewOverride } = useEditor();
+  const previewTheme = previewOverride
+    ? { ...theme, config: { ...theme.config, ...previewOverride.config } }
+    : theme;
   const showPreview = PREVIEW_PANELS.includes(activePanel);
   // Load the support widget once for the session, launcher hidden (004 I01, I04)
   useSupportWidget();
@@ -113,7 +119,11 @@ export function Layout({ bannerData, bannerLoading }: LayoutProps) {
             )}
             <main
               id="editor-content"
-              className="min-w-0 overflow-hidden rounded-prism-21 bg-white shadow-prism-e3"
+              className={
+                RESTYLED_PANELS.includes(activePanel)
+                  ? "min-w-0"
+                  : "min-w-0 overflow-hidden rounded-prism-21 bg-white shadow-prism-e3"
+              }
             >
               <ActivePanel panel={activePanel} />
             </main>
@@ -130,10 +140,18 @@ export function Layout({ bannerData, bannerLoading }: LayoutProps) {
                   isEditing={true}
                   profile={profile}
                   blocks={blocks}
-                  theme={theme}
+                  theme={previewTheme}
                   userId={profile.id}
                 />
               </div>
+              {previewOverride?.label && (
+                <p
+                  role="status"
+                  className="prism-raised absolute inset-x-[13px] bottom-[13px] z-10 rounded-prism-13 px-3 py-2 text-prism-meta text-prism-ink-2"
+                >
+                  {previewOverride.label}
+                </p>
+              )}
             </aside>
           )}
         </div>
