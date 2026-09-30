@@ -525,7 +525,7 @@ export function ProfileView({
                       className="text-xs opacity-60 hover:opacity-100 transition-opacity underline"
                       style={{ fontFamily: themeConfig?.fontFamily, color: themeConfig?.fontColor }}
                     >
-                      Privacy Notice
+                      Privacy Policy
                     </a>
                   </div>
                 </div>
