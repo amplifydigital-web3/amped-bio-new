@@ -16,7 +16,7 @@ import { useCaptcha } from "@/hooks/useCaptcha";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
 import { authClient } from "@repo/ui";
 import { normalizeHandle, cleanHandleInput, getHandlePublicUrl } from "@repo/ui";
-import { trackGAEvent, trackTwitterEvent, loadTwitterPixel } from "@/utils/ga";
+import { trackGAEvent } from "@/utils/ga";
 import { trpc } from "@repo/ui";
 import {
   Dialog,
@@ -244,13 +244,6 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
     }
   }, [registerHandle]);
 
-  // Load Twitter Pixel only on register path
-  useEffect(() => {
-    if (location.pathname === "/register") {
-      loadTwitterPixel("tw-r4zrx");
-    }
-  }, [location.pathname]);
-
   // Custom form switcher that maintains email and clears errors
   const switchForm = (newForm: FormType) => {
     setLoginError(null);
@@ -405,9 +398,6 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
       if (response?.error) {
         throw new Error(response.error.message || "Registration failed");
       }
-
-      // Track Twitter signup conversion
-      trackTwitterEvent("tw-r4zrx-r4zss");
 
       if (referrerId) {
         clearReferrerId();
@@ -854,7 +844,7 @@ export function AuthModal({ isOpen, onClose, onCancel, initialForm = "login" }: 
           <p className="text-center text-xs text-gray-500 mt-3">
             By continuing, you agree to our{" "}
             <a
-              href="https://ampedbio.com/privacy-policy/"
+              href={`${import.meta.env.VITE_LANDINGPAGE_URL}/privacy`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-600 hover:text-blue-700 hover:underline"
