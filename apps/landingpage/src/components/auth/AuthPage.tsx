@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { PublicHeader } from "@/components/layout/PublicHeader";
@@ -21,13 +21,16 @@ function AuthPageContent({ initialForm }: { initialForm: "login" | "register" })
   const redirectTo = requestedRedirect || "/";
 
   // router.push cannot leave the site, so absolute panel URLs use a full navigation
-  const go = (url: string) => {
-    if (/^https?:\/\//i.test(url)) {
-      window.location.href = url;
-    } else {
-      router.push(url);
-    }
-  };
+  const go = useCallback(
+    (url: string) => {
+      if (/^https?:\/\//i.test(url)) {
+        window.location.href = url;
+      } else {
+        router.push(url);
+      }
+    },
+    [router]
+  );
 
   useEffect(() => {
     if (!isPending && authUser) {
@@ -41,7 +44,7 @@ function AuthPageContent({ initialForm }: { initialForm: "login" | "register" })
     } else if (!isPending) {
       setReady(true);
     }
-  }, [isPending, authUser, requestedRedirect, redirectTo]);
+  }, [isPending, authUser, requestedRedirect, redirectTo, go]);
 
   if (!ready) {
     return <div className="animate-pulse text-gray-400 py-16">Loading...</div>;

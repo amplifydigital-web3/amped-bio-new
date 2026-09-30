@@ -23,18 +23,23 @@ export function getPanelPoolUrl(poolAddress: string): string {
 
 /**
  * Validates a ?redirect= value before navigating to it after sign in.
- * Allowed: a same site path ("/x", not "//x") or an absolute URL on the panel origin.
+ * Allowed: a same site URL or an absolute URL on the panel origin. The value is parsed
+ * before origins are compared, because URL parsers strip tabs and newlines, so a raw
+ * string check on "/" can be bypassed ("/\t/evil.com" resolves to https://evil.com/).
  * Anything else returns null so callers fall back to their default destination.
  */
 export function getSafeRedirect(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  if (raw.startsWith("/") && !raw.startsWith("//") && !raw.startsWith("/\\")) return raw;
-  const base = process.env.NEXT_PUBLIC_PANEL_URL;
-  if (!base) return null;
+  if (!raw || typeof window === "undefined") return null;
   try {
-    const target = new URL(raw);
-    const panel = new URL(base);
-    return target.origin === panel.origin ? target.toString() : null;
+    const target = new URL(raw, window.location.origin);
+    const allowed = [window.location.origin];
+    const panel = process.env.NEXT_PUBLIC_PANEL_URL;
+    if (panel) allowed.push(new URL(panel).origin);
+    if (!allowed.includes(target.origin)) return null;
+    // Same site targets are returned as a normalized path so router.push stays on site
+    return target.origin === window.location.origin
+      ? `${target.pathname}${target.search}${target.hash}`
+      : target.toString();
   } catch {
     return null;
   }
