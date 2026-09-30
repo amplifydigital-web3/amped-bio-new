@@ -213,7 +213,7 @@ New preset recipes: `prism-dock` (dock capsule, tint 0.12, white 0.56), `prism-d
 
 ### Interim destinations
 
-Page and Account compose today's panels so the rail matches the approved structure. Design is replaced in PR 3a (below). PR 3b (Page, rows 006, 017 to 020, 022, 034 to 037) replaces the other two. Destinations that are not restyled yet sit on a white surface so their current colors stay readable on the room; each batch removes it.
+Account still composes today's panels. Design is replaced in PR 3a and Page in PR 3b (below). Account (rows 019 to 021 and 098) is next. Destinations that are not restyled yet sit on a white surface so their current colors stay readable on the room; each batch removes it.
 
 ## Design (PR 3a, Screen Review 023 to 033)
 
@@ -243,6 +243,33 @@ Design lives in `apps/client/src/components/panels/design`. `DesignPanel.tsx` ho
 
 `panels/appearance`, `panels/effects`, `panels/gallery`, `CollapsiblePanelWrapper`, `profile/AppearanceTabContent` and `profile/EffectsTabContent`. The marketplace view, filter and sort state left the editor store. `/profile?tab=appearance`, `effects` and `theme` land on the matching Design tab.
 
+## Page (PR 3b, Screen Review 006, 017, 018, 022, 034 to 037)
+
+Page lives in `apps/client/src/components/panels/page`. The live preview lives in `apps/client/src/components/preview`.
+
+### Pieces
+
+| Piece | File | Rule |
+|---|---|---|
+| Live preview frame | `preview/PreviewFrame.tsx` | Frame on Page and Design from 1024 up, with Phone (390) and Desktop (1440 scaled) tabs. The choice is stored per viewer. The creator's background stays inside the frame. Below 1024 the Edit and Preview tabs switch views, stored in `?view=preview`. When there are no blocks, the frame shows an Add block hint |
+| Preview behavior | `components/Preview.tsx` | Clicks never navigate or count. A click opens the block in the Page list; on Design it does nothing. Hidden blocks do not render. Incomplete blocks show a Fix chip. The footer reads Made with Amped.Bio |
+| Header card | `header/ProfileHeaderCard.tsx` | Photo, Display name, handle, RevoName (only when RNS is on) and Bio, all autosaved. The Bio editor is the Prism toolbar in `blocks/text/TextEditor/SlateEditor.tsx`: four 44 buttons with roving focus, shortcuts, and an Align menu |
+| Photo | `header/PhotoControl.tsx`, `header/CropDialog.tsx` | The circle is the control and accepts a dropped file. Crop photo saves exactly what the circle shows, 512 px square. Remove photo has an 8 second Undo. Errors appear under the photo with Retry |
+| RevoName | `header/RevoNameField.tsx` | A select with loading, no wallet and no names states. The expired or lost notice replaces the modal. Manage names opens RNS My names until Wallet Names exists |
+| X import (022) | none | Not rendered (D07) until a server lookup exists. `TwitterImport` and the browser bearer token are removed |
+| Blocks list | `blocks/BlocksSection.tsx`, `blocks/BlockRow.tsx` | The eyebrow row with Add block, then one card of rows in visitor order. The handle, visibility toggle (`config.hidden`) and overflow menu are always visible. The overflow menu holds Open link, Move up, Move down and Delete. Delete is instant with an 8 second Undo, and the server delete runs when the Undo expires. Drag uses an 8 px activation distance, or a 233 ms long press on touch, with named announcements |
+| Inline editing | `blocks/BlockFields.tsx` | The open row is the region's one lens with fields on the slab. Valid changes go to the editor state at once and autosave. Invalid input shows its fix on blur and never saves. A new block is a draft row, created on the server from its first valid value |
+| Add block | `blocks/AddBlockDialog.tsx`, `blocks/LinkFields.tsx` | The Link section comes first: one field detects the platform, shows a chip with Change, and prefills Label. Then the MEDIA, UTILITY and WEB3 tiles. If a referral block exists, its tile opens that block |
+| Block validity | `@repo/constants` `block-validity.ts` | One rule for the editor list, the preview and amped.bio. A block renders when it is not hidden and its required field is present |
+
+### Removed
+
+- `panels/blocks` (except `PoolSearchInput`).
+- `profile/ProfileForm`, `ImageUploader`, `PhotoEditor` and `TwitterImport`.
+- `page/RevoNameIssueDialog`, `ui/Slider` and `utils/twitter.ts`.
+- `addBlock` no longer toasts or clears the unsaved flag.
+- `removeBlock` throws on failure.
+
 ## Rules reviewers should enforce
 
 1. **Trust rule.** Spectacle falls as commitment rises. The Review and Confirm step uses `prism-value-panel-calm`, has no rim, uses a solid `prism-notice`, and has a required checkbox. The commit button is `value-deep`, followed by the wallet note.
@@ -257,6 +284,6 @@ The work ships in batched PRs:
 
 1. Tokens
 2. Shared components restyled in place, with the gallery; 2b money flow pieces and pool cards
-3. App shell (001 to 005); 3a Design (023 to 033); 3b Page (006, 017 to 020, 022, 034 to 037)
+3. App shell (001 to 005); 3a Design (023 to 033); 3b Page (006, 017, 018, 022, 034 to 037); 3c Account (019, 020)
 4. Money flow
 5. Screen batches by app area, each tied to Amped.Bio Screen Review row numbers
