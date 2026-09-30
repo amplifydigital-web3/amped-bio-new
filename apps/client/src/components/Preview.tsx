@@ -1,4 +1,3 @@
-
 import { ParticlesBackground } from "./particles/ParticlesBackground";
 import { cn } from "../utils/cn";
 import {
@@ -16,6 +15,7 @@ import { isHTML } from "@/utils/htmlutils";
 import { type BlockType } from "@repo/constants";
 import { Theme, UserProfile } from "@/types/editor";
 import { trpcClient } from "@repo/ui";
+import { THEME_DEFAULTS, themeCssVars } from "@repo/ui";
 import { useState } from "react";
 import { Check, Copy, ExternalLink } from "lucide-react";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
@@ -73,7 +73,7 @@ export function Preview({ isEditing, profile, blocks, theme, userId }: PreviewPr
   // console.info("blocks preview", blocks);
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen" style={themeCssVars(themeConfig)}>
       <div
         className={cn(
           "flex-1 overflow-auto relative",
@@ -118,7 +118,7 @@ export function Preview({ isEditing, profile, blocks, theme, userId }: PreviewPr
             />
           ) : null}
           <div className="absolute inset-0">
-            <ParticlesBackground effect={themeConfig?.particlesEffect ?? 0} />
+            <ParticlesBackground effect={themeConfig?.particlesEffect ?? THEME_DEFAULTS.particlesEffect} />
           </div>
         </div>
 
@@ -134,7 +134,7 @@ export function Preview({ isEditing, profile, blocks, theme, userId }: PreviewPr
               className={cn("w-full space-y-8 p-8", getContainerStyle(themeConfig?.containerStyle))}
               style={{
                 backgroundColor: `${themeConfig?.containerColor}${Math.round(
-                  (themeConfig?.transparency ?? 0) * 2.55
+                  (themeConfig?.transparency ?? THEME_DEFAULTS.transparency) * 2.55
                 )
                   .toString(16)
                   .padStart(2, "0")}`,
