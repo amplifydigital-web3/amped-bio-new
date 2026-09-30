@@ -13,7 +13,7 @@ export function themeFileName(name: string) {
   const safe = name
     .replace(/\.ampedtheme$/i, "")
     .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/\p{M}/gu, "")
     .replace(/[^A-Za-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 64);
