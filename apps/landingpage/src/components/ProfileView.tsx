@@ -7,6 +7,7 @@ import { trpcClient } from "@/lib/trpc";
 import { normalizeHandle, formatHandle } from "@/lib/handle";
 import { Skeleton } from "@repo/ui";
 import { cn } from "@repo/ui";
+import { THEME_DEFAULTS, themeCssVars } from "@repo/ui";
 import { ParticlesBackground } from "@/components/ParticlesBackground";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BlockErrorFallback } from "@/components/blocks/BlockErrorFallback";
@@ -255,7 +256,7 @@ export function ProfileView({
           <SystemStatsBadge />
         </div>
       )}
-      <div className="flex flex-col h-screen">
+      <div className="flex flex-col h-screen" style={themeCssVars(themeConfig)}>
         <div
           className={cn(
             "flex-1 overflow-auto relative",
@@ -300,7 +301,7 @@ export function ProfileView({
               />
             ) : null}
             <div className="absolute inset-0">
-              <ParticlesBackground effect={themeConfig?.particlesEffect ?? 0} />
+              <ParticlesBackground effect={themeConfig?.particlesEffect ?? THEME_DEFAULTS.particlesEffect} />
             </div>
           </div>
 
@@ -312,7 +313,7 @@ export function ProfileView({
                 className={cn("w-full space-y-8 p-8", getContainerStyle(themeConfig?.containerStyle))}
                 style={{
                   backgroundColor: `${themeConfig?.containerColor}${Math.round(
-                    (themeConfig?.transparency ?? 0) * 2.55
+                    (themeConfig?.transparency ?? THEME_DEFAULTS.transparency) * 2.55
                   )
                     .toString(16)
                     .padStart(2, "0")}`,
