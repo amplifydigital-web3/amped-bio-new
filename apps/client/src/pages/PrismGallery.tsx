@@ -44,6 +44,17 @@ import {
   Textarea,
   ToastCard,
   Tooltip,
+  SidePanel,
+  StepBar,
+  AmountWell,
+  AmountPresets,
+  ReviewSlab,
+  Checkbox,
+  CommitAction,
+  PoolCardFeatured,
+  PoolCardMedium,
+  PoolRow,
+  type PoolCardData,
 } from "@repo/ui";
 import { toast as hotToast } from "react-hot-toast";
 import { toast } from "@/components/ui/toast";
@@ -76,6 +87,115 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
       <p className="text-prism-eyebrow uppercase text-prism-ink-3">{label}</p>
       <div className="flex flex-wrap items-center gap-3">{children}</div>
     </div>
+  );
+}
+
+const DEMO_POOL: PoolCardData = {
+  name: "Night Shift Sessions",
+  creatorName: "Graphite",
+  creatorHandle: "@graphite",
+  category: "Music",
+  byline: "Late night sets and early access to new releases.",
+  stats: [
+    { label: "Total staked", value: "48,210 tREVO" },
+    { label: "Fans", value: "312" },
+    { label: "Network Reward Rate", value: "12.4% a year" },
+  ],
+};
+
+const AVAILABLE = 1204.5;
+
+// A working stake flow demo built only from the Prism flow pieces. PR 4 turns
+// this composition into the shared money flow used by every value moving screen.
+function StakeFlowDemo() {
+  const [open, setOpen] = useState(false);
+  const [step, setStep] = useState(0);
+  const [amount, setAmount] = useState("250");
+  const [agreed, setAgreed] = useState(false);
+
+  const value = Number(amount || 0);
+  const tooMuch = value > AVAILABLE;
+  const format = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 4 });
+  const reviewing = step === 1;
+
+  const reset = (next: boolean) => {
+    setOpen(next);
+    if (!next) {
+      setStep(0);
+      setAgreed(false);
+    }
+  };
+
+  return (
+    <>
+      <Button onClick={() => setOpen(true)}>Open stake panel</Button>
+      <SidePanel
+        open={open}
+        onOpenChange={reset}
+        eyebrow="Stake in"
+        title={DEMO_POOL.name}
+        byline={`by ${DEMO_POOL.creatorName} ${DEMO_POOL.creatorHandle}`}
+        art={<div className="h-full w-full bg-prism-value-panel-3" />}
+        calm={reviewing}
+        footer={
+          reviewing ? (
+            <CommitAction disabled={!agreed} onClick={() => reset(false)}>
+              Stake {format(value)} tREVO
+            </CommitAction>
+          ) : (
+            <Button
+              size="lg"
+              className="w-full"
+              disabled={!value || tooMuch}
+              onClick={() => setStep(1)}
+            >
+              Review stake
+            </Button>
+          )
+        }
+      >
+        <StepBar steps={["Amount", "Review", "Confirm in wallet"]} current={step} />
+        <AmountWell
+          label={reviewing ? "You stake" : "Amount"}
+          value={amount}
+          onChange={setAmount}
+          unit="tREVO"
+          calm={reviewing}
+          onEdit={() => setStep(0)}
+          available={`Available ${format(AVAILABLE)} tREVO`}
+          balanceAfter={`Balance after ${format(Math.max(AVAILABLE - value, 0))} tREVO`}
+          error={tooMuch ? `You have ${format(AVAILABLE)} tREVO available.` : undefined}
+        />
+        {reviewing ? (
+          <>
+            <ReviewSlab
+              rows={[
+                { label: "You stake", value: `${amount} tREVO` },
+                { label: "Pool", value: DEMO_POOL.name },
+                { label: "Balance after", value: `${format(AVAILABLE - value)} tREVO` },
+                { label: "Pool total after", value: `${format(48210 + value)} tREVO` },
+                { label: "Unstaking", value: "Any time" },
+              ]}
+            />
+            <Notice variant="warning" title="Testnet">
+              {TESTNET_NOTICE}
+            </Notice>
+            <Checkbox checked={agreed} onCheckedChange={setAgreed} required>
+              I understand this stake is on testnet and rewards are not guaranteed.
+            </Checkbox>
+          </>
+        ) : (
+          <AmountPresets
+            presets={[
+              { label: "25%", value: String(AVAILABLE * 0.25) },
+              { label: "50%", value: String(AVAILABLE * 0.5) },
+              { label: "Max", value: String(AVAILABLE) },
+            ]}
+            onPick={setAmount}
+          />
+        )}
+      </SidePanel>
+    </>
   );
 }
 
@@ -326,6 +446,59 @@ export function PrismGallery() {
                 cause="The network did not answer."
                 onRetry={() => {}}
               />
+            </div>
+          </div>
+        </Section>
+
+        <Section id="flow" title="Money flow pieces">
+          <Row label="Side panel with step bar, amount well, presets, review slab, checkbox, commit">
+            <StakeFlowDemo />
+          </Row>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="prism-glass-clear space-y-4 p-5">
+              <StepBar steps={["Amount", "Review", "Confirm in wallet"]} current={1} />
+              <AmountWell
+                label="Amount"
+                value="250"
+                unit="tREVO"
+                available="Available 1,204.5 tREVO"
+                balanceAfter="Balance after 954.5 tREVO"
+              />
+            </div>
+            <div className="prism-value-panel-calm space-y-4 p-8">
+              <AmountWell label="You stake" value="250" unit="tREVO" calm onEdit={() => {}} />
+              <ReviewSlab
+                rows={[
+                  { label: "You stake", value: "250 tREVO" },
+                  { label: "Network fee", value: "0.0001 tREVO" },
+                ]}
+              />
+            </div>
+          </div>
+        </Section>
+
+        <Section id="pools" title="Pool cards">
+          <div className="grid gap-8 sm:grid-cols-[495px_1fr]">
+            <PoolCardFeatured pool={DEMO_POOL} selected onSelect={() => {}} viewPageHref="#" />
+            <div className="space-y-4">
+              <PoolCardMedium
+                pool={{ ...DEMO_POOL, stats: DEMO_POOL.stats?.slice(0, 2) }}
+                onSelect={() => {}}
+              />
+              <div>
+                <PoolRow
+                  pool={{ ...DEMO_POOL, stats: DEMO_POOL.stats?.slice(0, 1) }}
+                  onSelect={() => {}}
+                />
+                <PoolRow
+                  pool={{
+                    name: "Court Side",
+                    category: "Sports",
+                    stats: [{ label: "Total staked", value: "9,870 tREVO" }],
+                  }}
+                  onSelect={() => {}}
+                />
+              </div>
             </div>
           </div>
         </Section>

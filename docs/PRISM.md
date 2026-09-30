@@ -149,6 +149,25 @@ All shared components live in `packages/ui` and are exported from `@repo/ui`. Th
 | `ToastCard` | The one toast look. The client renders every toast with it |
 | `TESTNET_NOTICE` | The verbatim testnet line |
 
+### Money flow pieces and pool cards (PR 2b)
+
+| Component | Use |
+|---|---|
+| `SidePanel` | The G3 value panel as a side sheet: 508 wide, 21 from the right, top and bottom on desktop; full screen on mobile. Header with 55 art tile, eyebrow with the purple marker, title, byline, 44 close. `calm` switches to the commit state (no rim, no halo). `footer` holds the primary action |
+| `StepBar` | 3px bars. Current indigo with glow, done success with check and a hidden ", done", next line. D23 labels: Amount (or Name, Recipient, Connect), Review, Confirm in wallet |
+| `AmountWell` | 131 high, create light, Bebas amount (68 on mobile), 44 unit pill. `available`, `balanceAfter`, `error`. `calm` removes the light, makes it read only and shows Edit amount |
+| `AmountPresets` | 44 pill presets (25%, 50%, Max) |
+| `ReviewSlab` | G2 slab, 44 rows, tabular figures. The caller passes every row |
+| `Checkbox` | 24 box r5, value deep when checked. Used for the required acknowledgement on Review |
+| `CommitAction` | Value deep 55 button labeled with the verb and amount, then the wallet note (`WALLET_NOTE`, or an approved line for embedded wallets) |
+| `PoolCardFeatured` | G3 lens, art 202, badges, creator row, 26/33 title, stats footer, View page in a new tab |
+| `PoolCardMedium` | G1 clear, art 110, 16/20 title, meta line |
+| `PoolRow` | G0 flat row 46 high, 34 art, right aligned tabular figures |
+
+Pool cards take `stats` as label and value pairs, so each screen uses its approved wording. The rate label is "Network Reward Rate". Never APY or APR.
+
+The gallery at `/_prism` has a working stake demo that composes these pieces. PR 4 turns that composition into the shared money flow.
+
 ### Toasts in the client
 
 `react-hot-toast` calls and `toast.add` from `components/ui/toast` now share one queue and one stack at the bottom left (above the dock on mobile). Errors stay until dismissed; success and info leave after 5 seconds.
@@ -170,7 +189,7 @@ All shared components live in `packages/ui` and are exported from `@repo/ui`. Th
 The work ships in batched PRs:
 
 1. Tokens
-2. Shared components restyled in place, with the gallery (this section)
+2. Shared components restyled in place, with the gallery; 2b money flow pieces and pool cards
 3. App shell
 4. Money flow
 5. Screen batches by app area, each tied to Amped.Bio Screen Review row numbers
