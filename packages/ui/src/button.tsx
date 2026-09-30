@@ -3,25 +3,29 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "./utils";
 
+// Prism 2.2 section 8. Every size meets the 44 target; lg is the 55 primary.
 const buttonVariants = cva(
-  "inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-50 disabled:pointer-events-none",
+  "prism-focus prism-btn-disabled inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-prism-13 font-prism font-semibold tabular-nums transition-[background-color,box-shadow,color] duration-prism-hover ease-prism [&_svg]:size-5 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default: "bg-blue-600 text-white hover:bg-blue-700",
-        outline: "border border-gray-300 bg-white hover:bg-gray-50 text-gray-700",
-        confirm: "bg-green-600 text-white hover:bg-green-700",
-        destructive:
-          "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
-        secondary: "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+        // Next step (navigate). The one primary action of a region.
+        default: "prism-btn-primary font-bold",
+        // Money commit only (stake, send, confirm in wallet).
+        commit: "prism-btn-commit font-bold",
+        // Kept for existing callers; same as default. Green is not a Prism action color.
+        confirm: "prism-btn-primary font-bold",
+        secondary: "prism-btn-secondary",
+        outline: "prism-btn-secondary",
+        ghost: "prism-btn-ghost",
+        link: "h-auto min-h-touch px-1 text-prism-nav underline-offset-4 hover:underline",
+        destructive: "prism-btn-destructive font-bold",
       },
       size: {
-        default: "h-9 px-4 text-sm",
-        sm: "h-8 px-3 text-sm",
-        lg: "h-10 px-6",
-        icon: "h-9 w-9",
+        default: "h-touch px-5 text-prism-label",
+        sm: "h-touch px-3 text-sm",
+        lg: "h-commit px-8 text-prism-label",
+        icon: "h-touch w-touch rounded-full p-0",
       },
     },
     defaultVariants: {
