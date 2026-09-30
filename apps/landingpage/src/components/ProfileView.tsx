@@ -10,7 +10,6 @@ import { cn } from "@repo/ui";
 import { THEME_DEFAULTS, themeCssVars } from "@repo/ui";
 import { ParticlesBackground } from "@/components/ParticlesBackground";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { BlockErrorFallback } from "@/components/blocks/BlockErrorFallback";
 import { TextBlock } from "@/components/blocks/text/TextBlock";
 import { MediaBlock } from "@/components/blocks/MediaBlock";
 import { CreatorPoolBlock } from "@/components/blocks/CreatorPoolBlock";
@@ -46,7 +45,7 @@ import {
   getHeroEffectStyle,
   isHTML,
 } from "@/lib/styles";
-import type { BlockType } from "@repo/constants";
+import { isRenderable, type BlockType } from "@repo/constants";
 import {
   DEFAULT_HANDLE,
   DEFAULT_PROFILE_DATA,
@@ -419,6 +418,8 @@ export function ProfileView({
                 {/* Links & Blocks */}
                 <div className="space-y-4">
                   {blocks.map(block => {
+                    // Hidden or incomplete blocks do not render (Screen Review 036 I09, I10)
+                    if (!isRenderable(block)) return null;
                     if (block.type === "link") {
                       const Icon = getPlatformIcon(block.config.platform);
                       const element =
@@ -433,7 +434,7 @@ export function ProfileView({
                         );
 
                       return (
-                        <ErrorBoundary key={block.id.toString()} fallback={<BlockErrorFallback platform={block.config.platform} />}>
+                        <ErrorBoundary key={block.id.toString()} fallback={null}>
                           <a
                             href={block.config.url}
                             target="_blank"
@@ -460,21 +461,21 @@ export function ProfileView({
                     }
                     if (block.type === "media") {
                       return (
-                        <ErrorBoundary key={block.id} fallback={<BlockErrorFallback platform={block.config.platform} />}>
+                        <ErrorBoundary key={block.id} fallback={null}>
                           <MediaBlock block={block as any} theme={themeConfig as any} />
                         </ErrorBoundary>
                       );
                     }
                     if (block.type === "pool") {
                       return (
-                        <ErrorBoundary key={block.id} fallback={<BlockErrorFallback platform="creator pool" />}>
+                        <ErrorBoundary key={block.id} fallback={null}>
                           <CreatorPoolBlock block={block as any} theme={themeConfig as any} />
                         </ErrorBoundary>
                       );
                     }
                     if (block.type === "referral") {
                       return (
-                        <ErrorBoundary key={block.id} fallback={<BlockErrorFallback platform="referral" />}>
+                        <ErrorBoundary key={block.id} fallback={null}>
                           <ReferralBlock
                             block={block as any}
                             theme={themeConfig as any}
@@ -484,7 +485,7 @@ export function ProfileView({
                       );
                     }
                     return (
-                      <ErrorBoundary key={block.id} fallback={<BlockErrorFallback platform="content" />}>
+                      <ErrorBoundary key={block.id} fallback={null}>
                         <TextBlock block={block as any} theme={themeConfig as any} />
                       </ErrorBoundary>
                     );
@@ -499,7 +500,7 @@ export function ProfileView({
                         handleReferrerClick(profile.id);
                       }
                     }}
-                    className="text-sm opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                    className="text-[13px] leading-4 opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
                     style={{
                       fontFamily: themeConfig?.fontFamily,
                       color: themeConfig?.fontColor,
@@ -509,7 +510,7 @@ export function ProfileView({
                       padding: 0,
                     }}
                   >
-                    Claim your own Amped.Bio
+                    Made with Amped.Bio
                   </button>
                   {trackableProfileId !== null && consent !== null && (
                     <button
