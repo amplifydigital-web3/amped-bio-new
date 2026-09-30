@@ -117,7 +117,7 @@ Below 768px the preset lowers the blur on the glass levels. The spec asks for le
 
 ## Components (PR 2)
 
-All shared components live in `packages/ui` and are exported from `@repo/ui`. The existing primitives were restyled in place, so every screen that uses them changes with this PR. See them all at **`/_prism`** in the client app (signed in, not linked anywhere).
+All shared components live in `packages/ui` and are exported from `@repo/ui`. The existing primitives were restyled in place, so every screen that uses them changes with this PR. See them all at **`/_prism`** in the client app (signed in, not linked anywhere, not served in production builds).
 
 ### Restyled in place
 
@@ -151,7 +151,7 @@ All shared components live in `packages/ui` and are exported from `@repo/ui`. Th
 
 ### Toasts in the client
 
-`react-hot-toast` calls and `toast.add` from `components/ui/toast` now share one queue and one stack at the bottom left (above the dock on mobile). Errors stay until dismissed; success and info leave after 5 seconds.
+`react-hot-toast` calls and `toast.add` from `components/ui/toast` now share one queue and one stack at the bottom left (above the dock on mobile). Errors leave after 10 seconds (pass `duration: Infinity` when the user must act); success and info leave after 5 seconds.
 
 ### Tailwind merge
 

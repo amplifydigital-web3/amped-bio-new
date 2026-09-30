@@ -25,10 +25,14 @@ export interface ToastOptions {
 }
 
 const DEFAULT_DURATION = 5000;
+// Errors stay longer so they can be read, but still leave on their own so routine
+// validation errors do not pile up. Pass duration: Infinity when the user must act.
+export const ERROR_TOAST_DURATION = 10000;
 
 function addToast(options: ToastOptions): string {
-  // Prism: success and info leave after 5 seconds; errors stay until dismissed
-  const duration = options.duration ?? (options.type === "error" ? Infinity : DEFAULT_DURATION);
+  // Prism: success and info leave after 5 seconds; errors after 10 seconds
+  const duration =
+    options.duration ?? (options.type === "error" ? ERROR_TOAST_DURATION : DEFAULT_DURATION);
   const action = options.actionProps;
 
   return hotToast.custom(
