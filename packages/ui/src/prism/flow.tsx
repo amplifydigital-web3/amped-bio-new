@@ -4,6 +4,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Check, Pencil, X } from "lucide-react";
 import { cn } from "../utils";
 import { Button, type ButtonProps } from "../button";
+import { sanitizeAmount } from "@repo/constants";
 
 // Prism money flow pieces (spec sections 7, 10 and 15; app structure "money
 // flows"; D23 step labels). Every flow that moves value (stake, unstake, send,
@@ -183,13 +184,6 @@ export interface AmountWellProps {
   id?: string;
 }
 
-// Keeps digits and one decimal point; the flow validates against balance.
-function sanitizeAmount(raw: string) {
-  const cleaned = raw.replace(/[^0-9.]/g, "");
-  const [whole, ...rest] = cleaned.split(".");
-  return rest.length > 0 ? `${whole}.${rest.join("")}` : whole;
-}
-
 // Section 7 amount well: 131 high, r21, create light, Bebas amount, 44 unit
 // pill. Calm (commit) state: no color light, 1px line ring, "You stake" style
 // label and an Edit amount lens.
@@ -235,7 +229,7 @@ export function AmountWell({
           readOnly={calm}
           value={value}
           placeholder="0"
-          onChange={event => onChange?.(sanitizeAmount(event.target.value))}
+          onChange={event => onChange?.(sanitizeAmount(event.target.value, value))}
           aria-invalid={error ? true : undefined}
           aria-describedby={error || balanceAfter ? noteId : undefined}
           className={cn(
