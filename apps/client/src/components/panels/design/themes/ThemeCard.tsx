@@ -29,7 +29,7 @@ function useIsCurrentTheme() {
 /** Server first, then the editor; Undo for 8 seconds (033 I03, I04). */
 function useApplyTheme() {
   const { theme: previous } = useEditor();
-  const { restoreTheme, storeOwnTheme, refetch } = useThemeActions();
+  const { restoreTheme, storeOwnTheme, refetch, ensureSaved } = useThemeActions();
   const [applying, setApplying] = useState<string | null>(null);
 
   const apply = async (card: MarketplaceTheme) => {
@@ -38,6 +38,7 @@ function useApplyTheme() {
     const numeric = Number(card.id);
     const marketplace = card.user_id === null && Number.isFinite(numeric);
     try {
+      await ensureSaved();
       if (marketplace) {
         await trpcClient.theme.applyTheme.mutate({ themeId: numeric });
       } else {

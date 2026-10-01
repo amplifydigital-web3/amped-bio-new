@@ -46,7 +46,8 @@ const LOCKED_SAVE = "Locked themes can't be saved as a file.";
 export function DesignPanel() {
   const [tab, setTab] = useDestinationTab(TABS);
   const { theme, profile, exportTheme, replaceThemeConfig } = useEditor();
-  const { storeOwnTheme, restoreTheme, refetch, makeEditableCopy, pending } = useThemeActions();
+  const { storeOwnTheme, restoreTheme, refetch, makeEditableCopy, ensureSaved, pending } =
+    useThemeActions();
   const mobile = useMediaQuery(PHONE_QUERY);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -103,6 +104,7 @@ export function DesignPanel() {
     if (locked) {
       // A locked theme cannot take new values: the file becomes the creator's own theme
       try {
+        await ensureSaved();
         await storeOwnTheme(name, config);
         await refetch();
       } catch {
