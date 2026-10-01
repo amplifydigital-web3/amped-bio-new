@@ -1,76 +1,52 @@
-import { useState, useEffect, useRef } from "react";
-import {
-  HandleStatus,
-  normalizeHandle,
-  validateHandleFormat,
-  validateHandleLength,
-  isEquivalentHandle,
-  checkHandle,
-} from "@/lib/handle";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { trpcClient } from "@/lib/trpc";
+import { normalizeHandle, validateHandleFormat, validateHandleLength } from "@/lib/handle";
 
-// Re-export the HandleStatus type for backward compatibility
-export type URLStatus = HandleStatus;
+export type URLStatus =
+  | "Unknown"
+  | "TooShort"
+  | "Invalid"
+  | "Checking"
+  | "Available"
+  | "Unavailable"
+  // The check itself did not finish (network); never reported as taken
+  | "Error";
 
 /**
- * Hook for checking handle availability with debounce
- * @param url The handle to check (with or without @ prefix)
- * @param currentUrl The current user's handle (optional, for comparison)
+ * Debounced handle availability (Screen Review 008 I05). A failed request is
+ * "Error" with a recheck, so a network problem never reads as a taken URL.
  */
-export function useHandleAvailability(url: string, currentUrl: string = "") {
-  const [urlStatus, setUrlStatus] = useState<URLStatus>("Unknown");
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
-
-  // Use the centralized validation functions
-  const normalizedUrl = normalizeHandle(url);
-  const isValid = validateHandleFormat(normalizedUrl) && validateHandleLength(normalizedUrl);
-  const isCurrentUrl = isEquivalentHandle(url, currentUrl) && currentUrl !== "";
+export function useHandleAvailability(raw: string) {
+  const handle = normalizeHandle(raw);
+  const [status, setStatus] = useState<URLStatus>("Unknown");
+  const [attempt, setAttempt] = useState(0);
+  const request = useRef(0);
 
   useEffect(() => {
-    if (normalizedUrl.trim() === "") {
-      setUrlStatus("Unknown");
-      return;
-    }
+    if (!handle) return setStatus("Unknown");
+    if (!validateHandleLength(handle)) return setStatus("TooShort");
+    if (!validateHandleFormat(handle)) return setStatus("Invalid");
 
-    if (!validateHandleLength(normalizedUrl)) {
-      setUrlStatus("TooShort");
-      return;
-    }
-
-    if (!validateHandleFormat(normalizedUrl)) {
-      setUrlStatus("Invalid");
-      return;
-    }
-
-    // Check if URL is the same as current handle
-    if (isCurrentUrl) {
-      setUrlStatus("Unknown"); // We'll handle this special case in the UI
-      return;
-    }
-
-    setUrlStatus("Checking");
-
-    // Clear any existing timer
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-    }
-
-    // Set a new timer
-    debounceTimer.current = setTimeout(() => {
-      checkHandle(normalizedUrl).then(available => {
-        setUrlStatus(available ? "Available" : "Unavailable");
-      });
+    setStatus("Checking");
+    const id = ++request.current;
+    const timer = setTimeout(() => {
+      trpcClient.handle.checkAvailability
+        .query({ handle })
+        .then(result => {
+          if (id === request.current) setStatus(result.available ? "Available" : "Unavailable");
+        })
+        .catch(() => {
+          if (id === request.current) setStatus("Error");
+        });
     }, 500);
+    return () => clearTimeout(timer);
+  }, [handle, attempt]);
 
-    return () => {
-      if (debounceTimer.current) {
-        clearTimeout(debounceTimer.current);
-      }
-    };
-  }, [normalizedUrl, isValid, isCurrentUrl, currentUrl]);
+  const recheck = useCallback(() => setAttempt(value => value + 1), []);
 
   return {
-    urlStatus,
-    isValid,
-    isCurrentUrl,
+    urlStatus: status,
+    isValid: validateHandleFormat(handle) && validateHandleLength(handle),
+    recheck,
   };
 }

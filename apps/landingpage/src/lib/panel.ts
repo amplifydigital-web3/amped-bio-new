@@ -11,6 +11,15 @@ export function getPanelEditUrl(handle: string): string {
 }
 
 /**
+ * The editor Home in apps/client. New accounts pass welcome so Home opens the
+ * setup checklist (Screen Review 008 I14, 010 I03).
+ */
+export function getPanelHomeUrl(options: { welcome?: boolean } = {}): string {
+  const base = process.env.NEXT_PUBLIC_PANEL_URL || "";
+  return `${base}/home${options.welcome ? "?welcome=1" : ""}`;
+}
+
+/**
  * Build the apps/client URL that opens a pool's details panel in Explore, where the
  * signed in person can stake. The client reads t=pools and pa=<address> on load
  * (apps/client PoolsTab). /i/pools/... must never be used on the panel host: the
@@ -43,4 +52,31 @@ export function getSafeRedirect(raw: string | null | undefined): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Where to go after sign in (Screen Review 009 I17, D27): a same origin
+ * ?returnTo, or the legacy ?redirect when it points to the panel origin, else
+ * the panel Home. Never an off site target.
+ */
+export function getPostAuthDestination(
+  params: URLSearchParams,
+  options: { welcome?: boolean } = {}
+): string {
+  return (
+    getSafeRedirect(params.get("returnTo")) ||
+    getSafeRedirect(params.get("redirect")) ||
+    getPanelHomeUrl(options)
+  );
+}
+
+/** Absolute form of a destination, for OAuth callback URLs. */
+export function toAbsoluteUrl(url: string): string {
+  if (typeof window === "undefined" || /^https?:\/\//i.test(url)) return url;
+  return new URL(url, window.location.origin).toString();
+}
+
+/** Full navigation: destinations are often on the panel origin. */
+export function goTo(url: string) {
+  window.location.href = url;
 }
