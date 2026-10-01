@@ -29,7 +29,12 @@ export function ProtectedRoute({ children, adminOnly = false }: ProtectedRoutePr
 
   // Redirect to the public site with the login popup open if not authenticated
   if (authUser === null) {
-    return <ExternalRedirect to={`${import.meta.env.VITE_LANDINGPAGE_URL}/login`} />;
+    // Send the person back to the exact editor URL after sign in, so deep links such
+    // as /explore?t=pools&pa=<address> (the Stake link on public pool pages) survive
+    const returnTo = encodeURIComponent(window.location.href);
+    return (
+      <ExternalRedirect to={`${import.meta.env.VITE_LANDINGPAGE_URL}/login?redirect=${returnTo}`} />
+    );
   }
 
   // Check admin access if required
