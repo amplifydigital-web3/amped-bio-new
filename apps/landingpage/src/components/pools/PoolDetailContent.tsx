@@ -39,11 +39,7 @@ function PoolDetailsSkeleton() {
   );
 }
 
-const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
-  poolAddress,
-  onBack,
-  shareUrl,
-}) => {
+const PoolDetailContent: React.FC<PoolDetailContentProps> = ({ poolAddress, onBack, shareUrl }) => {
   // Query for pool by address from URL parameter
   const {
     data: pool,
@@ -217,17 +213,18 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
               {/* Stats Grid - 2x2 with auto height */}
               <div className="min-h-64">
                 <div className="grid grid-cols-2 gap-4">
-                  {/* APY card */}
+                  {/* 24-Hour Average Network Rewards card */}
                   {pool?.apy !== undefined && pool.apy !== null && (
                     <div className="rounded-xl p-4 border border-green-100 flex flex-col justify-center">
                       <div className="flex items-center space-x-2 mb-2">
                         <Percent className="w-4 h-4 text-green-600" />
-                        <span className="text-sm font-medium text-green-700">APY</span>
+                        <span className="text-sm font-medium text-green-700">
+                          24-Hour Average Network Rewards
+                        </span>
                       </div>
                       <div className="text-xl font-bold text-green-900">
                         {(pool.apy / 100).toFixed(2)}%
                       </div>
-                      <div className="text-xs text-green-600">Annual Percentage Yield</div>
                       <a
                         href={`/i/pools/${pool.address}/debug-apy`}
                         target="_blank"
@@ -235,7 +232,7 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                         className="flex items-center space-x-1 text-xs text-green-700 hover:text-green-800 mt-1 transition-colors duration-200"
                       >
                         <Info className="w-3 h-3" />
-                        <span>View APY details</span>
+                        <span>View 24-Hour Average Network Rewards details</span>
                       </a>
                     </div>
                   )}
@@ -292,13 +289,15 @@ const PoolDetailContent: React.FC<PoolDetailContentProps> = ({
                   {/* Knowledgebase Link */}
                   <div className="mt-4 pt-4 border-t border-gray-200">
                     <a
-                      href="https://amplifydigital.freshdesk.com/support/solutions/articles/154000250365-how-is-reward-pool-apy-calculated"
+                      href="https://amplifydigital.freshdesk.com/support/solutions/articles/154000262451-how-are-staking-rewards-and-network-rewards-rate-calculated-"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-700 hover:underline transition-colors duration-200"
                     >
                       <ExternalLink className="w-4 h-4" />
-                      <span>How are Staking Rewards and Pool APY Calculated?</span>
+                      <span>
+                        How are Staking Rewards and 24-Hour Average Network Rewards Calculated?
+                      </span>
                     </a>
                   </div>
                 </div>

@@ -2,11 +2,11 @@ import { privateProcedure, router } from "./trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { env } from "../env";
-import { createWalletClient, http, parseEther, Address, createPublicClient, keccak256 } from "viem";
+import { createWalletClient, parseEther, Address, createPublicClient, keccak256 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { getAddress } from "viem/utils";
 import { prisma } from "../services/DB";
-import { getChainConfig } from "@repo/web3";
+import { getChainConfig, getRpcTransport } from "@repo/web3";
 import * as jose from "jose";
 import Decimal from "decimal.js";
 import { SITE_SETTINGS } from "@repo/constants";
@@ -314,7 +314,7 @@ export const walletRouter = router({
 
           const publicClient = createPublicClient({
             chain,
-            transport: http(chain.rpcUrls.default.http[0]),
+            transport: getRpcTransport(chain),
           });
 
           const account = privateKeyToAccount(env.FAUCET_PRIVATE_KEY as `0x${string}`);
@@ -464,14 +464,14 @@ export const walletRouter = router({
         const walletClient = createWalletClient({
           account,
           chain,
-          transport: http(chain.rpcUrls.default.http[0]),
+          transport: getRpcTransport(chain),
         });
 
         // If not in mock mode, check the actual balance of the faucet
         if (env.FAUCET_MOCK_MODE !== "true") {
           const publicClient = createPublicClient({
             chain,
-            transport: http(chain.rpcUrls.default.http[0]),
+            transport: getRpcTransport(chain),
           });
 
           const balance = await publicClient.getBalance({ address: account.address });
