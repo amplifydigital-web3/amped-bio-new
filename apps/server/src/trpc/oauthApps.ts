@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { privateProcedure, router } from "./trpc";
+import { prisma } from "@repo/database";
 import { auth } from "../utils/auth";
 
 const clientIdInput = z.object({ client_id: z.string().min(1) });
@@ -45,9 +46,35 @@ export const oauthAppsRouter = router({
     }
   }),
 
+  /**
+   * Apps this person allowed (Account, Connected apps; Screen Review 092 I16,
+   * D30). Each consent carries the client's name, icon and website so the row
+   * can name the app instead of its client id.
+   */
   consents: privateProcedure.query(async ({ ctx }) => {
     try {
-      return await auth.api.getOAuthConsents({ headers: ctx.req.headers as never });
+      const consents = (await auth.api.getOAuthConsents({
+        headers: ctx.req.headers as never,
+      })) as unknown as Array<Record<string, unknown> & { clientId?: string }>;
+      const clientIds = [
+        ...new Set(consents.map(consent => consent.clientId).filter(Boolean)),
+      ] as string[];
+      const clients = clientIds.length
+        ? await prisma.oauthClient.findMany({
+            where: { clientId: { in: clientIds } },
+            select: { clientId: true, name: true, icon: true, uri: true },
+          })
+        : [];
+      const byId = new Map(clients.map(client => [client.clientId, client]));
+      return consents.map(consent => {
+        const client = consent.clientId ? byId.get(consent.clientId) : undefined;
+        return {
+          ...consent,
+          clientName: client?.name ?? null,
+          clientIcon: client?.icon ?? null,
+          clientUri: client?.uri ?? null,
+        };
+      });
     } catch (error) {
       return toTRPCError(error);
     }
