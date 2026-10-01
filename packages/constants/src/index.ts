@@ -20,3 +20,4 @@ export * from "./ndauConversionMessage";
 export * from "./analytics";
 export * from "./amount";
 export * from "./block-validity";
+export * from "./html";

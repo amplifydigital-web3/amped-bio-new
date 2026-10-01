@@ -65,6 +65,11 @@ interface RichTextEditorProps {
   describedBy?: string;
 }
 
+// Typed text is text, never markup. Without this, typing <img onerror=...> in the
+// editor produced live HTML. The deserializer (DOMParser) decodes these back to text.
+const escapeHtmlText = (text: string): string =>
+  text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
 function slateToHtml(nodes: Descendant[]): string {
   return nodes
     .map(node => {
@@ -96,7 +101,7 @@ function slateToHtml(nodes: Descendant[]): string {
         const children = element.children.map(child => slateToHtml([child])).join("");
         return `<${tag}${attrs}>${children}</${tag}>`;
       }
-      let text = node.text;
+      let text = escapeHtmlText(node.text);
       if (node.bold) text = `<strong>${text}</strong>`;
       if (node.italic) text = `<em>${text}</em>`;
       if (node.underline) text = `<u>${text}</u>`;

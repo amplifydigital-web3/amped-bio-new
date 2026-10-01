@@ -19,6 +19,7 @@ import { OptionGrid, OptionTile } from "../kit/OptionTile";
 import { ColorControl } from "../kit/ColorControl";
 import { CreatorBackdrop } from "../kit/CreatorArt";
 import { backgroundThumb, useDesign } from "../kit/useDesign";
+import { useThemeActions } from "../kit/useThemeActions";
 
 // Screen Review 023. The Background row in Design Style.
 
@@ -268,6 +269,7 @@ function UploadBackground({
   onLink: (background: Background) => void;
 }) {
   const { theme, profile, setUser, locked } = useDesign();
+  const { ensureSaved } = useThemeActions();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
@@ -300,6 +302,9 @@ function UploadBackground({
       return;
     }
     try {
+      // The upload writes the background on the server and the refetch below
+      // replaces the editor state, so store pending edits first
+      await ensureSaved();
       setProgress(0);
       const presigned = await trpcClient.upload.requestThemeBackgroundUrl.mutate({
         contentType: file.type,

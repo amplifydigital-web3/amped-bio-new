@@ -45,7 +45,7 @@ import {
   getHeroEffectStyle,
   isHTML,
 } from "@/lib/styles";
-import { isRenderable, type BlockType } from "@repo/constants";
+import { isRenderable, sanitizeRichHtml, type BlockType } from "@repo/constants";
 import {
   DEFAULT_HANDLE,
   DEFAULT_PROFILE_DATA,
@@ -94,7 +94,6 @@ function ProfileSkeleton() {
     </div>
   );
 }
-
 
 function extractRootDomain(url: string): string {
   try {
@@ -300,7 +299,9 @@ export function ProfileView({
               />
             ) : null}
             <div className="absolute inset-0">
-              <ParticlesBackground effect={themeConfig?.particlesEffect ?? THEME_DEFAULTS.particlesEffect} />
+              <ParticlesBackground
+                effect={themeConfig?.particlesEffect ?? THEME_DEFAULTS.particlesEffect}
+              />
             </div>
           </div>
 
@@ -309,7 +310,10 @@ export function ProfileView({
             <div className="relative min-h-full py-8 px-4 transition-all duration-300 mx-auto z-10 max-w-[640px]">
               {/* Container */}
               <div
-                className={cn("w-full space-y-8 p-8", getContainerStyle(themeConfig?.containerStyle))}
+                className={cn(
+                  "w-full space-y-8 p-8",
+                  getContainerStyle(themeConfig?.containerStyle)
+                )}
                 style={{
                   backgroundColor: `${themeConfig?.containerColor}${Math.round(
                     (themeConfig?.transparency ?? THEME_DEFAULTS.transparency) * 2.55
@@ -388,8 +392,8 @@ export function ProfileView({
                         </div>
                       )}
                     </div>
-                    {profile.bio && (
-                      isHTML(profile.bio) ? (
+                    {profile.bio &&
+                      (isHTML(profile.bio) ? (
                         <p
                           className="text-lg max-w-2xl mx-auto leading-relaxed"
                           style={{
@@ -397,7 +401,7 @@ export function ProfileView({
                             color: themeConfig?.fontColor,
                             opacity: 0.9,
                           }}
-                          dangerouslySetInnerHTML={{ __html: profile.bio }}
+                          dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(profile.bio) }}
                         />
                       ) : (
                         <p
@@ -410,8 +414,7 @@ export function ProfileView({
                         >
                           {profile.bio}
                         </p>
-                      )
-                    )}
+                      ))}
                   </div>
                 </div>
 
