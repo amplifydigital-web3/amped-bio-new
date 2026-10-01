@@ -1,4 +1,11 @@
-import React, { MouseEvent, useCallback, useMemo, useState, useEffect, ReactNode } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import { Descendant, Editor, Element as SlateElement, Transforms, createEditor } from "slate";
 import { withHistory } from "slate-history";
 import {
@@ -9,17 +16,18 @@ import {
   useSlate,
   withReact,
 } from "slate-react";
-import { Button, Toolbar } from "./SlateComponents";
 import {
+  AlignCenter,
+  AlignJustify,
+  AlignLeft,
+  AlignRight,
   Bold,
+  Check,
   Italic,
   Underline,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  AlignJustify,
-  ChevronDown,
+  type LucideIcon,
 } from "lucide-react";
+import { Menu, MenuContent, MenuItem, MenuTrigger, cn } from "@repo/ui";
 import {
   CustomEditor,
   CustomElement,
@@ -29,29 +37,32 @@ import {
 } from "./custom-types";
 import { htmlToSlate } from "./SlateRenderer";
 
-// Debounce utility function
-const debounce = <F extends (...args: any[]) => any>(func: F, waitFor: number) => {
-  let timeout: ReturnType<typeof setTimeout> | null = null;
+// The rich text editor for the bio and text blocks (Screen Review 018 I02 to
+// I06, 037 I07). Prism toolbar of 44 buttons inside the well, roving focus,
+// shortcuts, and an Align menu. Saves HTML after the debounce and on blur.
 
-  const debounced = (...args: Parameters<F>) => {
-    if (timeout !== null) {
-      clearTimeout(timeout);
-    }
-    timeout = setTimeout(() => func(...args), waitFor);
-  };
-
-  return debounced as (...args: Parameters<F>) => ReturnType<F>;
-};
-
-const TEXT_ALIGN_TYPES = ["left", "center", "right", "justify"] as const;
-
-type AlignType = (typeof TEXT_ALIGN_TYPES)[number];
+type AlignType = "left" | "center" | "right" | "justify";
 type CustomElementFormat = CustomElementType | AlignType;
 
 interface RichTextEditorProps {
   initialValue?: string;
-  onSave?: (value: string) => void; // Changed from Descendant[] to string
+  onSave?: (value: string) => void;
+  /** D11: 800ms after the last change */
   debounceTime?: number;
+  /** id of the visible label element (aria-labelledby) */
+  labelId?: string;
+  /** aria-label for the toolbar, for example "Bio formatting" */
+  toolbarLabel?: string;
+  placeholder?: string;
+  /** Minimum editable height in px (89 for the bio, 144 for text blocks) */
+  minHeight?: number;
+  /** The editable area grows to this height, then scrolls */
+  maxHeight?: number;
+  /** Receives the latest HTML on every change (for the live preview) */
+  onChange?: (value: string) => void;
+  onBlur?: () => void;
+  invalid?: boolean;
+  describedBy?: string;
 }
 
 // Typed text is text, never markup. Without this, typing <img onerror=...> in the
@@ -59,20 +70,14 @@ interface RichTextEditorProps {
 const escapeHtmlText = (text: string): string =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-// Function to convert Slate nodes to HTML string
-const slateToHtml = (nodes: Descendant[]): string => {
+function slateToHtml(nodes: Descendant[]): string {
   return nodes
     .map(node => {
-      if (Editor.isEditor(node)) {
-        return "";
-      }
-
+      if (Editor.isEditor(node)) return "";
       if (!("text" in node)) {
         const element = node as CustomElement;
         let tag = "p";
         let attrs = "";
-
-        // Determine the HTML tag based on element type
         switch (element.type) {
           case "block-quote":
             tag = "blockquote";
@@ -90,161 +95,219 @@ const slateToHtml = (nodes: Descendant[]): string => {
             tag = "ol";
             break;
         }
-
-        // Handle alignment
         if (isAlignElement(element) && element.align) {
           attrs = ` style="text-align: ${element.align}"`;
         }
-
-        // Recursively convert children
         const children = element.children.map(child => slateToHtml([child])).join("");
-
         return `<${tag}${attrs}>${children}</${tag}>`;
       }
-
-      // Handle text nodes with formatting
       let text = escapeHtmlText(node.text);
       if (node.bold) text = `<strong>${text}</strong>`;
       if (node.italic) text = `<em>${text}</em>`;
       if (node.underline) text = `<u>${text}</u>`;
       if (node.code) text = `<code>${text}</code>`;
-
       return text;
     })
     .join("");
-};
+}
 
-const TextEditor = ({ initialValue, onSave, debounceTime = 1000 }: RichTextEditorProps) => {
+const MARKS: { format: CustomTextKey; icon: LucideIcon; label: string; key: string }[] = [
+  { format: "bold", icon: Bold, label: "Bold", key: "B" },
+  { format: "italic", icon: Italic, label: "Italic", key: "I" },
+  { format: "underline", icon: Underline, label: "Underline", key: "U" },
+];
+
+const ALIGNS: { format: AlignType; icon: LucideIcon; label: string }[] = [
+  { format: "left", icon: AlignLeft, label: "Left" },
+  { format: "center", icon: AlignCenter, label: "Center" },
+  { format: "right", icon: AlignRight, label: "Right" },
+  { format: "justify", icon: AlignJustify, label: "Justify" },
+];
+
+const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
+const MOD = isMac ? "Cmd" : "Ctrl";
+
+const TOOL =
+  "prism-focus inline-flex h-touch w-touch shrink-0 items-center justify-center rounded-prism-13 text-prism-ink-2 transition-colors duration-prism-hover hover:bg-white/60";
+const TOOL_PRESSED = "prism-lens-thumb text-prism-nav-pressed shadow-[0_0_0_1.5px_#5650A2]";
+
+const TextEditor = ({
+  initialValue,
+  onSave,
+  debounceTime = 800,
+  labelId,
+  toolbarLabel = "Text formatting",
+  placeholder = "Write something for your visitors",
+  minHeight = 89,
+  maxHeight = 233,
+  onChange,
+  onBlur,
+  invalid = false,
+  describedBy,
+}: RichTextEditorProps) => {
   const renderElement = useCallback((props: RenderElementProps) => <Element {...props} />, []);
   const renderLeaf = useCallback((props: RenderLeafProps) => <Leaf {...props} />, []);
   const editor = useMemo(() => withHistory(withReact(createEditor())), []);
-  const [value, setValue] = useState<Descendant[]>(htmlToSlate(initialValue ?? ""));
-  // Track the last saved content
-  const [lastSavedContent, setLastSavedContent] = useState<string>(initialValue ?? "");
+  const [initial] = useState<Descendant[]>(() => htmlToSlate(initialValue ?? ""));
+  const lastSaved = useRef(initialValue ?? "");
+  const latest = useRef(initialValue ?? "");
+  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const saveRef = useRef(onSave);
+  saveRef.current = onSave;
 
-  // Set up debounced save function with HTML conversion
-  const debouncedSave = useMemo(
-    () =>
-      onSave
-        ? debounce((val: Descendant[]) => {
-            const htmlContent = slateToHtml(val);
-            // Only call onSave if content has changed
-            if (htmlContent !== lastSavedContent) {
-              onSave(htmlContent);
-              setLastSavedContent(htmlContent);
-            }
-          }, debounceTime)
-        : undefined,
-    [onSave, debounceTime, lastSavedContent]
-  );
-
-  // Call the debouncedSave function when value changes
-  useEffect(() => {
-    if (debouncedSave) {
-      debouncedSave(value);
+  const flush = useCallback(() => {
+    clearTimeout(timer.current);
+    if (latest.current !== lastSaved.current) {
+      lastSaved.current = latest.current;
+      saveRef.current?.(latest.current);
     }
-  }, [value, debouncedSave]);
+  }, []);
+
+  // Save anything pending when the editor goes away (collapse, destination change)
+  useEffect(() => () => flush(), [flush]);
+
+  const handleChange = (value: Descendant[]) => {
+    // Selection changes also fire onChange; only content changes count
+    const isContentChange = editor.operations.some(op => op.type !== "set_selection");
+    if (!isContentChange) return;
+    const html = slateToHtml(value);
+    latest.current = html;
+    onChange?.(html);
+    clearTimeout(timer.current);
+    timer.current = setTimeout(flush, debounceTime);
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!(event.metaKey || event.ctrlKey)) return;
+    const mark = MARKS.find(m => m.key.toLowerCase() === event.key.toLowerCase());
+    if (mark) {
+      event.preventDefault();
+      toggleMark(editor, mark.format);
+    }
+  };
 
   return (
-    <Slate editor={editor} initialValue={value} onChange={setValue}>
-      <Toolbar>
-        {/* Text formatting dropdown group */}
-        <MarkButtonGroup />
-
-        {/* Alignment dropdown group */}
-        <BlockButtonDropdown icon={<AlignLeft className="w-4 h-4" />}>
-          <BlockButton format="left" icon={<AlignLeft className="w-4 h-4" />} label="Left" />
-          <BlockButton format="center" icon={<AlignCenter className="w-4 h-4" />} label="Center" />
-          <BlockButton format="right" icon={<AlignRight className="w-4 h-4" />} label="Right" />
-          <BlockButton
-            format="justify"
-            icon={<AlignJustify className="w-4 h-4" />}
-            label="Justify"
-          />
-        </BlockButtonDropdown>
-      </Toolbar>
-      <Editable
-        renderElement={renderElement}
-        renderLeaf={renderLeaf}
-        placeholder="Enter some rich text…"
-        spellCheck
-        autoFocus
-        className="min-h-[200px] p-2 border border-gray-400 rounded-md"
-      />
+    <Slate editor={editor} initialValue={initial} onChange={handleChange}>
+      <div
+        className={cn(
+          "prism-well overflow-hidden font-prism focus-within:shadow-[0_0_0_1.5px_#0B5A80,0_0_0_5.5px_rgba(39,170,225,0.32)]",
+          invalid && "!shadow-[inset_0_0_0_1.5px_#B3261E]"
+        )}
+      >
+        <FormattingToolbar label={toolbarLabel} />
+        <Editable
+          role="textbox"
+          aria-multiline="true"
+          aria-labelledby={labelId}
+          aria-invalid={invalid || undefined}
+          aria-describedby={describedBy}
+          renderElement={renderElement}
+          renderLeaf={renderLeaf}
+          placeholder={placeholder}
+          spellCheck
+          onKeyDown={onKeyDown}
+          onBlur={() => {
+            flush();
+            onBlur?.();
+          }}
+          style={{ minHeight, maxHeight }}
+          className="overflow-y-auto p-[13px] text-[16px] leading-[26px] text-prism-ink outline-none [&_[data-slate-placeholder]]:!text-prism-ink-3 [&_[data-slate-placeholder]]:!opacity-100"
+        />
+      </div>
     </Slate>
   );
 };
 
-// New dropdown component for block buttons
-interface BlockButtonDropdownProps {
-  icon: ReactNode;
-  children: ReactNode;
+function FormattingToolbar({ label }: { label: string }) {
+  const editor = useSlate();
+  const ref = useRef<HTMLDivElement>(null);
+  const [focusIndex, setFocusIndex] = useState(0);
+  const currentAlign = ALIGNS.find(a => isBlockActive(editor, a.format, "align")) ?? ALIGNS[0];
+
+  // Roving tabindex: arrows move between the four buttons (018 I02)
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+    const buttons = Array.from(ref.current?.querySelectorAll<HTMLElement>("[data-tool]") ?? []);
+    const next =
+      (focusIndex + (event.key === "ArrowRight" ? 1 : -1) + buttons.length) % buttons.length;
+    event.preventDefault();
+    setFocusIndex(next);
+    buttons[next]?.focus();
+  };
+
+  return (
+    <div
+      ref={ref}
+      role="toolbar"
+      aria-label={label}
+      onKeyDown={onKeyDown}
+      className="flex gap-[3px] border-b border-prism-line px-[5px] py-[5px]"
+    >
+      {MARKS.map((mark, index) => {
+        const active = isMarkActive(editor, mark.format);
+        return (
+          <button
+            key={mark.format}
+            type="button"
+            data-tool
+            tabIndex={focusIndex === index ? 0 : -1}
+            aria-label={mark.label}
+            aria-pressed={active}
+            title={`${mark.label} (${MOD} ${mark.key})`}
+            onMouseDown={event => {
+              event.preventDefault();
+              toggleMark(editor, mark.format);
+            }}
+            onKeyDown={event => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                toggleMark(editor, mark.format);
+              }
+            }}
+            className={cn(TOOL, active && TOOL_PRESSED)}
+          >
+            <mark.icon aria-hidden className="h-[21px] w-[21px]" />
+          </button>
+        );
+      })}
+      <Menu>
+        <MenuTrigger
+          data-tool
+          tabIndex={focusIndex === 3 ? 0 : -1}
+          aria-label={`Align, ${currentAlign.label}`}
+          title="Align"
+          onMouseDown={event => event.preventDefault()}
+          className={TOOL}
+        >
+          <currentAlign.icon aria-hidden className="h-[21px] w-[21px]" />
+        </MenuTrigger>
+        <MenuContent align="start" className="w-[144px]">
+          {ALIGNS.map(align => {
+            const active = align.format === currentAlign.format;
+            return (
+              <MenuItem key={align.format} onSelect={() => setAlign(editor, align.format)}>
+                <align.icon aria-hidden />
+                <span className="flex-1">{align.label}</span>
+                {active && <Check aria-hidden className="h-4 w-4" />}
+              </MenuItem>
+            );
+          })}
+        </MenuContent>
+      </Menu>
+    </div>
+  );
 }
 
-const BlockButtonDropdown = ({ icon, children }: BlockButtonDropdownProps) => {
-  const [isOpen, setIsOpen] = useState(false);
-
-  return (
-    <div className="relative">
-      <Button
-        onMouseDown={(e: MouseEvent) => {
-          e.preventDefault();
-          setIsOpen(!isOpen);
-        }}
-        className="flex items-center gap-1"
-      >
-        {icon}
-        <ChevronDown className="w-3 h-3" />
-      </Button>
-
-      {isOpen && (
-        <div
-          className="absolute top-full left-0 mt-1 bg-white shadow-lg rounded border border-gray-200 z-10 min-w-[150px]"
-          onMouseLeave={() => setIsOpen(false)}
-        >
-          <div className="p-1 flex flex-col gap-1">{children}</div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Group for mark buttons (bold, italic, etc.)
-const MarkButtonGroup = () => {
-  return (
-    <div className="flex gap-1">
-      <MarkButton format="bold" icon={<Bold className="w-4 h-4" />} />
-      <MarkButton format="italic" icon={<Italic className="w-4 h-4" />} />
-      <MarkButton format="underline" icon={<Underline className="w-4 h-4" />} />
-    </div>
-  );
-};
-
-const toggleBlock = (editor: CustomEditor, format: CustomElementFormat) => {
-  const isActive = isBlockActive(editor, format, isAlignType(format) ? "align" : "type");
-
-  // Remove list-related unwrapping logic
-  let newProperties: Partial<SlateElement>;
-  if (isAlignType(format)) {
-    newProperties = {
-      align: isActive ? undefined : format,
-    };
-  } else {
-    newProperties = {
-      type: isActive ? "paragraph" : format,
-    };
+function setAlign(editor: CustomEditor, format: AlignType) {
+  if (!editor.selection) {
+    Transforms.select(editor, Editor.start(editor, []));
   }
-  Transforms.setNodes<SlateElement>(editor, newProperties);
-};
+  Transforms.setNodes<SlateElement>(editor, { align: format === "left" ? undefined : format });
+}
 
 const toggleMark = (editor: CustomEditor, format: CustomTextKey) => {
-  const isActive = isMarkActive(editor, format);
-
-  if (isActive) {
-    Editor.removeMark(editor, format);
-  } else {
-    Editor.addMark(editor, format, true);
-  }
+  if (isMarkActive(editor, format)) Editor.removeMark(editor, format);
+  else Editor.addMark(editor, format, true);
 };
 
 const isBlockActive = (
@@ -254,22 +317,18 @@ const isBlockActive = (
 ) => {
   const { selection } = editor;
   if (!selection) return false;
-
   const [match] = Array.from(
     Editor.nodes(editor, {
       at: Editor.unhangRange(editor, selection),
       match: n => {
         if (!Editor.isEditor(n) && SlateElement.isElement(n)) {
-          if (blockType === "align" && isAlignElement(n)) {
-            return n.align === format;
-          }
+          if (blockType === "align" && isAlignElement(n)) return n.align === format;
           return n.type === format;
         }
         return false;
       },
     })
   );
-
   return !!match;
 };
 
@@ -280,9 +339,7 @@ const isMarkActive = (editor: CustomEditor, format: CustomTextKey) => {
 
 const Element = ({ attributes, children, element }: RenderElementProps) => {
   const style: React.CSSProperties = {};
-  if (isAlignElement(element)) {
-    style.textAlign = element.align as AlignType;
-  }
+  if (isAlignElement(element)) style.textAlign = element.align as AlignType;
   switch (element.type) {
     case "block-quote":
       return (
@@ -312,70 +369,11 @@ const Element = ({ attributes, children, element }: RenderElementProps) => {
 };
 
 const Leaf = ({ attributes, children, leaf }: RenderLeafProps) => {
-  if (leaf.bold) {
-    children = <strong>{children}</strong>;
-  }
-
-  if (leaf.code) {
-    children = <code>{children}</code>;
-  }
-
-  if (leaf.italic) {
-    children = <em>{children}</em>;
-  }
-
-  if (leaf.underline) {
-    children = <u>{children}</u>;
-  }
-
+  if (leaf.bold) children = <strong>{children}</strong>;
+  if (leaf.code) children = <code>{children}</code>;
+  if (leaf.italic) children = <em>{children}</em>;
+  if (leaf.underline) children = <u>{children}</u>;
   return <span {...attributes}>{children}</span>;
-};
-
-interface BlockButtonProps {
-  format: CustomElementFormat;
-  icon: React.ReactNode;
-  label?: string;
-}
-
-const BlockButton = ({ format, icon, label }: BlockButtonProps) => {
-  const editor = useSlate();
-  return (
-    <Button
-      active={isBlockActive(editor, format, isAlignType(format) ? "align" : "type")}
-      onMouseDown={(event: MouseEvent<HTMLSpanElement>) => {
-        event.preventDefault();
-        toggleBlock(editor, format);
-      }}
-      className="flex items-center gap-2 w-full px-2 py-1 justify-start"
-    >
-      {icon}
-      {label && <span className="text-sm">{label}</span>}
-    </Button>
-  );
-};
-
-interface MarkButtonProps {
-  format: CustomTextKey;
-  icon: React.ReactNode;
-}
-
-const MarkButton = ({ format, icon }: MarkButtonProps) => {
-  const editor = useSlate();
-  return (
-    <Button
-      active={isMarkActive(editor, format)}
-      onMouseDown={(event: MouseEvent<HTMLSpanElement>) => {
-        event.preventDefault();
-        toggleMark(editor, format);
-      }}
-    >
-      {icon}
-    </Button>
-  );
-};
-
-const isAlignType = (format: CustomElementFormat): format is AlignType => {
-  return TEXT_ALIGN_TYPES.includes(format as AlignType);
 };
 
 const isAlignElement = (element: CustomElement): element is CustomElementWithAlign => {

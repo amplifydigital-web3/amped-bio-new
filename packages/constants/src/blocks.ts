@@ -9,7 +9,8 @@ export type BaseBlock<type extends BaseBlockType = any, T = any> = {
   user_id?: number;
   type: type;
   order: number;
-  config: T;
+  /** `hidden` keeps a block off the page without deleting it (Screen Review 036 I09) */
+  config: T & { hidden?: boolean };
   created_at?: string;
   updated_at?: string | null;
 };
@@ -53,6 +54,7 @@ export const linkConfigSchema = z.object({
   platform: z.enum(allowedPlatforms),
   url: z.string().url("Must be a valid URL"),
   label: z.string().min(1, "Label is required"),
+  hidden: z.boolean().optional(),
 });
 
 export const mediaConfigSchema = z.object({
@@ -60,6 +62,7 @@ export const mediaConfigSchema = z.object({
   url: z.string().url("Must be a valid URL"),
   label: z.string(),
   content: z.string().optional(),
+  hidden: z.boolean().optional(),
 });
 
 export const poolConfigSchema = z.object({
@@ -67,6 +70,7 @@ export const poolConfigSchema = z.object({
     .string()
     .regex(/^0x[a-fA-F0-9]+$/, "Must be a valid blockchain address starting with 0x"),
   label: z.string().min(1, "Label is required"),
+  hidden: z.boolean().optional(),
 });
 
 // Define allowed HTML tags
@@ -114,9 +118,10 @@ export const textConfigSchema = z.object({
         message: "JavaScript content is not allowed in the HTML",
       }
     ),
+  hidden: z.boolean().optional(),
 });
 
-export const referralConfigSchema = z.object({});
+export const referralConfigSchema = z.object({ hidden: z.boolean().optional() });
 
 // Schema for a single block
 export const blockSchema = z.object({
