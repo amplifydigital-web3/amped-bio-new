@@ -113,6 +113,14 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     revision.current += 1;
     setChanges(true);
   }, []);
+  // Theme edits get their own counter, so a save that started before a theme edit
+  // does not clear themeChanges for it (that edit would never reach the server).
+  const themeRevision = useRef(0);
+  const markThemeDirty = useCallback(() => {
+    themeRevision.current += 1;
+    themeChangesRef.current = true;
+    setThemeChanges(true);
+  }, []);
   const [expiredRevoName, setExpiredRevoName] = useState("");
   const [lostRevoName, setLostRevoName] = useState("");
   const navigate = useNavigate();
@@ -321,11 +329,11 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         theme: { ...prevState.theme, config: { ...prevState.theme.config, ...config } },
       }));
       markDirty();
-      setThemeChanges(true);
+      markThemeDirty();
       console.info("✅ Theme config updated");
       console.groupEnd();
     },
-    [markDirty]
+    [markDirty, markThemeDirty]
   );
 
   const setActivePanel = useCallback((activePanel: EditorPanelType) => {
@@ -372,11 +380,11 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         },
       }));
       markDirty();
-      setThemeChanges(true);
+      markThemeDirty();
       console.info("✅ Background updated");
       console.groupEnd();
     },
-    [markDirty]
+    [markDirty, markThemeDirty]
   );
 
   const setBackgroundForUpload = useCallback(
@@ -448,6 +456,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
   const saveChanges = useCallback(async (): Promise<boolean> => {
     const { profile, theme, blocks } = stateRef.current;
     const saveTheme = themeChangesRef.current;
+    const themeRevisionAtStart = themeRevision.current;
     if (authUser === null || authUser.id !== profile.id) {
       toast.error("Authentication error");
       return false;
@@ -470,7 +479,13 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     const blocksStatus = await trpcClient.blocks.editBlocks.mutate({ blocks });
 
     if (saveTheme && theme.id !== themeId) {
-      // Editing a shared theme creates the creator's own copy
+      // Editing a shared theme creates the creator's own copy. Update the ref
+      // right away too, so a save that starts before the next render edits the
+      // copy instead of creating a second one.
+      stateRef.current = {
+        ...stateRef.current,
+        theme: { ...stateRef.current.theme, id: themeId },
+      };
       setState(prevState => ({
         ...prevState,
         theme: { ...prevState.theme, id: themeId },
@@ -487,7 +502,11 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     });
 
     if (!userStatus || !blocksStatus) return false;
-    if (saveTheme) setThemeChanges(false);
+    // A theme edit made during this save stays dirty for the next one
+    if (saveTheme && themeRevision.current === themeRevisionAtStart) {
+      themeChangesRef.current = false;
+      setThemeChanges(false);
+    }
     return true;
   }, [authUser]);
 
@@ -500,8 +519,10 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
       clearTimeout(timer.current);
       timer.current = null;
     }
-    // One save at a time: wait for the running one, then save what is left
-    if (inFlight.current) await inFlight.current;
+    // One save at a time: wait for the running one, then save what is left.
+    // A loop, not a single await: when several callers wait on the same save,
+    // the first to resume starts the next save and the others must wait for it.
+    while (inFlight.current) await inFlight.current;
     if (revision.current === savedRevision.current) return true;
     if (typeof navigator !== "undefined" && !navigator.onLine) {
       setSaveStatus("offline");
@@ -638,9 +659,9 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         theme: { ...prevState.theme, config },
       }));
       markDirty();
-      setThemeChanges(true);
+      markThemeDirty();
     },
-    [markDirty]
+    [markDirty, markThemeDirty]
   );
 
   const value: EditorContextType = {

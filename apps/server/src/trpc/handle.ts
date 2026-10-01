@@ -4,8 +4,9 @@ import { getFileUrl } from "../utils/fileUrlResolver";
 import { ThemeConfig } from "@repo/constants";
 import { prisma } from "@repo/database";
 import { z } from "zod";
-import { HANDLE_MIN_LENGTH, HANDLE_REGEX } from "@repo/constants";
+import { HANDLE_MIN_LENGTH, HANDLE_REGEX, sanitizeRichText } from "@repo/constants";
 import { env } from "../env";
+import { sanitizeBlockConfig } from "../utils/sanitizeBlockConfig";
 import { logger } from "better-auth";
 import { getPublicTrackingPixels } from "./trackingPixels";
 import { indexableUserWhere, isUserIndexable } from "../utils/indexable";
@@ -294,7 +295,7 @@ const appRouter = router({
         type: block.type,
         order: block.order,
         clicks: block.clicks,
-        config: block.config,
+        config: sanitizeBlockConfig(block.type, block.config),
         created_at: block.created_at,
         updated_at: block.updated_at,
       }));
@@ -313,7 +314,8 @@ const appRouter = router({
           revoName: revoName.revoName,
           revoNameStatus: revoName.status,
           originalRevoName: revo_name ?? null,
-          description,
+          // Sanitized on read as well as on save, so bios stored before the sanitizer are safe
+          description: sanitizeRichText(description),
           image: settledOrFallback(imageResult, null, "profile image URL"),
         },
         theme: themeResult.value,
