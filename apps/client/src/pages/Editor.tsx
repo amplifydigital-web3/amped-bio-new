@@ -121,11 +121,7 @@ export function Editor() {
     return null; // Render nothing while redirection happens
   }
 
-  return (
-    <div className="h-screen flex flex-col">
-      <div className="flex-1 overflow-hidden">
-        <Layout bannerData={bannerData} bannerLoading={bannerLoading} />
-      </div>
-    </div>
-  );
+  // The Prism shell scrolls the page itself (fixed rail and dock, sticky
+  // preview), so no viewport-height or overflow wrapper goes around it
+  return <Layout bannerData={bannerData} bannerLoading={bannerLoading} />;
 }
