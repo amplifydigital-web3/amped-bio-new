@@ -8,6 +8,18 @@ export interface Theme {
   config: ThemeConfig;
 }
 
+/** A safe theme file name: letters, digits and single hyphens, never empty. */
+export function themeFileName(name: string) {
+  const safe = name
+    .replace(/\.ampedtheme$/i, "")
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .replace(/[^A-Za-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+  return safe || "amped-theme";
+}
+
 /**
  * Export the current theme configuration as an AmpedTheme file (.ampedtheme)
  */
@@ -19,9 +31,8 @@ export function exportThemeConfigAsJson(theme: Theme, customFilename?: string) {
   // Create a temporary URL for the Blob
   const url = URL.createObjectURL(blob);
 
-  // Use custom filename if provided, otherwise use theme name
-  const filename = customFilename || theme.name.replace(/\s+/g, "-");
-  const downloadName = filename.endsWith(".ampedtheme") ? filename : `${filename}.ampedtheme`;
+  // Letters, digits and hyphens only (Screen Review 031 I05)
+  const downloadName = `${themeFileName(customFilename || theme.name)}.ampedtheme`;
 
   // Create a temporary link element
   const link = document.createElement("a");

@@ -213,7 +213,35 @@ New preset recipes: `prism-dock` (dock capsule, tint 0.12, white 0.56), `prism-d
 
 ### Interim destinations
 
-Page, Design and Account compose today's panels so the rail matches the approved structure. PR 3a (Design, rows 023 to 033) and PR 3b (Page, rows 006, 017 to 020, 022, 034 to 037) replace their insides. Destinations that are not restyled yet sit on a white surface so their current colors stay readable on the room; each batch removes it.
+Page and Account compose today's panels so the rail matches the approved structure. Design is replaced in PR 3a (below). PR 3b (Page, rows 006, 017 to 020, 022, 034 to 037) replaces the other two. Destinations that are not restyled yet sit on a white surface so their current colors stay readable on the room; each batch removes it.
+
+## Design (PR 3a, Screen Review 023 to 033)
+
+Design lives in `apps/client/src/components/panels/design`. `DesignPanel.tsx` holds the tabs and the theme file actions.
+
+### Pieces
+
+| Piece | File | Rule |
+|---|---|---|
+| Disclosure rows | `kit/DisclosureRow.tsx` | One row open per tab, stored in `amped:design-style-open` and `amped:design-motion-open`. Header is an h3 with a button (`aria-expanded`), the current value, a swatch and a warning icon when a contrast pair fails. The region mounts only while open |
+| Option tiles | `kit/OptionTile.tsx` | A radiogroup with roving focus (arrows, Home, End). Selected: indigo ring and a 21 check. Hover and focus preview on the live frame; leaving ends the preview |
+| Color control | `kit/ColorControl.tsx` | Swatch opens the system picker, hex field checks on blur ("Use 6 hex digits, for example #FFFFFF"), plus a Your colors row from the current theme |
+| Contrast guard | `kit/useDesign.ts`, `kit/Notices.tsx` | Text on the card and on buttons needs 4.5:1, the name with an effect needs 3:1. A failing pair shows the solid notice with the measured ratio and one fix (Fix contrast, or Remove effect for the name) |
+| Locked themes | `kit/Notices.tsx`, `kit/useThemeActions.ts` | A marketplace theme (`user_id` null) is read only. Style and Motion show one notice with Make an editable copy, which stores the look as the creator's own theme |
+| Themes | `themes/ThemesTab.tsx`, `themes/ThemeCard.tsx` | Current theme card, collection chips in `?collection=`, search (233ms debounce), one section per collection with See all. Selecting a card pins the preview ("Previewing X. Not applied yet.") until Escape. Apply goes to the server first, then an 8 second Undo. Phones open a full height preview sheet |
+| Theme files | `DesignPanel.tsx` | Overflow menu (a bottom sheet on phones): Save theme file, Import theme file, How theme files work. File names keep letters, digits and hyphens (`themeFileName`). Import autosaves and offers Undo; on a locked theme it becomes the creator's own theme |
+
+### Live preview
+
+`EditorContext` has `previewOverride` (a partial theme config and a label). `Layout` merges it into the preview frame and shows the label chip. It clears when the destination changes. Nothing in an override is saved.
+
+### Renderer (shared with the public page)
+
+`@repo/ui` `theme-style.ts` holds `THEME_DEFAULTS` (what public pages render today) and `themeCssVars`. Neon, gradient and glow buttons, gradient and glow containers, and the name glow read `--amped-*` variables instead of fixed colors, so they follow the creator's colors in the editor and on amped.bio alike. The Glow name effect now glows in the creator's text color and no longer forces white text. Every animation is `motion-safe:`. Particles show a still frame under reduced motion and pause off screen. Playfair Display, Lora and Space Grotesk join the font list in both apps.
+
+### Removed
+
+`panels/appearance`, `panels/effects`, `panels/gallery`, `CollapsiblePanelWrapper`, `profile/AppearanceTabContent` and `profile/EffectsTabContent`. The marketplace view, filter and sort state left the editor store. `/profile?tab=appearance`, `effects` and `theme` land on the matching Design tab.
 
 ## Rules reviewers should enforce
 
