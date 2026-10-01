@@ -1,219 +1,495 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { use } from "react";
-import { useForm } from "react-hook-form";
+import { Suspense, use, useEffect, useRef, useState, type FormEvent } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { AlertCircle, Check, ChevronDown, LoaderCircle } from "lucide-react";
 import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader, Check, X, Eye, EyeOff } from "lucide-react";
+import {
+  AuthCard,
+  AuthCardSkeleton,
+  AuthLegalLine,
+  Button,
+  CAPTCHA_FAILED,
+  InlineError,
+  Input,
+  Notice,
+  PasswordInput,
+  StatusDisc,
+  classifyAuthError,
+  cn,
+} from "@repo/ui";
 import { authClient } from "@/lib/auth-client";
-import { Button } from "@repo/ui";
-import { Input } from "@/components/ui/Input";
-import { Label } from "@repo/ui";
-import { AuthHeader } from "@/components/auth/AuthHeader";
+import { useCaptcha } from "@/hooks/useCaptcha";
+import { useDelayed } from "@/hooks/useDelayed";
+import { AuthLayout } from "@/components/auth/AuthLayout";
+import { SentState } from "@/components/auth/SentState";
+import { EMAIL_FIX } from "@/components/auth/SignInForm";
+import { PasswordChecklist, passwordMeetsRules } from "@/components/auth/PasswordChecklist";
+import { PRIVACY_POLICY_URL } from "@/components/layout/PublicFooter";
+import { getSafeRedirect } from "@/lib/panel";
 
-const PasswordStrengthIndicator = ({ password }: { password: string }) => {
-  const hasMinLength = password.length >= 8;
-  const hasUpperCase = /[A-Z]/.test(password);
-  const hasLowerCase = /[a-z]/.test(password);
-  const hasNumber = /[0-9]/.test(password);
+const emailSchema = z.string().email();
+const legal = <AuthLegalLine privacyHref={PRIVACY_POLICY_URL} />;
 
-  const criteriaList = [
-    { label: "At least 8 characters", met: hasMinLength },
-    { label: "At least one uppercase letter", met: hasUpperCase },
-    { label: "At least one lowercase letter", met: hasLowerCase },
-    { label: "At least one number", met: hasNumber },
-  ];
+// Query string carried between the steps: the email and a safe returnTo
+function carry(params: URLSearchParams, email: string) {
+  const next = new URLSearchParams();
+  if (email) next.set("email", email);
+  const returnTo = getSafeRedirect(params.get("returnTo"));
+  if (returnTo) next.set("returnTo", returnTo);
+  const query = next.toString();
+  return query ? `?${query}` : "";
+}
 
-  return (
-    <div className="mt-2 space-y-1">
-      <p className="text-xs font-medium text-gray-500">Password requirements:</p>
-      <div className="grid grid-cols-1 gap-1">
-        {criteriaList.map((criteria, index) => (
-          <div key={index} className="flex items-center text-xs">
-            {criteria.met ? (
-              <Check className="w-3 h-3 mr-1.5 text-green-500" />
-            ) : (
-              <X className="w-3 h-3 mr-1.5 text-gray-400" />
-            )}
-            <span className={criteria.met ? "text-green-700" : "text-gray-500"}>
-              {criteria.label}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
+/* -------------------------------------------------------------------------- */
+/* Request step (013 I02 to I04)                                               */
+/* -------------------------------------------------------------------------- */
 
-const passwordResetSchema = z
-  .object({
-    token: z.string().min(1, "Token is required"),
-    password: z
-      .string()
-      .min(8, "Password must be at least 8 characters long")
-      .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-      .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-      .regex(/[0-9]/, "Password must contain at least one number"),
-    confirmPassword: z.string(),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ["confirmPassword"],
-  });
-
-type PasswordResetFormData = z.infer<typeof passwordResetSchema>;
-
-export default function PasswordResetPage({ params }: { params: Promise<{ token?: string[] }> }) {
-  const { token: tokenArray } = use(params);
+function RequestStep() {
+  const params = useSearchParams();
   const router = useRouter();
-
-  const [status, setStatus] = useState<"valid" | "submitting" | "success" | "error">("valid");
-  const [message, setMessage] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [showPasswords, setShowPasswords] = useState(false);
-
-  const urlToken = (tokenArray || []).join("/");
-
-  const {
-    register,
-    handleSubmit,
-    watch,
-    setValue,
-    formState: { errors, isValid },
-  } = useForm<PasswordResetFormData>({
-    resolver: zodResolver(passwordResetSchema),
-    defaultValues: {
-      token: urlToken,
-      password: "",
-      confirmPassword: "",
-    },
-    mode: "onChange",
-  });
+  const { executeCaptcha, isCaptchaEnabled } = useCaptcha();
+  const [email, setEmail] = useState(params.get("email") ?? "");
+  const [emailError, setEmailError] = useState<string>();
+  const [sending, setSending] = useState(false);
+  const [failure, setFailure] = useState<"captcha" | "network" | null>(null);
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [codeOpen, setCodeOpen] = useState(false);
+  const [code, setCode] = useState("");
+  const [codeError, setCodeError] = useState<string>();
+  const emailRef = useRef<HTMLInputElement>(null);
+  const codeRef = useRef<HTMLInputElement>(null);
+  const noticeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (urlToken) {
-      setValue("token", urlToken);
-    }
-  }, [urlToken, setValue]);
+    if (failure === "network") noticeRef.current?.focus();
+  }, [failure]);
 
-  const onSubmit = async (data: PasswordResetFormData) => {
-    setStatus("submitting");
-    setIsLoading(true);
+  const validate = (value: string) => {
+    if (!value) return "Enter your email.";
+    return emailSchema.safeParse(value).success ? undefined : EMAIL_FIX;
+  };
 
+  // True once the request went through. The copy never says whether an account exists.
+  const request = async (address: string): Promise<boolean> => {
+    setFailure(null);
     try {
-      const response = await authClient.resetPassword({
-        newPassword: data.password,
-        token: data.token,
-      });
-
-      if (response.error) {
-        setStatus("error");
-        setMessage(response.error.message || "Failed to reset password.");
-      } else {
-        setStatus("success");
-        setMessage("Password has been successfully reset.");
+      const token = await executeCaptcha();
+      if (isCaptchaEnabled && !token) {
+        setFailure("captcha");
+        return false;
       }
+      const response = await authClient.requestPasswordReset({
+        email: address,
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+        fetchOptions: { headers: token ? { "x-captcha-response": token } : undefined },
+      });
+      if (response.error) {
+        console.error("Password reset request failed:", response.error);
+        setFailure(classifyAuthError(response.error) === "captcha" ? "captcha" : "network");
+        return false;
+      }
+      return true;
     } catch (error) {
-      setStatus("error");
-      setMessage(
-        error instanceof Error ? error.message : "An unexpected error occurred. Please try again."
-      );
-    } finally {
-      setIsLoading(false);
+      console.error("Password reset request failed:", error);
+      setFailure("network");
+      return false;
     }
   };
 
-  const password = watch("password");
-  const confirmPassword = watch("confirmPassword");
-  const token = watch("token");
+  const submit = async () => {
+    const nextError = validate(email);
+    setEmailError(nextError);
+    if (nextError) return emailRef.current?.focus();
+    setSending(true);
+    const ok = await request(email);
+    setSending(false);
+    if (ok) setSentTo(email);
+  };
 
-  const hasMinLength = password.length >= 8;
-  const hasUpperCase = /[A-Z]/.test(password);
-  const hasLowerCase = /[a-z]/.test(password);
-  const hasNumber = /[0-9]/.test(password);
-  const passwordsMatch = password === confirmPassword && confirmPassword !== "";
-  const passwordMeetsRequirements = hasMinLength && hasUpperCase && hasLowerCase && hasNumber;
-  const isFormValid = passwordMeetsRequirements && passwordsMatch && token.length > 0;
+  const continueWithCode = () => {
+    const value = code.trim();
+    if (!value) {
+      setCodeError("Enter the code from your email.");
+      return codeRef.current?.focus();
+    }
+    router.push(`/auth/reset-password/${encodeURIComponent(value)}${carry(params, email)}`);
+  };
+
+  if (sentTo !== null) {
+    return (
+      <SentState
+        email={sentTo}
+        body={address => <>If an account uses {address}, a reset link is on its way.</>}
+        onResend={() => request(sentTo)}
+        onUseDifferentEmail={() => {
+          setSentTo(null);
+          setTimeout(() => emailRef.current?.focus());
+        }}
+      />
+    );
+  }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
-      <div className="w-full max-w-md p-8 space-y-4 bg-white rounded-xl shadow-md">
-        <AuthHeader title="Reset Your Password" />
-
-          {status === "success" ? (
-            <div className="text-center space-y-4">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100">
-                <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h2 className="text-xl font-semibold text-gray-800">Password Reset Successful!</h2>
-              <p className="text-gray-600">{message}</p>
-              <Button onClick={() => router.push("/")} className="w-full">
-                Go to Login
-              </Button>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="token">Reset Token</Label>
-                <Input id="token" type="text" placeholder="Enter your reset token" {...register("token")} />
-                {errors.token && <p className="text-sm text-red-500">{errors.token.message}</p>}
-              </div>
-
-              <div className="space-y-2 relative">
-                <button
-                  type="button"
-                  className="absolute right-3 top-9 text-gray-500 hover:text-gray-700 z-10"
-                  onClick={() => setShowPasswords(!showPasswords)}
-                  aria-label={showPasswords ? "Hide passwords" : "Show passwords"}
-                >
-                  {showPasswords ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-
-                <Label htmlFor="password">New Password</Label>
-                <Input
-                  id="password"
-                  type={showPasswords ? "text" : "password"}
-                  placeholder="Enter new password"
-                  {...register("password")}
-                />
-                <PasswordStrengthIndicator password={password} />
-                {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
-
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <Input
-                  id="confirmPassword"
-                  type={showPasswords ? "text" : "password"}
-                  placeholder="Confirm new password"
-                  {...register("confirmPassword")}
-                />
-                {errors.confirmPassword && (
-                  <p className="text-sm text-red-500">{errors.confirmPassword.message}</p>
-                )}
-              </div>
-
-              {status === "error" && message && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                  <p className="text-sm text-red-600">{message}</p>
-                </div>
-              )}
-
-              <Button type="submit" className="w-full" disabled={isLoading || !isFormValid}>
-                {isLoading ? (
-                  <span className="flex items-center justify-center">
-                    <Loader className="mr-2 h-4 w-4 animate-spin" />
-                    Processing...
-                  </span>
-                ) : (
-                  "Reset Password"
-                )}
-              </Button>
-            </form>
+    <AuthCard
+      title="Reset your password"
+      subtitle="Enter your account email and we will send a reset link."
+      notice={
+        failure === "network" ? (
+          <Notice
+            ref={noticeRef}
+            tabIndex={-1}
+            role="alert"
+            variant="warning"
+            className="outline-none"
+            title="The reset link did not send"
+          >
+            <p>Check your connection and try again.</p>
+            <Button variant="ghost" className="mt-2" onClick={() => void submit()}>
+              Retry
+            </Button>
+          </Notice>
+        ) : undefined
+      }
+      footer={legal}
+    >
+      <form
+        noValidate
+        onSubmit={(event: FormEvent<HTMLFormElement>) => {
+          event.preventDefault();
+          void submit();
+        }}
+      >
+        <Input
+          ref={emailRef}
+          id="reset-email"
+          label="Email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          value={email}
+          error={emailError}
+          onChange={event => setEmail(event.target.value)}
+          onBlur={() => email && setEmailError(validate(email))}
+        />
+        <div className="space-y-3 pt-[34px]">
+          <Button type="submit" size="lg" className="w-full" disabled={sending} aria-busy={sending}>
+            {sending && (
+              <LoaderCircle className="animate-spin motion-reduce:animate-none" aria-hidden />
+            )}
+            {sending ? "Sending" : "Send reset link"}
+          </Button>
+          {failure === "captcha" && (
+            <InlineError
+              action={
+                <Button variant="ghost" size="sm" onClick={() => void submit()}>
+                  Try again
+                </Button>
+              }
+            >
+              {CAPTCHA_FAILED}
+            </InlineError>
           )}
-          </div>
         </div>
-      );
+        <div className="pt-[21px]">
+          <Button variant="ghost" asChild>
+            <Link href={`/login${carry(params, email)}`}>Back to sign in</Link>
+          </Button>
+        </div>
+      </form>
+
+      {/* Manual token entry behind a disclosure (013 I04) */}
+      <div className="mt-[21px] border-t border-prism-line">
+        <button
+          type="button"
+          aria-expanded={codeOpen}
+          aria-controls="reset-code-region"
+          onClick={() => {
+            setCodeOpen(open => !open);
+            if (!codeOpen) setTimeout(() => codeRef.current?.focus());
+          }}
+          className="prism-focus flex h-commit w-full items-center justify-between rounded-prism-13 text-left text-prism-label font-semibold text-prism-ink"
+        >
+          Have a reset code?
+          <ChevronDown
+            aria-hidden
+            className={cn(
+              "h-[21px] w-[21px] text-prism-ink-2 transition-transform duration-prism-control motion-reduce:transition-none",
+              codeOpen && "rotate-180"
+            )}
+          />
+        </button>
+        {codeOpen && (
+          <div id="reset-code-region" className="space-y-[13px] pb-2">
+            <Input
+              ref={codeRef}
+              id="reset-code"
+              label="Reset code"
+              autoComplete="off"
+              value={code}
+              error={codeError}
+              onChange={event => {
+                setCode(event.target.value);
+                if (codeError) setCodeError(undefined);
+              }}
+              onKeyDown={event => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  continueWithCode();
+                }
+              }}
+            />
+            <Button variant="secondary" onClick={continueWithCode}>
+              Continue
+            </Button>
+          </div>
+        )}
+      </div>
+    </AuthCard>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* New password step (013 I05 to I10)                                          */
+/* -------------------------------------------------------------------------- */
+
+function NewPasswordStep({ token }: { token: string }) {
+  const params = useSearchParams();
+  const email = params.get("email") ?? "";
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [visible, setVisible] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
+  const [passwordError, setPasswordError] = useState<string>();
+  const [confirmTouched, setConfirmTouched] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<"expired" | "done" | null>(null);
+  const [networkError, setNetworkError] = useState(false);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const confirmRef = useRef<HTMLInputElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const noticeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (result) titleRef.current?.focus();
+  }, [result]);
+  useEffect(() => {
+    if (networkError) noticeRef.current?.focus();
+  }, [networkError]);
+
+  const passwordOk = passwordMeetsRules(password);
+  const matches = confirm.length > 0 && confirm === password;
+  const showChecklist = passwordFocused || (!!password && !passwordOk) || !!passwordError;
+
+  const submit = async () => {
+    setNetworkError(false);
+    setConfirmTouched(true);
+    if (!passwordOk) {
+      setPasswordError("Meet each rule below.");
+      return passwordRef.current?.focus();
     }
+    if (!matches) return confirmRef.current?.focus();
+    setSubmitting(true);
+    try {
+      const response = await authClient.resetPassword({ newPassword: password, token });
+      if (response.error) {
+        console.error("Password reset failed:", response.error);
+        if (
+          /INVALID_TOKEN|expired|invalid/i.test(`${response.error.code} ${response.error.message}`)
+        )
+          setResult("expired");
+        else setNetworkError(true);
+        return;
+      }
+      setResult("done");
+    } catch (error) {
+      console.error("Password reset failed:", error);
+      setNetworkError(true);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (result === "expired") {
+    return (
+      <AuthCard
+        centered
+        status
+        titleRef={titleRef}
+        icon={<StatusDisc icon={AlertCircle} tone="danger" />}
+        title="This reset link has expired"
+        subtitle="Reset links work for a limited time. Send a new one."
+        footer={legal}
+      >
+        <div className="pt-[13px]">
+          <Button size="lg" className="w-full" asChild>
+            <Link href={`/auth/reset-password${carry(params, email)}`}>Send a new link</Link>
+          </Button>
+        </div>
+      </AuthCard>
+    );
+  }
+
+  if (result === "done") {
+    return (
+      <AuthCard
+        centered
+        status
+        titleRef={titleRef}
+        icon={<StatusDisc icon={Check} tone="success" />}
+        title="Password updated"
+        subtitle="Sign in with your new password."
+        footer={legal}
+      >
+        <div className="pt-[13px]">
+          <Button size="lg" className="w-full" asChild>
+            <Link href={`/login${carry(params, email)}`}>Sign in</Link>
+          </Button>
+        </div>
+      </AuthCard>
+    );
+  }
+
+  const confirmLine =
+    confirmTouched && confirm.length > 0 ? (
+      matches ? (
+        <p
+          id="reset-confirm-status"
+          className="flex items-center gap-1.5 font-prism text-prism-meta text-prism-success"
+        >
+          <Check className="h-[21px] w-[21px] shrink-0" aria-hidden />
+          Passwords match
+        </p>
+      ) : (
+        <p
+          id="reset-confirm-status"
+          className="flex items-center gap-1.5 font-prism text-prism-meta text-prism-danger"
+        >
+          <AlertCircle className="h-[21px] w-[21px] shrink-0" aria-hidden />
+          Passwords do not match yet
+        </p>
+      )
+    ) : null;
+
+  return (
+    <AuthCard
+      title="Set a new password"
+      subtitle="Use it to sign in from now on."
+      notice={
+        networkError ? (
+          <Notice
+            ref={noticeRef}
+            tabIndex={-1}
+            role="alert"
+            variant="warning"
+            className="outline-none"
+            title="Your password did not change"
+          >
+            <p>Check your connection and try again.</p>
+            <Button variant="ghost" className="mt-2" onClick={() => void submit()}>
+              Retry
+            </Button>
+          </Notice>
+        ) : undefined
+      }
+      footer={legal}
+    >
+      <form
+        noValidate
+        className="space-y-[21px]"
+        onSubmit={(event: FormEvent<HTMLFormElement>) => {
+          event.preventDefault();
+          void submit();
+        }}
+      >
+        {/* The account email lets password managers save the new password */}
+        {email && (
+          <input
+            type="email"
+            name="username"
+            autoComplete="username"
+            value={email}
+            readOnly
+            hidden
+          />
+        )}
+        <div className="space-y-2">
+          <PasswordInput
+            ref={passwordRef}
+            id="reset-password"
+            label="New password"
+            autoComplete="new-password"
+            value={password}
+            error={passwordError}
+            visible={visible}
+            onVisibleChange={setVisible}
+            toggleControls="reset-password reset-confirm"
+            aria-describedby="reset-password-rules"
+            onChange={event => {
+              setPassword(event.target.value);
+              if (passwordError && passwordMeetsRules(event.target.value))
+                setPasswordError(undefined);
+            }}
+            onFocus={() => setPasswordFocused(true)}
+            onBlur={() => setPasswordFocused(false)}
+          />
+          <PasswordChecklist
+            id="reset-password-rules"
+            password={password}
+            visible={showChecklist}
+          />
+        </div>
+        <div className="space-y-2">
+          <Input
+            ref={confirmRef}
+            id="reset-confirm"
+            label="Confirm password"
+            type={visible ? "text" : "password"}
+            autoComplete="new-password"
+            value={confirm}
+            aria-describedby={confirmLine ? "reset-confirm-status" : undefined}
+            onChange={event => setConfirm(event.target.value)}
+            onBlur={() => setConfirmTouched(true)}
+          />
+          <div aria-live="polite">{confirmLine}</div>
+        </div>
+        <div className="pt-[13px]">
+          <Button
+            type="submit"
+            size="lg"
+            className="w-full"
+            disabled={submitting}
+            aria-busy={submitting}
+          >
+            {submitting && (
+              <LoaderCircle className="animate-spin motion-reduce:animate-none" aria-hidden />
+            )}
+            {submitting ? "Saving" : "Set new password"}
+          </Button>
+        </div>
+      </form>
+    </AuthCard>
+  );
+}
+
+function CardFallback() {
+  const show = useDelayed(true, 400);
+  return show ? <AuthCardSkeleton /> : null;
+}
+
+// Reset password (Screen Review 013): one route, two steps. No token is the
+// request step; a token in the path is the new password step, carried in
+// state and never shown as a field.
+export default function PasswordResetPage({ params }: { params: Promise<{ token?: string[] }> }) {
+  const { token: tokenArray } = use(params);
+  const token = (tokenArray || []).join("/");
+
+  return (
+    <AuthLayout>
+      <Suspense fallback={<CardFallback />}>
+        {token ? <NewPasswordStep token={decodeURIComponent(token)} /> : <RequestStep />}
+      </Suspense>
+    </AuthLayout>
+  );
+}
