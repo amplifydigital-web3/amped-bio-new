@@ -22,7 +22,7 @@ import toast from "react-hot-toast";
 import { BlockType } from "@repo/constants";
 import { formatHandle, normalizeHandle } from "@repo/ui";
 import { trpcClient } from "@repo/ui";
-import { exportThemeConfigAsJson, importThemeConfigFromJson } from "@repo/ui";
+import { exportThemeConfigAsJson } from "@repo/ui";
 import { mergeTheme } from "@/utils/mergeTheme";
 import { useNavigate, useLocation } from "react-router";
 
@@ -33,6 +33,16 @@ import { useNavigate, useLocation } from "react-router";
  * offline: edits wait for the connection to come back.
  */
 export type SaveStatus = "idle" | "saving" | "saved" | "error" | "offline";
+
+/**
+ * A look shown in the live preview without applying it: hovering or focusing
+ * a Design option or theme card (Screen Review 023 to 033, 006 I11).
+ */
+export interface PreviewOverride {
+  config: Partial<ThemeConfig>;
+  /** Shown in the preview frame, for example "Previewing Paper. Not applied yet." */
+  label?: string;
+}
 
 /** Debounce after the last edit before autosave runs (D11). */
 export const AUTOSAVE_DELAY_MS = 800;
@@ -45,10 +55,15 @@ interface EditorContextType extends EditorState {
   hasUnsavedChanges: boolean;
   /** Save now instead of waiting for the debounce. Resolves true when stored. */
   flushSave: () => Promise<boolean>;
+  previewOverride: PreviewOverride | null;
+  setPreviewOverride: (override: PreviewOverride | null) => void;
   setUser: (handle: string) => Promise<any>;
   setProfile: (profile: UserProfile) => void;
   addBlock: (block: BlockType) => Promise<BlockType>;
-  removeBlock: (id: number) => void;
+  removeBlock: (id: number) => Promise<void>;
+  /** The block row open in the Page list; the preview sets it on a click (D10, 036 I13). */
+  selectedBlockId: number | null;
+  selectBlock: (id: number | null) => void;
   updateBlock: (id: number, updatedConfig: any) => void;
   reorderBlocks: (blocks: BlockType[]) => void;
   updateThemeConfig: (theme: Partial<ThemeConfig>) => void;
@@ -69,13 +84,12 @@ interface EditorContextType extends EditorState {
   setDefault: () => void;
   addToGallery: (image: GalleryImage) => void;
   removeFromGallery: (url: string) => void;
-  setMarketplaceView: (view: "grid" | "list") => void;
-  setMarketplaceFilter: (filter: string) => void;
-  setMarketplaceSort: (sort: "popular" | "newest") => void;
   applyTheme: (theme: Theme) => void;
   setSelectedPoolId: (id: string | null) => void;
+  /** Download the theme as a .ampedtheme file. Throws on a locked theme. */
   exportTheme: (customFilename?: string) => void;
-  importTheme: (file: File) => Promise<void>;
+  /** Replace the whole theme config (theme file import and its Undo, 031). */
+  replaceThemeConfig: (config: ThemeConfig) => void;
   expiredRevoName: string;
   dismissRevoName: () => Promise<void>;
   lostRevoName: string;
@@ -88,6 +102,8 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
   const [changes, setChanges] = useState(false);
   const [themeChanges, setThemeChanges] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [previewOverride, setPreviewOverride] = useState<PreviewOverride | null>(null);
+  const [selectedBlockId, selectBlock] = useState<number | null>(null);
   // Autosave bookkeeping. `revision` counts edits; `savedRevision` is the last
   // edit stored on the server. A save that finishes while newer edits exist
   // leaves them dirty, so nothing typed during a save is lost.
@@ -202,79 +218,40 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     [markDirty]
   );
 
+  // Creates the block on the server and appends it. No toasts: the new row
+  // opening inline is the confirmation (Screen Review 034 I10); callers show
+  // failures where the action happened. Throws on failure.
   const addBlock = useCallback(
     async (block: BlockType): Promise<BlockType> => {
-      console.group("➕ Adding Block");
-      console.info("Block data:", block);
-
-      let newBlock = block;
-
-      try {
-        const blockOrder = state.blocks.length;
-
-        console.info("🔄 Adding block to server...");
-        const response = await trpcClient.blocks.addBlock.mutate({
-          type: block.type,
-          config: block.config,
-        });
-        console.info("✅ Block added to server:", response);
-
-        if (response?.result) {
-          newBlock = {
-            ...block,
-            id: response.result.id,
-            order: blockOrder,
-          };
-        }
-
-        setState(prevState => ({
-          ...prevState,
-          blocks: [...prevState.blocks, newBlock],
-        }));
-        // The server stored the block. Other unsaved edits stay dirty so
-        // autosave still stores them (Screen Review 037 I13).
-
-        toast.success("Block added successfully");
-        console.info("✅ Block added to state");
-      } catch (error) {
-        console.info("❌ Error adding block:", error);
-        toast.error("Error adding block");
-      }
-
-      console.groupEnd();
+      const response = await trpcClient.blocks.addBlock.mutate({
+        type: block.type,
+        config: block.config,
+      });
+      const newBlock = {
+        ...block,
+        id: response?.result?.id ?? block.id,
+        order: stateRef.current.blocks.length,
+      } as BlockType;
+      setState(prevState => ({
+        ...prevState,
+        blocks: [...prevState.blocks, newBlock],
+      }));
+      // The server stores new blocks at order 0; the next autosave writes the
+      // real order, and any other unsaved edits stay dirty (037 I13)
+      markDirty();
       return newBlock;
     },
-    [authUser, state.blocks.length]
+    [markDirty]
   );
 
-  const removeBlock = useCallback(
-    async (id: number) => {
-      console.group(`🗑️ Removing Block: ${id}`);
-      try {
-        if (authUser === null) {
-          console.info("❌ Remove Block Error: No user logged in");
-          toast.error("Authentication error");
-          console.groupEnd();
-          return;
-        }
-
-        console.info("🔄 Deleting block from server...");
-        await trpcClient.blocks.deleteBlock.mutate({ id });
-        console.info("✅ Block deleted from server");
-
-        setState(prevState => ({
-          ...prevState,
-          blocks: prevState.blocks.filter(block => block.id !== id),
-        }));
-        console.info("✅ Block removed from state");
-        console.groupEnd();
-      } catch (error) {
-        console.info("❌ Error deleting block:", error);
-        console.groupEnd();
-      }
-    },
-    [authUser]
-  );
+  // Deletes on the server, then locally. Throws on failure (036 I07 restores).
+  const removeBlock = useCallback(async (id: number) => {
+    await trpcClient.blocks.deleteBlock.mutate({ id });
+    setState(prevState => ({
+      ...prevState,
+      blocks: prevState.blocks.filter(block => block.id !== id),
+    }));
+  }, []);
 
   const updateBlock = useCallback(
     (id: number, updatedConfig: any) => {
@@ -412,39 +389,6 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
       gallery: prevState.gallery.filter(image => image.url !== url),
     }));
     console.info("✅ Image removed from gallery");
-    console.groupEnd();
-  }, []);
-
-  const setMarketplaceView = useCallback((marketplaceView: "grid" | "list") => {
-    console.group("🛒 Setting Marketplace View");
-    console.info(`View: ${marketplaceView}`);
-    setState(prevState => ({
-      ...prevState,
-      marketplaceView,
-    }));
-    console.info("✅ Marketplace view updated");
-    console.groupEnd();
-  }, []);
-
-  const setMarketplaceFilter = useCallback((marketplaceFilter: string) => {
-    console.group("🔍 Setting Marketplace Filter");
-    console.info(`Filter: ${marketplaceFilter}`);
-    setState(prevState => ({
-      ...prevState,
-      marketplaceFilter,
-    }));
-    console.info("✅ Marketplace filter updated");
-    console.groupEnd();
-  }, []);
-
-  const setMarketplaceSort = useCallback((marketplaceSort: "popular" | "newest") => {
-    console.group("📊 Setting Marketplace Sort");
-    console.info(`Sort: ${marketplaceSort}`);
-    setState(prevState => ({
-      ...prevState,
-      marketplaceSort,
-    }));
-    console.info("✅ Marketplace sort updated");
     console.groupEnd();
   }, []);
 
@@ -614,6 +558,11 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     if (revision.current !== savedRevision.current) void runSave();
   }, [activePanel, runSave]);
 
+  // A preview belongs to the destination that set it
+  useEffect(() => {
+    setPreviewOverride(null);
+  }, [activePanel]);
+
   // `changes` turns false only once the newest edit is stored
   const hasUnsavedChanges = changes;
 
@@ -661,76 +610,23 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     console.groupEnd();
   }, []);
 
-  const exportTheme = useCallback(
-    (customFilename?: string) => {
-      console.group("🎨 Exporting Theme Configuration");
-      const { theme } = state;
-      console.info("Theme config:", theme.config);
+  const exportTheme = useCallback((customFilename?: string) => {
+    const { theme } = stateRef.current;
+    // Another creator's theme cannot be saved as a file (031 I04)
+    if (theme.user_id === null) throw new Error("Locked themes can't be saved as a file.");
+    exportThemeConfigAsJson(theme, customFilename);
+  }, []);
 
-      if (theme.user_id === null) {
-        console.warn("❌ Export blocked: Cannot export server theme");
-        toast.error(
-          "Cannot export themes from other user. Please create or select your own theme first."
-        );
-        console.groupEnd();
-        return;
-      }
-
-      try {
-        exportThemeConfigAsJson(theme, customFilename);
-        toast.success("Theme configuration exported successfully");
-        console.info("✅ Theme configuration exported");
-      } catch (error) {
-        console.error("❌ Theme configuration export failed:", error);
-        toast.error("Failed to export theme configuration");
-      }
-
-      console.groupEnd();
+  const replaceThemeConfig = useCallback(
+    (config: ThemeConfig) => {
+      setState(prevState => ({
+        ...prevState,
+        theme: { ...prevState.theme, config },
+      }));
+      markDirty();
+      markThemeDirty();
     },
-    [state]
-  );
-
-  const importTheme = useCallback(
-    async (file: File) => {
-      console.group("🎨 Importing Theme Configuration");
-      console.info("File:", file.name);
-
-      const { theme } = state;
-
-      if (theme.user_id === null) {
-        console.warn("❌ Import blocked: Cannot import over other user theme");
-        toast.error(
-          "Cannot import themes while using a server theme. Please create or select your own theme first."
-        );
-        console.groupEnd();
-        throw new Error("Cannot import themes while using a server theme");
-      }
-
-      try {
-        const importedThemeConfig = await importThemeConfigFromJson(file);
-        console.info("Imported theme config:", importedThemeConfig);
-
-        setState(prevState => ({
-          ...prevState,
-          theme: {
-            ...prevState.theme,
-            config: importedThemeConfig,
-          },
-        }));
-        markDirty();
-        markThemeDirty();
-
-        toast.success("Theme configuration imported successfully");
-        console.info("✅ Theme configuration imported");
-        console.groupEnd();
-      } catch (error) {
-        console.error("❌ Theme configuration import failed:", error);
-        toast.error("Failed to import theme configuration");
-        console.groupEnd();
-        throw error;
-      }
-    },
-    [state, markDirty, markThemeDirty]
+    [markDirty, markThemeDirty]
   );
 
   const value: EditorContextType = {
@@ -740,6 +636,10 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     saveStatus,
     hasUnsavedChanges,
     flushSave,
+    previewOverride,
+    setPreviewOverride,
+    selectedBlockId,
+    selectBlock,
     setUser,
     setProfile,
     addBlock,
@@ -756,13 +656,10 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     setDefault,
     addToGallery,
     removeFromGallery,
-    setMarketplaceView,
-    setMarketplaceFilter,
-    setMarketplaceSort,
     applyTheme,
     setSelectedPoolId,
     exportTheme,
-    importTheme,
+    replaceThemeConfig,
     expiredRevoName,
     lostRevoName,
     dismissRevoName: async () => {

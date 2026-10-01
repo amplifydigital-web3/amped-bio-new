@@ -67,6 +67,15 @@ export const LEGACY_PANEL_REDIRECTS: Record<string, { panel: EditorPanelType; ta
   gallery: { panel: "design", tab: "themes" },
   createRewardPool: { panel: "my-pool" },
   developer: { panel: "account", tab: "developers" },
+  appearance: { panel: "design", tab: "style" },
+  effects: { panel: "design", tab: "motion" },
+};
+
+/** Old /profile?tab= values that now live on Design (Screen Review 027). */
+export const LEGACY_PROFILE_TABS: Record<string, string> = {
+  appearance: "style",
+  effects: "motion",
+  theme: "themes",
 };
 
 export type EditorState = {
@@ -75,9 +84,6 @@ export type EditorState = {
   theme: Theme;
   activePanel: EditorPanelType;
   gallery: GalleryImage[];
-  marketplaceView: "grid" | "list";
-  marketplaceFilter: string;
-  marketplaceSort: "popular" | "newest";
   connectedWallet?: string;
   selectedPoolId: string | null;
   hasCreatorPool: boolean;

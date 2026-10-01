@@ -97,6 +97,8 @@ export * from "./admin-format";
 export * from "./blockchain";
 export * from "./email";
 export * from "./theme";
+export * from "./theme-style";
+export { usePrefersReducedMotion } from "./use-reduced-motion";
 export * from "./video-thumbnail";
 
 // Auth storage keys

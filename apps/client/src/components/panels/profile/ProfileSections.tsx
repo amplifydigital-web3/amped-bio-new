@@ -1,59 +1,9 @@
 import { useState } from "react";
-import { ProfileForm } from "./ProfileForm";
-import { ImageUploader } from "./ImageUploader";
 import { URLPicker } from "./URLPicker";
 import { SecurityTabContent } from "./SecurityTabContent";
 import { useEditor } from "../../../contexts/EditorContext";
 import { useAuth } from "@repo/ui";
 import { EmailChangeDialog } from "../../dialogs/EmailChangeDialog";
-import useGetAllRegisteredNames from "@/hooks/rns/useGetAllRegisteredNames";
-import { useAccount } from "wagmi";
-
-/**
- * The profile header content on Page (Screen Review D03): photo, display name,
- * bio and RevoName. Email, URL and security moved to Account (D04).
- */
-export function ProfileBasics() {
-  const { profile, setProfile } = useEditor();
-  const { address: accountAddress, isConnected } = useAccount();
-
-  const showRNS = import.meta.env.VITE_SHOW_RNS === "true";
-  const { revoNames: fetchedNames, isFetching: namesFetching } = useGetAllRegisteredNames(
-    accountAddress,
-    isConnected,
-    true
-  );
-
-  const revolutionNames = showRNS ? fetchedNames : null;
-  const isFetching = showRNS ? namesFetching : false;
-
-  const handleProfileUpdate = (field: string, value: string) => {
-    setProfile({ ...profile, [field]: value });
-  };
-
-  return (
-    <>
-      <div className="space-y-2">
-        <h2 className="text-lg font-semibold text-gray-900">Profile Photo</h2>
-        <p className="text-sm text-gray-500">Upload or update your profile photo</p>
-      </div>
-
-      <ImageUploader
-        imageUrl={profile.photoUrl || ""}
-        onImageChange={url => handleProfileUpdate("photoUrl", url)}
-      />
-
-      <hr className="my-6 border-gray-200" />
-
-      <ProfileForm
-        profile={profile}
-        onUpdate={handleProfileUpdate}
-        revoNames={revolutionNames}
-        isRevoNameFetching={isFetching}
-      />
-    </>
-  );
-}
 
 /** Account Settings content (D04): email, public URL, password and two factor. */
 export function AccountSettings() {

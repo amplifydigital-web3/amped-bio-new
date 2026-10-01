@@ -71,9 +71,6 @@ const initialState: EditorState = {
   },
   activePanel: "home",
   gallery: [],
-  marketplaceView: "grid",
-  marketplaceFilter: "",
-  marketplaceSort: "popular",
   selectedPoolId: null,
   hasCreatorPool: false,
 };

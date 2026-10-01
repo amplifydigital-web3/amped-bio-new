@@ -1,5 +1,6 @@
 import { Banner, type BannerPanel } from "./Banner";
-import { Preview } from "./Preview";
+import { InlinePreview, PreviewFrame, PreviewSwitch } from "./preview/PreviewFrame";
+import { useSearchParams } from "react-router";
 import { useEditor } from "../contexts/EditorContext";
 import { CreatorPoolPanel } from "./panels/createrewardpool/CreatorPoolPanel.tsx";
 import { LeaderboardPanel } from "./panels/leaderboard/LeaderboardPanel";
@@ -18,6 +19,7 @@ import { MobileDock } from "./shell/MobileDock";
 import { MobileTopBar, TopBar } from "./shell/TopBar";
 import { ShellNavigationProvider } from "./shell/ShellNavigation";
 import { useSupportWidget } from "./shell/useSupportWidget";
+import { cn } from "@repo/ui";
 import RNSHeader from "./rns/RNSHeader.tsx";
 import type { EditorPanelType } from "@/types/editor.ts";
 
@@ -32,6 +34,9 @@ interface LayoutProps {
 
 // The live preview shows on Page and Design only (D10)
 const PREVIEW_PANELS: EditorPanelType[] = ["page", "design"];
+
+// Destinations whose screens are restyled sit directly on the room (PR 3a Design, 3b Page)
+const RESTYLED_PANELS: EditorPanelType[] = ["design", "page"];
 
 function ActivePanel({ panel }: { panel: EditorPanelType }) {
   switch (panel) {
@@ -89,8 +94,21 @@ function ActivePanel({ panel }: { panel: EditorPanelType }) {
  * the destinations it restyles.
  */
 export function Layout({ bannerData, bannerLoading }: LayoutProps) {
-  const { activePanel, profile, blocks, theme } = useEditor();
+  const { activePanel } = useEditor();
   const showPreview = PREVIEW_PANELS.includes(activePanel);
+  // Below 1024 the preview is a tab: ?view=preview (006 I01)
+  const [params, setParams] = useSearchParams();
+  const view = showPreview && params.get("view") === "preview" ? "preview" : "edit";
+  const setView = (next: "edit" | "preview") =>
+    setParams(
+      current => {
+        const updated = new URLSearchParams(current);
+        if (next === "preview") updated.set("view", "preview");
+        else updated.delete("view");
+        return updated;
+      },
+      { replace: true }
+    );
   // Load the support widget once for the session, launcher hidden (004 I01, I04)
   useSupportWidget();
 
@@ -111,31 +129,26 @@ export function Layout({ bannerData, bannerLoading }: LayoutProps) {
                 panel={bannerData.panel}
               />
             )}
+            {showPreview && <PreviewSwitch view={view} onChange={setView} />}
+            {showPreview && view === "preview" && (
+              <InlinePreview onSelected={() => setView("edit")} />
+            )}
             <main
               id="editor-content"
-              className="min-w-0 overflow-hidden rounded-prism-21 bg-white shadow-prism-e3"
+              className={cn(
+                RESTYLED_PANELS.includes(activePanel)
+                  ? "min-w-0"
+                  : "min-w-0 overflow-hidden rounded-prism-21 bg-white shadow-prism-e3",
+                // Edit stays mounted so its scroll position survives the tab switch
+                view === "preview" && "max-lg:hidden"
+              )}
             >
               <ActivePanel panel={activePanel} />
             </main>
           </div>
 
           {/* Commitment field frame: live preview on Page and Design (D08, D10) */}
-          {showPreview && (
-            <aside
-              aria-label="Live preview"
-              className="prism-glass-clear sticky top-[21px] hidden h-[calc(100dvh-42px)] w-[min(508px,40vw)] shrink-0 overflow-hidden !rounded-prism-34 lg:block"
-            >
-              <div className="h-full overflow-y-auto">
-                <Preview
-                  isEditing={true}
-                  profile={profile}
-                  blocks={blocks}
-                  theme={theme}
-                  userId={profile.id}
-                />
-              </div>
-            </aside>
-          )}
+          {showPreview && <PreviewFrame />}
         </div>
 
         <MobileDock />

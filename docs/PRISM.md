@@ -213,7 +213,62 @@ New preset recipes: `prism-dock` (dock capsule, tint 0.12, white 0.56), `prism-d
 
 ### Interim destinations
 
-Page, Design and Account compose today's panels so the rail matches the approved structure. PR 3a (Design, rows 023 to 033) and PR 3b (Page, rows 006, 017 to 020, 022, 034 to 037) replace their insides. Destinations that are not restyled yet sit on a white surface so their current colors stay readable on the room; each batch removes it.
+Account still composes today's panels. Design is replaced in PR 3a and Page in PR 3b (below). Account (rows 019 to 021 and 098) is next. Destinations that are not restyled yet sit on a white surface so their current colors stay readable on the room; each batch removes it.
+
+## Design (PR 3a, Screen Review 023 to 033)
+
+Design lives in `apps/client/src/components/panels/design`. `DesignPanel.tsx` holds the tabs and the theme file actions.
+
+### Pieces
+
+| Piece | File | Rule |
+|---|---|---|
+| Disclosure rows | `kit/DisclosureRow.tsx` | One row open per tab, stored in `amped:design-style-open` and `amped:design-motion-open`. Header is an h3 with a button (`aria-expanded`), the current value, a swatch and a warning icon when a contrast pair fails. The region mounts only while open |
+| Option tiles | `kit/OptionTile.tsx` | A radiogroup with roving focus (arrows, Home, End). Selected: indigo ring and a 21 check. Hover and focus preview on the live frame; leaving ends the preview |
+| Color control | `kit/ColorControl.tsx` | Swatch opens the system picker, hex field checks on blur ("Use 6 hex digits, for example #FFFFFF"), plus a Your colors row from the current theme |
+| Contrast guard | `kit/useDesign.ts`, `kit/Notices.tsx` | Text on the card and on buttons needs 4.5:1, the name with an effect needs 3:1. A failing pair shows the solid notice with the measured ratio and one fix (Fix contrast, or Remove effect for the name) |
+| Locked themes | `kit/Notices.tsx`, `kit/useThemeActions.ts` | A marketplace theme (`user_id` null) is read only. Style and Motion show one notice with Make an editable copy, which stores the look as the creator's own theme |
+| Themes | `themes/ThemesTab.tsx`, `themes/ThemeCard.tsx` | Current theme card, collection chips in `?collection=`, search (233ms debounce), one section per collection with See all. Selecting a card pins the preview ("Previewing X. Not applied yet.") until Escape. Apply goes to the server first, then an 8 second Undo. Phones open a full height preview sheet |
+| Theme files | `DesignPanel.tsx` | Overflow menu (a bottom sheet on phones): Save theme file, Import theme file, How theme files work. File names keep letters, digits and hyphens (`themeFileName`). Import autosaves and offers Undo; on a locked theme it becomes the creator's own theme |
+
+### Live preview
+
+`EditorContext` has `previewOverride` (a partial theme config and a label). `Layout` merges it into the preview frame and shows the label chip. It clears when the destination changes. Nothing in an override is saved.
+
+### Renderer (shared with the public page)
+
+`@repo/ui` `theme-style.ts` holds `THEME_DEFAULTS` (what public pages render today) and `themeCssVars`. Neon, gradient and glow buttons, gradient and glow containers, and the name glow read `--amped-*` variables instead of fixed colors, so they follow the creator's colors in the editor and on amped.bio alike. The Glow name effect now glows in the creator's text color and no longer forces white text. Every animation is `motion-safe:`. Particles show a still frame under reduced motion and pause off screen. Playfair Display, Lora and Space Grotesk join the font list in both apps.
+
+### Removed
+
+`panels/appearance`, `panels/effects`, `panels/gallery`, `CollapsiblePanelWrapper`, `profile/AppearanceTabContent` and `profile/EffectsTabContent`. The marketplace view, filter and sort state left the editor store. `/profile?tab=appearance`, `effects` and `theme` land on the matching Design tab.
+
+## Page (PR 3b, Screen Review 006, 017, 018, 022, 034 to 037)
+
+Page lives in `apps/client/src/components/panels/page`. The live preview lives in `apps/client/src/components/preview`.
+
+### Pieces
+
+| Piece | File | Rule |
+|---|---|---|
+| Live preview frame | `preview/PreviewFrame.tsx` | Frame on Page and Design from 1024 up, with Phone (390) and Desktop (1440 scaled) tabs. The choice is stored per viewer. The creator's background stays inside the frame. Below 1024 the Edit and Preview tabs switch views, stored in `?view=preview`. When there are no blocks, the frame shows an Add block hint |
+| Preview behavior | `components/Preview.tsx` | Clicks never navigate or count. A click opens the block in the Page list; on Design it does nothing. Hidden blocks do not render. Incomplete blocks show a Fix chip. The footer reads Made with Amped.Bio |
+| Header card | `header/ProfileHeaderCard.tsx` | Photo, Display name, handle, RevoName (only when RNS is on) and Bio, all autosaved. The Bio editor is the Prism toolbar in `blocks/text/TextEditor/SlateEditor.tsx`: four 44 buttons with roving focus, shortcuts, and an Align menu |
+| Photo | `header/PhotoControl.tsx`, `header/CropDialog.tsx` | The circle is the control and accepts a dropped file. Crop photo saves exactly what the circle shows, 512 px square. Remove photo has an 8 second Undo. Errors appear under the photo with Retry |
+| RevoName | `header/RevoNameField.tsx` | A select with loading, no wallet and no names states. The expired or lost notice replaces the modal. Manage names opens RNS My names until Wallet Names exists |
+| X import (022) | none | Not rendered (D07) until a server lookup exists. `TwitterImport` and the browser bearer token are removed |
+| Blocks list | `blocks/BlocksSection.tsx`, `blocks/BlockRow.tsx` | The eyebrow row with Add block, then one card of rows in visitor order. The handle, visibility toggle (`config.hidden`) and overflow menu are always visible. The overflow menu holds Open link, Move up, Move down and Delete. Delete is instant with an 8 second Undo, and the server delete runs when the Undo expires. Drag uses an 8 px activation distance, or a 233 ms long press on touch, with named announcements |
+| Inline editing | `blocks/BlockFields.tsx` | The open row is the region's one lens with fields on the slab. Valid changes go to the editor state at once and autosave. Invalid input shows its fix on blur and never saves. A new block is a draft row, created on the server from its first valid value |
+| Add block | `blocks/AddBlockDialog.tsx`, `blocks/LinkFields.tsx` | The Link section comes first: one field detects the platform, shows a chip with Change, and prefills Label. Then the MEDIA, UTILITY and WEB3 tiles. If a referral block exists, its tile opens that block |
+| Block validity | `@repo/constants` `block-validity.ts` | One rule for the editor list, the preview and amped.bio. A block renders when it is not hidden and its required field is present |
+
+### Removed
+
+- `panels/blocks` (except `PoolSearchInput`).
+- `profile/ProfileForm`, `ImageUploader`, `PhotoEditor` and `TwitterImport`.
+- `page/RevoNameIssueDialog`, `ui/Slider` and `utils/twitter.ts`.
+- `addBlock` no longer toasts or clears the unsaved flag.
+- `removeBlock` throws on failure.
 
 ## Rules reviewers should enforce
 
@@ -229,6 +284,6 @@ The work ships in batched PRs:
 
 1. Tokens
 2. Shared components restyled in place, with the gallery; 2b money flow pieces and pool cards
-3. App shell (001 to 005); 3a Design (023 to 033); 3b Page (006, 017 to 020, 022, 034 to 037)
+3. App shell (001 to 005); 3a Design (023 to 033); 3b Page (006, 017, 018, 022, 034 to 037); 3c Account (019, 020)
 4. Money flow
 5. Screen batches by app area, each tied to Amped.Bio Screen Review row numbers
