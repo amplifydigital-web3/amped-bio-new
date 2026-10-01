@@ -1,40 +1,35 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, Info, X } from "lucide-react";
 import { Button, cn } from "@repo/ui";
+import type { BannerPanelValue } from "@repo/constants";
 import type { EditorPanelType } from "@/types/editor";
 import { useShellNavigation } from "./shell/ShellNavigation";
 import { PANEL_TITLES } from "./shell/destinations";
 
-// Values an admin can set as the banner destination (public.getBanner)
-export type BannerPanel =
-  | "home"
-  | "analytics"
-  | "profile"
-  | "reward"
-  | "gallery"
-  | "blocks"
-  | "rewardPools"
-  | "createRewardPool"
-  | "leaderboard"
-  | "rns"
-  | "wallet"
-  | "pay"
-  | "account";
+// Values a stored banner can name (public.getBanner): the live destinations
+// plus legacy values saved before D01 (Screen Review 098 I07, I11).
+export type BannerPanel = BannerPanelValue;
 
-// Legacy banner values mapped to the D01 destinations (Screen Review 005 I04, I08).
-// Hidden panels (D22) get no button.
+// Legacy banner values mapped to the D01 destinations (Screen Review 005 I04,
+// I08, 098 I07). Hidden panels (D22) get no button.
 const BANNER_DESTINATIONS: Partial<Record<BannerPanel, { panel: EditorPanelType; tab?: string }>> =
   {
     home: { panel: "home" },
+    explore: { panel: "explore" },
+    page: { panel: "page" },
+    design: { panel: "design" },
     analytics: { panel: "analytics" },
+    wallet: { panel: "wallet" },
+    "my-pool": { panel: "my-pool" },
+    account: { panel: "account" },
     profile: { panel: "page" },
     blocks: { panel: "page" },
     gallery: { panel: "design", tab: "themes" },
     pay: { panel: "wallet" },
     rns: { panel: "wallet" },
-    wallet: { panel: "wallet" },
     createRewardPool: { panel: "my-pool" },
-    account: { panel: "account" },
+    rewardPools: { panel: "explore" },
+    leaderboard: { panel: "explore" },
   };
 
 type BannerType = "info" | "warning" | "success" | "error";
