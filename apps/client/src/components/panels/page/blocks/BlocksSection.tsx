@@ -60,6 +60,7 @@ export function BlocksSection() {
   const [draft, setDraft] = useState<BlockType | null>(null);
   const [draftCreatedId, setDraftCreatedId] = useState<number | null>(null);
   const creating = useRef(false);
+  const latestDraftConfig = useRef<BlockType["config"] | null>(null);
   const pendingDeletes = useRef(new Map<number, ReturnType<typeof setTimeout>>());
 
   // Add block from the preview hint or the empty list (006 I09)
@@ -68,12 +69,27 @@ export function BlocksSection() {
   // Pending deletes run when their Undo expires or when Page closes (036 I07)
   useEffect(() => {
     const pending = pendingDeletes.current;
-    return () => {
+    const runAll = () => {
       pending.forEach((timer, id) => {
         clearTimeout(timer);
         void trpcClient.blocks.deleteBlock.mutate({ id }).catch(() => undefined);
       });
       pending.clear();
+    };
+    // Unmount does not run when the tab closes. Ask before leaving while a delete
+    // waits for its Undo, and send it on pagehide as a last resort; otherwise the
+    // block stays on the server and comes back on the next load.
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (pending.size === 0) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    window.addEventListener("pagehide", runAll);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      window.removeEventListener("pagehide", runAll);
+      runAll();
     };
   }, []);
 
@@ -114,6 +130,7 @@ export function BlocksSection() {
   };
 
   const closeDraft = () => {
+    latestDraftConfig.current = null;
     setDraft(null);
     setDraftCreatedId(null);
   };
@@ -141,6 +158,7 @@ export function BlocksSection() {
     if (!draft) return;
     const next = { ...draft, config } as BlockType;
     setDraft(next);
+    latestDraftConfig.current = config;
     if (draftCreatedId !== null) {
       updateBlock(draftCreatedId, config);
       return;
@@ -150,6 +168,11 @@ export function BlocksSection() {
     try {
       const created = await addBlock({ ...next, id: 0 } as BlockType);
       setDraftCreatedId(created.id);
+      // Changes typed while the block was being created were skipped above;
+      // apply the latest one so the last keystrokes are not lost
+      if (latestDraftConfig.current && latestDraftConfig.current !== config) {
+        updateBlock(created.id, latestDraftConfig.current);
+      }
     } catch {
       toast.add({ type: "error", title: "The block was not added. Check your connection." });
     } finally {
