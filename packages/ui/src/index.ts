@@ -56,6 +56,24 @@ export {
   type AmountWellProps,
 } from "./prism/flow";
 export {
+  AuthCard,
+  AuthCardSkeleton,
+  AuthLegalLine,
+  AuthSwitchLine,
+  CAPTCHA_FAILED,
+  GOOGLE_FAILED_BODY,
+  GOOGLE_FAILED_TITLE,
+  GoogleSignInButton,
+  InlineError,
+  OrDivider,
+  PasswordInput,
+  startGoogleSignIn,
+  classifyAuthError,
+  SUPPORT_TICKET_URL,
+  type AuthErrorKind,
+  type GoogleSignInOptions,
+} from "./prism/auth";
+export {
   PoolCardFeatured,
   PoolCardMedium,
   PoolRow,
@@ -80,7 +98,7 @@ export * from "./trpc-types";
 
 // OAuth 2.1 provider hosted pages ("Sign in with Amped.bio")
 export { OAuthShell } from "./oauth/oauth-shell";
-export { OAuthLoginScreen } from "./oauth/oauth-login-screen";
+export { OAuthLoginScreen, useOAuthClientName } from "./oauth/oauth-login-screen";
 export { OAuthConsentScreen } from "./oauth/oauth-consent-screen";
 export { OAuthDeviceScreen } from "./oauth/oauth-device-screen";
 export { describeOAuthScope, OAUTH_SCOPE_DESCRIPTIONS } from "./oauth/oauth-scopes";
