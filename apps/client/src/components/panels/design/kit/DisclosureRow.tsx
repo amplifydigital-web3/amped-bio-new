@@ -10,6 +10,8 @@ interface GroupValue {
   open: string | null;
   setOpen: (id: string | null) => void;
   readOnly: boolean;
+  /** Open content keeps 21 side padding on every width (rows inside a card) */
+  inset: boolean;
 }
 
 const GroupContext = createContext<GroupValue | null>(null);
@@ -34,16 +36,23 @@ function writeStored(key: string, value: string | null) {
 export function DisclosureGroup({
   storageKey,
   defaultOpen,
+  initialOpen,
   readOnly = false,
+  inset = false,
   children,
 }: {
   storageKey: string;
-  defaultOpen: string;
+  defaultOpen: string | null;
+  /** A deep link to one row (for example ?open=url) wins over the stored row */
+  initialOpen?: string | null;
   /** Locked theme: rows open and close, their controls do not respond (027 I09) */
   readOnly?: boolean;
+  inset?: boolean;
   children: ReactNode;
 }) {
-  const [open, setOpenState] = useState<string | null>(() => readStored(storageKey) ?? defaultOpen);
+  const [open, setOpenState] = useState<string | null>(
+    () => initialOpen ?? readStored(storageKey) ?? defaultOpen
+  );
   const setOpen = useCallback(
     (id: string | null) => {
       setOpenState(id);
@@ -52,7 +61,7 @@ export function DisclosureGroup({
     [storageKey]
   );
   return (
-    <GroupContext.Provider value={{ open, setOpen, readOnly }}>
+    <GroupContext.Provider value={{ open, setOpen, readOnly, inset }}>
       <div className="font-prism">{children}</div>
     </GroupContext.Provider>
   );
@@ -83,7 +92,7 @@ export function DisclosureRow({
   warning?: boolean;
   children: ReactNode;
 }) {
-  const { open, setOpen, readOnly } = useDisclosureGroup();
+  const { open, setOpen, readOnly, inset } = useDisclosureGroup();
   const isOpen = open === id;
   const buttonId = useId();
   const regionId = useId();
@@ -127,7 +136,10 @@ export function DisclosureRow({
           role="region"
           id={regionId}
           aria-labelledby={buttonId}
-          className="animate-in fade-in slide-in-from-top-1 px-0 pb-[34px] pt-[13px] duration-prism-control motion-reduce:animate-none sm:px-[21px]"
+          className={cn(
+            "animate-in fade-in slide-in-from-top-1 pb-[34px] pt-[13px] duration-prism-control motion-reduce:animate-none",
+            inset ? "px-[21px] pb-[21px]" : "px-0 sm:px-[21px]"
+          )}
         >
           {children}
         </div>
