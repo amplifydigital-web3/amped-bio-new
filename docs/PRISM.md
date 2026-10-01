@@ -213,7 +213,7 @@ New preset recipes: `prism-dock` (dock capsule, tint 0.12, white 0.56), `prism-d
 
 ### Interim destinations
 
-Account still composes today's panels. Design is replaced in PR 3a and Page in PR 3b (below). Account (rows 019 to 021 and 098) is next. Destinations that are not restyled yet sit on a white surface so their current colors stay readable on the room; each batch removes it.
+Design is replaced in PR 3a, Page in PR 3b and Account Settings in PR 3c (below). The Two factor row content and the Developers tab keep today's look until 021 and 098. Destinations that are not restyled yet sit on a white surface so their current colors stay readable on the room; each batch removes it.
 
 ## Design (PR 3a, Screen Review 023 to 033)
 
@@ -269,6 +269,27 @@ Page lives in `apps/client/src/components/panels/page`. The live preview lives i
 - `page/RevoNameIssueDialog`, `ui/Slider` and `utils/twitter.ts`.
 - `addBlock` no longer toasts or clears the unsaved flag.
 - `removeBlock` throws on failure.
+
+## Account (PR 3c, Screen Review 019, 020)
+
+Account Settings lives in `apps/client/src/components/panels/account`. It is one 610 column with one G1 clear card of flat disclosure rows (`design/kit/DisclosureRow.tsx`, with `inset` for rows inside a card). One row opens at a time. `?open=url` or `?open=email` opens a row; the @handle on the Page header card links to `?open=url`.
+
+### Pieces
+
+| Piece | File | Rule |
+|---|---|---|
+| Public URL (020) | `PublicUrlRow.tsx`, `hooks/useHandleAvailability.ts` | Row value amped.bio/handle (no @). One well with the prefix inside it. The status line names the state in words and an icon: Your current URL, Checking (after 400ms), available, taken, too short, or the check failed with Retry. The current handle is compared ignoring case before any format check, so a legacy handle with capitals never shows an error. Typed input is cleaned; a helper names the rule for 5 seconds. An available new URL shows the solid notice Your old links stop working. Use this URL is explicit, stays on Account, and the toast offers Copy link |
+| Email (019) | `EmailRow.tsx`, `hooks/useSecondsLeft.ts` | Two steps in place, no dialog. Step 1: Current email, then one New email field with Send code. Step 2: six 44 x 55 code slots (paste fills them, the sixth digit submits), the expiry countdown, Use a different email and Resend code (60 second cooldown). Errors sit under the field with their fix. Rate limits disable Send code with a countdown. An expired code swaps Verify for Send a new code. Success closes the row with a toast |
+| Email change server flow | `apps/server/src/trpc/user.ts`, `utils/email` | The code goes to the new address and is stored with that address (`confirmation_codes.target`). Confirm accepts only that address. The current address gets a notice email. The tRPC error formatter passes `retryAfter` from rate limited errors to the client |
+| Two factor | `profile/SecurityTabContent.tsx` | The third row for now, with today's content inside it until 021 |
+
+The Password row (row three in 019 I01) comes with 021. There is no in account password change today.
+
+### Removed
+
+- `profile/ProfileSections`, `profile/URLPicker` and `dialogs/EmailChangeDialog`.
+- `ui/URLStatusIndicator`.
+- The current email and confirm email fields. The code to the new address is the confirmation.
 
 ## Rules reviewers should enforce
 
