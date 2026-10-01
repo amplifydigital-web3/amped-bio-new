@@ -39,16 +39,25 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-SK6H61G3S1"></script>
+    <!--
+      Google tag in Consent Mode (docs/legal/privacy-parameters.md). The editor
+      has no consent card, so every storage type stays denied and GA sends
+      cookieless measurements only. The consent default runs before gtag.js.
+    -->
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag() {
         dataLayer.push(arguments);
       }
+      gtag("consent", "default", {
+        analytics_storage: "denied",
+        ad_storage: "denied",
+        ad_user_data: "denied",
+        ad_personalization: "denied",
+      });
       gtag("js", new Date());
-
       gtag("config", "G-SK6H61G3S1");
     </script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-SK6H61G3S1"></script>
   </body>
 </html>
