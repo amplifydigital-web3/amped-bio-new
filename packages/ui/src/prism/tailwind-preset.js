@@ -395,9 +395,59 @@ function prismComponents({ addComponents, addBase }) {
       boxShadow: "inset 0 1px 0 rgba(255,255,255,0.9), inset 0 0 0 1px rgba(22,21,43,0.18)",
     },
 
+    // Section 7 and Screen Review 001 D1. Dock capsule: G1 navigate with the
+    // dock values (tint 0.12, white 0.56). Used by the vertical desktop rail
+    // and the mobile bottom dock. Add the radius (r34) where it is used.
+    ".prism-dock": {
+      background:
+        "linear-gradient(180deg, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0) 60%), linear-gradient(rgba(86,80,162,0.12), rgba(86,80,162,0.12)), rgba(255,255,255,0.56)",
+      ...backdrop("blur(21px) saturate(1.6)"),
+      border: "1px solid rgba(255,255,255,0.85)",
+      boxShadow: `${WHITE_TOP}, inset 0 -3px 8px rgba(86,80,162,0.08), ${HAIRLINE}, 8px 21px 44px rgba(48,47,93,0.16)`,
+    },
+    // Dock and rail item at rest (CLEAR) and on hover (ILLUMINATED: the top
+    // highlight brightens, 144ms). No scale on hover.
+    ".prism-dock-item": {
+      color: prismColors["ink-2"],
+      transitionProperty: "background-color, box-shadow",
+      transitionDuration: "144ms",
+      transitionTimingFunction: "cubic-bezier(0.2, 0, 0, 1)",
+      "&:hover": {
+        backgroundColor: "rgba(255,255,255,0.42)",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.95)",
+      },
+      "&:active": {
+        transitionDuration: "89ms",
+        backgroundColor: "rgba(86,80,162,0.10)",
+      },
+    },
+    // Rising dock lens: the active item on the mobile dock (section 7).
+    ".prism-dock-lens": {
+      position: "relative",
+      color: prismColors["nav-pressed"],
+      fontWeight: "700",
+      borderRadius: "30px",
+      transform: "translateY(-13px)",
+      marginTop: "-9px",
+      background: "linear-gradient(180deg, #FFFFFF, #EFEEF8)",
+      boxShadow:
+        "inset 0 2px 1px #FFF, inset 0 0 0 1px rgba(255,255,255,0.7), inset 0 -5px 10px rgba(48,47,93,0.10), 0 0 0 1.5px #5650A2, 5px 16px 30px rgba(48,47,93,0.24), 0 3px 6px rgba(22,21,43,0.10)",
+      "&::before": {
+        content: '""',
+        position: "absolute",
+        top: "3px",
+        left: "13px",
+        right: "13px",
+        height: "8px",
+        borderRadius: "9999px",
+        background: "linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,255,255,0))",
+        pointerEvents: "none",
+      },
+    },
+
     // Section 2 and 14. Reduce blur on mobile; respect reduced motion.
     "@media (max-width: 767px)": {
-      ".prism-glass-nav, .prism-glass-clear, .prism-lens": {
+      ".prism-glass-nav, .prism-glass-clear, .prism-lens, .prism-dock": {
         ...backdrop("blur(13px) saturate(1.4)"),
       },
       ".prism-value-panel, .prism-value-panel-calm": {
@@ -408,6 +458,9 @@ function prismComponents({ addComponents, addBase }) {
       ".prism-rim, .prism-halo-card, .prism-halo-panel": {
         transition: "none",
         animation: "none",
+      },
+      ".prism-dock-item, .prism-dock-lens": {
+        transition: "none",
       },
     },
   });

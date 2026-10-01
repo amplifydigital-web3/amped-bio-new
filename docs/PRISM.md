@@ -176,11 +176,50 @@ The gallery at `/_prism` has a working stake demo that composes these pieces. PR
 
 `cn()` in `packages/ui` knows the Prism tokens, so a caller's `h-12` replaces `h-touch` and `text-prism-label` is treated as a font size.
 
+## App shell (PR 3, Screen Review 001 to 005)
+
+The editor shell lives in `apps/client/src/components/shell`. `Layout.tsx` assembles it.
+
+### Structure (D01, D08, D09)
+
+| Piece | File | Rule |
+|---|---|---|
+| Destinations | `destinations.ts` | Seven destinations in D01 order: Home, Explore (unlabeled Start group), Page, Design, Analytics (Page), Wallet, My Pool (Money). Flags decide what renders; a flag off item is not rendered and never shows Soon |
+| Rail | `Rail.tsx` | Desktop 768 and up. `prism-dock` capsule at x 21, 89 wide, full height minus 21, padding 13. Items 61 x 64, r27, 21 icon over a 13/16 label. Current item: `prism-lens-thumb` plus `aria-current="page"`. Group eyebrows above Page and Money, hidden when the group is empty |
+| Mobile dock | `MobileDock.tsx` | Below 768. `prism-dock` 21 from the edges above the safe area. Current item: `prism-dock-lens` (rises 13). More opens the bottom sheet with the rest. With five or fewer enabled destinations all sit in the dock. The dock hides while the keyboard is open |
+| Top bar | `TopBar.tsx` | Desktop: G1 navigate 55, r34. Title as the page h1 ("Design, Themes" on a tab), then save status (Page, Design), View page and Copy page link, Help, wallet chip (Wallet, My Pool, Explore, Pay, RNS), avatar. Mobile: title, status, avatar |
+| Account menu | `AccountMenu.tsx` | Identity header, Account settings, View my page, Help (sub menu), Sign out. On mobile View my page and Copy page link come first |
+| Help | `HelpMenu.tsx`, `useSupportWidget.ts` | Help articles, Contact support, Community on Telegram. The Freshworks script loads once per session with the launcher hidden. If it has not loaded 5 seconds after Contact support, the portal opens in a new tab |
+| Wallet chip | `WalletChip.tsx` | Address only (6 plus 4), never a balance. Copy address, Open in explorer, Go to Wallet |
+| Announcement | `components/Banner.tsx` | In flow notice under the top bar. Info and success on G1 clear, warning and error on the solid notice. Open <destination> ghost button only when the admin set one. Dismiss is stored per message |
+| Leave guard | `ShellNavigation.tsx` | Destination changes flush a pending save. If the save fails or the browser is offline, the shared Dialog asks: Retry save or Leave anyway |
+
+New preset recipes: `prism-dock` (dock capsule, tint 0.12, white 0.56), `prism-dock-item` (CLEAR at rest, ILLUMINATED on hover, no scale) and `prism-dock-lens` (the rising lens).
+
+### Routes
+
+| Old | New |
+|---|---|
+| `/profile`, `/blocks` | `/page` |
+| `/gallery` | `/design?tab=themes` |
+| `/createRewardPool` | `/my-pool` |
+| `/developer` | `/account?tab=developers` |
+
+`/pay` and `/rns` stay routable and count as Wallet in the rail. Wallet's Send button now opens Pay (it only changed state before). Destination tabs live in `?tab=` (`useDestinationTab`).
+
+### Autosave (D11, D26)
+
+`EditorContext` saves 800ms after the last edit, on blur, on a destination change and when the connection returns. Every edit bumps a revision counter, so an edit made during a save stays dirty and saves next. `saveStatus` is `idle`, `saving`, `saved`, `error` or `offline`. The top bar shows Saved, Saving (after 400ms), Could not save with Retry, or Offline. Changes save when you reconnect. There are no Save buttons and no success toasts. `beforeunload` asks only while an edit is not stored. Handle, email, password, two factor, theme apply and import, and money flows keep their explicit submits.
+
+### Interim destinations
+
+Page, Design and Account compose today's panels so the rail matches the approved structure. PR 3a (Design, rows 023 to 033) and PR 3b (Page, rows 006, 017 to 020, 022, 034 to 037) replace their insides. Destinations that are not restyled yet sit on a white surface so their current colors stay readable on the room; each batch removes it.
+
 ## Rules reviewers should enforce
 
 1. **Trust rule.** Spectacle falls as commitment rises. The Review and Confirm step uses `prism-value-panel-calm`, has no rim, uses a solid `prism-notice`, and has a required checkbox. The commit button is `value-deep`, followed by the wallet note.
 2. **Rates.** Never label a rate APY or APR. The figure is an instantaneous estimate, not a past average.
-3. **Testnet copy, verbatim:** "Testnet only. tREVO has no cash value. Pool rewards are set by the creator, vary, and are not guaranteed."
+3. **Testnet copy, verbatim:** "Testnet only. tREVO has no cash value. Pool rewards come from the network, vary, and are not guaranteed."
 4. **Contrast.** Text meets WCAG AA against the worst background under its glass: 4.5:1 for body, 3:1 for 24px and up and for non-text UI.
 5. **Creator pages.** The creator's theme outranks the system. Never force cyan, indigo or purple onto a creator page.
 
@@ -190,6 +229,6 @@ The work ships in batched PRs:
 
 1. Tokens
 2. Shared components restyled in place, with the gallery; 2b money flow pieces and pool cards
-3. App shell
+3. App shell (001 to 005); 3a Design (023 to 033); 3b Page (006, 017 to 020, 022, 034 to 037)
 4. Money flow
 5. Screen batches by app area, each tied to Amped.Bio Screen Review row numbers

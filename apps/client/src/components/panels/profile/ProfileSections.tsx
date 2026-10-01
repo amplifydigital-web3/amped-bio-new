@@ -9,9 +9,12 @@ import { EmailChangeDialog } from "../../dialogs/EmailChangeDialog";
 import useGetAllRegisteredNames from "@/hooks/rns/useGetAllRegisteredNames";
 import { useAccount } from "wagmi";
 
-export function GeneralTabContent() {
+/**
+ * The profile header content on Page (Screen Review D03): photo, display name,
+ * bio and RevoName. Email, URL and security moved to Account (D04).
+ */
+export function ProfileBasics() {
   const { profile, setProfile } = useEditor();
-  const { authUser } = useAuth();
   const { address: accountAddress, isConnected } = useAccount();
 
   const showRNS = import.meta.env.VITE_SHOW_RNS === "true";
@@ -23,7 +26,6 @@ export function GeneralTabContent() {
 
   const revolutionNames = showRNS ? fetchedNames : null;
   const isFetching = showRNS ? namesFetching : false;
-  const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
 
   const handleProfileUpdate = (field: string, value: string) => {
     setProfile({ ...profile, [field]: value });
@@ -49,9 +51,18 @@ export function GeneralTabContent() {
         revoNames={revolutionNames}
         isRevoNameFetching={isFetching}
       />
+    </>
+  );
+}
 
-      <hr className="my-6 border-gray-200" />
+/** Account Settings content (D04): email, public URL, password and two factor. */
+export function AccountSettings() {
+  const { profile } = useEditor();
+  const { authUser } = useAuth();
+  const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
 
+  return (
+    <>
       {/* Email Section */}
       <div className="space-y-4">
         <div>

@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import * as MenuPrimitive from "@radix-ui/react-dropdown-menu";
-import { Check } from "lucide-react";
+import { Check, ChevronRight } from "lucide-react";
 import { cn } from "../utils";
 
 // Prism menu: raised glass (0.84 base), r13, items 44 high. Hover is
@@ -85,8 +85,48 @@ const MenuSeparator = React.forwardRef<
 ));
 MenuSeparator.displayName = "MenuSeparator";
 
+// Sub list inside a menu (Screen Review 004: Help inside the avatar menu)
+const MenuSub = MenuPrimitive.Sub;
+
+const MenuSubTrigger = React.forwardRef<
+  React.ElementRef<typeof MenuPrimitive.SubTrigger>,
+  React.ComponentPropsWithoutRef<typeof MenuPrimitive.SubTrigger>
+>(({ className, children, ...props }, ref) => (
+  <MenuPrimitive.SubTrigger
+    ref={ref}
+    className={cn(itemBase, "data-[state=open]:bg-prism-nav-tint", className)}
+    {...props}
+  >
+    {children}
+    <ChevronRight className="ml-auto" aria-hidden />
+  </MenuPrimitive.SubTrigger>
+));
+MenuSubTrigger.displayName = "MenuSubTrigger";
+
+const MenuSubContent = React.forwardRef<
+  React.ElementRef<typeof MenuPrimitive.SubContent>,
+  React.ComponentPropsWithoutRef<typeof MenuPrimitive.SubContent>
+>(({ className, sideOffset = 8, ...props }, ref) => (
+  <MenuPrimitive.Portal>
+    <MenuPrimitive.SubContent
+      ref={ref}
+      sideOffset={sideOffset}
+      className={cn(
+        "prism-raised z-50 min-w-[220px] max-w-[322px] overflow-hidden rounded-prism-13 p-1.5 font-prism",
+        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 motion-reduce:animate-none",
+        className
+      )}
+      {...props}
+    />
+  </MenuPrimitive.Portal>
+));
+MenuSubContent.displayName = "MenuSubContent";
+
 export {
   Menu,
+  MenuSub,
+  MenuSubTrigger,
+  MenuSubContent,
   MenuTrigger,
   MenuGroup,
   MenuContent,
