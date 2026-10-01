@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from "react";
-import toast from "react-hot-toast";
+import { toast } from "@/components/ui/toast";
 import { useAuth } from "@repo/ui";
 
 // Screen Review 004. The Freshworks support widget, loaded once per session.
@@ -65,8 +65,18 @@ export function useSupportWidget() {
         window.clearInterval(check);
       } else if (Date.now() - started >= LOAD_TIMEOUT_MS) {
         window.clearInterval(check);
-        window.open(SUPPORT_PORTAL_URL, "_blank", "noopener,noreferrer");
-        toast("Support opened in a new tab");
+        // Opening a tab from a timer is not a user gesture, so browsers block it
+        // as a popup. Offer the portal as a toast action the person clicks.
+        toast.add({
+          type: "info",
+          title: "Support did not load",
+          description: "Open the support portal in a new tab instead.",
+          duration: Infinity,
+          actionProps: {
+            children: "Open portal",
+            onClick: () => window.open(SUPPORT_PORTAL_URL, "_blank", "noopener,noreferrer"),
+          },
+        });
       }
     }, 250);
   }, []);
