@@ -9,7 +9,7 @@ import {
   NDAU_CONVERSION_CLAIM_TIMEOUT_MS,
   VALID_DOCUMENT_HASHES,
 } from "@repo/constants";
-import { prisma } from "@repo/database";
+import { prisma, Prisma } from "@repo/database";
 import type { NdauConversion } from "@repo/database";
 import { createPublicClient, http, parseEther, formatEther } from "viem";
 import { libertasTestnet } from "@repo/web3";
@@ -129,7 +129,8 @@ function assertNoOtherTxidRecorded(recordedTxid: string | null, incomingTxid: st
 /**
  * One on-chain transfer pays exactly one conversion. Refuses a txid that is already
  * recorded on another conversion (for example two requests with the same address and
- * amount), which would otherwise let one payment complete both.
+ * amount), which would otherwise let one payment complete both. This gives a clear
+ * message; the unique index on txid is what guarantees it under concurrency.
  */
 async function assertTxidNotUsedElsewhere(conversionId: number, txid: string): Promise<void> {
   const other = await prisma.ndauConversion.findFirst({
@@ -143,6 +144,27 @@ async function assertTxidNotUsedElsewhere(conversionId: number, txid: string): P
     });
   }
 }
+
+/** Runs a txid write and turns a unique index violation (P2002) into a CONFLICT. */
+async function withUniqueTxid<T>(write: () => Promise<T>): Promise<T> {
+  try {
+    return await write();
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "This transaction is already recorded for another conversion",
+      });
+    }
+    throw error;
+  }
+}
+
+// EVM transaction hash: 0x followed by 32 bytes in hex (66 characters, the column size)
+const txidSchema = z
+  .string()
+  .trim()
+  .regex(/^0x[0-9a-fA-F]{64}$/, "Transaction ID must be a 0x-prefixed 64-character hex hash");
 
 export const ndauConversionRouter = router({
   checkExistingConversion: privateProcedure
@@ -590,7 +612,7 @@ export const ndauConversionRouter = router({
     .input(
       z.object({
         id: z.number(),
-        txid: z.string().min(1, "Transaction ID is required"),
+        txid: txidSchema,
       })
     )
     .mutation(async ({ input }) => {
@@ -619,14 +641,16 @@ export const ndauConversionRouter = router({
 
       // Write only if no txid is recorded yet, or the same one is (a retry).
       // Guards against a race with another admin between the read above and this write.
-      const written = await prisma.ndauConversion.updateMany({
-        where: { id, OR: [{ txid: null }, { txid }] },
-        data: {
-          txid,
-          status: "processing",
-          updated_at: new Date(),
-        },
-      });
+      const written = await withUniqueTxid(() =>
+        prisma.ndauConversion.updateMany({
+          where: { id, OR: [{ txid: null }, { txid }] },
+          data: {
+            txid,
+            status: "processing",
+            updated_at: new Date(),
+          },
+        })
+      );
 
       if (written.count === 0) {
         throw new TRPCError({
@@ -688,7 +712,7 @@ export const ndauConversionRouter = router({
     .input(
       z.object({
         id: z.number(),
-        txid: z.string().min(1, "Transaction ID is required"),
+        txid: txidSchema,
       })
     )
     .mutation(async ({ input }) => {
@@ -719,18 +743,20 @@ export const ndauConversionRouter = router({
 
       // Same guard as confirmConversionTxid: write only while the row is still open and
       // has no txid or this same txid, so a concurrent write cannot be overwritten.
-      const written = await prisma.ndauConversion.updateMany({
-        where: {
-          id,
-          status: { in: ["pending", "processing"] },
-          OR: [{ txid: null }, { txid }],
-        },
-        data: {
-          txid,
-          status: "processed",
-          updated_at: new Date(),
-        },
-      });
+      const written = await withUniqueTxid(() =>
+        prisma.ndauConversion.updateMany({
+          where: {
+            id,
+            status: { in: ["pending", "processing"] },
+            OR: [{ txid: null }, { txid }],
+          },
+          data: {
+            txid,
+            status: "processed",
+            updated_at: new Date(),
+          },
+        })
+      );
 
       if (written.count === 0) {
         throw new TRPCError({

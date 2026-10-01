@@ -90,6 +90,8 @@ export const AdminNdauConversions: FC = () => {
   const [sentTxHash, setSentTxHash] = useState<string | null>(null);
   const [recordFailed, setRecordFailed] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
+  // Bumped when a stored hash is discarded, so rows re-read localStorage
+  const [, setStoredTxVersion] = useState(0);
 
   const [isMarkCompletedOpen, setIsMarkCompletedOpen] = useState(false);
   const [txidInput, setTxidInput] = useState("");
@@ -177,6 +179,15 @@ export const AdminNdauConversions: FC = () => {
   };
 
   const handleProcessClick = async (conversion: Conversion) => {
+    // A transfer this browser already sent for the request must be recorded, never
+    // sent again, even if the request was released back to pending meanwhile.
+    const storedHash = readUnrecordedTx(conversion.id);
+    if (storedHash) {
+      toast.error("A transfer was already sent for this request. Recording it instead.");
+      recordStoredTx(conversion.id, storedHash);
+      return;
+    }
+
     // Lock the request on the server before any wallet opens. Only one admin wins.
     setIsClaiming(true);
     try {
@@ -215,6 +226,18 @@ export const AdminNdauConversions: FC = () => {
 
   const recordStoredTx = (conversionId: number, hash: string) => {
     confirmMutation.mutate({ id: conversionId, txid: hash });
+  };
+
+  // For a stored hash the server keeps rejecting (for example it belongs to another
+  // conversion). Without this the row would stay on Record transaction forever.
+  const handleDiscardStoredTx = (conversionId: number) => {
+    const ok = window.confirm(
+      "Discard the stored transaction hash for this request?\n\nOnly do this if the server rejected it and you checked on the explorer that it does not pay this request. Otherwise record it or use Mark Completed."
+    );
+    if (!ok) return;
+    clearUnrecordedTx(conversionId);
+    setStoredTxVersion(version => version + 1);
+    toast.success("Stored transaction hash discarded");
   };
 
   const handleReleaseClick = (conversion: Conversion) => {
@@ -610,32 +633,40 @@ export const AdminNdauConversions: FC = () => {
                       // Claimed but no transaction recorded on the server. Either a send is
                       // in progress, or it was sent and recording failed. Never offer Process.
                       <div className="flex items-center gap-2">
-                        {readUnrecordedTx(conversion.id) ? (
-                          <Button
-                            size="sm"
-                            onClick={() =>
-                              recordStoredTx(conversion.id, readUnrecordedTx(conversion.id)!)
-                            }
-                            disabled={confirmMutation.isPending}
-                            title={readUnrecordedTx(conversion.id) ?? ""}
-                          >
-                            Record transaction
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleReleaseClick(conversion)}
-                            disabled={releaseMutation.isPending || !conversion.canRelease}
-                            title={
-                              conversion.canRelease
-                                ? undefined
-                                : `Claimed by ${conversion.claimedBy ?? "another admin"}. Only they can release it for the first ${NDAU_CONVERSION_CLAIM_TIMEOUT_MS / 60000} minutes.`
-                            }
-                          >
-                            Release
-                          </Button>
+                        {readUnrecordedTx(conversion.id) && (
+                          <>
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                recordStoredTx(conversion.id, readUnrecordedTx(conversion.id)!)
+                              }
+                              disabled={confirmMutation.isPending}
+                              title={readUnrecordedTx(conversion.id) ?? ""}
+                            >
+                              Record transaction
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDiscardStoredTx(conversion.id)}
+                            >
+                              Discard hash
+                            </Button>
+                          </>
                         )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleReleaseClick(conversion)}
+                          disabled={releaseMutation.isPending || !conversion.canRelease}
+                          title={
+                            conversion.canRelease
+                              ? undefined
+                              : `Claimed by ${conversion.claimedBy ?? "another admin"}. Only they can release it for the first ${NDAU_CONVERSION_CLAIM_TIMEOUT_MS / 60000} minutes.`
+                          }
+                        >
+                          Release
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"
@@ -662,17 +693,37 @@ export const AdminNdauConversions: FC = () => {
                       </Button>
                     ) : conversion.status === "pending" ? (
                       <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => handleProcessClick(conversion)}
-                          disabled={isClaiming}
-                        >
-                          Process
-                        </Button>
+                        {readUnrecordedTx(conversion.id) ? (
+                          // This browser already sent a transfer for the request (it was
+                          // released after recording failed). Record it; never send again.
+                          <Button
+                            size="sm"
+                            onClick={() =>
+                              recordStoredTx(conversion.id, readUnrecordedTx(conversion.id)!)
+                            }
+                            disabled={confirmMutation.isPending}
+                            title={readUnrecordedTx(conversion.id) ?? ""}
+                          >
+                            Record transaction
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            onClick={() => handleProcessClick(conversion)}
+                            disabled={isClaiming}
+                          >
+                            Process
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleMarkCompletedClick(conversion)}
+                          onClick={() =>
+                            handleMarkCompletedClick(
+                              conversion,
+                              readUnrecordedTx(conversion.id) ?? undefined
+                            )
+                          }
                         >
                           <ClipboardCheck className="h-4 w-4 mr-1" />
                           Mark Completed

@@ -334,7 +334,7 @@ model NdauConversion {
   ampedbio_signature  String    @db.Text
   ndau_signature      String    @db.Text
   ndau_validation_key String    @db.Text
-  txid                String?   @db.Text
+  txid                String?   @unique @db.VarChar(66)
   // Admin who locked the request for sending, and when. Cleared on release.
   claimed_by          Int?
   claimed_at          DateTime?
