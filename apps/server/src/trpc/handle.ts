@@ -4,10 +4,14 @@ import { getFileUrl } from "../utils/fileUrlResolver";
 import { ThemeConfig } from "@repo/constants";
 import { prisma } from "@repo/database";
 import { z } from "zod";
-import { HANDLE_MIN_LENGTH, HANDLE_REGEX } from "@repo/constants";
+import { HANDLE_MIN_LENGTH, HANDLE_REGEX, sanitizeRichText } from "@repo/constants";
 import { env } from "../env";
+import { sanitizeBlockConfig } from "../utils/sanitizeBlockConfig";
 import { logger } from "better-auth";
 import { getPublicTrackingPixels } from "./trackingPixels";
+import { indexableUserWhere, isUserIndexable } from "../utils/indexable";
+
+export const SITEMAP_MAX_PAGE_SIZE = 10000;
 
 // Create a base schema for handle validation
 export const handleBaseSchema = z
@@ -291,7 +295,7 @@ const appRouter = router({
         type: block.type,
         order: block.order,
         clicks: block.clicks,
-        config: block.config,
+        config: sanitizeBlockConfig(block.type, block.config),
         created_at: block.created_at,
         updated_at: block.updated_at,
       }));
@@ -310,13 +314,15 @@ const appRouter = router({
           revoName: revoName.revoName,
           revoNameStatus: revoName.status,
           originalRevoName: revo_name ?? null,
-          description,
+          // Sanitized on read as well as on save, so bios stored before the sanitizer are safe
+          description: sanitizeRichText(description),
           image: settledOrFallback(imageResult, null, "profile image URL"),
         },
         theme: themeResult.value,
         blocks: publicBlocks,
         hasCreatorPool,
         trackingPixels: settledOrFallback(trackingPixelsResult, null, "tracking pixels"),
+        indexable: isUserIndexable(user, publicBlocks.length),
       };
 
       return result;
@@ -329,6 +335,77 @@ const appRouter = router({
       });
     }
   }),
+
+  // Number of profiles that may be listed in the sitemap
+  getSitemapCount: publicProcedure.query(async () => {
+    try {
+      const total = await prisma.user.count({ where: indexableUserWhere });
+      return { total };
+    } catch (error) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Server error",
+      });
+    }
+  }),
+
+  // One page of indexable profiles for the sitemap. Returns public data only.
+  getSitemapEntries: publicProcedure
+    .input(
+      z.object({
+        page: z.number().int().min(0),
+        pageSize: z.number().int().min(1).max(SITEMAP_MAX_PAGE_SIZE),
+      })
+    )
+    .query(async ({ input }) => {
+      const { page, pageSize } = input;
+
+      try {
+        const users = await prisma.user.findMany({
+          where: indexableUserWhere,
+          orderBy: { id: "asc" },
+          skip: page * pageSize,
+          take: pageSize,
+          select: { id: true, handle: true, created_at: true, updated_at: true },
+        });
+
+        if (users.length === 0) return [];
+
+        const latestBlocks = await prisma.block.groupBy({
+          by: ["user_id"],
+          where: { user_id: { in: users.map(user => user.id) } },
+          _max: { updated_at: true, created_at: true },
+        });
+
+        const latestBlockByUser = new Map<number, Date>();
+        for (const row of latestBlocks) {
+          const candidates = [row._max.updated_at, row._max.created_at].filter(
+            (date): date is Date => date !== null
+          );
+          if (candidates.length > 0) {
+            latestBlockByUser.set(
+              row.user_id,
+              new Date(Math.max(...candidates.map(date => date.getTime())))
+            );
+          }
+        }
+
+        return users
+          .filter((user): user is typeof user & { handle: string } => user.handle !== null)
+          .map(user => {
+            const dates = [user.created_at, user.updated_at, latestBlockByUser.get(user.id)].filter(
+              (date): date is Date => date !== null && date !== undefined
+            );
+            const lastModified = new Date(Math.max(...dates.map(date => date.getTime())));
+            return { handle: user.handle.toLowerCase(), lastModified: lastModified.toISOString() };
+          });
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Server error",
+        });
+      }
+    }),
 });
 
 export default appRouter;

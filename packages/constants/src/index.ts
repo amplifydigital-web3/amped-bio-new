@@ -18,3 +18,5 @@ export * from "./referral";
 export * from "./ndau-conversion";
 export * from "./ndauConversionMessage";
 export * from "./analytics";
+export * from "./amount";
+export * from "./html";

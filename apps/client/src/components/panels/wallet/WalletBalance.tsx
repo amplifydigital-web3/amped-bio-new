@@ -14,7 +14,7 @@ const WalletBalance: React.FC<WalletBalanceProps> = ({ loading = false }) => {
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showFundModal, setShowFundModal] = useState(false);
 
-  const { setActivePanel } = useEditor();
+  const { setActivePanelAndNavigate } = useEditor();
 
   // Skeleton Loading State
   if (loading) {
@@ -108,7 +108,7 @@ const WalletBalance: React.FC<WalletBalanceProps> = ({ loading = false }) => {
         </button>
 
         <button
-          onClick={() => setActivePanel("pay")}
+          onClick={() => setActivePanelAndNavigate("pay")}
           className="flex flex-col items-center justify-center p-2 sm:p-3 bg-green-50 hover:bg-green-100 text-green-600 rounded-lg transition-colors duration-200 group touch-manipulation"
         >
           <ArrowUpRight className="w-4 h-4 sm:w-5 sm:h-5 mb-1 group-hover:scale-110 transition-transform duration-200" />
