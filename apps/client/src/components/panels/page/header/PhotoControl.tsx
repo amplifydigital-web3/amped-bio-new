@@ -15,6 +15,7 @@ import {
 } from "@repo/ui";
 import { useEditor } from "@/contexts/EditorContext";
 import { toast } from "@/components/ui/toast";
+import { useOpenParam } from "@/hooks/useOpenParam";
 import { CropDialog } from "./CropDialog";
 
 // Screen Review 017. The photo is the control: an 89 circle that opens a menu
@@ -60,7 +61,16 @@ export function PhotoControl({ describedBy }: { describedBy?: string }) {
   const limitMb = limits?.maxAvatarFileSize
     ? Math.round(limits.maxAvatarFileSize / (1024 * 1024))
     : null;
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const errorId = "photo-error";
+
+  // Home checklist step 2 lands here with the photo picker open (015 I06). The
+  // click carries the activation from the checklist press; focus is the fallback.
+  useOpenParam("photo", () => {
+    triggerRef.current?.scrollIntoView({ block: "center" });
+    triggerRef.current?.focus();
+    if (!profile.photoUrl) inputRef.current?.click();
+  });
   const photo = uploading ?? profile.photoUrl;
   const initial = (profile.handle || profile.name || "?").charAt(0).toUpperCase();
 
@@ -171,6 +181,7 @@ export function PhotoControl({ describedBy }: { describedBy?: string }) {
         {photo && !uploading ? (
           <Menu>
             <MenuTrigger
+              ref={triggerRef}
               aria-label="Change profile photo"
               aria-describedby={error ? errorId : describedBy}
               className={circleClass}
@@ -191,6 +202,7 @@ export function PhotoControl({ describedBy }: { describedBy?: string }) {
           </Menu>
         ) : (
           <button
+            ref={triggerRef}
             type="button"
             aria-label={uploading ? "Uploading photo" : "Add profile photo"}
             aria-busy={!!uploading}
