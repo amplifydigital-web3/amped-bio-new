@@ -1,7 +1,7 @@
 import { privateProcedure, publicProcedure, router } from "./trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { sendEmailChangeVerification } from "../utils/email/email";
+import { sendEmailChangeNotice, sendEmailChangeVerification } from "../utils/email/email";
 import crypto from "crypto";
 import { prisma } from "../services/DB";
 import { editUserSchema } from "../schemas/user.schema";
@@ -169,22 +169,25 @@ export const userRouter = router({
           },
         });
 
-        // Create a new confirmation code
+        // Create a new confirmation code, bound to the address it is sent to
         await prisma.confirmationCode.create({
           data: {
             code,
             type: "EMAIL_CHANGE",
             userId,
+            target: input.newEmail,
             expiresAt,
           },
         });
 
-        // Send verification email with the code to the user's current email
-        await sendEmailChangeVerification(user.email, input.newEmail, code);
+        // Screen Review 019 I02: the code goes to the new address, which proves
+        // the person controls it. The current address gets a notice.
+        await sendEmailChangeVerification(input.newEmail, code);
+        await sendEmailChangeNotice(user.email, input.newEmail);
 
         return {
           success: true,
-          message: "Verification code sent to your email",
+          message: "Verification code sent to your new email",
           expiresAt,
         };
       } catch (error: any) {
@@ -239,6 +242,8 @@ export const userRouter = router({
             userId,
             code: input.code,
             type: "EMAIL_CHANGE",
+            // Only the address the code was sent to can be confirmed (019 I02)
+            target: input.newEmail,
             used: false,
             expiresAt: {
               gt: new Date(),
@@ -380,16 +385,17 @@ export const userRouter = router({
             code,
             type: "EMAIL_CHANGE",
             userId,
+            target: input.newEmail,
             expiresAt,
           },
         });
 
-        // Send verification email with the code to the user's current email
-        await sendEmailChangeVerification(user.email, input.newEmail, code);
+        // The code goes to the new address (019 I02)
+        await sendEmailChangeVerification(input.newEmail, code);
 
         return {
           success: true,
-          message: "New verification code sent to your email",
+          message: "New verification code sent to your new email",
           expiresAt,
         };
       } catch (error: any) {
