@@ -20,6 +20,8 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
       const tabParam = urlParams.get("t");
+      // A pool link (?pool=, legacy ?pa=) opens on the Pools tab (D27)
+      if (urlParams.get("pool") || urlParams.get("pa")) return "pools";
 
       // Map query parameter values to component tab values
       switch (tabParam) {
