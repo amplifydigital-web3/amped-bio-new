@@ -12,6 +12,34 @@ export * from "./form";
 export * from "./select";
 export * from "./Tooltip";
 export { Textarea } from "./Textarea";
+
+// Prism 2.2 components (docs/PRISM.md)
+export { Chip, ChipGroup, type ChipProps, type ChipGroupOption } from "./prism/chip";
+export { Tabs, TabsList, TabsTrigger, TabsContent } from "./prism/tabs";
+export {
+  Menu,
+  MenuTrigger,
+  MenuGroup,
+  MenuContent,
+  MenuItem,
+  MenuCheckboxItem,
+  MenuLabel,
+  MenuSeparator,
+} from "./prism/menu";
+export {
+  BottomSheet,
+  BottomSheetTrigger,
+  BottomSheetClose,
+  BottomSheetContent,
+} from "./prism/bottom-sheet";
+export {
+  EmptyState,
+  ErrorCard,
+  Notice,
+  ToastCard,
+  TESTNET_NOTICE,
+  type PrismToastType,
+} from "./prism/states";
 export { cn } from "./utils";
 export { ExternalRedirect } from "./external-redirect";
 
@@ -34,7 +62,11 @@ export { OAuthLoginScreen } from "./oauth/oauth-login-screen";
 export { OAuthConsentScreen } from "./oauth/oauth-consent-screen";
 export { OAuthDeviceScreen } from "./oauth/oauth-device-screen";
 export { describeOAuthScope, OAUTH_SCOPE_DESCRIPTIONS } from "./oauth/oauth-scopes";
-export { navigateToProviderRedirect, useOAuthFlowQuery, type OAuthFlowQuery } from "./oauth/use-oauth-flow-query";
+export {
+  navigateToProviderRedirect,
+  useOAuthFlowQuery,
+  type OAuthFlowQuery,
+} from "./oauth/use-oauth-flow-query";
 
 // Utilities
 export * from "./handle";

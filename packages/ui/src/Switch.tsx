@@ -35,14 +35,14 @@ export function Switch({
   };
 
   return (
-    <div className={`flex items-center space-x-2 ${className}`}>
+    <div className={`flex min-h-touch items-center gap-3 ${className}`}>
       <button
         type="button"
         className={`
           ${sizeClasses[size]}
           relative inline-flex shrink-0 cursor-pointer rounded-full border-2 border-transparent 
-          transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-          ${checked ? "bg-blue-600" : "bg-gray-200"}
+          prism-focus transition-colors duration-prism-control ease-prism
+          ${checked ? "bg-prism-nav" : "bg-[rgba(22,21,43,0.28)]"}
           ${disabled ? "opacity-50 cursor-not-allowed" : ""}
         `}
         role="switch"
@@ -56,13 +56,15 @@ export function Switch({
           className={`
             ${thumbSizeClasses[size]}
             pointer-events-none inline-block rounded-full bg-white shadow transform ring-0 
-            transition duration-200 ease-in-out
+            transition duration-prism-control ease-prism
             ${translateClasses[size]}
           `}
         />
       </button>
       {label && (
-        <span className={`text-sm font-medium ${disabled ? "text-gray-400" : "text-gray-900"}`}>
+        <span
+          className={`font-prism text-prism-label font-medium ${disabled ? "text-prism-ink-3" : "text-prism-ink"}`}
+        >
           {label}
         </span>
       )}

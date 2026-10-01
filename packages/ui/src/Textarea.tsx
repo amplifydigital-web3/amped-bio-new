@@ -1,38 +1,71 @@
-import React, { forwardRef } from "react";
+import React, { forwardRef, useId } from "react";
+import { AlertCircle } from "lucide-react";
+import { cn } from "./utils";
 
 interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
   leftText?: string;
   error?: string;
+  helper?: string;
+  // Classes for the outer wrapper; `className` still goes on the field itself
+  containerClassName?: string;
 }
 
+// Same field anatomy as Input, on a multi-line G2 well.
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ label, leftText, error, ...props }, ref) => {
+  ({ label, leftText, error, helper, id, className, containerClassName, ...props }, ref) => {
+    const autoId = useId();
+    const fieldId = id ?? autoId;
+    const noteId = `${fieldId}-note`;
+    const note = error || helper;
+
     return (
-      <div className="space-y-1">
-        {label && <label className="block text-sm font-medium text-gray-700">{label}</label>}
-        {leftText && (
-          <div
-            className={`flex overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 focus-within:rounded-md ${error ? "border-red-500" : ""}`}
+      <div className={cn("space-y-2", containerClassName)}>
+        {label && (
+          <label
+            htmlFor={fieldId}
+            className="block font-prism text-prism-label font-semibold text-prism-ink"
           >
-            <div className="flex items-center px-3 border-t border-b border-l border-gray-300 rounded-md rounded-r-none text-gray-500 bg-gray-50">
-              {leftText}
-            </div>
-            <textarea
-              className={`flex-1 px-3 py-2 border rounded-md rounded-l-none ${error ? "border-red-500" : "border-gray-300"} focus:ring-0 focus:outline-none`}
-              ref={ref}
-              {...props}
-            />
-          </div>
+            {label}
+          </label>
         )}
-        {!leftText && (
+        <div
+          className={cn(
+            "prism-well flex overflow-hidden transition-shadow duration-prism-hover ease-prism",
+            "focus-within:shadow-[inset_0_2px_4px_rgba(22,21,43,0.07),0_0_0_1.5px_#0B5A80,0_0_0_5.5px_rgba(39,170,225,0.32)]",
+            error && "shadow-[inset_0_2px_4px_rgba(22,21,43,0.07),inset_0_0_0_1.5px_#B3261E]"
+          )}
+        >
+          {leftText && (
+            <span className="flex items-start border-r border-prism-line pl-3 pr-2 pt-2.5 font-prism text-prism-label text-prism-ink-2">
+              {leftText}
+            </span>
+          )}
           <textarea
-            className={`w-full px-3 py-2 border rounded-md ${error ? "border-red-500" : "border-gray-300"} shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+            id={fieldId}
+            className={cn(
+              "min-h-[88px] w-full flex-1 resize-y bg-transparent px-3 py-2.5 font-prism text-prism-body text-prism-ink placeholder:text-prism-ink-3 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60",
+              className
+            )}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={note ? noteId : undefined}
             ref={ref}
             {...props}
           />
-        )}
-        {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+        </div>
+        {error ? (
+          <p
+            id={noteId}
+            className="flex items-start gap-1.5 font-prism text-prism-meta text-prism-danger"
+          >
+            <AlertCircle className="mt-px h-4 w-4 shrink-0" aria-hidden />
+            {error}
+          </p>
+        ) : helper ? (
+          <p id={noteId} className="font-prism text-prism-meta text-prism-ink-2">
+            {helper}
+          </p>
+        ) : null}
       </div>
     );
   }
