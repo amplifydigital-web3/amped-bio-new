@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAccount, useReadContract } from "wagmi";
+import { useAccount, usePublicClient, useReadContract } from "wagmi";
 import { formatEther, parseEther, type Address } from "viem";
 import Decimal from "decimal.js";
 import { ArrowLeft, ArrowRight } from "lucide-react";
@@ -64,6 +64,11 @@ const STAKE_STEPS = ["Amount", "Review", "Confirm in wallet"];
 const CLAIM_STEPS = ["Review", "Confirm in wallet"];
 // creatorCut is in basis points; 10000 means the creator keeps every reward
 const FULL_CREATOR_CUT = 10000n;
+// Kept aside for the stake fee when the live estimate is not ready (the old
+// stake modal reserved the same amount)
+const FEE_RESERVE_FALLBACK = "0.0015";
+// How long to watch for the receipt of a transaction the server could not confirm
+const RECEIPT_TIMEOUT_MS = 120_000;
 
 type Flow = "stake" | "unstake" | "claim";
 type Step = "amount" | "review" | "confirm" | "result";
@@ -111,6 +116,13 @@ export default function PoolPanel({
   const { setActivePanelAndNavigate } = useEditor();
   // Your position reads the saved wallet address, not only the live wagmi one
   const viewer = (walletAddress ?? accountAddress) as Address | undefined;
+  // Transactions are signed by the connected wagmi account. If it is not the
+  // saved wallet, the position and Max shown here belong to another address, so
+  // value steps are blocked until the person switches back.
+  const accountMismatch =
+    !!accountAddress &&
+    !!walletAddress &&
+    accountAddress.toLowerCase() !== String(walletAddress).toLowerCase();
 
   const invalidLink = !!poolAddress && !POOL_ADDRESS.test(poolAddress);
   const poolQuery = useQuery({
@@ -136,6 +148,7 @@ export default function PoolPanel({
   );
 
   const chainId = pool ? Number(pool.chainId) : undefined;
+  const publicClient = usePublicClient({ chainId });
   const chain = chainId ? getChainConfig(chainId) : undefined;
   const symbol = chain?.nativeCurrency.symbol ?? "tREVO";
   const explorer = chain?.blockExplorers?.default?.url;
@@ -144,6 +157,8 @@ export default function PoolPanel({
   const stakeWei = fanStake ?? pool?.stakedByYou ?? 0n;
   const pendingWei = pendingReward ?? pool?.pendingRewards ?? 0n;
   const balanceWei = balance?.data?.value ?? 0n;
+  // Until the balance loads, "0 available" would be a false error
+  const balanceLoading = !balance?.data && !!balance?.isLoading;
   const stakeDec = new Decimal(formatEther(stakeWei));
   const balanceDec = new Decimal(formatEther(balanceWei));
   const pendingDec = new Decimal(formatEther(pendingWei));
@@ -154,24 +169,34 @@ export default function PoolPanel({
   const [step, setStep] = useState<Step>("amount");
   const [stakeAmount, setStakeAmount] = useState("");
   const [unstakeAmount, setUnstakeAmount] = useState("");
-  const [unstakeMax, setUnstakeMax] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [phase, setPhase] = useState<"wallet" | "submitting">("wallet");
   const [txHash, setTxHash] = useState<`0x${string}`>();
   const [flowError, setFlowError] = useState<FlowError | null>(null);
+  // A sent transaction the server could not confirm yet. Neither Edit amount
+  // nor a new flow clears it, so a second transaction is never offered while
+  // the first may still land; it clears when the receipt is read.
+  const [unconfirmedHash, setUnconfirmedHash] = useState<`0x${string}` | null>(null);
+  // The pending reward at the moment claim Review opened, so the figure and
+  // the button label do not change while the person reads them
+  const [claimSnapshot, setClaimSnapshot] = useState<bigint | null>(null);
+  // The hash whose receipt is being watched; a late receipt for a closed flow is ignored
+  const watchedHash = useRef<`0x${string}` | null>(null);
   const [result, setResult] = useState<{ title: string; body: string } | null>(null);
   const [imageOpen, setImageOpen] = useState(false);
 
   const resetFlow = useCallback(() => {
+    watchedHash.current = null;
     setFlow("stake");
     setStep("amount");
     setStakeAmount("");
     setUnstakeAmount("");
-    setUnstakeMax(false);
     setAgreed(false);
     setPhase("wallet");
     setTxHash(undefined);
     setFlowError(null);
+    setUnconfirmedHash(null);
+    setClaimSnapshot(null);
     setResult(null);
   }, []);
 
@@ -181,29 +206,20 @@ export default function PoolPanel({
 
   // Amounts and validation
   const amount = flow === "unstake" ? unstakeAmount : flow === "claim" ? "" : stakeAmount;
-  const amountDec = flow === "claim" ? pendingDec : toDecimal(amount);
-  const limit = flow === "unstake" ? stakeDec : balanceDec;
-  let amountError: string | undefined;
-  if (amountDec && flow !== "claim") {
-    if (amountDec.lte(0)) amountError = "Enter an amount above 0.";
-    else if (amountDec.gt(limit))
-      amountError =
-        flow === "unstake"
-          ? `More than your ${amountText(stakeDec)} staked.`
-          : `More than your ${amountText(balanceDec)} available.`;
-  }
-  const amountValid = !!amountDec && amountDec.gt(0) && !amountError;
+  const claimDec = new Decimal(formatEther(claimSnapshot ?? pendingWei));
+  const amountDec = flow === "claim" ? claimDec : toDecimal(amount);
   // The exact amount entered, with digit grouping, for Review and the commit label
   const exactAmount = `${formatExactAmount(amountDec ?? 0)} ${symbol}`;
 
+  // Max sets the exact stake string (formatEther), so parsing it gives the stake
+  // in wei; what Review shows is always what is signed
   const amountWei = useMemo(() => {
-    if (flow === "unstake" && unstakeMax) return stakeWei;
     try {
       return amount ? parseEther(amount) : 0n;
     } catch {
       return 0n;
     }
-  }, [amount, flow, unstakeMax, stakeWei]);
+  }, [amount]);
 
   // Network fee for the call under review (048 I10)
   const feeRequest: FeeRequest | null = useMemo(() => {
@@ -245,7 +261,12 @@ export default function PoolPanel({
         : null,
     enabled: open && isWeb3Wallet && flow === "stake" && step === "amount" && balanceWei > 0n,
   });
-  const maxFeeDec = new Decimal(formatEther(maxFee.status === "ready" ? maxFee.fee * 2n : 0n));
+  // While the estimate loads or when it fails, keep a fixed reserve so a stake
+  // never uses the whole balance and leaves nothing to pay the fee
+  const maxFeeDec =
+    maxFee.status === "ready"
+      ? new Decimal(formatEther(maxFee.fee * 2n))
+      : new Decimal(FEE_RESERVE_FALLBACK);
   const feeWei = fee.status === "ready" ? fee.fee : 0n;
   const feeDec = new Decimal(formatEther(feeWei));
   const feeText =
@@ -254,6 +275,25 @@ export default function PoolPanel({
       : fee.status === "calculating"
         ? "Calculating"
         : "Shown in your wallet";
+
+  const limit = flow === "unstake" ? stakeDec : balanceDec;
+  let amountError: string | undefined;
+  if (amountDec && flow !== "claim" && !(flow === "stake" && balanceLoading)) {
+    if (amountDec.lte(0)) amountError = "Enter an amount above 0.";
+    else if (amountDec.gt(limit))
+      amountError =
+        flow === "unstake"
+          ? `More than your ${amountText(stakeDec)} staked.`
+          : `More than your ${amountText(balanceDec)} available.`;
+    else if (flow === "stake" && amountDec.plus(maxFeeDec).gt(balanceDec))
+      amountError = `Leave about ${amountText(maxFeeDec)} for the network fee.`;
+  }
+  const amountValid =
+    !!amountDec &&
+    amountDec.gt(0) &&
+    !amountError &&
+    !(flow === "stake" && balanceLoading) &&
+    !accountMismatch;
 
   // Defensive: the contract can block unstaking (UnstakingCooldown). Rob
   // confirmed there is no cooldown today; read it so "any time" stays true.
@@ -289,55 +329,87 @@ export default function PoolPanel({
     setAgreed(false);
     setFlowError(null);
     setTxHash(undefined);
+    setClaimSnapshot(next === "claim" ? pendingWei : null);
   };
 
   const backToDetails = () => {
+    // After a confirmed transaction the next one starts from an empty amount
+    if (step === "result") {
+      setStakeAmount("");
+      setUnstakeAmount("");
+    }
     startFlow("stake", "amount");
     setResult(null);
   };
 
   const commit = async () => {
-    if (!pool) return;
+    if (!pool || unconfirmedHash) return;
     const sent: { hash?: `0x${string}` } = {};
     const onHash = (hash: `0x${string}`) => {
       sent.hash = hash;
       setTxHash(hash);
       setPhase("submitting");
     };
-    const shownAmount = exactAmount;
     const poolName = pool.name;
+    // Worked out before sending, so a late receipt can show the same result
+    const success =
+      flow === "stake"
+        ? {
+            title: "Stake confirmed",
+            body: `${exactAmount} is staked in ${poolName}. Your stake in this pool is now ${amountText(stakeDec.plus(amountDec ?? 0))}.`,
+          }
+        : flow === "unstake"
+          ? {
+              title: "Unstake confirmed",
+              body: `${exactAmount} is back in your wallet. Your stake in this pool is now ${amountText(Decimal.max(0, stakeDec.minus(amountDec ?? 0)))}.`,
+            }
+          : {
+              title: "Claim sent",
+              body: `${amountText(claimDec)} arrives in your wallet within a few hours.`,
+            };
     setFlowError(null);
     setTxHash(undefined);
     setPhase("wallet");
     setStep("confirm");
     try {
-      if (flow === "stake") {
-        await stake(amount, { onHash });
-        setResult({
-          title: "Stake confirmed",
-          body: `${shownAmount} is staked in ${poolName}. Your stake in this pool is now ${amountText(stakeDec.plus(amountDec ?? 0))}.`,
-        });
-      } else if (flow === "unstake") {
-        await unstake(unstakeAmount, {
-          onHash,
-          amountWei: unstakeMax ? stakeWei : undefined,
-        });
-        setResult({
-          title: "Unstake confirmed",
-          body: `${shownAmount} is back in your wallet. Your stake in this pool is now ${amountText(Decimal.max(0, stakeDec.minus(amountDec ?? 0)))}.`,
-        });
-      } else {
-        await claimReward(pool.id, { onHash });
-        setResult({
-          title: "Claim sent",
-          body: `${amountText(pendingDec)} arrives in your wallet within a few hours.`,
-        });
-      }
+      if (flow === "stake") await stake(amount, { onHash });
+      else if (flow === "unstake") await unstake(unstakeAmount, { onHash });
+      else await claimReward(pool.id, { onHash, chainId });
+      setResult(success);
       setStep("result");
       void refresh();
     } catch (error) {
-      setFlowError(sent.hash ? "unconfirmed" : classifyTxError(error));
+      if (!sent.hash) {
+        setFlowError(classifyTxError(error));
+        setStep("review");
+        return;
+      }
+      // The wallet sent it but the server could not confirm it. Block every
+      // commit until the receipt is read, and refresh so a landed transaction
+      // shows in the position right away.
+      const hash = sent.hash;
+      watchedHash.current = hash;
+      setUnconfirmedHash(hash);
+      setFlowError("unconfirmed");
       setStep("review");
+      void refresh();
+      publicClient
+        ?.waitForTransactionReceipt({ hash, timeout: RECEIPT_TIMEOUT_MS })
+        .then(receipt => {
+          if (watchedHash.current !== hash) return;
+          watchedHash.current = null;
+          setUnconfirmedHash(null);
+          void refresh();
+          if (receipt.status === "reverted") {
+            setFlowError("failed");
+          } else {
+            setFlowError(null);
+            setResult(success);
+            setStep("result");
+          }
+        })
+        // No receipt in time: keep commits blocked until the panel closes
+        .catch(() => undefined);
     }
   };
 
@@ -442,7 +514,9 @@ export default function PoolPanel({
             </span>
             <Button
               variant="secondary"
-              disabled={!isWeb3Wallet || isReadingPendingReward || pendingWei <= 0n}
+              disabled={
+                !isWeb3Wallet || accountMismatch || isReadingPendingReward || pendingWei <= 0n
+              }
               onClick={() => startFlow("claim", "review")}
             >
               Claim
@@ -455,7 +529,7 @@ export default function PoolPanel({
             <dd>
               <Button
                 variant="ghost"
-                disabled={!isWeb3Wallet}
+                disabled={!isWeb3Wallet || accountMismatch}
                 onClick={() => startFlow("unstake", "amount")}
               >
                 Unstake
@@ -506,10 +580,10 @@ export default function PoolPanel({
                   href={POOL_REWARDS_ARTICLE}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label="How is the Network Reward Rate calculated?"
                   className="prism-focus mt-1 inline-block text-prism-meta font-semibold text-prism-nav underline underline-offset-2"
                 >
                   How it is calculated
+                  <span className="sr-only"> (Network Reward Rate)</span>
                 </a>
               </>
             ) : (
@@ -548,7 +622,6 @@ export default function PoolPanel({
       const limited = limitDecimals(next);
       if (isUnstake) {
         setUnstakeAmount(limited);
-        setUnstakeMax(false);
       } else {
         setStakeAmount(limited);
       }
@@ -581,7 +654,6 @@ export default function PoolPanel({
           onPick={next => {
             if (isUnstake) {
               setUnstakeAmount(next);
-              setUnstakeMax(next === stakeDec.toFixed());
             } else {
               setStakeAmount(next);
             }
@@ -591,19 +663,37 @@ export default function PoolPanel({
     );
   };
 
+  // A live fee above the reserve can still leave the balance short on Review
+  const stakeShortfall =
+    flow === "stake" &&
+    fee.status === "ready" &&
+    balanceDec
+      .minus(amountDec ?? 0)
+      .minus(feeDec)
+      .lt(0);
+  // One rule for the commit button and Retry, so Retry never skips a check
+  const commitBlocked =
+    (flow !== "claim" && (!agreed || !amountValid)) ||
+    flowError === "cooldown" ||
+    // The wallet already sent a transaction: never offer a second one
+    !!unconfirmedHash ||
+    accountMismatch ||
+    stakeShortfall;
+
   const errorCard = (() => {
-    if (!flowError) return null;
-    if (flowError === "unconfirmed") {
+    if (unconfirmedHash || flowError === "unconfirmed") {
+      const hash = unconfirmedHash ?? txHash;
       return (
         <div className="space-y-2">
           <ErrorCard
             title="We could not confirm this yet"
             cause="Your wallet sent the transaction. Check it on the explorer before you try again."
           />
-          <ExplorerTxLink href={explorer && txHash ? `${explorer}/tx/${txHash}` : undefined} />
+          <ExplorerTxLink href={explorer && hash ? `${explorer}/tx/${hash}` : undefined} />
         </div>
       );
     }
+    if (!flowError) return null;
     if (flowError === "cooldown") {
       return (
         <ErrorCard title="You cannot unstake from this pool right now. The amount did not move. The network fee may still be charged." />
@@ -616,7 +706,7 @@ export default function PoolPanel({
             ? "You cancelled in your wallet. Nothing moved."
             : `The ${VERB[flow]} did not go through. Nothing moved.`
         }
-        onRetry={commit}
+        onRetry={commitBlocked ? undefined : commit}
         retryLabel="Retry"
       />
     );
@@ -628,11 +718,11 @@ export default function PoolPanel({
         ? balanceDec.minus(amountDec ?? 0).minus(feeDec)
         : balanceDec.plus(amountDec ?? 0).minus(feeDec);
     if (flow === "claim") {
+      // No "Balance after": claimed rewards arrive later, not with this transaction
       return [
-        { label: "You claim", value: amountText(pendingDec) },
+        { label: "You claim", value: amountText(claimDec) },
         { label: "From", value: pool?.name ?? "" },
         { label: "Network fee", value: feeText },
-        { label: "Balance after", value: amountText(Decimal.max(0, balanceAfter)) },
       ];
     }
     const rows = [
@@ -661,6 +751,13 @@ export default function PoolPanel({
     }
     return rows;
   };
+
+  const mismatchNotice = accountMismatch && (
+    <Notice variant="warning" title="Switch to your saved wallet">
+      Your wallet is connected to a different account than the one saved to your profile. Switch
+      back to it to stake, unstake or claim here.
+    </Notice>
+  );
 
   const renderBody = () => {
     if (!pool) return renderStatus();
@@ -696,7 +793,7 @@ export default function PoolPanel({
               flow === "stake" ? "You stake" : flow === "unstake" ? "You unstake" : "You claim"
             }
             value={
-              flow === "claim" ? formatTokenAmount(pendingDec) : formatExactAmount(amountDec ?? 0)
+              flow === "claim" ? formatTokenAmount(claimDec) : formatExactAmount(amountDec ?? 0)
             }
             unit={symbol}
             calm
@@ -709,7 +806,13 @@ export default function PoolPanel({
                   }
             }
           />
+          {mismatchNotice}
           {errorCard}
+          {stakeShortfall && (
+            <Notice variant="warning">
+              The network fee is higher than expected. Lower the amount to leave room for it.
+            </Notice>
+          )}
           <ReviewSlab rows={reviewRows()} />
           {flow !== "claim" && <p className="text-prism-body text-prism-ink-2">{UNSTAKE_TERMS}</p>}
           <ComplianceCard />
@@ -730,6 +833,7 @@ export default function PoolPanel({
             Back to pool details
           </Button>
           <StepBar steps={steps} current={0} />
+          {mismatchNotice}
           {unstakeBlocked ? (
             <ErrorCard title="You cannot unstake from this pool right now." />
           ) : (
@@ -748,6 +852,7 @@ export default function PoolPanel({
     return (
       <>
         {isWeb3Wallet && <StepBar steps={steps} current={0} />}
+        {mismatchNotice}
         {yourPosition}
         {isWeb3Wallet ? (
           amountArea("stake")
@@ -777,18 +882,10 @@ export default function PoolPanel({
     if (step === "review") {
       const label =
         flow === "claim"
-          ? `Claim ${amountText(pendingDec)}`
+          ? `Claim ${amountText(claimDec)}`
           : `${flow === "stake" ? "Stake" : "Unstake"} ${exactAmount}`;
       return (
-        <CommitAction
-          disabled={
-            (flow !== "claim" && (!agreed || !amountValid)) ||
-            flowError === "cooldown" ||
-            // The wallet already sent a transaction: never offer a second one
-            flowError === "unconfirmed"
-          }
-          onClick={commit}
-        >
+        <CommitAction disabled={commitBlocked} onClick={commit}>
           {label}
         </CommitAction>
       );

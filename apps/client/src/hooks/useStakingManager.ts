@@ -16,8 +16,6 @@ export interface StakeActionOptions {
   // server confirms it, so the flow can move from "Confirm in your wallet" to
   // "Submitting" and keep the hash for the explorer link.
   onHash?: (hash: `0x${string}`) => void;
-  // Unstake the exact amount in wei (Max), instead of parsing the amount string
-  amountWei?: bigint;
 }
 
 export function useStakingManager(pool: StakingPoolData | null, onStakeSuccess?: () => void) {
@@ -60,13 +58,16 @@ export function useStakingManager(pool: StakingPoolData | null, onStakeSuccess?:
 
     let hash: `0x${string}`;
     try {
-      const parsedAmount = options?.amountWei ?? parseEther(amount);
+      // The exact amount shown on Review is the amount signed
+      const parsedAmount = parseEther(amount);
 
       hash = await writeL2TokenContractAsync({
         address: tokenAddress,
         abi: L2_BASE_TOKEN_ABI,
         functionName,
         args: [pool.address as `0x${string}`, parsedAmount],
+        // Sign on the pool's chain; wagmi rejects a wallet on another network
+        chainId: chain?.id,
       });
       options?.onHash?.(hash);
 

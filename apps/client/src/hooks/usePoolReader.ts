@@ -74,7 +74,7 @@ export function usePoolReader(
   // Submitting and keep the hash for the explorer link.
   const claimReward = async (
     poolId: number,
-    options?: { onHash?: (hash: `0x${string}`) => void }
+    options?: { onHash?: (hash: `0x${string}`) => void; chainId?: number }
   ) => {
     if (!poolAddress) {
       throw new Error("Pool address is missing");
@@ -86,6 +86,8 @@ export function usePoolReader(
         address: poolAddress,
         abi: CREATOR_POOL_ABI,
         functionName: "claimReward",
+        // Sign on the pool's chain when the caller knows it
+        chainId: options?.chainId,
       });
       const endHashTime = performance.now();
       const hashTimeMs = endHashTime - startHashTime;
