@@ -13,7 +13,7 @@ import { TextBlock } from "./blocks/text/TextBlock";
 import { CreatorPoolBlock } from "./blocks/CreatorPoolBlock";
 import { ReferralBlock } from "./blocks/ReferralBlock";
 import { isHTML } from "@/utils/htmlutils";
-import { type BlockType } from "@repo/constants";
+import { type BlockType, sanitizeRichHtml } from "@repo/constants";
 import { Theme, UserProfile } from "@/types/editor";
 import { trpcClient } from "@repo/ui";
 import { useState } from "react";
@@ -220,7 +220,7 @@ export function Preview({ isEditing, profile, blocks, theme, userId }: PreviewPr
                           color: themeConfig?.fontColor,
                           opacity: 0.9,
                         }}
-                        dangerouslySetInnerHTML={{ __html: profile.bio }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(profile.bio) }}
                       />
                     ) : (
                       <p
