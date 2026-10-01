@@ -32,6 +32,8 @@ type GaWindow = Window & {
   gtag?: (...args: unknown[]) => void;
   __ampedConsentDefaultSet?: boolean;
   __ampedCreatorGaActive?: boolean;
+  // Creator GA4 measurement IDs configured on this page session
+  __ampedCreatorGaIds?: Set<string>;
   [key: `ga-disable-${string}`]: boolean | undefined;
 };
 
@@ -132,11 +134,33 @@ export function syncAmpedAnalytics(allowed: boolean, pathname: string) {
  * Called by lib/adPixels.ts right before the creator's GA4 is configured,
  * after the visitor allowed that creator's tags.
  */
-export function grantStorageForCreatorGa(ampedAllowed: boolean) {
+export function grantStorageForCreatorGa(ampedAllowed: boolean, creatorGaId: string) {
   if (typeof window === "undefined") return;
   const w = gaWindow();
   const gtag = ensureGtag();
   w.__ampedCreatorGaActive = true;
+  w.__ampedCreatorGaIds ??= new Set();
+  w.__ampedCreatorGaIds.add(creatorGaId);
+  // Re-enables a creator tag that an earlier revoke disabled (a return visit)
+  w[`ga-disable-${creatorGaId}`] = false;
   if (!ampedAllowed) w[`ga-disable-${AMPED_GA_ID}`] = true;
   gtag("consent", "update", { analytics_storage: "granted" });
+}
+
+/**
+ * Turns the creator's GA4 off again: when the visitor withdraws that creator's
+ * tags, and when they leave the creator page (client side navigation keeps the
+ * gtag queue alive). Without this the shared storage stayed granted and `_ga`
+ * was kept even after Reject all.
+ */
+export function revokeCreatorGa(ampedAllowed: boolean) {
+  if (typeof window === "undefined") return;
+  const w = gaWindow();
+  if (!w.__ampedCreatorGaActive) return;
+  w.__ampedCreatorGaActive = false;
+  for (const id of w.__ampedCreatorGaIds ?? []) w[`ga-disable-${id}`] = true;
+  if (!ampedAllowed) {
+    ensureGtag()("consent", "update", { analytics_storage: "denied" });
+    deleteAmpedGaCookies();
+  }
 }

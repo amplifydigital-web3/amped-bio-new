@@ -70,16 +70,19 @@ export function loadPixels(pixels: PublicTrackingPixels) {
   const loaded = w.__ampedPixelsLoaded;
 
   const ga4 = pixels.ga4MeasurementId;
-  if (ga4 && GA4_MEASUREMENT_ID_PATTERN.test(ga4) && !loaded.has(`ga4:${ga4}`)) {
-    loaded.add(`ga4:${ga4}`);
+  if (ga4 && GA4_MEASUREMENT_ID_PATTERN.test(ga4)) {
     // Shares Amped's gtag queue and Consent Mode state (lib/ampedAnalytics.ts).
     // The creator's tag needs analytics storage; Amped's property is disabled
     // for this page view unless the visitor also allowed Amped analytics.
-    const gtag = ensureGtag();
-    grantStorageForCreatorGa(getAnalyticsConsent() === true);
-    injectExternalScript("amped-ga4", `https://www.googletagmanager.com/gtag/js?id=${ga4}`);
-    gtag("js", new Date());
-    gtag("config", ga4);
+    // Granted on every load, since leaving the page revokes it (revokeCreatorGa).
+    grantStorageForCreatorGa(getAnalyticsConsent() === true, ga4);
+    if (!loaded.has(`ga4:${ga4}`)) {
+      loaded.add(`ga4:${ga4}`);
+      const gtag = ensureGtag();
+      injectExternalScript("amped-ga4", `https://www.googletagmanager.com/gtag/js?id=${ga4}`);
+      gtag("js", new Date());
+      gtag("config", ga4);
+    }
   }
 
   const meta = pixels.metaPixelId;

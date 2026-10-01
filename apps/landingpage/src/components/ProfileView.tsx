@@ -38,6 +38,7 @@ import {
   saveConsent,
 } from "@/lib/consent";
 import { TrackingConsentBanner, type ConsentChoice } from "@/components/TrackingConsentBanner";
+import { revokeCreatorGa } from "@/lib/ampedAnalytics";
 import {
   getButtonBaseStyle,
   getButtonEffectStyle,
@@ -95,7 +96,6 @@ function ProfileSkeleton() {
     </div>
   );
 }
-
 
 function extractRootDomain(url: string): string {
   try {
@@ -161,7 +161,12 @@ export function ProfileView({
     } else {
       trackProfileView(trackableProfileId);
     }
-    return startEngagementTracking(trackableProfileId);
+    const stopEngagement = startEngagementTracking(trackableProfileId);
+    return () => {
+      stopEngagement();
+      // Leaving this creator page turns their GA4 off (client side navigation keeps gtag)
+      revokeCreatorGa(getAnalyticsConsent() === true);
+    };
     // trackingPixels is fixed for a given profile
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authPending, trackableProfileId]);
@@ -169,6 +174,9 @@ export function ProfileView({
   const handleConsent = (choice: ConsentChoice) => {
     if (trackableProfileId === null) return;
     const advertising = pixelsEnabled && choice.advertising && !hasGlobalPrivacyControl();
+    // Withdrawing this creator's tags turns their GA4 off before the consent sync runs,
+    // so a Reject all also denies the shared storage and deletes _ga
+    if (!advertising) revokeCreatorGa(choice.analytics);
     saveConsent({
       analytics: choice.analytics,
       creatorId: trackableProfileId,
@@ -310,7 +318,10 @@ export function ProfileView({
             <div className="relative min-h-full py-8 px-4 transition-all duration-300 mx-auto z-10 max-w-[640px]">
               {/* Container */}
               <div
-                className={cn("w-full space-y-8 p-8", getContainerStyle(themeConfig?.containerStyle))}
+                className={cn(
+                  "w-full space-y-8 p-8",
+                  getContainerStyle(themeConfig?.containerStyle)
+                )}
                 style={{
                   backgroundColor: `${themeConfig?.containerColor}${Math.round(
                     (themeConfig?.transparency ?? 0) * 2.55
@@ -389,8 +400,8 @@ export function ProfileView({
                         </div>
                       )}
                     </div>
-                    {profile.bio && (
-                      isHTML(profile.bio) ? (
+                    {profile.bio &&
+                      (isHTML(profile.bio) ? (
                         <p
                           className="text-lg max-w-2xl mx-auto leading-relaxed"
                           style={{
@@ -411,8 +422,7 @@ export function ProfileView({
                         >
                           {profile.bio}
                         </p>
-                      )
-                    )}
+                      ))}
                   </div>
                 </div>
 
@@ -433,7 +443,10 @@ export function ProfileView({
                         );
 
                       return (
-                        <ErrorBoundary key={block.id.toString()} fallback={<BlockErrorFallback platform={block.config.platform} />}>
+                        <ErrorBoundary
+                          key={block.id.toString()}
+                          fallback={<BlockErrorFallback platform={block.config.platform} />}
+                        >
                           <a
                             href={block.config.url}
                             target="_blank"
@@ -460,21 +473,30 @@ export function ProfileView({
                     }
                     if (block.type === "media") {
                       return (
-                        <ErrorBoundary key={block.id} fallback={<BlockErrorFallback platform={block.config.platform} />}>
+                        <ErrorBoundary
+                          key={block.id}
+                          fallback={<BlockErrorFallback platform={block.config.platform} />}
+                        >
                           <MediaBlock block={block as any} theme={themeConfig as any} />
                         </ErrorBoundary>
                       );
                     }
                     if (block.type === "pool") {
                       return (
-                        <ErrorBoundary key={block.id} fallback={<BlockErrorFallback platform="creator pool" />}>
+                        <ErrorBoundary
+                          key={block.id}
+                          fallback={<BlockErrorFallback platform="creator pool" />}
+                        >
                           <CreatorPoolBlock block={block as any} theme={themeConfig as any} />
                         </ErrorBoundary>
                       );
                     }
                     if (block.type === "referral") {
                       return (
-                        <ErrorBoundary key={block.id} fallback={<BlockErrorFallback platform="referral" />}>
+                        <ErrorBoundary
+                          key={block.id}
+                          fallback={<BlockErrorFallback platform="referral" />}
+                        >
                           <ReferralBlock
                             block={block as any}
                             theme={themeConfig as any}
@@ -484,7 +506,10 @@ export function ProfileView({
                       );
                     }
                     return (
-                      <ErrorBoundary key={block.id} fallback={<BlockErrorFallback platform="content" />}>
+                      <ErrorBoundary
+                        key={block.id}
+                        fallback={<BlockErrorFallback platform="content" />}
+                      >
                         <TextBlock block={block as any} theme={themeConfig as any} />
                       </ErrorBoundary>
                     );
@@ -516,7 +541,10 @@ export function ProfileView({
                       <button
                         onClick={() => setBannerMode("settings")}
                         className="text-xs opacity-60 hover:opacity-100 transition-opacity underline"
-                        style={{ fontFamily: themeConfig?.fontFamily, color: themeConfig?.fontColor }}
+                        style={{
+                          fontFamily: themeConfig?.fontFamily,
+                          color: themeConfig?.fontColor,
+                        }}
                       >
                         Privacy choices
                       </button>

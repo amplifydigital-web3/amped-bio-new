@@ -14,6 +14,7 @@ Operator: Oneiro N.A., Inc., dba Amplify Digital, Boston, Massachusetts. Contact
 - Withdrawing consent denies storage and deletes `_ga_SK6H61G3S1`, and `_ga` unless a creator's GA4 is active on the page.
 - A creator's own GA4, Meta and TikTok tags load only after the visitor allows that creator's tags. They share Amped's gtag queue. When the creator's tags are allowed but Amped analytics is not, set `ga-disable-G-SK6H61G3S1`.
   - This is intended: Consent Mode has one `analytics_storage` state per page, and the creator's GA4 needs it granted, so Amped's property cannot stay cookieless next to it. Amped's property sends nothing for those visitors, not even cookieless pings, until they allow Amped analytics.
+  - Withdrawing the creator's tags, or leaving the creator page, calls `revokeCreatorGa`: the creator's GA4 is disabled and, unless Amped analytics is allowed, storage goes back to denied and `_ga` is deleted.
 - Page views: `gtag('config')` sends the first one, and GA4 enhanced measurement ("Page changes based on browser history events", on by default) sends one per client side navigation. Do not send `page_view` manually as well, or navigations are counted twice. If that setting is turned off in the property, switch to `send_page_view: false` and send every page view manually.
 - Server side events to Meta Conversions API and TikTok Events API are sent only for consented events. Do not store the IP address.
 - Global Privacy Control turns off creator tags.
