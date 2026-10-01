@@ -1,15 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import { Users, Coins } from "lucide-react";
 import PoolSkeleton from "./PoolSkeleton";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "@repo/ui";
 import { getChainConfig } from "@repo/web3";
-import PoolDetailsModal from "../ExplorePoolDetailsModal";
-import StakeModal from "../StakeModal";
-import { formatEther } from "viem";
+import { useSearchParams } from "react-router";
+import PoolPanel from "../pool-panel/PoolPanel";
 import { useChainId } from "wagmi";
-import Decimal from "decimal.js";
-import { formatNumberWithSeparators } from "@/utils/numberUtils";
+import { formatTokenAmount } from "../pool-panel/format";
 
 // Define filter and sort types
 type PoolFilter = "all" | "no-fans" | "more-than-10-fans" | "more-than-10k-stake";
@@ -44,54 +42,35 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
     enabled: !!chainId,
   });
 
-  // State for pool address detection (for opening modal directly from URL)
-  const [poolAddressFromParam, setPoolAddressFromParam] = useState<string | null>(null);
-  const [isPoolModalOpen, setIsPoolModalOpen] = useState(false);
-  const [selectedPoolAddress, setSelectedPoolAddress] = useState<string | null>(null);
+  // The open pool lives in ?pool=<address> (D27), so the panel survives a
+  // reload and the link can be shared. Legacy ?pa= links are rewritten.
+  const [params, setParams] = useSearchParams();
+  const selectedPoolAddress = params.get("pool");
 
-  // Check for pool address parameter on mount
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const urlParams = new URLSearchParams(window.location.search);
-      const poolAddress = urlParams.get("pa"); // Using 'pa' parameter for pool address to avoid conflict with panel param
+    const legacy = params.get("pa");
+    if (!legacy) return;
+    const next = new URLSearchParams(params);
+    next.delete("pa");
+    if (!next.get("pool")) next.set("pool", legacy);
+    setParams(next, { replace: true });
+  }, [params, setParams]);
 
-      // Validate if it looks like an Ethereum address
-      if (poolAddress && /^0x[a-fA-F0-9]{40}$/.test(poolAddress)) {
-        setPoolAddressFromParam(poolAddress);
-        setSelectedPoolAddress(poolAddress);
-        // Open modal directly with the address
-        setIsPoolModalOpen(true);
-      }
-    }
-  }, []);
+  const openPool = (address: string) => {
+    const next = new URLSearchParams(params);
+    next.set("pool", address);
+    setParams(next, { replace: true });
+  };
 
-  // State for modals and selected pool
-  const [selectedStakingPool, setSelectedStakingPool] = useState<any>(null);
-  const [isStakeModalOpen, setIsStakeModalOpen] = useState(false);
+  const closePool = () => {
+    const next = new URLSearchParams(params);
+    next.delete("pool");
+    setParams(next, { replace: true });
+  };
 
   const handleJoinPool = (poolId: number) => {
-    if (pools) {
-      const pool = pools.find(p => p.id === poolId);
-      if (pool) {
-        // Criar um objeto que tenha a estrutura esperada pelo useStaking
-        // Pass the stakedAmount in its original format to the staking component
-        const poolForStaking = {
-          id: pool.id,
-          name: pool.name, // Include name field as well
-          description: pool.description ?? "",
-          chainId: pool.chainId,
-          address: pool.address,
-          image: pool.image,
-          stakedByYou: 0,
-          stakedAmount: pool.stakedAmount
-            ? parseFloat(formatEther(pool.stakedAmount as unknown as bigint))
-            : 0,
-        };
-
-        setSelectedStakingPool(poolForStaking);
-        setIsStakeModalOpen(true);
-      }
-    }
+    const pool = pools?.find(p => p.id === poolId);
+    if (pool?.address) openPool(pool.address);
   };
 
   const handleViewPool = (poolId: number) => {
@@ -99,9 +78,7 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
       const pool = pools.find(p => p.id === poolId);
       if (pool && pool.address) {
         if (shouldOpenModal) {
-          // Open modal instead of navigating
-          setSelectedPoolAddress(pool.address);
-          setIsPoolModalOpen(true);
+          openPool(pool.address);
         } else {
           // The dedicated pool page lives on the public site
           window.location.href = `${import.meta.env.VITE_LANDINGPAGE_URL}/i/pools/${pool.address}`;
@@ -147,16 +124,7 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
                     <span className="text-gray-500">Total Stake</span>
                     <span className="font-semibold text-gray-900">
                       {pool.stakedAmount !== undefined && pool.stakedAmount !== null
-                        ? formatNumberWithSeparators(
-                            Decimal.max(
-                              new Decimal("0"),
-                              new Decimal(formatEther(pool.stakedAmount)).minus(
-                                new Decimal("0.0015")
-                              )
-                            )
-                              .toDecimalPlaces(3, Decimal.ROUND_DOWN)
-                              .toString()
-                          )
+                        ? formatTokenAmount(BigInt(pool.stakedAmount))
                         : "0"}{" "}
                       {getChainConfig(parseInt(pool.chainId))?.nativeCurrency.symbol || "REVO"}
                     </span>
@@ -193,27 +161,15 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
         )}
       </div>
 
-      {/* Modals */}
-      {isStakeModalOpen && selectedStakingPool && (
-        <StakeModal
-          pool={selectedStakingPool}
-          isOpen={isStakeModalOpen}
-          onClose={() => setIsStakeModalOpen(false)}
-          onStakeSuccess={refetch}
-        />
-      )}
-      {/* Pool Details Modal for both URL parameter and clicked pools */}
-      {isPoolModalOpen && (poolAddressFromParam || selectedPoolAddress) && (
-        <PoolDetailsModal
-          poolAddress={poolAddressFromParam || selectedPoolAddress || undefined} // Use either URL parameter or selected pool, ensuring it's string or undefined for the prop
-          isOpen={isPoolModalOpen}
-          onClose={() => {
-            setIsPoolModalOpen(false);
-            setPoolAddressFromParam(null);
-            setSelectedPoolAddress(null);
-          }}
-        />
-      )}
+      {/* Pool details and the stake, unstake and claim flows (rows 046 to 048) */}
+      <PoolPanel
+        open={!!selectedPoolAddress}
+        onOpenChange={next => {
+          if (!next) closePool();
+        }}
+        poolAddress={selectedPoolAddress ?? undefined}
+        onChanged={refetch}
+      />
     </div>
   );
 };
