@@ -28,6 +28,8 @@ const buttonVariants = cva(
         icon: "h-touch w-touch rounded-full p-0",
       },
     },
+    // A link is text, not a pill: keep its own height and padding over the size ones
+    compoundVariants: [{ variant: "link", class: "h-auto px-1" }],
     defaultVariants: {
       variant: "default",
       size: "default",

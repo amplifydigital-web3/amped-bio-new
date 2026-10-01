@@ -35,15 +35,16 @@ function PoolArt({
   iconClassName?: string;
 }) {
   return (
-    <div className={cn("overflow-hidden bg-prism-value-panel-2", className)}>
+    // Spans, not divs: the art sits inside button cards, which allow phrasing content only
+    <span className={cn("block overflow-hidden bg-prism-value-panel-2", className)}>
       {url ? (
         <img src={url} alt={alt} className="h-full w-full object-cover" />
       ) : (
-        <div className="flex h-full w-full items-center justify-center" aria-hidden>
+        <span className="flex h-full w-full items-center justify-center" aria-hidden>
           <Trophy className={cn("text-prism-value-ink", iconClassName)} strokeWidth={1.5} />
-        </div>
+        </span>
       )}
-    </div>
+    </span>
   );
 }
 
@@ -88,7 +89,8 @@ export function PoolCardFeatured({
       <div className="relative">
         <PoolArt
           url={pool.artUrl}
-          alt={`${pool.name} pool`}
+          // Decorative: the pool name is the heading right below
+          alt=""
           className="h-[202px] rounded-prism-13"
           iconClassName="h-14 w-14"
         />
@@ -180,13 +182,13 @@ export function PoolCardMedium({
         className="h-[110px] w-full rounded-prism-13"
         iconClassName="h-10 w-10"
       />
-      <div className="space-y-1 px-2 pb-2">
-        <p className="text-prism-label font-bold text-prism-ink">{pool.name}</p>
+      <span className="block space-y-1 px-2 pb-2">
+        <span className="block text-prism-label font-bold text-prism-ink">{pool.name}</span>
         {pool.creatorHandle && (
-          <p className="text-prism-meta text-prism-ink-2">{pool.creatorHandle}</p>
+          <span className="block text-prism-meta text-prism-ink-2">{pool.creatorHandle}</span>
         )}
         {pool.stats && pool.stats.length > 0 && (
-          <p className="text-prism-meta tabular-nums text-prism-ink-2">
+          <span className="block text-prism-meta tabular-nums text-prism-ink-2">
             {pool.stats.map((stat, index) => (
               <React.Fragment key={stat.label}>
                 {index > 0 && <span aria-hidden> · </span>}
@@ -194,9 +196,9 @@ export function PoolCardMedium({
                 {stat.value}
               </React.Fragment>
             ))}
-          </p>
+          </span>
         )}
-      </div>
+      </span>
     </Wrapper>
   );
 }

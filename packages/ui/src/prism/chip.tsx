@@ -53,6 +53,10 @@ export function ChipGroup<T extends string>({
   className?: string;
 }) {
   const refs = React.useRef<(HTMLButtonElement | null)[]>([]);
+  // Roving tabindex: the selected chip takes Tab focus, or the first enabled chip when
+  // no option is selected yet, so the group is always reachable from the keyboard.
+  const selectedIndex = options.findIndex(o => o.value === value && !o.disabled);
+  const tabStop = selectedIndex >= 0 ? selectedIndex : options.findIndex(o => !o.disabled);
 
   const move = (from: number, step: number) => {
     const enabled = options.map((o, i) => (o.disabled ? -1 : i)).filter(i => i >= 0);
@@ -76,7 +80,7 @@ export function ChipGroup<T extends string>({
             role="radio"
             selected={selected}
             disabled={option.disabled}
-            tabIndex={selected ? 0 : -1}
+            tabIndex={index === tabStop ? 0 : -1}
             onClick={() => onChange(option.value)}
             onKeyDown={event => {
               if (event.key === "ArrowRight" || event.key === "ArrowDown") {

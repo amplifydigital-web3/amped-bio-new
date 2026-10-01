@@ -62,9 +62,3 @@ export const toast = {
   add: addToast,
   close: closeToast,
 };
-
-// Kept so existing imports keep compiling. The react-hot-toast Toaster in
-// App.tsx renders these toasts now.
-export function Toaster() {
-  return null;
-}
