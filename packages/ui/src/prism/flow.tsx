@@ -20,7 +20,8 @@ export interface SidePanelProps {
   onOpenChange: (open: boolean) => void;
   // Eyebrow above the title, for example "Stake in"
   eyebrow: string;
-  title: string;
+  // Usually the pool or item name; a node for loading bars with an sr-only name
+  title: React.ReactNode;
   byline?: React.ReactNode;
   // 55 art tile: an image or any node (pool art, token icon)
   art?: React.ReactNode;
@@ -29,6 +30,11 @@ export interface SidePanelProps {
   children: React.ReactNode;
   // Sticky area at the bottom (primary action, wallet note)
   footer?: React.ReactNode;
+  // Header buttons before Close, for example a More actions menu (44 icon buttons)
+  headerActions?: React.ReactNode;
+  // False while a wallet signature is pending: Close is disabled and Escape and
+  // outside clicks do nothing (section 15, close blocked while signing)
+  dismissible?: boolean;
   className?: string;
 }
 
@@ -45,10 +51,20 @@ export function SidePanel({
   calm = false,
   children,
   footer,
+  headerActions,
+  dismissible = true,
   className,
 }: SidePanelProps) {
+  const block = (event: Event) => {
+    if (!dismissible) event.preventDefault();
+  };
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+    <DialogPrimitive.Root
+      open={open}
+      onOpenChange={next => {
+        if (next || dismissible) onOpenChange(next);
+      }}
+    >
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="prism-scrim fixed inset-0 z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 motion-reduce:animate-none" />
         {/* The halo sits behind the panel as a sibling (section 6), so it
@@ -63,9 +79,18 @@ export function SidePanel({
         )}
         <DialogPrimitive.Content
           aria-describedby={undefined}
+          // Focus the panel itself on open so no control shows a focus ring
+          // before the person uses the keyboard; Tab then starts in the header.
+          onOpenAutoFocus={event => {
+            event.preventDefault();
+            (event.currentTarget as HTMLElement | null)?.focus();
+          }}
+          onEscapeKeyDown={block}
+          onPointerDownOutside={block}
+          onInteractOutside={block}
           className={cn(
             calm ? "prism-value-panel-calm" : "prism-value-panel",
-            "fixed z-50 flex flex-col font-prism text-prism-ink",
+            "fixed z-50 flex flex-col font-prism text-prism-ink outline-none",
             "inset-0 rounded-none sm:inset-y-[21px] sm:left-auto sm:right-[21px] sm:w-[508px] sm:rounded-prism-34",
             "duration-prism-panel ease-prism data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 sm:data-[state=open]:slide-in-from-right-8 sm:data-[state=closed]:slide-out-to-right-8 motion-reduce:animate-none",
             className
@@ -83,12 +108,16 @@ export function SidePanel({
                 <span aria-hidden className="h-[3px] w-[13px] rounded-full bg-prism-value" />
                 {eyebrow}
               </p>
-              <DialogPrimitive.Title className="mt-1 truncate text-prism-panel-title">
+              <DialogPrimitive.Title className="mt-1 line-clamp-2 break-words text-prism-panel-title">
                 {title}
               </DialogPrimitive.Title>
               {byline && <div className="mt-1 text-prism-meta text-prism-ink-2">{byline}</div>}
             </div>
-            <DialogPrimitive.Close className="prism-icon-btn prism-focus shrink-0">
+            {headerActions}
+            <DialogPrimitive.Close
+              disabled={!dismissible}
+              className="prism-icon-btn prism-focus prism-btn-disabled shrink-0"
+            >
               <X className="h-5 w-5" />
               <span className="sr-only">Close</span>
             </DialogPrimitive.Close>
@@ -238,7 +267,13 @@ export function AmountWell({
             calm && "cursor-default sm:text-[88px] sm:leading-[88px]"
           )}
         />
-        <span className="inline-flex h-touch shrink-0 items-center rounded-full bg-white px-4 text-prism-label font-bold text-prism-ink shadow-[inset_0_0_0_1px_rgba(22,21,43,0.12)]">
+        <span
+          className={cn(
+            "inline-flex h-touch shrink-0 items-center rounded-full bg-white px-4 text-prism-label font-bold text-prism-ink shadow-[inset_0_0_0_1px_rgba(22,21,43,0.12)]",
+            // Edit amount sits top right in the commit state; the unit drops below it
+            calm && onEdit && "mb-3 self-end"
+          )}
+        >
           {unit}
         </span>
         {calm && onEdit && (
