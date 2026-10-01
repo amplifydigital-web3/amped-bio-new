@@ -11,6 +11,15 @@ interface StakingPoolData {
   address: string;
 }
 
+export interface StakeActionOptions {
+  // Called as soon as the wallet returns the transaction hash, before the
+  // server confirms it, so the flow can move from "Confirm in your wallet" to
+  // "Submitting" and keep the hash for the explorer link.
+  onHash?: (hash: `0x${string}`) => void;
+  // Unstake the exact amount in wei (Max), instead of parsing the amount string
+  amountWei?: bigint;
+}
+
 export function useStakingManager(pool: StakingPoolData | null, onStakeSuccess?: () => void) {
   const { address: userAddress } = useAccount();
   const publicClient = usePublicClient();
@@ -28,12 +37,11 @@ export function useStakingManager(pool: StakingPoolData | null, onStakeSuccess?:
     return getChainConfig(chainId);
   }, [pool]);
 
-  const getL2BaseTokenAddress = (): `0x${string}` | undefined => {
-    if (!chain) return undefined;
-    return chain.contracts.L2_BASE_TOKEN?.address;
-  };
-
-  const stake = async (amount: string) => {
+  const run = async (
+    functionName: "stake" | "unstake",
+    amount: string,
+    options?: StakeActionOptions
+  ): Promise<`0x${string}`> => {
     if (!publicClient) {
       throw new Error("Public client is not available");
     }
@@ -42,7 +50,7 @@ export function useStakingManager(pool: StakingPoolData | null, onStakeSuccess?:
       throw new Error("Pool address or user address is missing");
     }
 
-    const tokenAddress = getL2BaseTokenAddress();
+    const tokenAddress = chain?.contracts.L2_BASE_TOKEN?.address;
     if (!tokenAddress) {
       throw new Error("L2BaseToken contract address is not configured for this chain");
     }
@@ -50,104 +58,37 @@ export function useStakingManager(pool: StakingPoolData | null, onStakeSuccess?:
     setIsStaking(true);
     setStakeActionError(null);
 
+    let hash: `0x${string}`;
     try {
-      const parsedAmount = parseEther(amount);
+      const parsedAmount = options?.amountWei ?? parseEther(amount);
 
-      const startHashTime = performance.now();
-      const hash = await writeL2TokenContractAsync({
+      hash = await writeL2TokenContractAsync({
         address: tokenAddress,
         abi: L2_BASE_TOKEN_ABI,
-        functionName: "stake",
+        functionName,
         args: [pool.address as `0x${string}`, parsedAmount],
       });
-      const endHashTime = performance.now();
-      const hashTimeMs = endHashTime - startHashTime;
-      console.log(
-        `⏱️ Stake transaction hash returned in: ${hashTimeMs.toFixed(2)}ms | Hash: ${hash}`
-      );
+      options?.onHash?.(hash);
 
-      const startConfirmTime = performance.now();
-      // await publicClient.waitForTransactionReceipt({ hash, timeout: 5 * 60 * 1000 });
-      const endConfirmTime = performance.now();
-      const confirmationTimeMs = endConfirmTime - startConfirmTime;
-      console.log(`⏱️ Stake transaction confirmed in: ${confirmationTimeMs.toFixed(2)}ms`);
-      console.log(`⏱️ Total stake time: ${(hashTimeMs + confirmationTimeMs).toFixed(2)}ms`);
-
-      await confirmStakeMutation.mutateAsync({
-        chainId: pool.chainId,
-        hash: hash,
-      });
+      // The server waits for the receipt before it records the stake change
+      const confirm = functionName === "stake" ? confirmStakeMutation : confirmUnstakeMutation;
+      await confirm.mutateAsync({ chainId: pool.chainId, hash });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-      setStakeActionError(errorMessage);
-      throw new Error(errorMessage);
+      setStakeActionError(error instanceof Error ? error.message : "An unknown error occurred");
+      // Rethrow the original error so callers can tell a wallet rejection or a
+      // contract revert from other failures
+      throw error;
     } finally {
       setIsStaking(false);
     }
 
     // Call the success callback if provided (for refetching staked pools)
-    if (onStakeSuccess) {
-      onStakeSuccess();
-    }
+    onStakeSuccess?.();
+    return hash;
   };
 
-  const unstake = async (amount: string) => {
-    if (!publicClient) {
-      throw new Error("Public client is not available");
-    }
-
-    if (!pool || !pool.address || !userAddress) {
-      throw new Error("Pool address or user address is missing");
-    }
-
-    const tokenAddress = getL2BaseTokenAddress();
-    if (!tokenAddress) {
-      throw new Error("L2BaseToken contract address is not configured for this chain");
-    }
-
-    setIsStaking(true);
-    setStakeActionError(null);
-
-    try {
-      const parsedAmount = parseEther(amount);
-
-      const startHashTime = performance.now();
-      const hash = await writeL2TokenContractAsync({
-        address: tokenAddress,
-        abi: L2_BASE_TOKEN_ABI,
-        functionName: "unstake",
-        args: [pool.address as `0x${string}`, parsedAmount],
-      });
-      const endHashTime = performance.now();
-      const hashTimeMs = endHashTime - startHashTime;
-      console.log(
-        `⏱️ Unstake transaction hash returned in: ${hashTimeMs.toFixed(2)}ms | Hash: ${hash}`
-      );
-
-      const startConfirmTime = performance.now();
-      // await publicClient.waitForTransactionReceipt({ hash, timeout: 5 * 60 * 1000 });
-      const endConfirmTime = performance.now();
-      const confirmationTimeMs = endConfirmTime - startConfirmTime;
-      console.log(`⏱️ Unstake transaction confirmed in: ${confirmationTimeMs.toFixed(2)}ms`);
-      console.log(`⏱️ Total unstake time: ${(hashTimeMs + confirmationTimeMs).toFixed(2)}ms`);
-
-      await confirmUnstakeMutation.mutateAsync({
-        chainId: pool.chainId,
-        hash: hash,
-      });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-      setStakeActionError(errorMessage);
-      throw new Error(errorMessage);
-    } finally {
-      setIsStaking(false);
-    }
-
-    // Call the success callback if provided (for refetching staked pools)
-    if (onStakeSuccess) {
-      onStakeSuccess();
-    }
-  };
+  const stake = (amount: string, options?: StakeActionOptions) => run("stake", amount, options);
+  const unstake = (amount: string, options?: StakeActionOptions) => run("unstake", amount, options);
 
   return {
     isStaking,

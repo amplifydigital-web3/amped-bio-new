@@ -70,7 +70,12 @@ export function usePoolReader(
   const config = useConfig();
   const { writeContractAsync: writeCreatorPoolContractAsync } = useWriteContract();
 
-  const claimReward = async (poolId: number) => {
+  // onHash runs as soon as the wallet returns the hash, so a flow can show
+  // Submitting and keep the hash for the explorer link.
+  const claimReward = async (
+    poolId: number,
+    options?: { onHash?: (hash: `0x${string}`) => void }
+  ) => {
     if (!poolAddress) {
       throw new Error("Pool address is missing");
     }
@@ -85,6 +90,7 @@ export function usePoolReader(
       const endHashTime = performance.now();
       const hashTimeMs = endHashTime - startHashTime;
       console.log(`⏱️ Transaction hash returned in: ${hashTimeMs.toFixed(2)}ms | Hash: ${hash}`);
+      if (hash) options?.onHash?.(hash);
 
       let confirmationTimeMs = 0;
       if (hash) {
