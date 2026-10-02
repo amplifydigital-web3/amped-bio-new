@@ -2,9 +2,10 @@ import { privateProcedure, publicProcedure, router } from "../trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { prisma } from "@repo/database";
-import { Address, createPublicClient, http, decodeEventLog, type PublicClient } from "viem";
+import { Address, createPublicClient, decodeEventLog, type PublicClient } from "viem";
 import {
   getChainConfig,
+  getRpcTransport,
   L2_BASE_TOKEN_ABI,
   CREATOR_POOL_ABI,
   NODE_MANAGER_ABI,
@@ -82,7 +83,7 @@ export const poolsFanRouter = router({
 
         const publicClient = createPublicClient({
           chain: chain,
-          transport: http(),
+          transport: getRpcTransport(chain),
         });
 
         let totalStake: bigint = BigInt(pool.revoStaked);
@@ -304,7 +305,7 @@ export const poolsFanRouter = router({
 
         const publicClient = createPublicClient({
           chain: chain,
-          transport: http(),
+          transport: getRpcTransport(chain),
         });
 
         // Create a map to store contract data (from cache or blockchain)
@@ -813,7 +814,7 @@ export const poolsFanRouter = router({
 
         const publicClient = createPublicClient({
           chain: chain,
-          transport: http(),
+          transport: getRpcTransport(chain),
         });
 
         const userStakes = await prisma.stakedPool.findMany({
@@ -1070,7 +1071,7 @@ export const poolsFanRouter = router({
 
         const publicClient = createPublicClient({
           chain: chain,
-          transport: http(),
+          transport: getRpcTransport(chain),
         });
 
         const transactionReceipt = await publicClient.waitForTransactionReceipt({
@@ -1272,7 +1273,7 @@ export const poolsFanRouter = router({
 
         const publicClient = createPublicClient({
           chain: chain,
-          transport: http(),
+          transport: getRpcTransport(chain),
         });
 
         const transactionReceipt = await publicClient.waitForTransactionReceipt({
@@ -1579,7 +1580,7 @@ export const poolsFanRouter = router({
 
         const publicClient = createPublicClient({
           chain: chain,
-          transport: http(),
+          transport: getRpcTransport(chain),
         });
 
         // Initialize totalStake to the current db value
@@ -2064,7 +2065,7 @@ export const poolsFanRouter = router({
 
         const publicClient = createPublicClient({
           chain: chain,
-          transport: http(),
+          transport: getRpcTransport(chain),
         });
 
         const totalSupply = await publicClient.readContract({

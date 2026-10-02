@@ -9,8 +9,8 @@ import {
 } from "../services/referralRewards";
 import { env } from "../env";
 import { privateKeyToAccount } from "viem/accounts";
-import { createWalletClient, createPublicClient, http } from "viem";
-import { getChainConfig } from "@repo/web3";
+import { createWalletClient, createPublicClient } from "viem";
+import { getChainConfig, getRpcTransport } from "@repo/web3";
 import { AFFILIATES_CHAIN_ID, SITE_SETTINGS, PROCESSING_TXID } from "@repo/constants";
 import { cache, CacheKeys } from "../utils/cache";
 
@@ -30,7 +30,7 @@ async function getAffiliateWalletStatus() {
     const account = privateKeyToAccount(env.AFFILIATES_PRIVATE_KEY as `0x${string}`);
     const publicClient = createPublicClient({
       chain,
-      transport: http(chain.rpcUrls.default.http[0]),
+      transport: getRpcTransport(chain),
     });
 
     // Get reward values from cache or database
@@ -440,7 +440,7 @@ export const referralRouter = router({
 
             const publicClient = createPublicClient({
               chain,
-              transport: http(chain.rpcUrls.default.http[0]),
+              transport: getRpcTransport(chain),
             }) as any;
 
             console.log(
@@ -565,7 +565,7 @@ export const referralRouter = router({
             const walletClient = createWalletClient({
               account,
               chain,
-              transport: http(chain.rpcUrls.default.http[0]),
+              transport: getRpcTransport(chain),
             }) as any;
 
             const rewardResult = await sendReferralRewards(
@@ -768,7 +768,7 @@ export const referralRouter = router({
 
             const publicClient = createPublicClient({
               chain,
-              transport: http(chain.rpcUrls.default.http[0]),
+              transport: getRpcTransport(chain),
             }) as any;
 
             console.log(
@@ -893,7 +893,7 @@ export const referralRouter = router({
             const walletClient = createWalletClient({
               account,
               chain,
-              transport: http(chain.rpcUrls.default.http[0]),
+              transport: getRpcTransport(chain),
             }) as any;
 
             const rewardResult = await sendReferralRewards(

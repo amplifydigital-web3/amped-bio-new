@@ -75,7 +75,7 @@ export function OAuthLoginScreen({
   onSignedIn,
   forgotPasswordHref,
   createAccountHref,
-  privacyHref = "https://ampedbio.com/privacy-policy/",
+  privacyHref = "/privacy",
 }: OAuthLoginScreenProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

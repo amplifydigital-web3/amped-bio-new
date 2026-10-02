@@ -1,4 +1,4 @@
-import { type Address } from "viem";
+import { type Address, http, fallback, type Transport } from "viem";
 import { chainConfig } from "viem/zksync";
 
 export * from "./pools";
@@ -60,7 +60,7 @@ export const libertasTestnet = {
   },
   rpcUrls: {
     default: {
-      http: ["https://libertas.revolutionchain.io"],
+      http: ["https://rpc.revolutionnetwork.dev/", "https://libertas.revolutionchain.io"],
     },
   },
   blockExplorers: {
@@ -99,6 +99,21 @@ export const getChainConfig = (chainId: number) => {
 export const getCurrencySymbol = (chainId: number) => {
   const chain = getChainConfig(chainId);
   return chain ? chain.nativeCurrency.symbol : "REVO";
+};
+
+/**
+ * RPC transport with automatic failover.
+ * The first URL is the primary; the remaining URLs are used as fallbacks.
+ * Chains with a single URL keep the plain http(url) behavior.
+ * // lean-ctx: RPCs hardcoded; move to env if per-environment override is needed.
+ */
+export const getRpcTransport = (
+  chain: (typeof AVAILABLE_CHAINS)[number],
+  options?: Parameters<typeof http>[1]
+): Transport => {
+  const urls = chain.rpcUrls.default.http;
+  if (urls.length <= 1) return http(urls[0], options);
+  return fallback(urls.map(url => http(url, options)));
 };
 
 export const REVO_NODE_ADDRESSES = {

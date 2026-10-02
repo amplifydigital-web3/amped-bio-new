@@ -94,17 +94,24 @@ export function TrackingConsentBanner({
               Your privacy choices
             </p>
             <p className="mt-1 text-gray-700">
-              Amped Bio counts visits to this page without cookies. With your permission we also
-              remember this browser, for up to 13 months, so {ownerName} can see return visits, and
-              use Google Analytics to understand how Amped Bio is used.
-              {hasAds && (
-                <>
-                  {" "}
-                  {ownerName} also uses {adServices.join(", ")} to measure visits and show relevant
-                  ads.
-                </>
-              )}{" "}
-              You can change your choice at any time from the Privacy choices link on this page.
+              Amped.Bio counts visits to this page, including with Google Analytics. Until you
+              choose, no analytics cookies are set. With your permission, Amped.Bio and Google
+              Analytics use cookies to recognize return visits for up to 24 months. This choice
+              applies on every Amped.Bio creator page.
+            </p>
+            {hasAds && (
+              <p className="mt-1 text-gray-700">
+                {ownerName} also uses {adServices.join(", ")} to measure visits and show ads. They
+                load only if you allow it.
+              </p>
+            )}
+            <p className="mt-1 text-gray-700">
+              You can change your choices at any time from Privacy choices at the bottom of this
+              page. Read our{" "}
+              <a href="/privacy" className="underline font-medium text-gray-900">
+                Privacy Policy
+              </a>
+              .
             </p>
             <button
               type="button"
@@ -118,22 +125,30 @@ export function TrackingConsentBanner({
             {details && (
               <ul className="mt-2 list-disc pl-4 text-xs text-gray-600 space-y-1">
                 <li>
-                  Always, without cookies: page views, link clicks, time on page, the site that sent
-                  you, country and city, and device type. Your IP address is not stored.
+                  <strong>Amped.Bio visit counting, always, without cookies:</strong> the page you
+                  opened, links you tap, time on page, the site that sent you and any campaign tags,
+                  your country and city, and your device type, browser and operating system. Our
+                  analytics do not store your IP address.
                 </li>
                 <li>
-                  Return visits, if you allow it: a random ID saved in your browser. It is linked to
-                  your Amped Bio account only if you are signed in. It is deleted when you withdraw.
+                  <strong>Google Analytics, run by Google:</strong> page views, your device
+                  information and your approximate location, which Google works out from your IP
+                  address. Always sent without cookies. Google Analytics cookies are set only after
+                  you choose Accept all or allow Return visits.
                 </li>
                 <li>
-                  Amped Bio site analytics, if you allow it: Google Analytics sets its own cookies
-                  and receives your IP address and device information. Its cookies are deleted when
-                  you withdraw.
+                  <strong>Return visits, if you allow it:</strong> a random Amped.Bio ID and Google
+                  Analytics cookies saved in your browser. If you are signed in, we also record your
+                  Amped.Bio account with the visit. Creators do not see which account visited. Both
+                  are deleted from your browser when you withdraw.
                 </li>
                 {hasAds && (
                   <li>
-                    Ads and analytics by {ownerName}, if you allow it: {adServices.join(", ")} set
-                    their own cookies and receive your IP address and device information.
+                    <strong>Ads and analytics by {ownerName}, if you allow it:</strong>{" "}
+                    {adServices.join(", ")} load in your browser, set their own cookies and receive
+                    your IP address, device information and the pages and links you view here. If{" "}
+                    {ownerName} set this up, Amped.Bio also sends these events from our server to
+                    Meta or TikTok, with your IP address.
                   </li>
                 )}
               </ul>
@@ -146,14 +161,14 @@ export function TrackingConsentBanner({
             <ChoiceSwitch
               id={`${baseId}-necessary`}
               label="Visit counting"
-              description="Cookieless counting that keeps this page working and measured. Always on."
+              description="Always on, no cookies. Counts visits to this page, including with Google Analytics, without cookies."
               checked
               disabled
             />
             <ChoiceSwitch
               id={`${baseId}-analytics`}
-              label="Return visits and site analytics"
-              description="Remember this browser so the creator can see returning visitors, and let Amped Bio use Google Analytics."
+              label="Return visits (Amped.Bio and Google Analytics cookies)"
+              description="Recognize this browser for up to 24 months so creators can see returning visitors. Applies on every Amped.Bio creator page."
               checked={analytics}
               onChange={setAnalytics}
             />

@@ -9,8 +9,8 @@ import {
 } from "@repo/constants";
 import { prisma } from "@repo/database";
 import type { NdauConversion } from "@repo/database";
-import { createPublicClient, http, parseEther, formatEther } from "viem";
-import { libertasTestnet } from "@repo/web3";
+import { createPublicClient, parseEther, formatEther } from "viem";
+import { libertasTestnet, getRpcTransport } from "@repo/web3";
 import { verifyConversionSignature, verifyNdauSignature } from "../utils/ndau";
 import { recoverAddress, hashMessage } from "viem";
 
@@ -36,7 +36,7 @@ async function validateConversionTxidsBatch(
   const chain = libertasTestnet;
   const publicClient = createPublicClient({
     chain,
-    transport: http(chain.rpcUrls.default.http[0], {
+    transport: getRpcTransport(chain, {
       timeout: 20_000,
     }),
   });

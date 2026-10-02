@@ -37,6 +37,7 @@ import {
   saveConsent,
 } from "@/lib/consent";
 import { TrackingConsentBanner, type ConsentChoice } from "@/components/TrackingConsentBanner";
+import { revokeCreatorGa } from "@/lib/ampedAnalytics";
 import {
   getButtonBaseStyle,
   getButtonEffectStyle,
@@ -158,7 +159,12 @@ export function ProfileView({
     } else {
       trackProfileView(trackableProfileId);
     }
-    return startEngagementTracking(trackableProfileId);
+    const stopEngagement = startEngagementTracking(trackableProfileId);
+    return () => {
+      stopEngagement();
+      // Leaving this creator page turns their GA4 off (client side navigation keeps gtag)
+      revokeCreatorGa(getAnalyticsConsent() === true);
+    };
     // trackingPixels is fixed for a given profile
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authPending, trackableProfileId]);
@@ -166,6 +172,9 @@ export function ProfileView({
   const handleConsent = (choice: ConsentChoice) => {
     if (trackableProfileId === null) return;
     const advertising = pixelsEnabled && choice.advertising && !hasGlobalPrivacyControl();
+    // Withdrawing this creator's tags turns their GA4 off before the consent sync runs,
+    // so a Reject all also denies the shared storage and deletes _ga
+    if (!advertising) revokeCreatorGa(choice.analytics);
     saveConsent({
       analytics: choice.analytics,
       creatorId: trackableProfileId,
@@ -509,15 +518,27 @@ export function ProfileView({
                   >
                     Made with Amped.Bio
                   </button>
-                  {trackableProfileId !== null && consent !== null && (
-                    <button
-                      onClick={() => setBannerMode("settings")}
-                      className="block mx-auto mt-2 text-xs opacity-60 hover:opacity-100 transition-opacity underline"
+                  <div className="mt-2 flex items-center justify-center gap-3">
+                    {trackableProfileId !== null && consent !== null && (
+                      <button
+                        onClick={() => setBannerMode("settings")}
+                        className="text-xs opacity-60 hover:opacity-100 transition-opacity underline"
+                        style={{
+                          fontFamily: themeConfig?.fontFamily,
+                          color: themeConfig?.fontColor,
+                        }}
+                      >
+                        Privacy choices
+                      </button>
+                    )}
+                    <a
+                      href="/privacy"
+                      className="text-xs opacity-60 hover:opacity-100 transition-opacity underline"
                       style={{ fontFamily: themeConfig?.fontFamily, color: themeConfig?.fontColor }}
                     >
-                      Privacy choices
-                    </button>
-                  )}
+                      Privacy Policy
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>

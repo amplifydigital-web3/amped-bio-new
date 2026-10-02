@@ -16,6 +16,12 @@ The `development` branch is the staging environment. Work merged or pushed to `d
 
 Any change that introduces or edits a staging URL MUST use the hosts above, and staging values belong in the `*.env.staging` files (`apps/client`, `apps/admin`, `apps/landingpage`) rather than in the production env files.
 
+## BRANCHING AND PULL REQUESTS - MANDATORY
+
+ALWAYS create new branches from 'development' (our staging environment) and ALWAYS target 'development' as the base branch when opening Pull Requests. Fetch the latest 'development' before branching.
+
+If the user asks to branch from or open a PR against 'main', you MUST first warn them that 'main' is the production branch and that the standard flow is to go through 'development' (staging). Only proceed with 'main' after the user explicitly confirms they are aware of this and still want it.
+
 ## VALIDATION REQUIREMENTS - MANDATORY
 
 ALWAYS run typecheck and build commands to validate your modifications before claiming completion. NO EXCEPTIONS. Failure to do so will result in immediate rejection of your work.
@@ -158,6 +164,10 @@ Before running E2E tests (`oauth-e2e.test.ts`), ensure:
 4. The environment variables are set as shown above.
 
 Test configuration is documented in `apps/server/src/__tests__/test-setup.ts`.
+
+## Privacy and consent
+
+Any change that collects, stores, sends or displays personal information must follow `docs/legal/privacy-parameters.md` and stay consistent with the published notice at `apps/landingpage/src/content/legal/privacy.md` (served at `/privacy`). Add new trackers, recipients or stored data to the notice before shipping them, and bump `CONSENT_POLICY_VERSION` when the notice changes materially.
 
 <!-- BEGIN:turborepo-agent-rules -->
 
