@@ -21,13 +21,14 @@ export function getPanelHomeUrl(options: { welcome?: boolean } = {}): string {
 
 /**
  * Build the apps/client URL that opens a pool's details panel in Explore, where the
- * signed in person can stake. The client reads t=pools and pa=<address> on load
- * (apps/client PoolsTab). /i/pools/... must never be used on the panel host: the
- * client has no such route and bounces it back to the public site.
+ * signed in person can stake (D27, Screen Review 071 I03). The client reads
+ * ?pool=<address> and opens the pool panel; legacy ?pa= is rewritten there.
+ * /i/pools/... must never be used on the panel host: the client has no such
+ * route and bounces it back to the public site.
  */
 export function getPanelPoolUrl(poolAddress: string): string {
   const base = process.env.NEXT_PUBLIC_PANEL_URL || "";
-  return `${base}/explore?t=pools&pa=${encodeURIComponent(poolAddress)}`;
+  return `${base}/explore?pool=${encodeURIComponent(poolAddress)}`;
 }
 
 /**
