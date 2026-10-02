@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { Users, Coins } from "lucide-react";
 import PoolSkeleton from "./PoolSkeleton";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { trpc } from "@repo/ui";
 import { getChainConfig } from "@repo/web3";
 import { useSearchParams } from "react-router";
@@ -18,6 +18,10 @@ interface PoolsTabProps {
   poolFilter: PoolFilter;
   poolSort: PoolSort;
   shouldOpenModal?: boolean; // If true, open modal instead of navigating to pool page
+  // 045 I10: the result count beside Sort, and Searching while a new query loads
+  onResult?: (result: { count: number; fetching: boolean }) => void;
+  // 045 I13: Clear search and Clear filter in the no results state
+  emptyActions?: React.ReactNode;
 }
 
 const PoolsTab: React.FC<PoolsTabProps> = ({
@@ -25,12 +29,16 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
   poolFilter,
   poolSort,
   shouldOpenModal = false,
+  onResult,
+  emptyActions,
 }) => {
   const chainId = useChainId();
 
   const {
     data: pools,
     isLoading,
+    isFetching,
+    isPlaceholderData,
     refetch,
   } = useQuery({
     ...trpc.pools.fan.getPools.queryOptions({
@@ -40,7 +48,14 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
       sort: poolSort,
     }),
     enabled: !!chainId,
+    // Keep the current results on screen while a new query loads (045 I10)
+    placeholderData: keepPreviousData,
   });
+
+  useEffect(() => {
+    if (!pools) return;
+    onResult?.({ count: pools.length, fetching: isFetching && isPlaceholderData });
+  }, [pools, isFetching, isPlaceholderData, onResult]);
 
   // The open pool lives in ?pool=<address> (D27), so the panel survives a
   // reload and the link can be shared. Legacy ?pa= links are rewritten.
@@ -157,7 +172,10 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
             </div>
           ))
         ) : (
-          <div className="text-center py-8 text-gray-500 col-span-full">No reward pools found.</div>
+          <div className="col-span-full space-y-3 py-8 text-center text-gray-500">
+            <p>No reward pools found.</p>
+            {emptyActions}
+          </div>
         )}
       </div>
 
