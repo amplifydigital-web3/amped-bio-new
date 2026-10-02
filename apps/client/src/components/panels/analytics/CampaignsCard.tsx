@@ -1,28 +1,48 @@
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { TRPCClientError } from "@trpc/client";
 import { QRCodeCanvas } from "qrcode.react";
-import { trpc, trpcClient } from "@repo/ui";
+import {
+  Badge,
+  Button,
+  EmptyState,
+  ErrorCard,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  cn,
+  trpc,
+  trpcClient,
+} from "@repo/ui";
 import {
   CAMPAIGN_CHANNELS,
   type AnalyticsRangePreset,
   type CampaignChannel,
 } from "@repo/constants";
 import {
+  AlertCircle,
   Archive,
   ArchiveRestore,
   Check,
   Copy,
   Download,
+  Link2,
   Loader2,
-  Plus,
   QrCode,
 } from "lucide-react";
-import { toast } from "react-hot-toast";
+import { toast } from "@/components/ui/toast";
 import { AnalyticsCard } from "./AnalyticsCard";
 import { DEFINITIONS, SOURCES } from "./definitions";
 import type { AnalyticsCampaign } from "./format";
 import { formatNumber, formatPercent } from "./format";
 import { HowTo } from "./HowTo";
+import { SkeletonRows } from "./Skeleton";
+
+const UNDO_MS = 8000;
+const MIN_NAME = 2;
 
 const CHANNEL_LABELS: Record<CampaignChannel, string> = {
   instagram: "Instagram",
@@ -36,6 +56,16 @@ const CHANNEL_LABELS: Record<CampaignChannel, string> = {
   qr: "QR code (print, merch, events)",
   other: "Somewhere else",
 };
+
+const HOW_TO_STEPS = [
+  "Name the campaign after what you are promoting, for example Summer drop.",
+  "Pick where you will share it. Choose QR code for posters, merch or events.",
+  "Copy the link and paste it in that one place only, such as your Instagram bio.",
+  "Come back here to compare views, clicks and click-through for each campaign.",
+];
+
+const EMPTY_BODY =
+  "Create a link for each place you share your page, then compare which one works.";
 
 function mediumFor(channel: string) {
   if (channel === "qr") return "offline";
@@ -56,23 +86,56 @@ export function campaignUrl(
   return `${import.meta.env.VITE_LANDINGPAGE_URL}/${handle}?${params.toString()}`;
 }
 
-function CampaignRow({ campaign, handle }: { campaign: AnalyticsCampaign; handle: string }) {
+function channelLabel(channel: string) {
+  return CHANNEL_LABELS[channel as CampaignChannel] ?? channel;
+}
+
+function clickThrough(campaign: AnalyticsCampaign) {
+  return campaign.visitors > 0 ? formatPercent(campaign.clickers / campaign.visitors) : "–";
+}
+
+// 093 I31: Views and Click-through at 390; all four from md
+const FIGURES: Array<{
+  label: string;
+  value: (campaign: AnalyticsCampaign) => string;
+  mobile: boolean;
+}> = [
+  { label: "Views", value: c => formatNumber(c.views), mobile: true },
+  { label: "Visitors", value: c => formatNumber(c.visitors), mobile: false },
+  { label: "Clicks", value: c => formatNumber(c.clicks), mobile: false },
+  { label: "Click-through", value: clickThrough, mobile: true },
+];
+
+const FIGURE_GRID =
+  "grid-cols-[minmax(0,1fr)_68px_96px] md:grid-cols-[minmax(0,1fr)_89px_89px_89px_110px]";
+
+function useArchive() {
   const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, archived }: { id: string; archived: boolean }) =>
+      trpcClient.analytics.archiveCampaign.mutate({ id, archived }),
+    onSettled: () =>
+      queryClient.invalidateQueries({ queryKey: trpc.analytics.campaigns.pathKey() }),
+  });
+}
+
+/** 093 I31: the open row's lens: link, copy, QR, archive or restore, and the campaign ID. */
+function CampaignLens({
+  campaign,
+  handle,
+  onArchived,
+}: {
+  campaign: AnalyticsCampaign;
+  handle: string;
+  onArchived: () => void;
+}) {
   const [copied, setCopied] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const qrRef = useRef<HTMLDivElement>(null);
+  const qrId = useId();
   const url = campaignUrl(handle, campaign);
-
-  const archive = useMutation({
-    mutationFn: () =>
-      trpcClient.analytics.archiveCampaign.mutate({
-        id: campaign.id,
-        archived: !campaign.archived,
-      }),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: trpc.analytics.campaigns.pathKey() }),
-    onError: () => toast.error("Could not update the campaign"),
-  });
+  const archive = useArchive();
+  const queryClient = useQueryClient();
 
   const copy = async () => {
     try {
@@ -80,7 +143,7 @@ function CampaignRow({ campaign, handle }: { campaign: AnalyticsCampaign; handle
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error("Copy failed. Select the link and copy it manually.");
+      toast.add({ type: "error", title: "Copy failed. Select the link and copy it manually." });
     }
   };
 
@@ -93,112 +156,305 @@ function CampaignRow({ campaign, handle }: { campaign: AnalyticsCampaign; handle
     anchor.click();
   };
 
+  // 093 I32: no confirm. The toast offers Undo for 8 seconds.
+  const archiveNow = () => {
+    archive.mutate(
+      { id: campaign.id, archived: true },
+      {
+        onSuccess: () => {
+          onArchived();
+          toast.add({
+            type: "info",
+            title: "Campaign archived",
+            duration: UNDO_MS,
+            actionProps: {
+              children: "Undo",
+              // The lens has closed by now, so Undo calls the API directly
+              onClick: () =>
+                void trpcClient.analytics.archiveCampaign
+                  .mutate({ id: campaign.id, archived: false })
+                  .catch(() => toast.add({ type: "error", title: "Could not update the campaign" }))
+                  .finally(
+                    () =>
+                      void queryClient.invalidateQueries({
+                        queryKey: trpc.analytics.campaigns.pathKey(),
+                      })
+                  ),
+            },
+          });
+        },
+        onError: () => toast.add({ type: "error", title: "Could not update the campaign" }),
+      }
+    );
+  };
+
+  const restore = () =>
+    archive.mutate(
+      { id: campaign.id, archived: false },
+      { onError: () => toast.add({ type: "error", title: "Could not update the campaign" }) }
+    );
+
   return (
-    <li className={`py-3 ${campaign.archived ? "opacity-60" : ""}`}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-gray-900">
-            {campaign.name}
-            {campaign.archived && (
-              <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">
-                Archived
-              </span>
-            )}
-          </p>
-          <p className="text-xs text-gray-500">
-            {CHANNEL_LABELS[campaign.channel as CampaignChannel] ?? campaign.channel} · Campaign ID{" "}
-            {campaign.id}
-          </p>
-        </div>
-        <dl className="flex gap-4 text-right text-xs">
-          <div>
-            <dt className="text-gray-500">Views</dt>
-            <dd className="text-sm font-semibold tabular-nums text-gray-900">
-              {formatNumber(campaign.views)}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-gray-500">Visitors</dt>
-            <dd className="text-sm font-semibold tabular-nums text-gray-900">
-              {formatNumber(campaign.visitors)}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-gray-500">Clicks</dt>
-            <dd className="text-sm font-semibold tabular-nums text-gray-900">
-              {formatNumber(campaign.clicks)}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-gray-500">Click-through</dt>
-            <dd className="text-sm font-semibold tabular-nums text-gray-900">
-              {campaign.visitors > 0 ? formatPercent(campaign.clickers / campaign.visitors) : "–"}
-            </dd>
-          </div>
-        </dl>
-      </div>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <code className="flex-1 min-w-0 truncate rounded-md bg-gray-50 border border-gray-200 px-2 py-1.5 text-[11px] text-gray-700">
+    <div className="space-y-[13px] px-[13px] pb-[13px] md:px-[21px] md:pb-[21px]">
+      <div className="prism-well flex h-touch min-w-0 items-center px-3">
+        <span className="sr-only">Campaign link: </span>
+        <span className="truncate text-prism-meta text-prism-ink" title={url}>
           {url}
-        </code>
-        <button
-          type="button"
-          onClick={copy}
-          className="inline-flex items-center gap-1 rounded-md bg-gray-900 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-gray-800"
-        >
-          {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" variant="secondary" onClick={() => void copy()} aria-live="polite">
+          {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
           {copied ? "Copied" : "Copy link"}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          onClick={() => setShowQr(open => !open)}
+          variant="secondary"
           aria-expanded={showQr}
-          className="inline-flex items-center gap-1 rounded-md border border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-800 hover:bg-gray-50"
+          aria-controls={qrId}
+          onClick={() => setShowQr(open => !open)}
         >
-          <QrCode className="w-3.5 h-3.5" />
+          <QrCode aria-hidden />
           QR code
-        </button>
-        <button
-          type="button"
-          onClick={() => archive.mutate()}
-          disabled={archive.isPending}
-          className="inline-flex items-center gap-1 rounded-md border border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-800 hover:bg-gray-50 disabled:opacity-60"
-        >
-          {campaign.archived ? (
-            <ArchiveRestore className="w-3.5 h-3.5" />
-          ) : (
-            <Archive className="w-3.5 h-3.5" />
-          )}
-          {campaign.archived ? "Restore" : "Archive"}
-        </button>
+        </Button>
+        {campaign.archived ? (
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={archive.isPending}
+            aria-busy={archive.isPending}
+            onClick={restore}
+          >
+            <ArchiveRestore aria-hidden />
+            Restore
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={archive.isPending}
+            aria-busy={archive.isPending}
+            onClick={archiveNow}
+          >
+            <Archive aria-hidden />
+            Archive
+          </Button>
+        )}
       </div>
       {showQr && (
-        <div className="mt-3 flex items-center gap-4">
-          <div ref={qrRef} className="p-2 bg-white border border-gray-200 rounded-lg">
-            <QRCodeCanvas value={url} size={128} marginSize={1} />
+        <div id={qrId} className="flex flex-wrap items-center gap-[21px]">
+          <div ref={qrRef} className="rounded-prism-13 bg-white p-2">
+            <QRCodeCanvas
+              value={url}
+              size={144}
+              marginSize={1}
+              aria-label={`QR code for ${campaign.name}`}
+              role="img"
+            />
           </div>
-          <div className="text-xs text-gray-600 space-y-2">
-            <p>
+          <div className="max-w-[34ch] space-y-[13px]">
+            <p className="text-prism-meta text-prism-ink-2">
               Scans are reported under this campaign and as the source of the channel you picked.
             </p>
-            <button
-              type="button"
-              onClick={downloadQr}
-              className="inline-flex items-center gap-1 rounded-md border border-gray-300 px-2.5 py-1.5 font-medium text-gray-800 hover:bg-gray-50"
-            >
-              <Download className="w-3.5 h-3.5" />
+            <Button type="button" variant="secondary" onClick={downloadQr}>
+              <Download aria-hidden />
               Download PNG
-            </button>
+            </Button>
           </div>
+        </div>
+      )}
+      <p className="text-prism-meta text-prism-ink-2">Campaign ID {campaign.id}</p>
+    </div>
+  );
+}
+
+/** 093 I31: a G0 row 55. Opening it makes it the region's one G3 lens. */
+function CampaignRow({
+  campaign,
+  handle,
+  open,
+  onToggle,
+  onArchived,
+}: {
+  campaign: AnalyticsCampaign;
+  handle: string;
+  open: boolean;
+  onToggle: () => void;
+  onArchived: () => void;
+}) {
+  const panelId = useId();
+  const muted = campaign.archived;
+  return (
+    <li className={cn(open ? "prism-lens my-2" : "border-b border-prism-line last:border-b-0")}>
+      {open && <span aria-hidden className="prism-rim" />}
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-controls={panelId}
+        className={cn(
+          "prism-focus relative grid min-h-commit w-full items-center gap-[13px] rounded-prism-13 py-1 text-left",
+          FIGURE_GRID,
+          open && "px-[13px] md:px-[21px]"
+        )}
+      >
+        <span className="min-w-0">
+          <span className="flex min-w-0 items-center gap-2">
+            <span
+              className={cn(
+                "truncate text-prism-label font-semibold",
+                muted ? "text-prism-ink-2" : "text-prism-ink"
+              )}
+            >
+              {campaign.name}
+            </span>
+            {muted && (
+              <Badge variant="secondary" className="shrink-0">
+                Archived
+              </Badge>
+            )}
+          </span>
+          <span className="block truncate text-prism-meta text-prism-ink-2">
+            {channelLabel(campaign.channel)}
+          </span>
+        </span>
+        {FIGURES.map(figure => (
+          <span
+            key={figure.label}
+            className={cn(
+              "text-right text-prism-label font-semibold tabular-nums",
+              muted ? "text-prism-ink-2" : "text-prism-ink",
+              !figure.mobile && "hidden md:block"
+            )}
+          >
+            <span className="sr-only">{figure.label} </span>
+            {figure.value(campaign)}
+          </span>
+        ))}
+      </button>
+      {open && (
+        <div id={panelId} className="relative">
+          <CampaignLens campaign={campaign} handle={handle} onArchived={onArchived} />
         </div>
       )}
     </li>
   );
 }
 
+/** 093 I30: name and channel in one row at 1440, one column at 390. */
+function CreateCampaignForm({ onCreated }: { onCreated: (id: string) => void }) {
+  const queryClient = useQueryClient();
+  const nameId = useId();
+  const channelLabelId = useId();
+  const [name, setName] = useState("");
+  const [nameError, setNameError] = useState<string | undefined>();
+  const [channel, setChannel] = useState<CampaignChannel>("instagram");
+  const [serverError, setServerError] = useState<string | undefined>();
+
+  const validate = (value: string) =>
+    value.trim().length < MIN_NAME ? "Use at least 2 characters." : undefined;
+
+  const create = useMutation({
+    mutationFn: () => trpcClient.analytics.createCampaign.mutate({ name: name.trim(), channel }),
+    onSuccess: async campaign => {
+      setName("");
+      setServerError(undefined);
+      await queryClient.invalidateQueries({ queryKey: trpc.analytics.campaigns.pathKey() });
+      if (campaign) onCreated(campaign.id);
+      toast.add({
+        type: "success",
+        title: "Campaign created. Copy its link and use it where you share your page.",
+      });
+    },
+    onError: (error: unknown) => {
+      // The 200 limit and name conflicts carry plain messages; anything else stays generic
+      const code = error instanceof TRPCClientError ? error.data?.code : undefined;
+      setServerError(
+        code === "BAD_REQUEST" || code === "CONFLICT"
+          ? (error as Error).message
+          : "Could not create the campaign"
+      );
+    },
+  });
+
+  return (
+    <form
+      noValidate
+      onSubmit={event => {
+        event.preventDefault();
+        const error = validate(name);
+        setNameError(error);
+        if (!error) create.mutate();
+      }}
+    >
+      <div className="grid gap-[13px] md:grid-cols-[minmax(0,1fr)_233px_auto] md:items-start">
+        <Input
+          id={nameId}
+          label="Campaign name"
+          value={name}
+          onChange={event => {
+            setName(event.target.value);
+            if (nameError) setNameError(validate(event.target.value));
+          }}
+          onBlur={() => name && setNameError(validate(name))}
+          placeholder="Summer drop"
+          maxLength={80}
+          autoComplete="off"
+          error={nameError}
+        />
+        <div className="space-y-2">
+          <label
+            id={channelLabelId}
+            className="block font-prism text-prism-label font-semibold text-prism-ink"
+          >
+            Where will you share it?
+          </label>
+          <Select value={channel} onValueChange={value => setChannel(value as CampaignChannel)}>
+            <SelectTrigger aria-labelledby={channelLabelId}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CAMPAIGN_CHANNELS.map(value => (
+                <SelectItem key={value} value={value}>
+                  {CHANNEL_LABELS[value]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {/* Label height (20) plus the 8 gap keeps the button on the wells' line */}
+        <Button
+          type="submit"
+          size="lg"
+          disabled={create.isPending}
+          aria-busy={create.isPending}
+          className="md:mt-[28px] md:h-touch"
+        >
+          {create.isPending ? (
+            <Loader2 aria-hidden className="motion-safe:animate-spin" />
+          ) : (
+            <Link2 aria-hidden />
+          )}
+          Create link
+        </Button>
+      </div>
+      {serverError && (
+        <p
+          role="alert"
+          className="mt-[13px] flex items-start gap-1.5 font-prism text-prism-meta text-prism-danger"
+        >
+          <AlertCircle aria-hidden className="mt-px h-4 w-4 shrink-0" />
+          {serverError}
+        </p>
+      )}
+    </form>
+  );
+}
+
 /**
- * Saved campaigns with their own links and QR codes. Each link carries the
- * campaign ID (utm_id), so results roll up by campaign even if names change.
+ * Screen Review 093 I30 to I33, I41: campaign links on the Campaigns tab.
+ * Each link carries the campaign ID (utm_id), so results roll up by campaign
+ * even if names change.
  */
 export function CampaignsCard({
   handle,
@@ -209,117 +465,99 @@ export function CampaignsCard({
   range: AnalyticsRangePreset;
   tzOffsetMinutes: number;
 }) {
-  const queryClient = useQueryClient();
-  const [name, setName] = useState("");
-  const [channel, setChannel] = useState<CampaignChannel>("instagram");
+  const [openId, setOpenId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
 
-  const { data, isLoading, isError } = useQuery(
+  const { data, isLoading, isError, refetch } = useQuery(
     trpc.analytics.campaigns.queryOptions({ range, tzOffsetMinutes })
   );
 
-  const create = useMutation({
-    mutationFn: () => trpcClient.analytics.createCampaign.mutate({ name: name.trim(), channel }),
-    onSuccess: async () => {
-      setName("");
-      await queryClient.invalidateQueries({ queryKey: trpc.analytics.campaigns.pathKey() });
-      toast.success("Campaign created. Copy its link and use it where you share your page.");
-    },
-    onError: (error: Error) => toast.error(error.message || "Could not create the campaign"),
-  });
-
-  const campaigns = (data?.campaigns ?? []).filter(item => showArchived || !item.archived);
-  const archivedCount = (data?.campaigns ?? []).filter(item => item.archived).length;
+  const all = data?.campaigns ?? [];
+  const archivedCount = all.filter(item => item.archived).length;
+  const shown = all.filter(item => showArchived || !item.archived);
+  const empty = !!data && all.length === 0;
 
   return (
     <AnalyticsCard
       id="campaigns"
-      title="Campaigns"
-      description="Create a link for each place you share your page, then compare which one works."
+      title="Campaign links"
+      description={empty ? undefined : EMPTY_BODY}
       info={DEFINITIONS.campaigns}
       source={SOURCES.campaigns}
     >
-      <HowTo
-        storageKey="campaigns"
-        title="How campaign links work"
-        steps={[
-          "Name the campaign after what you are promoting, for example Summer drop.",
-          "Pick where you will share it. Choose QR code for posters, merch or events.",
-          "Copy the link and paste it in that one place only, such as your Instagram bio.",
-          "Come back here to compare views, clicks and click-through for each campaign.",
-        ]}
-      />
+      <CreateCampaignForm onCreated={setOpenId} />
 
-      <form
-        className="mt-3 grid sm:grid-cols-[1fr_1fr_auto] gap-2 items-end"
-        onSubmit={event => {
-          event.preventDefault();
-          if (name.trim().length >= 2) create.mutate();
-        }}
-      >
-        <label className="text-xs font-medium text-gray-600" htmlFor="campaign-name">
-          Campaign name
-          <input
-            id="campaign-name"
-            value={name}
-            onChange={event => setName(event.target.value)}
-            placeholder="e.g. Summer drop"
-            maxLength={80}
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
+      <div className="mt-[21px]">
+        {isError ? (
+          <ErrorCard
+            title="Campaigns did not load"
+            onRetry={() => void refetch()}
+            retryLabel="Retry"
           />
-        </label>
-        <label className="text-xs font-medium text-gray-600" htmlFor="campaign-channel">
-          Where will you share it?
-          <select
-            id="campaign-channel"
-            value={channel}
-            onChange={event => setChannel(event.target.value as CampaignChannel)}
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 bg-white"
-          >
-            {CAMPAIGN_CHANNELS.map(value => (
-              <option key={value} value={value}>
-                {CHANNEL_LABELS[value]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          type="submit"
-          disabled={create.isPending || name.trim().length < 2}
-          className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
-        >
-          {create.isPending ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Plus className="w-4 h-4" />
-          )}
-          Create link
-        </button>
-      </form>
+        ) : isLoading || !data ? (
+          <SkeletonRows count={2} active={isLoading} />
+        ) : empty ? (
+          <EmptyState icon={Link2} title="No campaigns yet" description={EMPTY_BODY} />
+        ) : (
+          <>
+            {shown.length > 0 && (
+              <>
+                <div
+                  aria-hidden
+                  className={cn(
+                    "grid gap-[13px] pb-1 text-prism-meta text-prism-ink-2",
+                    FIGURE_GRID
+                  )}
+                >
+                  <span>Campaign</span>
+                  {FIGURES.map(figure => (
+                    <span
+                      key={figure.label}
+                      className={cn("text-right", !figure.mobile && "hidden md:block")}
+                    >
+                      {figure.label}
+                    </span>
+                  ))}
+                </div>
+                <ul className="border-t border-prism-line">
+                  {shown.map(campaign => (
+                    <CampaignRow
+                      key={campaign.id}
+                      campaign={campaign}
+                      handle={handle}
+                      open={openId === campaign.id}
+                      onToggle={() =>
+                        setOpenId(current => (current === campaign.id ? null : campaign.id))
+                      }
+                      onArchived={() => setOpenId(null)}
+                    />
+                  ))}
+                </ul>
+              </>
+            )}
+            {archivedCount > 0 && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="mt-2 -ml-3"
+                aria-pressed={showArchived}
+                onClick={() => setShowArchived(value => !value)}
+              >
+                {showArchived ? "Hide archived" : `Show ${archivedCount} archived`}
+              </Button>
+            )}
+          </>
+        )}
+      </div>
 
-      {isLoading ? (
-        <div className="mt-4 h-24 bg-gray-100 rounded animate-pulse" />
-      ) : isError ? (
-        <p className="mt-4 text-sm text-red-700">Could not load campaigns.</p>
-      ) : campaigns.length === 0 ? (
-        <p className="mt-4 text-sm text-gray-500">
-          No campaigns yet. Create your first link above.
-        </p>
-      ) : (
-        <ul className="mt-2 divide-y divide-gray-100">
-          {campaigns.map(campaign => (
-            <CampaignRow key={campaign.id} campaign={campaign} handle={handle} />
-          ))}
-        </ul>
-      )}
-      {archivedCount > 0 && (
-        <button
-          type="button"
-          onClick={() => setShowArchived(value => !value)}
-          className="mt-2 text-xs font-medium text-gray-600 underline"
-        >
-          {showArchived ? "Hide archived campaigns" : `Show ${archivedCount} archived`}
-        </button>
+      {data && (
+        <HowTo
+          storageKey="campaigns"
+          title="How campaign links work"
+          steps={HOW_TO_STEPS}
+          defaultOpen={empty}
+          className="mt-[21px]"
+        />
       )}
     </AnalyticsCard>
   );
