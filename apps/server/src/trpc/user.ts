@@ -304,7 +304,7 @@ export const userRouter = router({
       }
     }),
 
-  // Resend email verification code without deleting existing ones
+  // Resend the email change code to the address of the pending request
   resendEmailVerification: privateProcedure
     .input(resendEmailVerificationSchema)
     .mutation(async ({ ctx, input }) => {
@@ -372,6 +372,25 @@ export const userRouter = router({
           });
         }
 
+        // Resend only to the address of a pending request. initiateEmailChange
+        // is the path that notifies the current address, so a resend must not
+        // start a change to a new address (019 I02)
+        const pendingCode = await prisma.confirmationCode.findFirst({
+          where: {
+            userId,
+            type: "EMAIL_CHANGE",
+            target: input.newEmail,
+            used: false,
+          },
+        });
+
+        if (!pendingCode) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "No pending email change for this address. Start the change again.",
+          });
+        }
+
         // Generate a 6-digit code
         const code = generateSixDigitCode();
 
@@ -379,7 +398,15 @@ export const userRouter = router({
         const expiresAt = new Date();
         expiresAt.setMinutes(expiresAt.getMinutes() + 5);
 
-        // Create a new confirmation code without deleting existing ones
+        // The new code replaces the earlier ones, so only one code is valid
+        await prisma.confirmationCode.deleteMany({
+          where: {
+            userId,
+            type: "EMAIL_CHANGE",
+            used: false,
+          },
+        });
+
         await prisma.confirmationCode.create({
           data: {
             code,
