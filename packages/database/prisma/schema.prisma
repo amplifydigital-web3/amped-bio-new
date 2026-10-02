@@ -459,6 +459,10 @@ model TrackingPixels {
   meta_capi_token_enc     String?   @db.Text
   tiktok_pixel_id         String?   @db.VarChar(32)
   tiktok_events_token_enc String?   @db.Text
+  // Screen Review 093 D2: the Creator Analytics and Tracking Terms version the
+  // creator accepted, and when. Null on rows saved before acceptance existed.
+  terms_version           String?   @db.VarChar(32)
+  terms_accepted_at       DateTime?
   created_at              DateTime  @default(now())
   updated_at              DateTime? @updatedAt
 
