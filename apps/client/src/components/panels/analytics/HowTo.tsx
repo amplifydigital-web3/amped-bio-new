@@ -1,81 +1,88 @@
-import { useState } from "react";
-import { ChevronDown, ChevronUp, Lightbulb } from "lucide-react";
+import { useId, useState } from "react";
+import { BookOpen, ChevronDown } from "lucide-react";
+import { cn } from "@repo/ui";
 
 const STORAGE_PREFIX = "amped_howto_";
 
-function readCollapsed(key: string): boolean {
+// The amped_howto_ keys are kept, so a creator's earlier choice survives (093 I41)
+function readStored(key: string): "open" | "collapsed" | null {
   try {
-    return window.localStorage.getItem(STORAGE_PREFIX + key) === "collapsed";
+    const value = window.localStorage.getItem(STORAGE_PREFIX + key);
+    return value === "open" || value === "collapsed" ? value : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
-function writeCollapsed(key: string, collapsed: boolean) {
+function writeStored(key: string, open: boolean) {
   try {
-    if (collapsed) window.localStorage.setItem(STORAGE_PREFIX + key, "collapsed");
-    else window.localStorage.removeItem(STORAGE_PREFIX + key);
+    window.localStorage.setItem(STORAGE_PREFIX + key, open ? "open" : "collapsed");
   } catch {
-    // The panel still works, it just opens again next time
+    // The row still works, it just starts from its default next time
   }
 }
 
 /**
- * Step-by-step help that sits at the top of a setup card. Open the first time,
- * remembers when the creator closes it, and can always be reopened.
+ * Screen Review 093 I41: a G0 disclosure row 55 with a numbered guide below.
+ * Closed by default, open by default only when its section is empty. One
+ * control toggles it and the choice is remembered.
  */
 export function HowTo({
   storageKey,
   title,
   steps,
   footer,
+  defaultOpen = false,
+  className,
 }: {
   storageKey: string;
   title: string;
-  steps: string[];
+  steps: readonly string[];
   footer?: React.ReactNode;
+  // Open when nothing is set up yet (no campaigns, no pixel connected)
+  defaultOpen?: boolean;
+  className?: string;
 }) {
-  const [collapsed, setCollapsed] = useState(() => readCollapsed(storageKey));
+  const [open, setOpen] = useState(() => {
+    const stored = readStored(storageKey);
+    return stored === null ? defaultOpen : stored === "open";
+  });
+  const panelId = useId();
 
   const toggle = () => {
-    const next = !collapsed;
-    setCollapsed(next);
-    writeCollapsed(storageKey, next);
+    setOpen(current => {
+      writeStored(storageKey, !current);
+      return !current;
+    });
   };
 
   return (
-    <div className="rounded-lg border border-blue-100 bg-blue-50/60">
+    <div className={cn("border-y border-prism-line font-prism", className)}>
       <button
         type="button"
         onClick={toggle}
-        aria-expanded={!collapsed}
-        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs font-semibold text-blue-900"
+        aria-expanded={open}
+        aria-controls={panelId}
+        className="prism-focus flex min-h-commit w-full items-center gap-[13px] rounded-prism-8 text-left"
       >
-        <span className="inline-flex items-center gap-1.5">
-          <Lightbulb className="w-3.5 h-3.5" aria-hidden />
-          {title}
-        </span>
-        {collapsed ? (
-          <ChevronDown className="w-3.5 h-3.5" />
-        ) : (
-          <ChevronUp className="w-3.5 h-3.5" />
-        )}
+        <BookOpen aria-hidden className="h-[21px] w-[21px] shrink-0 text-prism-ink-2" />
+        <span className="flex-1 text-prism-label font-semibold text-prism-ink">{title}</span>
+        <ChevronDown
+          aria-hidden
+          className={cn(
+            "h-[21px] w-[21px] shrink-0 text-prism-ink-2 transition-transform duration-prism-control motion-reduce:transition-none",
+            open && "rotate-180"
+          )}
+        />
       </button>
-      {!collapsed && (
-        <div className="px-3 pb-3">
-          <ol className="list-decimal pl-5 space-y-1 text-xs text-gray-700 leading-relaxed">
+      {open && (
+        <div id={panelId} className="pb-[13px] pl-[34px]">
+          <ol className="list-decimal space-y-1 pl-5 text-prism-body text-prism-ink-2">
             {steps.map(step => (
               <li key={step}>{step}</li>
             ))}
           </ol>
-          {footer && <div className="mt-2 text-xs text-gray-600">{footer}</div>}
-          <button
-            type="button"
-            onClick={toggle}
-            className="mt-2 text-xs font-medium text-blue-900 underline"
-          >
-            Got it, hide this
-          </button>
+          {footer && <div className="mt-2 text-prism-meta text-prism-ink-2">{footer}</div>}
         </div>
       )}
     </div>

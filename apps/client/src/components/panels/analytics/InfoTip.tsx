@@ -1,21 +1,62 @@
+import { useState } from "react";
 import { Info } from "lucide-react";
-import { Tooltip } from "@repo/ui";
+import { BottomSheet, BottomSheetContent, BottomSheetTrigger } from "@repo/ui";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { PHONE_QUERY, useMediaQuery } from "@/hooks/useMediaQuery";
 
 /**
- * Small info bubble next to a label. Opens on hover and on keyboard focus, and
- * the text is also exposed to screen readers through aria-label.
+ * Screen Review 093 I16: a definition opens on click, tap, Enter or Space,
+ * never on hover alone. Desktop: G1 clear raised popover, r13, padding 13, max
+ * 377. At 390: the bottom sheet. Escape or an outside tap closes it and focus
+ * returns to the 44 info button.
  */
-export function InfoTip({ text, label = "More information" }: { text: string; label?: string }) {
+export function InfoTip({
+  label,
+  text,
+  source,
+}: {
+  // The metric or card name, as the button reads it: "{label} definition"
+  label: string;
+  text: string;
+  source?: string;
+}) {
+  const mobile = useMediaQuery(PHONE_QUERY);
+  const [open, setOpen] = useState(false);
+
+  const trigger = (
+    <button
+      type="button"
+      aria-label={`${label} definition`}
+      className="prism-focus -mx-[11px] inline-flex h-touch w-touch shrink-0 items-center justify-center rounded-full text-prism-ink-2 hover:bg-white/50"
+    >
+      <Info aria-hidden className="h-[21px] w-[21px]" />
+    </button>
+  );
+
+  const body = (
+    <>
+      <p className="text-[16px] leading-[24px] text-prism-ink">{text}</p>
+      {source && <p className="mt-2 text-prism-meta text-prism-ink-2">Source: {source}</p>}
+    </>
+  );
+
+  if (mobile) {
+    return (
+      <BottomSheet open={open} onOpenChange={setOpen}>
+        <BottomSheetTrigger asChild>{trigger}</BottomSheetTrigger>
+        <BottomSheetContent title={label}>
+          <div className="pb-2">{body}</div>
+        </BottomSheetContent>
+      </BottomSheet>
+    );
+  }
+
   return (
-    <Tooltip content={<span className="block max-w-[260px] leading-relaxed">{text}</span>}>
-      <button
-        type="button"
-        aria-label={`${label}: ${text}`}
-        className="inline-flex items-center justify-center rounded-full text-gray-400 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900"
-        onClick={event => event.preventDefault()}
-      >
-        <Info className="w-3.5 h-3.5" aria-hidden />
-      </button>
-    </Tooltip>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverContent side="top" align="start" className="w-auto max-w-[377px] p-[13px]">
+        {body}
+      </PopoverContent>
+    </Popover>
   );
 }
