@@ -70,9 +70,14 @@ export function AccountPanel() {
   const retry = async () => {
     if (!authUser?.handle || retrying) return;
     setRetrying(true);
-    const result = await setUser(authUser.handle);
-    setRetrying(false);
-    setFailed(!result);
+    try {
+      const result = await setUser(authUser.handle);
+      setFailed(!result);
+    } catch {
+      setFailed(true);
+    } finally {
+      setRetrying(false);
+    }
   };
 
   if (!loaded) {

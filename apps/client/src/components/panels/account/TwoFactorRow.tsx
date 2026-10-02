@@ -550,11 +550,16 @@ function TwoFactorContent() {
   const [dialog, setDialog] = useState<"codes" | "off" | null>(null);
 
   const createCodes = async (password: string) => {
-    const { data, error } = await authClient.twoFactor.generateBackupCodes({ password });
+    const failed = "New codes were not created. Check your connection and try again.";
+    let result;
+    try {
+      result = await authClient.twoFactor.generateBackupCodes({ password });
+    } catch {
+      return failed;
+    }
+    const { data, error } = result;
     if (error) {
-      return isWrongPassword(error)
-        ? WRONG_PASSWORD
-        : "New codes were not created. Check your connection and try again.";
+      return isWrongPassword(error) ? WRONG_PASSWORD : failed;
     }
     // New codes replace any unsaved setup codes
     setPendingCodes(null);
@@ -565,11 +570,15 @@ function TwoFactorContent() {
   };
 
   const turnOff = async (password: string) => {
-    const { error } = await authClient.twoFactor.disable({ password });
-    if (error) {
-      return isWrongPassword(error)
-        ? WRONG_PASSWORD
-        : "Two factor did not turn off. Check your connection and try again.";
+    const failed = "Two factor did not turn off. Check your connection and try again.";
+    let result;
+    try {
+      result = await authClient.twoFactor.disable({ password });
+    } catch {
+      return failed;
+    }
+    if (result.error) {
+      return isWrongPassword(result.error) ? WRONG_PASSWORD : failed;
     }
     updateAuthUser({ twoFactorEnabled: false });
     setPendingCodes(null);

@@ -51,9 +51,20 @@ function countLabel(count: number) {
   return count === 1 ? "1 app" : `${count} apps`;
 }
 
+// The icon comes from client registered metadata: render https and data URLs only
+function isAllowedIcon(value?: string | null): value is string {
+  if (!value) return false;
+  try {
+    const { protocol } = new URL(value);
+    return protocol === "https:" || protocol === "data:";
+  } catch {
+    return false;
+  }
+}
+
 function AppArt({ consent, name }: { consent: Consent; name: string }) {
   const [broken, setBroken] = useState(false);
-  if (consent.clientIcon && !broken) {
+  if (isAllowedIcon(consent.clientIcon) && !broken) {
     return (
       <img
         src={consent.clientIcon}
