@@ -14,7 +14,6 @@ import { TextBlock } from "@/components/blocks/text/TextBlock";
 import { MediaBlock } from "@/components/blocks/MediaBlock";
 import { CreatorPoolBlock } from "@/components/blocks/CreatorPoolBlock";
 import { ReferralBlock } from "@/components/blocks/ReferralBlock";
-import { SystemStatsBadge } from "@/components/layout/SystemStatsBadge";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -257,11 +256,6 @@ export function ProfileView({
           startExpanded={bannerMode === "settings"}
           onSave={handleConsent}
         />
-      )}
-      {normalizedHandle === DEFAULT_HANDLE && (
-        <div className="md:hidden flex justify-center py-2 relative z-10">
-          <SystemStatsBadge />
-        </div>
       )}
       <div className="flex flex-col h-screen" style={themeCssVars(themeConfig)}>
         <div

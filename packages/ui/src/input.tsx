@@ -11,13 +11,35 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   helper?: string;
   // Classes for the outer wrapper; `className` still goes on the field itself
   containerClassName?: string;
+  // Fixed text inside the well before the value, with no divider (amped.bio/)
+  prefix?: string;
+  // Right side of the label row, for example a Forgot password ghost button
+  labelAction?: React.ReactNode;
+  // Inside the well after the value, for example a 44 show password toggle
+  trailing?: React.ReactNode;
+  // After the error text, for example a Reset password or Sign in ghost button
+  errorAction?: React.ReactNode;
 }
 
 // Prism form field: label 16/20 600 above, G2 input well 44 high r13, helper
 // 13/16 below, error 13/16 danger with an icon, linked by aria-describedby.
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   (
-    { label, leftText, pattern, error, helper, id, className, containerClassName, ...props },
+    {
+      label,
+      leftText,
+      pattern,
+      error,
+      helper,
+      id,
+      className,
+      containerClassName,
+      prefix,
+      labelAction,
+      trailing,
+      errorAction,
+      ...props
+    },
     ref
   ) => {
     const autoId = useId();
@@ -30,7 +52,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         id={inputId}
         className={cn(
           "h-touch min-w-0 flex-1 bg-transparent px-3 font-prism text-prism-label text-prism-ink tabular-nums placeholder:text-prism-ink-3 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60",
-          !leftText && "w-full",
+          !leftText && !prefix && "w-full",
+          prefix && "pl-0",
           className
         )}
         pattern={pattern}
@@ -43,14 +66,25 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 
     return (
       <div className={cn("space-y-2", containerClassName)}>
-        {label && (
-          <label
-            htmlFor={inputId}
-            className="block font-prism text-prism-label font-semibold text-prism-ink"
-          >
-            {label}
-          </label>
-        )}
+        {label &&
+          (labelAction ? (
+            <div className="flex items-center justify-between gap-3">
+              <label
+                htmlFor={inputId}
+                className="block font-prism text-prism-label font-semibold text-prism-ink"
+              >
+                {label}
+              </label>
+              {labelAction}
+            </div>
+          ) : (
+            <label
+              htmlFor={inputId}
+              className="block font-prism text-prism-label font-semibold text-prism-ink"
+            >
+              {label}
+            </label>
+          ))}
         <div
           className={cn(
             "prism-well flex items-center overflow-hidden transition-shadow duration-prism-hover ease-prism",
@@ -63,16 +97,28 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               {leftText}
             </span>
           )}
+          {prefix && (
+            <span
+              aria-hidden
+              className="flex h-touch shrink-0 items-center pl-3 font-prism text-prism-label font-medium text-prism-ink-2"
+            >
+              {prefix}
+            </span>
+          )}
           {field}
+          {trailing}
         </div>
         {error ? (
-          <p
-            id={noteId}
-            className="flex items-start gap-1.5 font-prism text-prism-meta text-prism-danger"
-          >
-            <AlertCircle className="mt-px h-4 w-4 shrink-0" aria-hidden />
-            {error}
-          </p>
+          <div className="flex flex-wrap items-center gap-x-2">
+            <p
+              id={noteId}
+              className="flex items-start gap-1.5 font-prism text-prism-meta text-prism-danger"
+            >
+              <AlertCircle className="mt-px h-4 w-4 shrink-0" aria-hidden />
+              {error}
+            </p>
+            {errorAction}
+          </div>
         ) : helper ? (
           <p id={noteId} className="font-prism text-prism-meta text-prism-ink-2">
             {helper}

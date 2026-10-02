@@ -112,21 +112,27 @@ const NOTICE: Record<
   },
 };
 
-export function Notice({
-  variant = "info",
-  title,
-  children,
-  className,
-}: {
-  variant?: keyof typeof NOTICE;
-  title?: string;
-  children?: React.ReactNode;
-  className?: string;
-}) {
+export const Notice = React.forwardRef<
+  HTMLDivElement,
+  {
+    variant?: keyof typeof NOTICE;
+    title?: string;
+    children?: React.ReactNode;
+    className?: string;
+    // A warning that reports a failure (for example "Your account was not
+    // created") passes role="alert" and is focused by the caller
+    role?: "alert" | "note" | "status";
+    id?: string;
+    tabIndex?: number;
+  }
+>(function Notice({ variant = "info", title, children, className, role, id, tabIndex }, ref) {
   const { icon: Icon, box, iconClass, titleClass } = NOTICE[variant];
   return (
     <div
-      role={variant === "error" ? "alert" : "note"}
+      ref={ref}
+      id={id}
+      tabIndex={tabIndex}
+      role={role ?? (variant === "error" ? "alert" : "note")}
       className={cn("flex items-start gap-3 font-prism", box, className)}
     >
       <Icon className={cn("mt-0.5 h-[21px] w-[21px] shrink-0", iconClass)} aria-hidden />
@@ -136,7 +142,7 @@ export function Notice({
       </div>
     </div>
   );
-}
+});
 
 // The testnet line, verbatim, wherever tREVO appears in a flow or notice.
 export const TESTNET_NOTICE =

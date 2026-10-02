@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PublicHeader } from "@/components/layout/PublicHeader";
 import { OAuthDeviceScreen, OAuthShell } from "@repo/ui";
 
 export const metadata: Metadata = {
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
 export default function OAuthDevicePage() {
   return (
     <OAuthShell
+      header={<PublicHeader />}
       title="Connect a device"
       subtitle="Enter the code shown on your device to approve access."
       footer="Only approve codes you requested yourself."

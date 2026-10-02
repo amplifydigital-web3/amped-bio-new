@@ -272,6 +272,26 @@ Page lives in `apps/client/src/components/panels/page`. The live preview lives i
 - `addBlock` no longer toasts or clears the unsaved flag.
 - `removeBlock` throws on failure.
 
+## Public site and auth (PR 5, Screen Review 007 to 010, 070)
+
+Public pages sit on `prism-room` under one header. The pieces live in `apps/landingpage/src/components/layout`, `landing`, `auth` and `pools`, and the shared auth parts in `@repo/ui` (`prism/auth.tsx`).
+
+| Piece | File | Rule |
+|---|---|---|
+| Public header | `layout/PublicHeader.tsx` | Floating G1 navigate capsule, r34, 55 high. Logo (alt Amped.Bio home), Pools, Blog, Developers (desktop only; the footer has it at 390). The current section gets the lens thumb and `aria-current`. Right: Sign in, or Open editor plus the 44 account menu. Hidden Sign in on `/login`, `/register` and `/oauth/*` |
+| Account menu | `auth/UserMenu.tsx` | Header row (photo, name, @handle), Open editor (panel `/home`), View my page, Sign out. Reactive session, no reload |
+| Footer | `layout/PublicFooter.tsx` | G0 with a line rule: Pools, Blog, Developers, Privacy Policy, Community on Telegram, Built on the Revolution Network |
+| Landing | `app/page.tsx`, `landing/*` | Native page, copy in code (007 D1). Hero (eyebrow, Bebas title, the D3 sentence), claim bar to `/register?handle=`, Graphite example page, value cards (the 10K Club card only when `NEXT_PUBLIC_TEN_K_CLUB_URL` is set, D2), the testnet notice, the totals strip. No creator theme and no consent prompt on `/` |
+| Totals strip | `layout/NetworkTotals.tsx` | LIBERTAS TESTNET TOTALS: Delegated to network nodes, Total tREVO supply, the footnote, two decimals rounded. Skeleton after 400ms, a one line failure. Chain from the shared config. Never in the header |
+| Auth card | `AuthCard` in `@repo/ui` | G1 clear r21, 508 wide, inline on the room, no dialog or overlay, 233ms fade. `AuthLayout` adds the header and footer |
+| Sign in | `auth/SignInForm.tsx` | Email, Password with Forgot password on the label row and a 44 show toggle, Caps Lock hint, Sign in 55, or divider, Google, Create account (carries the email), legal line |
+| Register | `auth/RegisterForm.tsx` | Your page URL well (`amped.bio/` prefix, `?handle=` prefill) with a spoken status line, Email, Password with a checklist while focused, Create account always enabled (submit focuses the first invalid field). An invite shows the solid notice with the 008 D1 sentence and the testnet line |
+| Google | `GoogleSignInButton`, `startGoogleSignIn` | One button for every card, secondary lens 44, the unaltered G (010 D1), Opening Google while loading. New accounts land on `/home?welcome=1`, returning ones on `/home` or a safe `returnTo`. On register it sends the available handle and the referrer in `additionalData`; the server checks the handle again |
+| OAuth | `OAuthShell`, `OAuthLoginScreen` | The same card under the public header. The subtitle names the app. Forgot password and Create account carry `returnTo` |
+| Pools directory | `pools/PoolsPageContent.tsx`, `pools/PoolsTab.tsx` | Bebas REWARD POOLS, search well (`?q=`, 300ms), count, Sort lens (`?sort=`), filter chips (`?filter=`), the testnet notice, Medium cards that are whole links, 24 per step with Show more, and the no results, no pools, loading and error states. Total staked is `stakedAmount` as reported (D28) |
+
+Errors are never raw server text (`classifyAuthError`). A missing captcha token while the captcha is on shows "The browser check did not finish. Check your connection." with Try again. After sign in a same origin `returnTo` (or a panel `redirect`) wins, otherwise the panel `/home`.
+
 ## Money flow (PR 4, Screen Review 046 to 048)
 
 The pool panel lives in `apps/client/src/components/panels/explore/pool-panel`. Pools (043) opens `PoolPanel`. Wallet Stakes (059) and My Pool (067) open it through `ExplorePoolDetailsModal`, now a thin wrapper with the same props. Explore keeps the open pool in `?pool=<address>` (D27); a legacy `?pa=` link is rewritten.
@@ -320,5 +340,9 @@ The work ships in batched PRs:
 1. Tokens
 2. Shared components restyled in place, with the gallery; 2b money flow pieces and pool cards
 3. App shell (001 to 005); 3a Design (023 to 033); 3b Page (006, 017, 018, 022, 034 to 037); 3c Account (019, 020)
+4. Money flow
+5. Public site and auth (007 to 010, 070); 5b auth pages (011 to 014)
+6. Screen batches by app area, each tied to Amped.Bio Screen Review row numbers
+
 4. Money flow (046 to 048): pool details, stake, unstake and claim in one panel
 5. Screen batches by app area, each tied to Amped.Bio Screen Review row numbers

@@ -1,85 +1,102 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { User } from "lucide-react";
+import Link from "next/link";
+import { ExternalLink, LayoutDashboard, LogOut, UserRound } from "lucide-react";
+import {
+  Button,
+  Menu,
+  MenuContent,
+  MenuItem,
+  MenuLabel,
+  MenuSeparator,
+  MenuTrigger,
+} from "@repo/ui";
 import { authClient } from "@/lib/auth-client";
-import { getPanelEditUrl } from "@/lib/panel";
+import { getPanelHomeUrl } from "@/lib/panel";
 
+// Header right (Screen Review 007 I05). Signed out: one Sign in secondary lens.
+// Signed in: Open editor (desktop) and a 44 avatar button opening the account
+// menu (header row, Open editor, View my page, Sign out). The session hook
+// refetches on focus and syncs across tabs, so a sign in elsewhere shows here
+// without a reload.
 export function UserMenu() {
-  const router = useRouter();
-  // Reactive session hook: refetches on window focus and syncs across tabs, so
-  // signing in elsewhere (client app, OAuth popup) is reflected without a reload.
   const { data: session } = authClient.useSession();
-  const [open, setOpen] = useState(false);
+  const user = session?.user as
+    | { name?: string | null; image?: string | null; handle?: string | null }
+    | undefined;
 
-  const handleLogout = async () => {
+  const signOut = async () => {
     try {
       await authClient.signOut();
-    } catch (error) {
-      console.error("Sign out failed:", error);
     } finally {
-      setOpen(false);
-      // Force a fresh session read so the UI reflects the logged-out state
+      // Force a fresh session read so the page reflects the signed out state
       window.location.href = "/";
     }
   };
 
-  if (!session?.user) {
+  if (!user) {
     return (
-      <button
-        onClick={() => router.push("/login")}
-        className="inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-50 disabled:pointer-events-none bg-blue-600 text-white hover:bg-blue-700 h-9 px-4 text-sm space-x-2"
-      >
-        <User className="w-4 h-4" />
-        <span>Sign In</span>
-      </button>
+      <Button variant="secondary" asChild className="whitespace-nowrap">
+        <Link href="/login">Sign in</Link>
+      </Button>
     );
   }
 
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center space-x-2 text-sm font-medium text-gray-700 hover:text-gray-900"
-      >
-        {session.user.image ? (
-          <img
-            src={session.user.image}
-            alt={session.user.name || "User"}
-            className="w-8 h-8 rounded-full object-cover"
-          />
-        ) : (
-          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium">
-            {session.user.name?.charAt(0) || "U"}
-          </div>
-        )}
-        <span className="hidden md:inline">{session.user.name}</span>
-      </button>
+  const handle = user.handle || "";
 
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
-            <button
-              onClick={() => {
-                const handle = session.user?.handle || session.user?.name || "";
-                window.location.href = getPanelEditUrl(handle);
-                setOpen(false);
-              }}
-              className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            >
-              My Profile
-            </button>
-            <button
-              onClick={handleLogout}
-              className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            >
-              Sign Out
-            </button>
-          </div>
-        </>
-      )}
-    </div>
+  return (
+    <>
+      <Button variant="secondary" asChild className="hidden sm:inline-flex">
+        <a href={getPanelHomeUrl()}>Open editor</a>
+      </Button>
+      <Menu>
+        <MenuTrigger
+          aria-label="Account menu"
+          className="prism-icon-btn prism-focus overflow-hidden"
+        >
+          {user.image ? (
+            <img src={user.image} alt="" className="h-[34px] w-[34px] rounded-full object-cover" />
+          ) : (
+            <UserRound className="h-5 w-5" aria-hidden />
+          )}
+        </MenuTrigger>
+        <MenuContent align="end" className="w-[233px]">
+          <MenuLabel className="flex items-center gap-3 py-2">
+            <span className="h-[34px] w-[34px] shrink-0 overflow-hidden rounded-full bg-prism-value-panel-1">
+              {user.image && <img src={user.image} alt="" className="h-full w-full object-cover" />}
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-prism-label font-semibold text-prism-ink">
+                {user.name || handle}
+              </span>
+              {handle && (
+                <span className="block truncate text-prism-meta font-normal text-prism-ink-2">
+                  @{handle}
+                </span>
+              )}
+            </span>
+          </MenuLabel>
+          <MenuItem asChild>
+            <a href={getPanelHomeUrl()}>
+              <LayoutDashboard aria-hidden />
+              Open editor
+            </a>
+          </MenuItem>
+          {handle && (
+            <MenuItem asChild>
+              <a href={`/${handle}`} target="_blank" rel="noopener noreferrer">
+                <ExternalLink aria-hidden />
+                View my page
+              </a>
+            </MenuItem>
+          )}
+          <MenuSeparator />
+          <MenuItem onSelect={() => void signOut()}>
+            <LogOut aria-hidden />
+            Sign out
+          </MenuItem>
+        </MenuContent>
+      </Menu>
+    </>
   );
 }

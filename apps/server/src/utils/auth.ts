@@ -4,6 +4,8 @@ import { processEmailToUniqueHandle } from "./onelink-generator";
 import { sendEmailVerification, sendPasswordResetEmail, sendWelcomeEmail } from "./email/email";
 import { hashPassword, verifyPassword } from "./password";
 import { APIError, betterAuth } from "better-auth";
+import { getOAuthState } from "better-auth/api";
+import { HANDLE_MIN_LENGTH, HANDLE_REGEX } from "@repo/constants";
 import type { BetterAuthPlugin } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { captcha, jwt, customSession, twoFactor } from "better-auth/plugins";
@@ -15,6 +17,30 @@ import crypto from "crypto";
 import { JWTPayload, SignJWT } from "jose";
 import type { EnrichedUser } from "../types/auth-helpers";
 import { uuidv7 } from "./uuid-v7";
+
+/**
+ * Google sign up from the register card sends the claimed handle and the
+ * referrer as `additionalData`, which better-auth carries in the OAuth state
+ * (Screen Review 010 I03). The state is client input, so the handle is
+ * validated and checked for availability again; anything else is ignored.
+ */
+async function readSocialSignUpState(): Promise<{ handle?: string; referrerId?: number }> {
+  try {
+    const state = await getOAuthState<{ handle?: unknown; referrerId?: unknown }>();
+    if (!state) return {};
+    const result: { handle?: string; referrerId?: number } = {};
+    const handle = typeof state.handle === "string" ? state.handle.trim().toLowerCase() : "";
+    if (handle.length >= HANDLE_MIN_LENGTH && HANDLE_REGEX.test(handle)) {
+      const taken = await prisma.user.findFirst({ where: { handle }, select: { id: true } });
+      if (!taken) result.handle = handle;
+    }
+    const referrerId = Number(state.referrerId);
+    if (Number.isInteger(referrerId) && referrerId > 0) result.referrerId = referrerId;
+    return result;
+  } catch {
+    return {};
+  }
+}
 
 // === jwt private key generation  ===
 const pk = crypto.createPrivateKey({
@@ -313,6 +339,10 @@ export const auth = betterAuth({
     user: {
       create: {
         before: async (user: any, context: any) => {
+          if ((!user.handle || user.handle === "") && context?.provider === "google") {
+            const { handle } = await readSocialSignUpState();
+            if (handle) user.handle = handle;
+          }
           if ((!user.handle || user.handle === "") && user.email) {
             user.handle = await processEmailToUniqueHandle(user.email);
           }
@@ -322,7 +352,12 @@ export const auth = betterAuth({
           }
         },
         after: async (user: any, context: any) => {
-          const referrerId = context?.query?.referrerId;
+          // Email sign up passes ?referrerId; Google carries it in the OAuth state
+          const referrerId =
+            context?.query?.referrerId ??
+            (context?.provider === "google"
+              ? (await readSocialSignUpState()).referrerId
+              : undefined);
           if (referrerId) {
             try {
               // Create referral record
