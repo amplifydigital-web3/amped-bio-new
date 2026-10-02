@@ -169,6 +169,13 @@ const optionalId = (pattern: RegExp, message: string) =>
     .nullable()
     .optional();
 
+// Screen Review 093 D2. The Creator Analytics and Tracking Terms a creator
+// accepts before the first pixel connects. Bump the version when the terms
+// change, so every creator with a pixel is asked once more.
+export const CREATOR_TRACKING_TERMS_VERSION = "2026-10-02";
+// Path on the public site (VITE_LANDINGPAGE_URL). Publish the addendum here before release.
+export const CREATOR_TRACKING_TERMS_PATH = "/terms/analytics";
+
 export const trackingPixelsUpdateSchema = z.object({
   ga4MeasurementId: optionalId(
     GA4_MEASUREMENT_ID_PATTERN,
@@ -182,6 +189,9 @@ export const trackingPixelsUpdateSchema = z.object({
   // Tokens: undefined keeps the stored value, "" removes it, a value replaces it
   metaCapiToken: z.string().trim().max(1024).optional(),
   tiktokEventsToken: z.string().trim().max(1024).optional(),
+  // Sent when the creator ticks the terms checkbox. Required to connect or change a
+  // pixel until the current version is on record; removing one never needs it.
+  termsVersion: z.literal(CREATOR_TRACKING_TERMS_VERSION).optional(),
 });
 
 export type TrackingPixelsUpdate = z.infer<typeof trackingPixelsUpdateSchema>;
