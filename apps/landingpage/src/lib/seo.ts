@@ -42,9 +42,9 @@ const SAME_AS_PLATFORMS: ReadonlySet<PlatformId> = new Set<PlatformId>([
   "patreon",
 ]);
 
-/** Canonical public URL for a profile, e.g. https://amped.bio/@gustavo */
+/** Canonical public URL for a profile, e.g. https://amped.bio/gustavo (no @, Rob, 30 Sep) */
 export function canonicalProfileUrl(handle: string): string {
-  return `${SITE_URL}/@${handle.toLowerCase()}`;
+  return `${SITE_URL}/${handle.toLowerCase()}`;
 }
 
 /** Cut text at a word boundary so it fits in `max` characters. */
