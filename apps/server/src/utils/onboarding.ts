@@ -1,4 +1,5 @@
-import { prisma } from "../services/DB";
+import { prisma } from "@repo/database";
+import { uuidv7 } from "./uuid-v7";
 
 /**
  * Called from the sign up hook. Email sign up and a Google sign up that kept
@@ -9,7 +10,7 @@ export async function createOnboardingRecord(userId: number, urlConfirmed: boole
   try {
     await prisma.userOnboarding.upsert({
       where: { user_id: userId },
-      create: { user_id: userId, url_confirmed_at: urlConfirmed ? new Date() : null },
+      create: { id: uuidv7(), user_id: userId, url_confirmed_at: urlConfirmed ? new Date() : null },
       update: {},
     });
   } catch (error) {

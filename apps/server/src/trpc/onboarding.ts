@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { privateProcedure, router } from "./trpc";
-import { prisma } from "../services/DB";
+import { prisma } from "@repo/database";
+import { uuidv7 } from "../utils/uuid-v7";
 
 /**
  * First run setup checklist on Home (Screen Review 015 I08). The URL, share,
@@ -20,7 +21,11 @@ async function getOrCreateRecord(userId: number) {
   });
   return prisma.userOnboarding.upsert({
     where: { user_id: userId },
-    create: { user_id: userId, url_confirmed_at: user?.created_at ?? new Date() },
+    create: {
+      id: uuidv7(),
+      user_id: userId,
+      url_confirmed_at: user?.created_at ?? new Date(),
+    },
     update: {},
   });
 }

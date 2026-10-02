@@ -471,7 +471,7 @@ model TrackingPixels {
 // theme steps derive from the user's data; only these moments are stored, so
 // progress follows the creator across devices.
 model UserOnboarding {
-  id                          Int       @id @default(autoincrement())
+  id                          Bytes     @id @db.Binary(16)
   user_id                     Int       @unique
   url_confirmed_at            DateTime?
   shared_at                   DateTime?

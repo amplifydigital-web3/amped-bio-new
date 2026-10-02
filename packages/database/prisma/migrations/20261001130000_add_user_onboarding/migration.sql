@@ -1,6 +1,6 @@
 -- CreateTable
 CREATE TABLE `user_onboarding` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `id` BINARY(16) NOT NULL,
     `user_id` INTEGER NOT NULL,
     `url_confirmed_at` DATETIME(3) NULL,
     `shared_at` DATETIME(3) NULL,
