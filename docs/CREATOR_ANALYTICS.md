@@ -118,6 +118,10 @@ Creator pixels (GA4, Meta, TikTok):
   does not store the IP.
 - Meta and TikTok tokens are encrypted at rest (AES-256-GCM) and never returned to any client.
 - The creator is told in the dashboard that they are responsible for their use of pixel data.
+- Connecting or changing a pixel requires the creator to accept the Creator Analytics and Tracking
+  Terms (Screen Review 093 D2). The server records the terms version and time on
+  `tracking_pixels` and refuses a connecting save without them. Removing a pixel or token never
+  needs acceptance. Creators with pixels saved before this are asked once on the Campaigns tab.
 
 Open item outside this feature: the public site layout loads Amped Bio's own Google Analytics
 property (`G-SK6H61G3S1`) on every page, including creator pages, before any consent. That tag
@@ -164,8 +168,9 @@ and the matching city headers), then the bundled GeoLite2 database.
 
 ## Deploy
 
-1. Run `pnpm run --filter server prisma:migrate`. Three migrations: `analytics_events`,
-   `tracking_pixels`, and `analytics_campaigns` / `analytics_consents` with the new event columns.
+1. Run `pnpm run --filter server prisma:migrate`. The analytics tables come from
+   `20260926120000_add_creator_analytics`; `20261002120000_add_tracking_pixels_terms` adds
+   `terms_version` and `terms_accepted_at` to `tracking_pixels`.
 2. Deploy the server, then the landing page, then the client.
 3. Set `TRACKING_TOKEN_SECRET` and `ANTHROPIC_API_KEY` on the server. Set `ANALYTICS_SALT_SECRET`
    too; changing it later breaks returning-visitor continuity.
