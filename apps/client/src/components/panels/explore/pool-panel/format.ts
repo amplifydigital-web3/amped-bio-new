@@ -1,6 +1,17 @@
 import Decimal from "decimal.js";
 import { BaseError, formatEther } from "viem";
 
+// tRPC has no transformer: the server's BigInt toJSON sends bigints as wei
+// strings, whatever the router type says. Null means the chain read failed.
+export function toWei(value: unknown): bigint | null {
+  if (value === null || value === undefined) return null;
+  try {
+    return BigInt(value as string | bigint);
+  } catch {
+    return null;
+  }
+}
+
 // Amounts convention (Screen Review 046): up to 4 decimals, trailing zeros
 // removed, rounded down so a shown balance is never more than the real one.
 export function formatTokenAmount(value: bigint | string | number | Decimal): string {

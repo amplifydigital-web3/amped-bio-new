@@ -6,7 +6,8 @@ import { type StatBoxProps } from "./types";
 import { useWalletStats } from "./hooks/useWalletStats";
 
 const WalletBalance = lazy(() => import("./WalletBalance"));
-const StakedPoolsSection = lazy(() => import("./StakedPoolsSection"));
+// Screen Review 059: Stakes replaces StakedPoolsSection on the Wallet
+const StakesCard = lazy(() => import("./stakes/StakesCard"));
 const ProfileTabs = lazy(() => import("./ProfileTabs"));
 const ReferralCard = lazy(() => import("./ReferralCard"));
 const RefereeRewardCard = lazy(() => import("./RefereeRewardCard"));
@@ -97,12 +98,16 @@ export function MyWalletPanel() {
             <WalletBalance loading={!wallet.address} />
           </Suspense>
 
-          <Suspense>
-            <ProfileTabs loading={!wallet.address} />
-          </Suspense>
+          {/* D19: Stakes sits right under the summary, above the tabs. It is
+              not rendered with the pools flag off (059 I01). */}
+          {import.meta.env.VITE_SHOW_CREATOR_POOL === "true" && (
+            <Suspense>
+              <StakesCard />
+            </Suspense>
+          )}
 
           <Suspense>
-            <StakedPoolsSection />
+            <ProfileTabs loading={!wallet.address} />
           </Suspense>
 
           <Suspense>

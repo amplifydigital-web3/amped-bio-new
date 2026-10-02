@@ -1,53 +1,68 @@
-import { Trophy, Info, TrendingUp } from "lucide-react";
 import React from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Coins, ExternalLink } from "lucide-react";
+import { Button, TESTNET_NOTICE, trpc } from "@repo/ui";
 import { useWalletContext } from "@/contexts/WalletContext";
+import { useEditor } from "@/contexts/EditorContext";
+import { appChainId } from "@/utils/appChain";
+import { HELP_ARTICLES_URL } from "@/components/shell/useSupportWidget";
 
-// import { Container } from './styles';
+// Screen Review 061 (D19). The quietest card on Wallet, shown last and only
+// to a creator with no pool. Copy is the wording Rob approved on 30 Sep (D1).
+// Nothing renders while the pool check loads or when it fails.
 
 const LaunchPoolAd: React.FC = () => {
-  const wallet = useWalletContext();
+  const { address } = useWalletContext();
+  const { setActivePanelAndNavigate } = useEditor();
+  const enabled = import.meta.env.VITE_SHOW_CREATOR_POOL === "true" && !!address;
+
+  const myPool = useQuery({
+    ...trpc.pools.creator.getPool.queryOptions({ chainId: appChainId() }),
+    enabled,
+    retry: false,
+  });
+
+  // getPool returns null when the creator has no pool on the app network
+  if (!enabled || !myPool.isSuccess || myPool.data !== null) return null;
+
   return (
-    <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200 p-6">
-      <div className="flex items-start justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="p-2 bg-purple-100 rounded-lg">
-            <Trophy className="w-6 h-6 text-purple-600" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">Reward Pools</h3>
-            <div className="text-sm text-gray-600 mt-1 space-y-1">
-              <p>Create and manage staking-based reward pools for your community.</p>
-              <p>Distribute tokens, NFTs, or access based on onchain participation.</p>
-            </div>
-          </div>
-        </div>
-
-        <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-          <Info className="w-4 h-4" />
-        </button>
+    <section
+      aria-labelledby="wallet-pool-promo-title"
+      className="prism-glass-clear flex flex-col gap-[13px] !rounded-prism-21 p-[13px] font-prism sm:flex-row sm:items-start sm:gap-[21px] sm:p-[21px]"
+    >
+      <span
+        aria-hidden
+        className="prism-glass-clear flex h-commit w-commit shrink-0 items-center justify-center !rounded-prism-13"
+      >
+        <Coins className="h-[21px] w-[21px] text-prism-value-ink" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <h2 id="wallet-pool-promo-title" className="text-prism-panel-title text-prism-ink">
+          Start your creator pool
+        </h2>
+        <p className="mt-1 text-prism-body text-prism-ink-2">
+          Fans stake tREVO in your pool to earn network rewards and support you. You choose your
+          share of pool rewards at launch, from 0 to 100%.
+        </p>
+        <p className="mt-2 text-prism-meta text-prism-ink-2">{TESTNET_NOTICE}</p>
+        <Button asChild variant="ghost" className="mt-1">
+          <a href={HELP_ARTICLES_URL} target="_blank" rel="noopener noreferrer">
+            How pools work
+            <ExternalLink aria-hidden />
+            <span className="sr-only"> (opens in a new tab)</span>
+          </a>
+        </Button>
       </div>
-
-      <div className="mt-4 flex flex-col sm:flex-row items-center justify-between">
-        <div className="flex items-center space-x-4 mb-3 sm:mb-0">
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <TrendingUp className="w-4 h-4 text-green-500" />
-            <span>Boost community engagement</span>
-          </div>
-        </div>
-
-        <div className="w-full sm:w-auto flex justify-center">
-          {wallet.address && (
-            <button
-              disabled
-              className="relative px-4 py-2 bg-purple-400 text-white rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2 opacity-60 cursor-not-allowed"
-            >
-              <Trophy className="w-4 h-4" />
-              <span>Launch Pool</span>
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+      <Button
+        type="button"
+        variant="secondary"
+        className="w-full shrink-0 sm:w-auto"
+        onClick={() => setActivePanelAndNavigate("my-pool")}
+      >
+        <Coins aria-hidden />
+        Create pool
+      </Button>
+    </section>
   );
 };
 
