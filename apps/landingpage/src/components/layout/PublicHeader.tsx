@@ -7,7 +7,7 @@ import { cn } from "@repo/ui";
 import { UserMenu } from "@/components/auth/UserMenu";
 
 // Routes whose own card is the sign in, so the header hides Sign in (009 I22)
-const AUTH_ROUTES = ["/login", "/register", "/oauth"];
+const AUTH_ROUTES = ["/login", "/register", "/oauth", "/auth"];
 
 const LINKS = [
   { href: "/i/pools", label: "Pools", match: "/i/pools" },
@@ -21,8 +21,8 @@ const LINKS = [
 // or Open editor with the account menu.
 export function PublicHeader() {
   const pathname = usePathname();
-  // The standalone /auth/* and /sign pages move to the auth card in PR 5b
-  const isStandaloneAuthPage = pathname.startsWith("/auth/") || pathname === "/sign";
+  // /sign keeps its own frame until row 074
+  const isStandaloneAuthPage = pathname === "/sign";
   const isAuthRoute = AUTH_ROUTES.some(
     route => pathname === route || pathname.startsWith(`${route}/`)
   );

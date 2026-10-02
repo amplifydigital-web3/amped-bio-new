@@ -22,6 +22,10 @@ export function AuthCard({
   title,
   subtitle,
   notice,
+  icon,
+  centered = false,
+  titleRef,
+  status = false,
   children,
   footer,
   className,
@@ -30,7 +34,14 @@ export function AuthCard({
   subtitle?: React.ReactNode;
   // Solid compliance notice at the card top (referral, failures)
   notice?: React.ReactNode;
-  children: React.ReactNode;
+  // Status disc above the title for result states (011 to 015)
+  icon?: React.ReactNode;
+  centered?: boolean;
+  // Result states move focus to the title on render
+  titleRef?: React.Ref<HTMLHeadingElement>;
+  // Announce the title and subtitle as a status (result states)
+  status?: boolean;
+  children?: React.ReactNode;
   footer?: React.ReactNode;
   className?: string;
 }) {
@@ -39,15 +50,49 @@ export function AuthCard({
       className={cn(
         "prism-glass-clear mx-auto w-full max-w-[508px] p-[21px] font-prism text-prism-ink sm:p-[34px]",
         "duration-prism-control ease-prism animate-in fade-in-0 slide-in-from-bottom-2 motion-reduce:animate-none",
+        centered && "text-center",
         className
       )}
     >
-      {notice && <div className="mb-[21px] space-y-3">{notice}</div>}
-      <h1 className="text-prism-panel-title text-prism-ink">{title}</h1>
-      {subtitle && <p className="mt-2 text-prism-body text-prism-ink-2">{subtitle}</p>}
-      <div className="mt-[21px]">{children}</div>
+      {notice && <div className="mb-[21px] space-y-3 text-left">{notice}</div>}
+      <div role={status ? "status" : undefined}>
+        {icon && <div className={cn("mb-[21px]", centered && "flex justify-center")}>{icon}</div>}
+        <h1
+          ref={titleRef}
+          tabIndex={titleRef ? -1 : undefined}
+          className="text-prism-panel-title text-prism-ink outline-none"
+        >
+          {title}
+        </h1>
+        {subtitle && <p className="mt-2 text-prism-body text-prism-ink-2">{subtitle}</p>}
+      </div>
+      {children && <div className="mt-[21px]">{children}</div>}
       {footer && <div className="mt-[21px] space-y-3">{footer}</div>}
     </section>
+  );
+}
+
+// G1 clear status disc 55 with a 34 icon (011 to 015). Success, danger or
+// navigate color; stands in for the G4 success moment until v1.1.
+export function StatusDisc({
+  icon: Icon,
+  tone,
+}: {
+  icon: React.ElementType;
+  tone: "success" | "danger" | "nav";
+}) {
+  return (
+    <span className="prism-glass-clear inline-flex h-[55px] w-[55px] shrink-0 items-center justify-center rounded-full">
+      <Icon
+        aria-hidden
+        className={cn(
+          "h-[34px] w-[34px]",
+          tone === "success" && "text-prism-success",
+          tone === "danger" && "text-prism-danger",
+          tone === "nav" && "text-prism-nav"
+        )}
+      />
+    </span>
   );
 }
 
@@ -70,12 +115,36 @@ export function AuthCardSkeleton() {
 /* Fields                                                                      */
 /* -------------------------------------------------------------------------- */
 
-type PasswordInputProps = Omit<React.ComponentProps<typeof Input>, "type" | "trailing">;
+type PasswordInputProps = Omit<React.ComponentProps<typeof Input>, "type" | "trailing"> & {
+  // Controlled reveal, for one toggle that shows two fields (013 I07)
+  visible?: boolean;
+  onVisibleChange?: (visible: boolean) => void;
+  // Ids of every field the toggle reveals (aria-controls)
+  toggleControls?: string;
+};
 
 // Password well with a 44 show toggle (aria-pressed) and a Caps Lock hint.
 export const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputProps>(
-  function PasswordInput({ helper, onKeyUp, onKeyDown, onBlur, ...props }, ref) {
-    const [visible, setVisible] = React.useState(false);
+  function PasswordInput(
+    {
+      helper,
+      onKeyUp,
+      onKeyDown,
+      onBlur,
+      visible: visibleProp,
+      onVisibleChange,
+      toggleControls,
+      ...props
+    },
+    ref
+  ) {
+    const [visibleState, setVisibleState] = React.useState(false);
+    const visible = visibleProp ?? visibleState;
+    const setVisible = (update: (value: boolean) => boolean) => {
+      const next = update(visible);
+      setVisibleState(next);
+      onVisibleChange?.(next);
+    };
     const [capsLock, setCapsLock] = React.useState(false);
     const readCaps = (event: React.KeyboardEvent<HTMLInputElement>) =>
       setCapsLock(event.getModifierState?.("CapsLock") ?? false);
@@ -103,6 +172,7 @@ export const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputPro
               type="button"
               aria-label={visible ? "Hide password" : "Show password"}
               aria-pressed={visible}
+              aria-controls={toggleControls ?? props.id}
               onClick={() => setVisible(value => !value)}
               className="prism-focus flex h-touch w-touch shrink-0 items-center justify-center rounded-prism-13 text-prism-ink-2"
             >
@@ -331,3 +401,31 @@ export function classifyAuthError(error: unknown): AuthErrorKind {
 }
 
 export const SUPPORT_TICKET_URL = "https://amplifydigital.freshdesk.com/support/tickets/new";
+
+/* -------------------------------------------------------------------------- */
+/* Resend cooldown                                                             */
+/* -------------------------------------------------------------------------- */
+
+export const RESEND_COOLDOWN_SECONDS = 60;
+
+// Counts down after a send so a person cannot flood their inbox (012 I05).
+// start() begins the countdown; remaining is 0 when Resend may run again.
+export function useCooldown(seconds = RESEND_COOLDOWN_SECONDS) {
+  const [endsAt, setEndsAt] = React.useState<number | null>(null);
+  const [now, setNow] = React.useState(() => Date.now());
+  React.useEffect(() => {
+    if (endsAt === null) return;
+    const timer = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(timer);
+  }, [endsAt]);
+  const remaining = endsAt === null ? 0 : Math.max(0, Math.ceil((endsAt - now) / 1000));
+  React.useEffect(() => {
+    if (endsAt !== null && remaining === 0) setEndsAt(null);
+  }, [endsAt, remaining]);
+  const start = React.useCallback(() => {
+    const at = Date.now();
+    setNow(at);
+    setEndsAt(at + seconds * 1000);
+  }, [seconds]);
+  return { remaining, start };
+}

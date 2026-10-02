@@ -1,274 +1,187 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { useForm } from "react-hook-form";
+import { useSearchParams } from "next/navigation";
+import { LoaderCircle } from "lucide-react";
 import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader } from "lucide-react";
+import {
+  AuthCard,
+  AuthCardSkeleton,
+  AuthLegalLine,
+  Button,
+  Input,
+  Notice,
+  SUPPORT_TICKET_URL,
+} from "@repo/ui";
 import { authClient } from "@/lib/auth-client";
-import { AuthHeader } from "@/components/auth/AuthHeader";
+import { AuthLayout } from "@/components/auth/AuthLayout";
+import { SentState } from "@/components/auth/SentState";
+import { EMAIL_FIX } from "@/components/auth/SignInForm";
+import { PRIVACY_POLICY_URL } from "@/components/layout/PublicFooter";
+import { useDelayed } from "@/hooks/useDelayed";
 
-// Define the validation schema using Zod
-const emailSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-});
+const emailSchema = z.string().email();
+const SEND_FAILED_PARAMS = ["emailSendFailed", "tokenGenerationFailed", "serverError"];
 
-// Infer the type from the schema
-type EmailFormData = z.infer<typeof emailSchema>;
-
-function ResendVerificationForm() {
-  const [status, setStatus] = useState<"loading" | "success" | "error" | "form">("loading");
-  const [message, setMessage] = useState("");
-  const searchParams = useSearchParams();
-  const emailParam = searchParams.get("email") || "";
-  const statusParam = searchParams.get("status");
-  const errorParam = searchParams.get("error");
-
-  // Initialize react-hook-form with zod resolver
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    formState: { errors },
-  } = useForm<EmailFormData>({
-    resolver: zodResolver(emailSchema),
-    defaultValues: {
-      email: emailParam,
-    },
-  });
+// Resend verification (Screen Review 012): the field is prefilled from ?email
+// and nothing is sent until the button press. The Sent state reads the same
+// whether or not an account uses the address.
+function ResendVerification() {
+  const params = useSearchParams();
+  const errorParam = params.get("error");
+  const [email, setEmail] = useState(params.get("email") ?? "");
+  const [emailError, setEmailError] = useState<string>();
+  const [sendFailed, setSendFailed] = useState(
+    !!errorParam && SEND_FAILED_PARAMS.includes(errorParam)
+  );
+  const [sentTo, setSentTo] = useState<string | null>(
+    params.get("status") === "success" || errorParam === "userNotFound"
+      ? (params.get("email") ?? "")
+      : null
+  );
+  const [sending, setSending] = useState(false);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const noticeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // If email is not provided, show form instead of automatically sending
-    if (!emailParam) {
-      setStatus("form");
-      return;
+    if (errorParam === "emailMissing") {
+      setEmailError("Enter your email.");
+      emailRef.current?.focus();
     }
+  }, [errorParam]);
 
-    // Set email value in form if provided
-    setValue("email", emailParam);
+  useEffect(() => {
+    if (sendFailed) noticeRef.current?.focus();
+  }, [sendFailed]);
 
-    // If status or error info is passed in URL params, use that
-    if (statusParam === "success") {
-      setStatus("success");
-      return;
-    } else if (errorParam) {
-      setStatus("error");
-      switch (errorParam) {
-        case "userNotFound":
-          setMessage("User not found");
-          break;
-        case "emailMissing":
-          setMessage("Email address is required");
-          break;
-        case "tokenGenerationFailed":
-          setMessage("Failed to generate verification token");
-          break;
-        case "emailSendFailed":
-          setMessage("Failed to send verification email");
-          break;
-        case "serverError":
-          setMessage("Server error occurred");
-          break;
-        default:
-          setMessage("An error occurred");
-      }
-      return;
-    }
+  const validate = (value: string) => {
+    if (!value) return "Enter your email.";
+    return emailSchema.safeParse(value).success ? undefined : EMAIL_FIX;
+  };
 
-    // Use the API function to resend verification email
-    authClient
-      .sendVerificationEmail({
-        email: emailParam,
-        callbackURL: `${window.location.origin}/auth/verify-email`,
-      })
-      .then(response => {
-        if (response.data) {
-          setStatus("success");
-          setMessage("Verification email has been sent");
-        } else {
-          setStatus("error");
-          setMessage(response.error?.message || "Failed to resend verification email");
-        }
-      })
-      .catch(error => {
-        setStatus("error");
-        setMessage(error instanceof Error ? error.message : "An error occurred");
-      });
-  }, [emailParam, statusParam, errorParam, setValue]);
-
-  const onSubmit = async (data: EmailFormData) => {
-    setStatus("loading");
-
+  // True when the request went through (or would reveal nothing either way)
+  const send = async (address: string): Promise<boolean> => {
+    setSendFailed(false);
     try {
       const response = await authClient.sendVerificationEmail({
-        email: data.email,
+        email: address,
         callbackURL: `${window.location.origin}/auth/verify-email`,
       });
-
-      if (response.data) {
-        setStatus("success");
-        setMessage("Verification email has been sent");
-      } else {
-        setStatus("error");
-        setMessage(response.error?.message || "Failed to resend verification email");
+      if (response.error) {
+        // Already verified or a different signed in account: same neutral Sent state
+        if (/ALREADY_VERIFIED|MISMATCH|NOT_FOUND/i.test(response.error.code ?? "")) return true;
+        console.error("Verification email failed:", response.error);
+        setSendFailed(true);
+        return false;
       }
+      return true;
     } catch (error) {
-      setStatus("error");
-      setMessage(error instanceof Error ? error.message : "An error occurred");
+      console.error("Verification email failed:", error);
+      setSendFailed(true);
+      return false;
     }
   };
 
+  const submit = async () => {
+    const nextError = validate(email);
+    setEmailError(nextError);
+    if (nextError) return emailRef.current?.focus();
+    setSending(true);
+    const ok = await send(email);
+    setSending(false);
+    if (ok) setSentTo(email);
+  };
+
+  if (sentTo !== null) {
+    return (
+      <SentState
+        email={sentTo}
+        body={address => (
+          <>
+            If an account uses {address}, a verification link is on its way. It works for one hour.
+          </>
+        )}
+        onResend={() => send(sentTo)}
+        onUseDifferentEmail={() => {
+          setSentTo(null);
+          setTimeout(() => emailRef.current?.focus());
+        }}
+      />
+    );
+  }
+
   return (
-    <div className="w-full max-w-md p-8 space-y-4 bg-white rounded-xl shadow-md">
-      <AuthHeader title="Email Verification" />
-
-      {status === "loading" && (
-        <div className="text-center space-y-3">
-          <Loader className="animate-spin h-10 w-10 mx-auto text-primary" />
-          <p className="text-gray-600">Sending verification email...</p>
-        </div>
-      )}
-
-      {status === "form" && (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <p className="text-center text-gray-600">
-            Enter your email address to receive a verification link:
-          </p>
-          <div className="form-group space-y-2">
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-              Email Address
-            </label>
-            <input
-              type="email"
-              id="email"
-              className={`w-full px-3 py-2 border rounded-md focus:ring-primary focus:border-primary ${errors.email ? "border-red-500" : "border-gray-300"}`}
-              placeholder="Enter your email address"
-              {...register("email")}
-            />
-            {errors.email && <p className="text-sm text-red-500 mt-1">{errors.email.message}</p>}
-          </div>
-
-          <button
-            type="submit"
-            className="w-full px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 transition-colors"
+    <AuthCard
+      title="Verify your email"
+      subtitle="Enter the email you signed up with and we will send a new link."
+      notice={
+        sendFailed ? (
+          <Notice
+            ref={noticeRef}
+            tabIndex={-1}
+            role="alert"
+            variant="warning"
+            className="outline-none"
+            title="The email did not send"
           >
-            Send Verification Email
-          </button>
-
-          <div className="text-center pt-2">
-            <Link href="/" className="text-primary hover:text-primary-dark text-sm transition-colors">
-              Back to Home
-            </Link>
-          </div>
-        </form>
-      )}
-
-      {status === "success" && (
-        <div className="text-center space-y-4">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100">
-            <svg
-              className="w-8 h-8 text-green-500"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-          </div>
-          <h2 className="text-xl font-semibold text-gray-800">Verification Email Sent!</h2>
-          <p className="text-gray-600">
-            We've sent a verification email to <strong>{emailParam || message}</strong>.
-          </p>
-          <p className="text-gray-600">
-            Please check your inbox and follow the instructions to verify your email address.
-          </p>
-          <Link
-            href="/"
-            className="inline-block mt-4 px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
-          >
-            Go to Home
-          </Link>
+            <p>Wait a minute, then send again. If it keeps failing, contact support.</p>
+            <Button variant="ghost" className="mt-2" asChild>
+              <a href={SUPPORT_TICKET_URL} target="_blank" rel="noopener noreferrer">
+                Contact support
+              </a>
+            </Button>
+          </Notice>
+        ) : undefined
+      }
+      footer={<AuthLegalLine privacyHref={PRIVACY_POLICY_URL} />}
+    >
+      <form
+        noValidate
+        onSubmit={(event: FormEvent<HTMLFormElement>) => {
+          event.preventDefault();
+          void submit();
+        }}
+      >
+        <Input
+          ref={emailRef}
+          id="resend-email"
+          label="Email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          value={email}
+          error={emailError}
+          onChange={event => setEmail(event.target.value)}
+          onBlur={() => email && setEmailError(validate(email))}
+        />
+        <div className="space-y-[21px] pt-[34px]">
+          <Button type="submit" size="lg" className="w-full" disabled={sending} aria-busy={sending}>
+            {sending && (
+              <LoaderCircle className="animate-spin motion-reduce:animate-none" aria-hidden />
+            )}
+            {sending ? "Sending" : "Send verification email"}
+          </Button>
+          <Button variant="ghost" asChild>
+            <Link href="/login">Back to sign in</Link>
+          </Button>
         </div>
-      )}
-
-      {status === "error" && (
-        <div className="space-y-4">
-          <div className="text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100">
-              <svg
-                className="w-8 h-8 text-red-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </div>
-            <h2 className="text-xl font-semibold text-gray-800 mt-2">Error</h2>
-            <p className="text-gray-600 mt-1">
-              {message || "There was a problem sending the verification email."}
-            </p>
-            <p className="text-gray-600">
-              Please make sure the email address is correct and try again.
-            </p>
-          </div>
-
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-4">
-            <div className="form-group space-y-2">
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email Address
-              </label>
-              <input
-                type="email"
-                id="email"
-                className={`w-full px-3 py-2 border rounded-md focus:ring-primary focus:border-primary ${errors.email ? "border-red-500" : "border-gray-300"}`}
-                {...register("email")}
-              />
-              {errors.email && (
-                <p className="text-sm text-red-500 mt-1">{errors.email.message}</p>
-              )}
-            </div>
-
-            <button
-              type="submit"
-              className="w-full px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 transition-colors"
-            >
-              Try Again
-            </button>
-          </form>
-
-          <div className="text-center pt-2">
-            <Link href="/" className="text-primary hover:text-primary-dark text-sm transition-colors">
-              Go to Home
-            </Link>
-          </div>
-        </div>
-      )}
-    </div>
+      </form>
+    </AuthCard>
   );
+}
+
+function CardFallback() {
+  const show = useDelayed(true, 400);
+  return show ? <AuthCardSkeleton /> : null;
 }
 
 export default function ResendVerificationPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
-      <Suspense fallback={<div className="animate-pulse text-gray-400">Loading...</div>}>
-        <ResendVerificationForm />
+    <AuthLayout>
+      <Suspense fallback={<CardFallback />}>
+        <ResendVerification />
       </Suspense>
-    </div>
+    </AuthLayout>
   );
 }

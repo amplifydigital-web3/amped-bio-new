@@ -70,6 +70,9 @@ export {
   startGoogleSignIn,
   classifyAuthError,
   SUPPORT_TICKET_URL,
+  StatusDisc,
+  useCooldown,
+  RESEND_COOLDOWN_SECONDS,
   type AuthErrorKind,
   type GoogleSignInOptions,
 } from "./prism/auth";

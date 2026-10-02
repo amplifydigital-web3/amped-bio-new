@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Circle, CircleCheck, LoaderCircle } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { z } from "zod";
 import {
   AuthCard,
@@ -22,7 +22,6 @@ import {
   PasswordInput,
   TESTNET_NOTICE,
   classifyAuthError,
-  cn,
   startGoogleSignIn,
 } from "@repo/ui";
 import { HANDLE_MIN_LENGTH } from "@repo/constants";
@@ -35,18 +34,12 @@ import { useHandleAvailability } from "@/hooks/useHandleAvailability";
 import { getPanelHomeUrl, getPostAuthDestination, goTo, toAbsoluteUrl } from "@/lib/panel";
 import { loadTwitterPixel, trackGAEvent, trackTwitterEvent } from "@/utils/ga";
 import { PRIVACY_POLICY_URL } from "@/components/layout/PublicFooter";
+import { PASSWORD_RULES, PasswordChecklist } from "./PasswordChecklist";
 import { HandleStatusLine } from "./HandleStatusLine";
 import { EMAIL_FIX } from "./SignInForm";
 
 const emailSchema = z.string().email();
 const googleEnabled = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
-
-const PASSWORD_RULES = [
-  { label: "8 or more characters", test: (value: string) => value.length >= 8 },
-  { label: "An uppercase letter", test: (value: string) => /[A-Z]/.test(value) },
-  { label: "A lowercase letter", test: (value: string) => /[a-z]/.test(value) },
-  { label: "A number", test: (value: string) => /[0-9]/.test(value) },
-];
 
 const EMAIL_TAKEN = "This email already has an account.";
 
@@ -320,32 +313,11 @@ export function RegisterForm() {
             onFocus={() => setPasswordFocused(true)}
             onBlur={() => setPasswordFocused(false)}
           />
-          <ul
+          <PasswordChecklist
             id="register-password-rules"
-            aria-live="polite"
-            className={cn("space-y-[5px] font-prism text-prism-meta", !showChecklist && "sr-only")}
-          >
-            {PASSWORD_RULES.map(rule => {
-              const met = rule.test(password);
-              return (
-                <li
-                  key={rule.label}
-                  className={cn(
-                    "flex items-center gap-1.5",
-                    met ? "text-prism-success" : "text-prism-ink-2"
-                  )}
-                >
-                  {met ? (
-                    <CircleCheck className="h-[13px] w-[13px] shrink-0" aria-hidden />
-                  ) : (
-                    <Circle className="h-[13px] w-[13px] shrink-0" aria-hidden />
-                  )}
-                  {rule.label}
-                  {met && <span className="sr-only">, met</span>}
-                </li>
-              );
-            })}
-          </ul>
+            password={password}
+            visible={showChecklist}
+          />
         </div>
         <div className="space-y-3 pt-[13px]">
           <Button

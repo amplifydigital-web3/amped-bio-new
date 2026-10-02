@@ -22,6 +22,7 @@ import { Button, EmptyState, trpcClient } from "@repo/ui";
 import { useEditor } from "@/contexts/EditorContext";
 import { toast } from "@/components/ui/toast";
 import { onAddBlockRequest } from "@/components/preview/addBlockRequest";
+import { useOpenParam } from "@/hooks/useOpenParam";
 import { AddBlockDialog, type NewBlockKind } from "./AddBlockDialog";
 import { BlockRow } from "./BlockRow";
 import { blockNeed, blockTitle } from "./blockInfo";
@@ -65,6 +66,8 @@ export function BlocksSection() {
 
   // Add block from the preview hint or the empty list (006 I09)
   useEffect(() => onAddBlockRequest(() => setDialogOpen(true)), []);
+  // Home checklist step 3 opens the dialog on Link (015 I06)
+  useOpenParam("add-block", () => setDialogOpen(true));
 
   // Pending deletes run when their Undo expires or when Page closes (036 I07)
   useEffect(() => {

@@ -1,8 +1,7 @@
-import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Circle, Copy, Rocket, X } from "lucide-react";
 import { toast } from "react-hot-toast";
-
-const DISMISS_KEY = "amped_analytics_getting_started_dismissed";
+import { trpc } from "@repo/ui";
 
 type Step = {
   id: string;
@@ -13,18 +12,11 @@ type Step = {
   action?: { label: string; onClick: () => void; icon?: React.ElementType };
 };
 
-function readDismissed() {
-  try {
-    return window.localStorage.getItem(DISMISS_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
 /**
  * First-run checklist for the Analytics tab. Steps tick themselves off from
  * real data, and the card hides once everything required is done or the
- * creator dismisses it.
+ * creator dismisses it. Share your page and the dismissal live on the Home
+ * onboarding record, so both checklists agree on every device (015 I08).
  */
 export function GettingStartedCard({
   handle,
@@ -39,7 +31,15 @@ export function GettingStartedCard({
   hasPixel: boolean;
   onGoTo: (sectionId: string) => void;
 }) {
-  const [dismissed, setDismissed] = useState(readDismissed);
+  const queryClient = useQueryClient();
+  const onboarding = useQuery(trpc.onboarding.status.queryOptions());
+  const mark = useMutation(
+    trpc.onboarding.mark.mutationOptions({
+      onSuccess: next => queryClient.setQueryData(trpc.onboarding.status.queryKey(), next),
+    })
+  );
+  const dismissed = onboarding.data?.analyticsCardDismissed ?? false;
+  const shared = onboarding.data?.steps.share ?? false;
   const pageUrl = `${import.meta.env.VITE_LANDINGPAGE_URL}/${handle}`;
 
   const steps: Step[] = [
@@ -48,7 +48,7 @@ export function GettingStartedCard({
       title: "Share your page",
       detail:
         "Put your Amped Bio link in your Instagram, TikTok and X bios. Numbers appear here within seconds of the first visit.",
-      done: hasViews,
+      done: hasViews || shared,
       action: {
         label: "Copy page link",
         icon: Copy,
@@ -56,6 +56,7 @@ export function GettingStartedCard({
           try {
             await navigator.clipboard.writeText(pageUrl);
             toast.success("Page link copied");
+            mark.mutate({ moment: "shared" });
           } catch {
             toast.error(`Copy failed. Your link is ${pageUrl}`);
           }
@@ -90,18 +91,11 @@ export function GettingStartedCard({
   ];
 
   const requiredDone = steps.filter(step => !step.optional).every(step => step.done);
-  if (dismissed || requiredDone) return null;
+  if (onboarding.isPending || dismissed || requiredDone) return null;
 
   const doneCount = steps.filter(step => step.done).length;
 
-  const dismiss = () => {
-    setDismissed(true);
-    try {
-      window.localStorage.setItem(DISMISS_KEY, "1");
-    } catch {
-      // Hidden for this visit only
-    }
-  };
+  const dismiss = () => mark.mutate({ moment: "analyticsCardDismissed" });
 
   return (
     <section
