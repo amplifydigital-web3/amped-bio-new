@@ -34,6 +34,7 @@ import {
   limitDecimals,
   presetAmount,
   toDecimal,
+  toWei,
   type TxErrorKind,
 } from "./format";
 import { useNetworkFee, type FeeRequest } from "./useNetworkFee";
@@ -134,7 +135,18 @@ export default function PoolPanel({
     enabled: open && !invalidLink && (!!poolId || !!poolAddress),
     staleTime: 60_000,
   });
-  const pool = poolQuery.data;
+  // tRPC has no transformer, so bigints arrive as wei strings (BigInt toJSON).
+  // Normalize them once so every amount below is real wei.
+  const pool = useMemo(() => {
+    const data = poolQuery.data;
+    if (!data) return data;
+    return {
+      ...data,
+      stakedAmount: toWei(data.stakedAmount) ?? 0n,
+      stakedByYou: toWei(data.stakedByYou),
+      pendingRewards: toWei(data.pendingRewards),
+    };
+  }, [poolQuery.data]);
   const notFound = invalidLink || poolQuery.error?.data?.code === "NOT_FOUND";
   const showSkeleton = useDelayed(open && poolQuery.isLoading, 400);
 
