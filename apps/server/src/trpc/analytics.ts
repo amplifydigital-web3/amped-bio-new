@@ -12,6 +12,7 @@ import { env } from "../env";
 import { prisma } from "../services/DB";
 import { cache } from "../utils/cache";
 import {
+  exportDailyTotalsCsv,
   exportEventsCsv,
   getAudienceSummary,
   getBreakdown,
@@ -30,6 +31,8 @@ import { hexToId, idToHex, newAnalyticsId } from "../services/analytics/ids";
 
 // cache.set takes seconds
 const AI_SUMMARY_TTL_SECONDS = 6 * 60 * 60;
+// Matches RETENTION_WEEKS in services/analytics/queries.ts
+const RETENTION_WINDOW_DAYS = 8 * 7;
 
 function handleError(scope: string, error: unknown): never {
   if (error instanceof TRPCError) throw error;
@@ -162,18 +165,25 @@ export const analyticsRouter = router({
     }
   }),
 
-  // Full event level export. Free on every account.
-  exportCsv: privateProcedure.input(analyticsRangeSchema).mutation(async ({ ctx, input }) => {
-    const userId = ctx.user!.sub;
-    try {
-      const range = await resolveRange(userId, input);
-      return await exportEventsCsv(userId, range.from, range.to);
-    } catch (error) {
-      handleError("exportCsv", error);
-    }
-  }),
+  // Screen Review 093 D4: Daily totals (aggregates) or Event records (one row
+  // per view or click). Free on every account. Callers that send no format get
+  // event records, as before.
+  exportCsv: privateProcedure
+    .input(analyticsRangeSchema.extend({ format: z.enum(["daily", "events"]).default("events") }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user!.sub;
+      try {
+        const range = await resolveRange(userId, input);
+        return input.format === "daily"
+          ? await exportDailyTotalsCsv(userId, range)
+          : await exportEventsCsv(userId, range.from, range.to);
+      } catch (error) {
+        handleError("exportCsv", error);
+      }
+    }),
 
-  // AI written summary. Returns enabled=false when no model key is configured.
+  // AI written summary (093 D1): the client calls this only when the creator taps
+  // Write summary. Returns enabled=false when no model key is configured.
   aiSummary: privateProcedure.input(analyticsRangeSchema).query(async ({ ctx, input }) => {
     const userId = ctx.user!.sub;
     const cacheKey = `analytics:ai-summary:${userId}:${input.range}:${input.tzOffsetMinutes}`;
@@ -202,10 +212,29 @@ export const analyticsRouter = router({
   retention: privateProcedure
     .input(analyticsRangeSchema.pick({ tzOffsetMinutes: true }))
     .query(async ({ ctx, input }) => {
+      const userId = ctx.user!.sub;
       try {
+        // Screen Review 093 I28: coverage and the returning share describe the
+        // same 8 week window as the cohorts, whatever range the panel shows
+        const to = new Date();
+        const from = new Date(to.getTime() - RETENTION_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+        const [cohorts, summary] = await Promise.all([
+          getRetentionCohorts(userId, input.tzOffsetMinutes),
+          getSummary(userId, from, to),
+        ]);
+        const audience = await getAudienceSummary(
+          userId,
+          { from, to, tzOffsetMinutes: input.tzOffsetMinutes },
+          summary.visitors
+        );
         return {
           generatedAt: new Date(),
-          cohorts: await getRetentionCohorts(ctx.user!.sub, input.tzOffsetMinutes),
+          cohorts,
+          coverage: summary.visitors > 0 ? audience.consentedVisitors / summary.visitors : 0,
+          returningShare:
+            audience.consentedVisitors > 0
+              ? audience.returningVisitors / audience.consentedVisitors
+              : null,
         };
       } catch (error) {
         handleError("retention", error);

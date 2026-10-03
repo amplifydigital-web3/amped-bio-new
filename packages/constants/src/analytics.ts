@@ -198,7 +198,7 @@ export type PublicTrackingPixels = {
 // ---------------------------------------------------------------------------
 
 // Bump when the notice changes materially, so visitors are asked again
-export const CONSENT_POLICY_VERSION = "2026-10b";
+export const CONSENT_POLICY_VERSION = "2026-10c";
 // Stores the visitor's choices: { v, analytics, ads: { [creatorId]: boolean }, at }
 export const CONSENT_STORAGE_KEY = "amped_consent_v2";
 // Long-lived visitor ID, created only after analytics consent

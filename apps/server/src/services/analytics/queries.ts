@@ -329,8 +329,10 @@ export async function getRealtime(userId: number) {
       FROM analytics_events
       WHERE user_id = ${userId} AND type IN ('view', 'click') AND created_at >= ${since}
     `,
+    // Screen Review 093 I18, D4: only events from the same 30 minutes as the
+    // counts, with source, country and device. City is never sent to Live.
     prisma.analyticsEvent.findMany({
-      where: { user_id: userId, type: { in: ["view", "click"] } },
+      where: { user_id: userId, type: { in: ["view", "click"] }, created_at: { gte: since } },
       orderBy: { created_at: "desc" },
       take: 15,
       select: {
@@ -338,7 +340,6 @@ export async function getRealtime(userId: number) {
         type: true,
         source: true,
         country: true,
-        city: true,
         device: true,
         created_at: true,
         block: { select: { config: true } },
@@ -357,7 +358,6 @@ export async function getRealtime(userId: number) {
       type: event.type,
       source: event.source,
       country: event.country,
-      city: event.city,
       device: event.device,
       createdAt: event.created_at,
       linkLabel: event.block ? (((event.block.config ?? {}) as LinkConfig).label ?? null) : null,
@@ -457,6 +457,65 @@ export async function exportEventsCsv(userId: number, from: Date, to: Date) {
     csv: [header.join(","), ...lines].join("\n"),
     rowCount: events.length,
     truncated: events.length >= CSV_EXPORT_LIMIT,
+  };
+}
+
+/**
+ * Screen Review 093 D4: the default export. One row per local day for each
+ * source and link, with totals only: no times, cities, devices or session IDs.
+ * Page views carry no link; link clicks carry the link they went to.
+ */
+export async function exportDailyTotalsCsv(userId: number, range: ResolvedRange) {
+  const { from, to, tzOffsetMinutes } = range;
+  const rows = await prisma.$queryRaw<Array<Record<string, unknown>>>`
+    SELECT
+      DATE_FORMAT(DATE_ADD(created_at, INTERVAL ${tzOffsetMinutes} MINUTE), '%Y-%m-%d') AS day,
+      source,
+      CASE WHEN type = 'click' THEN block_id END AS link_id,
+      SUM(type = 'view') AS views,
+      COUNT(DISTINCT CASE WHEN type = 'view' THEN visitor_hash END) AS visitors,
+      SUM(type = 'click') AS clicks
+    FROM analytics_events
+    WHERE user_id = ${userId} AND type IN ('view', 'click')
+      AND created_at >= ${from} AND created_at < ${to}
+    GROUP BY day, source, link_id
+    ORDER BY day ASC, source ASC, link_id ASC
+    LIMIT ${CSV_EXPORT_LIMIT}
+  `;
+
+  const linkIds = [
+    ...new Set(rows.map(row => row.link_id).filter(id => id !== null && id !== undefined)),
+  ].map(id => toNumber(id));
+  const blocks = linkIds.length
+    ? await prisma.block.findMany({
+        where: { id: { in: linkIds }, user_id: userId },
+        select: { id: true, config: true },
+      })
+    : [];
+  const labels = new Map(
+    blocks.map(block => [block.id, ((block.config ?? {}) as LinkConfig).label ?? null])
+  );
+
+  const header = ["date", "source", "link_id", "link_label", "views", "visitors", "clicks"];
+  const lines = rows.map(row => {
+    const linkId = row.link_id === null || row.link_id === undefined ? null : toNumber(row.link_id);
+    return [
+      row.day,
+      row.source,
+      linkId,
+      linkId !== null ? labels.get(linkId) : null,
+      toNumber(row.views),
+      toNumber(row.visitors),
+      toNumber(row.clicks),
+    ]
+      .map(csvCell)
+      .join(",");
+  });
+
+  return {
+    csv: [header.join(","), ...lines].join("\n"),
+    rowCount: rows.length,
+    truncated: rows.length >= CSV_EXPORT_LIMIT,
   };
 }
 

@@ -1,6 +1,6 @@
 # Amped.Bio Privacy Policy
 
-Last updated: October 1, 2026
+Last updated: October 2, 2026
 
 This policy explains what personal information Amped.Bio collects, why, who receives it, and the choices you have. It applies to creators, fans and anyone who visits an Amped.Bio page.
 
@@ -66,7 +66,7 @@ If your browser sends a Global Privacy Control signal, we treat it as a refusal 
 
 ### Summaries for creators
 
-A creator can ask for a written summary of their page statistics. We send only totals for that page to Anthropic, our AI provider, to write it. No visitor level data is sent.
+A creator can ask for a written summary of their page statistics. To write it, we send Anthropic, our AI provider, that page's totals for the period and the period before, top sources, devices, visitor counts and up to 10 link names. No visitor level data is sent.
 
 ## 5. Creator tags on creator pages (only with your permission)
 
@@ -100,7 +100,7 @@ We do not sell your personal information. We do not use it for our own advertisi
 | Creator tags and server side events | IP address, device, page events | Consent |
 | Sign in with Amped.Bio | What you allow on the consent screen | Consent and contract |
 | ndau conversion records | Addresses, amounts, signatures, terms hash | Contract and legal obligation |
-| Written summaries for creators | Page totals only | Legitimate interests |
+| Written summaries for creators | Page totals, top sources, devices, visitor counts and up to 10 link names | Legitimate interests |
 | Meet legal duties and handle disputes | Any of the above as needed | Legal obligation, legitimate interests |
 
 ## 8. Who we share information with
@@ -112,7 +112,7 @@ We do not sell your personal information. We do not use it for our own advertisi
 | SMTP2GO | Your email address and the message | Send account emails from noreply@amped.bio |
 | Web3Auth | Sign in details needed for your wallet key | Create and secure your wallet |
 | Google | Sign in with Google data; Google Analytics measurements, and cookies with permission | Sign in; site measurement |
-| Anthropic | Page totals only | Write creator summaries |
+| Anthropic | Page totals, top sources, devices, visitor counts and up to 10 link names | Write creator summaries |
 | Authbase | Your verification request | Identity badge, if you choose it |
 | Creator tools (Google Analytics, Meta, TikTok) | Visit events, IP address and device, with permission per creator | The creator's own analytics and ads |
 | Apps you connect with Sign in with Amped.Bio | What you allow on the consent screen | Sign you in to that app |

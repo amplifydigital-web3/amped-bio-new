@@ -1,10 +1,12 @@
+import { useState } from "react";
+import { Button } from "@repo/ui";
+import { PHONE_QUERY, useMediaQuery } from "@/hooks/useMediaQuery";
 import type { AnalyticsDashboard } from "./format";
+import { RAMP_ALPHAS, rampColor, rampStep } from "./format";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const HOUR_TICKS = [0, 6, 12, 18];
-
-// Sequential single hue ramp (light to dark blue)
-const RAMP = ["#f1f5fb", "#cfe0f5", "#9fc1ea", "#6ba0dd", "#2a78d6", "#1b56a0"];
+const BANDS = 8;
 
 function hourLabel(hour: number) {
   if (hour === 0) return "12am";
@@ -12,58 +14,152 @@ function hourLabel(hour: number) {
   return hour < 12 ? `${hour}am` : `${hour - 12}pm`;
 }
 
-export function ActivityHeatmap({ cells }: { cells: AnalyticsDashboard["heatmap"] }) {
-  const grid = new Map(cells.map(cell => [`${cell.day}:${cell.hour}`, cell.views]));
-  const max = Math.max(0, ...cells.map(cell => cell.views));
+function Cell({ value, max, className }: { value: number; max: number; className?: string }) {
+  const step = rampStep(value, max);
+  return (
+    <div
+      className={`rounded-prism-5 ${className ?? ""}`}
+      style={
+        step === null
+          ? { backgroundColor: "#FFFFFF", boxShadow: "inset 0 0 0 1px rgba(22,21,43,0.10)" }
+          : { backgroundColor: rampColor(step) }
+      }
+    />
+  );
+}
 
-  const colorFor = (views: number) => {
-    if (views === 0 || max === 0) return RAMP[0];
-    const step = Math.min(RAMP.length - 1, 1 + Math.floor((views / max) * (RAMP.length - 2)));
-    return RAMP[step];
-  };
+/**
+ * Screen Review 093 I36: weekday by hour on a G2 slab with the D3 ramp. The
+ * cells are a picture (not focusable); every value is in Show as table. At 390
+ * the grid turns into 7 day columns by 8 three hour bands.
+ */
+export function ActivityHeatmap({ cells }: { cells: AnalyticsDashboard["heatmap"] }) {
+  const mobile = useMediaQuery(PHONE_QUERY);
+  const [showTable, setShowTable] = useState(false);
+  const grid = new Map(cells.map(cell => [`${cell.day}:${cell.hour}`, cell.views]));
+  const views = (day: number, hour: number) => grid.get(`${day}:${hour}`) ?? 0;
+  const max = Math.max(0, ...cells.map(cell => cell.views));
+  const band = (day: number, index: number) =>
+    views(day, index * 3) + views(day, index * 3 + 1) + views(day, index * 3 + 2);
+  const bandMax = Math.max(
+    0,
+    ...DAYS.flatMap((_, day) => Array.from({ length: BANDS }, (_, index) => band(day, index)))
+  );
 
   return (
-    <div className="overflow-x-auto">
-      <div className="min-w-[520px]">
-        <div
-          className="grid gap-[2px]"
-          style={{ gridTemplateColumns: "36px repeat(24, minmax(0, 1fr))" }}
-        >
-          {DAYS.map((day, dayIndex) => (
-            <div key={day} className="contents">
-              <div className="text-[11px] text-gray-500 flex items-center">{day}</div>
-              {Array.from({ length: 24 }).map((_, hour) => {
-                const views = grid.get(`${dayIndex}:${hour}`) ?? 0;
-                return (
-                  <div
-                    key={hour}
-                    className="aspect-square rounded-[3px] hover:ring-2 hover:ring-gray-900/40"
-                    style={{ backgroundColor: colorFor(views) }}
-                    title={`${day} ${hourLabel(hour)}: ${views} view${views === 1 ? "" : "s"}`}
+    <div className="font-prism">
+      <div className="prism-slab p-[13px]" aria-hidden>
+        {mobile ? (
+          <div
+            className="grid gap-[3px]"
+            style={{ gridTemplateColumns: "34px repeat(7, minmax(0, 1fr))" }}
+          >
+            <div />
+            {DAYS.map(day => (
+              <div key={day} className="text-center text-prism-meta text-prism-ink-2">
+                {day}
+              </div>
+            ))}
+            {Array.from({ length: BANDS }).map((_, index) => (
+              <div key={index} className="contents">
+                <div className="flex items-center text-prism-meta text-prism-ink-2">
+                  {index % 2 === 0 ? hourLabel(index * 3) : ""}
+                </div>
+                {DAYS.map((day, dayIndex) => (
+                  <Cell
+                    key={day}
+                    value={band(dayIndex, index)}
+                    max={bandMax}
+                    className="h-[34px]"
                   />
-                );
-              })}
-            </div>
-          ))}
-          <div />
-          {Array.from({ length: 24 }).map((_, hour) => (
-            <div key={hour} className="text-[10px] text-gray-500 pt-1">
-              {HOUR_TICKS.includes(hour) ? hourLabel(hour) : ""}
-            </div>
-          ))}
-        </div>
-        <div className="flex items-center justify-end gap-1.5 mt-2 text-[11px] text-gray-500">
+                ))}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div
+            className="grid gap-[3px]"
+            style={{ gridTemplateColumns: "34px repeat(24, minmax(0, 1fr))" }}
+          >
+            {DAYS.map((day, dayIndex) => (
+              <div key={day} className="contents">
+                <div className="flex items-center text-prism-meta text-prism-ink-2">{day}</div>
+                {Array.from({ length: 24 }).map((_, hour) => (
+                  <Cell
+                    key={hour}
+                    value={views(dayIndex, hour)}
+                    max={max}
+                    className="aspect-square"
+                  />
+                ))}
+              </div>
+            ))}
+            <div />
+            {Array.from({ length: 24 }).map((_, hour) => (
+              <div key={hour} className="whitespace-nowrap pt-1 text-prism-meta text-prism-ink-2">
+                {HOUR_TICKS.includes(hour) ? hourLabel(hour) : ""}
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="mt-[13px] flex items-center justify-end gap-[5px] text-prism-meta text-prism-ink-2">
           Fewer
-          {RAMP.map(color => (
+          <span
+            className="h-[13px] w-[13px] rounded-prism-5 bg-white"
+            style={{ boxShadow: "inset 0 0 0 1px rgba(22,21,43,0.10)" }}
+          />
+          {RAMP_ALPHAS.map((_, step) => (
             <span
-              key={color}
-              className="w-3 h-3 rounded-[3px]"
-              style={{ backgroundColor: color }}
+              key={step}
+              className="h-[13px] w-[13px] rounded-prism-5"
+              style={{ backgroundColor: rampColor(step) }}
             />
           ))}
           More
         </div>
       </div>
+
+      <Button
+        variant="ghost"
+        className="mt-[13px]"
+        aria-expanded={showTable}
+        onClick={() => setShowTable(open => !open)}
+      >
+        {showTable ? "Hide table" : "Show as table"}
+      </Button>
+      {showTable && (
+        <div className="prism-slab relative mt-2 overflow-x-auto px-[13px]">
+          <table className="w-full min-w-[540px] text-left">
+            <caption className="sr-only">Views by weekday and hour, in your time zone</caption>
+            <thead>
+              <tr className="text-prism-meta text-prism-ink-2">
+                <th scope="col" className="sticky left-0 h-touch bg-white/80 pr-2 font-normal">
+                  Hour
+                </th>
+                {DAYS.map(day => (
+                  <th key={day} scope="col" className="h-touch text-right font-normal">
+                    {day}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="text-prism-label tabular-nums text-prism-ink">
+              {Array.from({ length: 24 }).map((_, hour) => (
+                <tr key={hour} className="border-t border-prism-line">
+                  <th scope="row" className="sticky left-0 h-touch bg-white/80 pr-2 font-normal">
+                    {hourLabel(hour)}
+                  </th>
+                  {DAYS.map((day, dayIndex) => (
+                    <td key={day} className="h-touch text-right">
+                      {views(dayIndex, hour).toLocaleString("en-US")}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

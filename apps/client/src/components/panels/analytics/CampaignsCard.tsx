@@ -21,7 +21,7 @@ import { toast } from "react-hot-toast";
 import { AnalyticsCard } from "./AnalyticsCard";
 import { DEFINITIONS, SOURCES } from "./definitions";
 import type { AnalyticsCampaign } from "./format";
-import { RANGE_LABELS, formatNumber, formatPercent } from "./format";
+import { formatNumber, formatPercent } from "./format";
 import { HowTo } from "./HowTo";
 
 const CHANNEL_LABELS: Record<CampaignChannel, string> = {
@@ -238,8 +238,6 @@ export function CampaignsCard({
       description="Create a link for each place you share your page, then compare which one works."
       info={DEFINITIONS.campaigns}
       source={SOURCES.campaigns}
-      period={RANGE_LABELS[range]}
-      updatedAt={data?.generatedAt}
     >
       <HowTo
         storageKey="campaigns"

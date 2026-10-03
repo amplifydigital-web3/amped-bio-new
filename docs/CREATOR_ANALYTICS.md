@@ -22,9 +22,9 @@ is available on every account.
 | Locations | Country and city |
 | Technology | Device type, browser including in-app browsers (Instagram, TikTok, Facebook), operating system |
 | When people visit | Weekday by hour heatmap of views |
-| Insights | Rule-based findings (period change, source concentration, best time, link ordering, idle links, returning share, new members) plus an AI summary written from totals. Free for every creator |
+| Insights | Rule-based findings (period change, source concentration, best time, link ordering, idle links, returning share, new members) plus an AI summary the creator asks for with Write summary. Free for every creator |
 | Campaign links and QR codes | Builds tagged links per placement and downloadable QR codes that report as the "QR code" source |
-| Export | Event-level CSV for any range, including event, session and campaign IDs. Visitor and account identifiers are excluded |
+| Export | Daily totals CSV (one row per day for each link and source) by default, or Event records (one row per view or click, with event, session and campaign IDs). Visitor and account identifiers are excluded |
 | How-to guides | Collapsible step-by-step guides on the campaign, pixel and privacy sections, and "Where do I find this?" guides for each pixel ID |
 | Ad and analytics pixels | Creator adds a GA4 Measurement ID, Meta Pixel ID and TikTok Pixel ID, plus optional Meta Conversions API and TikTok Events API tokens for server-side events. Loads only after visitor consent |
 
@@ -99,8 +99,9 @@ Consent mechanics:
   visitor hash) as proof of consent. No IP address.
 - Draft notice text and creator terms for counsel: `docs/legal/`.
 
-The optional AI summary sends only aggregate totals to the model provider. No visitor-level data
-leaves the server.
+The optional AI summary runs only when the creator taps Write summary (Screen Review 093 D1). It
+sends this period's and the last period's totals, top sources, devices, visitor counts and up to 10
+link names to the model provider. No visitor-level data leaves the server.
 
 Location fallback uses GeoLite2 data created by MaxMind (via `fast-geoip`), which requires
 attribution. The attribution appears in the dashboard footer.
@@ -153,7 +154,7 @@ lib/analytics.ts                             POST /api/analytics/collect        
 | Variable | App | Purpose |
 | --- | --- | --- |
 | `ANALYTICS_SALT_SECRET` | server | Secret mixed into the daily visitor hash. Falls back to `BETTER_AUTH_SECRET` |
-| `ANTHROPIC_API_KEY` | server | Required for the AI summary, which is on for every creator. Without it the Insights card shows rule-based findings only |
+| `ANTHROPIC_API_KEY` | server | Required for the AI summary, which any creator can request. Without it the Insights card shows rule-based findings only |
 | `ANTHROPIC_MODEL` | server | Optional. Defaults to `claude-haiku-4-5-20251001` |
 | `TRACKING_TOKEN_SECRET` | server | Encrypts creators' Meta and TikTok tokens. Falls back to `BETTER_AUTH_SECRET`. Rotating it makes stored tokens unreadable |
 | `META_GRAPH_API_VERSION` | server | Optional. Defaults to `v24.0` (supported by Meta until February 2028) |
