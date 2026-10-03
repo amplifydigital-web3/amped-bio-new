@@ -72,3 +72,7 @@ export function calculateRevoAmount(ndauAmount: string): string {
   const revo = ndau * parseFloat(NDAU_TO_REVO_RATE);
   return revo.toFixed(3);
 }
+
+// A claimed conversion (processing, no txid) can be released by the admin who claimed it
+// at any time, and by any other admin only after this much time has passed.
+export const NDAU_CONVERSION_CLAIM_TIMEOUT_MS = 15 * 60 * 1000;
