@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, XCircle } from "lucide-react";
 import { Button, ErrorCard, Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui";
 import { checkRnsLabel, formatRnsName } from "@repo/web3";
@@ -19,10 +19,10 @@ import { TransferFlow } from "./TransferFlow";
 import { EMPTY_TRANSFER_DRAFT, type TransferDraft } from "./transferDraft";
 import { useRnsName } from "./useRnsName";
 import { usePublishDiff, type PendingBanner } from "./usePublishDiff";
-
-// The Identity tab keeps the existing verification view until the identity
-// batch rebuilds it (rows 103, 104).
-const IdentityView = lazy(() => import("@/components/rns/verification/VerificationDetails"));
+import { IdentityTab } from "../identity/IdentityTab";
+import { AttributesTab } from "../identity/AttributesTab";
+import { FacetsTab } from "../identity/FacetsTab";
+import { SoonPill } from "../identity/parts";
 
 function BackToRns({ onBack }: { onBack: () => void }) {
   return (
@@ -49,8 +49,9 @@ function HeaderSkeleton() {
 }
 
 /**
- * Screen Review 102 to 104, 080, 111: the RNS name page as a URL view of the
- * Wallet RNS tab, /wallet?tab=rns&name=<label>&view=profile|identity. Extend,
+ * Screen Review 102 to 106, 080, 111: the RNS name page as a URL view of the
+ * Wallet RNS tab, /wallet?tab=rns&name=<label>&view=profile|identity|attributes|facets.
+ * Attributes and Facets are Soon tabs shown to everyone (105 D1). Extend,
  * Transfer and Publish open in the value panel at &flow=. The page reads
  * without a wallet; each flow asks for one (I22).
  */
@@ -100,7 +101,7 @@ function NamePageBody({ label }: { label: string }) {
 
   const requested = route.view as NameView | null;
   const view: NameView =
-    requested && NAME_VIEWS.includes(requested) && (requested !== "identity" || showIdentity)
+    requested && NAME_VIEWS.includes(requested) && (requested === "profile" || showIdentity)
       ? requested
       : "profile";
 
@@ -158,13 +159,17 @@ function NamePageBody({ label }: { label: string }) {
         {showIdentity && (
           <TabsList
             aria-label={`${formatRnsName(label, chain.id)} sections`}
-            className="max-sm:w-full"
+            className="max-w-full self-start"
           >
-            <TabsTrigger value="profile" className="max-sm:flex-1">
-              Profile
+            <TabsTrigger value="profile">Profile</TabsTrigger>
+            <TabsTrigger value="identity">Identity</TabsTrigger>
+            <TabsTrigger value="attributes" aria-label="Attributes, coming soon">
+              Attributes
+              <SoonPill />
             </TabsTrigger>
-            <TabsTrigger value="identity" className="max-sm:flex-1">
-              Identity
+            <TabsTrigger value="facets" aria-label="Facets, coming soon">
+              Facets
+              <SoonPill />
             </TabsTrigger>
           </TabsList>
         )}
@@ -184,11 +189,21 @@ function NamePageBody({ label }: { label: string }) {
           />
         </TabsContent>
         {showIdentity && (
-          <TabsContent value="identity" className="mt-0">
-            <Suspense fallback={null}>
-              <IdentityView isOwner={name.isOwner} ownerAddress={name.owner ?? undefined} />
-            </Suspense>
-          </TabsContent>
+          <>
+            <TabsContent value="identity" className="mt-0">
+              <IdentityTab name={name} chainId={chain.id} explorer={explorer} />
+            </TabsContent>
+            <TabsContent value="attributes" className="mt-0">
+              <AttributesTab
+                isOwner={name.isOwner}
+                ownerVerified={name.verified}
+                onOpenIdentity={openIdentity}
+              />
+            </TabsContent>
+            <TabsContent value="facets" className="mt-0">
+              <FacetsTab isOwner={name.isOwner} />
+            </TabsContent>
+          </>
         )}
       </Tabs>
 
