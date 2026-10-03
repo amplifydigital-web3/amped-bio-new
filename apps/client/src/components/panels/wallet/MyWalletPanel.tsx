@@ -9,8 +9,9 @@ const WalletBalance = lazy(() => import("./WalletBalance"));
 // Screen Review 059: Stakes replaces StakedPoolsSection on the Wallet
 const StakesCard = lazy(() => import("./stakes/StakesCard"));
 const ProfileTabs = lazy(() => import("./ProfileTabs"));
-const ReferralCard = lazy(() => import("./ReferralCard"));
-const RefereeRewardCard = lazy(() => import("./RefereeRewardCard"));
+// Screen Review 060: referral cards live in the Get tREVO section
+const InviteCard = lazy(() => import("./referral/InviteCard"));
+const RefereeCard = lazy(() => import("./referral/RefereeCard"));
 // const ProfileOptionsDialog = lazy(() => import("./dialogs/ProfileOptionsDialog"));
 const LaunchPoolAd = lazy(() => import("./LaunchPoolAd"));
 
@@ -91,10 +92,6 @@ export function MyWalletPanel() {
           />
 
           <Suspense>
-            <RefereeRewardCard />
-          </Suspense>
-
-          <Suspense>
             <WalletBalance loading={!wallet.address} />
           </Suspense>
 
@@ -110,9 +107,24 @@ export function MyWalletPanel() {
             <ProfileTabs loading={!wallet.address} />
           </Suspense>
 
-          <Suspense>
-            <ReferralCard />
-          </Suspense>
+          {/* 060 I01: Get tREVO holds the referee card (only for creators who
+              joined through a link) and the Invite card. The Testnet faucet
+              card joins this section with row 053. */}
+          <section aria-labelledby="get-trevo-title" className="space-y-[21px] font-prism">
+            <h2
+              id="get-trevo-title"
+              className="flex items-center gap-2 text-prism-eyebrow text-prism-ink-2"
+            >
+              <span aria-hidden className="h-[3px] w-[13px] rounded-full bg-prism-value" />
+              GET tREVO
+            </h2>
+            <Suspense>
+              <RefereeCard />
+            </Suspense>
+            <Suspense>
+              <InviteCard />
+            </Suspense>
+          </section>
 
           <Suspense>
             <LaunchPoolAd />
