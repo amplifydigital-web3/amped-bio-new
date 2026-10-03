@@ -687,9 +687,17 @@ export const walletRouter = router({
 
       const users = await prisma.user.findMany({
         where: {
+          // Screen Review 062: people are found by name, @handle or address.
+          // Accounts without a handle have no public page, so they are left out.
+          handle: { not: null },
           OR: [
             {
               handle: {
+                contains: searchQuery,
+              },
+            },
+            {
+              name: {
                 contains: searchQuery,
               },
             },
