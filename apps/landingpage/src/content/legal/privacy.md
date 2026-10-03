@@ -1,6 +1,6 @@
 # Amped.Bio Privacy Policy
 
-Last updated: October 2, 2026
+Last updated: October 3, 2026
 
 This policy explains what personal information Amped.Bio collects, why, who receives it, and the choices you have. It applies to creators, fans and anyone who visits an Amped.Bio page.
 
@@ -32,7 +32,7 @@ When you create an account and build your page, we collect:
 - **Browser check:** a proof of work check on sign up and sign in to stop automated abuse. It runs on our own service and sets no cookies.
 - **Messages to us:** what you send to support.
 
-If you verify your identity with Authbase, we receive your verification status and badge, and only the attributes you choose to share with Amped.Bio. Anyone who views your name page can see those shared attributes.
+If you verify your identity with Authbase, we receive your verification status and badge, and only the attributes you choose to share with Amped.Bio. Only you can see those shared attributes. Others see only your verification status, and only where you choose to show it.
 
 ## 3. Wallets, tREVO and on chain activity
 
@@ -116,7 +116,7 @@ We do not sell your personal information. We do not use it for our own advertisi
 | Authbase | Your verification request | Identity badge, if you choose it |
 | Creator tools (Google Analytics, Meta, TikTok) | Visit events, IP address and device, with permission per creator | The creator's own analytics and ads |
 | Apps you connect with Sign in with Amped.Bio | What you allow on the consent screen | Sign you in to that app |
-| The public and the Revolution Network | Your public page, handle, wallet address, transactions, pools and shared name attributes | Public by design |
+| The public and the Revolution Network | Your public page, handle, wallet address, transactions, pools and the verification status you choose to show | Public by design |
 | Authorities, advisers, a buyer of the business | What the law requires or a transaction needs | Legal duties, rights, a sale or merger |
 
 Creators see totals for their own page. They do not see your IP address, your Amped.Bio account, or your browser ID.

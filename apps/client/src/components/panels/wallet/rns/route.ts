@@ -1,6 +1,7 @@
 // Screen Review 100 I07: the RNS URL model. RNS is the third Wallet tab.
 //   /wallet?tab=rns                                   find, my RNS names, about
-//   /wallet?tab=rns&name=<label>[&view=<tab>]          RNS name page
+//   /wallet?tab=rns&name=<label>[&view=<tab>]          RNS name page (profile, identity,
+//                                                     attributes, facets)
 //   /wallet?tab=rns&address=<0x>                       address view
 //   /wallet?tab=rns&flow=register&name=<label>         register flow (value panel)
 //   /wallet?tab=rns&name=<label>&flow=extend|transfer|publish
@@ -12,8 +13,8 @@ export type RnsFlow = "register" | "extend" | "transfer" | "publish";
 export const NAME_PAGE_FLOWS = ["extend", "transfer", "publish"] as const;
 export type NamePageFlow = (typeof NAME_PAGE_FLOWS)[number];
 
-/** Name page views (102 I01). Profile is the default. */
-export const NAME_VIEWS = ["profile", "identity"] as const;
+/** Name page views (102 I01, 105 I03). Profile is the default. */
+export const NAME_VIEWS = ["profile", "identity", "attributes", "facets"] as const;
 export type NameView = (typeof NAME_VIEWS)[number];
 
 export const RNS_PARAMS = ["name", "view", "address", "flow"] as const;
