@@ -73,7 +73,7 @@ async function countActiveNames(owner: Address): Promise<number | null> {
   }
 }
 
-async function readPrimaryName(owner: Address): Promise<string | null> {
+export async function readPrimaryName(owner: Address): Promise<string | null> {
   const client = rnsPublicClient();
   const { REVERSE_REGISTRAR, L2_RESOLVER } = RNS_CHAIN.contracts;
   try {
