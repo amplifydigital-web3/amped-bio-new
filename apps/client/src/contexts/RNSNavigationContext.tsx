@@ -1,80 +1,50 @@
 import { useLocation, useNavigate } from "react-router";
-import { useEditor } from "./EditorContext";
 import { useCallback, useMemo } from "react";
+import { parseRnsInput } from "@repo/web3";
+import { legacyRnsPath, rnsWalletPath } from "@/components/panels/wallet/rns/route";
 
-// Define the possible RNS views
+// Screen Review 100 I07, 101 I01: RNS lives in the Wallet RNS tab. The rns
+// panel only redirects legacy ?t= links; every RNS view is a Wallet URL.
+
 export type RNSView =
   | { type: "home" }
   | { type: "profile"; name: string }
   | { type: "register"; name: string }
-  | { type: "address"; address: string }
-  | { type: "success" }
-  | { type: "my-names" };
+  | { type: "address"; address: string };
 
-// Helper to build the t param string used by setActivePanelAndNavigate
-const buildTParam = (view: RNSView) => {
-  switch (view.type) {
-    case "home":
-      return "home";
-    case "register":
-      return `register:${encodeURIComponent(view.name)}`;
-    case "my-names":
-      return "my-names";
-    case "profile":
-      return `profile:${encodeURIComponent(view.name)}`;
-    case "address":
-      return `address:${encodeURIComponent(view.address)}`;
-    case "success":
-      return "success";
-    default:
-      return "home";
-  }
-};
+const label = (name: string) => parseRnsInput(name);
 
-const parseTParam = (t?: string | null): RNSView => {
-  if (!t) return { type: "home" };
-  const parts = t.split(":");
-  const [a, b] = parts;
-  if (a === "home") return { type: "home" };
-  if (a === "register" && b) return { type: "register", name: decodeURIComponent(b) };
-  if (a === "my-names") return { type: "my-names" };
-  if (a === "profile" && b) {
-    return { type: "profile", name: decodeURIComponent(b) };
-  }
-  if (a === "address" && b) return { type: "address", address: decodeURIComponent(b) };
-  if (a === "success") return { type: "success" };
+/** The RNS view in the current Wallet URL. */
+export function parseRnsView(params: URLSearchParams): RNSView {
+  const name = params.get("name");
+  const address = params.get("address");
+  if (params.get("flow") === "register" && name) return { type: "register", name: label(name) };
+  if (address) return { type: "address", address };
+  if (name) return { type: "profile", name: label(name) };
   return { type: "home" };
-};
+}
+
+export { legacyRnsPath };
 
 export const useRNSNavigation = () => {
-  const { setActivePanelAndNavigate } = useEditor();
   const location = useLocation();
   const navigate = useNavigate();
+  const currentView = parseRnsView(new URLSearchParams(location.search));
 
-  const searchParams = new URLSearchParams(location.search);
-  const t = searchParams.get("t");
-  const currentView = parseTParam(t);
-
-  const navigateToView = useCallback(
-    (view: RNSView) => {
-      // ensure the editor panel is set to rns and url updated
-      const tParam = buildTParam(view);
-      setActivePanelAndNavigate("rns", tParam);
-    },
-    [setActivePanelAndNavigate]
-  );
+  const go = useCallback((path: string) => navigate(path), [navigate]);
 
   return useMemo(
     () => ({
       currentView,
-      navigateToHome: () => navigateToView({ type: "home" }),
-      navigateToProfile: (name: string) => navigateToView({ type: "profile", name }),
-      navigateToRegister: (name: string) => navigateToView({ type: "register", name }),
-      navigateToAddress: (address: string) => navigateToView({ type: "address", address }),
-      navigateToSuccess: () => navigateToView({ type: "success" }),
-      navigateToMyNames: () => navigateToView({ type: "my-names" }),
+      navigateToHome: () => go(rnsWalletPath()),
+      navigateToProfile: (name: string) => go(rnsWalletPath({ name: label(name) })),
+      navigateToRegister: (name: string) =>
+        go(rnsWalletPath({ flow: "register", name: label(name) })),
+      navigateToAddress: (address: string) => go(rnsWalletPath({ address })),
+      navigateToSuccess: () => go(rnsWalletPath()),
+      navigateToMyNames: () => go(rnsWalletPath()),
       goBack: () => navigate(-1),
     }),
-    [currentView, navigateToView, navigate]
+    [currentView, go, navigate]
   );
 };

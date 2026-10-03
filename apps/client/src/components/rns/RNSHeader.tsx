@@ -1,39 +1,11 @@
-import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
-import { Home } from "lucide-react";
-import { useWalletContext } from "@/contexts/WalletContext";
-
-interface RNSHeaderProps {
-  /** Render mobile variant (visible only on small screens) */
-  mobile?: boolean;
-}
-
-export function RNSHeader({ mobile = false }: RNSHeaderProps) {
-  const { navigateToHome, navigateToMyNames } = useRNSNavigation();
-  const { address: ownerAddress } = useWalletContext();
-
-  const containerClass = mobile
-    ? "flex sm:hidden items-center gap-4"
-    : "hidden sm:flex items-center gap-4";
-
-  return (
-    <div className={containerClass}>
-      <button
-        onClick={navigateToHome}
-        className="text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1"
-      >
-        <Home className="w-4 h-4" />
-        <span>RNS Home</span>
-      </button>
-      {ownerAddress && (
-        <button
-          onClick={navigateToMyNames}
-          className="text-gray-700 hover:text-gray-900 font-medium"
-        >
-          My Names
-        </button>
-      )}
-    </div>
-  );
+/**
+ * Screen Review 101 I01: the RNS header is gone; RNS lives in the Wallet RNS
+ * tab with its own back lens. Layout still mounts this for the legacy rns
+ * panel, which only redirects. Delete together with that Layout case.
+ */
+export function RNSHeader(props: { mobile?: boolean }) {
+  void props;
+  return null;
 }
 
 export default RNSHeader;
