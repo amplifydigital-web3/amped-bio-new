@@ -6,6 +6,30 @@ import { auth, AUTH_BASE_URL, OAUTH_ISSUER } from "../utils/auth";
 import { env } from "../env";
 import { prisma } from "@repo/database";
 import { z } from "zod-v4";
+import {
+  formatRnsName,
+  isRnsNameActive,
+  parseRnsInput,
+  RNS_CHAIN,
+  RNS_GRACE_PERIOD_SECONDS,
+  rnsExpiryFromGraceEnd,
+} from "@repo/web3";
+
+// Screen Review 100 I01, I04: one suffix from chain config, and the
+// registration expiry (not the grace end) decides expired.
+const rnsDisplayName = (label: string) => formatRnsName(label, RNS_CHAIN.id);
+function rnsDates(expiryDateWithGrace: string) {
+  const expiryTimestamp = rnsExpiryFromGraceEnd(expiryDateWithGrace);
+  const graceEnd = expiryTimestamp + RNS_GRACE_PERIOD_SECONDS;
+  const now = Math.floor(Date.now() / 1000);
+  return {
+    expiryTimestamp,
+    expiryDate: new Date(expiryTimestamp * 1000).toISOString(),
+    expired: expiryTimestamp > 0 && !isRnsNameActive(expiryTimestamp, now),
+    inGracePeriod: expiryTimestamp > 0 && now >= expiryTimestamp && now < graceEnd,
+    gracePeriodEndDate: new Date(graceEnd * 1000).toISOString(),
+  };
+}
 
 const READ_SCOPE = "mcp:read";
 
@@ -123,19 +147,19 @@ mcpServer.registerTool(
   {
     title: "RNS name lookup",
     description:
-      "Resolve a REVO Name Service (RNS) name (e.g. \"foo.revo\") to its owner wallet, expiry date, " +
+      `Resolve a Revolution Name Service (RNS) name (e.g. "${rnsDisplayName("example")}") to its owner wallet, expiry date, ` +
       "and whether the owner has a linked Amped.bio profile.",
     inputSchema: {
       name: z
         .string()
         .describe(
-          "The full RNS name to look up, e.g. \"foo.revo\" or just \"foo\" (the .revo suffix is optional)."
+          `The RNS name to look up, e.g. "${rnsDisplayName("example")}" or just "example" (the suffix is optional).`
         ),
     },
   },
   async (params: { name: string }): Promise<CallToolResult> => {
     try {
-      const labelName = params.name.replace(/\.revo$/i, "").toLowerCase();
+      const labelName = parseRnsInput(params.name, RNS_CHAIN.id);
 
       const names = await queryRnsSubgraph(
         `query ($l: String!) {
@@ -150,15 +174,12 @@ mcpServer.registerTool(
 
       if (names.length === 0) {
         return textResult(
-          JSON.stringify({ found: false, name: `${labelName}.revo` }),
+          JSON.stringify({ found: false, name: rnsDisplayName(labelName) }),
           true
         );
       }
 
       const entry = names[0];
-      const nowInSeconds = Math.floor(Date.now() / 1000);
-      const expiryTimestamp = Number(entry.expiryDateWithGrace);
-      const expired = expiryTimestamp > 0 && expiryTimestamp < nowInSeconds;
       const owner = entry.owner;
 
       // Check if the owner has an Amped.bio profile linked to this wallet
@@ -168,11 +189,9 @@ mcpServer.registerTool(
         JSON.stringify(
           {
             found: true,
-            name: `${labelName}.revo`,
+            name: rnsDisplayName(labelName),
             owner,
-            expiryTimestamp,
-            expiryDate: new Date(expiryTimestamp * 1000).toISOString(),
-            expired,
+            ...rnsDates(entry.expiryDateWithGrace),
             ampedBioProfile: profile
               ? { handle: profile.handle, name: profile.name }
               : null,
@@ -195,7 +214,7 @@ mcpServer.registerTool(
   {
     title: "RNS reverse lookup",
     description:
-      "Given a wallet address, list all REVO Name Service (RNS) names owned by that address.",
+      "Given a wallet address, list all Revolution Name Service (RNS) names owned by that address.",
     inputSchema: {
       wallet: z.string().describe("The wallet address to look up RNS names for."),
     },
@@ -222,18 +241,10 @@ mcpServer.registerTool(
         );
       }
 
-      const nowInSeconds = Math.floor(Date.now() / 1000);
-
-      const result = names.map(n => {
-        const expiryTimestamp = Number(n.expiryDateWithGrace);
-        const expired = expiryTimestamp > 0 && expiryTimestamp < nowInSeconds;
-        return {
-          name: `${n.labelName ?? "?"}.revo`,
-          expiryTimestamp,
-          expiryDate: new Date(expiryTimestamp * 1000).toISOString(),
-          expired,
-        };
-      });
+      const result = names.map(n => ({
+        name: rnsDisplayName(n.labelName ?? "?"),
+        ...rnsDates(n.expiryDateWithGrace),
+      }));
 
       // Also check if this wallet is linked to an Amped.bio profile
       const profile = await findAmpedBioProfileByWallet(params.wallet);
