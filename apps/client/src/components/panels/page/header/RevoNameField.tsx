@@ -18,10 +18,10 @@ import { isRevoNameExpired } from "@/utils/rns";
 // 100 I04: expired means the registration expired; the grace period counts as
 // expired. 100 I12: the field reads RNS name, never RevoName.
 
-// Wallet Names (D06) is not built yet; RNS My names is its home until then
+// 101 I01: RNS names live in the Wallet RNS tab
 function useGoToNames() {
   const { setActivePanelAndNavigate } = useEditor();
-  return () => setActivePanelAndNavigate("rns", "my-names");
+  return () => setActivePanelAndNavigate("wallet", undefined, { tab: "rns" });
 }
 
 /** 018 I09: the expired or lost name notice, in the card instead of a modal. */
