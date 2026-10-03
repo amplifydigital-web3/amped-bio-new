@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated"
@@ -238,6 +237,10 @@ model CreatorPool {
   revoStaked    String        @db.Text
   poolAddress   String?       @unique
   creationTxid  String?       @db.VarChar(66)
+  // Sum of RewardReceived amounts (wei) indexed from the pool contract (row 067)
+  rewardsReceived     String  @default("0") @map("rewards_received") @db.VarChar(78)
+  // Last block scanned for RewardReceived and RewardClaimed (rows 067 to 069)
+  rewardsIndexedBlock String? @map("rewards_indexed_block") @db.VarChar(30)
   wallet        UserWallet    @relation(fields: [walletId], references: [id], onDelete: Cascade)
   poolImage     UploadedFile? @relation("CreatorPoolImage", fields: [image_file_id], references: [id], onDelete: SetNull)
   stakedPools   StakedPool[]
@@ -285,7 +288,7 @@ model StakeEvent {
   userWalletId    Int
   poolId          Int
   amount          String   @db.Text // The amount of tokens staked or unstaked (positive for stake, negative for unstake)
-  eventType       String // "stake" or "unstake"
+  eventType       String // "stake", "unstake", "create" (the launch stake) or "claim" (RewardClaimed)
   transactionHash String // Transaction hash for verification
   createdAt       DateTime @default(now())
 
