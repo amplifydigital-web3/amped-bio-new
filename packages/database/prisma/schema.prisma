@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated"
@@ -38,6 +37,7 @@ model User {
 
   wallet            UserWallet?
   referralsMade     Referral[]  @relation("ReferrerReferrals")
+  featureInterests  FeatureInterest[]
   referralsReceived Referral[]  @relation("ReferredReferrals")
   twoFactorEnabled  Boolean     @default(false) @map("two_factor_enabled")
   twoFactor         TwoFactor?
@@ -469,6 +469,24 @@ model TrackingPixels {
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("tracking_pixels")
+}
+
+// Screen Review 105 I04, 106 I08: Notify me for features that open later.
+// One row per user and feature; notified_at is set when the launch email goes.
+model FeatureInterest {
+  id          Int       @id @default(autoincrement())
+  user_id     Int
+  // rns_identity_next: RNS attributes and facets
+  feature     String    @db.VarChar(32)
+  // attributes | facets: the tab where the owner asked
+  source      String    @db.VarChar(16)
+  created_at  DateTime  @default(now())
+  notified_at DateTime?
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, feature])
+  @@map("feature_interests")
 }
 
 // ===== OAuth 2.1 provider (Better Auth oauth-provider / MCP plugins) =====
