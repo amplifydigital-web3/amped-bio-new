@@ -419,8 +419,9 @@ export const userRouter = router({
       const safeLimit = Math.min(input.limit || 20, 20);
       const safePage = Math.max(input.page || 1, 1);
 
-      // Build the base where clause based on search
-      const whereClause: any = {};
+      // Build the base where clause based on search. Only published, not
+      // suspended pages are listed (Fan Graph #22: fan accounts have no page).
+      const whereClause: any = { page_status: "PUBLISHED", block: "no" };
       if (input.search) {
         whereClause.name = {
           contains: input.search,

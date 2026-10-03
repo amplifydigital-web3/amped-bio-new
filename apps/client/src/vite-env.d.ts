@@ -15,6 +15,7 @@ interface ImportMetaEnv {
   readonly VITE_WEB3AUTH_AUTH_CONNECTION_ID: string;
   readonly VITE_WEB3AUTH_NETWORK: string;
   readonly VITE_SHOW_WALLET: string;
+  readonly VITE_FAN_GRAPH?: string;
   readonly VITE_DEFAULT_NETWORK_ID_HEX: `0x${string}`;
   // google
   readonly VITE_CAPTCHA_SERVER_URL: string;
