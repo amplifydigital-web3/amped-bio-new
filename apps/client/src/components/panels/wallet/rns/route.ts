@@ -3,8 +3,18 @@
 //   /wallet?tab=rns&name=<label>[&view=<tab>]          RNS name page
 //   /wallet?tab=rns&address=<0x>                       address view
 //   /wallet?tab=rns&flow=register&name=<label>         register flow (value panel)
+//   /wallet?tab=rns&name=<label>&flow=extend|transfer|publish
+//                                                     name page flows (080, 111)
 
-export type RnsFlow = "register";
+export type RnsFlow = "register" | "extend" | "transfer" | "publish";
+
+/** Flows that open over the RNS name page (080, 111). Register opens over the tab. */
+export const NAME_PAGE_FLOWS = ["extend", "transfer", "publish"] as const;
+export type NamePageFlow = (typeof NAME_PAGE_FLOWS)[number];
+
+/** Name page views (102 I01). Profile is the default. */
+export const NAME_VIEWS = ["profile", "identity"] as const;
+export type NameView = (typeof NAME_VIEWS)[number];
 
 export const RNS_PARAMS = ["name", "view", "address", "flow"] as const;
 

@@ -13,6 +13,7 @@ export function DurationPicker({
   onChange,
   fromSeconds,
   label = "Duration",
+  hint,
 }: {
   minSeconds: bigint;
   value: Term;
@@ -20,6 +21,8 @@ export function DurationPicker({
   /** The term starts here (now for a new name, the current expiry to extend) */
   fromSeconds: number;
   label?: string;
+  /** Meta on the right of the label, for example "Shortest is 1 month" (080 I02) */
+  hint?: string;
 }) {
   const rules = termRules(minSeconds);
   const expires = fromSeconds + Number(termSeconds(value));
@@ -32,9 +35,12 @@ export function DurationPicker({
 
   return (
     <div className="space-y-3 font-prism">
-      <p id="rns-duration-label" className="text-prism-label font-bold text-prism-ink">
-        {label}
-      </p>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p id="rns-duration-label" className="text-prism-label font-bold text-prism-ink">
+          {label}
+        </p>
+        {hint && <p className="text-prism-meta text-prism-ink-2">{hint}</p>}
+      </div>
       <ChipGroup<string>
         label={label}
         value={presetValue}

@@ -1,6 +1,4 @@
-import { lazy, Suspense, useRef } from "react";
-import { ArrowLeft } from "lucide-react";
-import { Button } from "@repo/ui";
+import { useRef } from "react";
 import { useEditor } from "@/contexts/EditorContext";
 import { FindRnsName } from "./FindRnsName";
 import { MyRnsNames } from "./MyRnsNames";
@@ -8,14 +6,11 @@ import { AboutRns } from "./AboutRns";
 import { AddressView } from "./AddressView";
 import { RegisterFlow } from "./RegisterFlow";
 import { useRnsRoute } from "./useRnsRoute";
-
-// The RNS name page is rebuilt in batch 12c (rows 102 to 106). Until then the
-// existing page opens inside Wallet.
-const LegacyNamePage = lazy(() => import("@/pages/rns/ProfilePage"));
+import { NamePage } from "./name/NamePage";
 
 /**
- * Screen Review 111 and the interim name page: full Wallet views with a back
- * lens to the RNS tab.
+ * Screen Review 102 and 111: the RNS name page and the address view, full
+ * Wallet views with a back lens to the RNS tab.
  */
 export function RnsSubPage() {
   const route = useRnsRoute();
@@ -29,17 +24,7 @@ export function RnsSubPage() {
     );
   }
   if (!route.name) return null;
-  return (
-    <div className="space-y-[21px]">
-      <Button type="button" variant="secondary" onClick={() => route.go({})}>
-        <ArrowLeft aria-hidden />
-        RNS
-      </Button>
-      <Suspense fallback={null}>
-        <LegacyNamePage name={route.name} />
-      </Suspense>
-    </div>
-  );
+  return <NamePage key={route.name} label={route.name} />;
 }
 
 /**
