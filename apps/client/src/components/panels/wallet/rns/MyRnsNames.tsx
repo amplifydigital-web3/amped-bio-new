@@ -1,14 +1,8 @@
 import { useMemo, useState } from "react";
 import { AtSign, Info, Wallet } from "lucide-react";
 import { Button, ChipGroup, EmptyState, ErrorCard } from "@repo/ui";
-import {
-  parseRnsInput,
-  RNS_GRACE_PERIOD_SECONDS,
-  rnsExpiryFromGraceEnd,
-  rnsExpiryState,
-} from "@repo/web3";
+import { RNS_GRACE_PERIOD_SECONDS, rnsExpiryFromGraceEnd, rnsExpiryState } from "@repo/web3";
 import { useWalletContext } from "@/contexts/WalletContext";
-import { useEditor } from "@/contexts/EditorContext";
 import { useDelayed } from "@/hooks/useDelayed";
 import useGetAllRegisteredNames from "@/hooks/rns/useGetAllRegisteredNames";
 import { useReverseLookup } from "@/hooks/rns/useReverseLookup";
@@ -25,7 +19,8 @@ const DAY = 86_400;
 /**
  * Screen Review 101 I10 to I13: My RNS names as G0 rows on the room, soonest
  * expiry first, with Primary, Verified, expiring and grace badges from the
- * registration expiry. Names past the grace end are not listed.
+ * registration expiry. Names past the grace end are not listed. Verified
+ * marks every name of a verified wallet (verification is per wallet).
  */
 export function MyRnsNames({
   onOpenName,
@@ -36,14 +31,13 @@ export function MyRnsNames({
 }) {
   const wallet = useWalletContext();
   const address = wallet.address as `0x${string}` | undefined;
-  const { profile } = useEditor();
   const chain = useRnsChain();
   const [sort, setSort] = useState<Sort>("expiry");
   const { revoNames, isFetching, error, refetch } = useGetAllRegisteredNames(address, !!address);
   const { name: primaryLabel } = useReverseLookup((address ?? "") as `0x${string}`);
   const identity = useAuthbaseIdentityStatus(RNS_FLAGS.identity ? address : null);
+  // Verification is per wallet: every name this wallet owns carries the chip
   const verified = RNS_FLAGS.identity && !!identity.data?.verified;
-  const pageLabel = profile.revoName ? parseRnsInput(profile.revoName, chain.id) : "";
   const showSkeleton = useDelayed(isFetching, 400);
 
   const now = Math.floor(Date.now() / 1000);
@@ -103,7 +97,7 @@ export function MyRnsNames({
       <ul className="divide-y divide-prism-line">
         {rows.map(row => {
           const badges = [
-            verified && row.label === pageLabel ? <VerifiedChip key="verified" /> : null,
+            verified ? <VerifiedChip key="verified" /> : null,
             row.label === primaryLabel ? <RowBadge key="primary">Primary</RowBadge> : null,
             row.state === "expiring" ? (
               <RowBadge key="expiring" tone="warning">
