@@ -100,6 +100,8 @@ const WalletBalance: React.FC<WalletBalanceProps> = ({ loading = false }) => {
       {/* Action Buttons */}
       <div className="grid grid-cols-3 gap-2 sm:gap-3">
         <button
+          // Activity's empty state points here (Screen Review 057 I11)
+          data-get-trevo
           onClick={() => setShowFundModal(true)}
           className="flex flex-col items-center justify-center p-2 sm:p-3 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors duration-200 group touch-manipulation"
         >
