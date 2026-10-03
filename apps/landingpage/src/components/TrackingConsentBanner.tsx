@@ -1,7 +1,8 @@
 "use client";
 
 import { useId, useState } from "react";
-import { ChevronDown, ChevronUp, ShieldCheck } from "lucide-react";
+import { ChevronDown, ChevronUp, Lock, ShieldCheck } from "lucide-react";
+import { Button } from "@repo/ui";
 
 export type ConsentChoice = { analytics: boolean; advertising: boolean };
 
@@ -11,6 +12,7 @@ function ChoiceSwitch({
   description,
   checked,
   disabled,
+  locked,
   onChange,
 }: {
   id: string;
@@ -18,33 +20,50 @@ function ChoiceSwitch({
   description: string;
   checked: boolean;
   disabled?: boolean;
+  // Visit counting: a lock and Always on instead of a switch (039 I14)
+  locked?: boolean;
   onChange?: (value: boolean) => void;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 py-3 border-t border-gray-100 first:border-t-0">
-      <div>
-        <label htmlFor={id} className="text-sm font-medium text-gray-900">
+    <div className="flex min-h-touch items-start justify-between gap-4 px-4 py-3">
+      <div className="min-w-0">
+        <label
+          htmlFor={locked ? undefined : id}
+          className="text-prism-label font-semibold text-prism-ink"
+        >
           {label}
         </label>
-        <p className="text-xs text-gray-600 mt-0.5 leading-relaxed">{description}</p>
+        <p className="mt-0.5 text-prism-meta text-prism-ink-2">{description}</p>
       </div>
-      <button
-        id={id}
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        disabled={disabled}
-        onClick={() => onChange?.(!checked)}
-        className={`relative mt-1 h-6 w-11 shrink-0 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 disabled:opacity-60 ${
-          checked ? "bg-gray-900" : "bg-gray-300"
-        }`}
-      >
-        <span
-          className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-            checked ? "translate-x-5" : ""
-          }`}
-        />
-      </button>
+      {locked ? (
+        <span className="flex shrink-0 items-center gap-1 text-prism-meta font-semibold text-prism-ink-2">
+          <Lock aria-hidden className="h-[21px] w-[21px]" />
+          Always on
+        </span>
+      ) : (
+        <button
+          id={id}
+          type="button"
+          role="switch"
+          aria-checked={checked}
+          disabled={disabled}
+          onClick={() => onChange?.(!checked)}
+          className="prism-focus flex h-touch w-touch shrink-0 items-center justify-center rounded-full disabled:opacity-60"
+        >
+          <span
+            aria-hidden
+            className={`relative h-6 w-11 rounded-full transition-colors duration-prism-control ${
+              checked ? "bg-prism-nav" : "bg-[rgba(22,21,43,0.18)]"
+            }`}
+          >
+            <span
+              className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-prism-control motion-reduce:transition-none ${
+                checked ? "translate-x-5" : ""
+              }`}
+            />
+          </span>
+        </button>
+      )}
     </div>
   );
 }
@@ -53,6 +72,10 @@ function ChoiceSwitch({
  * Consent banner for public creator pages. "Reject all" and "Accept all" carry
  * equal weight, nothing optional runs before a choice, and each category can be
  * set separately under "Choose".
+ *
+ * Screen Review 039 I14: Amped frame chrome, never the creator's colors. A G1
+ * clear card r21, non modal (no focus trap, no focus steal), a region named by
+ * its title. The page places it; every string is privacy copy, kept verbatim.
  */
 export function TrackingConsentBanner({
   ownerName,
@@ -61,6 +84,7 @@ export function TrackingConsentBanner({
   initial,
   startExpanded = false,
   onSave,
+  className,
 }: {
   ownerName: string;
   // Services the creator connected, or empty when the creator has none
@@ -70,6 +94,7 @@ export function TrackingConsentBanner({
   initial: ConsentChoice;
   startExpanded?: boolean;
   onSave: (choice: ConsentChoice) => void;
+  className?: string;
 }) {
   const [expanded, setExpanded] = useState(startExpanded);
   const [details, setDetails] = useState(false);
@@ -79,76 +104,63 @@ export function TrackingConsentBanner({
   const hasAds = adServices.length > 0;
 
   return (
-    <div
-      role="dialog"
-      aria-live="polite"
+    <section
+      role="region"
       aria-labelledby={`${baseId}-title`}
-      className="fixed inset-x-0 bottom-0 z-50 p-3 sm:p-4"
-      style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)" }}
+      className={`prism-glass-clear prism-font mx-auto max-h-[70vh] w-full max-w-[508px] overflow-y-auto !rounded-prism-21 p-[21px] text-prism-ink ${className ?? ""}`}
     >
-      <div className="mx-auto max-w-xl max-h-[80vh] overflow-y-auto rounded-2xl bg-white shadow-2xl border border-gray-200 p-4 text-gray-800">
+      <div>
         <div className="flex gap-3">
-          <ShieldCheck className="w-5 h-5 shrink-0 text-gray-700 mt-0.5" aria-hidden />
-          <div className="text-sm leading-relaxed">
-            <p id={`${baseId}-title`} className="font-semibold text-gray-900">
+          <ShieldCheck className="mt-0.5 h-[21px] w-[21px] shrink-0 text-prism-ink-2" aria-hidden />
+          <div className="min-w-0">
+            <p id={`${baseId}-title`} className="text-prism-label font-bold text-prism-ink">
               Your privacy choices
             </p>
-            <p className="mt-1 text-gray-700">
-              Amped.Bio counts visits to this page, including with Google Analytics. Until you
-              choose, no analytics cookies are set. With your permission, Amped.Bio and Google
-              Analytics use cookies to recognize return visits for up to 24 months. This choice
-              applies on every Amped.Bio creator page.
-            </p>
-            {hasAds && (
-              <p className="mt-1 text-gray-700">
-                {ownerName} also uses {adServices.join(", ")} to measure visits and show ads. They
-                load only if you allow it.
-              </p>
-            )}
-            <p className="mt-1 text-gray-700">
-              You can change your choices at any time from Privacy choices at the bottom of this
-              page. Read our{" "}
-              <a href="/privacy" className="underline font-medium text-gray-900">
-                Privacy Policy
-              </a>
-              .
+            <p className="mt-1 text-prism-body text-prism-ink-2">
+              Amped Bio counts visits to this page without cookies. With your permission we also
+              remember this browser, for up to 13 months, so {ownerName} can see return visits, and
+              use Google Analytics to understand how Amped Bio is used.
+              {hasAds && (
+                <>
+                  {" "}
+                  {ownerName} also uses {adServices.join(", ")} to measure visits and show relevant
+                  ads.
+                </>
+              )}{" "}
+              You can change your choice at any time from the Privacy choices link on this page.
             </p>
             <button
               type="button"
               onClick={() => setDetails(open => !open)}
               aria-expanded={details}
-              className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-gray-900 underline"
+              className="prism-btn-ghost prism-focus -ml-3 mt-1 inline-flex h-touch items-center gap-1 rounded-prism-13 px-3 text-prism-label font-semibold"
             >
               What is collected
-              {details ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              {details ? (
+                <ChevronUp aria-hidden className="h-[21px] w-[21px]" />
+              ) : (
+                <ChevronDown aria-hidden className="h-[21px] w-[21px]" />
+              )}
             </button>
             {details && (
-              <ul className="mt-2 list-disc pl-4 text-xs text-gray-600 space-y-1">
+              <ul className="mt-2 list-disc space-y-1 pl-4 text-prism-meta text-prism-ink-2">
                 <li>
-                  <strong>Amped.Bio visit counting, always, without cookies:</strong> the page you
-                  opened, links you tap, time on page, the site that sent you and any campaign tags,
-                  your country and city, and your device type, browser and operating system. Our
-                  analytics do not store your IP address.
+                  Always, without cookies: page views, link clicks, time on page, the site that sent
+                  you, country and city, and device type. Your IP address is not stored.
                 </li>
                 <li>
-                  <strong>Google Analytics, run by Google:</strong> page views, your device
-                  information and your approximate location, which Google works out from your IP
-                  address. Always sent without cookies. Google Analytics cookies are set only after
-                  you choose Accept all or allow Return visits.
+                  Return visits, if you allow it: a random ID saved in your browser. It is linked to
+                  your Amped Bio account only if you are signed in. It is deleted when you withdraw.
                 </li>
                 <li>
-                  <strong>Return visits, if you allow it:</strong> a random Amped.Bio ID and Google
-                  Analytics cookies saved in your browser. If you are signed in, we also record your
-                  Amped.Bio account with the visit. Creators do not see which account visited. Both
-                  are deleted from your browser when you withdraw.
+                  Amped Bio site analytics, if you allow it: Google Analytics sets its own cookies
+                  and receives your IP address and device information. Its cookies are deleted when
+                  you withdraw.
                 </li>
                 {hasAds && (
                   <li>
-                    <strong>Ads and analytics by {ownerName}, if you allow it:</strong>{" "}
-                    {adServices.join(", ")} load in your browser, set their own cookies and receive
-                    your IP address, device information and the pages and links you view here. If{" "}
-                    {ownerName} set this up, Amped.Bio also sends these events from our server to
-                    Meta or TikTok, with your IP address.
+                    Ads and analytics by {ownerName}, if you allow it: {adServices.join(", ")} set
+                    their own cookies and receive your IP address and device information.
                   </li>
                 )}
               </ul>
@@ -157,18 +169,18 @@ export function TrackingConsentBanner({
         </div>
 
         {expanded && (
-          <div className="mt-3 rounded-xl border border-gray-200 px-3">
+          <div className="prism-slab mt-3 divide-y divide-prism-line">
             <ChoiceSwitch
               id={`${baseId}-necessary`}
               label="Visit counting"
-              description="Always on, no cookies. Counts visits to this page, including with Google Analytics, without cookies."
+              description="Cookieless counting that keeps this page working and measured. Always on."
               checked
-              disabled
+              locked
             />
             <ChoiceSwitch
               id={`${baseId}-analytics`}
-              label="Return visits (Amped.Bio and Google Analytics cookies)"
-              description="Recognize this browser for up to 24 months so creators can see returning visitors. Applies on every Amped.Bio creator page."
+              label="Return visits and site analytics"
+              description="Remember this browser so the creator can see returning visitors, and let Amped Bio use Google Analytics."
               checked={analytics}
               onChange={setAnalytics}
             />
@@ -189,44 +201,41 @@ export function TrackingConsentBanner({
           </div>
         )}
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <button
+        {/* Equal weight: two secondary lens buttons, neither primary */}
+        <div className="mt-[13px] grid grid-cols-2 gap-2">
+          <Button
             type="button"
+            variant="secondary"
             onClick={() => onSave({ analytics: false, advertising: false })}
-            className="rounded-lg border border-gray-900 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50"
           >
             Reject all
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="secondary"
             onClick={() => onSave({ analytics: true, advertising: !adsBlockedByBrowser })}
-            className="rounded-lg border border-gray-900 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50"
           >
             Accept all
-          </button>
+          </Button>
         </div>
-        <div className="mt-2 text-center">
+        <div className="mt-[13px] flex justify-center">
           {expanded ? (
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={() =>
                 onSave({ analytics, advertising: advertising && !adsBlockedByBrowser })
               }
-              className="text-sm font-medium text-gray-900 underline"
             >
               Save my choices
-            </button>
+            </Button>
           ) : (
-            <button
-              type="button"
-              onClick={() => setExpanded(true)}
-              className="text-sm font-medium text-gray-900 underline"
-            >
+            <Button type="button" variant="ghost" onClick={() => setExpanded(true)}>
               Choose
-            </button>
+            </Button>
           )}
         </div>
       </div>
-    </div>
+    </section>
   );
 }

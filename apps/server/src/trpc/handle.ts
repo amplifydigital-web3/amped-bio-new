@@ -257,7 +257,21 @@ const appRouter = router({
         });
       }
 
-      const hasCreatorPool = false; // Placeholder - we need to determine this differently since pools are now related to wallet
+      // Screen Review 039 I03: the page's View pool needs the creator's pool.
+      // Pools belong to the wallet; take the newest listed pool with an address.
+      const creatorPool = user.wallet
+        ? await prisma.creatorPool.findFirst({
+            where: {
+              walletId: user.wallet.id,
+              poolAddress: { not: null },
+              OR: [{ hidden: false }, { hidden: null }],
+            },
+            orderBy: { id: "desc" },
+            select: { poolAddress: true },
+          })
+        : null;
+      const creatorPoolAddress = creatorPool?.poolAddress ?? null;
+      const hasCreatorPool = creatorPoolAddress !== null;
 
       const {
         theme: theme_id,
@@ -321,6 +335,7 @@ const appRouter = router({
         theme: themeResult.value,
         blocks: publicBlocks,
         hasCreatorPool,
+        creatorPoolAddress,
         trackingPixels: settledOrFallback(trackingPixelsResult, null, "tracking pixels"),
         indexable: isUserIndexable(user, publicBlocks.length),
       };
