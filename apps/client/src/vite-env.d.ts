@@ -6,6 +6,12 @@ interface ImportMetaEnv {
   readonly VITE_SHOW_REWARD: string;
   readonly VITE_SHOW_CREATOR_POOL: string;
   readonly VITE_SHOW_RNS: string;
+  /** RNS phase flags under VITE_SHOW_RNS (Screen Review 100 I06) */
+  readonly VITE_RNS_IDENTITY?: string;
+  readonly VITE_RNS_ATTRIBUTES?: string;
+  readonly VITE_RNS_FACETS?: string;
+  /** USD by card through Authbase checkout (078 D1, 080 D1). Off until wired. */
+  readonly VITE_RNS_CARD_CHECKOUT?: string;
   readonly VITE_SHOW_GALLERY: string;
   readonly VITE_API_URL: string;
   readonly VITE_AUTH_URL: string;
