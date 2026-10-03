@@ -173,8 +173,9 @@ const optionalId = (pattern: RegExp, message: string) =>
 // accepts before the first pixel connects. Bump the version when the terms
 // change, so every creator with a pixel is asked once more.
 export const CREATOR_TRACKING_TERMS_VERSION = "2026-10-02";
-// Path on the public site (VITE_LANDINGPAGE_URL). Publish the addendum here before release.
-export const CREATOR_TRACKING_TERMS_PATH = "/terms/analytics";
+// Path on the public site (VITE_LANDINGPAGE_URL). Points to /privacy until the
+// Creator Analytics and Tracking Terms addendum is published (docs/legal/ DRAFT).
+export const CREATOR_TRACKING_TERMS_PATH = "/privacy";
 
 export const trackingPixelsUpdateSchema = z.object({
   ga4MeasurementId: optionalId(
