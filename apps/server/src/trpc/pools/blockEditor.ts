@@ -63,6 +63,7 @@ export const poolsBlockEditorRouter = router({
         const pools = await prisma.creatorPool.findMany({
           where: {
             chainId: input.chainId,
+            poolAddress: { not: null },
             AND: [
               { OR: [{ hidden: false }, { hidden: null }] },
               isAddress
