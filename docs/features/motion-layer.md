@@ -1,99 +1,114 @@
 # Premium motion layer
 
-Status: approved 2026-10-04 (Rob accepted all four recommendations). Build Board item #26.
+Status: v2, in review. v1 was approved on 2026-10-04. The v2 deep dive revises decisions 1 and 4 and adds decisions 5 and 6 for Rob. Build Board item #26.
 Owner: Rob Frasca. Drafted by Claude, 2026-10-04.
 Depends on: Prism 2.2 UI rollout (Build Board #20). Motion animates the screens that rollout delivers.
+Prototype: Amped Motion Lab, https://claude.ai/artifact/B5P8pvSWzAph7Y6uAyS6MV
+Design QA: docs/features/motion-layer-design-qa.md
 
 ## 1. Research
 
 ### Current code (development at 278c04a1)
 
-- Prism motion is CSS only. Section 14 of Prism 2.2: 89 ms micro, 144 ms hover light, 233 ms control, 377 ms panel and rim travel, 610 ms room. One easing, `cubic-bezier(0.2, 0, 0, 1)`. No bounce. `prefers-reduced-motion` removes rim travel and parallax and makes state changes instant.
+- Prism motion is CSS only. Section 14 of Prism 2.2: 89 ms micro, 144 ms hover light, 233 ms control, 377 ms panel and rim travel, 610 ms room. One easing, `cubic-bezier(0.2, 0, 0, 1)`. No bounce.
+- The tokens already exist in code. `packages/ui/src/prism/tailwind-preset.js` exports `prismMotion`, which gives the classes `duration-prism-micro`, `-hover`, `-control`, `-panel`, `-room` and `ease-prism`.
 - `framer-motion` is in the client and landing `package.json` and is imported nowhere.
 - `tsparticles-slim` (v2) is in the client `package.json` and is imported nowhere.
-- `App.tsx` called `loadAll` from `@tsparticles/all` at editor start, so every particle preset loaded on every editor screen. Fixed in this PR (phase 0, section 3.9). The entry chunk drops by about 70 KB gzip.
+- `App.tsx` called `loadAll` from `@tsparticles/all` at editor start. Fixed in this PR (phase 0). The entry chunk drops from 1,356,332 to 1,286,590 bytes gzip. The presets now load in their own chunk of about 69 KB gzip, only when a page uses particles.
 - `@lottiefiles/dotlottie-react` is used only by `PayDialog`, which PR #262 removes.
-- The editor entry chunk is about 1.29 MB gzip after this PR. A performance budget is part of this spec (section 3.6).
+- `react-router` is ^7.11 in the client. Its `viewTransition` option wraps navigation in `document.startViewTransition`. Same-document View Transitions are Baseline since October 2025.
+- `BottomSheet` is a Radix Dialog with a Prism CSS slide. It has no drag to dismiss.
+- The landing hero says "Each profile doubles as your wallet and hub for staking into Reward Pools" (`apps/landingpage/src/app/page.tsx:55`). This is compliance copy, outside motion scope. Flagged in section 3.8.
 
-### Libraries considered
+### Libraries, measured
 
-| Library | What it is | License and cost | Fit |
-| --- | --- | --- | --- |
-| GSAP with ScrollTrigger and SplitText | Timeline animation engine; scroll-linked timelines; text split into lines, words and characters | Free for commercial use, plugins included. Prohibited use: tools that let users build visual animations without code and compete with Webflow | Public site scroll stories |
-| Lenis | Smooth, weighted scrolling | MIT | Public site, fine pointers only |
-| OGL | Small WebGL library | MIT | One hero shader |
-| Three.js | Full 3D engine | MIT | Only for a true 3D scene. Not needed now |
-| Rive | Vector animation with state machines and inputs | Runtimes free and open source. Editor is a paid seat | Stateful moments in the editor |
-| Motion (framer-motion) | React animation: layout, presence, gestures, springs | MIT | Editor sheets, panels, lists |
-| View Transitions API | Native cross-state transitions | Browser built in | Editor destination changes, public route changes |
-| CSS scroll-driven animations | `animation-timeline: view()` | Browser built in | Simple reveals, progressive enhancement |
+Weights are gzip, measured from the published packages on 2026-10-04.
+
+| Library | Version | Weight | License | v2 verdict |
+| --- | --- | --- | --- | --- |
+| GSAP core | 3.15.0 | 28.3 KB | Free for commercial use, plugins included. Prohibited: no-code animation builders that compete with Webflow | Public site |
+| ScrollTrigger | 3.15.0 | 18.0 KB | Same | Public site |
+| SplitText | 3.15.0 | 3.7 KB | Same | Public site |
+| Lenis | 1.3.26 | 5.4 KB | MIT | Public site, fine pointers only |
+| OGL (subset used) | 1.0.11 | 12.8 KB | MIT | One hero shader |
+| Rive canvas-lite | 2.44.0 | about 477 KB (370 KB wasm, 108 KB JS) | MIT runtime, paid editor seat | Not used. See decision 4 |
+| Motion (framer-motion) | 14.0.0 | 42.1 KB (`motion`, `AnimatePresence`); 28.5 KB with `LazyMotion` | MIT | Not used. See decision 1 |
+| View Transitions | native | 0 | Browser | Editor and public routes |
+| CSS scroll timelines | native | 0 | Browser | Simple reveals |
+| Web Animations API | native | 0 | Browser | Editor moments |
+
+Public site total: 68.2 KB gzip, loaded after LCP. CustomEase (3.7 KB) is left out. Editor total: 0 KB.
 
 ## 2. Decisions
 
-Accepted by Rob on 2026-10-04, each as recommended:
+Decisions 2 and 3 stand as approved. Decisions 1 and 4 are revised. Decisions 5 and 6 are new.
 
-1. **Placement.** The public site gets scroll storytelling (GSAP, Lenis, the OGL hero). The editor gets Motion, View Transitions and about five Rive moments. Creator pages and money flows get none of it. Reason: scroll theater sells on a landing page and slows people down in a tool. Lenis breaks nested panels, sheets and inputs.
+1. **Placement (revised).** The public site gets scroll storytelling: GSAP, Lenis and the OGL hero. The editor gets native View Transitions, Prism CSS and Web Animations. No animation library enters the editor. Creator pages and money flows get none of it. Reason: every editor moment in section 3.4 runs natively at 0 KB. Motion would add 28.5 to 42.1 KB gzip, mostly for springs and gestures Prism does not use. Lenis breaks nested panels, sheets and inputs.
 2. **GSAP scope.** GSAP powers only Amped's own pages. It never powers creator-selectable effects in Design. Reason: the no-charge license prohibits use in no-code animation builders that compete with Webflow, and the Design Motion tab is close to that line. Counsel confirms before the public site work ships.
 3. **WebGL engine.** OGL, not Three.js, for the hero shader.
-4. **Vector engine.** Rive for stateful moments. dotLottie is retired after #262.
+4. **Vector engine (revised).** SVG with Web Animations for the success moment, Follow and empty states. No Rive. Reason: the Rive runtime is 477 KB gzip, larger than all public site motion combined, for moments SVG draws at 0 KB. The prototype draws the success moment in 610 ms with no library. Revisit Rive only if Amped adopts a character or mascot with many states. dotLottie is retired after #262.
+5. **Network totals (new, for Rob).** Network totals on the pools directory stay still. No count-up. Reason: section 3.8 bans motion on token figures, and the v1 count-up broke that rule. Alternative: count up only the non-token totals (pools, stakers). Not recommended: one rule for all figures is easier to hold in review.
+6. **Phone hero (new, for Rob).** The phone hero plays a slow ambient drift. No device tilt. Reason: iOS asks for motion permission before tilt works. A permission prompt on a landing page costs trust and conversions. Alternative: tilt after a tap with the iOS prompt. Not recommended.
 
 ## 3. Detailed spec
 
 ### 3.1 Surfaces
 
-| Surface | App | Libraries | Never |
+| Surface | App | Allowed | Never |
 | --- | --- | --- | --- |
-| Landing `/`, How it works, pools directory hero | `apps/landingpage` | GSAP, ScrollTrigger, SplitText, Lenis, OGL, View Transitions | Motion on money figures |
-| Editor (all destinations) | `apps/client` | Motion, View Transitions, Rive, CSS | Lenis, GSAP, WebGL |
+| Landing `/`, How it works, pools directory hero | `apps/landingpage` | GSAP, ScrollTrigger, SplitText, Lenis, OGL, View Transitions, CSS scroll timelines | Motion on token figures |
+| Editor (all destinations) | `apps/client` | View Transitions, Prism CSS, Web Animations, SVG | Lenis, GSAP, WebGL, any animation library |
 | Creator pages `/<handle>` | `apps/landingpage` | Existing creator effects only | Any library in this spec on creator content (Prism 17) |
-| Money flows (stake, unstake, claim, send, create pool) | both | Prism CSS motion only | Rive, GSAP, WebGL, celebration in Review or Commit (Prism 15) |
+| Money flows (stake, unstake, claim, send, create pool) | both | Prism CSS motion only | GSAP, WebGL, celebration in Review or Commit (Prism 15) |
 | Auth cards, OAuth screens | `apps/landingpage` | Prism CSS motion only | Scroll effects |
+
+The pools directory hero lives at `/i/pools` until Creator Pool Explorer (#9) moves it.
 
 ### 3.2 Motion tokens
 
-Prism section 14 stays the source. This spec adds named tokens in `packages/ui` (`motion.ts`) so every library uses the same values.
+Prism section 14 stays the source. `packages/ui/src/prism/motion.ts` re-exports the values from `prismMotion` in the Tailwind preset. It never defines its own numbers.
 
 | Token | Value | Use |
 | --- | --- | --- |
 | `micro` | 89 ms | press, checkbox |
 | `hover` | 144 ms | ILLUMINATED |
-| `control` | 233 ms | toasts, chips, menus |
-| `panel` | 377 ms | sheets, side panels, rim travel |
-| `room` | 610 ms | destination change |
+| `control` | 233 ms | toasts, chips, menus, Follow label |
+| `panel` | 377 ms | sheets, side panels, rim travel, headline lines |
+| `room` | 610 ms | destination change, canvas fade |
 | `story` | scroll linked | public site only |
 | `ease` | `cubic-bezier(0.2, 0, 0, 1)` | all eased motion |
-| `spring` | stiffness 400, damping 40, no overshoot | Motion drag release only |
 
-No bounce or overshoot anywhere. GSAP uses `CustomEase` built from the same curve. Rive files use the same durations in their state machines.
+No bounce, overshoot or spring anywhere. `motion.ts` exports a 10-line cubic-bezier function, and GSAP registers it with `gsap.registerEase("prism", ...)`. CustomEase is not loaded: it would add 3.7 KB gzip and break the 70 KB budget.
 
 ### 3.3 Public site choreography
 
-1. **Hero.** OGL shader: a Prism glass refraction beam that follows the pointer on desktop and device tilt on phones (tilt only after a tap, as iOS requires permission). Static poster first; the canvas fades in over 610 ms once ready. Headline lines reveal with SplitText, 55 ms stagger, 377 ms each.
-2. **How it works.** One pinned ScrollTrigger sequence in four beats: claim a page, design it, fans follow, fans join a pool. Each beat is a Prism board scene. The pool beat shows mechanics only: stake moves into the pool contract, membership unlocks access. No amounts, no rates, no outcomes. Counsel reviews this beat.
-3. **Pools directory.** Network totals count up once on enter (tabular figures, 610 ms). Cards rise 13 px and fade on enter with CSS scroll-driven animations; ScrollTrigger is not needed here.
-4. **Lenis.** On pointer: fine devices only. Off on touch, off under reduced motion, off while any dialog or sheet is open. Anchor links and keyboard scrolling keep working.
+1. **Hero.** A CSS poster of three Prism beams paints first and is the LCP element. The OGL shader loads after first paint and fades in over 610 ms. On fine pointers the beams bend toward the pointer. On touch they drift slowly (decision 6). Headline lines reveal with SplitText: mask lines, 377 ms each, 55 ms stagger, then revert to plain text.
+2. **Hero guards.** Device pixel ratio capped at 1.5. Paused when off screen or the tab is hidden. Poster only under reduced motion, Save-Data, fewer than 4 cores, or under 4 GB memory. A frame watchdog measures the first 45 visible frames. If the median frame is over 28 ms, the canvas is removed and the poster stays.
+3. **How it works.** One pinned ScrollTrigger sequence in four beats: claim a page, design it, fans follow, members join a pool. Pin on wide screens only (1024 and up), scrub 0.6, about 2,400 px of scroll. The pool beat shows mechanics only: wallet to pool contract to members-only link. No amounts, rates or outcomes. Counsel reviews this beat.
+4. **Pools directory.** Network totals are static (decision 5). Cards rise 13 px and fade on enter with `animation-timeline: view()`. No script.
+5. **Lenis.** Fine pointers only. Off on touch, off under reduced motion, stopped while any dialog or sheet is open. Anchor links and keyboard scrolling keep working.
 
 ### 3.4 Editor choreography
 
-| Moment | Engine | Behaviour |
+| Moment | Engine | Behavior |
 | --- | --- | --- |
-| Destination change (rail, dock) | View Transitions | 610 ms room crossfade; the top bar title morphs. Instant under reduced motion |
-| Bottom sheet, side panel | Motion | 377 ms slide with drag to dismiss on phones |
-| Block list reorder, add, delete | Motion layout | 233 ms; Undo restores with the reverse animation |
-| Toast | Motion presence | 233 ms in, 144 ms out |
-| Follow and Following (creator frame) | Rive | Follow to Following state, pending dot pulse once |
-| Setup checklist complete (Home) | Rive | Prism success moment: rim travels full circle once, check draws in |
-| Pool created (result step) | Rive | Same success moment. Shown on the result only, never on Review |
-| Empty states (People, Following, Analytics) | Rive | Idle loop, paused off screen and under reduced motion |
-| First-follow sheet | Motion | Rows stagger 55 ms |
+| Destination change (rail, dock) | View Transitions through react-router `viewTransition` | 610 ms room crossfade. The top bar title morphs (`view-transition-name: panel-title`). Instant under reduced motion |
+| Bottom sheet | Radix Dialog plus a small pointer hook in `@repo/ui` | 377 ms slide. Drag down to dismiss past 30% of its height or above 0.6 px per ms. Escape and the scrim close it. Focus returns to the trigger |
+| Side panel | Prism CSS | 377 ms slide |
+| Block list add, delete | View Transitions on the list | 233 ms. Undo plays the reverse. Reorder keeps dnd-kit's own animation |
+| Toast | Prism CSS | 233 ms in, 144 ms out |
+| Follow and Following (creator frame) | CSS plus Web Animations | Label crossfade 233 ms. A pending follow pulses its dot once |
+| Setup checklist complete (Home) | SVG plus Web Animations | Prism success moment: the rim draws a full circle in 377 ms, then the check draws in 233 ms. Plays once |
+| Pool created (result step) | Same success moment | Shown on the result step only, never on Review |
+| Empty states (People, Following, Analytics) | SVG plus CSS | One slow idle loop, paused off screen and under reduced motion |
+| First-follow sheet | Prism CSS | Rows stagger 55 ms |
 
-Rive files live in `packages/ui/assets/rive/`, one per moment, each under 40 KB, loaded with the lightweight canvas runtime only when the moment renders.
+The success moment and its states live in `packages/ui/src/prism/moments/`. Each moment is an SVG component under 4 KB.
 
 ### 3.5 Phones and desktop
 
 - Every sequence has a 390 design and a 1440 design. GSAP uses `gsap.matchMedia()` with breakpoints at 640 and 1024.
-- Pinned sections on phones are shorter (two screens maximum) and never trap the scroll.
-- WebGL device pixel ratio capped at 1.5. Paused when off screen or the tab is hidden. Static poster when `prefers-reduced-motion`, `Save-Data`, or a low-power device (fewer than 4 cores or under 4 GB memory) is detected.
+- How it works stacks on phones. No pin under 1024.
 - Touch targets and focus order never depend on animation state.
 
 ### 3.6 Performance budget
@@ -103,52 +118,59 @@ Rive files live in `packages/ui/assets/rive/`, one per moment, each under 40 KB,
 | LCP | under 2.5 s on a mid-range phone (Moto G Power class, 4G) | landing, pools, creator pages |
 | INP | under 200 ms | everywhere |
 | CLS | under 0.1 | everywhere |
-| Animation JS on first load | public site under 60 KB gzip before the hero canvas; editor adds none to the entry chunk | both apps |
-| Frame rate | 60 fps target, no long tasks over 50 ms during scroll | public site |
+| Animation JS | public site 70 KB gzip or less, loaded after LCP. Editor adds 0 KB | both apps |
+| Frame rate | no long task over 50 ms during scroll | public site |
 
-Every library in this spec loads by dynamic import on the route or moment that uses it. Lighthouse CI runs on the landing page, a creator page and the editor Home in the pipeline (Build Board ws-ci-pipeline).
+Every library loads by dynamic import on the route that uses it. Lighthouse CI runs on the landing page, a creator page and the editor Home. It is blocked until GitHub Actions billing is restored (Build Board ws-ci-pipeline). Until then the budget is checked by hand on each PR with a Lighthouse mobile run.
 
 ### 3.7 Accessibility
 
-- `prefers-reduced-motion`: no scroll pinning, no Lenis, no WebGL motion (poster only), Rive shows its end state, View Transitions are instant.
+- `prefers-reduced-motion`: no pin, no Lenis, no WebGL (poster only), moments show their end state, View Transitions are instant.
 - A Pause motion control on the landing page, like the one on creator pages (041 I02).
-- No content is reachable only by scrolling an animation. Every beat in a pinned sequence is also plain text in the DOM, in order.
-- SplitText keeps the original text available to screen readers (`aria-label` on the parent, split nodes `aria-hidden`).
+- No content is reachable only by scrolling an animation. Every beat in the pinned sequence is plain text in the DOM, in order.
+- SplitText uses `aria: "auto"` and reverts to the original text after the reveal.
 
 ### 3.8 Compliance
 
 - GSAP stays out of the creator Design Motion tab and any creator-selectable effect (decision 2). Counsel confirms the scope before public site work ships.
 - Trust rule: no spectacle in Review or Commit. Success moments play on result steps only.
-- The How it works pool beat describes mechanics only. It shows no amounts, rates, returns or growth. Banned words from the gating, broadcast and explorer lists apply to all animated copy. The build copy check scans the new components.
-- No count-up or motion on token amounts, balances or rewards anywhere.
+- The How it works pool beat describes mechanics only. No amounts, rates, returns or growth. Banned words from the gating, broadcast and explorer lists apply to all animated copy.
+- No count-up or motion on token amounts, balances, totals or rewards anywhere (decision 5).
+- The current landing hero copy "hub for staking into Reward Pools" goes to counsel with the How it works beat. Motion work does not ship around it.
 
 ### 3.9 Phases
 
 | Phase | Scope | Gate |
 | --- | --- | --- |
 | 0, quick wins (this PR) | Particles load on first use, not at editor start | None |
-| 1, editor foundation | `motion.ts` tokens, Motion for sheets, panels, list and toasts, View Transitions on destination change. Remove `tsparticles-slim`, rename `framer-motion` to `motion` | Prism rollout batches for those screens merged |
-| 2, public site | Landing hero (OGL), How it works sequence (GSAP), pools directory reveals, Lenis, Pause motion | Counsel on GSAP scope and the pool beat. Prism boards with motion notes approved |
-| 3, Rive moments | Five Rive files and the success moment | Rive editor seat. Boards approved |
+| 1, editor foundation | `motion.ts` from the preset. View Transitions on destination change. Sheet drag hook. Success moment SVG. Remove `framer-motion` and `tsparticles-slim` | Prism rollout batches for those screens merged |
+| 2, public site | Hero (OGL with poster and watchdog), How it works (GSAP), pools reveals (CSS), Lenis, Pause motion | Counsel on GSAP scope, the pool beat and the hero copy. Boards approved |
+| 3, editor moments | Follow, empty states, pool created result | Boards approved |
 
 ### 3.10 Acceptance criteria
 
-1. No library in this spec appears in the editor entry chunk. Each loads on the route or moment that uses it.
+1. No animation library appears in the editor bundle. `framer-motion`, `motion`, `@rive-app/*` and `gsap` are absent from `apps/client/package.json`.
 2. Under `prefers-reduced-motion`, no element moves on the landing page, in the editor or on creator pages, and every state change is instant.
 3. On a touch device, Lenis is not active and native scrolling and momentum work.
-4. The OGL hero shows a static poster first, and the poster is the LCP element.
-5. Landing LCP under 2.5 s and INP under 200 ms on the Lighthouse CI mobile profile.
-6. No GSAP import exists under `apps/client/src/components/panels/design` or any creator effect renderer.
-7. No Rive, GSAP or WebGL code runs in any Review or Commit step of a money flow.
-8. Every motion duration in code comes from `motion.ts`.
-9. The pinned How it works sequence is fully readable as plain text with JavaScript disabled.
-10. Typecheck and build pass for `client`, `landingpage` and `@repo/ui`.
+4. The hero poster paints first and is the LCP element. With a median first-frame time over 28 ms, the canvas is removed.
+5. Landing LCP under 2.5 s and INP under 200 ms on a Lighthouse mobile run.
+6. No GSAP import exists under `apps/client` or any creator effect renderer.
+7. No GSAP or WebGL code runs in any Review or Commit step of a money flow.
+8. Every motion duration in code comes from `motion.ts` or the preset classes.
+9. The How it works sequence reads fully as plain text with JavaScript disabled.
+10. The body never scrolls sideways at 390.
+11. A bottom sheet closes by drag, Escape or scrim, and focus returns to its trigger.
+12. No network total, balance or token amount animates.
+13. Typecheck and build pass for `client`, `landingpage` and `@repo/ui`.
 
 ## Sources
 
 - GSAP standard license: https://gsap.com/community/standard-license/
 - Rive pricing: https://rive.app/blog/new-pricing
+- Lenis: https://github.com/darkroomengineering/lenis
+- React Router view transitions: https://reactrouter.com/how-to/view-transitions
 
 ## Revision log
 
-- 2026-10-04: First spec. Decisions accepted. Quick win shipped in the same PR.
+- 2026-10-04: v1. Decisions accepted. Quick win shipped in the same PR.
+- 2026-10-04: v2 after the deep dive and prototype. Decision 1 drops Motion. Decision 4 drops Rive for SVG. New decisions 5 (no count-up) and 6 (ambient phone hero). Adds the frame watchdog, sheet drag, a 70 KB public budget, the CI blocker and the hero copy flag. Acceptance criteria 10 to 12 added.
