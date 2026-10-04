@@ -31,7 +31,7 @@ import {
 import { ReconnectCard } from "./ReconnectCard";
 import { RecipientAvatar, RecipientPicker } from "./RecipientPicker";
 import { ScanQr, useHasCamera } from "./ScanQr";
-import { recipientLine, recipientTitle, shortAddress, type Recipient } from "./model";
+import { recipientLine, recipientTitle, sameAddress, shortAddress, type Recipient } from "./model";
 import { useRecentRecipients } from "./useRecentRecipients";
 
 type Step = "select" | "scan" | "review" | "confirm" | "result" | "failed";
@@ -141,11 +141,16 @@ export default function SendFlow() {
         wallet.updateBalanceDelayed();
         void queryClient.invalidateQueries({ queryKey: ["send", "recent-recipients"] });
       } else {
-        setCause("The network did not accept the send. Nothing moved.");
+        setCause(
+          "The send did not go through. The amount did not move. The network fee may still be charged."
+        );
         setStep("failed");
       }
     } else if (receipt.isError) {
-      setCause("The network did not accept the send. Nothing moved.");
+      // The wallet already broadcast the tx — keep polling, don't offer Retry
+      setCause(
+        "The send could not be confirmed yet. Check your wallet or the explorer for the transaction."
+      );
       setStep("failed");
     }
   }, [step, send.data, receipt.isSuccess, receipt.isError, receipt.data, wallet, queryClient]);
@@ -246,12 +251,16 @@ export default function SendFlow() {
             })
             .then(member => {
               if (member) {
-                setRecipient({
-                  address,
-                  name: member.name,
-                  handle: member.handle,
-                  avatar: member.image,
-                });
+                setRecipient(current =>
+                  sameAddress(current?.address, address)
+                    ? {
+                        address,
+                        name: member.name,
+                        handle: member.handle,
+                        avatar: member.image,
+                      }
+                    : current
+                );
               }
             })
             .catch(() => undefined);
@@ -435,12 +444,27 @@ export default function SendFlow() {
           <ErrorCard
             title="Send did not go through"
             cause={cause}
-            onRetry={() => {
-              send.reset();
-              setStep("review");
-            }}
-            retryLabel="Retry"
+            onRetry={
+              // Receipt errors: tx already broadcast, keep polling, don't offer Retry
+              receipt.isError && send.data
+                ? undefined
+                : () => {
+                    send.reset();
+                    setStep("review");
+                  }
+            }
+            retryLabel={receipt.isError && send.data ? undefined : "Retry"}
           />
+        )}
+        {/* Show explorer link for receipt errors — the tx was broadcast */}
+        {step === "failed" && receipt.isError && send.data && explorer && (
+          <Button asChild variant="ghost" className="-ml-3">
+            <a href={`${explorer}/tx/${send.data}`} target="_blank" rel="noopener noreferrer">
+              View transaction
+              <ExternalLink aria-hidden />
+              <span className="sr-only">(opens in a new tab)</span>
+            </a>
+          </Button>
         )}
         <Slab>
           {step === "confirm" ? (

@@ -11,6 +11,8 @@ type ExplorerTransaction = {
   to: string | null;
   value: string;
   receivedAt: string;
+  input?: string;
+  method?: string | null;
 };
 
 export type RecentRecipient = Recipient & { lastAmount: string; lastSentAt: string };
@@ -46,6 +48,8 @@ export function useRecentRecipients(
       for (const item of data.items ?? []) {
         if (!item.to || item.from.toLowerCase() !== address!.toLowerCase()) continue;
         if (BigInt(item.value || "0") === 0n) continue;
+        // Skip contract calls — only keep plain transfers (no input data)
+        if (item.input && item.input !== "0x") continue;
         const key = item.to.toLowerCase();
         if (seen.has(key)) continue;
         seen.add(key);

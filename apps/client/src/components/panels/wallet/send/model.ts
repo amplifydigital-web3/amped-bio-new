@@ -37,13 +37,34 @@ export function sameAddress(a?: string | null, b?: string | null) {
 
 /**
  * 063 I03: a scan is a bare 0x address or an ethereum: payment link. The
- * scheme, any @chainId and any query are stripped.
+ * scheme, any @chainId and any query are stripped. For EIP-681 token links
+ * (ethereum:<token>@<chain>/transfer?address=<recipient>), extracts the
+ * `address=` parameter instead of the token contract.
  */
 export function parseScannedAddress(raw: string): Address | null {
   let value = raw.trim();
   if (/^ethereum:/i.test(value)) value = value.slice("ethereum:".length);
   if (/^pay-/i.test(value)) value = value.slice(4);
-  value = value.split(/[@?/]/)[0];
+  // EIP-681: a path means a token transfer — extract the recipient from query
+  const pathIndex = value.search(/[/?#]/);
+  if (pathIndex !== -1) {
+    const before = value.slice(0, pathIndex);
+    const after = value.slice(pathIndex);
+    // Split on @ for chainId: ethereum:<token>@<chainId>/transfer?address=...
+    const tokenAddr = before.split("@")[0];
+    // If the path contains /transfer, look for address= in the query
+    if (/\/transfer/i.test(after)) {
+      const qIndex = after.indexOf("?");
+      if (qIndex !== -1) {
+        const params = new URLSearchParams(after.slice(qIndex));
+        const recipient = params.get("address");
+        if (recipient && isAddress(recipient, { strict: false }))
+          return recipient as Address;
+      }
+    }
+    // Not a recognized function path — return the base address (bare ETH send)
+    value = tokenAddr;
+  }
   return isAddress(value, { strict: false }) ? (value as Address) : null;
 }
 
