@@ -21,3 +21,4 @@ export * from "./analytics";
 export * from "./amount";
 export * from "./block-validity";
 export * from "./html";
+export * from "./broadcast";
