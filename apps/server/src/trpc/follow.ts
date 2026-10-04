@@ -75,9 +75,41 @@ async function poolFanIds(creatorId: number, userIds?: number[]): Promise<Set<nu
   return new Set(stakes.map(stake => stake.userWallet.userId));
 }
 
-/** True when `userId` stakes in any pool of `creatorId`. */
-async function isPoolFan(creatorId: number, userId: number) {
-  return (await poolFanIds(creatorId, [userId])).has(userId);
+/**
+ * Batch check: which of `creatorIds` has the viewer as a pool fan (stake > 0
+ * in any of that creator's pools). Returns a Set of creator IDs.
+ */
+async function batchPoolFanCreatorIds(
+  creatorIds: number[],
+  viewerId: number
+): Promise<Set<number>> {
+  const wallets = await prisma.userWallet.findMany({
+    where: { userId: { in: creatorIds } },
+    select: { userId: true, creatorPools: { select: { id: true } } },
+  });
+  const poolToCreator = new Map<number, number>();
+  const allPoolIds: number[] = [];
+  for (const wallet of wallets) {
+    for (const pool of wallet.creatorPools) {
+      allPoolIds.push(pool.id);
+      poolToCreator.set(pool.id, wallet.userId);
+    }
+  }
+  if (allPoolIds.length === 0) return new Set();
+  const stakes = await prisma.stakedPool.findMany({
+    where: {
+      poolId: { in: allPoolIds },
+      NOT: { stakeAmount: "0" },
+      userWallet: { userId: viewerId },
+    },
+    select: { poolId: true },
+  });
+  const fanCreators = new Set<number>();
+  for (const stake of stakes) {
+    const creatorId = poolToCreator.get(stake.poolId);
+    if (creatorId !== undefined) fanCreators.add(creatorId);
+  }
+  return fanCreators;
 }
 
 const followerFilterSchema = z.enum(["all", "new", "poolFans", "public"]).default("all");
@@ -290,6 +322,8 @@ export const followRouter = router({
         },
       });
       const page = rows.slice(0, PAGE_SIZE);
+      const creatorIds = page.map(row => row.creator.id);
+      const fanCreatorIds = await batchPoolFanCreatorIds(creatorIds, viewerId);
       const items = await Promise.all(
         page.map(async row => ({
           creatorId: row.creator.id,
@@ -302,7 +336,7 @@ export const followRouter = router({
           followedAt: row.created_at,
           showPublicly: row.show_publicly,
           emailUpdates: row.email_updates,
-          poolFan: await isPoolFan(row.creator.id, viewerId),
+          poolFan: fanCreatorIds.has(row.creator.id),
         }))
       );
       return { items, nextCursor: rows.length > PAGE_SIZE ? page[page.length - 1].id : null };
@@ -459,11 +493,12 @@ export const followRouter = router({
       });
       if (!row)
         throw new TRPCError({ code: "NOT_FOUND", message: "This account doesn't follow you." });
-      await prisma.$transaction([
+      const [_, removal] = await prisma.$transaction([
         prisma.follow.delete({ where: { id: row.id } }),
         prisma.followRemoval.create({ data: { creator_id: creatorId, reason: "removed" } }),
       ]);
       const token = encodeRestoreToken({
+        r: removal.id,
         f: row.follower_id,
         c: row.creator_id,
         p: row.show_publicly,
@@ -505,12 +540,7 @@ export const followRouter = router({
         },
       });
       // The removal is undone, so it no longer counts as a departure
-      const latest = await prisma.followRemoval.findFirst({
-        where: { creator_id: row.c, reason: "removed" },
-        orderBy: { id: "desc" },
-        select: { id: true },
-      });
-      if (latest) await prisma.followRemoval.delete({ where: { id: latest.id } });
+      if (row.r) await prisma.followRemoval.delete({ where: { id: row.r } });
       return { ok: true };
     }),
 

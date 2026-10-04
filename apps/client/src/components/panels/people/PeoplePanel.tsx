@@ -171,11 +171,15 @@ export function PeoplePanel() {
   const blocked = useQuery(trpc.follow.listBlocked.queryOptions());
 
   // A new query starts from the first page
-  useEffect(() => setCursor(0), [q, filter]);
   useEffect(() => {
-    if (!list.data) return;
+    if (!q && filter === "all") return;
+    setCursor(0);
+    setRows([]);
+  }, [q, filter]);
+  useEffect(() => {
+    if (!list.data || list.isPlaceholderData) return;
     setRows(previous => (cursor === 0 ? list.data.items : [...previous, ...list.data.items]));
-  }, [list.data, cursor]);
+  }, [list.data, list.isPlaceholderData, cursor]);
 
   const invalidate = async () => {
     setCursor(0);
@@ -211,6 +215,7 @@ export function PeoplePanel() {
         },
       });
       void queryClient.invalidateQueries({ queryKey: trpc.follow.stats.queryKey() });
+      void queryClient.invalidateQueries({ queryKey: trpc.follow.listFollowers.queryKey() });
     } catch {
       toast.add({ type: "error", title: "That didn't work. Try again." });
     }

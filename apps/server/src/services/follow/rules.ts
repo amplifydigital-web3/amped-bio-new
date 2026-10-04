@@ -36,6 +36,7 @@ export function publicCount(count: number, show: boolean) {
 // ===== Restore token for Undo after Remove follower =====
 
 export type RemovedFollow = {
+  r: number; // follow_removal.id
   f: number; // follower_id
   c: number; // creator_id
   p: boolean; // show_publicly

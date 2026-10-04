@@ -120,7 +120,10 @@ export default function FollowingTab({ onExploreCreators }: { onExploreCreators?
                 showPublicly: item.showPublicly,
                 emailUpdates: item.emailUpdates,
               })
-              .then(refresh);
+              .then(refresh)
+              .catch(() =>
+                toast.add({ type: "error", title: "Could not undo. Try again." })
+              );
           },
         },
       });

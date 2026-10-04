@@ -118,12 +118,14 @@ export function FirstFollowSheet({
   open,
   onOpenChange,
   creatorName,
+  showCount,
   busy,
   onConfirm,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   creatorName: string;
+  showCount: boolean;
   busy: boolean;
   onConfirm: (choice: { showPublicly: boolean; emailUpdates: boolean }) => void;
 }) {
@@ -132,7 +134,13 @@ export function FirstFollowSheet({
   const rows = [
     { icon: Eye, label: `${creatorName} sees`, value: "Your name, @handle and photo" },
     { icon: EyeOff, label: "Stays private", value: "Your email" },
-    { icon: UsersRound, label: "Everyone sees", value: "The follower count" },
+    {
+      icon: UsersRound,
+      label: "Everyone sees",
+      value: showCount
+        ? "The follower count"
+        : "Only the creator sees it",
+    },
   ];
   return (
     <BottomSheet open={open} onOpenChange={onOpenChange}>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { z } from "zod";
 import { trpcClient } from "@/lib/trpc";
 
 export type FollowStatus = Awaited<ReturnType<typeof trpcClient.follow.status.query>>;
@@ -14,11 +15,14 @@ export type FollowToast = {
 
 const TOAST_MS = 5_000;
 
+const campaignIdSchema = z.string().regex(/^[0-9a-f]{32}$/);
+
 /** The campaign of this visit, when the link carried one (Analytics campaign links set utm_id). */
 function campaignFromUrl(): string | undefined {
   try {
-    const id = new URLSearchParams(window.location.search).get("utm_id");
-    return id && /^[0-9a-f]{32}$/.test(id) ? id : undefined;
+    const raw = new URLSearchParams(window.location.search).get("utm_id");
+    if (!raw) return undefined;
+    return campaignIdSchema.parse(raw);
   } catch {
     return undefined;
   }
@@ -45,6 +49,7 @@ export function useFollow(handle: string, signedIn: boolean, authPending: boolea
   const [toast, setToast] = useState<FollowToast | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoFollowDone = useRef(false);
+  const FOLLOW_INTENT_KEY = "amped_follow_intent";
 
   const showToast = useCallback((next: Omit<FollowToast, "id">) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -82,7 +87,11 @@ export function useFollow(handle: string, signedIn: boolean, authPending: boolea
         setSheetOpen(false);
         await refresh();
         if (result.pending) {
-          showToast({ type: "info", text: "Confirm your email to finish following." });
+          showToast({
+            type: "info",
+            text: "Confirm your email to finish following.",
+            undo: () => void unfollowRef.current?.(true),
+          });
         } else {
           const name = status?.creatorName ?? "this creator";
           showToast({
@@ -102,6 +111,9 @@ export function useFollow(handle: string, signedIn: boolean, authPending: boolea
 
   const unfollow = useCallback(
     async (silent = false) => {
+      // Capture current preferences before unfollowing so Undo can restore them
+      const prevShowPublicly = status?.viewer?.showPublicly;
+      const prevEmailUpdates = status?.viewer?.emailUpdates;
       setBusy(true);
       try {
         await trpcClient.follow.unfollow.mutate({ handle });
@@ -110,7 +122,8 @@ export function useFollow(handle: string, signedIn: boolean, authPending: boolea
           showToast({
             type: "success",
             text: `You unfollowed ${status?.creatorName ?? "this creator"}.`,
-            undo: () => void follow(),
+            undo: () =>
+              void follow({ showPublicly: prevShowPublicly, emailUpdates: prevEmailUpdates }),
           });
         } else {
           dismissToast();
@@ -141,6 +154,11 @@ export function useFollow(handle: string, signedIn: boolean, authPending: boolea
   /** Follow tapped: sign up, the one-time sheet, or a one tap follow. */
   const startFollow = useCallback(() => {
     if (!signedIn) {
+      // Record intent before navigating away so auto-follow only fires when
+      // the flow originated from the Follow control
+      try {
+        sessionStorage.setItem(FOLLOW_INTENT_KEY, handle);
+      } catch { /* noop */ }
       window.location.href = `/register?intent=follow&creator=${encodeURIComponent(handle)}`;
       return;
     }
@@ -151,13 +169,21 @@ export function useFollow(handle: string, signedIn: boolean, authPending: boolea
     void follow();
   }, [signedIn, handle, status, follow]);
 
-  // Back from sign up or sign in with ?follow=1: finish the follow once
+  // Back from sign up or sign in with ?follow=1: finish the follow once,
+  // but only when a follow intent was recorded before navigating away
   useEffect(() => {
     if (autoFollowDone.current || !status?.viewer || !signedIn) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get("follow") !== "1") return;
+    let recordedHandle: string | null = null;
+    try {
+      recordedHandle = sessionStorage.getItem(FOLLOW_INTENT_KEY);
+    } catch { /* noop */ }
+    if (recordedHandle !== handle) return;
     autoFollowDone.current = true;
-    params.delete("follow");
+    try {
+      sessionStorage.removeItem(FOLLOW_INTENT_KEY);
+    } catch { /* noop */ }
     const query = params.toString();
     window.history.replaceState(
       null,

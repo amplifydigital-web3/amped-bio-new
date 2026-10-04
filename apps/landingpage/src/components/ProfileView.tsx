@@ -643,6 +643,7 @@ export function ProfileView({
             open={followState.sheetOpen}
             onOpenChange={followState.setSheetOpen}
             creatorName={followState.status?.creatorName ?? profile.name}
+            showCount={followState.status?.showCount ?? true}
             busy={followState.busy}
             onConfirm={choice => void followState.follow({ ...choice, fromDisclosure: true })}
           />
