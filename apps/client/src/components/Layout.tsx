@@ -8,7 +8,7 @@ import { RNSPanel } from "./panels/rns/RNSPanel";
 import { HomePanel } from "./panels/home/HomePanel";
 import { MyWalletPanel } from "./panels/wallet/MyWalletPanel";
 import RewardPanel from "./panels/reward/RewardPanel.tsx";
-import PayPanel from "./panels/pay/PayPanel.tsx";
+import PayRedirect from "./panels/wallet/send/PayRedirect";
 import ExplorePage from "./panels/explore/ExplorePanel.tsx";
 import { AnalyticsPanel } from "./panels/analytics/AnalyticsPanel";
 import { PagePanel } from "./panels/page/PagePanel";
@@ -53,7 +53,8 @@ function ActivePanel({ panel }: { panel: EditorPanelType }) {
     case "wallet":
       return <MyWalletPanel />;
     case "pay":
-      return <PayPanel />;
+      // 062 I01: Pay is the Send flow inside Wallet (D05, D12)
+      return <PayRedirect />;
     case "my-pool":
       return <CreatorPoolPanel />;
     case "account":
