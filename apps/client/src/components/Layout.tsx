@@ -2,7 +2,9 @@ import { Banner, type BannerPanel } from "./Banner";
 import { InlinePreview, PreviewFrame, PreviewSwitch } from "./preview/PreviewFrame";
 import { useSearchParams } from "react-router";
 import { useEditor } from "../contexts/EditorContext";
-import { CreatorPoolPanel } from "./panels/createrewardpool/CreatorPoolPanel.tsx";
+import { MyPoolDestination } from "./panels/broadcast/MyPoolDestination";
+import { InboxPanel } from "./panels/broadcast/InboxPanel";
+import { BROADCAST_ON } from "./panels/broadcast/utils";
 import { LeaderboardPanel } from "./panels/leaderboard/LeaderboardPanel";
 import { RNSPanel } from "./panels/rns/RNSPanel";
 import { HomePanel } from "./panels/home/HomePanel";
@@ -36,7 +38,7 @@ interface LayoutProps {
 const PREVIEW_PANELS: EditorPanelType[] = ["page", "design"];
 
 // Destinations whose screens are restyled sit directly on the room (PR 3a Design, 3b Page)
-const RESTYLED_PANELS: EditorPanelType[] = ["design", "page"];
+const RESTYLED_PANELS: EditorPanelType[] = ["design", "page", "inbox"];
 
 function ActivePanel({ panel }: { panel: EditorPanelType }) {
   switch (panel) {
@@ -55,7 +57,9 @@ function ActivePanel({ panel }: { panel: EditorPanelType }) {
     case "pay":
       return <PayPanel />;
     case "my-pool":
-      return <CreatorPoolPanel />;
+      return <MyPoolDestination />;
+    case "inbox":
+      return BROADCAST_ON ? <InboxPanel /> : null;
     case "account":
       return <AccountPanel />;
     case "rns":
