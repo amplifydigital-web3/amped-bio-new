@@ -1,6 +1,6 @@
 import { prisma, withNumericIdCoercion } from "@repo/database";
 import { env } from "../env";
-import { processEmailToUniqueHandle } from "./onelink-generator";
+import { generateFanHandle, processEmailToUniqueHandle } from "./onelink-generator";
 import { sendEmailVerification, sendPasswordResetEmail, sendWelcomeEmail } from "./email/email";
 import { hashPassword, verifyPassword } from "./password";
 import { APIError, betterAuth } from "better-auth";
@@ -17,6 +17,7 @@ import crypto from "crypto";
 import { JWTPayload, SignJWT } from "jose";
 import type { EnrichedUser } from "../types/auth-helpers";
 import { uuidv7 } from "./uuid-v7";
+import { createOnboardingRecord } from "./onboarding";
 
 /**
  * Google sign up from the register card sends the claimed handle and the
@@ -24,14 +25,25 @@ import { uuidv7 } from "./uuid-v7";
  * (Screen Review 010 I03). The state is client input, so the handle is
  * validated and checked for availability again; anything else is ignored.
  */
-async function readSocialSignUpState(): Promise<{ handle?: string; referrerId?: number }> {
+async function readSocialSignUpState(
+ options: { checkAvailable?: boolean } = {}
+): Promise<{ handle?: string; referrerId?: number; fanSignUp?: boolean }> {
+ const { checkAvailable = true } = options;
   try {
-    const state = await getOAuthState<{ handle?: unknown; referrerId?: unknown }>();
+    const state = await getOAuthState<{
+      handle?: unknown;
+      referrerId?: unknown;
+      intent?: unknown;
+    }>();
     if (!state) return {};
-    const result: { handle?: string; referrerId?: number } = {};
+    const result: { handle?: string; referrerId?: number; fanSignUp?: boolean } = {};
+    if (state.intent === "follow") result.fanSignUp = true;
     const handle = typeof state.handle === "string" ? state.handle.trim().toLowerCase() : "";
     if (handle.length >= HANDLE_MIN_LENGTH && HANDLE_REGEX.test(handle)) {
-      const taken = await prisma.user.findFirst({ where: { handle }, select: { id: true } });
+      // After the account exists the handle is its own, so the after hook skips this
+      const taken = checkAvailable
+        ? await prisma.user.findFirst({ where: { handle }, select: { id: true } })
+        : null;
       if (!taken) result.handle = handle;
     }
     const referrerId = Number(state.referrerId);
@@ -339,6 +351,15 @@ export const auth = betterAuth({
     user: {
       create: {
         before: async (user: any, context: any) => {
+          // Fan Graph (#22): sign up from Follow makes a fan account. Its handle
+          // comes from the name, never the email, and it publishes no page.
+          const fanSignUp =
+            context?.query?.intent === "follow" ||
+            (context?.provider === "google" && (await readSocialSignUpState()).fanSignUp === true);
+          if (fanSignUp) {
+            user.handle = await generateFanHandle(user.name || context?.profile?.name);
+            user.page_status = "UNPUBLISHED";
+          }
           if ((!user.handle || user.handle === "") && context?.provider === "google") {
             const { handle } = await readSocialSignUpState();
             if (handle) user.handle = handle;
@@ -353,11 +374,19 @@ export const auth = betterAuth({
         },
         after: async (user: any, context: any) => {
           // Email sign up passes ?referrerId; Google carries it in the OAuth state
-          const referrerId =
-            context?.query?.referrerId ??
-            (context?.provider === "google"
-              ? (await readSocialSignUpState()).referrerId
-              : undefined);
+          const socialState =
+            context?.provider === "google"
+              ? await readSocialSignUpState({ checkAvailable: false })
+              : undefined;
+          const referrerId = context?.query?.referrerId ?? socialState?.referrerId;
+
+          // Home setup checklist (Screen Review 015 I02): a handle generated
+          // from a Google email starts on Choose your URL
+          await createOnboardingRecord(
+            parseInt(user.id),
+            context?.provider !== "google" ||
+              (!!socialState?.handle && socialState.handle === user.handle)
+          );
           if (referrerId) {
             try {
               // Create referral record
@@ -454,6 +483,13 @@ export const auth = betterAuth({
         type: "boolean",
         required: false,
         defaultValue: false,
+        input: false,
+      },
+      // Fan Graph (#22): set by the create hook for accounts made from Follow
+      page_status: {
+        type: "string",
+        required: false,
+        defaultValue: "PUBLISHED",
         input: false,
       },
     },

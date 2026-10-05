@@ -201,7 +201,9 @@ const appRouter = router({
         include: { wallet: true },
       });
 
-      if (user === null) {
+      // Fan Graph (#22): an account made from Follow has no public page until
+      // its owner publishes one, so its handle reads as not found.
+      if (user === null || user.page_status !== "PUBLISHED") {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: `Handle not found: ${handle}`,

@@ -37,6 +37,13 @@ import {
 import { TrackingConsentBanner, type ConsentChoice } from "@/components/TrackingConsentBanner";
 import { getContainerStyle, getHeroEffectStyle, isHTML, LOOPING_HERO_EFFECTS } from "@/lib/styles";
 import { CREATOR_FOCUS, CreatorButton } from "@/components/blocks/frame";
+import { useFollow } from "@/components/follow/useFollow";
+import {
+  FirstFollowSheet,
+  FollowButton,
+  FollowerCount,
+  FollowToastView,
+} from "@/components/follow/FollowControls";
 import { isRenderable, sanitizeRichHtml, type BlockType } from "@repo/constants";
 import {
   DEFAULT_HANDLE,
@@ -171,6 +178,10 @@ export function ProfileView({
 
   const effectiveHandle = rawHandle || DEFAULT_HANDLE;
   const normalizedHandle = normalizeHandle(effectiveHandle);
+  // Fan Graph (#22): Follow lives in the frame capsule (decision 2)
+  const followEnabled =
+    process.env.NEXT_PUBLIC_FAN_GRAPH === "true" && normalizedHandle !== DEFAULT_HANDLE;
+  const followState = useFollow(normalizedHandle, !!authUser, authPending || !followEnabled);
   const showRns = process.env.NEXT_PUBLIC_SHOW_RNS === "true";
 
   const handleCopy = () => {
@@ -332,7 +343,8 @@ export function ProfileView({
   // 039 I03: one neutral frame capsule; nothing renders when it would be empty
   const isOwner = isOwnerView || (!!authUser && authUser.handle === normalizedHandle);
   const showViewPool = hasCreatorPool && !!creatorPoolAddress && !hasPoolBlock;
-  const showCapsule = showViewPool || isOwner;
+  const showFollow = followEnabled && !isOwner && !!followState.status;
+  const showCapsule = showViewPool || isOwner || showFollow;
   const showPrivacyChoices = trackableProfileId !== null && consent !== null;
   const cardShowing = bannerMode !== "hidden" && trackableProfileId !== null;
 
@@ -580,29 +592,61 @@ export function ProfileView({
         className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex flex-col items-center gap-[13px] px-[13px]"
         style={{ paddingBottom: "calc(21px + env(safe-area-inset-bottom, 0px))" }}
       >
+        <FollowToastView toast={followState.toast} onDismiss={followState.dismissToast} />
         {showCapsule && (
           <nav
             aria-label="Page actions"
             className={cn(
               "prism-glass-clear prism-font pointer-events-auto flex items-center gap-[5px] !rounded-full p-[5px]",
+              // 390 (fg2, fg9): the count sits above the buttons
+              showFollow &&
+                "w-full max-w-[508px] flex-col !rounded-prism-34 p-2 sm:w-auto sm:flex-row sm:!rounded-full sm:p-[5px] sm:pl-[13px]",
               "transition-[transform,opacity] duration-[233ms] ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none",
               scrollingDown && !cardShowing && "pointer-events-none translate-y-[89px] opacity-0"
             )}
           >
-            {showViewPool && (
-              <Button asChild variant="secondary">
-                <a href={`/i/pools/${creatorPoolAddress}`}>View pool</a>
-              </Button>
-            )}
-            {isOwner && (
-              <Button asChild variant="secondary">
-                <a href={`${process.env.NEXT_PUBLIC_PANEL_URL || ""}/page`}>
-                  <Pencil aria-hidden />
-                  Edit page
-                </a>
-              </Button>
-            )}
+            {showFollow && <FollowerCount status={followState.status} />}
+            <div
+              className={cn("flex items-center gap-[5px]", showFollow && "w-full gap-2 sm:w-auto")}
+            >
+              {showFollow && (
+                <FollowButton
+                  status={followState.status}
+                  busy={followState.busy}
+                  onFollow={followState.startFollow}
+                  onUnfollow={() => void followState.unfollow()}
+                  onUpdate={patch => void followState.update(patch)}
+                />
+              )}
+              {showViewPool && (
+                <Button
+                  asChild
+                  variant="secondary"
+                  className={showFollow ? "flex-1 sm:flex-none" : undefined}
+                >
+                  <a href={`/i/pools/${creatorPoolAddress}`}>View pool</a>
+                </Button>
+              )}
+              {isOwner && (
+                <Button asChild variant="secondary">
+                  <a href={`${process.env.NEXT_PUBLIC_PANEL_URL || ""}/page`}>
+                    <Pencil aria-hidden />
+                    Edit page
+                  </a>
+                </Button>
+              )}
+            </div>
           </nav>
+        )}
+        {showFollow && (
+          <FirstFollowSheet
+            open={followState.sheetOpen}
+            onOpenChange={followState.setSheetOpen}
+            creatorName={followState.status?.creatorName ?? profile.name}
+            showCount={followState.status?.showCount ?? true}
+            busy={followState.busy}
+            onConfirm={choice => void followState.follow({ ...choice, fromDisclosure: true })}
+          />
         )}
         {cardShowing && (
           <div ref={measureCard} className="pointer-events-auto w-full">

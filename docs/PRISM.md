@@ -215,7 +215,7 @@ New preset recipes: `prism-dock` (dock capsule, tint 0.12, white 0.56), `prism-d
 
 ### Interim destinations
 
-Account still composes today's panels. Design is replaced in PR 3a and Page in PR 3b (below). Account (rows 019 to 021 and 098) is next. Pool details, stake, unstake and claim move into the pool panel in PR 4 (below). Destinations that are not restyled yet sit on a white surface so their current colors stay readable on the room; each batch removes it.
+Design is replaced in PR 3a, Page in PR 3b and Account in PR 3c and 6b (below). The Developers tab keeps today's look until 092. Destinations that are not restyled yet sit on a white surface so their current colors stay readable on the room; each batch removes it.
 
 ## Design (PR 3a, Screen Review 023 to 033)
 
@@ -272,6 +272,37 @@ Page lives in `apps/client/src/components/panels/page`. The live preview lives i
 - `addBlock` no longer toasts or clears the unsaved flag.
 - `removeBlock` throws on failure.
 
+## Account (PR 3c, Screen Review 019, 020; PR 6b, 021, 098)
+
+Account Settings lives in `apps/client/src/components/panels/account`. It is one 610 column with one G1 clear card of flat disclosure rows (`design/kit/DisclosureRow.tsx`, with `inset` for rows inside a card): Public URL, Email, Password, Two factor, Connected apps. One row opens at a time. `?open=<row>` opens a row (url, email, password, two-factor, connected-apps); the @handle on the Page header card links to `?open=url`. Shared row pieces (code slot, footer, password field) live in `account/fields.tsx`.
+
+### Pieces
+
+| Piece | File | Rule |
+|---|---|---|
+| Public URL (020) | `PublicUrlRow.tsx`, `hooks/useHandleAvailability.ts` | Row value amped.bio/handle (no @). One well with the prefix inside it. The status line names the state in words and an icon: Your current URL, Checking (after 400ms), available, taken, too short, or the check failed with Retry. The current handle is compared ignoring case before any format check, so a legacy handle with capitals never shows an error. Typed input is cleaned; a helper names the rule for 5 seconds. An available new URL shows the solid notice Your old links stop working. Use this URL is explicit, stays on Account, and the toast offers Copy link |
+| Email (019) | `EmailRow.tsx`, `hooks/useSecondsLeft.ts` | Two steps in place, no dialog. Step 1: Current email, then one New email field with Send code. Step 2: six 44 x 55 code slots (paste fills them, the sixth digit submits), the expiry countdown, Use a different email and Resend code (60 second cooldown). Errors sit under the field with their fix. Rate limits disable Send code with a countdown. An expired code swaps Verify for Send a new code. Success closes the row with a toast |
+| Email change server flow | `apps/server/src/trpc/user.ts`, `utils/email` | The code goes to the new address and is stored with that address (`confirmation_codes.target`). Confirm accepts only that address. The current address gets a notice email. The tRPC error formatter passes `retryAfter` from rate limited errors to the client |
+| Password (021 I02) | `PasswordRow.tsx` | Value Reset by email. Send reset link sends the same email as sign in (Cap captcha token from `useCaptcha`), with the link on the public site. Then Check <email> for a reset link. and a 60 second cooldown |
+| Two factor (021) | `TwoFactorRow.tsx`, `BackupCodesSlab.tsx` | Value Off, or On in success with a check. Turn on runs four steps in place with the StepBar: Confirm password, Scan (QR 144 and the key in groups of four with Copy; Open in authenticator app on touch), Enter code (six slots, the sixth digit verifies), Save codes (slab, Copy all, Download, required I saved these codes, then Done). A verified code turns the row On at once. Codes not yet confirmed stay in memory for the session, never in storage, and the On state shows the solid notice Save your backup codes with Show codes. New backup codes and Turn off each ask for the password in the shared Dialog; Turn off is destructive. A response without totpURI shows Two factor did not start. Retry. under Continue, not a password error |
+| Connected apps (D30, 092 I16 to I18) | `ConnectedAppsRow.tsx`, server `trpc/oauthApps.ts` consents | Value is the count (2 apps, or None). Each app shows its name, website host, the consent screen scope titles (`describeOAuthScope`, one source), Allowed <date> and Revoke. Loading, empty and error states. The consents query now joins the client name, icon and website. Revoke still deletes the consent only; ending tokens in the same call (D2) ships with 092 |
+
+### Destination (098)
+
+- `Layout.tsx` renders panels from one `Record<EditorPanelType, ...>`, so a panel without a screen fails type checking. A panel with no screen today (rewardPools, and rns with its flag off) redirects to /home with replace.
+- `?tab=` drives Settings and Developers. An unknown value is removed with replace (`hooks/useDestinationTab.ts`). The top bar reads Account on Settings and Account, Developers on Developers. No save status on Account (D26).
+- On Account no rail item is current; the avatar button carries the ring. Focus moves to the h1 on arrival. A slow load shows the row skeletons after 400ms and the error card with Retry after 10 seconds.
+- Banner destinations come from `@repo/constants` (`BANNER_LIVE_PANELS`). The admin select lists only live destinations; legacy stored values map on read (rewardPools and leaderboard open Explore).
+- Developers keeps its look until row 092. Its Authorized applications card moved to Connected apps.
+
+### Removed
+
+- `profile/ProfileSections`, `profile/URLPicker` and `dialogs/EmailChangeDialog`.
+- `ui/URLStatusIndicator`.
+- The current email and confirm email fields. The code to the new address is the confirmation.
+- `profile/SecurityTabContent`, `dialogs/BackupCodesDialog`, `ui/input-otp` and the sonner toasts they used (021).
+- `SCOPE_LABELS` in `developer/developer-types.ts`.
+
 ## Public site and auth (PR 5, Screen Review 007 to 010, 070)
 
 Public pages sit on `prism-room` under one header. The pieces live in `apps/landingpage/src/components/layout`, `landing`, `auth` and `pools`, and the shared auth parts in `@repo/ui` (`prism/auth.tsx`).
@@ -291,6 +322,36 @@ Public pages sit on `prism-room` under one header. The pieces live in `apps/land
 | Pools directory | `pools/PoolsPageContent.tsx`, `pools/PoolsTab.tsx` | Bebas REWARD POOLS, search well (`?q=`, 300ms), count, Sort lens (`?sort=`), filter chips (`?filter=`), the testnet notice, Medium cards that are whole links, 24 per step with Show more, and the no results, no pools, loading and error states. Total staked is `stakedAmount` as reported (D28) |
 
 Errors are never raw server text (`classifyAuthError`). A missing captcha token while the captcha is on shows "The browser check did not finish. Check your connection." with Try again. After sign in a same origin `returnTo` (or a panel `redirect`) wins, otherwise the panel `/home`.
+
+## Auth pages and first run (PR 5b, Screen Review 011 to 015)
+
+The four standalone auth pages now use the PR 5 auth card under the public header. Home gains the setup checklist.
+
+| Piece | File | Rule |
+|---|---|---|
+| Result card | `AuthCard` `icon`, `centered`, `status`, `titleRef`; `StatusDisc` in `@repo/ui` | Result states center the card, show a 55 G1 clear status disc with a 34 icon, announce the title and move focus to it. The disc stands in for the G4 success moment until v1.1 |
+| Verify email (011) | `app/auth/verify-email` | Verifying after 400ms, Verified with Open editor (panel `/home?welcome=1`, or Sign in when there is no session), Failed by cause: expired, does not work, incomplete. Raw errors go to the console only |
+| Resend (012) | `app/auth/resend-verification`, `auth/SentState.tsx` | `?email` only prefills. Nothing sends until the press. Sent reads the same whether or not an account exists. Resend counts down 60 seconds (`useCooldown`) |
+| Reset password (013) | `app/auth/reset-password` | No token is the request step with a Have a reset code? disclosure; a token in the path is the new password step. One show toggle reveals both fields (`PasswordInput` `visible`, `toggleControls`). Live checklist (`auth/PasswordChecklist.tsx`, shared with register), match line on the confirm field, Link expired and Password updated states. Email and `returnTo` carry through |
+| Two factor (014) | `app/auth/two-factor`, `auth/CodeInput.tsx` | Six G2 wells 44 on one real input (one-time-code autofill, paste, auto submit on the sixth digit). Backup mode in place, Trust this device checkbox row, Sign out and go back. Too many attempts and a timed out challenge show the solid notice. After success: the provider redirect, a safe `returnTo`, or Home. The client plugin now carries `returnTo` (or the OAuth page itself) to `/auth/two-factor` |
+| Setup checklist (015) | `client/components/panels/home/SetupChecklist.tsx` | The one G3 lens on Home with rim and halo (the halo sits behind the lens). Five 55 rows: Choose your URL, Add a photo, Add your first block, Pick a theme, Share your page. Each row deep links (`/account?open=url`, `/page?open=photo`, `/page?open=add-block`, `/design?tab=themes`, copy or share). One primary names the next step. Hide checklist with an 8 second Undo. Complete state drops the rim and retires the checklist from the next visit |
+| Onboarding record | `server/trpc/onboarding.ts`, table `user_onboarding` | Stores URL confirmed, shared, dismissed, completed and the Analytics card dismissal. Photo, block and theme derive from the user's data. Created at sign up; a Google handle generated from the email starts on Choose your URL. Accounts without a record get one on first read with the URL confirmed |
+| Verify notice | `client/components/panels/home/VerifyEmailNotice.tsx` | Info notice on Home while the email is unverified, Resend email with the 60 second cooldown, 44 dismiss for the session |
+| Deep links | `client/hooks/useOpenParam.ts` | `?open=<name>` runs once and is removed with a replace navigation |
+
+## Home (PR 6a, Screen Review 016)
+
+Home is native on the D08 grid without a preview. The onboarding.ampedbio.com iframe no longer fills the panel.
+
+| Piece | File | Rule |
+|---|---|---|
+| Layout | `home/HomePanel.tsx` | Left column: setup checklist on first run, then the page status card. Right column: Testnet, Network, Video guides. Mobile stacks notices, checklist, page status, Testnet, Video guides, Network. Tab order follows the columns |
+| Page status (I04, I15) | `home/PageStatusCard.tsx` | Photo 55 or the handle initial, name, amped.bio/handle, View page (new tab), Copy page link, Share on touch when the browser has it, View analytics. Show setup checklist appears while setup is incomplete and the checklist is hidden. Skeleton after 400ms; Your page details did not load with Retry after 10 seconds |
+| Testnet (I06 to I11) | `home/TestnetCard.tsx`, `home/homeContent.ts` | Solid notice. `TESTNET_NOTICE` first, then Read more (Show less when open): testing phase, then thank you. Static, so it renders with the API blocked |
+| Conversion copy flag (D1) | `VITE_HOME_CONVERSION_COPY` | Off by default. On adds the J1 conversion line under the testnet line and the scope and tradability paragraphs inside Read more. Counsel approves before it turns on |
+| Network (I09, I10) | `TestnetCard.tsx` `NetworkSection` | Block explorer and Community on Telegram as G0 rows, new tab |
+| Video guides | `home/VideoGuides.tsx` | Four cards with a drawn poster, so nothing loads from YouTube until play. Play opens the shared Dialog with a youtube-nocookie.com player and Watch on YouTube. Focus stays on the dialog, not the player, so Escape closes it; focus returns to the card |
+| Updates (D2) | `home/UpdatesFrame.tsx`, `VITE_HOME_UPDATES_FRAME` | Off by default. On shows the onboarding site last in the left column with its host and Open in new tab, and Updates did not load with Retry after 15 seconds. Turn it on only after that site drops the conversion and tradability paragraphs, or the frame bypasses the conversion copy flag |
 
 ## Money flow (PR 4, Screen Review 046 to 048)
 
@@ -325,6 +386,7 @@ The pool panel lives in `apps/client/src/components/panels/explore/pool-panel`. 
 
 The old `ExplorePoolDetailsModal` body, the client `PoolDetailContent`, `StakeModal`, `UnstakeModal` and `PoolDetailsModalSkeleton`. Gone with them: the rate card and its popover, the hardcoded 0.01 REVO fee, the yellow notices and Claim button, the never closing claim toast, the Telegram link on results, and "Tokens have been returned". The public pool page (`apps/landingpage`, row 071) is unchanged here.
 
+
 ## Rules reviewers should enforce
 
 1. **Trust rule.** Spectacle falls as commitment rises. The Review and Confirm step uses `prism-value-panel-calm`, has no rim, uses a solid `prism-notice`, and has a required checkbox. The commit button is `value-deep`, followed by the wallet note.
@@ -341,7 +403,7 @@ The work ships in batched PRs:
 2. Shared components restyled in place, with the gallery; 2b money flow pieces and pool cards
 3. App shell (001 to 005); 3a Design (023 to 033); 3b Page (006, 017, 018, 022, 034 to 037); 3c Account (019, 020)
 4. Money flow
-5. Public site and auth (007 to 010, 070); 5b auth pages (011 to 014)
+5. Public site and auth (007 to 010, 070); 5b auth pages and first run (011 to 015)
 6. Screen batches by app area, each tied to Amped.Bio Screen Review row numbers
 
 4. Money flow (046 to 048): pool details, stake, unstake and claim in one panel

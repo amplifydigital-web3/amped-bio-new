@@ -3,6 +3,7 @@ import { render } from "@react-email/render";
 import verifyEmailTemplate from "./VerifyEmailTemplate";
 import resetPasswordTemplate from "./ResetPasswordTemplate";
 import emailChangeTemplate from "./EmailChangeTemplate";
+import emailChangeNoticeTemplate from "./EmailChangeNoticeTemplate";
 import welcomeEmailTemplate from "./WelcomeEmailTemplate";
 import { env } from "../../env";
 
@@ -115,12 +116,10 @@ export const sendPasswordResetEmail = async (email: string, token: string) => {
   });
 };
 
-export const sendEmailChangeVerification = async (
-  email: string,
-  newEmail: string,
-  code: string
-) => {
-  console.log(`🔄 Generating email change verification code for ${email} -> ${newEmail}`);
+// Screen Review 019 I02: the code goes to the new address, which proves the
+// person controls it before it becomes their sign in email
+export const sendEmailChangeVerification = async (newEmail: string, code: string) => {
+  console.log("🔄 Sending email change verification code to the new address");
 
   console.log("🎨 Rendering email change template...");
   const emailComponent = emailChangeTemplate({ code, newEmail, privacyUrl });
@@ -129,8 +128,8 @@ export const sendEmailChangeVerification = async (
 
   console.log("📨 Sending email change verification code...");
   return sendEmail({
-    to: email, // Send to the current/old email address for verification
-    subject: "Amped.Bio Email Change Verification",
+    to: newEmail,
+    subject: "Your Amped.Bio email change code",
     html_body: htmlContent,
   });
 };
@@ -147,6 +146,18 @@ export const sendWelcomeEmail = async (email: string, name?: string) => {
   return sendEmail({
     to: email,
     subject: "Welcome to Amped.Bio!",
+    html_body: htmlContent,
+  });
+};
+
+// The current address hears about an email change request (019 I02, I11)
+export const sendEmailChangeNotice = async (currentEmail: string, newEmail: string) => {
+  const privacyLink = new URL("/privacy", env.LANDINGPAGE_URL).toString();
+  const emailComponent = emailChangeNoticeTemplate({ newEmail, privacyUrl: privacyLink });
+  const htmlContent = await render(emailComponent);
+  return sendEmail({
+    to: currentEmail,
+    subject: "Your Amped.Bio email change request",
     html_body: htmlContent,
   });
 };

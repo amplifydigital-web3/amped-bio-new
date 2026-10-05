@@ -29,6 +29,12 @@ model User {
   image_file_id      Int?
   reward_business_id String?
 
+  // Fan Graph (#22): accounts made from Follow have no public page until the
+  // owner publishes one. Existing accounts are PUBLISHED.
+  page_status               PageStatus @default(PUBLISHED)
+  show_follower_count       Boolean    @default(true)
+  follow_disclosure_seen_at DateTime?
+
   themes            Theme[]
   blocks            Block[]
   confirmationCodes ConfirmationCode[]
@@ -45,11 +51,23 @@ model User {
   trackingPixels     TrackingPixels?
   analyticsCampaigns AnalyticsCampaign[]
   analyticsConsents  AnalyticsConsent[]
+  onboarding         UserOnboarding?
+
+  followsMade          Follow[]      @relation("FollowsMade")
+  followsReceived      Follow[]      @relation("FollowsReceived")
+  followBlocksMade     FollowBlock[] @relation("FollowBlocksMade")
+  followBlocksReceived FollowBlock[] @relation("FollowBlocksReceived")
+  followRemovals       FollowRemoval[]
 
   oauthClients      OauthClient[]
   oauthRefreshTokens OauthRefreshToken[]
   oauthAccessTokens OauthAccessToken[]
   oauthConsents     OauthConsent[]
+
+  broadcastsSent          Broadcast[]              @relation("BroadcastCreator")
+  broadcastDeliveries     BroadcastDelivery[]
+  broadcastReports        BroadcastReport[]
+  notificationPreferences NotificationPreference[]
 
   @@unique([email])
   @@map("users")
@@ -165,6 +183,8 @@ model ConfirmationCode {
   type      ConfirmationCodeType
   userId    Int
   used      Boolean              @default(false)
+  /// The address an EMAIL_CHANGE code was sent to; confirm accepts only this address
+  target    String?              @db.VarChar(255)
   expiresAt DateTime
   createdAt DateTime             @default(now())
   updatedAt DateTime?            @updatedAt
@@ -243,6 +263,7 @@ model CreatorPool {
   stakedPools   StakedPool[]
   stakeEvents   StakeEvent[]
   hidden        Boolean?      @default(false)
+  broadcasts    Broadcast[]
 
   @@unique([walletId, chainId])
   @@map("creator_pools")
@@ -352,7 +373,10 @@ model NdauConversion {
   ampedbio_signature  String    @db.Text
   ndau_signature      String    @db.Text
   ndau_validation_key String    @db.Text
-  txid                String?   @db.Text
+  txid                String?   @unique @db.VarChar(66)
+  // Admin who locked the request for sending, and when. Cleared on release.
+  claimed_by          Int?
+  claimed_at          DateTime?
   status              String    @default("pending")
   group               String    @default("gn") @db.VarChar(10)
   created_at          DateTime  @default(now())
@@ -442,8 +466,9 @@ model AnalyticsCampaign {
   archived_at DateTime?
   created_at  DateTime  @default(now())
 
-  user   User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  events AnalyticsEvent[]
+  user    User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  events  AnalyticsEvent[]
+  follows Follow[]
 
   @@unique([user_id, slug])
   @@map("analytics_campaigns")
@@ -487,6 +512,25 @@ model TrackingPixels {
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("tracking_pixels")
+}
+
+// First run setup checklist on Home (Screen Review 015 I08). Photo, block and
+// theme steps derive from the user's data; only these moments are stored, so
+// progress follows the creator across devices.
+model UserOnboarding {
+  id                          Bytes     @id @db.Binary(16)
+  user_id                     Int       @unique
+  url_confirmed_at            DateTime?
+  shared_at                   DateTime?
+  checklist_dismissed_at      DateTime?
+  completed_at                DateTime?
+  analytics_card_dismissed_at DateTime?
+  created_at                  DateTime  @default(now())
+  updated_at                  DateTime? @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("user_onboarding")
 }
 
 // ===== OAuth 2.1 provider (Better Auth oauth-provider / MCP plugins) =====
@@ -683,4 +727,203 @@ model DeviceCode {
 
   @@index([clientId])
   @@map("device_code")
+}
+
+// ===== Fan Graph (Build Board #22, docs/features/fan-graph.md) =====
+
+enum PageStatus {
+  PUBLISHED
+  UNPUBLISHED
+}
+
+// A free follow from an account to a creator. A follow counts only while the
+// follower's email is verified and the account is not suspended; that is
+// checked at read time, so there is no pending status to keep in sync.
+model Follow {
+  id               Int       @id @default(autoincrement())
+  follower_id      Int
+  creator_id       Int
+  // The fan chose to appear on the creator's public follower list
+  show_publicly    Boolean   @default(false)
+  // The fan's consent to email updates from this creator, and when it was given.
+  // Broadcast (#1) reads it; a follow alone is never email consent.
+  email_updates    Boolean   @default(false)
+  email_updates_at DateTime?
+  // page | explore | pool | broadcast | qr
+  source           String    @db.VarChar(16)
+  campaign_id      Bytes?    @db.Binary(16)
+  created_at       DateTime  @default(now())
+
+  follower User               @relation("FollowsMade", fields: [follower_id], references: [id], onDelete: Cascade)
+  creator  User               @relation("FollowsReceived", fields: [creator_id], references: [id], onDelete: Cascade)
+  campaign AnalyticsCampaign? @relation(fields: [campaign_id], references: [id], onDelete: SetNull)
+
+  @@unique([follower_id, creator_id])
+  @@index([creator_id, created_at])
+  @@index([follower_id, created_at])
+  @@map("follows")
+}
+
+// Accounts a creator blocked from following them
+model FollowBlock {
+  creator_id Int
+  user_id    Int
+  created_at DateTime @default(now())
+
+  creator User @relation("FollowBlocksMade", fields: [creator_id], references: [id], onDelete: Cascade)
+  user    User @relation("FollowBlocksReceived", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@id([creator_id, user_id])
+  @@index([user_id])
+  @@map("follow_blocks")
+}
+
+// One row per ended follow, without the follower, so creators see how many
+// people left in a period and never who.
+model FollowRemoval {
+  id         Int      @id @default(autoincrement())
+  creator_id Int
+  // unfollow | removed | blocked
+  reason     String   @db.VarChar(16)
+  created_at DateTime @default(now())
+
+  creator User @relation(fields: [creator_id], references: [id], onDelete: Cascade)
+
+  @@index([creator_id, created_at])
+  @@map("follow_removals")
+}
+
+// Creator Pool Broadcast (Build Board #1), phase 1: Amped inbox only.
+// Spec: docs/features/creator-pool-broadcast.md, section 3.3.
+
+enum BroadcastStatus {
+  IN_REVIEW
+  QUEUED
+  SENDING
+  SENT
+  REJECTED
+  CANCELED
+  FAILED
+}
+
+enum BroadcastAudienceKind {
+  ALL_MEMBERS
+}
+
+enum BroadcastEmailStatus {
+  NOT_ELIGIBLE
+  PENDING
+  SENT
+  DELIVERED
+  DEFERRED
+  BOUNCED
+  COMPLAINED
+  FAILED
+}
+
+enum BroadcastReportReason {
+  FINANCIAL_PROMISE
+  SPAM
+  HARASSMENT
+  OTHER
+}
+
+model Broadcast {
+  id                Int                   @id @default(autoincrement())
+  creatorUserId     Int
+  poolId            Int?
+  audienceKind      BroadcastAudienceKind @default(ALL_MEMBERS)
+  title             String                @db.VarChar(120)
+  body              String                @db.Text // Markdown subset, rendered with an allowlist
+  sendEmail         Boolean               @default(false) // email arrives in phase 2
+  status            BroadcastStatus       @default(QUEUED)
+  idempotencyKey    String                @db.VarChar(64)
+  // Phrases the content check matched. Warn only: the creator confirmed and sent (Rob, 2026-10-04)
+  flaggedTerms      Json?
+  reviewReason      String?               @db.VarChar(16) // first_send
+  reviewNote        String?               @db.Text
+  reviewedById      Int?
+  reviewedAt        DateTime?
+  queuedAt          DateTime?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  recipientEstimate Int                   @default(0)
+  recipientCount    Int                   @default(0)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  creator    User                @relation("BroadcastCreator", fields: [creatorUserId], references: [id], onDelete: Cascade)
+  pool       CreatorPool?        @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  deliveries BroadcastDelivery[]
+  reports    BroadcastReport[]
+
+  @@unique([creatorUserId, idempotencyKey])
+  @@index([poolId, createdAt])
+  @@index([creatorUserId, createdAt])
+  @@index([status, updatedAt])
+  @@map("broadcasts")
+}
+
+model BroadcastDelivery {
+  id                Int                  @id @default(autoincrement())
+  broadcastId       Int
+  userId            Int
+  emailStatus       BroadcastEmailStatus @default(NOT_ELIGIBLE)
+  emailSkipReason   String?              @db.VarChar(32)
+  emailAttempts     Int                  @default(0)
+  providerMessageId String?              @db.VarChar(255)
+  emailSentAt       DateTime?
+  readAt            DateTime?
+  archivedAt        DateTime?
+  createdAt         DateTime             @default(now())
+
+  broadcast Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([broadcastId, userId])
+  @@index([userId, createdAt])
+  @@index([broadcastId, emailStatus])
+  @@map("broadcast_deliveries")
+}
+
+model BroadcastReport {
+  id             Int                   @id @default(autoincrement())
+  broadcastId    Int
+  reporterUserId Int
+  reason         BroadcastReportReason
+  note           String?               @db.VarChar(500)
+  createdAt      DateTime              @default(now())
+
+  broadcast Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  reporter  User      @relation(fields: [reporterUserId], references: [id], onDelete: Cascade)
+
+  @@unique([broadcastId, reporterUserId])
+  @@map("broadcast_reports")
+}
+
+// One row per sender. Created by an admin invite or on the first send.
+model BroadcastSenderStatus {
+  userId          Int       @id
+  invitedAt       DateTime? // invite-only pilot (BROADCAST_INVITE_ONLY)
+  firstApprovedAt DateTime? // set when the first broadcast passes review
+  pausedAt        DateTime?
+  pausedReason    String?   @db.VarChar(255)
+  updatedAt       DateTime  @updatedAt
+
+  @@map("broadcast_sender_status")
+}
+
+// creatorUserId 0 is the global row. MySQL unique keys ignore NULLs.
+model NotificationPreference {
+  id            Int       @id @default(autoincrement())
+  userId        Int
+  creatorUserId Int       @default(0)
+  emailEnabled  Boolean   @default(false)
+  mutedUntil    DateTime?
+  updatedAt     DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, creatorUserId])
+  @@map("notification_preferences")
 }

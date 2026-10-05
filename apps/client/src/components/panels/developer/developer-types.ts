@@ -7,14 +7,6 @@ export interface OAuthClientSummary {
   disabled?: boolean | null;
 }
 
-export const SCOPE_LABELS: Record<string, string> = {
-  openid: "Confirm identity",
-  profile: "Basic profile",
-  email: "Email address",
-  offline_access: "Offline access",
-  "mcp:read": "MCP read access",
-};
-
 /**
  * Redirect URIs are stored as a JSON encoded array string because MySQL has no
  * array type (see the `string[]` handling in the adapter).

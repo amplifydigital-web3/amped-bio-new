@@ -76,7 +76,7 @@ interface EditorContextType extends EditorState {
   setActivePanelAndNavigate: (
     panel: EditorPanelType,
     tabs?: string,
-    options?: { tab?: string }
+    options?: { tab?: string; open?: string }
   ) => void;
   setBackground: (background: Background) => void;
   setBackgroundForUpload: (background: Background) => void;
@@ -318,7 +318,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const setActivePanelAndNavigate = useCallback(
-    (activePanel: EditorPanelType, tabs?: string, options?: { tab?: string }) => {
+    (activePanel: EditorPanelType, tabs?: string, options?: { tab?: string; open?: string }) => {
       setActivePanel(activePanel);
 
       // Panels live as path segments (e.g. /gallery); tabs stay as ?t=
@@ -335,6 +335,9 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
       // A destination tab belongs to one destination; never carry it over
       searchParams.delete("tab");
       if (options?.tab) searchParams.set("tab", options.tab);
+      // ?open= opens one row of the destination (Account, 020 I01)
+      searchParams.delete("open");
+      if (options?.open) searchParams.set("open", options.open);
 
       const query = searchParams.toString();
       navigate(`${basePath}/${activePanel}${query ? `?${query}` : ""}`, { replace: true });

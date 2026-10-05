@@ -148,6 +148,10 @@ const envSchema = z.object({
   // Enable TLS connection for Redis (required for Upstash)
   REDIS_TLS: boolSchema(false),
 
+  // Creator Pool Broadcast (Build Board #1). While true, only pool owners an
+  // admin has invited can send. Default true for the pilot.
+  BROADCAST_INVITE_ONLY: boolSchema(true),
+
   // URL for the RNS subgraph to validate name ownership and expiry
   SUBGRAPH_URL: z.string().default(""),
 

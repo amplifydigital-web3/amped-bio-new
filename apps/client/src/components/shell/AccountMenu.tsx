@@ -9,6 +9,7 @@ import {
   MenuSubContent,
   MenuSubTrigger,
   MenuTrigger,
+  cn,
   useAuth,
 } from "@repo/ui";
 import { useEditor } from "@/contexts/EditorContext";
@@ -23,7 +24,9 @@ import { copyPageLink, publicPageUrl } from "./pageLink";
 // and Copy page link are its first rows (003 I05).
 export function AccountMenu({ mobile = false }: { mobile?: boolean }) {
   const { authUser, signOut } = useAuth();
-  const { profile, setDefault } = useEditor();
+  const { profile, setDefault, activePanel } = useEditor();
+  // 098 I04: on Account no rail item is current; the avatar ring is the cue
+  const onAccount = activePanel === "account";
   const { go } = useShellNavigation();
   const [imageError, setImageError] = useState(false);
 
@@ -76,8 +79,11 @@ export function AccountMenu({ mobile = false }: { mobile?: boolean }) {
   return (
     <Menu>
       <MenuTrigger
-        aria-label="Account menu"
-        className="prism-focus inline-flex h-touch w-touch shrink-0 items-center justify-center rounded-full"
+        aria-label={onAccount ? "Account menu, current location Account" : "Account menu"}
+        className={cn(
+          "prism-focus inline-flex h-touch w-touch shrink-0 items-center justify-center rounded-full",
+          onAccount && "ring-2 ring-prism-nav"
+        )}
       >
         {avatar("trigger")}
       </MenuTrigger>

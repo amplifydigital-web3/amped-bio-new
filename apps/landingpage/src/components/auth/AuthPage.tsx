@@ -8,6 +8,7 @@ import { getPostAuthDestination, goTo } from "@/lib/panel";
 import { AuthLayout } from "./AuthLayout";
 import { SignInForm } from "./SignInForm";
 import { RegisterForm } from "./RegisterForm";
+import { FanRegisterForm } from "./FanRegisterForm";
 
 function useDelayed(active: boolean, ms: number) {
   const [shown, setShown] = useState(false);
@@ -31,7 +32,15 @@ function AuthPageContent({ initialForm }: { initialForm: "login" | "register" })
   }, [signedIn, params]);
 
   if (isPending || signedIn) return showSkeleton ? <AuthCardSkeleton /> : null;
-  return initialForm === "register" ? <RegisterForm /> : <SignInForm />;
+  if (initialForm === "register") {
+    // Fan Graph (#22): sign up from Follow makes an account with no page
+    return params.get("intent") === "follow" && params.get("creator") ? (
+      <FanRegisterForm />
+    ) : (
+      <RegisterForm />
+    );
+  }
+  return <SignInForm />;
 }
 
 export function AuthPage({ initialForm }: { initialForm: "login" | "register" }) {

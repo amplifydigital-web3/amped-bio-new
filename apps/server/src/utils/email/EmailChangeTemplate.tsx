@@ -41,8 +41,7 @@ const EmailChangeTemplate = ({
               </Heading>
 
               <Text className="text-[16px] leading-[1.5em] text-[#3d4852] mt-0 text-left">
-                You've requested to change your email address to <strong>{newEmail}</strong>. Please
-                use the verification code below to confirm this change:
+                Enter this code in Amped.Bio to make <strong>{newEmail}</strong> your sign in email:
               </Text>
 
               <Section className="text-center my-[30px]">
@@ -52,12 +51,12 @@ const EmailChangeTemplate = ({
               </Section>
 
               <Text className="text-[16px] leading-[1.5em] text-[#3d4852] mt-0 text-left">
-                If you did not request this email change, please ignore this message or contact
-                support immediately.
+                If you did not ask for this, ignore this email. Your account does not change unless
+                the code is entered.
               </Text>
 
               <Text className="text-[16px] leading-[1.5em] text-[#3d4852] mt-0 text-left">
-                This code will expire in 30 minutes.
+                This code expires in 5 minutes.
               </Text>
 
               <Text className="text-[16px] leading-[1.5em] text-[#3d4852] mt-0 text-left">
