@@ -1,5 +1,5 @@
 import { useWalletContext } from "@/contexts/WalletContext";
-import { trpcClient } from "@/utils/trpc";
+import { trpcClient } from "@repo/ui";
 import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { useAccount } from "wagmi";
@@ -28,15 +28,22 @@ export function useFundWalletDialog(params: {
     nextAvailableDate: Date | null;
     canRequestNow: boolean;
     hasWallet: boolean;
-    hasSufficientFunds: boolean; // New state for faucet balance
+    hasSufficientFunds: boolean;
     faucetEnabled: boolean;
+    requirements: {
+      photo: boolean;
+      background: boolean;
+      bio: boolean;
+      minLinks: boolean;
+    };
   }>({
     lastRequestDate: null,
     nextAvailableDate: null,
     canRequestNow: true,
     hasWallet: false,
-    hasSufficientFunds: true, // Default to true
+    hasSufficientFunds: true,
     faucetEnabled: false,
+    requirements: { photo: false, background: false, bio: false, minLinks: false },
   });
 
   // Fetch faucet amount and status when the dialog is opened
@@ -57,8 +64,9 @@ export function useFundWalletDialog(params: {
           nextAvailableDate: result.nextAvailableDate ? new Date(result.nextAvailableDate) : null,
           canRequestNow: result.canRequestNow,
           hasWallet: result.hasWallet,
-          hasSufficientFunds: result.hasSufficientFunds, // Update based on API response
-          faucetEnabled: result.faucetEnabled, // Set global faucet status
+          hasSufficientFunds: result.hasSufficientFunds,
+          faucetEnabled: result.faucetEnabled,
+          requirements: result.requirements ?? { photo: false, background: false, bio: false, minLinks: false },
         });
       } catch (error: any) {
         console.error("Failed to fetch faucet amount or status:", error);
@@ -96,6 +104,13 @@ export function useFundWalletDialog(params: {
       return { success: false };
     }
 
+    // Prevent claim if profile requirements are not met
+    const reqs = faucetInfo.requirements;
+    if (!reqs.photo || !reqs.background || !reqs.bio || !reqs.minLinks) {
+      toast.error("Complete your profile to unlock the faucet.");
+      return { success: false };
+    }
+
     setClaimingFaucet(true);
     try {
       const faucetRequestData: any = {
@@ -128,6 +143,13 @@ export function useFundWalletDialog(params: {
       if (result.success && result.transaction?.hash) {
         setTxInfo({ txid: result.transaction.hash });
         setShowSuccessDialog(true);
+
+        // Notify the user that the tokens arrive within a few hours (not instant)
+        toast.success(
+          faucetAmount
+            ? `Faucet request submitted! Your ${faucetAmount.amount} ${faucetAmount.currency} tokens will arrive in your wallet within a few hours.`
+            : "Faucet request submitted! Your tokens will arrive in your wallet within a few hours."
+        );
 
         // Update faucet state after successful claim
         const now = new Date();

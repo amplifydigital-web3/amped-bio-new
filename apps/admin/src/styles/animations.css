@@ -1,0 +1,277 @@
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes typewriter {
+  from {
+    width: 0;
+  }
+
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes blink {
+  50% {
+    border-color: transparent;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes wave {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  25% {
+    transform: translateY(-8px);
+  }
+
+  75% {
+    transform: translateY(8px);
+  }
+}
+
+@keyframes rainbow {
+  0% {
+    color: #ff0000;
+  }
+
+  17% {
+    color: #ff8000;
+  }
+
+  33% {
+    color: #ffff00;
+  }
+
+  50% {
+    color: #00ff00;
+  }
+
+  67% {
+    color: #0000ff;
+  }
+
+  84% {
+    color: #8000ff;
+  }
+
+  100% {
+    color: #ff0000;
+  }
+}
+/* Used Animations for FloatingPills Component */
+@keyframes gentle-float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes subtle-fade {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes soft-glow {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.2);
+  }
+}
+
+@keyframes gentle-sway {
+  0%,
+  100% {
+    transform: translateX(0px);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+@keyframes breath {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.85;
+  }
+}
+
+@keyframes zoom-text {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+/* Subtle pulse animation for random floating names - with smooth steps */
+@keyframes subtle-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    font-weight: 400;
+    opacity: 0.6;
+  }
+  20% {
+    transform: scale(1.02);
+    font-weight: 420;
+    opacity: 0.65;
+  }
+  40% {
+    transform: scale(1.04);
+    font-weight: 440;
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.05);
+    font-weight: 450;
+    opacity: 0.75;
+  }
+  60% {
+    transform: scale(1.04);
+    font-weight: 440;
+    opacity: 0.7;
+  }
+  80% {
+    transform: scale(1.02);
+    font-weight: 420;
+    opacity: 0.65;
+  }
+}
+
+@keyframes explore-ping {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  25% {
+    transform: scale(2);
+    opacity: 0;
+  }
+  33% {
+    transform: scale(2);
+    opacity: 0;
+  }
+  66% {
+    transform: scale(2);
+    opacity: 0;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+.animate-explore-ping {
+  animation: explore-ping 3s linear infinite;
+}
+
+@keyframes glitch {
+  0% {
+    text-shadow:
+      0.05em 0 0 #00fffc,
+      -0.03em -0.04em 0 #fc00ff,
+      0.025em 0.04em 0 #fffc00;
+  }
+
+  15% {
+    text-shadow:
+      0.05em 0 0 #00fffc,
+      -0.03em -0.04em 0 #fc00ff,
+      0.025em 0.04em 0 #fffc00;
+  }
+
+  16% {
+    text-shadow:
+      -0.05em -0.025em 0 #00fffc,
+      0.025em 0.035em 0 #fc00ff,
+      -0.05em -0.05em 0 #fffc00;
+  }
+
+  49% {
+    text-shadow:
+      -0.05em -0.025em 0 #00fffc,
+      0.025em 0.035em 0 #fc00ff,
+      -0.05em -0.05em 0 #fffc00;
+  }
+
+  50% {
+    text-shadow:
+      0.05em 0.035em 0 #00fffc,
+      0.03em 0 0 #fc00ff,
+      0 -0.04em 0 #fffc00;
+  }
+
+  99% {
+    text-shadow:
+      0.05em 0.035em 0 #00fffc,
+      0.03em 0 0 #fc00ff,
+      0 -0.04em 0 #fffc00;
+  }
+
+  100% {
+    text-shadow:
+      -0.05em 0 0 #00fffc,
+      -0.025em -0.04em 0 #fc00ff,
+      -0.04em -0.025em 0 #fffc00;
+  }
+}

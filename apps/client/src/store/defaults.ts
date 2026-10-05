@@ -69,11 +69,8 @@ const initialState: EditorState = {
       heroEffect: 0,
     },
   },
-  activePanel: "profile",
+  activePanel: "home",
   gallery: [],
-  marketplaceView: "grid",
-  marketplaceFilter: "",
-  marketplaceSort: "popular",
   selectedPoolId: null,
   hasCreatorPool: false,
 };

@@ -10,8 +10,8 @@ import {
   ALLOWED_BACKGROUND_FILE_EXTENSIONS,
   ALLOWED_BACKGROUND_FILE_TYPES,
   ThemeConfig,
-} from "@ampedbio/constants";
-import { prisma } from "../../services/DB";
+} from "@repo/constants";
+import { prisma } from "@repo/database";
 
 const requestThemeCollectionImageSchema = z.object({
   collectionId: z.number().positive(),

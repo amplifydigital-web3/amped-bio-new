@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { Camera, X, ZoomIn, ZoomOut, Move, Save } from "lucide-react";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@repo/ui";
 
 export type BannerFit = "cover" | "contain";
 

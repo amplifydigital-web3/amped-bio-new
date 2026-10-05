@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { X, Wallet, Loader2 } from "lucide-react";
 import { domainName } from "@/utils/rns";
 import { useRegistration } from "@/hooks/rns/useRegistration";
-import { useAccount } from "wagmi";
+import { useWalletContext } from "@/contexts/WalletContext";
 import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
 import { toast } from "react-hot-toast";
 import { useNameDetails } from "@/hooks/rns/useNameDetails";
@@ -35,7 +35,8 @@ const ConfirmRegistrationModal = ({
   const { register, txHash, isSubmitting, isConfirming, isConfirmed, isReceiptError } =
     useRegistration();
   const { refetchAvailability } = useNameDetails(name);
-  const { isConnected } = useAccount();
+  const { address } = useWalletContext();
+  const isConnected = Boolean(address);
 
   /**
    * Persist tx data + navigate ONLY after confirmation

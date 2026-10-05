@@ -4,24 +4,24 @@ import web3AuthContextConfig from "../utils/web3authContext";
 import { WagmiProvider as Web3AuthWagmiProvider } from "@web3auth/modal/react/wagmi";
 import { Web3AuthWalletProvider } from "./Web3AuthWalletProvider";
 
-import { WagmiProvider, createConfig, http } from "wagmi";
+import { WagmiProvider, createConfig } from "wagmi";
 import { injected } from "wagmi/connectors";
 import { MetaMaskWalletProvider } from "./MetaMaskWalletProvider";
-import { AVAILABLE_CHAINS } from "@ampedbio/web3";
+import { AVAILABLE_CHAINS, getRpcTransport } from "@repo/web3";
+import { type Transport } from "viem";
 import { isForceMetamask } from "../utils/auth";
-import { AuthProvider } from "../contexts/AuthContext";
-import { NdauWalletProvider } from "../ndau-wallet/contexts/NdauWalletContext";
+import { AuthProvider } from "@repo/ui";
 
 // Standard Wagmi config for direct MetaMask mode
 const wagmiConfig = createConfig({
   chains: AVAILABLE_CHAINS,
   connectors: [injected()],
   transports: AVAILABLE_CHAINS.reduce(
-    (obj: Record<number, ReturnType<typeof http>>, chain) => {
-      obj[chain.id] = http();
+    (obj: Record<number, Transport>, chain) => {
+      obj[chain.id] = getRpcTransport(chain);
       return obj;
     },
-    {} as Record<number, ReturnType<typeof http>>
+    {} as Record<number, Transport>
   ),
 });
 
@@ -30,9 +30,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
     return (
       <WagmiProvider config={wagmiConfig}>
         <AuthProvider>
-          <NdauWalletProvider>
-            <MetaMaskWalletProvider>{children}</MetaMaskWalletProvider>
-          </NdauWalletProvider>
+          <MetaMaskWalletProvider>{children}</MetaMaskWalletProvider>
         </AuthProvider>
       </WagmiProvider>
     );
@@ -42,9 +40,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
     <Web3AuthProvider config={web3AuthContextConfig}>
       <Web3AuthWagmiProvider>
         <AuthProvider>
-          <NdauWalletProvider>
-            <Web3AuthWalletProvider>{children}</Web3AuthWalletProvider>
-          </NdauWalletProvider>
+          <Web3AuthWalletProvider>{children}</Web3AuthWalletProvider>
         </AuthProvider>
       </Web3AuthWagmiProvider>
     </Web3AuthProvider>

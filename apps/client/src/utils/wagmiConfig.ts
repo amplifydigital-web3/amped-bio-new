@@ -1,10 +1,10 @@
-import { http, createConfig } from "wagmi";
-import { AVAILABLE_CHAINS, revolutionDevnet, libertasTestnet } from "@ampedbio/web3";
+import { createConfig } from "wagmi";
+import { AVAILABLE_CHAINS, revolutionDevnet, libertasTestnet, getRpcTransport } from "@repo/web3";
 
 export const wagmiConfig = createConfig({
   chains: AVAILABLE_CHAINS,
   transports: {
-    [revolutionDevnet.id]: http(),
-    [libertasTestnet.id]: http(),
+    [revolutionDevnet.id]: getRpcTransport(revolutionDevnet),
+    [libertasTestnet.id]: getRpcTransport(libertasTestnet),
   },
 });

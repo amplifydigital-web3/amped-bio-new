@@ -9,7 +9,7 @@ import {
   ALLOWED_BACKGROUND_FILE_EXTENSIONS,
   ALLOWED_BACKGROUND_FILE_TYPES,
   ThemeConfig,
-} from "@ampedbio/constants";
+} from "@repo/constants";
 import { prisma } from "../services/DB";
 import { env } from "../env";
 
@@ -125,11 +125,12 @@ export const uploadRouter = router({
 
         let themeId = userFound?.theme;
 
-        if (userFound?.theme === null) {
+        if (!themeId) {
+          const handle = userFound?.handle || `user_${userId}`;
           const theme = await prisma.theme.create({
             data: {
               user_id: userId,
-              name: `${userFound!.handle}'s theme`,
+              name: `${handle}'s theme`,
               share_level: "private",
               share_config: {} as any,
               config: {} as any,
@@ -144,6 +145,8 @@ export const uploadRouter = router({
           });
         }
 
+        const resolvedThemeId = Number(themeId);
+
         // Get the media type based on content type
         const isVideo = input.contentType.startsWith("video/");
 
@@ -153,7 +156,7 @@ export const uploadRouter = router({
           userId,
           input.contentType,
           input.fileExtension,
-          Number(themeId)
+          resolvedThemeId
         );
 
         const uploadedFile = await uploadedFileService.createUploadedFile({

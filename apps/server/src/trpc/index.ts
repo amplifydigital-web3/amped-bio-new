@@ -12,6 +12,13 @@ import { poolsRouter } from "./pools/index";
 import { publicSettingsRouter } from "./publicSettings";
 import { referralRouter } from "./referral";
 import { ndauConversionRouter } from "./ndauConversion";
+import { authbaseRouter } from "./authbase";
+import { analyticsRouter } from "./analytics";
+import { trackingPixelsRouter } from "./trackingPixels";
+import { oauthAppsRouter } from "./oauthApps";
+import { followRouter } from "./follow";
+import { broadcastRouter } from "./broadcast";
+import { onboardingRouter } from "./onboarding";
 import { inferRouterOutputs } from "@trpc/server";
 
 // Merge all routers
@@ -29,6 +36,13 @@ const mergedRouter = router({
   pools: poolsRouter,
   public: publicSettingsRouter,
   ndauConversion: ndauConversionRouter,
+  authbase: authbaseRouter,
+  analytics: analyticsRouter,
+  trackingPixels: trackingPixelsRouter,
+  oauthApps: oauthAppsRouter,
+  follow: followRouter,
+  broadcast: broadcastRouter,
+  onboarding: onboardingRouter,
 });
 
 export type AppRouter = typeof mergedRouter;

@@ -1,8 +1,8 @@
-import { useWriteContract } from "wagmi";
+import { useReadContracts, useWriteContract, useReadContract, useConfig } from "wagmi";
 import { type Address } from "viem";
-import { CREATOR_POOL_ABI } from "@ampedbio/web3";
-import { trpcClient, trpc } from "../utils/trpc/trpc";
-import { useQuery } from "@tanstack/react-query";
+import { CREATOR_POOL_ABI } from "@repo/web3";
+import React from "react";
+import { trpcClient } from "@repo/ui";
 
 interface UsePoolReaderOptions {
   initialFanStake?: bigint;
@@ -11,29 +11,71 @@ interface UsePoolReaderOptions {
 }
 
 export function usePoolReader(
-  poolAddress: Address | undefined,
-  fanAddress: Address | undefined,
-  chainId: number | string | undefined,
+  poolAddress?: Address,
+  fanAddress?: Address,
   options?: UsePoolReaderOptions
 ) {
-  const hasInitialData = options?.initialFanStake !== undefined || options?.initialPendingReward !== undefined;
-  const { data: liveData, refetch: refetchLiveData } = useQuery({
-    ...trpc.pools.fan.getLiveUserPoolData.queryOptions({
-      poolAddress: poolAddress!,
-      userAddress: fanAddress!,
-      chainId: chainId?.toString() ?? "",
-    }),
-    enabled: !!poolAddress && !!fanAddress && !!chainId,
-    refetchInterval: 15000,
-    initialData: hasInitialData ? {
-      fanStakes: options?.initialFanStake?.toString() ?? "0",
-      pendingReward: options?.initialPendingReward?.toString() ?? "0",
-    } : undefined,
+  const poolContract = {
+    address: poolAddress,
+    abi: CREATOR_POOL_ABI,
+  } as const;
+
+  const contracts = [
+    { ...poolContract, functionName: "creatorCut" },
+    { ...poolContract, functionName: "poolName" },
+    ...(fanAddress
+      ? ([{ ...poolContract, functionName: "fanStakes", args: [fanAddress] }] as const)
+      : []),
+  ];
+
+  const { data, isLoading, refetch } = useReadContracts({
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    contracts,
+    query: {
+      enabled: !!poolAddress,
+    },
   });
 
+  const creatorCutResult = data?.[0];
+  const poolNameResult = data?.[1];
+  const fanStakeResult = fanAddress ? data?.[2] : undefined;
+
+  // Using useReadContract for pendingReward
+  const pendingRewardContract = useReadContract({
+    address: poolAddress,
+    abi: CREATOR_POOL_ABI,
+    functionName: "pendingReward",
+    args: fanAddress ? [fanAddress] : undefined,
+    query: {
+      enabled: !!poolAddress && !!fanAddress,
+      initialData: options?.initialPendingReward,
+    },
+  });
+
+  // Set up refetch interval to update pendingReward every 15 seconds
+  React.useEffect(() => {
+    if (!poolAddress || !fanAddress || !pendingRewardContract.refetch) return;
+
+    const interval = setInterval(() => {
+      pendingRewardContract.refetch();
+    }, 15000); // 15 seconds
+
+    return () => clearInterval(interval);
+  }, [poolAddress, fanAddress, pendingRewardContract.refetch, pendingRewardContract]);
+
+  const pendingRewardResult = pendingRewardContract.data;
+  const isPendingRewardLoading = pendingRewardContract.isLoading;
+
+  const config = useConfig();
   const { writeContractAsync: writeCreatorPoolContractAsync } = useWriteContract();
 
-  const claimReward = async (poolId: number) => {
+  // onHash runs as soon as the wallet returns the hash, so a flow can show
+  // Submitting and keep the hash for the explorer link.
+  const claimReward = async (
+    poolId: number,
+    options?: { onHash?: (hash: `0x${string}`) => void; chainId?: number }
+  ) => {
     if (!poolAddress) {
       throw new Error("Pool address is missing");
     }
@@ -44,10 +86,13 @@ export function usePoolReader(
         address: poolAddress,
         abi: CREATOR_POOL_ABI,
         functionName: "claimReward",
+        // Sign on the pool's chain when the caller knows it
+        chainId: options?.chainId,
       });
       const endHashTime = performance.now();
       const hashTimeMs = endHashTime - startHashTime;
       console.log(`⏱️ Transaction hash returned in: ${hashTimeMs.toFixed(2)}ms | Hash: ${hash}`);
+      if (hash) options?.onHash?.(hash);
 
       let confirmationTimeMs = 0;
       if (hash) {
@@ -59,6 +104,7 @@ export function usePoolReader(
         console.log(`⏱️ Total claim time: ${(hashTimeMs + confirmationTimeMs).toFixed(2)}ms`);
       }
 
+      // Call backend to confirm claim and update lastClaim
       try {
         await trpcClient.pools.fan.confirmClaim.mutate({
           poolId: poolId,
@@ -66,6 +112,8 @@ export function usePoolReader(
         console.log("✅ Claim confirmed and cooldown updated");
       } catch (backendError) {
         console.error("⚠️ Failed to confirm claim with backend:", backendError);
+        // Don't throw here - the blockchain claim succeeded, which is what matters
+        // The cooldown tracking is best-effort
       }
 
       return hash;
@@ -75,11 +123,34 @@ export function usePoolReader(
     }
   };
 
+  const fetchAllData = async () => {
+    await refetch();
+    await pendingRewardContract.refetch();
+  };
+
+  // Cooldown removido - usuários podem fazer claims ilimitados
+  const canClaimNow = true;
+
+  const nextClaimAvailable = null; // Não é mais necessário
+
+  // For pendingReward, we'll use the separate query data
+  // During loading, show initial value if available, otherwise show undefined
+  const finalPendingReward = isPendingRewardLoading
+    ? options?.initialPendingReward
+    : pendingRewardResult;
+
   return {
-    fanStake: liveData?.fanStakes !== undefined ? BigInt(liveData.fanStakes) : undefined,
-    pendingReward: liveData?.pendingReward !== undefined ? BigInt(liveData.pendingReward) : undefined,
-    isReadingPendingReward: false,
+    creatorCut: creatorCutResult?.result as bigint | undefined,
+    isReadingCreatorCut: isLoading,
+    fanStake: isLoading
+      ? (options?.initialFanStake ?? (fanStakeResult?.result as bigint | undefined))
+      : (fanStakeResult?.result as bigint | undefined),
+    pendingReward: finalPendingReward,
+    isReadingPendingReward: isPendingRewardLoading,
+    poolName: poolNameResult?.result as string | undefined,
+    fetchAllData,
     claimReward,
-    refetchLiveData,
+    canClaimNow,
+    nextClaimAvailable,
   };
 }

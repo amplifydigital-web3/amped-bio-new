@@ -1,19 +1,20 @@
 import { privateProcedure, router } from "../trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { prisma } from "../../services/DB";
-import { Address, createPublicClient, http, zeroAddress } from "viem";
+import { prisma } from "@repo/database";
+import { Address, createPublicClient, zeroAddress } from "viem";
 import {
   getChainConfig,
+  getRpcTransport,
   CREATOR_POOL_FACTORY_ABI,
   CREATOR_POOL_ABI,
   getPoolName,
-} from "@ampedbio/web3";
+} from "@repo/web3";
 import {
   ALLOWED_POOL_IMAGE_FILE_EXTENSIONS,
   ALLOWED_POOL_IMAGE,
   RewardPool,
-} from "@ampedbio/constants";
+} from "@repo/constants";
 import { env } from "../../env";
 import { s3Service } from "../../services/S3Service";
 import { uploadedFileService } from "../../services/UploadedFileService";
@@ -133,14 +134,13 @@ export const poolsCreatorRouter = router({
           where: { poolId: pool.id },
         });
 
-        let userStakeAmount = 0n;
-        let userPendingRewards = 0n;
-        let lastClaim: Date | null = null;
-
+        // Get current user's stake in this pool (using the userId already defined at the start of this function)
         const userWallet = await prisma.userWallet.findUnique({
           where: { userId },
         });
 
+        let userStakeAmount = 0n;
+        let lastClaim: Date | null = null;
         if (userWallet) {
           const userStake = await prisma.stakedPool.findUnique({
             where: {
@@ -153,49 +153,63 @@ export const poolsCreatorRouter = router({
 
           if (userStake) {
             lastClaim = userStake.lastClaim;
-          }
+            // For consistency, also check blockchain for updated stake amount
+            if (pool.poolAddress) {
+              try {
+                const chain = getChainConfig(parseInt(pool.chainId));
+                if (chain) {
+                  const publicClient = createPublicClient({
+                    chain: chain,
+                    transport: getRpcTransport(chain),
+                  });
 
-          const chain = getChainConfig(parseInt(pool.chainId));
-          if (pool.poolAddress && chain) {
-            try {
-              const publicClient = createPublicClient({
-                chain: chain,
-                transport: http(),
-              });
-
-              const [fanStakeResult, pendingRewardResult] = await publicClient.multicall({
-                contracts: [
-                  {
+                  const fanStakeAmount = await publicClient.readContract({
                     address: pool.poolAddress as Address,
                     abi: CREATOR_POOL_ABI,
                     functionName: "fanStakes",
                     args: [userWallet.address as Address],
-                  },
-                  {
-                    address: pool.poolAddress as Address,
-                    abi: CREATOR_POOL_ABI,
-                    functionName: "pendingReward",
-                    args: [userWallet.address as Address],
-                  },
-                ],
-              });
+                  });
 
-              userStakeAmount = fanStakeResult.status === "success"
-                ? (fanStakeResult.result as bigint)
-                : BigInt(userStake?.stakeAmount ?? "0");
-              userPendingRewards = pendingRewardResult.status === "success"
-                ? (pendingRewardResult.result as bigint)
-                : 0n;
-            } catch (error) {
-              console.error(
-                `Error fetching data from contract for pool ${pool.id}:`,
-                error
-              );
-              userStakeAmount = BigInt(userStake?.stakeAmount ?? "0");
-              userPendingRewards = 0n;
+                  userStakeAmount = fanStakeAmount as bigint;
+                }
+              } catch (error) {
+                // If blockchain query fails, use the database value
+                userStakeAmount = BigInt(userStake.stakeAmount);
+                console.error(
+                  `Error fetching user stake from blockchain for pool ${pool.id}:`,
+                  error
+                );
+              }
+            } else {
+              userStakeAmount = BigInt(userStake.stakeAmount);
             }
-          } else if (userStake) {
-            userStakeAmount = BigInt(userStake.stakeAmount);
+          }
+        }
+
+        // Get user's pending rewards from the pool contract
+        let userPendingRewards = 0n;
+        const chain = getChainConfig(parseInt(pool.chainId));
+        if (userWallet && pool.poolAddress && chain) {
+          try {
+            const publicClient = createPublicClient({
+              chain: chain,
+              transport: getRpcTransport(chain),
+            });
+
+            // Use the pendingReward function to get the user's pending rewards
+            userPendingRewards = (await publicClient.readContract({
+              address: pool.poolAddress as Address,
+              abi: CREATOR_POOL_ABI,
+              functionName: "pendingReward",
+              args: [userWallet.address as Address],
+            })) as bigint;
+          } catch (error) {
+            console.error(
+              `Error fetching user pending rewards from blockchain for pool ${pool.id}:`,
+              error
+            );
+            // If blockchain query fails, return 0n as there's no fallback in the database for pending rewards
+            userPendingRewards = 0n;
           }
         }
 
@@ -266,7 +280,7 @@ export const poolsCreatorRouter = router({
 
       const publicClient = createPublicClient({
         chain: chain,
-        transport: http(),
+        transport: getRpcTransport(chain),
       });
 
       try {
@@ -397,7 +411,7 @@ export const poolsCreatorRouter = router({
 
       const publicClient = createPublicClient({
         chain: chain,
-        transport: http(),
+        transport: getRpcTransport(chain),
       });
 
       let poolAddress: Address;

@@ -1,10 +1,14 @@
-import { type Address } from "viem";
+import { type Address, http, fallback, namehash, type Transport } from "viem";
+import { normalize } from "viem/ens";
 import { chainConfig } from "viem/zksync";
+import { RNS_KNOWN_SUFFIXES, stripRnsSuffix } from "./rns";
 
 export * from "./pools";
 export * from "./abis/multicall3";
 export * from "./abis/rns/index";
 export * from "./apy";
+export * from "./batches";
+export * from "./rns";
 
 export const revolutionDevnet = {
   ...chainConfig,
@@ -43,6 +47,10 @@ export const revolutionDevnet = {
   },
   subgraphUrl: "",
   gas: 5_000_000,
+  /** First block where the RNS infrastructure (BaseRegistrar etc.) exists. */
+  rnsDeployBlock: 0n,
+  /** RNS name suffix for display, input parsing and the namehash (101 D1). */
+  rnsSuffix: ".revotest.eth",
 } as const;
 
 export const libertasTestnet = {
@@ -57,7 +65,7 @@ export const libertasTestnet = {
   },
   rpcUrls: {
     default: {
-      http: ["https://libertas.revolutionchain.io"],
+      http: ["https://rpc.revolutionnetwork.dev/", "https://libertas.revolutionchain.io"],
     },
   },
   blockExplorers: {
@@ -74,14 +82,22 @@ export const libertasTestnet = {
     NODE: { address: "0x019bbe745b5c9b70060408Bf720B1E5172EEa5A3" as Address },
     CREATOR_POOL_FACTORY: { address: "0x38df3c6acEe3511c088c84d0191f550b24726f0f" as Address },
     multicall3: { address: "0x97cb78d5be963e2534a2156c88093a49f15315c8" as Address },
-    REGISTRAR_CONTROLLER: { address: "0x12E361E2dAEaD5b25e50c70700d1B8943A34a076" as Address },
-    L2_RESOLVER: { address: "0xeFC372f73Ee92fDb1Fe8A34E294A4aD28cF506C6" as Address },
-    BASE_REGISTRAR: { address: "0x203cf3B1e39F2003453C89f26756d41264BA67e4" as Address },
-    REVERSE_REGISTRAR: { address: "0x025b5154733E93a95F9e196c7fdAffF4584cdb5C" as Address },
+    REGISTRAR_CONTROLLER: { address: "0x38e319C46f53B856dD903c31C01E0538cEA08466" as Address },
+    L2_RESOLVER: { address: "0x41BAb42bD5C428E5dF47383b1FB3f99398E1202C" as Address },
+    BASE_REGISTRAR: { address: "0xeCe9b122ac1f8FF0226C4e66c06D77D918cD91e2" as Address },
+    REVERSE_REGISTRAR: { address: "0x0e7016Cc6fB99d432889c47A08a4973049f8bda7" as Address },
     SIMPLE_BATCH_SEND: { address: "0x8309858De3fc6B0A2bF5f63Fe3E793F90d4A14f9" as Address },
   },
-  subgraphUrl: "https://graph.libertas.revolutionchain.io/subgraphs/name/subgraph/rns",
+  subgraphUrl:
+    "https://graph-q101yuw854jc2su8q4h83f1b.groundhog.revoscan.io/subgraphs/name/uat/revonames",
   gas: 5_000_000,
+  /** First block where the RNS infrastructure (BaseRegistrar etc.) exists. */
+  rnsDeployBlock: 504472n,
+  /**
+   * RNS name suffix for display, input parsing and the namehash (101 D1).
+   * Changes to ".revo" once the RNS team confirms the TLD and base node.
+   */
+  rnsSuffix: ".revotest.eth",
 } as const;
 
 export const AVAILABLE_CHAINS = [libertasTestnet, revolutionDevnet] as const;
@@ -90,9 +106,47 @@ export const getChainConfig = (chainId: number) => {
   return AVAILABLE_CHAINS.find(c => c.id === chainId) ?? null;
 };
 
+/** The chain that holds the RNS contracts the server reads (Libertas Testnet). */
+export const RNS_CHAIN = libertasTestnet;
+
+/** The configured RNS suffix for a chain, falling back to the RNS chain. */
+export const getRnsSuffix = (chainId?: number | null): string =>
+  (chainId ? getChainConfig(chainId)?.rnsSuffix : undefined) ?? RNS_CHAIN.rnsSuffix;
+
+/** Display form of an RNS name: label plus the chain suffix (mayalin.revotest.eth). */
+export const formatRnsName = (label: string, chainId?: number | null): string =>
+  `${label}${getRnsSuffix(chainId)}`;
+
+/** Namehash of the full RNS name, the node the resolver and registry use. */
+export const rnsNode = (label: string, chainId?: number | null): `0x${string}` =>
+  namehash(normalize(formatRnsName(label, chainId)));
+
+/**
+ * Turns anything a person types or pastes into a bare label: trims, lowercases,
+ * drops a leading @ and strips the configured suffix or a known one
+ * (.revotest.eth, .revo, .eth). The name rule runs on the result.
+ */
+export const parseRnsInput = (input: string, chainId?: number | null): string =>
+  stripRnsSuffix(input, [getRnsSuffix(chainId), ...RNS_KNOWN_SUFFIXES]);
+
 export const getCurrencySymbol = (chainId: number) => {
   const chain = getChainConfig(chainId);
   return chain ? chain.nativeCurrency.symbol : "REVO";
+};
+
+/**
+ * RPC transport with automatic failover.
+ * The first URL is the primary; the remaining URLs are used as fallbacks.
+ * Chains with a single URL keep the plain http(url) behavior.
+ * // lean-ctx: RPCs hardcoded; move to env if per-environment override is needed.
+ */
+export const getRpcTransport = (
+  chain: (typeof AVAILABLE_CHAINS)[number],
+  options?: Parameters<typeof http>[1]
+): Transport => {
+  const urls = chain.rpcUrls.default.http;
+  if (urls.length <= 1) return http(urls[0], options);
+  return fallback(urls.map(url => http(url, options)));
 };
 
 export const REVO_NODE_ADDRESSES = {

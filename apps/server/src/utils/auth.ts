@@ -1,14 +1,58 @@
-import { prisma } from "../services/DB";
+import { prisma, withNumericIdCoercion } from "@repo/database";
 import { env } from "../env";
-import { processEmailToUniqueHandle } from "./onelink-generator";
+import { generateFanHandle, processEmailToUniqueHandle } from "./onelink-generator";
 import { sendEmailVerification, sendPasswordResetEmail, sendWelcomeEmail } from "./email/email";
 import { hashPassword, verifyPassword } from "./password";
-import { betterAuth } from "better-auth";
+import { APIError, betterAuth } from "better-auth";
+import { getOAuthState } from "better-auth/api";
+import { HANDLE_MIN_LENGTH, HANDLE_REGEX } from "@repo/constants";
+import type { BetterAuthPlugin } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { captcha, jwt, customSession, twoFactor } from "better-auth/plugins";
+import { cimd } from "@better-auth/cimd";
+import { fetchClientMetadataResource } from "@better-auth/cimd/node";
+import { mcp } from "@better-auth/mcp";
+import { oauthDeviceAuthorization } from "@better-auth/oauth-provider";
 import crypto from "crypto";
 import { JWTPayload, SignJWT } from "jose";
 import type { EnrichedUser } from "../types/auth-helpers";
+import { uuidv7 } from "./uuid-v7";
+import { createOnboardingRecord } from "./onboarding";
+
+/**
+ * Google sign up from the register card sends the claimed handle and the
+ * referrer as `additionalData`, which better-auth carries in the OAuth state
+ * (Screen Review 010 I03). The state is client input, so the handle is
+ * validated and checked for availability again; anything else is ignored.
+ */
+async function readSocialSignUpState(
+ options: { checkAvailable?: boolean } = {}
+): Promise<{ handle?: string; referrerId?: number; fanSignUp?: boolean }> {
+ const { checkAvailable = true } = options;
+  try {
+    const state = await getOAuthState<{
+      handle?: unknown;
+      referrerId?: unknown;
+      intent?: unknown;
+    }>();
+    if (!state) return {};
+    const result: { handle?: string; referrerId?: number; fanSignUp?: boolean } = {};
+    if (state.intent === "follow") result.fanSignUp = true;
+    const handle = typeof state.handle === "string" ? state.handle.trim().toLowerCase() : "";
+    if (handle.length >= HANDLE_MIN_LENGTH && HANDLE_REGEX.test(handle)) {
+      // After the account exists the handle is its own, so the after hook skips this
+      const taken = checkAvailable
+        ? await prisma.user.findFirst({ where: { handle }, select: { id: true } })
+        : null;
+      if (!taken) result.handle = handle;
+    }
+    const referrerId = Number(state.referrerId);
+    if (Number.isInteger(referrerId) && referrerId > 0) result.referrerId = referrerId;
+    return result;
+  } catch {
+    return {};
+  }
+}
 
 // === jwt private key generation  ===
 const pk = crypto.createPrivateKey({
@@ -19,6 +63,13 @@ const pk = crypto.createPrivateKey({
 
 const pb = crypto.createPublicKey(pk);
 
+// Public origin of the auth server, now on the dedicated auth subdomain.
+// Every token this server signs must carry it as `iss` so access tokens,
+// ID tokens and the app session JWTs verify consistently.
+export const AUTH_BASE_URL = env.BETTER_AUTH_URL.replace(/\/+$/, "");
+
+export const OAUTH_ISSUER = AUTH_BASE_URL;
+
 export const JWT_KEYS = {
   alg: "RS256" as const,
   privateKey: pk,
@@ -28,14 +79,55 @@ export const JWT_KEYS = {
     .update(pb.export({ format: "pem", type: "spki" }))
     .digest("hex")
     .substring(0, 16), // Key ID for the JWT
-  aud: env.JWT_AUDIENCE,
-  iss: env.APP_ENV === "development" ? "staging-api.amped.bio" : env.API_HOST,
+  iss: OAUTH_ISSUER,
 };
+
+// Audience of the wallet token handed to Web3Auth. The landing page is the
+// product's public face, so it is the token's intended audience. The Web3Auth
+// verifier must be configured with this exact origin: `https://amped.bio` in
+// production, `https://staging.amped.bio` in staging.
+export const WEB3AUTH_AUDIENCE = new URL(env.LANDINGPAGE_URL).origin;
+
+// ================ OAuth 2.1 provider settings ==================
+// Paths are resolved against the API origin by Better Auth, so the Express app
+// redirects them to the landing page (see services/API.ts).
+export const OAUTH_LOGIN_PATH = "/oauth/login";
+export const OAUTH_CONSENT_PATH = "/oauth/consent";
+export const OAUTH_DEVICE_PATH = "/oauth/device";
+
+// Scopes every OAuth client may request. `openid` is what makes this an OIDC
+// provider; `mcp:read` is bound to the protected MCP resource.
+export const OAUTH_SCOPES = ["openid", "profile", "email", "offline_access", "mcp:read"] as const;
+
+// Identity-only scopes granted by default to dynamically registered clients.
+export const IDENTITY_SCOPES = ["openid", "profile", "email", "offline_access"] as const;
+
+// Identity access tokens are short lived; long lived access is delegated to
+// refresh tokens (`offline_access`).
+export const OAUTH_ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
+
+// First-party clients skip the consent screen.
+const trustedOAuthClientIds = env.OAUTH_TRUSTED_CLIENT_IDS.split(",")
+  .map(clientId => clientId.trim())
+  .filter(Boolean);
+
+// In this pnpm workspace the @better-auth/* packages resolve their own copy of
+// @better-auth/core, so their plugin objects are structurally different from
+// better-auth's `BetterAuthPlugin` even though they are compatible at runtime.
+// The intersection keeps the plugin's own types (its endpoints feed `auth.api`)
+// while still satisfying the plugins array.
+const asBetterAuthPlugin = <T>(plugin: T) => plugin as unknown as BetterAuthPlugin & T;
 
 // ================ better-auth configuration ==================
 export const auth = betterAuth({
   basePath: "/auth",
-  trustedOrigins: [env.FRONTEND_URL],
+  trustedOrigins: [
+    env.APP_URL,
+    env.LANDINGPAGE_URL,
+    ...env.CORS_ORIGINS.split(",")
+      .map(origin => origin.trim())
+      .filter(Boolean),
+  ],
   plugins: [
     customSession(async ({ user, session }) => {
       const u = user as unknown as EnrichedUser;
@@ -80,8 +172,11 @@ export const auth = betterAuth({
       };
     }),
     captcha({
-      provider: "google-recaptcha",
+      // Cap exposes a reCAPTCHA-shaped `/siteverify` endpoint, so the hCaptcha
+      // handler (which only checks `success`) verifies Cap tokens as-is.
+      provider: "hcaptcha",
       secretKey: env.CAPTCHA_SECRET_KEY,
+      siteVerifyURLOverride: `${env.CAPTCHA_SERVER_URL}/${env.CAPTCHA_SITE_KEY}/siteverify`,
     }),
     twoFactor({
       issuer: "Amped.Bio",
@@ -101,11 +196,18 @@ export const auth = betterAuth({
     jwt({
       disableSettingJwtHeader: true,
       jwt: {
+        // The OAuth provider validates `iss` against its own issuer, so both the
+        // plugin and our signing override must use OAUTH_ISSUER.
+        issuer: OAUTH_ISSUER,
         sign: async (jwtPayload: JWTPayload) => {
-          return await new SignJWT(jwtPayload)
-            .setIssuedAt()
-            .setAudience(JWT_KEYS.aud)
-            .setIssuer(JWT_KEYS.iss)
+          const builder = new SignJWT(jwtPayload).setIssuedAt();
+
+          // Resource-bound access tokens bind `aud` to their resource, and the
+          // plugin derives it from baseURL otherwise, so only `iss` needs a
+          // fallback here.
+          if (!jwtPayload.iss) builder.setIssuer(OAUTH_ISSUER);
+
+          return await builder
             .setProtectedHeader({
               alg: JWT_KEYS.alg,
               kid: JWT_KEYS.kid,
@@ -115,37 +217,153 @@ export const auth = betterAuth({
         },
       },
       jwks: {
-        remoteUrl: new URL(
-          "/.well-known/jwks.json",
-          env.API_HOST.startsWith("http") ? env.API_HOST : `https://${env.API_HOST}`
-        ).href,
+        // Public URL of the JWKS that verifies every token this server issues
+        // (OAuth access tokens, ID tokens and the app session JWTs).
+        remoteUrl: new URL("/.well-known/jwks.json", AUTH_BASE_URL).href,
         keyPairConfig: {
           alg: JWT_KEYS.alg,
         },
       },
     }),
     // oneTap(),
+    // OAuth 2.1 / OIDC provider behind "Sign in with Amped.bio".
+    // mcp() *is* the OAuth provider configured for MCP resource binding, so it
+    // must never be combined with a separate oauthProvider() plugin.
+    asBetterAuthPlugin(
+      mcp({
+        loginPage: OAUTH_LOGIN_PATH,
+        consentPage: OAUTH_CONSENT_PATH,
+        resource: env.MCP_RESOURCE_URL,
+        scopes: [...OAUTH_SCOPES],
+        accessTokenExpiresIn: OAUTH_ACCESS_TOKEN_TTL_SECONDS,
+        allowDynamicClientRegistration: true,
+        clientRegistrationClientSecretExpiration: "30d",
+        clientRegistrationDefaultScopes: [...IDENTITY_SCOPES],
+        cachedTrustedClients: new Set(trustedOAuthClientIds),
+
+        /**
+         * Expose the user's wallet address in the userinfo endpoint so
+         * third-party sites (OAuth clients) can read it without needing
+         * a separate API call.
+         */
+        // Advertise the custom wallet claim on the OIDC discovery document so
+        // third-party clients know they can request it.
+        advertisedMetadata: {
+          claims_supported: ["wallet"],
+        },
+
+        customUserInfoClaims: async ({
+          user,
+          scopes,
+          requestedClaims,
+        }: {
+          user: any;
+          scopes: string[];
+          requestedClaims: string[];
+          jwt?: any;
+        }) => {
+          const claims: Record<string, unknown> = {};
+
+          // Return wallet (or null) whenever the client requests it or has the
+          // "profile" scope. Sites terceiros podem sempre esperar o campo,
+          // mesmo que seja null (usuário ainda não vinculou carteira).
+          if (requestedClaims.includes("wallet") || scopes.includes("profile")) {
+            const wallet = await prisma.userWallet.findUnique({
+              where: { userId: parseInt(user.id) },
+              select: { address: true },
+            });
+            claims.wallet = wallet?.address ?? null;
+          }
+
+          return claims;
+        },
+
+        /**
+         * Also embed the wallet in the access token so MCP tools like
+         * list_creator_pools can read it straight from the token claims
+         * instead of querying the database again.
+         */
+        customAccessTokenClaims: async ({ user, scopes }: { user?: any; scopes: any }) => {
+          const claims: Record<string, unknown> = {};
+
+          if (user && (scopes.includes("mcp:read") || scopes.includes("profile"))) {
+            const wallet = await prisma.userWallet.findUnique({
+              where: { userId: parseInt(user.id) },
+              select: { address: true },
+            });
+            claims.wallet = wallet?.address ?? null;
+          }
+
+          return claims;
+        },
+      })
+    ),
+    // Client ID Metadata Documents: lets MCP clients identify themselves with a
+    // hosted metadata document instead of dynamic registration.
+    asBetterAuthPlugin(
+      cimd({
+        fetchClientMetadataResource,
+        metadataProfile: "mcp-2026-07-28",
+      })
+    ),
+    // Device authorization grant (RFC 8628) for CLIs and limited-input clients.
+    asBetterAuthPlugin(oauthDeviceAuthorization({ verificationUri: OAUTH_DEVICE_PATH })),
   ],
-  database: prismaAdapter(prisma, {
+  database: prismaAdapter(withNumericIdCoercion(prisma), {
     provider: "mysql",
   }),
   advanced: {
+    crossSubDomainCookies: env.COOKIE_DOMAIN
+      ? {
+          enabled: true,
+          domain: env.COOKIE_DOMAIN,
+        }
+      : undefined,
     database: {
-      useNumberId: true,
-      // generateId: options => {
-      //   // Let the database auto-generate IDs for 'user' and 'users' tables
-      //   if (options.model === "user" || options.model === "users") {
-      //     return false;
-      //   }
-      //   // Generate UUIDs for all other tables
-      //   return crypto.randomUUID();
-      // },
+      // Tables managed by Better Auth fall into two groups:
+      //   1. Core tables (user, session, account, verification, jwks, twoFactor)
+      //      Keep database auto-increment / cuid for backward compatibility.
+      //   2. OAuth / OIDC tables (oauth*, device_code)
+      //      Use UUID v7 to avoid predictable sequential primary keys, which
+      //      strengthens private_key_jwt replay protection and other security
+      //      properties that depend on ID unpredictability.
+      generateId: options => {
+        const oauthModels = [
+          "oauthClient",
+          "oauthResource",
+          "oauthClientResource",
+          "oauthRefreshToken",
+          "oauthAccessToken",
+          "oauthConsent",
+          "oauthClientAssertion",
+          "deviceCode",
+        ];
+        if (oauthModels.includes(options.model)) {
+          return uuidv7() as unknown as string;
+        }
+        // Let the database handle ID generation for all other tables
+        // (auto-increment or cuid defaults in the schema).
+        return false;
+      },
     },
   },
   databaseHooks: {
     user: {
       create: {
         before: async (user: any, context: any) => {
+          // Fan Graph (#22): sign up from Follow makes a fan account. Its handle
+          // comes from the name, never the email, and it publishes no page.
+          const fanSignUp =
+            context?.query?.intent === "follow" ||
+            (context?.provider === "google" && (await readSocialSignUpState()).fanSignUp === true);
+          if (fanSignUp) {
+            user.handle = await generateFanHandle(user.name || context?.profile?.name);
+            user.page_status = "UNPUBLISHED";
+          }
+          if ((!user.handle || user.handle === "") && context?.provider === "google") {
+            const { handle } = await readSocialSignUpState();
+            if (handle) user.handle = handle;
+          }
           if ((!user.handle || user.handle === "") && user.email) {
             user.handle = await processEmailToUniqueHandle(user.email);
           }
@@ -155,7 +373,20 @@ export const auth = betterAuth({
           }
         },
         after: async (user: any, context: any) => {
-          const referrerId = context?.query?.referrerId;
+          // Email sign up passes ?referrerId; Google carries it in the OAuth state
+          const socialState =
+            context?.provider === "google"
+              ? await readSocialSignUpState({ checkAvailable: false })
+              : undefined;
+          const referrerId = context?.query?.referrerId ?? socialState?.referrerId;
+
+          // Home setup checklist (Screen Review 015 I02): a handle generated
+          // from a Google email starts on Choose your URL
+          await createOnboardingRecord(
+            parseInt(user.id),
+            context?.provider !== "google" ||
+              (!!socialState?.handle && socialState.handle === user.handle)
+          );
           if (referrerId) {
             try {
               // Create referral record
@@ -189,29 +420,46 @@ export const auth = betterAuth({
         },
       },
     },
+    session: {
+      create: {
+        before: async (session: any) => {
+          const user = await prisma.user.findUnique({
+            where: { id: Number(session.userId) },
+            select: { block: true },
+          });
+
+          if (user?.block === "yes") {
+            throw new APIError("FORBIDDEN", {
+              message:
+                "Your amped.bio account has been blocked. For more information, please submit a support ticket. https://amplifydigital.freshdesk.com/support/tickets/new",
+            });
+          }
+        },
+      },
+    },
+  },
+  // Required to send the verification email. Top-level since Better Auth 1.7.
+  emailVerification: {
+    sendVerificationEmail: async ({ user, url, token }: { user: any; url: any; token: any }) => {
+      console.info("Sending email verification to:", JSON.stringify({ user, url, token }));
+      sendEmailVerification(user.email, token);
+    },
+    sendOnSignUp: true,
+    autoSignInAfterVerification: true,
+    expiresIn: 1 * 60 * 60, // 1 hour
   },
   user: {
     changeEmail: {
       enabled: true,
     },
-    emailVerification: {
-      // Required to send the verification email
-      sendVerificationEmail: async ({ user, url, token }: { user: any; url: any; token: any }) => {
-        console.info("Sending email verification to:", JSON.stringify({ user, url, token }));
-        sendEmailVerification(user.email, token);
-      },
-      sendOnSignUp: true,
-      autoSignInAfterVerification: true,
-      expiresIn: 1 * 60 * 60, // 1 hour
-    },
-    modelName: "User",
+    // Only core user columns are mapped here; `handle`, `role` and
+    // `twoFactorEnabled` are declared in `additionalFields` below and their
+    // Prisma field names already match the Better Auth field keys.
     fields: {
       emailVerified: "email_verified",
       createdAt: "created_at",
       updatedAt: "updated_at",
       name: "name",
-      handle: "handle",
-      role: "role",
       image: "image",
     },
     additionalFields: {
@@ -237,13 +485,19 @@ export const auth = betterAuth({
         defaultValue: false,
         input: false,
       },
+      // Fan Graph (#22): set by the create hook for accounts made from Follow
+      page_status: {
+        type: "string",
+        required: false,
+        defaultValue: "PUBLISHED",
+        input: false,
+      },
     },
   },
   account: {
     accountLinking: {
       trustedProviders: ["google"],
     },
-    modelName: "Account",
   },
   emailAndPassword: {
     enabled: true,

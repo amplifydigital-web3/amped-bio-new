@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { HANDLE_MIN_LENGTH, HANDLE_REGEX } from "@ampedbio/constants";
+import { HANDLE_MIN_LENGTH, HANDLE_REGEX } from "@repo/constants";
 
 export const registerSchema = z.object({
   handle: z

@@ -2,7 +2,7 @@ import * as ed from "@noble/ed25519";
 import { createHash } from "crypto";
 import {
   createWalletBallotYaml,
-} from "@ampedbio/constants";
+} from "@repo/constants";
 
 const NDAU_ALPHABET = "abcdefghijkmnpqrstuvwxyz23456789";
 

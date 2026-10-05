@@ -1,15 +1,15 @@
 import React from "react";
 import { Trophy, Link, TrendingUp } from "lucide-react";
-import { getChainConfig } from "@ampedbio/web3";
+import { getChainConfig } from "@repo/web3";
 import { formatUnits, formatEther } from "viem";
 import { toast } from "react-hot-toast";
 import { usePoolReader } from "../../../hooks/usePoolReader";
-import { UserStakedPool } from "@ampedbio/constants";
+import { UserStakedPoolWithNullables } from "@repo/constants";
 import { useAccount } from "wagmi";
 import { useWalletContext } from "@/contexts/WalletContext";
 
 interface StakedPoolRowProps {
-  poolData: UserStakedPool;
+  poolData: UserStakedPoolWithNullables;
   refetchAllStakedPools: () => void;
   onViewPool: (poolId: number) => void;
   currentChainId: string;
@@ -21,7 +21,7 @@ export default function StakedPoolRow({
   onViewPool,
   currentChainId,
 }: StakedPoolRowProps) {
-  const { pool } = poolData;
+  const { pendingRewards, stakedByYou, pool } = poolData;
   const [isClaiming, setIsClaiming] = React.useState(false);
 
   const { address: userAddress } = useAccount();
@@ -32,14 +32,14 @@ export default function StakedPoolRow({
     claimReward,
     pendingReward: hookPendingReward,
     fanStake: hookFanStake,
-    refetchLiveData,
+    fetchAllData,
   } = usePoolReader(
     pool.address as `0x${string}` | undefined,
     userAddress as `0x${string}` | undefined,
-    currentChainId,
     { lastClaim: pool.lastClaim }
   );
 
+  const stakedAmount = stakedByYou;
   const chainConfig = getChainConfig(parseInt(currentChainId));
   const currencySymbol = chainConfig?.nativeCurrency.symbol || "REVO";
 
@@ -55,20 +55,18 @@ export default function StakedPoolRow({
       // Show a loading toast
       toast.loading("Processing claim...", { id: "claim-process" });
 
-      // Capture before claim — hookPendingReward is stale after the async write
-      const claimedAmount = hookPendingReward ?? 0n;
-
       await claimReward(pool.id);
 
       // Show success toast
       toast.success(
-        `Successfully claimed ${claimedAmount ? parseFloat(formatEther(claimedAmount)).toLocaleString() : "0"} ${currencySymbol}! Your wallet has been updated.`,
+        `Successfully claimed ${hookPendingReward ? parseFloat(formatEther(hookPendingReward)).toLocaleString() : "0"} ${currencySymbol}! Your wallet has been updated.`,
         { id: "claim-process" }
       );
 
-      // Wait for blockchain to update, then refetch
-      await new Promise(r => setTimeout(r, 1000));
-      await refetchLiveData();
+      // Refetch all pool data after a successful claim to update the UI
+      await fetchAllData();
+
+      // Refetch all staked pools to update the display
       refetchAllStakedPools();
     } catch {
       // Show error toast
@@ -198,7 +196,8 @@ export default function StakedPoolRow({
           className="flex items-center space-x-1 flex-shrink-0 ml-2"
           style={{ flexBasis: "12%" }}
         >
-          <button
+          {/* Claim button disabled by design: users must open the pool modal to claim rewards. */}
+          {/* <button
             onClick={handleClaim}
             className={`px-2 py-1.5 text-white text-xs font-medium rounded-md transition-colors duration-200 ${
               isWeb3Wallet
@@ -240,14 +239,14 @@ export default function StakedPoolRow({
                 <span className="sm:hidden">💰</span>
               </>
             )}
-          </button>
+          </button> */}
 
           <button
             onClick={handleViewPool}
             className="px-2 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors duration-200"
-            title="View pool details"
+            title="Manage pool details"
           >
-            <span className="hidden sm:inline">View</span>
+            <span className="hidden sm:inline">Manage</span>
             <span className="sm:hidden">👁️</span>
           </button>
         </div>

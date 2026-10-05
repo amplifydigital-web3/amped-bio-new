@@ -1,4 +1,4 @@
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@repo/ui";
 import { Copy, Check } from "lucide-react";
 import { useState } from "react";
 import { useAccount } from "wagmi";

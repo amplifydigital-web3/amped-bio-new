@@ -10,7 +10,7 @@ export const NDAU_GROUP_LABELS: Record<string, string> = {
 };
 
 export const VALID_DOCUMENT_HASHES: Record<string, string> = {
-  gn: "ac31744d16a32a5e553123335dd7501aea5cece491e734aabf5e932c21255063",
+  gn: "935946e2269f35d2708cccd12a2ffc30b82bba8301a4983f66868f0663e53b7b",
   ig: "ac31744d16a32a5e553123335dd7501aea5cece491e734aabf5e932c21255063",
   wc: "8f2a7bdc71cda131d75a711a132932f1813c145f896168eff447c773c1bda4f2",
 };
@@ -72,3 +72,7 @@ export function calculateRevoAmount(ndauAmount: string): string {
   const revo = ndau * parseFloat(NDAU_TO_REVO_RATE);
   return revo.toFixed(3);
 }
+
+// A claimed conversion (processing, no txid) can be released by the admin who claimed it
+// at any time, and by any other admin only after this much time has passed.
+export const NDAU_CONVERSION_CLAIM_TIMEOUT_MS = 15 * 60 * 1000;

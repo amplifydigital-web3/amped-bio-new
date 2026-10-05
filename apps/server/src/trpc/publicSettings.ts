@@ -1,7 +1,7 @@
 import { publicProcedure, router } from "./trpc";
-import { prisma } from "../services/DB";
+import { prisma } from "@repo/database";
 import { z } from "zod";
-import { SITE_SETTINGS } from "@ampedbio/constants";
+import { BANNER_PANELS, SITE_SETTINGS } from "@repo/constants";
 
 export const publicSettingsRouter = router({
   getBanner: publicProcedure
@@ -11,22 +11,7 @@ export const publicSettingsRouter = router({
         .object({
           message: z.string(),
           type: z.enum(["info", "warning", "success", "error"]),
-          panel: z
-            .enum([
-              "home",
-              "profile",
-              "reward",
-              "gallery",
-              "blocks",
-              "rewardPools",
-              "createRewardPool",
-              "leaderboard",
-              "rns",
-              "wallet",
-              "pay",
-              "account",
-            ])
-            .optional(),
+          panel: z.enum(BANNER_PANELS).optional(),
         })
         .nullable()
     )

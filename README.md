@@ -172,7 +172,7 @@ pnpm run build
 ```
 
 The client will be available at `http://localhost:5173`.
-The server API will be available at `http://localhost:43000`.
+The server API will be available at `http://localhost:24300`.
 
 ## Database Management with Prisma
 
@@ -363,7 +363,7 @@ This project includes Dockerfiles for both the server and client applications, a
 ### Dockerfiles
 
 - `apps/server/Dockerfile` - Builds the server application
-- `apps/client/Dockerfile` - Builds the client application (multi-stage build with nginx)
+- `apps/client/Dockerfile` - Builds the client application (multi-stage build with lighttpd)
 
 ### Prerequisites
 
@@ -397,7 +397,25 @@ docker build -f apps/client/Dockerfile -t amped-bio-client .
 To run the server container:
 
 ```bash
-docker run -p 3000:3000 --env-file ./apps/server/.env amped-bio-server
+docker run -p 24300:24300 \
+  -e PORT=24300 \
+  -e NODE_OPTIONS="--require dotenv/config" \
+  -v "$PWD/apps/server/.env:/app/apps/server/.env:ro" \
+  amped-bio-server
+```
+
+Docker's `--env-file` cannot parse the multi-line `JWT_PRIVATE_KEY` in
+`apps/server/.env` (it rejects values containing whitespace), so the file is mounted
+and loaded with dotenv instead. `PORT` is still passed as an environment variable
+because the image health check probes `127.0.0.1:$PORT`. The committed
+`apps/server/.env.example` sets `PORT=24300`; when `PORT` is unset, `env.ts`
+falls back to `43000`. It can be changed without rebuilding the image:
+
+```bash
+docker run -e PORT=8080 -p 8080:8080 \
+  -e NODE_OPTIONS="--require dotenv/config" \
+  -v "$PWD/apps/server/.env:/app/apps/server/.env:ro" \
+  amped-bio-server
 ```
 
 #### Client Container
@@ -406,4 +424,20 @@ To run the client container:
 
 ```bash
 docker run -p 80:80 amped-bio-client
+```
+
+The bundle is built from the committed env file of the selected mode
+(`apps/client/.env.staging` by default), so the image always carries the values in
+the repository. For another environment, commit its `apps/client/.env.<mode>` file
+and select the mode when building:
+
+```bash
+docker build -f apps/client/Dockerfile --build-arg VITE_MODE=production -t amped-bio-client .
+```
+
+The port lighttpd listens on inside the container is read from the `PORT` environment
+variable (defaults to `80`), so it can be changed without rebuilding the image:
+
+```bash
+docker run -e PORT=8080 -p 8080:8080 amped-bio-client
 ```

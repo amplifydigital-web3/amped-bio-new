@@ -1,48 +1,43 @@
-import { useState, useEffect, useRef } from "react";
-import { Copy } from "lucide-react";
+import { useState } from "react";
+import { Copy, AlertTriangle, ChevronRight, SearchX, Inbox } from "lucide-react";
+import { FaSpinner } from "react-icons/fa6";
+import { format, fromUnixTime } from "date-fns";
+import { isAddress } from "viem";
 import { useReverseLookup } from "@/hooks/rns/useReverseLookup";
-import { useOwnerDetail } from "@/hooks/rns/useOwnerDetail";
-import { domainName } from "@/utils/rns";
+import useGetAllRegisteredNames from "@/hooks/rns/useGetAllRegisteredNames";
+import { RevoName } from "@/types/rns/name";
 import { useRNSNavigation } from "@/contexts/RNSNavigationContext";
 
 interface AddressPageProps {
   address: string;
 }
 
-const AddressPage = ({ address }: AddressPageProps) => {
-  const { navigateToProfile } = useRNSNavigation();
-  const { name, fullName } = useReverseLookup(address as `0x${string}`);
-  const { expiryDate } = useOwnerDetail(name);
+const AddressPage = ({ address: addressParam }: AddressPageProps) => {
+  const { navigateToProfile, navigateToHome } = useRNSNavigation();
 
-  // State for expiry filter and search
-  const [showExpiryDropdown, setShowExpiryDropdown] = useState(false);
-  const [expiryFilter, setExpiryFilter] = useState("all");
+  const isValidAddress = Boolean(addressParam) && isAddress(addressParam);
+  // The subgraph matches `owner` case-sensitively and stores it lowercased,
+  // so normalize before any lookup.
+  const address = (isValidAddress ? addressParam.toLowerCase() : "") as `0x${string}`;
+
+  // Primary name (reverse record) — one address -> one display name.
+  const { fullName } = useReverseLookup(address);
+
+  // Active names owned by this address (expired names are excluded at the subgraph level).
+  const { revoNames, isFetching, error } = useGetAllRegisteredNames(
+    isValidAddress ? address : undefined,
+    isValidAddress,
+    true
+  );
+
   const [searchQuery, setSearchQuery] = useState("");
 
-  const dropdownRef = useRef(null);
-
-  // Handle expiry filter selection
-  const handleExpiryFilter = (filter: string) => {
-    setExpiryFilter(filter);
-    setShowExpiryDropdown(false);
-  };
-
-  const shouldShowDomain = () => {
-    if (!name) return false;
-
-    // Handle expiry filtering
-    if (expiryFilter === "expired" && !expiryDate?.isExpired) return false;
-    if (expiryFilter === "active" && expiryDate?.isExpired) return false;
-
-    if (
-      searchQuery &&
-      !fullName?.toLowerCase().includes(searchQuery.toLowerCase()) &&
-      !name.toLowerCase().includes(searchQuery.toLowerCase())
-    ) {
-      return false;
-    }
-
-    return true;
+  const formatExpiry = (expires?: string | null) => {
+    // Subgraph values are typed `string` but not runtime-validated; a missing or
+    // non-numeric expiry would make date-fns throw a RangeError while rendering.
+    const timestamp = Number(expires);
+    if (!expires || !Number.isFinite(timestamp)) return "Expiry unavailable";
+    return `Expires on ${format(fromUnixTime(timestamp), "MMMM dd, yyyy")}`;
   };
 
   const formatAddress = (addr: string) => {
@@ -52,21 +47,63 @@ const AddressPage = ({ address }: AddressPageProps) => {
     return `${start}...${end}`;
   };
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !(dropdownRef.current as HTMLElement).contains(event.target as Node)
-      ) {
-        setShowExpiryDropdown(false);
+  const filteredNames = revoNames
+    .filter((item: RevoName) => {
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        if (
+          !item.name.toLowerCase().includes(query) &&
+          !item.labelName.toLowerCase().includes(query)
+        ) {
+          return false;
+        }
       }
-    };
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
+      return true;
+    })
+    .sort(
+      (a: RevoName, b: RevoName) => Number(b.expiryDateWithGrace) - Number(a.expiryDateWithGrace)
+    );
+
+  const heading = fullName || formatAddress(address);
+
+  if (!isValidAddress) {
+    return (
+      <div className="w-full my-10 max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="rounded-3xl bg-white shadow-sm border border-gray-100 px-6 sm:px-10 py-12 flex flex-col items-center text-center">
+          <div className="relative flex items-center justify-center">
+            <span className="absolute inline-flex h-24 w-24 rounded-full bg-red-100 opacity-60"></span>
+            <div className="relative w-20 h-20 rounded-full bg-red-50 flex items-center justify-center">
+              <AlertTriangle className="w-9 h-9 text-red-500" />
+            </div>
+          </div>
+
+          <h1 className="text-2xl sm:text-3xl font-bold mt-6 text-gray-900">Invalid address</h1>
+          <p className="text-gray-500 mt-2 max-w-md leading-relaxed">
+            This doesn&apos;t look like a valid wallet address. Double-check the link and try again.
+          </p>
+
+          {addressParam && (
+            <div className="mt-5 w-full max-w-md">
+              <div className="flex items-center gap-2 rounded-xl bg-gray-50 border border-gray-200 px-4 py-3">
+                <SearchX className="w-4 h-4 text-gray-400 shrink-0" />
+                <code className="text-sm text-gray-600 font-mono break-all text-left">
+                  {addressParam}
+                </code>
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={() => navigateToHome()}
+            className="mt-7 inline-flex items-center justify-center bg-blue-600 text-white px-7 py-2.5 rounded-full hover:bg-blue-700 transition font-medium shadow-sm"
+          >
+            Back to search
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full my-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
@@ -78,22 +115,32 @@ const AddressPage = ({ address }: AddressPageProps) => {
           <div className="absolute left-6 sm:left-8 -top-16">
             <div className="w-32 h-32 rounded-full ring-8 ring-white bg-gradient-to-br from-green-300 to-green-100"></div>
           </div>
-          <div className="flex justify-between items-start flex-col sm:flex-row gap-4 sm:gap-0">
+          <div className="flex justify-between items-start flex-col sm:flex-row gap-4">
             <div className="space-y-1 min-w-0 flex-1">
               <div className="flex items-start gap-2 min-w-0">
-                <h1 className="text-2xl font-bold break-all min-w-0">{domainName(name) || name}</h1>
+                <h1 className="text-2xl font-bold break-all min-w-0">{heading}</h1>
                 <button
                   className="text-gray-400 hover:text-gray-600 shrink-0 mt-1"
-                  onClick={() => navigator.clipboard.writeText(domainName(name))}
+                  onClick={() => navigator.clipboard.writeText(fullName || address)}
                 >
                   <Copy className="w-5 h-5" />
                 </button>
               </div>
-              <div className="text-blue-500 text-sm">{formatAddress(address)}</div>
+              {fullName && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-blue-500 text-sm">{formatAddress(address)}</span>
+                  <button
+                    className="text-gray-400 hover:text-gray-600"
+                    onClick={() => navigator.clipboard.writeText(address)}
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
             </div>
-            {name && (
+            {fullName && (
               <button
-                onClick={() => navigateToProfile(name)}
+                onClick={() => navigateToProfile(fullName.split(".")[0])}
                 className="shrink-0 bg-blue-50 text-blue-500 px-6 py-2 rounded-full hover:bg-blue-100 transition font-medium"
               >
                 View Profile
@@ -103,76 +150,9 @@ const AddressPage = ({ address }: AddressPageProps) => {
         </div>
       </div>
 
-      {/* Filter Card */}
-      <div className="bg-white rounded-xl p-4 shadow-sm">
-        <div className="flex justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-3 relative" ref={dropdownRef}>
-            <div className="flex items-center justify-center w-8 h-8 bg-gray-50 rounded-md">
-              <svg
-                className="w-5 h-5 text-gray-400"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-            <button
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-gray-600 text-sm hover:bg-gray-50"
-              onClick={e => {
-                e.stopPropagation();
-                setShowExpiryDropdown(!showExpiryDropdown);
-              }}
-            >
-              <span>
-                {expiryFilter === "all" && "All Domains"}
-                {expiryFilter === "active" && "Active Domains"}
-                {expiryFilter === "expired" && "Expired Domains"}
-              </span>
-              <svg
-                className="w-4 h-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-
-            {/* Expiry Dropdown */}
-            {showExpiryDropdown && (
-              <div className="absolute top-full left-0 mt-1 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-100">
-                <ul className="py-1">
-                  <li
-                    className={`px-4 py-2 text-sm cursor-pointer hover:bg-gray-50 ${expiryFilter === "all" ? "bg-blue-50 text-blue-500" : "text-gray-700"}`}
-                    onClick={() => {
-                      handleExpiryFilter("all");
-                    }}
-                  >
-                    All Domains
-                  </li>
-                  <li
-                    className={`px-4 py-2 text-sm cursor-pointer hover:bg-gray-50 ${expiryFilter === "active" ? "bg-blue-50 text-blue-500" : "text-gray-700"}`}
-                    onClick={() => {
-                      handleExpiryFilter("active");
-                    }}
-                  >
-                    Active Domains
-                  </li>
-                  <li
-                    className={`px-4 py-2 text-sm cursor-pointer hover:bg-gray-50 ${expiryFilter === "expired" ? "bg-blue-50 text-blue-500" : "text-gray-700"}`}
-                    onClick={() => {
-                      handleExpiryFilter("expired");
-                    }}
-                  >
-                    Expired Domains
-                  </li>
-                </ul>
-              </div>
-            )}
-          </div>
+      {/* Names Card */}
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <div className="flex justify-end p-4 border-b border-gray-100">
           <div className="relative">
             <input
               type="text"
@@ -196,48 +176,62 @@ const AddressPage = ({ address }: AddressPageProps) => {
             </svg>
           </div>
         </div>
-      </div>
 
-      {/* Names List Card */}
-      {name && shouldShowDomain() && (
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <div className="divide-y divide-gray-100">
-            <div className="p-4 flex justify-between items-center gap-4">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-12 h-12 rounded-full bg-green-300 shrink-0"></div>
-                <div className="min-w-0">
-                  <div className="flex items-center min-w-0">
-                    <span className="text-gray-900 font-bold break-all">{fullName || name}</span>
-                  </div>
-                  <p className="text-gray-400 text-sm">
-                    {expiryDate?.isExpired
-                      ? "Expired"
-                      : `Expires on ${expiryDate?.date || "unknown"}`}
-                  </p>
-                </div>
-              </div>
-              <span className="px-4 py-1 bg-blue-50 text-blue-500 rounded-full text-sm font-medium shrink-0">
-                Owner
-              </span>
-            </div>
+        {isFetching ? (
+          <div className="py-16 flex flex-col items-center justify-center gap-3 text-gray-500">
+            <FaSpinner className="animate-spin h-6 w-6" />
+            <span className="text-sm">Getting names…</span>
           </div>
-        </div>
-      )}
+        ) : error ? (
+          <div className="py-16 flex flex-col items-center justify-center gap-3 text-gray-500 px-6 text-center">
+            <AlertTriangle className="h-8 w-8 text-red-400" />
+            <span className="text-sm">Something went wrong while fetching names.</span>
+          </div>
+        ) : filteredNames.length ? (
+          <div className="divide-y divide-gray-100">
+            {filteredNames.map(item => {
+              const isPrimary = Boolean(fullName) && item.name === fullName;
 
-      {/* No Results Message */}
-      {name && !shouldShowDomain() && (
-        <div className="bg-white rounded-xl shadow-sm p-6 text-center">
-          <p className="text-gray-500">
-            {searchQuery
-              ? `No domains found matching "${searchQuery}"`
-              : expiryFilter === "active"
-                ? "No active domains found"
-                : expiryFilter === "expired"
-                  ? "No expired domains found"
-                  : "No domains found"}
-          </p>
-        </div>
-      )}
+              return (
+                <button
+                  key={item.name}
+                  onClick={() => navigateToProfile(item.labelName)}
+                  className="group w-full text-left px-5 py-4 flex items-center gap-4 hover:bg-gray-50 transition"
+                >
+                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-green-300 to-green-100 shrink-0"></div>
+                  <div className="min-w-0 flex-1">
+                    <span className="text-gray-900 font-semibold break-all">{item.name}</span>
+                    <p className="text-sm text-gray-400">
+                      {formatExpiry(item.expiryDateWithGrace)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {isPrimary && (
+                      <span className="px-3 py-1 bg-blue-50 text-blue-500 rounded-full text-xs font-medium">
+                        Primary
+                      </span>
+                    )}
+                    <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-gray-400 transition" />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        ) : revoNames.length ? (
+          // Names exist but were filtered out by the search query
+          <div className="py-16 flex flex-col items-center justify-center gap-3 text-center px-6">
+            <SearchX className="h-8 w-8 text-gray-300" />
+            <p className="text-gray-500 text-sm">
+              {searchQuery ? `No domains found matching "${searchQuery}"` : "No domains found"}
+            </p>
+          </div>
+        ) : (
+          <div className="py-16 flex flex-col items-center justify-center gap-3 text-center px-6">
+            <Inbox className="h-8 w-8 text-gray-300" />
+            <p className="text-gray-500 text-sm">This address doesn&apos;t own any active names.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

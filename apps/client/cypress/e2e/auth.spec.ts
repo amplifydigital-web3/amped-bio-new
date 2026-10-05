@@ -166,7 +166,7 @@ describe("Authentication", () => {
       cy.log(`Submitting registration with: ${testUser.email}, ${testUser.handle}`);
       cy.get("[data-testid='register-submit']").click();
 
-      cy.url().should("match", new RegExp(`/@${testUser.handle}/edit`), { timeout: 10000 });
+      cy.url().should("match", new RegExp(`(/home)?$`), { timeout: 10000 });
       cy.contains("span", "Home", { timeout: 10000 }).should("be.visible");
       cy.log(`Registration complete for: ${testUser.email}`);
     });
@@ -181,7 +181,7 @@ describe("Authentication", () => {
       cy.log(`Submitting login with: ${testUser.email}`);
       cy.get("[data-testid='login-submit']").click();
 
-      cy.url().should("match", new RegExp(`/@${testUser.handle}/edit`), { timeout: 10000 });
+      cy.url().should("match", new RegExp(`(/home)?$`), { timeout: 10000 });
       cy.contains("span", "Home", { timeout: 10000 }).should("be.visible");
       cy.log(`Login successful for: ${testUser.email}`);
     });

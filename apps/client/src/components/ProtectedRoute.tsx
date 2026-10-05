@@ -1,19 +1,14 @@
 import { ReactNode } from "react";
 import { Navigate } from "react-router";
-import { useAuth } from "../contexts/AuthContext";
+import { ExternalRedirect, useAuth } from "@repo/ui";
 import { Loader2 } from "lucide-react";
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  redirectTo?: string;
   adminOnly?: boolean;
 }
 
-export function ProtectedRoute({
-  children,
-  redirectTo = "/",
-  adminOnly = false,
-}: ProtectedRouteProps) {
+export function ProtectedRoute({ children, adminOnly = false }: ProtectedRouteProps) {
   const { isPending, authUser } = useAuth();
 
   // Show loading while checking authentication status
@@ -32,9 +27,14 @@ export function ProtectedRoute({
     );
   }
 
-  // Redirect if not authenticated
+  // Redirect to the public site with the login popup open if not authenticated
   if (authUser === null) {
-    return <Navigate to={redirectTo} replace />;
+    // Send the person back to the exact editor URL after sign in, so deep links such
+    // as /explore?t=pools&pa=<address> (the Stake link on public pool pages) survive
+    const returnTo = encodeURIComponent(window.location.href);
+    return (
+      <ExternalRedirect to={`${import.meta.env.VITE_LANDINGPAGE_URL}/login?redirect=${returnTo}`} />
+    );
   }
 
   // Check admin access if required

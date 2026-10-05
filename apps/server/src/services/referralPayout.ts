@@ -1,11 +1,11 @@
 import { prisma } from "./DB";
 import { sendReferralRewards } from "./referralRewards";
-import { PROCESSING_TXID } from "@ampedbio/constants";
+import { PROCESSING_TXID } from "@repo/constants";
 import { env } from "../env";
-import { createWalletClient, createPublicClient, http } from "viem";
+import { createWalletClient, createPublicClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { getChainConfig } from "@ampedbio/web3";
-import { AFFILIATES_CHAIN_ID, SITE_SETTINGS } from "@ampedbio/constants";
+import { getChainConfig, getRpcTransport } from "@repo/web3";
+import { AFFILIATES_CHAIN_ID, SITE_SETTINGS } from "@repo/constants";
 import { cache, CacheKeys } from "../utils/cache";
 
 /**
@@ -200,12 +200,12 @@ export async function processReferralRewardForUser(userId: number): Promise<void
         const walletClient = createWalletClient({
           account,
           chain,
-          transport: http(chain.rpcUrls.default.http[0]),
+          transport: getRpcTransport(chain),
         }) as any;
 
         const publicClient = createPublicClient({
           chain,
-          transport: http(chain.rpcUrls.default.http[0]),
+          transport: getRpcTransport(chain),
         }) as any;
 
         console.log(

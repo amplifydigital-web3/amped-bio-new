@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { User, ChevronLeft, ChevronRight } from "lucide-react";
 import UserSkeleton from "./UserSkeleton";
-import { useQuery } from "@tanstack/react-query";
-import { trpc } from "../../../../utils/trpc";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { trpc } from "@repo/ui";
+import { htmlToPlainText } from "@repo/constants";
 
 // Define filter and sort types
 type UserFilter = "all" | "active-7-days" | "has-creator-pool";
@@ -23,6 +24,10 @@ interface UsersTabProps {
   userFilter: UserFilter;
   userSort: UserSort;
   handleViewProfile: (username: string) => void;
+  // 045 I10: the result count beside Sort, and Searching while a new query loads
+  onResult?: (result: { count: number; fetching: boolean }) => void;
+  // 045 I13: Clear search and Clear filter in the no results state
+  emptyActions?: React.ReactNode;
 }
 
 const UsersTab: React.FC<UsersTabProps> = ({
@@ -30,19 +35,33 @@ const UsersTab: React.FC<UsersTabProps> = ({
   userFilter,
   userSort,
   handleViewProfile,
+  onResult,
+  emptyActions,
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [limit] = useState(20); // 20 users per page maximum
 
-  const { data, isLoading } = useQuery(
-    trpc.user.getUsers.queryOptions({
+  const { data, isLoading, isFetching, isPlaceholderData } = useQuery({
+    ...trpc.user.getUsers.queryOptions({
       search: searchQuery,
       filter: userFilter,
       sort: userSort,
       page: currentPage,
       limit: limit,
-    })
-  );
+    }),
+    // Keep the current results on screen while a new query loads (045 I10)
+    placeholderData: keepPreviousData,
+  });
+
+  useEffect(() => {
+    if (!data) return;
+    onResult?.({ count: data.total ?? 0, fetching: isFetching && isPlaceholderData });
+  }, [data, isFetching, isPlaceholderData, onResult]);
+
+  // A new query starts from the first page
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, userFilter, userSort]);
 
   const users = data?.users || [];
   const total = data?.total || 0;
@@ -131,10 +150,9 @@ const UsersTab: React.FC<UsersTabProps> = ({
                   </div>
 
                   <p className="text-sm text-gray-500 mb-2">@{user.username}</p>
-                  <div
-                    className="text-sm text-gray-600 mb-4 line-clamp-2"
-                    dangerouslySetInnerHTML={{ __html: user.bio }}
-                  />
+                  <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                    {htmlToPlainText(user.bio)}
+                  </p>
 
                   <div className="flex space-x-2">
                     <button
@@ -149,7 +167,10 @@ const UsersTab: React.FC<UsersTabProps> = ({
             </div>
           ))
         ) : (
-          <div className="text-center py-8 text-gray-500 col-span-full">No users found.</div>
+          <div className="col-span-full space-y-3 py-8 text-center text-gray-500">
+            <p>No users found.</p>
+            {emptyActions}
+          </div>
         )}
       </div>
 

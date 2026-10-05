@@ -15,7 +15,7 @@ import { Address } from "viem";
 import { NameDates } from "@/types/rns/name";
 import { useTransferOwnership } from "@/hooks/rns/useTransferOwnership";
 import { useChainId } from "wagmi";
-import { getChainConfig } from "@ampedbio/web3";
+import { getChainConfig } from "@repo/web3";
 
 interface OwnershipDetailsProps {
   name: string;

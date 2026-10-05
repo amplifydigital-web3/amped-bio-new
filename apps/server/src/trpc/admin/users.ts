@@ -3,7 +3,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { getFileUrl } from "../../utils/fileUrlResolver";
 import { PaginationSchema, UserFilterSchema, UserSearchSchema, UserUpdateSchema } from "./schemas";
-import { prisma } from "../../services/DB";
+import { prisma } from "@repo/database";
 
 export const usersRouter = router({
   getUsers: adminProcedure
@@ -81,6 +81,7 @@ export const usersRouter = router({
             handle: true,
             role: true,
             block: true,
+            twoFactorEnabled: true,
             created_at: true,
             updated_at: true,
             image: true,
@@ -131,6 +132,7 @@ export const usersRouter = router({
             handle: true,
             role: true,
             block: true,
+            twoFactorEnabled: true,
             created_at: true,
             updated_at: true,
             image: true,
@@ -277,6 +279,7 @@ export const usersRouter = router({
             handle: true,
             role: true,
             block: true,
+            twoFactorEnabled: true,
             created_at: true,
             wallet: true,
             referralsReceived: {
@@ -320,6 +323,7 @@ export const usersRouter = router({
             handle: true,
             role: true,
             block: true,
+            twoFactorEnabled: true,
             created_at: true,
             wallet: true,
             referralsReceived: {
@@ -537,5 +541,46 @@ export const usersRouter = router({
         .filter(Boolean);
 
       return topHandles;
+    }),
+
+  disableUserTwoFactor: adminProcedure
+    .input(
+      z.object({
+        userId: z.number(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { userId } = input;
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, twoFactorEnabled: true },
+      });
+
+      if (!user) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "User not found",
+        });
+      }
+
+      if (!user.twoFactorEnabled) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "User does not have two-factor authentication enabled",
+        });
+      }
+
+      await prisma.$transaction([
+        prisma.user.update({
+          where: { id: userId },
+          data: { twoFactorEnabled: false },
+        }),
+        prisma.twoFactor.deleteMany({
+          where: { userId },
+        }),
+      ]);
+
+      return { success: true };
     }),
 });

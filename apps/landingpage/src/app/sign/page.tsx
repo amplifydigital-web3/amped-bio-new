@@ -1,0 +1,878 @@
+"use client";
+
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { authClient } from "@/lib/auth-client";
+import { Button } from "@repo/ui";
+import { Input } from "@/components/ui/Input";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "@repo/ui";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useAccount, useSignMessage } from "wagmi";
+import { useCaptcha } from "@/hooks/useCaptcha";
+import { GoogleLoginButton } from "@/components/auth/GoogleLoginButton";
+import { useWeb3Auth, useWeb3AuthConnect } from "@web3auth/modal/react";
+import { WALLET_CONNECTORS, AUTH_CONNECTION, CONNECTOR_STATUS } from "@web3auth/modal";
+import { trpcClient } from "@/lib/trpc";
+import {
+  Check,
+  Loader2,
+  AlertCircle,
+  AlertTriangle,
+  X,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+
+type FlowStep =
+  | "login"
+  | "wallet_wait"
+  | "announcing"
+  | "awaiting_message"
+  | "trust"
+  | "sign"
+  | "done";
+
+const loginSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters long"),
+});
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export default function SignPage() {
+  const { authUser, isPending: isAuthPending } = useAuth();
+  const { address, isConnected } = useAccount();
+  const { signMessageAsync, isPending: isSigning } = useSignMessage();
+  const { executeCaptcha } = useCaptcha();
+
+  // Web3Auth
+  const dataWeb3Auth = useWeb3Auth();
+  const { connectTo, error: web3AuthError } = useWeb3AuthConnect();
+  const { web3Auth } = dataWeb3Auth;
+
+  const connectInFlightRef = useRef(false);
+
+  const connectWeb3Auth = useCallback(async () => {
+    if (connectInFlightRef.current) {
+      console.log('[S] Web3Auth connect skipped: already in flight');
+      return;
+    }
+    const coreStatus = web3Auth?.status;
+    if (coreStatus === CONNECTOR_STATUS.CONNECTED || coreStatus === CONNECTOR_STATUS.CONNECTING) {
+      console.log('[S] Web3Auth connect skipped: status is', JSON.stringify(coreStatus));
+      return;
+    }
+
+    connectInFlightRef.current = true;
+    try {
+      console.log('[S] Fetching wallet token from server...');
+      const { walletToken } = await trpcClient.auth.getWalletToken.query();
+      console.log('[S] Wallet token received');
+
+      try {
+        const payload = JSON.parse(atob(walletToken.token.split(".")[1]));
+        if (payload.exp) {
+          const expirationTime = payload.exp * 1000;
+          localStorage.setItem("walletTokenExpiration", expirationTime.toString());
+        }
+      } catch (error) {
+        console.error("Error decoding token expiration:", error);
+      }
+
+      console.log('[S] Connecting to Web3Auth...');
+      await connectTo(WALLET_CONNECTORS.AUTH, {
+        authConnection: AUTH_CONNECTION.CUSTOM,
+        authConnectionId: process.env.NEXT_PUBLIC_WEB3AUTH_AUTH_CONNECTION_ID,
+        idToken: walletToken.token,
+        extraLoginOptions: { isUserIdCaseSensitive: false },
+      });
+      console.log('[S] Web3Auth connected successfully');
+    } catch (err) {
+      console.error('[S] Web3Auth connection error:', err);
+      setErrorState(
+        err instanceof Error
+          ? err.message
+          : "Failed to connect wallet. Please try again."
+      );
+    } finally {
+      connectInFlightRef.current = false;
+    }
+  }, [connectTo, web3Auth]);
+
+  // window.opener is only available in the browser, so resolve it after mount.
+  // Until then (SSR + first client render) it is null, which renders a loader
+  // instead of flashing the "Invalid Access" screen.
+  const [isPopup, setIsPopup] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const hasOpener = !!window.opener;
+    console.log(
+      '[S] mount:',
+      JSON.stringify({
+        hasOpener,
+        href: window.location.href,
+        referrer: document.referrer || null,
+        sessionOpenerOrigin: sessionStorage.getItem("sign_opener_origin"),
+        sessionIsPopup: sessionStorage.getItem("sign_is_popup"),
+      })
+    );
+    if (!hasOpener) {
+      console.warn('[S] window.opener is missing — rendering "Invalid Access"');
+    }
+    setIsPopup(hasOpener);
+  }, []);
+
+  const [flowStep, setFlowStep] = useState<FlowStep>("login");
+  const [openerOrigin, setOpenerOrigin] = useState<string | null>(null);
+  const openerOriginRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    openerOriginRef.current = openerOrigin;
+    console.log('[S] openerOrigin changed:', JSON.stringify(openerOrigin));
+  }, [openerOrigin]);
+
+  // After a full-page redirect (e.g. Google OAuth callback), React state is
+  // lost and window.opener may be null in some browsers.  Recover the origin
+  // from sessionStorage, which survives the navigation.
+  useEffect(() => {
+    const savedOrigin = sessionStorage.getItem("sign_opener_origin");
+    if (savedOrigin) {
+      console.log('[S] recovered opener origin from sessionStorage:', JSON.stringify(savedOrigin));
+      openerOriginRef.current = savedOrigin;
+      setOpenerOrigin(savedOrigin);
+      sessionStorage.removeItem("sign_opener_origin");
+    }
+    sessionStorage.removeItem("sign_is_popup");
+  }, []);
+  const [messageToSign, setMessageToSign] = useState<string | null>(null);
+  const [signature, setSignature] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState("");
+  const [signError, setSignError] = useState<string | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [errorState, setErrorState] = useState<string | null>(null);
+  const [originFailed, setOriginFailed] = useState(false);
+  const prevFlowStep = useRef<FlowStep>("login");
+
+  // Diagnostic logs for external state the flow depends on
+  useEffect(() => {
+    console.log(
+      '[S] auth state:',
+      JSON.stringify({ isAuthPending, userId: authUser?.id ?? null })
+    );
+  }, [authUser, isAuthPending]);
+
+  useEffect(() => {
+    console.log(
+      '[S] wallet state:',
+      JSON.stringify({ isConnected, address: address ?? null, web3AuthStatus: web3Auth?.status ?? null })
+    );
+  }, [isConnected, address, web3Auth?.status]);
+
+  useEffect(() => {
+    if (web3AuthError) console.error('[S] Web3Auth hook error:', web3AuthError);
+  }, [web3AuthError]);
+
+  useEffect(() => {
+    if (errorState) console.error('[S] errorState set:', JSON.stringify(errorState));
+  }, [errorState]);
+
+  useEffect(() => {
+    if (statusMessage) console.log('[S] status:', JSON.stringify(statusMessage));
+  }, [statusMessage]);
+
+  // Log every message received by this window, regardless of flow step, so
+  // messages arriving too early/late (and silently ignored) are visible.
+  useEffect(() => {
+    const logMessage = (event: MessageEvent) => {
+      console.log(
+        '[S] window message event:',
+        JSON.stringify({
+          origin: event.origin,
+          fromOpener: !!window.opener && event.source === window.opener,
+          flowStep: prevFlowStep.current,
+          data: event.data,
+        })
+      );
+    };
+    window.addEventListener("message", logMessage);
+    return () => window.removeEventListener("message", logMessage);
+  }, []);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors: loginErrors },
+  } = useForm<z.infer<typeof loginSchema>>({
+    resolver: zodResolver(loginSchema),
+    mode: "onBlur",
+  });
+
+  const sendToOpener = useCallback(
+    (data: object) => {
+      const targetOrigin = openerOriginRef.current || "*";
+      if (isPopup && window.opener) {
+        console.log(
+          '[S] postMessage sent:',
+          JSON.stringify({ targetOrigin, data })
+        );
+        try {
+          window.opener.postMessage(data, targetOrigin);
+        } catch (error) {
+          console.error('[S] postMessage failed:', error);
+        }
+      } else {
+        console.warn(
+          '[S] postMessage skipped (no opener):',
+          JSON.stringify({ isPopup, hasOpener: !!window.opener, data })
+        );
+      }
+    },
+    [isPopup]
+  );
+
+  const startAnnouncing = useCallback(async () => {
+    const from = prevFlowStep.current;
+    prevFlowStep.current = "announcing";
+    setFlowStep("announcing");
+    console.log(`[S] flowStep changed: ${from} → announcing`);
+    setStatusMessage("Preparing to communicate with requesting site...");
+    console.log('[S] waiting 2500ms before announcing SIGN_READY...');
+    await delay(2500);
+    // SIGN_READY is sent by the awaiting_message effect, only after the
+    // SIGN_MESSAGE listener is attached — otherwise a fast opener reply
+    // could arrive before the listener exists and be silently dropped.
+    prevFlowStep.current = "awaiting_message";
+    setFlowStep("awaiting_message");
+    console.log('[S] flowStep changed: announcing → awaiting_message');
+    setStatusMessage("Waiting for message to sign...");
+  }, []);
+
+  // Transition: user logs in
+  useEffect(() => {
+    if (!authUser) return;
+    if (flowStep !== "login") return;
+
+    console.log(
+      '[S] user authenticated on login step:',
+      JSON.stringify({ userId: authUser.id, isConnected })
+    );
+
+    if (!isConnected) {
+      prevFlowStep.current = "wallet_wait";
+      setFlowStep("wallet_wait");
+      console.log('[S] flowStep changed: login → wallet_wait');
+      setStatusMessage("Connecting wallet via Web3Auth...");
+      // Auto-connect via Web3Auth (no injected wallet needed)
+      connectWeb3Auth();
+    } else {
+      console.log('[S] wallet already connected, skipping wallet_wait');
+      startAnnouncing();
+    }
+  }, [authUser, isConnected, flowStep, startAnnouncing, connectWeb3Auth]);
+
+  // Transition: wallet connects
+  useEffect(() => {
+    if (!isConnected || !authUser) return;
+    if (flowStep === "wallet_wait") {
+      console.log('[S] wallet connected:', JSON.stringify({ address }));
+      console.log('[S] flowStep changed: wallet_wait → announcing');
+      startAnnouncing();
+    }
+  }, [isConnected, authUser, flowStep, startAnnouncing, address]);
+
+  // Listen for SIGN_MESSAGE from opener
+  useEffect(() => {
+    if (flowStep !== "awaiting_message") return;
+
+    console.log('[S] listening for SIGN_MESSAGE (timeout 30000ms)');
+
+    const timeout = setTimeout(() => {
+      console.error('[S] timeout: no SIGN_MESSAGE received within 30000ms');
+      setErrorState(
+        "Communication timeout — The requesting site did not respond."
+      );
+    }, 30000);
+
+    const handleMessage = async (event: MessageEvent) => {
+      if (event.data?.type !== "SIGN_MESSAGE") {
+        console.log(
+          '[S] ignoring message (not SIGN_MESSAGE):',
+          JSON.stringify({ origin: event.origin, type: event.data?.type ?? null })
+        );
+        return;
+      }
+      clearTimeout(timeout);
+
+      console.log(
+        '[S] postMessage received:',
+        JSON.stringify({
+          origin: event.origin,
+          type: event.data.type,
+          message: event.data.message,
+        })
+      );
+
+      const origin = event.origin;
+
+      if (!origin || origin === "null") {
+        console.error('[S] SIGN_MESSAGE rejected: invalid origin', JSON.stringify(origin));
+        setOriginFailed(true);
+        setErrorState(
+          "Unable to verify requesting site — Cannot determine the origin of the request."
+        );
+        return;
+      }
+
+      let decodedMessage: string;
+      try {
+        decodedMessage = atob(event.data.message);
+      } catch (error) {
+        console.error(
+          '[S] SIGN_MESSAGE ignored: message is not valid base64',
+          JSON.stringify({ message: event.data.message }),
+          error
+        );
+        return;
+      }
+
+      console.log('[S] decoded message:', JSON.stringify(decodedMessage));
+
+      setOpenerOrigin(origin);
+      openerOriginRef.current = origin;
+      setMessageToSign(decodedMessage);
+
+      sendToOpener({ type: "SIGN_MESSAGE_RECEIVED" });
+
+      setStatusMessage("Message received. Verifying requesting site...");
+      console.log('[S] waiting 2500ms before showing trust step...');
+      await delay(2500);
+
+      prevFlowStep.current = "trust";
+      setFlowStep("trust");
+      console.log('[S] flowStep changed: awaiting_message → trust');
+    };
+
+    window.addEventListener("message", handleMessage);
+    sendToOpener({ type: "SIGN_READY" });
+    return () => {
+      window.removeEventListener("message", handleMessage);
+      clearTimeout(timeout);
+    };
+  }, [flowStep, sendToOpener]);
+
+  const handleTrustConfirm = () => {
+    console.log('[S] user trusted origin:', JSON.stringify(openerOrigin));
+    prevFlowStep.current = "sign";
+    setFlowStep("sign");
+    console.log('[S] flowStep changed: trust → sign');
+  };
+
+  const handleSign = async () => {
+    if (!messageToSign) {
+      console.warn('[S] handleSign called without a message to sign');
+      return;
+    }
+    setSignError(null);
+    console.log(
+      '[S] requesting wallet signature:',
+      JSON.stringify({ address, message: messageToSign })
+    );
+    try {
+      const sig = await signMessageAsync({ message: messageToSign });
+      console.log('[S] signMessageAsync result:', JSON.stringify(sig));
+      setSignature(sig);
+      prevFlowStep.current = "done";
+      setFlowStep("done");
+      console.log('[S] flowStep changed: sign → done');
+
+      sendToOpener({
+        type: "SIGNATURE_RESULT",
+        signature: sig,
+        address,
+      });
+    } catch (error) {
+      console.error('[S] signMessageAsync failed:', error);
+      setSignError((error as Error).message || "Signing failed");
+    }
+  };
+
+  const handleCloseWindow = () => {
+    if (!signature || !address) {
+      console.warn(
+        '[S] close window ignored: missing signature or address',
+        JSON.stringify({ hasSignature: !!signature, address })
+      );
+      return;
+    }
+
+    sessionStorage.removeItem("sign_opener_origin");
+
+    console.log('[S] re-sending SIGNATURE_RESULT before closing window');
+    sendToOpener({
+      type: "SIGNATURE_RESULT",
+      signature,
+      address,
+    });
+
+    console.log('[S] closing window');
+    window.close();
+  };
+
+  const onSubmitLogin = async (data: z.infer<typeof loginSchema>) => {
+    setIsLoggingIn(true);
+    setLoginError(null);
+    console.log('[S] email login started');
+    try {
+      const captchaToken = await executeCaptcha();
+      console.log('[S] captcha resolved:', JSON.stringify({ hasToken: !!captchaToken }));
+      const response = await authClient.signIn.email({
+        email: data.email,
+        password: data.password,
+        rememberMe: true,
+        fetchOptions: {
+          headers: captchaToken
+            ? {
+                "x-captcha-response": captchaToken,
+              }
+            : undefined,
+        },
+      });
+      if (response?.error) {
+        throw new Error(response.error.message || "Login failed");
+      }
+      console.log('[S] email login succeeded');
+    } catch (error) {
+      console.error('[S] email login failed:', error);
+      setLoginError((error as Error).message || "Login failed");
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setIsLoggingIn(true);
+    setLoginError(null);
+
+    // Save popup state to sessionStorage before the full-page OAuth redirect,
+    // so it can be restored when the user is redirected back to /sign.
+    sessionStorage.setItem("sign_is_popup", "true");
+    if (openerOriginRef.current) {
+      sessionStorage.setItem("sign_opener_origin", openerOriginRef.current);
+    }
+    console.log(
+      '[S] Google login started, redirecting:',
+      JSON.stringify({
+        callbackURL: window.location.href,
+        savedOpenerOrigin: openerOriginRef.current,
+      })
+    );
+
+    try {
+      const response = await authClient.signIn.social({
+        provider: "google",
+        callbackURL: window.location.href,
+      });
+
+      if (response?.error) {
+        console.error('[S] Google login failed:', response.error);
+        setIsLoggingIn(false);
+        setLoginError(response.error.message || "Google login failed");
+        return;
+      }
+    } catch (error) {
+      console.error('[S] Google login failed:', error);
+      setLoginError((error as Error).message || "Google login failed");
+      setIsLoggingIn(false);
+    }
+  };
+
+  const isSubmitting = isLoggingIn;
+
+  if (isPopup === false) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <Card className="w-full max-w-sm">
+          <CardContent className="py-12">
+            <div className="flex flex-col items-center gap-4 text-center">
+              <AlertCircle className="h-10 w-10 text-red-500" />
+              <CardTitle>Invalid Access</CardTitle>
+              <CardDescription>
+                This page must be opened from a requesting site.
+              </CardDescription>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isPopup === null || isAuthPending) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col bg-gray-50 p-4">
+      <div className="w-full max-w-sm mx-auto flex-1 flex flex-col justify-center">
+        {errorState && (
+          <Card className="w-full border-red-200">
+            <CardContent className="py-12">
+              <div className="flex flex-col items-center gap-4 text-center">
+                <AlertCircle className="h-10 w-10 text-red-500" />
+                <CardTitle>Error</CardTitle>
+                <CardDescription>{errorState}</CardDescription>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {!errorState && flowStep === "login" && (
+          <Card className="w-full">
+            <CardHeader>
+              <CardTitle>Sign In</CardTitle>
+              <CardDescription>
+                Sign in to your Amped Bio account to continue with signing.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form
+                onSubmit={handleSubmit(onSubmitLogin)}
+                className="space-y-4"
+              >
+                {loginError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
+                    <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-red-600">{loginError}</p>
+                  </div>
+                )}
+                <Input
+                  label="Email"
+                  type="email"
+                  error={loginErrors.email?.message}
+                  required
+                  disabled={isSubmitting}
+                  {...register("email")}
+                />
+                <Input
+                  label="Password"
+                  type="password"
+                  error={loginErrors.password?.message}
+                  required
+                  disabled={isSubmitting}
+                  {...register("password")}
+                />
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  ) : (
+                    "Sign In"
+                  )}
+                </Button>
+              </form>
+
+              {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
+                <>
+                  <div className="relative flex items-center my-4">
+                    <div className="flex-grow border-t border-gray-300"></div>
+                    <span className="flex-shrink mx-4 text-gray-600 text-sm">or</span>
+                    <div className="flex-grow border-t border-gray-300"></div>
+                  </div>
+
+                  <div data-testid="google-sign-in" className="w-full">
+                    <GoogleLoginButton onClick={() => handleGoogleLogin()} />
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Wallet Wait Step — connects via Web3Auth automatically */}
+        {!errorState && flowStep === "wallet_wait" && (
+          <Card className="w-full">
+            <CardContent className="py-8">
+              <div className="flex flex-col items-center gap-4">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                <p className="text-sm text-gray-500">{statusMessage}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Announcing Step */}
+        {!errorState && flowStep === "announcing" && (
+          <Card className="w-full">
+            <CardContent className="py-12">
+              <div className="flex flex-col items-center gap-4">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                <p className="text-sm text-gray-500">{statusMessage}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Awaiting Message Step */}
+        {!errorState && flowStep === "awaiting_message" && (
+          <Card className="w-full">
+            <CardContent className="py-12">
+              <div className="flex flex-col items-center gap-4">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                <p className="text-sm text-gray-500">{statusMessage}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Trust Step */}
+        {!errorState && flowStep === "trust" && originFailed && (
+          <Card className="w-full border-red-200">
+            <CardContent className="py-12">
+              <div className="flex flex-col items-center gap-4 text-center">
+                <AlertCircle className="h-10 w-10 text-red-500" />
+                <CardTitle>Unable to verify requesting site</CardTitle>
+                <CardDescription>
+                  Cannot determine the origin of the request.
+                </CardDescription>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {!errorState && flowStep === "trust" && !originFailed && openerOrigin === null && (
+          <Card className="w-full">
+            <CardContent className="py-8">
+              <div className="flex flex-col items-center gap-4">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                <p className="text-sm text-gray-500">Preparing verification...</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {!errorState && flowStep === "trust" && !originFailed && openerOrigin !== null && (
+          <Card className="w-full">
+            <CardHeader>
+              <div className="flex items-center gap-2 text-blue-600">
+                <AlertTriangle className="h-5 w-5" />
+                <CardTitle>Verify Requesting Site</CardTitle>
+              </div>
+              <CardDescription>
+                Verify that you know and trust the site requesting your
+                signature before proceeding.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                  <p className="text-xs font-medium text-gray-500 mb-1">
+                    Requesting Origin
+                  </p>
+                  <p className="text-sm font-mono text-gray-900 break-all">
+                    {openerOrigin}
+                  </p>
+                </div>
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                  <p className="text-xs font-medium text-gray-500 mb-1">
+                    Message to sign
+                  </p>
+                  <pre className="text-sm text-gray-900 break-all whitespace-pre-wrap font-mono">
+                    {messageToSign}
+                  </pre>
+                </div>
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-md flex items-start gap-2">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-amber-800">
+                    Only proceed if you recognize and trust the requesting site.
+                    Signing unknown messages can compromise your wallet security.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button onClick={handleTrustConfirm} className="w-full">
+                I Know and Trust This Site
+              </Button>
+            </CardFooter>
+          </Card>
+        )}
+
+        {/* Sign Step */}
+        {!errorState && flowStep === "sign" && (
+          <Card className="w-full">
+            <CardHeader>
+              <CardTitle>Sign Message</CardTitle>
+              <CardDescription>
+                Sign the following message with your connected wallet to
+                continue.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                  <p className="text-xs font-medium text-gray-500 mb-1">
+                    Message to sign
+                  </p>
+                  <pre className="text-sm text-gray-900 break-all whitespace-pre-wrap font-mono">
+                    {messageToSign}
+                  </pre>
+                </div>
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                  <p className="text-xs font-medium text-gray-500 mb-1">
+                    Wallet address
+                  </p>
+                  <p className="text-sm font-mono text-gray-900 truncate">
+                    {address}
+                  </p>
+                </div>
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-md flex items-start gap-2">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-amber-800">
+                      Please review carefully before signing
+                    </p>
+                    <p className="text-xs text-amber-700">
+                      We do not recommend signing unreadable or unknown
+                      messages. Amped.bio is not responsible for what you sign
+                      with your wallet.
+                    </p>
+                  </div>
+                </div>
+                {signError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
+                    <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-red-600">{signError}</p>
+                  </div>
+                )}
+                <Button
+                  onClick={() => {
+                    console.log('[S] sign button clicked, opening confirm modal');
+                    setShowConfirmModal(true);
+                  }}
+                  className="w-full"
+                  disabled={isSigning}
+                >
+                  {isSigning ? (
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  ) : (
+                    "Sign Message"
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Done Step */}
+        {!errorState && flowStep === "done" && (
+          <Card className="w-full">
+            <CardHeader>
+              <div className="flex items-center gap-2 text-green-600">
+                <Check className="h-6 w-6" />
+                <CardTitle>Message Signed</CardTitle>
+              </div>
+              <CardDescription>
+                The signature has been sent back to the requesting site. You can
+                close this window.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                <p className="text-xs font-medium text-gray-500 mb-1">
+                  Signature
+                </p>
+                <p className="text-sm font-mono text-gray-900 break-all">
+                  {signature}
+                </p>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button
+                onClick={handleCloseWindow}
+                variant="confirm"
+                className="w-full"
+              >
+                <X className="mr-2 h-5 w-5" />
+                Close Window
+              </Button>
+            </CardFooter>
+          </Card>
+        )}
+      </div>
+
+      <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <div className="flex items-center gap-2 text-amber-600">
+              <AlertTriangle className="h-5 w-5" />
+              <DialogTitle>Confirm Signing</DialogTitle>
+            </div>
+            <DialogDescription className="text-left">
+              Do you really want to sign this message? This action cannot be
+              undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-3 bg-gray-50 border border-gray-200 rounded-md mt-2">
+            <p className="text-xs font-medium text-gray-500 mb-1">
+              Message to sign
+            </p>
+            <pre className="text-xs text-gray-900 break-all whitespace-pre-wrap font-mono max-h-32 overflow-y-auto">
+              {messageToSign}
+            </pre>
+          </div>
+          <DialogFooter className="mt-4 flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                console.log('[S] user cancelled signing in confirm modal');
+                setShowConfirmModal(false);
+              }}
+              className="flex-1"
+              disabled={isSigning}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                console.log('[S] user confirmed signing in confirm modal');
+                setShowConfirmModal(false);
+                handleSign();
+              }}
+              className="flex-1"
+              disabled={isSigning}
+            >
+              {isSigning ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                "I Understand, Sign"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

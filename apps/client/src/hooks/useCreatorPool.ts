@@ -1,7 +1,7 @@
 import { useChainId, useReadContract, useWalletClient } from "wagmi";
 import { type Address, isAddress, parseEther, zeroAddress } from "viem";
 import { useMemo, useEffect, useRef } from "react";
-import { CREATOR_POOL_FACTORY_ABI, getChainConfig } from "@ampedbio/web3";
+import { CREATOR_POOL_FACTORY_ABI, getChainConfig } from "@repo/web3";
 import { useWalletContext } from "@/contexts/WalletContext";
 
 export interface CreatePoolArgs {

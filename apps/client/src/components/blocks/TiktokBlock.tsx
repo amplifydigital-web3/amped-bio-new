@@ -1,5 +1,5 @@
 import type { ThemeConfig } from "../../types/editor";
-import { MediaBlock } from "@ampedbio/constants";
+import { MediaBlock } from "@repo/constants";
 import { FaTiktok } from "react-icons/fa6";
 import { TikTokEmbed } from "react-social-media-embed";
 

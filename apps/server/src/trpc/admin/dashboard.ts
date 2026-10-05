@@ -1,8 +1,8 @@
 import { adminProcedure, router } from "../trpc";
-import { prisma } from "../../services/DB";
+import { prisma } from "@repo/database";
 import { z } from "zod";
 import { bannerSchema } from "../../schemas/banner";
-import { SITE_SETTINGS } from "@ampedbio/constants";
+import { SITE_SETTINGS } from "@repo/constants";
 
 // Function to check if text contains links
 const containsLink = (text: string): boolean => {

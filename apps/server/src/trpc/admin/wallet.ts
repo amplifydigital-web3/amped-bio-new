@@ -1,8 +1,8 @@
 import { adminProcedure, router } from "../trpc";
 import { env } from "../../env";
-import { createPublicClient, http } from "viem";
+import { createPublicClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { AVAILABLE_CHAINS } from "@ampedbio/web3";
+import { AVAILABLE_CHAINS, getRpcTransport } from "@repo/web3";
 
 export const walletAdminRouter = router({
   getFaucetWalletInfo: adminProcedure.query(async () => {
@@ -31,7 +31,7 @@ export const walletAdminRouter = router({
           // Create public client for fetching blockchain data
           const publicClient = createPublicClient({
             chain,
-            transport: http(chain.rpcUrls.default.http[0]),
+            transport: getRpcTransport(chain),
           });
 
           // Get wallet balance with timeout

@@ -1,4 +1,5 @@
-export type TabType = "tokens" | "nfts" | "transactions" | "transfers";
+// Screen Review 057, 058 (D19): Transactions and Transfers are one Activity tab
+export type TabType = "tokens" | "nfts" | "activity";
 
 export interface NFT {
   id: string;

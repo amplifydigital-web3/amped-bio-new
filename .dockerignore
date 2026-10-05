@@ -1,0 +1,35 @@
+# Keep the build context small: dependencies are installed inside the image by
+# pnpm and both apps are built from source, so host artifacts are never needed.
+
+# Dependencies
+**/node_modules
+
+# Build outputs and caches
+**/dist
+**/.turbo
+**/.next
+**/coverage
+**/*.tsbuildinfo
+
+# VCS and local tooling
+.git
+.gitignore
+.github
+.idea
+.playwright-mcp
+.vscode
+
+# The servers read their configuration from the environment at runtime
+# (docker run --env-file ./apps/<app>/.env), so these files must not be baked into
+# the image: they hold real secrets (JWT_PRIVATE_KEY, AWS keys, BETTER_AUTH_SECRET).
+apps/server/.env
+apps/auth-server/.env
+
+# Local env overrides. The committed apps/client/.env.<mode> files are kept on
+# purpose: the client build inlines the selected one.
+**/.env.local
+**/.env.*.local
+
+# Logs and OS noise
+*.log
+.DS_Store

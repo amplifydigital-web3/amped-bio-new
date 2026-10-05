@@ -4,7 +4,7 @@ import { env } from "../env";
 
 let redisClient: Redis | null = null;
 
-function getRedisClient(): Redis | null {
+export function getRedisClient(): Redis | null {
   if (!redisClient) {
     try {
       redisClient = new Redis({

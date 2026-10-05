@@ -1,16 +1,22 @@
 import { useParams, useLocation } from "react-router";
 import { Layout } from "../components/Layout";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "@repo/ui";
 import { useEffect, useState } from "react";
 import { useEditor } from "../contexts/EditorContext";
 import { useNavigate } from "react-router";
-import { normalizeHandle, formatHandle, isEquivalentHandle } from "@/utils/handle";
+import { normalizeHandle, formatHandle, validateHandleFormat } from "@repo/ui";
 import { toast } from "react-hot-toast";
-import { trpc } from "../utils/trpc";
+import { trpc } from "@repo/ui";
 import { useQuery } from "@tanstack/react-query";
+import {
+  EDITOR_PANELS,
+  EditorPanelType,
+  LEGACY_PANEL_REDIRECTS,
+  LEGACY_PROFILE_TABS,
+} from "@/types/editor";
 
 export function Editor() {
-  const { handle = "" } = useParams();
+  const { panel: panelParam, handle: legacyHandle } = useParams();
   const { authUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [authorized, setAuthorized] = useState(false);
@@ -23,119 +29,88 @@ export function Editor() {
     trpc.public.getBanner.queryOptions()
   );
 
-  // Normalize handle to handle @ symbols in URLs
-  const normalizedHandle = normalizeHandle(handle);
-  const formattedHandle = formatHandle(handle);
+  // The dashboard is tied to the logged-in user, not to a handle in the URL
+  const userHandle = authUser?.handle ?? "";
 
-  // Initialize Freshworks help widget
+  // Normalize the URL: panels live as path segments (e.g. /gallery).
+  // Backward compatible with the legacy /@handle/edit/... and ?p= routes.
   useEffect(() => {
-    // Set widget settings
-    window.fwSettings = {
-      widget_id: 154000003550,
-    };
+    const searchParams = new URLSearchParams(location.search);
+    const hadPanelParam = searchParams.has("p");
+    const queryPanel = searchParams.get("p");
+    searchParams.delete("p");
 
-    // Initialize Freshworks Widget
-    if (typeof window.FreshworksWidget !== "function") {
-      const n = function (...args: any[]) {
-        n.q.push(args);
-      };
-      n.q = [];
-      window.FreshworksWidget = n;
+    let rawPanel = panelParam || queryPanel;
+
+    // Legacy destinations land on their new home (Screen Review 001 I01, I12)
+    const legacy = rawPanel ? LEGACY_PANEL_REDIRECTS[rawPanel] : undefined;
+    const profileTab =
+      rawPanel === "profile" ? LEGACY_PROFILE_TABS[searchParams.get("tab") ?? ""] : undefined;
+    if (profileTab) {
+      rawPanel = "design";
+      searchParams.set("tab", profileTab);
+    } else if (legacy) {
+      rawPanel = legacy.panel;
+      if (legacy.tab && !searchParams.has("tab")) searchParams.set("tab", legacy.tab);
+    }
+    const query = searchParams.toString();
+
+    const panel =
+      rawPanel && (EDITOR_PANELS as readonly string[]).includes(rawPanel)
+        ? (rawPanel as EditorPanelType)
+        : ((location.state?.panel as EditorPanelType | undefined) ?? "home");
+
+    const targetPath = `/${panel}`;
+    const targetSearch = query ? `?${query}` : "";
+
+    // If the segment is not a known panel and looks like a profile handle, the
+    // public profile lives on the landing site, so redirect there.
+    if (rawPanel && !(EDITOR_PANELS as readonly string[]).includes(rawPanel)) {
+      if (validateHandleFormat(normalizeHandle(rawPanel))) {
+        window.location.href = `${import.meta.env.VITE_LANDINGPAGE_URL}/${formatHandle(rawPanel)}`;
+        return;
+      }
     }
 
-    // Load the script
-    const script = document.createElement("script");
-    script.type = "text/javascript";
-    script.src = "https://widget.freshworks.com/widgets/154000003550.js";
-    script.async = true;
-    script.defer = true;
-    document.body.appendChild(script);
-
-    window.FreshworksWidget(
-      "identify",
-      "ticketForm",
-      {
-        name: authUser!.handle,
-        email: authUser!.email,
-      },
-      {
-        formId: 1234, // Ticket Form ID
-      }
-    );
-
-    // Cleanup function to remove the script when component unmounts
-    return () => {
-      if (script.parentNode) {
-        script.parentNode.removeChild(script);
-      }
-      // Clean up the global variable
-      delete window.FreshworksWidget;
-      delete window.fwSettings;
-    };
-  }, []);
-
-  // Redirect to URL with @ symbol if missing
-  useEffect(() => {
-    if (handle && !handle.startsWith("@")) {
-      // Navigate to the same route but with @ symbol
-      nav(`/@${handle}/edit${location.search}`, { replace: true });
+    // Compare path and search separately: `location.pathname` never contains the
+    // query string, so comparing it against a target that includes `?query`
+    // would always be truthy and navigate on every render (replaceState loop).
+    if (
+      location.pathname !== targetPath ||
+      location.search !== targetSearch ||
+      hadPanelParam ||
+      legacy
+    ) {
+      nav(`${targetPath}${targetSearch}`, { replace: true });
     }
-  }, [handle, nav, location.search]);
+    setActivePanel(panel);
+  }, [panelParam, legacyHandle, location, nav, setActivePanel]);
 
-  // Check if user is allowed to edit this page
+  // Check if the user is allowed to use the dashboard
   useEffect(() => {
     const isLoggedIn = authUser !== null;
 
     if (!isLoggedIn) {
-      // User is not logged in, redirect to view page
-      toast.error("You need to log in to edit this page");
-      nav(`/${formattedHandle}`, { replace: true });
+      // User is not logged in, redirect to the login page on the public site
+      toast.error("You need to log in to use the dashboard");
+      window.location.href = `${import.meta.env.VITE_LANDINGPAGE_URL}/login`;
       return;
     }
 
-    // Now check if logged-in user owns this handle
-    const isOwner = isEquivalentHandle(authUser.handle, normalizedHandle);
-
-    if (!isOwner) {
-      // User is logged in but doesn't own this handle
-      toast.error("You cannot edit this page as it belongs to another user");
-      nav(`/${formattedHandle}`, { replace: true });
-      return;
-    }
-
-    // User is authorized to edit
+    // User is authorized to use the dashboard
     setAuthorized(true);
-  }, [normalizedHandle, authUser, nav, formattedHandle]);
-
-  // Set active panel from URL query parameter or location state
-  useEffect(() => {
-    // Parse query parameters
-    const searchParams = new URLSearchParams(location.search);
-    const panelParam = searchParams.get("p");
-
-    // Check if a specific panel was passed in the URL query parameter
-    if (panelParam) {
-      setActivePanel(panelParam as any);
-    }
-    // Check if a specific panel was passed in the navigation state
-    else if (location.state && location.state.panel) {
-      setActivePanel(location.state.panel);
-    } else if (authUser === null) {
-      // For unauthenticated users, set to home
-      setActivePanel("home");
-    }
-  }, [location.search, location.state, authUser, setActivePanel]);
+  }, [authUser]);
 
   useEffect(() => {
-    if (normalizedHandle && normalizedHandle !== profile.handle) {
+    if (userHandle && userHandle !== profile.handle) {
       setLoading(true);
-      setUser(normalizedHandle).then(() => {
+      setUser(userHandle).then(() => {
         setLoading(false);
       });
     } else {
       setLoading(false);
     }
-  }, [normalizedHandle, profile, setUser]);
+  }, [userHandle, profile, setUser]);
 
   if (loading) {
     return <div>Loading...</div>;
@@ -146,11 +121,7 @@ export function Editor() {
     return null; // Render nothing while redirection happens
   }
 
-  return (
-    <div className="h-screen flex flex-col">
-      <div className="flex-1 overflow-hidden">
-        <Layout handle={normalizedHandle} bannerData={bannerData} bannerLoading={bannerLoading} />
-      </div>
-    </div>
-  );
+  // The Prism shell scrolls the page itself (fixed rail and dock, sticky
+  // preview), so no viewport-height or overflow wrapper goes around it
+  return <Layout bannerData={bannerData} bannerLoading={bannerLoading} />;
 }

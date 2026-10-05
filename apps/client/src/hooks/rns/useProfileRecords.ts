@@ -1,17 +1,15 @@
 import { PROFILE_KEYS, ProfileKey } from "@/types/rns/name";
-import { domainName } from "@/utils/rns";
-import { getChainConfig, RESOLVER_ABI } from "@ampedbio/web3";
-import { encodeFunctionData, namehash } from "viem";
+import { getChainConfig, RESOLVER_ABI, rnsNode } from "@repo/web3";
+import { encodeFunctionData } from "viem";
 import { useChainId, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 
 export type ProfileUpdates = Partial<Record<ProfileKey, string>>;
 
 export function useProfileRecords(name: string) {
   if (!name) throw new Error("Name is required");
-  const revoName = domainName(name);
   const chainId = useChainId();
   const networkConfig = getChainConfig(chainId);
-  const nodeHash = namehash(revoName);
+  const nodeHash = rnsNode(name, chainId);
 
   const resolverAddress = networkConfig?.contracts.L2_RESOLVER.address;
 

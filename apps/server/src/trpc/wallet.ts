@@ -2,15 +2,71 @@ import { privateProcedure, router } from "./trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { env } from "../env";
-import { createWalletClient, http, parseEther, Address, createPublicClient, keccak256 } from "viem";
+import { createWalletClient, parseEther, Address, createPublicClient, keccak256 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { getAddress } from "viem/utils";
 import { prisma } from "../services/DB";
-import { getChainConfig } from "@ampedbio/web3";
+import { getChainConfig, getRpcTransport } from "@repo/web3";
 import * as jose from "jose";
 import Decimal from "decimal.js";
-import { SITE_SETTINGS } from "@ampedbio/constants";
-import { cache, CACHE_TTL, getMethodSignatureCacheKey, getFaucetBalanceCacheKey, getWalletStatsCacheKey } from "../utils/cache";
+import { SITE_SETTINGS } from "@repo/constants";
+import { cache, CACHE_TTL, getMethodSignatureCacheKey } from "../utils/cache";
+
+const themeConfigSchema = z.object({
+  background: z
+    .object({
+      type: z.enum(["color", "image", "video"]),
+      value: z.string().nullable(),
+      fileId: z.number().optional(),
+    })
+    .optional(),
+});
+
+async function getFaucetRequirements(userId: number) {
+  const [user, linkBlockCount] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        image: true,
+        image_file_id: true,
+        description: true,
+        theme: true,
+      },
+    }),
+    prisma.block.count({
+      where: { user_id: userId },
+    }),
+  ]);
+
+  if (!user) {
+    return { photo: false, background: false, bio: false, minLinks: false };
+  }
+
+  const hasPhoto = !!(user.image || user.image_file_id);
+
+  let hasBackground = false;
+  if (user.theme) {
+    const themeRecord = await prisma.theme.findUnique({
+      where: { id: Number(user.theme) },
+      select: { config: true },
+    });
+    if (themeRecord?.config) {
+      const parsed = themeConfigSchema.safeParse(themeRecord.config);
+      if (parsed.success) {
+        hasBackground = !!parsed.data.background?.type && (!!parsed.data.background?.value || !!parsed.data.background?.fileId);
+      }
+    }
+  }
+
+  const hasBio = (() => {
+    if (!user.description) return false;
+    const stripped = user.description.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, "").trim();
+    return stripped.length > 0;
+  })();
+  const hasMinLinks = linkBlockCount >= 5;
+
+  return { photo: hasPhoto, background: hasBackground, bio: hasBio, minLinks: hasMinLinks };
+}
 
 // Schema for requesting faucet tokens
 const faucetRequestSchema = z.object({
@@ -233,7 +289,13 @@ export const walletRouter = router({
             canRequestNow: false,
             hasWallet: false,
             hasSufficientFunds: false,
-            faucetEnabled: false, // Indicate that the faucet is disabled
+            faucetEnabled: false,
+            requirements: {
+              photo: false,
+              background: false,
+              bio: false,
+              minLinks: false,
+            },
           };
         }
 
@@ -241,7 +303,7 @@ export const walletRouter = router({
         const faucetAmount = Number(env.FAUCET_AMOUNT);
         let hasSufficientFunds = true; // Assume true by default
 
-        // If not in mock mode, check the actual balance of the faucet (with cache)
+        // If not in mock mode, check the actual balance of the faucet
         if (env.FAUCET_MOCK_MODE !== "true") {
           if (!env.FAUCET_PRIVATE_KEY) {
             throw new TRPCError({
@@ -250,30 +312,21 @@ export const walletRouter = router({
             });
           }
 
-          const balanceCacheKey = getFaucetBalanceCacheKey(input.chainId);
-          const cachedBalance = await cache.get<{ hasSufficientFunds: boolean }>(balanceCacheKey);
+          const publicClient = createPublicClient({
+            chain,
+            transport: getRpcTransport(chain),
+          });
 
-          if (cachedBalance !== null) {
-            hasSufficientFunds = cachedBalance.hasSufficientFunds;
-          } else {
-            const publicClient = createPublicClient({
-              chain,
-              transport: http(chain.rpcUrls.default.http[0]),
-            });
+          const account = privateKeyToAccount(env.FAUCET_PRIVATE_KEY as `0x${string}`);
+          const balance = await publicClient.getBalance({ address: account.address });
+          // Use Decimal for precise conversion from wei to ether
+          const balanceInEther = new Decimal(balance.toString())
+            .div(new Decimal("10").pow(18))
+            .toNumber();
 
-            const account = privateKeyToAccount(env.FAUCET_PRIVATE_KEY as `0x${string}`);
-            const balance = await publicClient.getBalance({ address: account.address });
-            // Use Decimal for precise conversion from wei to ether
-            const balanceInEther = new Decimal(balance.toString())
-              .div(new Decimal("10").pow(18))
-              .toNumber();
-
-            // Check if the faucet has enough balance for the airdrop
-            if (balanceInEther < faucetAmount) {
-              hasSufficientFunds = false;
-            }
-
-            await cache.set(balanceCacheKey, { hasSufficientFunds }, CACHE_TTL.FAUCET_BALANCE);
+          // Check if the faucet has enough balance for the airdrop
+          if (balanceInEther < faucetAmount) {
+            hasSufficientFunds = false;
           }
         }
 
@@ -309,8 +362,9 @@ export const walletRouter = router({
           nextAvailableDate,
           canRequestNow,
           hasWallet: !!userWallet,
-          hasSufficientFunds, // Return the flag to the client
-          faucetEnabled, // Return the faucet enabled status
+          hasSufficientFunds,
+          faucetEnabled,
+          requirements: await getFaucetRequirements(userId),
         };
       } catch (error) {
         console.error("Error getting faucet amount:", error);
@@ -321,6 +375,19 @@ export const walletRouter = router({
         });
       }
     }),
+
+  checkFaucetRequirements: privateProcedure.query(async ({ ctx }) => {
+    const userId = ctx.user!.sub;
+    try {
+      return await getFaucetRequirements(userId);
+    } catch (error) {
+      console.error("Error checking faucet requirements:", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to check faucet requirements",
+      });
+    }
+  }),
 
   // Get the wallet address linked to the current user (1:1 relationship)
   getUserWallet: privateProcedure.query(async ({ ctx }) => {
@@ -397,14 +464,14 @@ export const walletRouter = router({
         const walletClient = createWalletClient({
           account,
           chain,
-          transport: http(chain.rpcUrls.default.http[0]),
+          transport: getRpcTransport(chain),
         });
 
         // If not in mock mode, check the actual balance of the faucet
         if (env.FAUCET_MOCK_MODE !== "true") {
           const publicClient = createPublicClient({
             chain,
-            transport: http(chain.rpcUrls.default.http[0]),
+            transport: getRpcTransport(chain),
           });
 
           const balance = await publicClient.getBalance({ address: account.address });
@@ -425,6 +492,33 @@ export const walletRouter = router({
         }
 
         const now = new Date();
+
+        // Validate faucet profile requirements
+        const requirements = await getFaucetRequirements(userId);
+        if (!requirements.photo) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "You need a profile photo to claim faucet tokens.",
+          });
+        }
+        if (!requirements.background) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "You need a background image to claim faucet tokens.",
+          });
+        }
+        if (!requirements.bio) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "You need a bio to claim faucet tokens.",
+          });
+        }
+        if (!requirements.minLinks) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "You need at least 5 links to claim faucet tokens.",
+          });
+        }
 
         // Find user's wallet (1:1 relationship - each user can have only one wallet)
         let wallet = await prisma.userWallet.findFirst({
@@ -537,13 +631,6 @@ export const walletRouter = router({
 
           console.log(`${isMockMode ? "[MOCK] " : ""}Transaction sent: ${hash}`);
 
-          // Invalidate faucet balance cache after airdrop
-          try {
-            await cache.delete(getFaucetBalanceCacheKey(input.chainId));
-          } catch (cacheError) {
-            console.error("Failed to invalidate faucet balance cache:", cacheError);
-          }
-
           // Create a transaction record
           const transaction = {
             id: hash, // Use the hash as the ID
@@ -600,9 +687,17 @@ export const walletRouter = router({
 
       const users = await prisma.user.findMany({
         where: {
+          // Screen Review 062: people are found by name, @handle or address.
+          // Accounts without a handle have no public page, so they are left out.
+          handle: { not: null },
           OR: [
             {
               handle: {
+                contains: searchQuery,
+              },
+            },
+            {
+              name: {
                 contains: searchQuery,
               },
             },
@@ -720,24 +815,6 @@ export const walletRouter = router({
     const userId = ctx.user!.sub;
 
     try {
-      // Check cache first
-      const cacheKey = getWalletStatsCacheKey(userId);
-      const cached = await cache.get<{
-        myStake: string;
-        stakedToMe: string;
-        stakersSupportingMe: number;
-        creatorPoolsJoined: number;
-      }>(cacheKey);
-
-      if (cached !== null) {
-        return {
-          myStake: BigInt(cached.myStake),
-          stakedToMe: BigInt(cached.stakedToMe),
-          stakersSupportingMe: cached.stakersSupportingMe,
-          creatorPoolsJoined: cached.creatorPoolsJoined,
-        };
-      }
-
       // Get user's wallet
       const userWallet = await prisma.userWallet.findUnique({
         where: { userId },
@@ -826,15 +903,6 @@ export const walletRouter = router({
           },
         },
       });
-
-      // Cache the result
-      const statsData = {
-        myStake: myStake.toString(),
-        stakedToMe: stakedToMe.toString(),
-        stakersSupportingMe,
-        creatorPoolsJoined,
-      };
-      await cache.set(cacheKey, statsData, CACHE_TTL.WALLET_STATS);
 
       return {
         myStake: myStake, // Return as bigint (wei)

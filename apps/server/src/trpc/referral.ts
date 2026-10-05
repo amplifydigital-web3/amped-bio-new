@@ -1,6 +1,6 @@
 import { router, privateProcedure, publicProcedure } from "./trpc";
 import { z } from "zod";
-import { prisma } from "../services/DB";
+import { prisma } from "@repo/database";
 import { TRPCError } from "@trpc/server";
 import {
   sendReferralRewards,
@@ -9,10 +9,36 @@ import {
 } from "../services/referralRewards";
 import { env } from "../env";
 import { privateKeyToAccount } from "viem/accounts";
-import { createWalletClient, createPublicClient, http } from "viem";
-import { getChainConfig } from "@ampedbio/web3";
-import { AFFILIATES_CHAIN_ID, SITE_SETTINGS, PROCESSING_TXID } from "@ampedbio/constants";
-import { cache, CacheKeys, CACHE_TTL, getAffiliateBalanceCacheKey } from "../utils/cache";
+import { createWalletClient, createPublicClient } from "viem";
+import { getChainConfig, getRpcTransport } from "@repo/web3";
+import { AFFILIATES_CHAIN_ID, SITE_SETTINGS, PROCESSING_TXID } from "@repo/constants";
+import { cache, CacheKeys } from "../utils/cache";
+import { getFileUrl } from "../utils/fileUrlResolver";
+
+// Screen Review 060: the reward amounts the Wallet shows before a claim
+async function getRewardAmounts() {
+  const cached = await cache.get<{ referrerReward: number | null; refereeReward: number | null }>(
+    CacheKeys.REFERRAL_REWARDS
+  );
+  if (cached) return cached;
+  const settings = await prisma.siteSettings.findMany({
+    where: {
+      setting_key: {
+        in: [SITE_SETTINGS.AFFILIATE_REFERRER_REWARD, SITE_SETTINGS.AFFILIATE_REFEREE_REWARD],
+      },
+    },
+  });
+  const read = (key: string) => {
+    const value = settings.find(s => s.setting_key === key)?.setting_value;
+    return value ? Number(value) : null;
+  };
+  const rewards = {
+    referrerReward: read(SITE_SETTINGS.AFFILIATE_REFERRER_REWARD),
+    refereeReward: read(SITE_SETTINGS.AFFILIATE_REFEREE_REWARD),
+  };
+  await cache.set(CacheKeys.REFERRAL_REWARDS, rewards);
+  return rewards;
+}
 
 // Helper function to check affiliate wallet balance
 async function getAffiliateWalletStatus() {
@@ -30,11 +56,14 @@ async function getAffiliateWalletStatus() {
     const account = privateKeyToAccount(env.AFFILIATES_PRIVATE_KEY as `0x${string}`);
     const publicClient = createPublicClient({
       chain,
-      transport: http(chain.rpcUrls.default.http[0]),
+      transport: getRpcTransport(chain),
     });
 
     // Get reward values from cache or database
-    const cachedRewards = await cache.get<{ referrerReward: number | null; refereeReward: number | null; }>(CacheKeys.REFERRAL_REWARDS);
+    const cachedRewards = await cache.get<{
+      referrerReward: number | null;
+      refereeReward: number | null;
+    }>(CacheKeys.REFERRAL_REWARDS);
 
     let referrerReward: number | null;
     let refereeReward: number | null;
@@ -72,33 +101,12 @@ async function getAffiliateWalletStatus() {
 
     const requiredAmount = (referrerReward || 0) + (refereeReward || 0);
 
-    // Check balance cache first
-    const balanceCacheKey = getAffiliateBalanceCacheKey(AFFILIATES_CHAIN_ID);
-    const cachedBalance = await cache.get<{ balance: string; hasBalance: boolean }>(balanceCacheKey);
-
-    if (cachedBalance !== null) {
-      return {
-        hasBalance: cachedBalance.hasBalance,
-        balance: cachedBalance.balance,
-        requiredAmount,
-        currency: chain.nativeCurrency.symbol,
-      };
-    }
-
-    // Cache miss — fetch from RPC
     const balance = await publicClient.getBalance({ address: account.address });
     const balanceInEther = Number(balance) / 1e18;
 
-    const result = {
-      balance: balanceInEther.toFixed(4),
-      hasBalance: balanceInEther >= requiredAmount,
-    };
-
-    await cache.set(balanceCacheKey, result, CACHE_TTL.AFFILIATE_BALANCE);
-
     return {
-      hasBalance: result.hasBalance,
-      balance: result.balance,
+      hasBalance: balanceInEther >= requiredAmount,
+      balance: balanceInEther.toFixed(4),
       requiredAmount,
       currency: chain.nativeCurrency.symbol,
     };
@@ -116,7 +124,10 @@ async function getAffiliateWalletStatus() {
 export const referralRouter = router({
   getRefereeReward: publicProcedure.query(async () => {
     try {
-      const cachedRewards = await cache.get<{ referrerReward: number | null; refereeReward: number | null; }>(CacheKeys.REFERRAL_REWARDS);
+      const cachedRewards = await cache.get<{
+        referrerReward: number | null;
+        refereeReward: number | null;
+      }>(CacheKeys.REFERRAL_REWARDS);
 
       let refereeReward: number | null;
 
@@ -210,19 +221,23 @@ export const referralRouter = router({
       const safePage = Math.max(input.page, 1);
       const safeLimit = Math.min(input.limit, 50);
 
-      const [referrals, total, affiliateWalletBalance] = await Promise.all([
+      const [referrals, total, affiliateWalletBalance, ownWallet, rewards] = await Promise.all([
         prisma.referral.findMany({
           where: { referrerId: userId },
           select: {
             id: true,
             txid: true,
+            createdAt: true,
+            // No email: one creator never sees another creator's email address
             referred: {
               select: {
                 id: true,
                 name: true,
-                email: true,
                 handle: true,
+                image: true,
+                image_file_id: true,
                 created_at: true,
+                wallet: { select: { id: true } },
               },
             },
           },
@@ -232,18 +247,33 @@ export const referralRouter = router({
         }),
         prisma.referral.count({ where: { referrerId: userId } }),
         getAffiliateWalletStatus(),
+        prisma.userWallet.findFirst({ where: { userId }, select: { id: true } }),
+        getRewardAmounts(),
       ]);
 
       return {
-        referrals: referrals.map(r => ({
-          ...r.referred,
-          txid: r.txid,
-          referralId: r.id,
-        })),
+        referrals: await Promise.all(
+          referrals.map(async r => ({
+            id: r.referred.id,
+            name: r.referred.name,
+            handle: r.referred.handle,
+            created_at: r.referred.created_at,
+            joinedAt: r.createdAt,
+            imageUrl: await getFileUrl({
+              legacyImageField: r.referred.image,
+              imageFileId: r.referred.image_file_id,
+            }),
+            // A claim sends to both wallets, so both must be linked (060 J5)
+            walletsLinked: !!ownWallet && !!r.referred.wallet,
+            txid: r.txid,
+            referralId: r.id,
+          }))
+        ),
         total,
         page: safePage,
         limit: safeLimit,
         totalPages: Math.ceil(total / safeLimit),
+        referrerReward: rewards.referrerReward,
         affiliateWalletBalance,
       };
     }),
@@ -251,41 +281,39 @@ export const referralRouter = router({
   myReferrer: privateProcedure.query(async ({ ctx }) => {
     const userId = ctx.user!.sub;
 
-    const [referral, affiliateWalletBalance] = await Promise.all([
+    const [referral, affiliateWalletBalance, ownWallet, rewards] = await Promise.all([
       prisma.referral.findFirst({
         where: { referredId: userId },
         include: {
+          // No email: the referee sees the referrer's public name and handle only
           referrer: {
             select: {
               id: true,
               name: true,
-              email: true,
               handle: true,
+              wallet: { select: { id: true } },
             },
           },
         },
       }),
       getAffiliateWalletStatus(),
+      prisma.userWallet.findFirst({ where: { userId }, select: { id: true } }),
+      getRewardAmounts(),
     ]);
 
     if (!referral) {
       return null;
     }
 
-    // Get referee reward amount from site settings
-    const rewardSettings = await prisma.siteSettings.findMany({
-      where: {
-        setting_key: SITE_SETTINGS.AFFILIATE_REFEREE_REWARD,
-      },
-    });
-
-    const refereeReward = Number(rewardSettings[0]?.setting_value || 0);
+    const { wallet: referrerWallet, ...referrer } = referral.referrer;
 
     return {
       id: referral.id,
       txid: referral.txid,
-      referrer: referral.referrer,
-      refereeReward,
+      referrer,
+      refereeReward: rewards.refereeReward ?? 0,
+      // A claim sends to both wallets, so both must be linked (060 J5)
+      walletsLinked: !!ownWallet && !!referrerWallet,
       createdAt: referral.createdAt,
       affiliateWalletBalance,
     };
@@ -461,7 +489,7 @@ export const referralRouter = router({
 
             const publicClient = createPublicClient({
               chain,
-              transport: http(chain.rpcUrls.default.http[0]),
+              transport: getRpcTransport(chain),
             }) as any;
 
             console.log(
@@ -513,7 +541,10 @@ export const referralRouter = router({
             }
 
             // Get reward amounts from cache or database
-            const cachedRewards = await cache.get<{ referrerReward: number | null; refereeReward: number | null; }>(CacheKeys.REFERRAL_REWARDS);
+            const cachedRewards = await cache.get<{
+              referrerReward: number | null;
+              refereeReward: number | null;
+            }>(CacheKeys.REFERRAL_REWARDS);
 
             let referrerReward: number | null;
             let refereeReward: number | null;
@@ -586,7 +617,7 @@ export const referralRouter = router({
             const walletClient = createWalletClient({
               account,
               chain,
-              transport: http(chain.rpcUrls.default.http[0]),
+              transport: getRpcTransport(chain),
             }) as any;
 
             const rewardResult = await sendReferralRewards(
@@ -633,13 +664,6 @@ export const referralRouter = router({
         console.log(
           `[REFERRAL_CLAIM_SUCCESS] userId=${userId}, referralId=${input.referralId}, txid=${result.txid}`
         );
-
-        // Invalidate affiliate balance cache after successful claim
-        try {
-          await cache.delete(getAffiliateBalanceCacheKey(AFFILIATES_CHAIN_ID));
-        } catch (cacheError) {
-          console.error("Failed to invalidate affiliate balance cache:", cacheError);
-        }
 
         return result;
       } catch (error) {
@@ -796,7 +820,7 @@ export const referralRouter = router({
 
             const publicClient = createPublicClient({
               chain,
-              transport: http(chain.rpcUrls.default.http[0]),
+              transport: getRpcTransport(chain),
             }) as any;
 
             console.log(
@@ -848,7 +872,10 @@ export const referralRouter = router({
             }
 
             // Get reward amounts from cache or database
-            const cachedRewards = await cache.get<{ referrerReward: number | null; refereeReward: number | null; }>(CacheKeys.REFERRAL_REWARDS);
+            const cachedRewards = await cache.get<{
+              referrerReward: number | null;
+              refereeReward: number | null;
+            }>(CacheKeys.REFERRAL_REWARDS);
 
             let referrerReward: number | null;
             let refereeReward: number | null;
@@ -921,7 +948,7 @@ export const referralRouter = router({
             const walletClient = createWalletClient({
               account,
               chain,
-              transport: http(chain.rpcUrls.default.http[0]),
+              transport: getRpcTransport(chain),
             }) as any;
 
             const rewardResult = await sendReferralRewards(
@@ -968,13 +995,6 @@ export const referralRouter = router({
         console.log(
           `[REFEREE_CLAIM_SUCCESS] userId=${userId}, referralId=${input.referralId}, txid=${result.txid}`
         );
-
-        // Invalidate affiliate balance cache after successful claim
-        try {
-          await cache.delete(getAffiliateBalanceCacheKey(AFFILIATES_CHAIN_ID));
-        } catch (cacheError) {
-          console.error("Failed to invalidate affiliate balance cache:", cacheError);
-        }
 
         return result;
       } catch (error) {
