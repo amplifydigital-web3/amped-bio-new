@@ -323,6 +323,36 @@ Public pages sit on `prism-room` under one header. The pieces live in `apps/land
 
 Errors are never raw server text (`classifyAuthError`). A missing captcha token while the captcha is on shows "The browser check did not finish. Check your connection." with Try again. After sign in a same origin `returnTo` (or a panel `redirect`) wins, otherwise the panel `/home`.
 
+## Auth pages and first run (PR 5b, Screen Review 011 to 015)
+
+The four standalone auth pages now use the PR 5 auth card under the public header. Home gains the setup checklist.
+
+| Piece | File | Rule |
+|---|---|---|
+| Result card | `AuthCard` `icon`, `centered`, `status`, `titleRef`; `StatusDisc` in `@repo/ui` | Result states center the card, show a 55 G1 clear status disc with a 34 icon, announce the title and move focus to it. The disc stands in for the G4 success moment until v1.1 |
+| Verify email (011) | `app/auth/verify-email` | Verifying after 400ms, Verified with Open editor (panel `/home?welcome=1`, or Sign in when there is no session), Failed by cause: expired, does not work, incomplete. Raw errors go to the console only |
+| Resend (012) | `app/auth/resend-verification`, `auth/SentState.tsx` | `?email` only prefills. Nothing sends until the press. Sent reads the same whether or not an account exists. Resend counts down 60 seconds (`useCooldown`) |
+| Reset password (013) | `app/auth/reset-password` | No token is the request step with a Have a reset code? disclosure; a token in the path is the new password step. One show toggle reveals both fields (`PasswordInput` `visible`, `toggleControls`). Live checklist (`auth/PasswordChecklist.tsx`, shared with register), match line on the confirm field, Link expired and Password updated states. Email and `returnTo` carry through |
+| Two factor (014) | `app/auth/two-factor`, `auth/CodeInput.tsx` | Six G2 wells 44 on one real input (one-time-code autofill, paste, auto submit on the sixth digit). Backup mode in place, Trust this device checkbox row, Sign out and go back. Too many attempts and a timed out challenge show the solid notice. After success: the provider redirect, a safe `returnTo`, or Home. The client plugin now carries `returnTo` (or the OAuth page itself) to `/auth/two-factor` |
+| Setup checklist (015) | `client/components/panels/home/SetupChecklist.tsx` | The one G3 lens on Home with rim and halo (the halo sits behind the lens). Five 55 rows: Choose your URL, Add a photo, Add your first block, Pick a theme, Share your page. Each row deep links (`/account?open=url`, `/page?open=photo`, `/page?open=add-block`, `/design?tab=themes`, copy or share). One primary names the next step. Hide checklist with an 8 second Undo. Complete state drops the rim and retires the checklist from the next visit |
+| Onboarding record | `server/trpc/onboarding.ts`, table `user_onboarding` | Stores URL confirmed, shared, dismissed, completed and the Analytics card dismissal. Photo, block and theme derive from the user's data. Created at sign up; a Google handle generated from the email starts on Choose your URL. Accounts without a record get one on first read with the URL confirmed |
+| Verify notice | `client/components/panels/home/VerifyEmailNotice.tsx` | Info notice on Home while the email is unverified, Resend email with the 60 second cooldown, 44 dismiss for the session |
+| Deep links | `client/hooks/useOpenParam.ts` | `?open=<name>` runs once and is removed with a replace navigation |
+
+## Home (PR 6a, Screen Review 016)
+
+Home is native on the D08 grid without a preview. The onboarding.ampedbio.com iframe no longer fills the panel.
+
+| Piece | File | Rule |
+|---|---|---|
+| Layout | `home/HomePanel.tsx` | Left column: setup checklist on first run, then the page status card. Right column: Testnet, Network, Video guides. Mobile stacks notices, checklist, page status, Testnet, Video guides, Network. Tab order follows the columns |
+| Page status (I04, I15) | `home/PageStatusCard.tsx` | Photo 55 or the handle initial, name, amped.bio/handle, View page (new tab), Copy page link, Share on touch when the browser has it, View analytics. Show setup checklist appears while setup is incomplete and the checklist is hidden. Skeleton after 400ms; Your page details did not load with Retry after 10 seconds |
+| Testnet (I06 to I11) | `home/TestnetCard.tsx`, `home/homeContent.ts` | Solid notice. `TESTNET_NOTICE` first, then Read more (Show less when open): testing phase, then thank you. Static, so it renders with the API blocked |
+| Conversion copy flag (D1) | `VITE_HOME_CONVERSION_COPY` | Off by default. On adds the J1 conversion line under the testnet line and the scope and tradability paragraphs inside Read more. Counsel approves before it turns on |
+| Network (I09, I10) | `TestnetCard.tsx` `NetworkSection` | Block explorer and Community on Telegram as G0 rows, new tab |
+| Video guides | `home/VideoGuides.tsx` | Four cards with a drawn poster, so nothing loads from YouTube until play. Play opens the shared Dialog with a youtube-nocookie.com player and Watch on YouTube. Focus stays on the dialog, not the player, so Escape closes it; focus returns to the card |
+| Updates (D2) | `home/UpdatesFrame.tsx`, `VITE_HOME_UPDATES_FRAME` | Off by default. On shows the onboarding site last in the left column with its host and Open in new tab, and Updates did not load with Retry after 15 seconds. Turn it on only after that site drops the conversion and tradability paragraphs, or the frame bypasses the conversion copy flag |
+
 ## Money flow (PR 4, Screen Review 046 to 048)
 
 The pool panel lives in `apps/client/src/components/panels/explore/pool-panel`. Pools (043) opens `PoolPanel`. Wallet Stakes (059) and My Pool (067) open it through `ExplorePoolDetailsModal`, now a thin wrapper with the same props. Explore keeps the open pool in `?pool=<address>` (D27); a legacy `?pa=` link is rewritten.
@@ -356,6 +386,7 @@ The pool panel lives in `apps/client/src/components/panels/explore/pool-panel`. 
 
 The old `ExplorePoolDetailsModal` body, the client `PoolDetailContent`, `StakeModal`, `UnstakeModal` and `PoolDetailsModalSkeleton`. Gone with them: the rate card and its popover, the hardcoded 0.01 REVO fee, the yellow notices and Claim button, the never closing claim toast, the Telegram link on results, and "Tokens have been returned". The public pool page (`apps/landingpage`, row 071) is unchanged here.
 
+
 ## Rules reviewers should enforce
 
 1. **Trust rule.** Spectacle falls as commitment rises. The Review and Confirm step uses `prism-value-panel-calm`, has no rim, uses a solid `prism-notice`, and has a required checkbox. The commit button is `value-deep`, followed by the wallet note.
@@ -372,7 +403,7 @@ The work ships in batched PRs:
 2. Shared components restyled in place, with the gallery; 2b money flow pieces and pool cards
 3. App shell (001 to 005); 3a Design (023 to 033); 3b Page (006, 017, 018, 022, 034 to 037); 3c Account (019, 020)
 4. Money flow
-5. Public site and auth (007 to 010, 070); 5b auth pages (011 to 014)
+5. Public site and auth (007 to 010, 070); 5b auth pages and first run (011 to 015)
 6. Screen batches by app area, each tied to Amped.Bio Screen Review row numbers
 
 4. Money flow (046 to 048): pool details, stake, unstake and claim in one panel

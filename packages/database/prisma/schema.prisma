@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated"
@@ -51,6 +50,7 @@ model User {
   trackingPixels     TrackingPixels?
   analyticsCampaigns AnalyticsCampaign[]
   analyticsConsents  AnalyticsConsent[]
+  onboarding         UserOnboarding?
 
   followsMade          Follow[]      @relation("FollowsMade")
   followsReceived      Follow[]      @relation("FollowsReceived")
@@ -493,6 +493,25 @@ model TrackingPixels {
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("tracking_pixels")
+}
+
+// First run setup checklist on Home (Screen Review 015 I08). Photo, block and
+// theme steps derive from the user's data; only these moments are stored, so
+// progress follows the creator across devices.
+model UserOnboarding {
+  id                          Bytes     @id @db.Binary(16)
+  user_id                     Int       @unique
+  url_confirmed_at            DateTime?
+  shared_at                   DateTime?
+  checklist_dismissed_at      DateTime?
+  completed_at                DateTime?
+  analytics_card_dismissed_at DateTime?
+  created_at                  DateTime  @default(now())
+  updated_at                  DateTime? @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("user_onboarding")
 }
 
 // ===== OAuth 2.1 provider (Better Auth oauth-provider / MCP plugins) =====

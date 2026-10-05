@@ -9,8 +9,17 @@ export const authClient = createAuthClient({
     inferAdditionalFields<typeof auth>(),
     jwtClient(),
     twoFactorClient({
+      // Keep where sign in was headed (Screen Review 014, D27): an OAuth
+      // authorize page comes back to itself, otherwise returnTo or redirect
       onTwoFactorRedirect() {
-        window.location.href = "/auth/two-factor";
+        const { pathname, search } = window.location;
+        const query = new URLSearchParams(search);
+        const returnTo = pathname.startsWith("/oauth/")
+          ? `${pathname}${search}`
+          : query.get("returnTo") || query.get("redirect");
+        window.location.href = `/auth/two-factor${
+          returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""
+        }`;
       },
     }),
   ],

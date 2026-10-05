@@ -17,6 +17,7 @@ import crypto from "crypto";
 import { JWTPayload, SignJWT } from "jose";
 import type { EnrichedUser } from "../types/auth-helpers";
 import { uuidv7 } from "./uuid-v7";
+import { createOnboardingRecord } from "./onboarding";
 
 /**
  * Google sign up from the register card sends the claimed handle and the
@@ -24,11 +25,10 @@ import { uuidv7 } from "./uuid-v7";
  * (Screen Review 010 I03). The state is client input, so the handle is
  * validated and checked for availability again; anything else is ignored.
  */
-async function readSocialSignUpState(): Promise<{
-  handle?: string;
-  referrerId?: number;
-  fanSignUp?: boolean;
-}> {
+async function readSocialSignUpState(
+ options: { checkAvailable?: boolean } = {}
+): Promise<{ handle?: string; referrerId?: number; fanSignUp?: boolean }> {
+ const { checkAvailable = true } = options;
   try {
     const state = await getOAuthState<{
       handle?: unknown;
@@ -40,7 +40,10 @@ async function readSocialSignUpState(): Promise<{
     if (state.intent === "follow") result.fanSignUp = true;
     const handle = typeof state.handle === "string" ? state.handle.trim().toLowerCase() : "";
     if (handle.length >= HANDLE_MIN_LENGTH && HANDLE_REGEX.test(handle)) {
-      const taken = await prisma.user.findFirst({ where: { handle }, select: { id: true } });
+      // After the account exists the handle is its own, so the after hook skips this
+      const taken = checkAvailable
+        ? await prisma.user.findFirst({ where: { handle }, select: { id: true } })
+        : null;
       if (!taken) result.handle = handle;
     }
     const referrerId = Number(state.referrerId);
@@ -371,11 +374,19 @@ export const auth = betterAuth({
         },
         after: async (user: any, context: any) => {
           // Email sign up passes ?referrerId; Google carries it in the OAuth state
-          const referrerId =
-            context?.query?.referrerId ??
-            (context?.provider === "google"
-              ? (await readSocialSignUpState()).referrerId
-              : undefined);
+          const socialState =
+            context?.provider === "google"
+              ? await readSocialSignUpState({ checkAvailable: false })
+              : undefined;
+          const referrerId = context?.query?.referrerId ?? socialState?.referrerId;
+
+          // Home setup checklist (Screen Review 015 I02): a handle generated
+          // from a Google email starts on Choose your URL
+          await createOnboardingRecord(
+            parseInt(user.id),
+            context?.provider !== "google" ||
+              (!!socialState?.handle && socialState.handle === user.handle)
+          );
           if (referrerId) {
             try {
               // Create referral record
