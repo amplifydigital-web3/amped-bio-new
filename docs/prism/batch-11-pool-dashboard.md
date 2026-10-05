@@ -27,7 +27,7 @@ Includes Rob's calls of 30 Sep: rewards are shown with real data, not removed. R
 | Dashboard | `trpc/pools/creator.ts` `getPoolDashboard` | Waits up to 2.5 seconds for the index, then returns `rewardsToFans` (rewards received less the creator cut) and `rewardsIndexing`. The client refetches every 5 seconds while indexing. Activity rows return `address`, `isCreator` and `handle: null` when there is no handle. Removed the unused 30 day chart data. Fixed the week start, which moved `now` by 7 days before the 30 day window was computed |
 | Fans | `trpc/pools/creator.ts` `getFans` | Each fan gets `rewards`: indexed claims plus `pendingReward` on the contract (`null` when the read fails). Returns `address` and `handle: null` when there is no handle |
 | Admin resync | `trpc/admin/pools.ts` | `syncPool` deletes and rebuilds only `stake` and `unstake` rows, so `create` and `claim` rows survive |
-| Migration | `20261003120000_add_pool_reward_index` | Adds `creator_pools.rewards_received` (default 0) and `creator_pools.rewards_indexed_block` |
+| Migration | `20261005120000_add_pool_reward_index` | Adds `creator_pools.rewards_received` (default 0) and `creator_pools.rewards_indexed_block` |
 
 ## Removed
 
