@@ -7,12 +7,14 @@ import type { Prisma } from "@repo/database";
  *
  * A profile is indexable when it:
  * - has a handle
+ * - has a published page (fan accounts from Follow have none, Fan Graph #22)
  * - is not suspended (block === "no")
  * - has a verified email
  * - has a non-empty description or at least one block
  */
 export const indexableUserWhere: Prisma.UserWhereInput = {
   handle: { not: null },
+  page_status: "PUBLISHED",
   block: "no",
   email_verified: true,
   OR: [
@@ -24,6 +26,7 @@ export const indexableUserWhere: Prisma.UserWhereInput = {
 export function isUserIndexable(
   user: {
     handle: string | null;
+    page_status: "PUBLISHED" | "UNPUBLISHED";
     block: string;
     email_verified: boolean;
     description: string | null;
@@ -31,6 +34,7 @@ export function isUserIndexable(
   blockCount: number
 ): boolean {
   if (!user.handle) return false;
+  if (user.page_status !== "PUBLISHED") return false;
   if (user.block !== "no") return false;
   if (!user.email_verified) return false;
   const hasDescription = user.description !== null && user.description !== "";

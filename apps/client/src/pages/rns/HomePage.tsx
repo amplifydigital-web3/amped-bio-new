@@ -62,22 +62,25 @@ export default function Home() {
   const featuresRef = useRef<HTMLDivElement>(null);
   const topRef = useRef<HTMLDivElement>(null);
 
-  const getContainer = () => document.getElementById("rns-scroll-container") as HTMLElement | null;
+  // The editor scrolls the page; the panel container only scrolls itself when
+  // something bounds its height, so fall back to the window otherwise
+  const getContainer = () => {
+    const container = document.getElementById("rns-scroll-container");
+    return container && container.scrollHeight > container.clientHeight ? container : undefined;
+  };
 
   const scrollToFeatures = () => {
+    if (!featuresRef.current) return;
     const container = getContainer();
-    if (!container || !featuresRef.current) return;
-    const target =
-      container.scrollTop +
-      featuresRef.current.getBoundingClientRect().top -
-      container.getBoundingClientRect().top;
+    const top = featuresRef.current.getBoundingClientRect().top;
+    const target = container
+      ? container.scrollTop + top - container.getBoundingClientRect().top
+      : window.scrollY + top;
     smoothScrollTo(target, 500, container);
   };
 
   const scrollToTop = () => {
-    const container = getContainer();
-    if (!container) return;
-    smoothScrollTo(0, 500, container);
+    smoothScrollTo(0, 500, getContainer());
   };
 
   return (

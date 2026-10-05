@@ -1,8 +1,14 @@
-import { useCallback, useMemo, useState } from "react";
-import { BASE_REGISTRAR_ABI, getChainConfig, REGISTRAR_CONTROLLER_ABI } from "@repo/web3";
+import { useCallback, useMemo, useRef, useState } from "react";
+import {
+  BASE_REGISTRAR_ABI,
+  getChainConfig,
+  parseRnsInput,
+  REGISTRAR_CONTROLLER_ABI,
+  rnsTokenId,
+} from "@repo/web3";
 import { useAccount, useWriteContract, usePublicClient } from "wagmi";
 
-import { ContractStep, TxStatus, TxStep } from "@/types/rns/common";
+import { TxStatus, TxStep } from "@/types/rns/common";
 import { useEditor } from "@/contexts/EditorContext";
 
 export type StepState = {
@@ -10,6 +16,8 @@ export type StepState = {
   status: TxStatus; // "idle" | "pending" | "success" | "error"
   hash?: `0x${string}`;
   error?: Error;
+  /** The approval was already in place, so no request ran (080 D2). */
+  skipped?: boolean;
 };
 
 type TransferResult = {
@@ -18,11 +26,17 @@ type TransferResult = {
   error?: Error;
 };
 
-const INITIAL_STEPS: Record<TxStep, StepState> = {
+const initialSteps = (): Record<TxStep, StepState> => ({
   approval: { step: "approval", status: "idle" },
   transfer: { step: "transfer", status: "idle" },
-};
+});
 
+/**
+ * Transfers one RNS name (080). The approval covers this one name only
+ * (approve(controller, tokenId)), never every name in the wallet, and is
+ * skipped when the controller is already approved for it (D2). A declined or
+ * failed request marks its own step as failed, so the flow never freezes.
+ */
 export function useTransferOwnership() {
   const { address, chainId } = useAccount();
   const publicClient = usePublicClient();
@@ -31,104 +45,114 @@ export function useTransferOwnership() {
 
   const networkConfig = getChainConfig(chainId ?? 0);
 
-  const [steps, setSteps] = useState<Record<TxStep, StepState>>(INITIAL_STEPS);
-
-  const resetSteps = () => {
-    setSteps(INITIAL_STEPS);
-  };
+  const [steps, setSteps] = useState<Record<TxStep, StepState>>(initialSteps);
+  // The latest steps, readable inside the async flow without a stale closure
+  const stepsRef = useRef<Record<TxStep, StepState>>(initialSteps());
 
   const updateStep = useCallback((step: TxStep, patch: Partial<StepState>) => {
-    setSteps(prev => ({
-      ...prev,
-      [step]: { ...prev[step], ...patch },
-    }));
+    stepsRef.current = {
+      ...stepsRef.current,
+      [step]: { ...stepsRef.current[step], ...patch },
+    };
+    setSteps(stepsRef.current);
   }, []);
 
-  const executeStep = useCallback(
-    async (config: ContractStep) => {
-      if (!publicClient) {
-        throw new Error("Public client not available");
-      }
-
-      updateStep(config.step, { status: "pending", error: undefined });
-
-      const hash = await writeContractAsync({
-        address: config.contractAddress,
-        abi: config.abi,
-        functionName: config.functionName,
-        args: config.args,
-      });
-
-      updateStep(config.step, { hash });
-
-      const receipt = await publicClient.waitForTransactionReceipt({
-        hash,
-      });
-
-      if (receipt.status !== "success") {
-        throw new Error(`${config.step} transaction failed`);
-      }
-
-      updateStep(config.step, { status: "success" });
-    },
-    [publicClient, updateStep, writeContractAsync]
-  );
+  const resetSteps = useCallback(() => {
+    stepsRef.current = initialSteps();
+    setSteps(stepsRef.current);
+  }, []);
 
   const transferOwnership = useCallback(
     async (name: string, receiverAddress: `0x${string}`): Promise<TransferResult> => {
       if (!address) throw new Error("Wallet not connected");
       if (!networkConfig) throw new Error("Unsupported network");
+      if (!publicClient) throw new Error("Public client not available");
 
       resetSteps();
+      const label = parseRnsInput(name, chainId);
+      const tokenId = rnsTokenId(label);
+      const registrar = networkConfig.contracts.BASE_REGISTRAR.address;
+      const controller = networkConfig.contracts.REGISTRAR_CONTROLLER.address;
+      let current: TxStep = "approval";
 
-      const contractSteps: ContractStep[] = [
-        {
-          step: "approval",
-          contractAddress: networkConfig.contracts.BASE_REGISTRAR.address,
-          abi: BASE_REGISTRAR_ABI,
-          functionName: "setApprovalForAll",
-          args: [networkConfig.contracts.REGISTRAR_CONTROLLER.address, true],
-        },
-        {
-          step: "transfer",
-          contractAddress: networkConfig.contracts.REGISTRAR_CONTROLLER.address,
-          abi: REGISTRAR_CONTROLLER_ABI,
-          functionName: "transferRNSName",
-          args: [name, receiverAddress, networkConfig.contracts.L2_RESOLVER.address],
-        },
-      ];
+      const waitFor = async (hash: `0x${string}`) => {
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        if (receipt.status !== "success") throw new Error(`${current} transaction reverted`);
+      };
 
       try {
-        for (const step of contractSteps) {
-          await executeStep(step);
-        }
-        if (name === profile.revoName?.split(".")[0]) {
-          console.log("Updating profile");
+        // 1. Approval for this token only, skipped when already in place
+        updateStep("approval", { status: "pending", error: undefined });
+        const [approved, approvedForAll] = await Promise.all([
+          publicClient
+            .readContract({
+              address: registrar,
+              abi: BASE_REGISTRAR_ABI,
+              functionName: "getApproved",
+              args: [tokenId],
+            })
+            .catch(() => null),
+          publicClient
+            .readContract({
+              address: registrar,
+              abi: BASE_REGISTRAR_ABI,
+              functionName: "isApprovedForAll",
+              args: [address, controller],
+            })
+            .catch(() => false),
+        ]);
+        const inPlace =
+          approvedForAll === true ||
+          (typeof approved === "string" && approved.toLowerCase() === controller.toLowerCase());
 
+        if (inPlace) {
+          updateStep("approval", { status: "success", skipped: true });
+        } else {
+          const hash = await writeContractAsync({
+            address: registrar,
+            abi: BASE_REGISTRAR_ABI,
+            functionName: "approve",
+            args: [controller, tokenId],
+          });
+          updateStep("approval", { hash });
+          await waitFor(hash);
+          updateStep("approval", { status: "success" });
+        }
+
+        // 2. Transfer the name to the recipient
+        current = "transfer";
+        updateStep("transfer", { status: "pending", error: undefined });
+        const hash = await writeContractAsync({
+          address: controller,
+          abi: REGISTRAR_CONTROLLER_ABI,
+          functionName: "transferRNSName",
+          args: [label, receiverAddress, networkConfig.contracts.L2_RESOLVER.address],
+        });
+        updateStep("transfer", { hash });
+        await waitFor(hash);
+        updateStep("transfer", { status: "success" });
+
+        // The page no longer owns the name, so it stops showing it (080)
+        if (profile.revoName && parseRnsInput(profile.revoName, chainId) === label) {
           await clearRevoName();
         }
-        return {
-          success: true,
-          steps,
-        };
+        return { success: true, steps: stepsRef.current };
       } catch (error) {
-        const failedStep = Object.values(steps).find(s => s.status === "pending")?.step;
-
-        if (failedStep) {
-          updateStep(failedStep, {
-            status: "error",
-            error: error as Error,
-          });
-        }
-
-        return {
-          success: false,
-          steps,
-          error: error as Error,
-        };
+        updateStep(current, { status: "error", error: error as Error });
+        return { success: false, steps: stepsRef.current, error: error as Error };
       }
     },
-    [address, executeStep, networkConfig, steps, updateStep]
+    [
+      address,
+      chainId,
+      clearRevoName,
+      networkConfig,
+      profile.revoName,
+      publicClient,
+      resetSteps,
+      updateStep,
+      writeContractAsync,
+    ]
   );
 
   const overallStatus: TxStatus = useMemo(() => {
@@ -142,6 +166,7 @@ export function useTransferOwnership() {
 
   return {
     transferOwnership,
+    resetSteps,
     isConnected: Boolean(address),
     steps,
     overallStatus,

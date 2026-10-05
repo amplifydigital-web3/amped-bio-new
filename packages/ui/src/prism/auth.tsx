@@ -270,6 +270,8 @@ export interface GoogleSignInOptions {
   // Sign up only: the claimed handle when it is available
   handle?: string;
   referrerId?: number;
+  // Fan Graph (#22): sign up from Follow makes a fan account with no page
+  intent?: "follow";
 }
 
 // Starts Google OAuth. Resolves with an error message when better-auth refuses
@@ -278,6 +280,7 @@ export async function startGoogleSignIn(options: GoogleSignInOptions): Promise<s
   const additionalData: Record<string, string> = {};
   if (options.handle) additionalData.handle = options.handle;
   if (options.referrerId) additionalData.referrerId = String(options.referrerId);
+  if (options.intent) additionalData.intent = options.intent;
   try {
     const response = await authClient.signIn.social({
       provider: "google",

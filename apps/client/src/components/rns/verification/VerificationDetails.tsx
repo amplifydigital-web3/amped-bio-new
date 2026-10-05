@@ -8,7 +8,7 @@ import type {
   AuthbaseWalletStatus,
 } from "@/types/authbase";
 import { scannerURL } from "@/utils/rns";
-import { useAuthbaseIdentityStatus } from "@/hooks/rns/useAuthbaseIdentityStatus";
+import { useAuthbaseIdentityStatus, useMyAuthbaseStatus } from "@/hooks/rns/useAuthbaseIdentityStatus";
 
 interface VerificationDetailProps {
   isOwner: boolean;
@@ -92,7 +92,7 @@ const buildMrz = (
   return `REVO :: AUTHBASE :: ${holder} :: TIER-${TIER_META[tier].letter} :: ${start}/${end}`;
 };
 
-// ── Small building blocks ──────────────────────────────────────
+// ── Small building blocks ──────────────────────────────────────────
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5 min-w-0">
@@ -276,10 +276,10 @@ function AttestedBody({
   );
 }
 
-// ── Publicly shared attributes (consent-filtered PII) ──────────
-// Independent of verification status: render whenever keys exist. Only keys
-// present in `attributes` are shown; {} renders nothing. Absent ≠ denied, so
-// there are no "denied" placeholders.
+// ── Attributes shared with Amped.Bio, private to the owner ──────
+// Consent-filtered PII from the owner-only getMyStatus query. Never rendered
+// for visitors (Screen Review 104 D1). Only keys present are shown; {} renders
+// nothing.
 const humanizeKey = (key: string): string =>
   key
     .replace(/[_-]+/g, " ")
@@ -296,7 +296,7 @@ function AttributesSection({ attributes }: { attributes: Record<string, string> 
     <div className="px-4 sm:px-6 pb-6">
       <div className="rounded-xl border border-[#e2e8f0] bg-[#f7f7f9] px-5 sm:px-6 py-5">
         <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#6B7280]">
-          Publicly shared attributes
+          Shared with Amped.Bio, private to you
         </div>
         <dl className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-5">
           {entries.map(([key, value]) => (
@@ -305,6 +305,9 @@ function AttributesSection({ attributes }: { attributes: Record<string, string> 
             </Field>
           ))}
         </dl>
+        <p className="mt-4 text-xs text-[#6B7280]">
+          Only you can see these. They never appear on your page.
+        </p>
       </div>
     </div>
   );
@@ -457,9 +460,16 @@ const VerificationDetail = ({ isOwner, ownerAddress }: VerificationDetailProps) 
       )
     : null;
 
-  // Consent-filtered PII is independent of verification state — surface it in
-  // every data-bearing outcome (verified, not-verified, not-linked).
-  const attributes = data?.attributes ?? {};
+  // Consent-filtered PII comes only from the owner-only query, and only when
+  // the session wallet is the wallet this name page shows.
+  const { data: myStatus } = useMyAuthbaseStatus(isOwner && !!ownerAddress);
+  const attributes =
+    isOwner &&
+    myStatus &&
+    ownerAddress &&
+    myStatus.wallet_address.toLowerCase() === ownerAddress.toLowerCase()
+      ? myStatus.attributes ?? {}
+      : {};
 
   return (
     <Certificate>

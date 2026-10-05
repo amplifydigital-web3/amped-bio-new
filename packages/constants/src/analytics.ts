@@ -169,6 +169,14 @@ const optionalId = (pattern: RegExp, message: string) =>
     .nullable()
     .optional();
 
+// Screen Review 093 D2. The Creator Analytics and Tracking Terms a creator
+// accepts before the first pixel connects. Bump the version when the terms
+// change, so every creator with a pixel is asked once more.
+export const CREATOR_TRACKING_TERMS_VERSION = "2026-10-02";
+// Path on the public site (VITE_LANDINGPAGE_URL). Points to /privacy until the
+// Creator Analytics and Tracking Terms addendum is published (docs/legal/ DRAFT).
+export const CREATOR_TRACKING_TERMS_PATH = "/privacy";
+
 export const trackingPixelsUpdateSchema = z.object({
   ga4MeasurementId: optionalId(
     GA4_MEASUREMENT_ID_PATTERN,
@@ -182,6 +190,9 @@ export const trackingPixelsUpdateSchema = z.object({
   // Tokens: undefined keeps the stored value, "" removes it, a value replaces it
   metaCapiToken: z.string().trim().max(1024).optional(),
   tiktokEventsToken: z.string().trim().max(1024).optional(),
+  // Sent when the creator ticks the terms checkbox. Required to connect or change a
+  // pixel until the current version is on record; removing one never needs it.
+  termsVersion: z.literal(CREATOR_TRACKING_TERMS_VERSION).optional(),
 });
 
 export type TrackingPixelsUpdate = z.infer<typeof trackingPixelsUpdateSchema>;
@@ -198,13 +209,14 @@ export type PublicTrackingPixels = {
 // ---------------------------------------------------------------------------
 
 // Bump when the notice changes materially, so visitors are asked again
-export const CONSENT_POLICY_VERSION = "2026-10";
+export const CONSENT_POLICY_VERSION = "2026-10c";
 // Stores the visitor's choices: { v, analytics, ads: { [creatorId]: boolean }, at }
 export const CONSENT_STORAGE_KEY = "amped_consent_v2";
 // Long-lived visitor ID, created only after analytics consent
 export const PERSISTENT_VISITOR_STORAGE_KEY = "amped_vid";
-// Maximum lifetime of the visitor ID and of a consent decision (13 months)
-export const CONSENT_MAX_AGE_MS = 395 * 24 * 60 * 60 * 1000;
+// Maximum lifetime of the visitor ID and of a consent decision (24 months,
+// matching the Google Analytics cookie lifetime; docs/legal/privacy-parameters.md)
+export const CONSENT_MAX_AGE_MS = 730 * 24 * 60 * 60 * 1000;
 
 // ---------------------------------------------------------------------------
 // Campaigns

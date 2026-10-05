@@ -42,6 +42,7 @@ export type Theme = {
 export const EDITOR_PANELS = [
   "home",
   "analytics",
+  "people",
   "explore",
   "page",
   "design",
@@ -53,6 +54,7 @@ export const EDITOR_PANELS = [
   "reward",
   "rewardPools",
   "leaderboard",
+  "inbox",
 ] as const;
 
 export type EditorPanelType = (typeof EDITOR_PANELS)[number];

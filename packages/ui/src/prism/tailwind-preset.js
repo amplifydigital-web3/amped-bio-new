@@ -129,8 +129,11 @@ const HALO_CARD_GRADIENT =
 const HALO_PANEL_GRADIENT =
   "conic-gradient(from 300deg at 50% 50%, rgba(39,170,225,0) 0deg, rgba(39,170,225,0.8) 20deg, rgba(86,80,162,0.7) 100deg, rgba(136,77,158,0.8) 180deg, rgba(136,77,158,0) 222deg, rgba(136,77,158,0) 360deg)";
 
+// The prefixed property must come first. With the standard one first, the
+// landing app's CSS minifier keeps only -webkit-backdrop-filter, which Chrome
+// ignores, so every glass surface lost its blur there.
 function backdrop(value) {
-  return { backdropFilter: value, WebkitBackdropFilter: value };
+  return { WebkitBackdropFilter: value, backdropFilter: value };
 }
 
 /**

@@ -166,7 +166,9 @@ All shared components live in `packages/ui` and are exported from `@repo/ui`. Th
 
 Pool cards take `stats` as label and value pairs, so each screen uses its approved wording. The rate label is "Network Reward Rate". Never APY or APR.
 
-The gallery at `/_prism` has a working stake demo that composes these pieces. PR 4 turns that composition into the shared money flow.
+The gallery at `/_prism` has a working stake demo that composes these pieces. PR 4 composes them into the pool panel (below).
+
+`SidePanel` also takes `headerActions` (44 icon buttons before Close, for example a More actions menu) and `dismissible`. While a wallet signature is pending, pass `dismissible={false}`: Close is disabled and Escape and outside clicks do nothing. On open the panel focuses itself, so no control shows a focus ring before the person uses the keyboard.
 
 ### Toasts in the client
 
@@ -213,7 +215,7 @@ New preset recipes: `prism-dock` (dock capsule, tint 0.12, white 0.56), `prism-d
 
 ### Interim destinations
 
-Account still composes today's panels. Design is replaced in PR 3a and Page in PR 3b (below). Account (rows 019 to 021 and 098) is next. Destinations that are not restyled yet sit on a white surface so their current colors stay readable on the room; each batch removes it.
+Account still composes today's panels. Design is replaced in PR 3a and Page in PR 3b (below). Account (rows 019 to 021 and 098) is next. Pool details, stake, unstake and claim move into the pool panel in PR 4 (below). Destinations that are not restyled yet sit on a white surface so their current colors stay readable on the room; each batch removes it.
 
 ## Design (PR 3a, Screen Review 023 to 033)
 
@@ -320,6 +322,40 @@ Home is native on the D08 grid without a preview. The onboarding.ampedbio.com if
 | Video guides | `home/VideoGuides.tsx` | Four cards with a drawn poster, so nothing loads from YouTube until play. Play opens the shared Dialog with a youtube-nocookie.com player and Watch on YouTube. Focus stays on the dialog, not the player, so Escape closes it; focus returns to the card |
 | Updates (D2) | `home/UpdatesFrame.tsx`, `VITE_HOME_UPDATES_FRAME` | Off by default. On shows the onboarding site last in the left column with its host and Open in new tab, and Updates did not load with Retry after 15 seconds. Turn it on only after that site drops the conversion and tradability paragraphs, or the frame bypasses the conversion copy flag |
 
+## Money flow (PR 4, Screen Review 046 to 048)
+
+The pool panel lives in `apps/client/src/components/panels/explore/pool-panel`. Pools (043) opens `PoolPanel`. Wallet Stakes (059) and My Pool (067) open it through `ExplorePoolDetailsModal`, now a thin wrapper with the same props. Explore keeps the open pool in `?pool=<address>` (D27); a legacy `?pa=` link is rewritten.
+
+### One panel, one flow
+
+| State | What shows |
+|---|---|
+| Pool details | Also the stake Amount step (D14). Header: art tile, Stake in, pool name, by creator and @handle link, More actions, Close. Body: step bar, Your position (only with a stake or pending rewards), the amount well with 25%, 50%, 75% and Max, then About this pool. Footer: the testnet line and Review stake |
+| No wallet | The amount area is replaced by "Connect your wallet to stake in this pool." and Go to Wallet. No Review stake |
+| Unstake | Unstake from header, Back to pool details, Amount against the staked figure, Stake after, presets with Max as the exact stake, the Unstaking terms. Footer: Review unstake |
+| Claim | Starts on Review (D24): You claim, From, Network fee, Balance after, compliance card, Claim X tREVO |
+| Review | Calm commit state. The read only well with Edit amount, a review slab (exact amount, pool, Stake after for unstake, Pending rewards claimed, Network fee, Balance after, Pool total after for stake), the unstaking terms, the solid compliance card, and for stake and unstake the required checkbox "I understand this {stake or unstake} also claims my pending rewards in this pool. (Required)". The commit button names the verb and the exact amount |
+| Confirm in wallet | "Confirm in your wallet", then Submitting once the wallet returns the hash. Close and Escape are blocked |
+| Result | Stake confirmed, Unstake confirmed or Claim sent, with the amounts, View transaction and Done. Pool, position, balance and every `pools` query refetch |
+
+### Rules
+
+- **Rate.** The About row reads Network Reward Rate, "{rate}% a year (est.)", the helper sentence and How it is calculated. With no stake yet: "No rate yet. The rate shows once fans stake in this pool." With stake but no figure: "Rate unavailable right now." At a 100% creator share the row reads "The creator keeps 100% of pool rewards. Fans in this pool receive no rewards." The editor never links to `/debug-apy`; the page stays unlisted on the public site.
+- **Pool total** is `stakedAmount` (D28), the same figure the Pools card shows, with no client side subtraction.
+- **Network fee** is `estimateContractGas` times the gas price for the exact call (`useNetworkFee`). It reads "about X tREVO", Calculating, or "Shown in your wallet" when the estimate fails. Max on the stake step keeps twice the estimated fee aside.
+- **Amounts** show up to 4 decimals, rounded down, trailing zeros removed (`formatTokenAmount`). Review rows and the commit label show the exact amount entered (`formatExactAmount`). Typed amounts keep 4 decimals.
+- **Errors** are never raw text (`classifyTxError`). Wallet rejection: "You cancelled in your wallet. Nothing moved." Revert: "The {verb} did not go through. Nothing moved." Unstake cooldown: "You cannot unstake from this pool right now. The amount did not move. The network fee may still be charged." When the wallet already returned a hash and the server confirmation fails, the panel says it could not confirm yet, links the transaction, and disables the commit button so nothing is sent twice.
+- **Unstaking terms:** "Unstake any time. Your tREVO returns to your wallet when the transaction confirms." The panel reads `canUnstake` before the unstake Amount step, so the line stays true if the contract adds a cooldown.
+
+### Hooks
+
+`useStakingManager` `stake` and `unstake` and `usePoolReader` `claimReward` take `onHash`, return the hash and rethrow the original error. `unstake` also takes `amountWei` so Max unstakes the exact stake.
+
+### Removed
+
+The old `ExplorePoolDetailsModal` body, the client `PoolDetailContent`, `StakeModal`, `UnstakeModal` and `PoolDetailsModalSkeleton`. Gone with them: the rate card and its popover, the hardcoded 0.01 REVO fee, the yellow notices and Claim button, the never closing claim toast, the Telegram link on results, and "Tokens have been returned". The public pool page (`apps/landingpage`, row 071) is unchanged here.
+
+
 ## Rules reviewers should enforce
 
 1. **Trust rule.** Spectacle falls as commitment rises. The Review and Confirm step uses `prism-value-panel-calm`, has no rim, uses a solid `prism-notice`, and has a required checkbox. The commit button is `value-deep`, followed by the wallet note.
@@ -338,3 +374,6 @@ The work ships in batched PRs:
 4. Money flow
 5. Public site and auth (007 to 010, 070); 5b auth pages and first run (011 to 015)
 6. Screen batches by app area, each tied to Amped.Bio Screen Review row numbers
+
+4. Money flow (046 to 048): pool details, stake, unstake and claim in one panel
+5. Screen batches by app area, each tied to Amped.Bio Screen Review row numbers

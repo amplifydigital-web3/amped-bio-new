@@ -2,15 +2,18 @@ import { Banner, type BannerPanel } from "./Banner";
 import { InlinePreview, PreviewFrame, PreviewSwitch } from "./preview/PreviewFrame";
 import { useSearchParams } from "react-router";
 import { useEditor } from "../contexts/EditorContext";
-import { CreatorPoolPanel } from "./panels/createrewardpool/CreatorPoolPanel.tsx";
+import { MyPoolDestination } from "./panels/broadcast/MyPoolDestination";
+import { InboxPanel } from "./panels/broadcast/InboxPanel";
+import { BROADCAST_ON } from "./panels/broadcast/utils";
 import { LeaderboardPanel } from "./panels/leaderboard/LeaderboardPanel";
 import { RNSPanel } from "./panels/rns/RNSPanel";
 import { HomePanel } from "./panels/home/HomePanel";
 import { MyWalletPanel } from "./panels/wallet/MyWalletPanel";
 import RewardPanel from "./panels/reward/RewardPanel.tsx";
-import PayPanel from "./panels/pay/PayPanel.tsx";
+import PayRedirect from "./panels/wallet/send/PayRedirect";
 import ExplorePage from "./panels/explore/ExplorePanel.tsx";
 import { AnalyticsPanel } from "./panels/analytics/AnalyticsPanel";
+import { PeoplePanel } from "./panels/people/PeoplePanel";
 import { PagePanel } from "./panels/page/PagePanel";
 import { DesignPanel } from "./panels/design/DesignPanel";
 import { AccountPanel } from "./panels/account/AccountPanel";
@@ -37,7 +40,7 @@ const PREVIEW_PANELS: EditorPanelType[] = ["page", "design"];
 
 // Destinations whose screens are restyled sit directly on the room (PR 3a Design,
 // 3b Page, 5b Home)
-const RESTYLED_PANELS: EditorPanelType[] = ["design", "page", "home"];
+const RESTYLED_PANELS: EditorPanelType[] = ["design", "page", "home", "people", "inbox"];
 
 function ActivePanel({ panel }: { panel: EditorPanelType }) {
   switch (panel) {
@@ -45,6 +48,8 @@ function ActivePanel({ panel }: { panel: EditorPanelType }) {
       return <HomePanel />;
     case "analytics":
       return <AnalyticsPanel />;
+    case "people":
+      return import.meta.env.VITE_FAN_GRAPH === "true" ? <PeoplePanel /> : null;
     case "explore":
       return <ExplorePage />;
     case "page":
@@ -54,9 +59,12 @@ function ActivePanel({ panel }: { panel: EditorPanelType }) {
     case "wallet":
       return <MyWalletPanel />;
     case "pay":
-      return <PayPanel />;
+      // 062 I01: Pay is the Send flow inside Wallet (D05, D12)
+      return <PayRedirect />;
     case "my-pool":
-      return <CreatorPoolPanel />;
+      return <MyPoolDestination />;
+    case "inbox":
+      return BROADCAST_ON ? <InboxPanel /> : null;
     case "account":
       return <AccountPanel />;
     case "rns":

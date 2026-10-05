@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { useChainId } from "wagmi";
 import type { BlockType, MediaBlock, PoolBlock, TextBlock } from "@repo/constants";
 import SlateEditor from "@/components/blocks/text/TextEditor/SlateEditor";
 import { PoolSearchInput } from "@/components/panels/blocks/PoolSearchInput";
+import { appChainId } from "@/utils/appChain";
 import { FieldError, LinkFields } from "./LinkFields";
 import { linkConfig, linkValueFromConfig, wellClass } from "./linkValue";
 import { mediaHelp, mediaName, mediaUrlError, stripTags } from "./blockInfo";
@@ -173,20 +173,14 @@ export function PoolBlockFields({
   label: string;
   onPick: (pool: { address: string; name: string }) => void;
 }) {
-  const chainId = useChainId();
+  // 038 I06: the app network, so search works with no wallet or another network
   return (
-    <div className="space-y-2">
-      <p className="text-prism-label font-semibold text-prism-ink">Pool</p>
-      <PoolSearchInput
-        onPoolSelect={pool => onPick({ address: pool.address, name: pool.name })}
-        currentAddress={address}
-        currentLabel={label}
-        chainId={chainId?.toString() || ""}
-      />
-      {!address && (
-        <p className="text-prism-meta text-prism-ink-2">Choose a pool to show it on your page.</p>
-      )}
-    </div>
+    <PoolSearchInput
+      onPoolSelect={pool => onPick({ address: pool.address, name: pool.name })}
+      currentAddress={address}
+      currentLabel={label}
+      chainId={appChainId()}
+    />
   );
 }
 

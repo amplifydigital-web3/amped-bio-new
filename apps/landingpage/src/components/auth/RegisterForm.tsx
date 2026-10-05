@@ -31,8 +31,8 @@ import { cleanHandleInput } from "@/lib/handle";
 import { useCaptcha } from "@/hooks/useCaptcha";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
 import { useHandleAvailability } from "@/hooks/useHandleAvailability";
-import { getPanelHomeUrl, getPostAuthDestination, goTo, toAbsoluteUrl } from "@/lib/panel";
-import { loadTwitterPixel, trackGAEvent, trackTwitterEvent } from "@/utils/ga";
+import { getPostAuthDestination, goTo, toAbsoluteUrl } from "@/lib/panel";
+import { trackGAEvent } from "@/utils/ga";
 import { PRIVACY_POLICY_URL } from "@/components/layout/PublicFooter";
 import { PASSWORD_RULES, PasswordChecklist } from "./PasswordChecklist";
 import { HandleStatusLine } from "./HandleStatusLine";
@@ -80,7 +80,6 @@ export function RegisterForm() {
   });
 
   useEffect(() => {
-    loadTwitterPixel("tw-r4zrx");
     if (window.matchMedia("(min-width: 640px)").matches) handleRef.current?.focus();
   }, []);
 
@@ -143,7 +142,6 @@ export function RegisterForm() {
         else setCardError("network");
         return;
       }
-      trackTwitterEvent("tw-r4zrx-r4zss");
       if (referrerId) clearReferrerId();
       goTo(getPostAuthDestination(params, { welcome: true }));
     } catch {
@@ -159,7 +157,7 @@ export function RegisterForm() {
     setGoogleLoading(true);
     const failure = await startGoogleSignIn({
       callbackURL: toAbsoluteUrl(getPostAuthDestination(params)),
-      newUserCallbackURL: toAbsoluteUrl(getPanelHomeUrl({ welcome: true })),
+      newUserCallbackURL: toAbsoluteUrl(getPostAuthDestination(params, { welcome: true })),
       errorCallbackURL: toAbsoluteUrl("/register?error=google"),
       // Only a handle the check confirmed; the server checks it again
       handle: urlStatus === "Available" ? handle : undefined,

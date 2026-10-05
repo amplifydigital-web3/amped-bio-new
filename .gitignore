@@ -59,5 +59,8 @@ apps/client/cypress/screenshots
 apps/client/.env
 .env
 apps/server/src/lib/prisma
-packages/database/src/generated
+packages/database/src/generated/
 .playwright-mcp/
+
+# TypeScript incremental build info
+*.tsbuildinfo

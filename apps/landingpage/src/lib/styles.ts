@@ -30,37 +30,55 @@ export function getContainerStyle(style?: number): string {
   return styles[style as keyof typeof styles] || "";
 }
 
+// Screen Review 041 I07: every button effect plays once per hover or keyboard
+// focus over 233ms, moves only transform, opacity or shadow so neighbors never
+// shift, and returns on leave. Reduced motion removes them (motion-safe).
+const EFFECT_TIMING = "duration-[233ms] ease-[cubic-bezier(0.2,0,0,1)]";
 export function getButtonEffectStyle(effect?: number): string {
   const effects = {
     0: "",
-    1: "motion-safe:hover:scale-105 transition-transform",
-    2: "hover:shadow-[0_0_15px_var(--amped-glow)] transition-shadow",
-    3: "motion-safe:hover:translate-x-2 transition-transform",
-    4: "motion-safe:hover:animate-bounce",
-    5: "motion-safe:hover:animate-pulse",
-    6: "motion-safe:hover:animate-[wiggle_0.3s_ease-in-out]",
-    7: "motion-safe:hover:rotate-3 transition-transform",
-    8: "motion-safe:hover:scale-110 motion-safe:active:scale-95 transition-transform",
-    9: "hover:before:opacity-100 before:absolute before:inset-0 before:bg-gradient-to-r before:from-transparent before:via-white/20 before:to-transparent before:opacity-0 before:transition-opacity overflow-hidden relative",
+    1: `motion-safe:hover:scale-105 motion-safe:focus-visible:scale-105 transition-transform ${EFFECT_TIMING}`,
+    2: `hover:shadow-[0_0_15px_var(--amped-glow)] focus-visible:shadow-[0_0_15px_var(--amped-glow)] transition-shadow ${EFFECT_TIMING}`,
+    3: `motion-safe:hover:translate-x-2 motion-safe:focus-visible:translate-x-2 transition-transform ${EFFECT_TIMING}`,
+    4: "motion-safe:hover:animate-[bounce_233ms_cubic-bezier(0.2,0,0,1)_1] motion-safe:focus-visible:animate-[bounce_233ms_cubic-bezier(0.2,0,0,1)_1]",
+    5: "motion-safe:hover:animate-[pulse_233ms_cubic-bezier(0.2,0,0,1)_1] motion-safe:focus-visible:animate-[pulse_233ms_cubic-bezier(0.2,0,0,1)_1]",
+    6: "motion-safe:hover:animate-[wiggle_233ms_cubic-bezier(0.2,0,0,1)_1] motion-safe:focus-visible:animate-[wiggle_233ms_cubic-bezier(0.2,0,0,1)_1]",
+    7: `motion-safe:hover:rotate-3 motion-safe:focus-visible:rotate-3 transition-transform ${EFFECT_TIMING}`,
+    8: `motion-safe:hover:scale-110 motion-safe:focus-visible:scale-110 motion-safe:active:scale-95 transition-transform ${EFFECT_TIMING}`,
+    9: `hover:before:opacity-100 focus-visible:before:opacity-100 before:absolute before:inset-0 before:bg-gradient-to-r before:from-transparent before:via-white/20 before:to-transparent before:opacity-0 before:transition-opacity overflow-hidden relative ${EFFECT_TIMING}`,
   };
   return effects[effect as keyof typeof effects] || "";
 }
 
-export function getHeroEffectStyle(effect?: number): string {
-  const effects = {
+// Screen Review 041 I06: every name effect maps to a class that exists. Fade in
+// and Slide up run once over 610ms; Typewriter renders as Fade in (its width
+// clip cut long names). Glow keeps the creator's own text color.
+// paused (Pause motion, 041 I02) and reduced motion render the settled name.
+// Class strings stay literal so Tailwind can see them.
+export function getHeroEffectStyle(effect?: number, paused = false): string {
+  const effects: Record<number, string> = {
     0: "",
-    1: "bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-purple-500 animate-gradient",
+    1: "bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-purple-500 motion-safe:animate-gradient",
     2: "drop-shadow-[0_0_10px_var(--amped-name-glow)]",
-    3: "animate-typewriter",
-    4: "animate-fade-in",
-    5: "animate-slide-up",
+    3: "motion-safe:animate-[fadeIn_610ms_cubic-bezier(0.2,0,0,1)_both]",
+    4: "motion-safe:animate-[fadeIn_610ms_cubic-bezier(0.2,0,0,1)_both]",
+    5: "motion-safe:animate-[slideUp_610ms_cubic-bezier(0.2,0,0,1)_both]",
     6: "motion-safe:animate-wave",
     7: "text-[#ff00ff] drop-shadow-[0_0_10px_#ff00ff]",
-    8: "motion-safe:animate-rainbow motion-reduce:text-[#ff0000]",
+    8: "motion-safe:animate-rainbow",
     9: "motion-safe:animate-glitch",
   };
-  return effects[effect as keyof typeof effects] || "";
+  if (paused && LOOPING_HERO_EFFECTS.includes(effect ?? 0)) {
+    // The settled look: Gradient keeps its colors without moving, the rest show the name
+    return effect === 1
+      ? "bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-purple-500"
+      : "";
+  }
+  return effects[effect ?? 0] || "";
 }
+
+/** Name effects that loop and so get the Pause motion control (041 I02). */
+export const LOOPING_HERO_EFFECTS = [1, 6, 8, 9];
 
 export function isHTML(str: string): boolean {
   return /<[a-z][\s\S]*>/i.test(str);

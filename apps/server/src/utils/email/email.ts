@@ -7,6 +7,8 @@ import welcomeEmailTemplate from "./WelcomeEmailTemplate";
 import { env } from "../../env";
 
 const baseURL = env.APP_URL;
+// Privacy Notice on the landing page of the current environment
+const privacyUrl = new URL("/privacy", env.LANDINGPAGE_URL).toString();
 
 type EmailOptions = {
   to: string | string[];
@@ -83,7 +85,7 @@ export const sendEmailVerification = async (email: string, token: string) => {
   console.log("🔗 Verification URL generated:", url);
 
   console.log("🎨 Rendering email verification template...");
-  const emailComponent = verifyEmailTemplate({ url });
+  const emailComponent = verifyEmailTemplate({ url, privacyUrl });
   const htmlContent = await render(emailComponent);
   console.log("✅ Email template rendered successfully");
 
@@ -101,7 +103,7 @@ export const sendPasswordResetEmail = async (email: string, token: string) => {
   console.log("🔗 Password reset URL generated:", url);
 
   console.log("🎨 Rendering password reset template...");
-  const emailComponent = resetPasswordTemplate({ url });
+  const emailComponent = resetPasswordTemplate({ url, privacyUrl });
   const htmlContent = await render(emailComponent);
   console.log("✅ Email template rendered successfully");
 
@@ -121,7 +123,7 @@ export const sendEmailChangeVerification = async (
   console.log(`🔄 Generating email change verification code for ${email} -> ${newEmail}`);
 
   console.log("🎨 Rendering email change template...");
-  const emailComponent = emailChangeTemplate({ code, newEmail });
+  const emailComponent = emailChangeTemplate({ code, newEmail, privacyUrl });
   const htmlContent = await render(emailComponent);
   console.log("✅ Email template rendered successfully");
 
@@ -137,7 +139,7 @@ export const sendWelcomeEmail = async (email: string, name?: string) => {
   console.log(`🎉 Sending welcome email to: ${email}`);
 
   console.log("🎨 Rendering welcome email template...");
-  const emailComponent = welcomeEmailTemplate({ name });
+  const emailComponent = welcomeEmailTemplate({ name, privacyUrl });
   const htmlContent = await render(emailComponent);
   console.log("✅ Email template rendered successfully");
 

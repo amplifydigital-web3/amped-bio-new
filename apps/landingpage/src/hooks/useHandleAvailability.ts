@@ -23,12 +23,13 @@ export function useHandleAvailability(raw: string) {
   const request = useRef(0);
 
   useEffect(() => {
+    // Every change invalidates the check in flight, valid or not
+    const id = ++request.current;
     if (!handle) return setStatus("Unknown");
     if (!validateHandleLength(handle)) return setStatus("TooShort");
     if (!validateHandleFormat(handle)) return setStatus("Invalid");
 
     setStatus("Checking");
-    const id = ++request.current;
     const timer = setTimeout(() => {
       trpcClient.handle.checkAvailability
         .query({ handle })

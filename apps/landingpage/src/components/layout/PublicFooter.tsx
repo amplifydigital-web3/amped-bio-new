@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { TELEGRAM_LINK } from "@repo/constants";
 
-export const PRIVACY_POLICY_URL = "https://ampedbio.com/privacy-policy/";
+export const PRIVACY_POLICY_URL = "/privacy";
 
 const linkClass =
   "prism-focus inline-flex h-touch items-center rounded-prism-8 px-1 text-prism-label font-semibold text-prism-ink";

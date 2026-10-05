@@ -1,14 +1,104 @@
-import React, { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router";
+import { ArrowDownUp, Check, ChevronDown, Search, X } from "lucide-react";
+import {
+  BottomSheet,
+  BottomSheetClose,
+  BottomSheetContent,
+  BottomSheetTrigger,
+  Button,
+  ChipGroup,
+  Menu,
+  MenuContent,
+  MenuItem,
+  MenuTrigger,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@repo/ui";
 import { useDebounce } from "@/hooks/useDebounce";
-import { Search, Trophy, Filter, SortDesc, ChevronDown, Users, Coins } from "lucide-react";
 import UsersTab from "./components/UsersTab";
 import PoolsTab from "./components/PoolsTab";
+import FollowingTab from "./components/FollowingTab";
 
-// Define filter types
+// Fan Graph (#22): Explore, Following (decision 6)
+const FAN_GRAPH = import.meta.env.VITE_FAN_GRAPH === "true";
+
+// Screen Review 045 (D07, D08, D14). One control stack under the top bar:
+// tabs (Users, Pools), a search well with the result count and Sort, then the
+// filter chips. Each tab keeps its own query, filter and sort, written to the
+// URL (?tab=, ?q=, ?filter=, ?sort=). The top bar title is the only h1.
+
+type Tab = "users" | "pools" | "following";
 type UserFilter = "all" | "active-7-days" | "has-creator-pool";
 type PoolFilter = "all" | "no-fans" | "more-than-10-fans" | "more-than-10k-stake";
 type UserSort = "newest" | "name-asc" | "name-desc";
-type PoolSort = "newest" | "name-asc" | "name-desc";
+type PoolSort = "newest" | "name-asc" | "name-desc" | "most-fans" | "most-staked";
+
+interface TabQuery<F extends string, S extends string> {
+  q: string;
+  filter: F;
+  sort: S;
+}
+
+type Option<T extends string> = { value: T; label: string };
+
+// 045 I07: Active this week renders only once user.getUsers applies the
+// active-7-days filter on the server. Until then it is not offered.
+const USER_FILTERS: Option<UserFilter>[] = [
+  { value: "all", label: "All" },
+  { value: "has-creator-pool", label: "Has a pool" },
+];
+const POOL_FILTERS: Option<PoolFilter>[] = [
+  { value: "all", label: "All" },
+  { value: "more-than-10-fans", label: "10+ fans" },
+  { value: "more-than-10k-stake", label: "10,000+ tREVO staked" },
+  { value: "no-fans", label: "No fans yet" },
+];
+const USER_SORTS: Option<UserSort>[] = [
+  { value: "newest", label: "Newest" },
+  { value: "name-asc", label: "Name A to Z" },
+  { value: "name-desc", label: "Name Z to A" },
+];
+const POOL_SORTS: Option<PoolSort>[] = [
+  { value: "most-fans", label: "Most backed" },
+  { value: "most-staked", label: "Most staked" },
+  { value: "newest", label: "Newest" },
+  { value: "name-asc", label: "Name A to Z" },
+  { value: "name-desc", label: "Name Z to A" },
+];
+
+const DEFAULTS = {
+  users: { q: "", filter: "all", sort: "newest" } as TabQuery<UserFilter, UserSort>,
+  pools: { q: "", filter: "all", sort: "most-fans" } as TabQuery<PoolFilter, PoolSort>,
+};
+
+const PLACEHOLDER: Record<Exclude<Tab, "following">, string> = {
+  users: "Search people by name or @handle",
+  pools: "Search pools or creators",
+};
+const SEARCH_LABEL: Record<Exclude<Tab, "following">, string> = {
+  users: "Search people",
+  pools: "Search pools",
+};
+
+function pick<T extends string>(options: Option<T>[], raw: string | null, fallback: T): T {
+  return options.some(option => option.value === raw) ? (raw as T) : fallback;
+}
+
+function readTab(params: URLSearchParams, initialTab?: string): Tab {
+  // A pool link (?pool=, legacy ?pa=) opens on the Pools tab (D27)
+  if (params.get("pool") || params.get("pa")) return "pools";
+  const raw = params.get("tab") ?? params.get("t") ?? initialTab;
+  if (raw === "following" && FAN_GRAPH) return "following";
+  return raw === "pools" ? "pools" : "users";
+}
+
+function countText(tab: Exclude<Tab, "following">, count: number) {
+  if (tab === "users")
+    return `${count.toLocaleString("en-US")} ${count === 1 ? "person" : "people"}`;
+  return `${count.toLocaleString("en-US")} ${count === 1 ? "pool" : "pools"}`;
+}
 
 interface ExplorePageProps {
   initialTab?: "users" | "pools" | "nfts";
@@ -16,356 +106,291 @@ interface ExplorePageProps {
 }
 
 export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProps) {
-  const getInitialTabFromQuery = (): "users" | "pools" | "nfts" => {
-    if (typeof window !== "undefined") {
-      const urlParams = new URLSearchParams(window.location.search);
-      const tabParam = urlParams.get("t");
+  const [params, setParams] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(() => readTab(params, initialTab));
 
-      // Map query parameter values to component tab values
-      switch (tabParam) {
-        case "users":
-          return "users";
-        case "pools":
-          return "pools";
-        case "nfts":
-          return "nfts";
-        default:
-          return initialTab || "users";
-      }
+  // Per tab state; the URL carries the active tab's values
+  const [users, setUsers] = useState(() =>
+    tab === "users"
+      ? {
+          q: params.get("q") ?? "",
+          filter: pick(USER_FILTERS, params.get("filter"), DEFAULTS.users.filter),
+          sort: pick(USER_SORTS, params.get("sort"), DEFAULTS.users.sort),
+        }
+      : DEFAULTS.users
+  );
+  const [pools, setPools] = useState(() =>
+    tab === "pools"
+      ? {
+          q: params.get("q") ?? "",
+          filter: pick(POOL_FILTERS, params.get("filter"), DEFAULTS.pools.filter),
+          sort: pick(POOL_SORTS, params.get("sort"), DEFAULTS.pools.sort),
+        }
+      : DEFAULTS.pools
+  );
+  const current = tab === "pools" ? pools : users;
+  // The search, sort and filter controls belong to Users and Pools only
+  const searchTab: Exclude<Tab, "following"> = tab === "pools" ? "pools" : "users";
+  const isFollowing = tab === "following";
+  const [text, setText] = useState(current.q);
+  const debounced = useDebounce(text, 300);
+  const [result, setResult] = useState<{ count: number; fetching: boolean } | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // The field follows the tab: switching tabs shows that tab's own query
+  useEffect(() => {
+    setText(current.q);
+    setResult(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  // Debounced text becomes the tab's query
+  useEffect(() => {
+    if (debounced === current.q) return;
+    if (tab === "users") setUsers(state => ({ ...state, q: debounced }));
+    else setPools(state => ({ ...state, q: debounced }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debounced]);
+
+  // Write the active tab and its query to the URL; rewrite legacy ?t=
+  useEffect(() => {
+    setParams(
+      previous => {
+        const next = new URLSearchParams(previous);
+        next.delete("t");
+        next.set("tab", tab);
+        const defaults = DEFAULTS[searchTab];
+        for (const key of ["q", "filter", "sort"] as const) {
+          const value = current[key];
+          if (!isFollowing && value && value !== defaults[key]) next.set(key, value);
+          else next.delete(key);
+        }
+        return next;
+      },
+      { replace: true }
+    );
+  }, [tab, current, setParams, searchTab, isFollowing]);
+
+  const changeTab = (next: string) => {
+    if (next === "following" && FAN_GRAPH) {
+      setTab("following");
+      return;
     }
-    return initialTab || "users";
+    const value = next === "pools" ? "pools" : "users";
+    setTab(value);
+    onTabChange?.(value);
   };
 
-  const [activeTab, setActiveTab] = useState<"users" | "pools" | "nfts">(getInitialTabFromQuery());
-  const [rawSearchQuery, setRawSearchQuery] = useState("");
-  const debouncedSearchQuery = useDebounce(rawSearchQuery, 500);
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
-
-  // Filter and sort states
-  const [userFilter, setUserFilter] = useState<UserFilter>("all");
-  const [poolFilter, setPoolFilter] = useState<PoolFilter>("all");
-  const [userSort, setUserSort] = useState<UserSort>("newest");
-  const [poolSort, setPoolSort] = useState<PoolSort>("newest");
-
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [isSortOpen, setIsSortOpen] = useState(false);
-
-  // Sort options
-  const sortOptions = {
-    users: [
-      { value: "newest", label: "Newest First" },
-      { value: "name-asc", label: "Name A-Z" },
-      { value: "name-desc", label: "Name Z-A" },
-    ],
-    pools: [
-      { value: "newest", label: "Newest First" },
-      { value: "name-asc", label: "Name A-Z" },
-      { value: "name-desc", label: "Name Z-A" },
-    ],
-    nfts: [
-      { value: "popular", label: "Most Popular" },
-      { value: "newest", label: "Newest" },
-      { value: "price-low", label: "Price: Low to High" },
-      { value: "price-high", label: "Price: High to Low" },
-      { value: "rarity", label: "Rarity" },
-    ],
+  const clearSearch = () => {
+    setText("");
+    if (tab === "users") setUsers(state => ({ ...state, q: "" }));
+    else setPools(state => ({ ...state, q: "" }));
+    searchRef.current?.focus();
   };
+  const clearFilter = () => {
+    if (tab === "users") setUsers(state => ({ ...state, filter: "all" }));
+    else setPools(state => ({ ...state, filter: "all" }));
+  };
+  const setSort = (value: string) => {
+    if (tab === "users") setUsers(state => ({ ...state, sort: value as UserSort }));
+    else setPools(state => ({ ...state, sort: value as PoolSort }));
+  };
+
+  const sorts: Option<string>[] = tab === "pools" ? POOL_SORTS : USER_SORTS;
+  const sortLabel = sorts.find(option => option.value === current.sort)?.label ?? "";
+
+  // 045 I13: a no results state offers the reset that applies
+  const emptyActions = (
+    <div className="flex flex-wrap justify-center gap-2">
+      {current.q && (
+        <Button type="button" variant="ghost" onClick={clearSearch}>
+          Clear search
+        </Button>
+      )}
+      {current.filter !== "all" && (
+        <Button type="button" variant="ghost" onClick={clearFilter}>
+          Clear filter
+        </Button>
+      )}
+    </div>
+  );
 
   const handleViewProfile = (username: string) => {
-    window.open(`${import.meta.env.VITE_LANDINGPAGE_URL}/${username}`, "_blank", "noopener,noreferrer");
+    window.open(
+      `${import.meta.env.VITE_LANDINGPAGE_URL}/${username}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
   };
+
   return (
-    <div className="max-w-7xl mx-auto px-4 md:px-8 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Explore</h1>
-        <p className="text-gray-600">Discover creators, reward pools, and NFTs in the community</p>
-      </div>
+    <div className="px-[21px] pb-[55px] pt-[21px] font-prism lg:px-[21px]">
+      <section aria-label="Find on Explore" className="space-y-[13px]">
+        <Tabs value={tab} onValueChange={changeTab}>
+          <TabsList aria-label="Explore sections" className="max-sm:w-full">
+            <TabsTrigger value="users" className="max-sm:flex-1">
+              Users
+            </TabsTrigger>
+            <TabsTrigger value="pools" className="max-sm:flex-1">
+              Pools
+            </TabsTrigger>
+            {FAN_GRAPH && (
+              <TabsTrigger value="following" className="max-sm:flex-1">
+                Following
+              </TabsTrigger>
+            )}
+          </TabsList>
+        </Tabs>
 
-      {/* Search and Filters */}
-      <div className="mb-8">
-        <div className="flex flex-col md:flex-row md::items-center md:justify-between space-y-4 md:space-y-0">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Search..."
-              value={rawSearchQuery}
-              onChange={e => setRawSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <div className="flex items-center space-x-3">
-            {/* Filter Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => {
-                  setIsFilterOpen(!isFilterOpen);
-                  setIsSortOpen(false);
-                }}
-                className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+        {!isFollowing && (
+          <>
+            <div className="flex flex-col gap-[13px] pt-2 sm:flex-row sm:items-center">
+              <div
+                className={`prism-well flex h-touch min-w-0 flex-1 items-center gap-2 !rounded-prism-13 pl-3 ${
+                  tab === "users" ? "sm:max-w-[610px]" : ""
+                }`}
               >
-                <Filter className="w-4 h-4" />
-                <span>Filter</span>
-                <ChevronDown
-                  className={`w-4 h-4 transition-transform duration-200 ${isFilterOpen ? "rotate-180" : ""}`}
+                <Search className="h-[21px] w-[21px] shrink-0 text-prism-ink-2" aria-hidden />
+                <label htmlFor="explore-search" className="sr-only">
+                  {SEARCH_LABEL[searchTab]}
+                </label>
+                <input
+                  id="explore-search"
+                  ref={searchRef}
+                  type="search"
+                  value={text}
+                  placeholder={PLACEHOLDER[searchTab]}
+                  onChange={event => setText(event.target.value)}
+                  onKeyDown={event => {
+                    if (event.key === "Escape" && text) {
+                      event.preventDefault();
+                      clearSearch();
+                    }
+                  }}
+                  className="h-full min-w-0 flex-1 bg-transparent text-prism-label text-prism-ink placeholder:text-prism-ink-2 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
                 />
-              </button>
-              {isFilterOpen && (
-                <div className="relative">
-                  <div className="fixed inset-0 z-10" onClick={() => setIsFilterOpen(false)}></div>
-                  <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
-                    <div className="px-4 py-2 text-sm font-medium text-gray-700 border-b border-gray-200">
-                      {activeTab === "users" ? "User Filters" : "Pool Filters"}
-                    </div>
-                    {/* User filters */}
-                    {activeTab === "users" && (
-                      <>
-                        <button
-                          onClick={() => {
-                            setUserFilter("active-7-days");
-                            setIsFilterOpen(false);
-                          }}
-                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${
-                            userFilter === "active-7-days"
-                              ? "bg-blue-50 text-blue-700"
-                              : "text-gray-700"
-                          }`}
-                        >
-                          Active in last 7 days
-                          {userFilter === "active-7-days" && <span className="float-right">✓</span>}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setUserFilter("has-creator-pool");
-                            setIsFilterOpen(false);
-                          }}
-                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${
-                            userFilter === "has-creator-pool"
-                              ? "bg-blue-50 text-blue-700"
-                              : "text-gray-700"
-                          }`}
-                        >
-                          Has creator pool
-                          {userFilter === "has-creator-pool" && (
-                            <span className="float-right">✓</span>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setUserFilter("all");
-                            setIsFilterOpen(false);
-                          }}
-                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${
-                            userFilter === "all" ? "bg-blue-50 text-blue-700" : "text-gray-700"
-                          }`}
-                        >
-                          All users
-                          {userFilter === "all" && <span className="float-right">✓</span>}
-                        </button>
-                      </>
-                    )}
-                    {/* Pool filters */}
-                    {activeTab === "pools" && (
-                      <>
-                        <button
-                          onClick={() => {
-                            setPoolFilter("no-fans");
-                            setIsFilterOpen(false);
-                          }}
-                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${
-                            poolFilter === "no-fans" ? "bg-blue-50 text-blue-700" : "text-gray-700"
-                          }`}
-                        >
-                          Pools with no fans
-                          {poolFilter === "no-fans" && <span className="float-right">✓</span>}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setPoolFilter("more-than-10-fans");
-                            setIsFilterOpen(false);
-                          }}
-                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${
-                            poolFilter === "more-than-10-fans"
-                              ? "bg-blue-50 text-blue-700"
-                              : "text-gray-700"
-                          }`}
-                        >
-                          Pools with more than 10 fans
-                          {poolFilter === "more-than-10-fans" && (
-                            <span className="float-right">✓</span>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setPoolFilter("more-than-10k-stake");
-                            setIsFilterOpen(false);
-                          }}
-                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${
-                            poolFilter === "more-than-10k-stake"
-                              ? "bg-blue-50 text-blue-700"
-                              : "text-gray-700"
-                          }`}
-                        >
-                          Pools with more than 10k REVO in stake
-                          {poolFilter === "more-than-10k-stake" && (
-                            <span className="float-right">✓</span>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setPoolFilter("all");
-                            setIsFilterOpen(false);
-                          }}
-                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${
-                            poolFilter === "all" ? "bg-blue-50 text-blue-700" : "text-gray-700"
-                          }`}
-                        >
-                          All pools
-                          {poolFilter === "all" && <span className="float-right">✓</span>}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
+                {text && (
+                  <button
+                    type="button"
+                    aria-label="Clear search"
+                    onClick={clearSearch}
+                    className="prism-focus flex h-touch w-touch shrink-0 items-center justify-center rounded-prism-13 text-prism-ink-2"
+                  >
+                    <X className="h-[21px] w-[21px]" aria-hidden />
+                  </button>
+                )}
+              </div>
+
+              <div className="hidden items-center gap-[13px] sm:flex">
+                <p
+                  className="min-w-[89px] text-right text-prism-meta tabular-nums text-prism-ink-2"
+                  aria-live="polite"
+                >
+                  {result && (result.fetching ? "Searching" : countText(searchTab, result.count))}
+                </p>
+                <Menu>
+                  <MenuTrigger asChild>
+                    <Button type="button" variant="secondary" className="shrink-0">
+                      Sort: {sortLabel}
+                      <ChevronDown aria-hidden />
+                    </Button>
+                  </MenuTrigger>
+                  <MenuContent align="end" className="w-[233px]">
+                    {sorts.map(option => (
+                      <MenuItem key={option.value} onSelect={() => setSort(option.value)}>
+                        <span className="flex-1">{option.label}</span>
+                        {option.value === current.sort && <Check aria-hidden />}
+                      </MenuItem>
+                    ))}
+                  </MenuContent>
+                </Menu>
+              </div>
             </div>
 
-            {/* Sort Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => {
-                  setIsSortOpen(!isSortOpen);
-                  setIsFilterOpen(false);
-                }}
-                className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+            {/* Mobile: chips scroll on one line; count and a 44 Sort button pinned right */}
+            <div className="flex items-center gap-2">
+              <div className="-ml-[21px] min-w-0 flex-1 overflow-x-auto pl-[21px] sm:ml-0 sm:overflow-visible sm:pl-0">
+                {tab === "users" ? (
+                  <ChipGroup<UserFilter>
+                    label="Filter people"
+                    value={users.filter}
+                    onChange={value => setUsers(state => ({ ...state, filter: value }))}
+                    options={USER_FILTERS}
+                    className="flex-nowrap sm:flex-wrap"
+                  />
+                ) : (
+                  <ChipGroup<PoolFilter>
+                    label="Filter pools"
+                    value={pools.filter}
+                    onChange={value => setPools(state => ({ ...state, filter: value }))}
+                    options={POOL_FILTERS}
+                    className="flex-nowrap sm:flex-wrap"
+                  />
+                )}
+              </div>
+              <p
+                className="shrink-0 text-prism-meta tabular-nums text-prism-ink-2 sm:hidden"
+                aria-hidden
               >
-                <SortDesc className="w-4 h-4" />
-                <span>Sort</span>
-                <ChevronDown
-                  className={`w-4 h-4 transition-transform duration-200 ${isSortOpen ? "rotate-180" : ""}`}
-                />
-              </button>
-              {isSortOpen && (
-                <div className="relative">
-                  <div className="fixed inset-0 z-10" onClick={() => setIsSortOpen(false)}></div>
-                  <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
-                    <div className="px-4 py-2 text-sm font-medium text-gray-700 border-b border-gray-200">
-                      Sort by
-                    </div>
-                    {sortOptions[activeTab].map(option => (
-                      <button
-                        key={option.value}
-                        onClick={() => {
-                          if (activeTab === "users") {
-                            setUserSort(option.value as UserSort);
-                          } else if (activeTab === "pools") {
-                            setPoolSort(option.value as PoolSort);
-                          }
-                          setIsSortOpen(false);
-                        }}
-                        className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors duration-200 ${(activeTab === "users" && option.value === userSort) || (activeTab === "pools" && option.value === poolSort) ? "bg-blue-50 text-blue-700" : "text-gray-700"}`}
-                      >
-                        {option.label}
-                        {(activeTab === "users" && option.value === userSort) ||
-                        (activeTab === "pools" && option.value === poolSort) ? (
-                          <span className="float-right">✓</span>
-                        ) : null}
-                      </button>
+                {result && (result.fetching ? "Searching" : countText(searchTab, result.count))}
+              </p>
+              <BottomSheet>
+                <BottomSheetTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label={`Sort: ${sortLabel}`}
+                    className="prism-icon-btn prism-focus shrink-0 sm:hidden"
+                  >
+                    <ArrowDownUp className="h-[21px] w-[21px] text-prism-ink-2" aria-hidden />
+                  </button>
+                </BottomSheetTrigger>
+                <BottomSheetContent title="Sort">
+                  <div role="listbox" aria-label="Sort" className="space-y-1 pb-2">
+                    {sorts.map(option => (
+                      <BottomSheetClose asChild key={option.value}>
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={option.value === current.sort}
+                          onClick={() => setSort(option.value)}
+                          className="prism-focus flex h-touch w-full items-center justify-between rounded-prism-13 px-3 text-left text-prism-label font-medium text-prism-ink hover:bg-white/60"
+                        >
+                          {option.label}
+                          {option.value === current.sort && (
+                            <Check className="h-[21px] w-[21px] text-prism-nav" aria-hidden />
+                          )}
+                        </button>
+                      </BottomSheetClose>
                     ))}
                   </div>
-                </div>
-              )}
+                </BottomSheetContent>
+              </BottomSheet>
             </div>
-          </div>
-        </div>
-      </div>
+          </>
+        )}
+      </section>
 
-      {/* Tabs */}
-      <div className="mb-8">
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
-            <button
-              onClick={() => {
-                setActiveTab("users");
-                onTabChange?.("users");
-              }}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === "users"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <Users className="w-4 h-4" />
-                <span>Users</span>
-              </div>
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab("pools");
-                onTabChange?.("pools");
-              }}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === "pools"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <Trophy className="w-4 h-4" />
-                <span>Reward Pools</span>
-              </div>
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab("nfts");
-                onTabChange?.("nfts");
-              }}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === "nfts"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <Coins className="w-4 h-4" />
-                <span>NFTs</span>
-              </div>
-            </button>
-          </nav>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="mb-12">
-        {activeTab === "users" && (
+      <div className="mt-[21px]">
+        {isFollowing ? (
+          <FollowingTab onExploreCreators={() => changeTab("users")} />
+        ) : tab === "users" ? (
           <UsersTab
-            searchQuery={debouncedSearchQuery}
-            userFilter={userFilter}
-            userSort={userSort}
+            searchQuery={users.q}
+            userFilter={users.filter}
+            userSort={users.sort}
             handleViewProfile={handleViewProfile}
+            onResult={setResult}
+            emptyActions={emptyActions}
           />
-        )}
-        {activeTab === "pools" && (
+        ) : (
           <PoolsTab
-            searchQuery={debouncedSearchQuery}
-            poolFilter={poolFilter}
-            poolSort={poolSort}
+            searchQuery={pools.q}
+            poolFilter={pools.filter}
+            poolSort={pools.sort}
             shouldOpenModal={true}
+            onResult={setResult}
+            emptyActions={emptyActions}
           />
-        )}
-        {activeTab === "nfts" && (
-          <div className="text-center py-12">
-            <div className="text-gray-400 mb-4">
-              <Coins className="w-16 h-16 mx-auto" />
-            </div>
-            <h3 className="text-xl font-medium text-gray-900 mb-2">NFTs Coming Soon</h3>
-            <p className="text-gray-500 max-w-md mx-auto">
-              We're working on bringing you NFT discovery and trading. Check back later!
-            </p>
-          </div>
         )}
       </div>
     </div>

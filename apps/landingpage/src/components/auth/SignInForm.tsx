@@ -26,7 +26,7 @@ import {
 import { authClient } from "@/lib/auth-client";
 import { useCaptcha } from "@/hooks/useCaptcha";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
-import { getPanelHomeUrl, getPostAuthDestination, goTo, toAbsoluteUrl } from "@/lib/panel";
+import { getPostAuthDestination, goTo, toAbsoluteUrl } from "@/lib/panel";
 import { trackGAEvent } from "@/utils/ga";
 import { PRIVACY_POLICY_URL } from "@/components/layout/PublicFooter";
 
@@ -121,7 +121,7 @@ export function SignInForm() {
     setGoogleLoading(true);
     const failure = await startGoogleSignIn({
       callbackURL: toAbsoluteUrl(destination),
-      newUserCallbackURL: toAbsoluteUrl(getPanelHomeUrl({ welcome: true })),
+      newUserCallbackURL: toAbsoluteUrl(getPostAuthDestination(params, { welcome: true })),
       errorCallbackURL: toAbsoluteUrl("/login?error=google"),
       referrerId: getReferrerId(),
     });
