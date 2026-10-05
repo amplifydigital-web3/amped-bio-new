@@ -1,12 +1,8 @@
-import { useCallback, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useAccount, usePublicClient, useWriteContract } from "wagmi";
-import { encodeFunctionData, type Address, type PublicClient } from "viem";
+import { useAccount, usePublicClient, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { encodeFunctionData, parseEther, type Address, type PublicClient } from "viem";
 import {
   BASE_REGISTRAR_ABI,
-  formatRnsName,
   getChainConfig,
-  isRnsNameActive,
   parseRnsInput,
   REGISTRAR_CONTROLLER_ABI,
   RESOLVER_ABI,
@@ -14,21 +10,21 @@ import {
   rnsNode,
   rnsTokenId,
 } from "@repo/web3";
-import { classifyTxError } from "@/components/panels/explore/pool-panel/format";
+import { useState } from "react";
 
 type RnsContracts = NonNullable<ReturnType<typeof getChainConfig>>["contracts"];
 
 /**
- * The wallet's primary RNS name, forward checked: the reverse record names a
- * label and BaseRegistrar ownerOf that label is the wallet (ownerOf reverts
- * once the name expires). null when there is no live primary.
+ * True when the wallet already has a primary RNS name it still owns: the
+ * reverse record names a label and BaseRegistrar ownerOf that label is the
+ * wallet (ownerOf reverts once the name expires).
  */
-export async function readPrimaryName(
+export async function walletHasPrimaryName(
   client: PublicClient,
   contracts: RnsContracts,
   wallet: Address,
   chainId: number
-): Promise<string | null> {
+): Promise<boolean> {
   const node = await client.readContract({
     address: contracts.REVERSE_REGISTRAR.address,
     abi: REVERSE_REGISTRAR_ABI,
@@ -42,225 +38,99 @@ export async function readPrimaryName(
     args: [node as `0x${string}`],
   })) as string;
   const label = name ? parseRnsInput(name, chainId) : "";
-  if (!label) return null;
+  if (!label) return false;
   try {
-    const [owner, expiry] = await Promise.all([
-      client.readContract({
-        address: contracts.BASE_REGISTRAR.address,
-        abi: BASE_REGISTRAR_ABI,
-        functionName: "ownerOf",
-        args: [rnsTokenId(label)],
-      }) as Promise<string>,
-      client.readContract({
-        address: contracts.BASE_REGISTRAR.address,
-        abi: BASE_REGISTRAR_ABI,
-        functionName: "nameExpires",
-        args: [rnsTokenId(label)],
-      }) as Promise<bigint>,
-    ]);
-    const owned = owner.toLowerCase() === wallet.toLowerCase() && isRnsNameActive(Number(expiry));
-    return owned ? formatRnsName(label, chainId) : null;
+    const owner = (await client.readContract({
+      address: contracts.BASE_REGISTRAR.address,
+      abi: BASE_REGISTRAR_ABI,
+      functionName: "ownerOf",
+      args: [rnsTokenId(label)],
+    })) as string;
+    return owner.toLowerCase() === wallet.toLowerCase();
   } catch {
     // ownerOf reverts for an expired or transferred name: no live primary
-    return null;
+    return false;
   }
 }
 
-export type TxPhase = "idle" | "signing" | "chain" | "done" | "declined" | "failed";
-
-export type TxState = {
-  phase: TxPhase;
-  hash?: `0x${string}`;
-  /** Value sent plus gasUsed times effectiveGasPrice, from the receipt */
-  paidWei?: bigint;
-  reverted?: boolean;
-};
-
-/** Network fee estimate: estimateContractGas times the current gas price. */
-export function useFeeEstimate(
-  key: unknown[],
-  enabled: boolean,
-  estimate: (client: PublicClient) => Promise<bigint>
-) {
-  const publicClient = usePublicClient();
-  return useQuery({
-    queryKey: ["rns-fee", ...key],
-    enabled: enabled && !!publicClient,
-    staleTime: 30_000,
-    retry: 1,
-    queryFn: async () => {
-      const client = publicClient as PublicClient;
-      const [gas, gasPrice] = await Promise.all([estimate(client), client.getGasPrice()]);
-      return gas * gasPrice;
-    },
-  });
-}
-
-/** Runs one write and tracks it: signing, on chain, done, declined or failed. */
-export function useTrackedWrite() {
-  const publicClient = usePublicClient();
-  const { writeContractAsync } = useWriteContract();
-  const [state, setState] = useState<TxState>({ phase: "idle" });
-
-  const run = useCallback(
-    async (request: Parameters<typeof writeContractAsync>[0], value: bigint) => {
-      setState({ phase: "signing" });
-      let hash: `0x${string}`;
-      try {
-        hash = await writeContractAsync(request);
-      } catch (error) {
-        setState({ phase: classifyTxError(error) === "rejected" ? "declined" : "failed" });
-        return false;
-      }
-      setState({ phase: "chain", hash });
-      try {
-        const receipt = await (publicClient as PublicClient).waitForTransactionReceipt({ hash });
-        if (receipt.status !== "success") {
-          setState({ phase: "failed", hash, reverted: true });
-          return false;
-        }
-        const paidWei = value + receipt.gasUsed * receipt.effectiveGasPrice;
-        setState({ phase: "done", hash, paidWei });
-        return true;
-      } catch {
-        setState({ phase: "failed", hash });
-        return false;
-      }
-    },
-    [publicClient, writeContractAsync]
-  );
-
-  const reset = useCallback(() => setState({ phase: "idle" }), []);
-  return { state, run, reset };
-}
-
-/**
- * Screen Review 078: register one RNS name for the signing wallet. The
- * primary name is kept when the wallet has one (reverseRecord false, D2) and
- * set for a first name. The fee is estimated for the exact call.
- */
-export function useRegisterName(
-  label: string,
-  durationSeconds: bigint | undefined,
-  priceWei?: bigint
-) {
+export function useRegistration() {
   const { address, chainId } = useAccount();
-  const publicClient = usePublicClient();
   const networkConfig = getChainConfig(chainId ?? 0);
-  const contracts = networkConfig?.contracts;
-  const tracked = useTrackedWrite();
+  const publicClient = usePublicClient();
 
-  const primary = useQuery({
-    queryKey: ["rns-primary", address, chainId],
-    enabled: !!address && !!contracts && !!publicClient && !!chainId,
-    staleTime: 30_000,
-    retry: 1,
-    queryFn: () => readPrimaryName(publicClient as PublicClient, contracts!, address!, chainId!),
+  const { writeContractAsync, isPending } = useWriteContract();
+
+  const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
+
+  const {
+    isLoading: isConfirming,
+    isSuccess: isConfirmed,
+    isError: isReceiptError,
+  } = useWaitForTransactionReceipt({
+    hash: txHash ?? undefined,
+    confirmations: 1,
   });
 
-  // A failed primary read keeps the primary as it is (reverseRecord false)
-  const reverseRecord = primary.isSuccess ? primary.data === null : false;
+  const register = async (
+    name: string,
+    duration: bigint,
+    rentPrice: string
+  ): Promise<`0x${string}`> => {
+    if (!address) throw new Error("Wallet not connected");
+    if (!networkConfig?.contracts) throw new Error("Contracts not found for this chain.");
 
-  const request = () => {
-    if (!address || !contracts || durationSeconds === undefined || priceWei === undefined) {
-      return null;
+    const resolverData = encodeFunctionData({
+      abi: RESOLVER_ABI,
+      functionName: "setAddr",
+      args: [rnsNode(name, chainId), address],
+    });
+
+    // 078 D2: registering another RNS name keeps the current primary. Only a
+    // wallet with no live primary gets the reverse record. If the check fails
+    // the primary is left alone; Set as primary is offered after.
+    let reverseRecord = false;
+    if (publicClient && chainId) {
+      try {
+        reverseRecord = !(await walletHasPrimaryName(
+          publicClient as PublicClient,
+          networkConfig.contracts,
+          address,
+          chainId
+        ));
+      } catch (error) {
+        console.warn("[rns] primary name check failed, keeping the primary as is:", error);
+      }
     }
-    let resolverData: `0x${string}`;
-    try {
-      resolverData = encodeFunctionData({
-        abi: RESOLVER_ABI,
-        functionName: "setAddr",
-        args: [rnsNode(label, chainId), address],
-      });
-    } catch {
-      return null;
-    }
-    return {
-      address: contracts.REGISTRAR_CONTROLLER.address,
+
+    const txHash = await writeContractAsync({
+      address: networkConfig.contracts.REGISTRAR_CONTROLLER.address,
       abi: REGISTRAR_CONTROLLER_ABI,
-      functionName: "register" as const,
+      functionName: "register",
       args: [
         {
-          name: label,
+          name,
           owner: address,
-          duration: durationSeconds,
-          resolver: contracts.L2_RESOLVER.address,
+          duration,
+          resolver: networkConfig.contracts.L2_RESOLVER.address,
           data: [resolverData],
           reverseRecord,
         },
-      ] as const,
-      value: priceWei,
-    };
-  };
+      ],
+      value: parseEther(rentPrice),
+    });
 
-  const fee = useFeeEstimate(
-    [
-      "register",
-      label,
-      durationSeconds?.toString(),
-      priceWei?.toString(),
-      address,
-      reverseRecord,
-      chainId,
-    ],
-    !!request() && !primary.isLoading,
-    client =>
-      client.estimateContractGas({
-        ...(request() as NonNullable<ReturnType<typeof request>>),
-        account: address!,
-      })
-  );
-
-  const register = async () => {
-    const req = request();
-    if (!req) return false;
-    return tracked.run(req as unknown as Parameters<typeof tracked.run>[0], req.value);
+    setTxHash(txHash);
+    return txHash;
   };
 
   return {
-    primaryName: primary.data ?? null,
-    primaryLoading: primary.isLoading,
-    reverseRecord,
-    feeWei: fee.data,
-    feeLoading: fee.isLoading,
-    feeFailed: fee.isError,
-    retryFee: () => void fee.refetch(),
-    tx: tracked.state,
     register,
-    reset: tracked.reset,
-  };
-}
-
-/** 078 I13: Set as primary runs REVERSE_REGISTRAR setName(<full name>). */
-export function useSetPrimaryName(fullName: string) {
-  const { address, chainId } = useAccount();
-  const contracts = getChainConfig(chainId ?? 0)?.contracts;
-  const tracked = useTrackedWrite();
-  const request = contracts
-    ? {
-        address: contracts.REVERSE_REGISTRAR.address,
-        abi: REVERSE_REGISTRAR_ABI,
-        functionName: "setName" as const,
-        args: [fullName] as const,
-      }
-    : null;
-
-  const fee = useFeeEstimate(
-    ["setName", fullName, address, chainId],
-    !!request && !!address,
-    client => client.estimateContractGas({ ...request!, account: address! })
-  );
-
-  return {
-    feeWei: fee.data,
-    feeLoading: fee.isLoading,
-    feeFailed: fee.isError,
-    retryFee: () => void fee.refetch(),
-    tx: tracked.state,
-    setPrimary: () =>
-      request
-        ? tracked.run(request as unknown as Parameters<typeof tracked.run>[0], 0n)
-        : Promise.resolve(false),
-    reset: tracked.reset,
+    // submission
+    isSubmitting: isPending,
+    // receipt lifecycle
+    txHash,
+    isConfirming,
+    isConfirmed,
+    isReceiptError,
   };
 }
