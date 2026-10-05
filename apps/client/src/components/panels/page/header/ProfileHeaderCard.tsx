@@ -47,7 +47,9 @@ export function ProfileHeaderCard() {
           </div>
           <button
             type="button"
-            onClick={() => setActivePanelAndNavigate("account", undefined, { tab: "settings" })}
+            onClick={() =>
+              setActivePanelAndNavigate("account", undefined, { tab: "settings", open: "url" })
+            }
             className="prism-focus rounded-prism-8 text-prism-meta text-prism-ink-2 hover:text-prism-nav hover:underline"
           >
             @{profile.handle}
