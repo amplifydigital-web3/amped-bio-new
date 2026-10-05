@@ -306,6 +306,20 @@ The four standalone auth pages now use the PR 5 auth card under the public heade
 | Verify notice | `client/components/panels/home/VerifyEmailNotice.tsx` | Info notice on Home while the email is unverified, Resend email with the 60 second cooldown, 44 dismiss for the session |
 | Deep links | `client/hooks/useOpenParam.ts` | `?open=<name>` runs once and is removed with a replace navigation |
 
+## Home (PR 6a, Screen Review 016)
+
+Home is native on the D08 grid without a preview. The onboarding.ampedbio.com iframe no longer fills the panel.
+
+| Piece | File | Rule |
+|---|---|---|
+| Layout | `home/HomePanel.tsx` | Left column: setup checklist on first run, then the page status card. Right column: Testnet, Network, Video guides. Mobile stacks notices, checklist, page status, Testnet, Video guides, Network. Tab order follows the columns |
+| Page status (I04, I15) | `home/PageStatusCard.tsx` | Photo 55 or the handle initial, name, amped.bio/handle, View page (new tab), Copy page link, Share on touch when the browser has it, View analytics. Show setup checklist appears while setup is incomplete and the checklist is hidden. Skeleton after 400ms; Your page details did not load with Retry after 10 seconds |
+| Testnet (I06 to I11) | `home/TestnetCard.tsx`, `home/homeContent.ts` | Solid notice. `TESTNET_NOTICE` first, then Read more (Show less when open): testing phase, then thank you. Static, so it renders with the API blocked |
+| Conversion copy flag (D1) | `VITE_HOME_CONVERSION_COPY` | Off by default. On adds the J1 conversion line under the testnet line and the scope and tradability paragraphs inside Read more. Counsel approves before it turns on |
+| Network (I09, I10) | `TestnetCard.tsx` `NetworkSection` | Block explorer and Community on Telegram as G0 rows, new tab |
+| Video guides | `home/VideoGuides.tsx` | Four cards with a drawn poster, so nothing loads from YouTube until play. Play opens the shared Dialog with a youtube-nocookie.com player and Watch on YouTube. Focus stays on the dialog, not the player, so Escape closes it; focus returns to the card |
+| Updates (D2) | `home/UpdatesFrame.tsx`, `VITE_HOME_UPDATES_FRAME` | Off by default. On shows the onboarding site last in the left column with its host and Open in new tab, and Updates did not load with Retry after 15 seconds. Turn it on only after that site drops the conversion and tradability paragraphs, or the frame bypasses the conversion copy flag |
+
 ## Rules reviewers should enforce
 
 1. **Trust rule.** Spectacle falls as commitment rises. The Review and Confirm step uses `prism-value-panel-calm`, has no rim, uses a solid `prism-notice`, and has a required checkbox. The commit button is `value-deep`, followed by the wallet note.
