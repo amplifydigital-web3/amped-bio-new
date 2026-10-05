@@ -77,7 +77,7 @@ export type TxState = {
 };
 
 /** Network fee estimate: estimateContractGas times the current gas price. */
-function useFeeEstimate(
+export function useFeeEstimate(
   key: unknown[],
   enabled: boolean,
   estimate: (client: PublicClient) => Promise<bigint>
@@ -97,7 +97,7 @@ function useFeeEstimate(
 }
 
 /** Runs one write and tracks it: signing, on chain, done, declined or failed. */
-function useTrackedWrite() {
+export function useTrackedWrite() {
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
   const [state, setState] = useState<TxState>({ phase: "idle" });

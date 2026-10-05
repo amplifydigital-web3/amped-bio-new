@@ -7,31 +7,19 @@ import {
   CheckCircle2,
   ChevronRight,
   Copy,
-  ExternalLink,
   LayoutTemplate,
-  LoaderCircle,
   Plus,
   RefreshCw,
   ShieldCheck,
   Wallet,
 } from "lucide-react";
-import {
-  Button,
-  Checkbox,
-  CommitAction,
-  ErrorCard,
-  Notice,
-  SidePanel,
-  StepBar,
-  TESTNET_NOTICE,
-  cn,
-} from "@repo/ui";
+import { Button, Checkbox, CommitAction, ErrorCard, Notice, SidePanel, StepBar } from "@repo/ui";
 import { formatRnsName } from "@repo/web3";
 import { toast } from "@/components/ui/toast";
 import { useWalletContext } from "@/contexts/WalletContext";
 import { useDelayed } from "@/hooks/useDelayed";
 import { useAuthbaseIdentityStatus } from "@/hooks/rns/useAuthbaseIdentityStatus";
-import { useRegisterName, useSetPrimaryName, type TxState } from "@/hooks/rns/useRegistration";
+import { useRegisterName, useSetPrimaryName } from "@/hooks/rns/useRegistration";
 import { RNS_FLAGS } from "@/config/rns/flags";
 import FundWalletDialog from "../dialogs/FundWalletDialog";
 import { Eyebrow, TestnetLine } from "../../explore/pool-panel/sections";
@@ -48,6 +36,7 @@ import {
   type Term,
 } from "./format";
 import { RnsName } from "./shared";
+import { ChainStatus, Row, TestnetNotice, TxLink, YouPay } from "./flowParts";
 
 type Step = "name" | "review" | "result" | "primary";
 const STEPS = ["Name", "Review", "Confirm in wallet"];
@@ -57,76 +46,6 @@ const ArtTile = () => (
     <AtSign aria-hidden className="h-[34px] w-[34px]" color="#6E3A82" />
   </span>
 );
-
-function Row({
-  label,
-  children,
-  strong,
-}: {
-  label: string;
-  children: React.ReactNode;
-  strong?: boolean;
-}) {
-  return (
-    <div className="flex min-h-touch items-center justify-between gap-4 px-4 py-2">
-      <dt className="text-prism-label text-prism-ink-2">{label}</dt>
-      <dd
-        className={cn(
-          "text-right text-prism-label tabular-nums text-prism-ink",
-          strong ? "font-bold" : "font-semibold"
-        )}
-      >
-        {children}
-      </dd>
-    </div>
-  );
-}
-
-function TxLink({ explorer, hash }: { explorer?: string; hash?: string }) {
-  if (!explorer || !hash) return null;
-  return (
-    <Button asChild variant="ghost">
-      <a href={`${explorer}/tx/${hash}`} target="_blank" rel="noopener noreferrer">
-        View transaction
-        <ExternalLink aria-hidden />
-        <span className="sr-only">(opens in a new tab)</span>
-      </a>
-    </Button>
-  );
-}
-
-/** The solid compliance notice with the J0 line, plus an optional sentence. */
-function TestnetNotice({ extra }: { extra?: string }) {
-  const body = TESTNET_NOTICE.replace(/^Testnet only\.\s*/, "");
-  return (
-    <Notice variant="warning" title="Testnet only.">
-      {body}
-      {extra ? ` ${extra}` : ""}
-    </Notice>
-  );
-}
-
-/** Confirm in wallet and on chain status rows (078 I11). */
-function ChainStatus({ tx, explorer, what }: { tx: TxState; explorer?: string; what: string }) {
-  if (tx.phase !== "chain") return null;
-  return (
-    <div className="space-y-2">
-      <div className="prism-slab flex min-h-commit items-center gap-3 px-4" role="status">
-        <LoaderCircle
-          aria-hidden
-          className="h-[21px] w-[21px] shrink-0 animate-spin text-prism-nav motion-reduce:animate-none"
-        />
-        <span className="flex-1 text-prism-label font-semibold text-prism-ink">{what}</span>
-        <TxLink explorer={explorer} hash={tx.hash} />
-      </div>
-      <p className="text-prism-meta text-prism-ink-2">
-        {what === "Registering on chain"
-          ? "Registration continues if you close this panel."
-          : "This continues if you close this panel."}
-      </p>
-    </div>
-  );
-}
 
 /**
  * Screen Review 078: register an RNS name as one money flow in the G3 value
@@ -444,7 +363,12 @@ export function RegisterFlow({
               <TxLink explorer={explorer} hash={reg.tx.hash} />
             </div>
           )}
-          <ChainStatus tx={reg.tx} explorer={explorer} what="Registering on chain" />
+          <ChainStatus
+            tx={reg.tx}
+            explorer={explorer}
+            what="Registering on chain"
+            note="Registration continues if you close this panel."
+          />
         </>
       )}
     </>
@@ -735,29 +659,6 @@ export function RegisterFlow({
         openReceiveModal={() => setFundOpen(false)}
       />
     </>
-  );
-}
-
-/** 078 I08: the You pay well in the calm commit state, Bebas amount and unit pill. */
-function YouPay({ amount, unit }: { amount: string; unit: string }) {
-  const size =
-    amount.length > 11
-      ? "text-[42px] leading-[42px]"
-      : amount.length > 8
-        ? "text-[55px] leading-[55px] sm:text-[68px] sm:leading-[68px]"
-        : "text-[68px] leading-[68px] sm:text-[88px] sm:leading-[88px]";
-  return (
-    <div className="rounded-prism-21 bg-white/80 px-5 pb-4 pt-3 shadow-[inset_0_0_0_1px_rgba(22,21,43,0.12)]">
-      <p className="text-prism-eyebrow uppercase text-prism-ink-2">You pay</p>
-      <p className="mt-1 flex min-w-0 items-end gap-2">
-        <span
-          className={cn("min-w-0 truncate font-prism-display tabular-nums text-prism-ink", size)}
-        >
-          {amount}
-        </span>
-        <span className="mb-2 shrink-0 text-prism-label font-bold text-prism-ink">{unit}</span>
-      </p>
-    </div>
   );
 }
 

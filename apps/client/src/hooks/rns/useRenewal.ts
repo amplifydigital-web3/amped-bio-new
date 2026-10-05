@@ -1,48 +1,60 @@
-import { useReadContract, useWriteContract, useChainId } from "wagmi";
-import { getChainConfig, REGISTRAR_CONTROLLER_ABI } from "@repo/web3";
+import { useAccount, useReadContract } from "wagmi";
+import type { PublicClient } from "viem";
+import { getChainConfig, libertasTestnet, REGISTRAR_CONTROLLER_ABI } from "@repo/web3";
+import { useFeeEstimate, useTrackedWrite } from "./useRegistration";
 
-export function useRenewal(name: string, duration: bigint) {
-  const { writeContractAsync } = useWriteContract();
-  const chainId = useChainId();
-  const networkConfig = getChainConfig(chainId);
+/**
+ * Screen Review 080 I03, I05: extend one RNS name. Renewal price is rentPrice
+ * base plus premium; the network fee is estimated for the exact renew call;
+ * Paid comes from the receipt. Any connected wallet may pay.
+ */
+export function useRenewName(label: string, durationSeconds: bigint | undefined) {
+  const { address, chainId } = useAccount();
+  const chain = getChainConfig(chainId ?? 0) ?? libertasTestnet;
+  const controller = chain.contracts.REGISTRAR_CONTROLLER.address;
+  const tracked = useTrackedWrite();
 
-  const registrarController = networkConfig?.contracts?.REGISTRAR_CONTROLLER.address;
-
-  const { data, isLoading } = useReadContract({
-    address: registrarController,
+  const price = useReadContract({
+    address: controller,
     abi: REGISTRAR_CONTROLLER_ABI,
     functionName: "rentPrice",
-    args: [name, duration],
-    query: {
-      enabled: Boolean(name && duration > 0n && registrarController),
-    },
+    args: [label, durationSeconds ?? 0n],
+    chainId: chain.id,
+    query: { enabled: !!label && !!durationSeconds, staleTime: 15_000 },
   });
+  const priceWei = price.data ? price.data.base + price.data.premium : undefined;
 
-  const price = data ? data.base + data.premium : null;
+  const request =
+    priceWei !== undefined && durationSeconds
+      ? {
+          address: controller,
+          abi: REGISTRAR_CONTROLLER_ABI,
+          functionName: "renew" as const,
+          args: [label, durationSeconds] as const,
+          value: priceWei,
+        }
+      : null;
 
-  const renew = async () => {
-    if (!registrarController) {
-      throw new Error("Unsupported network");
-    }
-
-    if (!price) {
-      throw new Error("Renewal price not available");
-    }
-
-    const renewal = await writeContractAsync({
-      address: registrarController,
-      abi: REGISTRAR_CONTROLLER_ABI,
-      functionName: "renew",
-      args: [name, duration],
-      value: price,
-    });
-
-    return renewal;
-  };
+  const fee = useFeeEstimate(
+    ["renew", label, durationSeconds?.toString(), priceWei?.toString(), address, chain.id],
+    !!request && !!address,
+    (client: PublicClient) => client.estimateContractGas({ ...request!, account: address! })
+  );
 
   return {
-    renew,
-    price,
-    isPriceLoading: isLoading,
+    priceWei,
+    priceLoading: price.isLoading,
+    priceFailed: price.isError,
+    retryPrice: () => void price.refetch(),
+    feeWei: fee.data,
+    feeLoading: fee.isLoading,
+    feeFailed: fee.isError,
+    retryFee: () => void fee.refetch(),
+    tx: tracked.state,
+    renew: () =>
+      request
+        ? tracked.run(request as unknown as Parameters<typeof tracked.run>[0], request.value)
+        : Promise.resolve(false),
+    reset: tracked.reset,
   };
 }

@@ -39,12 +39,12 @@ export function RnsName({
   );
 }
 
-/** 26 r8 badge (Primary, expiry warnings). */
+/** 26 r8 badge (Primary, Active until, expiry warnings). */
 export function RowBadge({
   tone = "neutral",
   children,
 }: {
-  tone?: "neutral" | "warning";
+  tone?: "neutral" | "warning" | "success";
   children: React.ReactNode;
 }) {
   return (
@@ -53,7 +53,9 @@ export function RowBadge({
         "inline-flex h-[26px] shrink-0 items-center whitespace-nowrap rounded-prism-8 px-2 text-prism-meta font-semibold",
         tone === "warning"
           ? "bg-prism-warning-bg text-prism-warning-ink shadow-[inset_0_0_0_1px_rgba(122,79,0,0.28)]"
-          : "bg-white/90 text-prism-ink shadow-[inset_0_0_0_1px_rgba(22,21,43,0.12)]"
+          : tone === "success"
+            ? "bg-white/90 text-prism-success shadow-[inset_0_0_0_1px_rgba(23,105,63,0.28)]"
+            : "bg-white/90 text-prism-ink shadow-[inset_0_0_0_1px_rgba(22,21,43,0.12)]"
       )}
     >
       {children}
