@@ -92,7 +92,7 @@ const buildMrz = (
   return `REVO :: AUTHBASE :: ${holder} :: TIER-${TIER_META[tier].letter} :: ${start}/${end}`;
 };
 
-// ── Small building blocks ───────────────────────────────────────────
+// ── Small building blocks ──────────────────────────────────────────
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5 min-w-0">
@@ -419,7 +419,7 @@ function NoAddressBody() {
   );
 }
 
-// ── Main ───────────────────────────────────────────────────────────
+// ── Main ───────────────────────────────────────────────────────
 const VerificationDetail = ({ isOwner, ownerAddress }: VerificationDetailProps) => {
   const { data, isLoading, isError, error } = useAuthbaseIdentityStatus(ownerAddress);
 
