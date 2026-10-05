@@ -5,11 +5,11 @@ import { ThemeConfig } from "@repo/constants";
 import { prisma } from "@repo/database";
 import { z } from "zod";
 import { HANDLE_MIN_LENGTH, HANDLE_REGEX, sanitizeRichText } from "@repo/constants";
-import { env } from "../env";
 import { sanitizeBlockConfig } from "../utils/sanitizeBlockConfig";
 import { logger } from "better-auth";
 import { getPublicTrackingPixels } from "./trackingPixels";
 import { indexableUserWhere, isUserIndexable } from "../utils/indexable";
+import { checkRnsBindingCached } from "../services/rns";
 
 export const SITEMAP_MAX_PAGE_SIZE = 10000;
 
@@ -28,17 +28,6 @@ export const handleBaseSchema = z
 // Use the base schema in specific contexts
 export const handleParamSchema = z.object({
   handle: handleBaseSchema,
-});
-
-const RevoNameSubgraphSchema = z.object({
-  data: z.object({
-    revoNames: z.array(
-      z.object({
-        expiryDateWithGrace: z.string(),
-        owner: z.string(),
-      })
-    ),
-  }),
 });
 
 type RevoNameStatus = "active" | "expired" | "taken" | null;
@@ -67,70 +56,32 @@ async function getPublicTheme(themeId: number) {
   return { id: theme.id, name: theme.name, config: themeConfig ?? null };
 }
 
-// Validate revoName on-chain: check expiry and ownership
+// Screen Review 100 I03, I04: the public page shows the stored RNS name only
+// when it is bound to the page wallet (owner and resolver addr equal the
+// wallet, registration expiry in the future). No wallet or a failed read shows
+// no name. expired and taken let the owner's editor explain why it is gone.
 async function validateRevoName(
   revoName: string | null,
   walletAddress: string | null
 ): Promise<{ revoName: string | null; status: RevoNameStatus }> {
   const cleared = { revoName: null, status: null };
+  if (!revoName || !walletAddress) return cleared;
 
-  if (!revoName) return cleared;
-
-  const SUBGRAPH_URL = env.SUBGRAPH_URL;
-  if (!SUBGRAPH_URL) {
-    // No subgraph URL configured — cannot validate ownership/expiry, clear the name
-    console.warn("[revoName] SUBGRAPH_URL not configured, clearing revoName");
-    return cleared;
-  }
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
   try {
-    const labelName = revoName.split(".")[0];
-    const res = await fetch(SUBGRAPH_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: controller.signal,
-      body: JSON.stringify({
-        query: `query ($l: String!) { revoNames(where: { labelName: $l }) { expiryDateWithGrace owner } }`,
-        variables: { l: labelName },
-      }),
-    });
-
-    if (!res.ok) {
-      throw new Error(`Subgraph responded with status ${res.status}`);
-    }
-
-    const json = await res.json();
-
-    if (json?.errors?.length) {
-      console.warn("[revoName] Subgraph returned GraphQL errors:", json.errors);
-    }
-
-    const parsed = RevoNameSubgraphSchema.safeParse(json);
-    if (!parsed.success) {
-      console.warn("[revoName] Subgraph returned invalid data:", parsed.error.flatten());
-      return cleared;
-    }
-
-    const details = parsed.data.data.revoNames[0];
-    if (!details) return cleared;
-
-    const expiryTimestamp = Number(details.expiryDateWithGrace);
-    const nowInSeconds = Math.floor(Date.now() / 1000);
-    if (expiryTimestamp > 0 && expiryTimestamp < nowInSeconds) {
-      return { revoName: null, status: "expired" };
-    }
-    if (walletAddress && details.owner.toLowerCase() !== walletAddress.toLowerCase()) {
+    const result = await checkRnsBindingCached(revoName, walletAddress);
+    if (result.ok) return { revoName: result.name, status: "active" };
+    if (result.reason === "expired") return { revoName: null, status: "expired" };
+    if (
+      result.reason === "not_owner" ||
+      result.reason === "addr_elsewhere" ||
+      result.reason === "not_found"
+    ) {
       return { revoName: null, status: "taken" };
     }
-
-    return { revoName, status: "active" };
-  } catch (err) {
-    console.warn("[revoName] Subgraph validation failed, clearing revoName:", err);
     return cleared;
-  } finally {
-    clearTimeout(timeout);
+  } catch (err) {
+    console.warn("[revoName] RNS binding check failed, hiding the name:", err);
+    return cleared;
   }
 }
 
@@ -250,14 +201,30 @@ const appRouter = router({
         include: { wallet: true },
       });
 
-      if (user === null) {
+      // Fan Graph (#22): an account made from Follow has no public page until
+      // its owner publishes one, so its handle reads as not found.
+      if (user === null || user.page_status !== "PUBLISHED") {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: `Handle not found: ${handle}`,
         });
       }
 
-      const hasCreatorPool = false; // Placeholder - we need to determine this differently since pools are now related to wallet
+      // Screen Review 039 I03: the page's View pool needs the creator's pool.
+      // Pools belong to the wallet; take the newest listed pool with an address.
+      const creatorPool = user.wallet
+        ? await prisma.creatorPool.findFirst({
+            where: {
+              walletId: user.wallet.id,
+              poolAddress: { not: null },
+              OR: [{ hidden: false }, { hidden: null }],
+            },
+            orderBy: { id: "desc" },
+            select: { poolAddress: true },
+          })
+        : null;
+      const creatorPoolAddress = creatorPool?.poolAddress ?? null;
+      const hasCreatorPool = creatorPoolAddress !== null;
 
       const {
         theme: theme_id,
@@ -321,6 +288,7 @@ const appRouter = router({
         theme: themeResult.value,
         blocks: publicBlocks,
         hasCreatorPool,
+        creatorPoolAddress,
         trackingPixels: settledOrFallback(trackingPixelsResult, null, "tracking pixels"),
         indexable: isUserIndexable(user, publicBlocks.length),
       };

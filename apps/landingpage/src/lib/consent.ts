@@ -11,14 +11,14 @@ import { CONSENT_CHANGE_EVENT } from "@/lib/ampedAnalytics";
  *
  * Two categories:
  * - analytics: Amped Bio remembers this browser with a random ID so creators
- *   can see returning visitors and retention, and loads Amped Bio's own
- *   Google Analytics (lib/ampedAnalytics.ts). Site-wide choice.
+ *   can see returning visitors and retention, and grants cookies to Amped
+ *   Bio's own Google Analytics (lib/ampedAnalytics.ts). Site-wide choice.
  * - advertising: the creator's own Google Analytics, Meta and TikTok tags.
  *   Chosen per creator, because each creator connects different services.
  *
- * Without a choice, nothing is stored, no Google script loads, and visits are
- * counted cookieless.
- * Choices expire after 13 months or when the policy version changes.
+ * Without a choice, nothing is stored in the browser: visits are counted
+ * cookieless, and Google Analytics runs in Consent Mode without cookies.
+ * Choices expire after 24 months or when the policy version changes.
  */
 
 export type ConsentState = {
@@ -135,7 +135,7 @@ export function saveConsent(choice: { analytics: boolean; creatorId: number; ads
 
 /**
  * Long-lived random browser ID. Created and returned only when the visitor
- * allowed analytics. Rotates after 13 months.
+ * allowed analytics. Rotates after 24 months.
  */
 export function getPersistentVisitorId(): string | null {
   if (getAnalyticsConsent() !== true) return null;

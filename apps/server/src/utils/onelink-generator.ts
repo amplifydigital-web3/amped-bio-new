@@ -1,4 +1,5 @@
 import { prisma } from "../services/DB";
+import { fanHandleBase } from "../services/follow/rules";
 
 /**
  * Extracts handle from email: part before "@", removes alias (before "+"), and removes dots
@@ -63,4 +64,14 @@ export async function generateUniqueHandle(baseHandle: string): Promise<string> 
 export async function processEmailToUniqueHandle(email: string): Promise<string> {
   const baseHandle = extractHandleFromEmail(email);
   return await generateUniqueHandle(baseHandle);
+}
+
+export async function generateFanHandle(name: string | null | undefined): Promise<string> {
+  const base = fanHandleBase(name);
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const digits = String(Math.floor(1000 + Math.random() * 9000));
+    const handle = `${base}-${digits}`;
+    if (await isHandleAvailable(handle)) return handle;
+  }
+  return `${base}-${Date.now()}`;
 }

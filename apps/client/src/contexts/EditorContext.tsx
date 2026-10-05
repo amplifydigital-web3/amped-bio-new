@@ -20,6 +20,7 @@ import initialState from "../store/defaults";
 import { useAuth } from "@repo/ui";
 import toast from "react-hot-toast";
 import { BlockType } from "@repo/constants";
+import { RNS_BINDING_MESSAGES } from "@repo/web3";
 import { formatHandle, normalizeHandle } from "@repo/ui";
 import { trpcClient } from "@repo/ui";
 import { exportThemeConfigAsJson } from "@repo/ui";
@@ -93,6 +94,8 @@ interface EditorContextType extends EditorState {
   expiredRevoName: string;
   dismissRevoName: () => Promise<void>;
   lostRevoName: string;
+  /** Why the last RNS name choice was not saved (100 I02). null when it saved. */
+  revoNameError: string | null;
 }
 
 const EditorContext = createContext<EditorContextType | undefined>(undefined);
@@ -127,6 +130,11 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
   }, []);
   const [expiredRevoName, setExpiredRevoName] = useState("");
   const [lostRevoName, setLostRevoName] = useState("");
+  // 100 I02: the RNS name as stored on the server. A save sends revo_name only
+  // when the choice changed, so a lapsed or unreadable name never blocks the
+  // other edits, and a refused name rolls back to this value.
+  const savedRevoNameRef = useRef("");
+  const [revoNameError, setRevoNameError] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -153,6 +161,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
       // Server already validated ownership and expiry; just read the status
       if (revoNameStatus === "expired") setExpiredRevoName(originalRevoName ?? "");
       else if (revoNameStatus === "taken") setLostRevoName(originalRevoName ?? "");
+      savedRevoNameRef.current = revoName ?? "";
 
       setState(prevState => ({
         ...prevState,
@@ -460,14 +469,43 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
       }));
     }
 
-    const userStatus = await trpcClient.user.edit.mutate({
-      name: profile.name,
-      description: profile.bio,
-      revo_name: profile.revoName || "",
-      image: profile.photoUrl || "",
-      reward_business_id: "",
-      theme: themeId,
-    });
+    const revoName = profile.revoName || "";
+    const revoNameChanged = revoName !== savedRevoNameRef.current;
+    const editUser = (revo_name: string | undefined) =>
+      trpcClient.user.edit.mutate({
+        name: profile.name,
+        description: profile.bio,
+        revo_name,
+        image: profile.photoUrl || "",
+        reward_business_id: "",
+        theme: themeId,
+      });
+
+    let userStatus: Awaited<ReturnType<typeof editUser>>;
+    try {
+      userStatus = await editUser(revoNameChanged ? revoName : undefined);
+      if (revoNameChanged) {
+        savedRevoNameRef.current = revoName;
+        setRevoNameError(null);
+      }
+    } catch (error) {
+      // 100 I02: the server refused the RNS name. Roll the choice back, say
+      // why next to the field, and save everything else.
+      const message = error instanceof Error ? error.message : "";
+      const refused = (Object.values(RNS_BINDING_MESSAGES) as string[]).includes(message);
+      if (!revoNameChanged || !refused) throw error;
+      const previous = savedRevoNameRef.current;
+      stateRef.current = {
+        ...stateRef.current,
+        profile: { ...stateRef.current.profile, revoName: previous },
+      };
+      setState(prevState => ({
+        ...prevState,
+        profile: { ...prevState.profile, revoName: previous },
+      }));
+      setRevoNameError(message);
+      userStatus = await editUser(undefined);
+    }
 
     if (!userStatus || !blocksStatus) return false;
     // A theme edit made during this save stays dirty for the next one
@@ -591,6 +629,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         reward_business_id: "",
         theme: theme.id,
       });
+      savedRevoNameRef.current = "";
       setState(prevState => ({
         ...prevState,
         profile: { ...prevState.profile, revoName: "" },
@@ -665,6 +704,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     replaceThemeConfig,
     expiredRevoName,
     lostRevoName,
+    revoNameError,
     dismissRevoName: async () => {
       await clearRevoName();
       setLostRevoName("");

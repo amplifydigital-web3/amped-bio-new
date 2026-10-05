@@ -157,22 +157,30 @@ export function PoolCardFeatured({
 }
 
 // Medium: G1 clear card, art 110, title 16/20, meta 13/16.
+// With `href` the whole card is one link (Screen Review 070 I03).
 export function PoolCardMedium({
   pool,
   onSelect,
+  href,
+  ariaLabel,
   className,
 }: {
   pool: PoolCardData;
   onSelect?: () => void;
+  href?: string;
+  // Accessible name for the whole card, for example "Night Shift, 12 fans, 16,463.83 tREVO staked"
+  ariaLabel?: string;
   className?: string;
 }) {
-  const Wrapper = onSelect ? "button" : "div";
+  const Wrapper = href ? "a" : onSelect ? "button" : "div";
+  const interactive = Boolean(href || onSelect);
   return (
     <Wrapper
-      {...(onSelect ? { type: "button" as const, onClick: onSelect } : {})}
+      {...(href ? { href } : onSelect ? { type: "button" as const, onClick: onSelect } : {})}
+      aria-label={ariaLabel}
       className={cn(
         "prism-glass-clear prism-focus flex w-full flex-col gap-2 p-2 text-left font-prism transition-shadow duration-prism-hover ease-prism",
-        onSelect && "hover:shadow-prism-e4",
+        interactive && "hover:shadow-prism-e4",
         className
       )}
     >
@@ -183,7 +191,15 @@ export function PoolCardMedium({
         iconClassName="h-10 w-10"
       />
       <span className="block space-y-1 px-2 pb-2">
-        <span className="block text-prism-label font-bold text-prism-ink">{pool.name}</span>
+        <span
+          className="block truncate text-prism-label font-bold text-prism-ink"
+          title={pool.name}
+        >
+          {pool.name}
+        </span>
+        {pool.byline && (
+          <span className="block truncate text-prism-meta text-prism-ink-2">{pool.byline}</span>
+        )}
         {pool.creatorHandle && (
           <span className="block text-prism-meta text-prism-ink-2">{pool.creatorHandle}</span>
         )}

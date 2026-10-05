@@ -1,4 +1,5 @@
-import Particles from "@tsparticles/react";
+import { useEffect, useState } from "react";
+import Particles, { initParticlesEngine } from "@tsparticles/react";
 import { usePrefersReducedMotion } from "@repo/ui";
 import { particleConfigs } from "./particleConfigs";
 
@@ -11,6 +12,17 @@ interface ParticlesBackgroundProps {
   mode?: "live" | "still";
 }
 
+// The particle engine and its effect presets load on first use, not at editor
+// start, so screens without particles never download them (Build Board #26).
+let engineReady: Promise<void> | null = null;
+function ensureParticlesEngine() {
+  engineReady ??= initParticlesEngine(async engine => {
+    const { loadAll } = await import("@tsparticles/all");
+    await loadAll(engine);
+  });
+  return engineReady;
+}
+
 // Screen Review 029 I03: particles pause when the page or frame is hidden, and
 // visitors who ask for reduced motion see one still frame with no pointer effects.
 export function ParticlesBackground({
@@ -20,7 +32,18 @@ export function ParticlesBackground({
   mode = "live",
 }: ParticlesBackgroundProps) {
   const reducedMotion = usePrefersReducedMotion();
-  if (effect === 0) return null;
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    if (effect === 0) return;
+    let active = true;
+    void ensureParticlesEngine().then(() => active && setReady(true));
+    return () => {
+      active = false;
+    };
+  }, [effect]);
+
+  if (effect === 0 || !ready) return null;
 
   const config = particleConfigs[effect as keyof typeof particleConfigs];
   if (!config) return null;

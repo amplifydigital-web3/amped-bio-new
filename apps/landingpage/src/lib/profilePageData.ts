@@ -29,6 +29,8 @@ export interface ProfilePageData {
   blocks: BlockType[];
   theme: Theme | null;
   hasCreatorPool: HandleOutput["hasCreatorPool"];
+  /** The creator's pool, for the page's View pool (Screen Review 039 I03) */
+  creatorPoolAddress: string | null;
   trackingPixels: PublicTrackingPixels | null;
   /** Whether search engines may index this profile */
   indexable: boolean;
@@ -74,6 +76,7 @@ export const DEFAULT_PROFILE_DATA: ProfilePageData = {
   ],
   theme: null,
   hasCreatorPool: false,
+  creatorPoolAddress: null,
   trackingPixels: null,
   indexable: false,
 };
@@ -84,7 +87,15 @@ export const DEFAULT_PROFILE_DATA: ProfilePageData = {
  * config, block config) meet the app's typed schemas.
  */
 export function mapGetHandleData(result: HandleOutput, handle: string): ProfilePageData {
-  const { user, theme, blocks: blocksRaw, hasCreatorPool, trackingPixels, indexable } = result;
+  const {
+    user,
+    theme,
+    blocks: blocksRaw,
+    hasCreatorPool,
+    creatorPoolAddress,
+    trackingPixels,
+    indexable,
+  } = result;
   return {
     profile: {
       id: user.id,
@@ -99,6 +110,7 @@ export function mapGetHandleData(result: HandleOutput, handle: string): ProfileP
     theme: theme ? (theme as unknown as Theme) : null,
     blocks: [...blocksRaw].sort((a, b) => a.order - b.order) as unknown as BlockType[],
     hasCreatorPool,
+    creatorPoolAddress: creatorPoolAddress ?? null,
     trackingPixels: trackingPixels ?? null,
     indexable,
   };

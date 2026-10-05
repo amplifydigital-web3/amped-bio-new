@@ -11,9 +11,16 @@ import {
   Section,
   Text,
   Tailwind,
+  Link,
 } from "@react-email/components";
 
-const ResetPasswordTemplate = ({ url }: { url: string }) => {
+const ResetPasswordTemplate = ({
+  url,
+  privacyUrl = "https://amped.bio/privacy",
+}: {
+  url: string;
+  privacyUrl?: string;
+}) => {
   return (
     <Html>
       <Tailwind>
@@ -74,7 +81,12 @@ const ResetPasswordTemplate = ({ url }: { url: string }) => {
 
             <Section className="text-center py-[32px]">
               <Text className="text-[12px] leading-[1.5em] text-[#b0adc5] m-0">
-                © 2025 Amplify Digital. All rights reserved.
+                © 2026 Oneiro N.A., Inc., dba Amplify Digital. All rights reserved.
+              </Text>
+              <Text className="text-[12px] leading-[1.5em] text-[#b0adc5] m-0">
+                <Link href={privacyUrl} className="text-[#b0adc5] underline">
+                  Privacy Policy
+                </Link>
               </Text>
             </Section>
           </Container>

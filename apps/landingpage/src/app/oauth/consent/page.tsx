@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PublicHeader } from "@/components/layout/PublicHeader";
 import { OAuthConsentScreen, OAuthShell } from "@repo/ui";
 
 export const metadata: Metadata = {
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
 export default function OAuthConsentPage() {
   return (
     <OAuthShell
+      header={<PublicHeader />}
       title="Authorize access"
       subtitle="Review what this application will be able to do with your account."
       footer="You stay in control: access can be revoked at any time."

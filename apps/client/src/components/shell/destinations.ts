@@ -5,6 +5,7 @@ import {
   LayoutPanelTop,
   Palette,
   Search,
+  UsersRound,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
@@ -17,6 +18,7 @@ export type DestinationId =
   | "page"
   | "design"
   | "analytics"
+  | "people"
   | "wallet"
   | "my-pool";
 
@@ -37,6 +39,8 @@ export const DESTINATIONS: Destination[] = [
   { id: "page", label: "Page", icon: LayoutPanelTop, group: "page" },
   { id: "design", label: "Design", icon: Palette, group: "page" },
   { id: "analytics", label: "Analytics", icon: BarChart3, group: "page" },
+  // Fan Graph (#22, decision 5): followers live in People
+  { id: "people", label: "People", icon: UsersRound, group: "page", flag: "VITE_FAN_GRAPH" },
   { id: "wallet", label: "Wallet", icon: Wallet, group: "money", flag: "VITE_SHOW_WALLET" },
   { id: "my-pool", label: "My Pool", icon: Coins, group: "money", flag: "VITE_SHOW_CREATOR_POOL" },
 ];
@@ -72,6 +76,7 @@ export function destinationForPanel(panel: EditorPanelType): DestinationId | nul
     case "page":
     case "design":
     case "analytics":
+    case "people":
     case "wallet":
     case "my-pool":
       return panel;
@@ -87,6 +92,7 @@ export const PANEL_TITLES: Record<EditorPanelType, string> = {
   page: "Page",
   design: "Design",
   analytics: "Analytics",
+  people: "People",
   wallet: "Wallet",
   "my-pool": "My Pool",
   account: "Account",
@@ -95,6 +101,7 @@ export const PANEL_TITLES: Record<EditorPanelType, string> = {
   reward: "Reward",
   rewardPools: "Reward pools",
   leaderboard: "Leaderboard",
+  inbox: "Inbox",
 };
 
 /** Destinations with autosaved fields show the save status (002 I01, I13). */

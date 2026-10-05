@@ -1,9 +1,10 @@
 import React from "react";
-import { BlockErrorFallback } from "./blocks/BlockErrorFallback";
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
   fallback?: React.ReactNode | ((error: Error | null) => React.ReactNode);
+  // Logged with the error, for example the block id and type (040 I14)
+  context?: Record<string, unknown>;
 }
 
 interface ErrorBoundaryState {
@@ -22,7 +23,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    console.error("ErrorBoundary caught an error:", error, errorInfo);
+    console.error("ErrorBoundary caught an error:", this.props.context ?? {}, error, errorInfo);
     this.setState({ error });
   }
 
@@ -37,7 +38,8 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       if (typeof this.props.fallback === "function") {
         return this.props.fallback(this.state.error);
       }
-      return this.props.fallback ?? <BlockErrorFallback />;
+      // 040 I14: a block that throws renders nothing to visitors
+      return this.props.fallback ?? null;
     }
 
     return this.props.children;

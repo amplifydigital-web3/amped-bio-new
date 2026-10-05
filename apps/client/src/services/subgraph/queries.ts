@@ -5,6 +5,7 @@ import { GetAllNamesResult, SubgraphResult } from "@/types/subgraph";
 import { NameDetail, RevoName } from "@/types/rns/name";
 import { RegistrationData } from "@/types/rns/registration";
 import { z } from "zod";
+import { RNS_GRACE_PERIOD_SECONDS } from "@repo/web3";
 import {
   ChainConfig,
   onchainDateDetails,
@@ -193,7 +194,9 @@ export async function fetchActiveRegisteredNamesOfOwner(
     if (!graphClient) {
       return { data: null, error: "Subgraph client not available for current network" };
     }
-    const now = Math.floor(Date.now() / 1000).toString();
+    // 100 I04: active means the registration has not expired. The subgraph
+    // only stores the grace end, so compare against now plus the grace period.
+    const now = (Math.floor(Date.now() / 1000) + RNS_GRACE_PERIOD_SECONDS).toString();
     const variables = { owner, now };
     const data = await graphClient.request<GetAllNamesResult>(
       queryGetActiveRegisteredNamesOfOwner,

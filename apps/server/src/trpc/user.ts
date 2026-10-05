@@ -7,6 +7,8 @@ import { prisma } from "../services/DB";
 import { editUserSchema } from "../schemas/user.schema";
 import Decimal from "decimal.js";
 import { htmlToPlainText, sanitizeRichText } from "@repo/constants";
+import { parseRnsInput, RNS_CHAIN } from "@repo/web3";
+import { assertRnsBinding } from "../services/rns";
 
 // Schema for initiating email change
 const initiateEmailChangeSchema = z.object({
@@ -54,6 +56,26 @@ export const userRouter = router({
       `📋 Edit data: ${JSON.stringify({ name, description, theme, image, reward_business_id, revo_name })}`
     );
 
+    // Screen Review 100 I02: an RNS name is stored only when it is bound to the
+    // account wallet (owner and resolver addr equal the wallet, registration not
+    // expired). An empty value clears it. An unchanged name is kept as stored so
+    // a lapsed name never blocks other edits; the public page re-checks it (I03).
+    let revoNameToStore: string | null | undefined = revo_name;
+    if (revo_name) {
+      const current = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { revo_name: true, wallet: { select: { address: true } } },
+      });
+      const sameAsStored =
+        !!current?.revo_name &&
+        parseRnsInput(current.revo_name, RNS_CHAIN.id) === parseRnsInput(revo_name, RNS_CHAIN.id);
+      revoNameToStore = sameAsStored
+        ? current!.revo_name
+        : await assertRnsBinding(revo_name, current?.wallet?.address ?? null);
+    } else if (revo_name === "") {
+      revoNameToStore = null;
+    }
+
     try {
       console.info("💾 Updating user information");
       await prisma.user.update({
@@ -62,7 +84,7 @@ export const userRouter = router({
           name,
           // Bio HTML is stored only after the shared allowlist sanitizer runs
           description: sanitizeRichText(description),
-          revo_name,
+          revo_name: revoNameToStore,
           theme: `${theme}`,
           image,
           reward_business_id,
@@ -452,8 +474,9 @@ export const userRouter = router({
       const safeLimit = Math.min(input.limit || 20, 20);
       const safePage = Math.max(input.page || 1, 1);
 
-      // Build the base where clause based on search
-      const whereClause: any = {};
+      // Build the base where clause based on search. Only published, not
+      // suspended pages are listed (Fan Graph #22: fan accounts have no page).
+      const whereClause: any = { page_status: "PUBLISHED", block: "no" };
       if (input.search) {
         whereClause.name = {
           contains: input.search,

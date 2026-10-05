@@ -1,17 +1,19 @@
 import { Banner, type BannerPanel } from "./Banner";
 import { InlinePreview, PreviewFrame, PreviewSwitch } from "./preview/PreviewFrame";
-import type { ComponentType } from "react";
-import { Navigate, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 import { useEditor } from "../contexts/EditorContext";
-import { CreatorPoolPanel } from "./panels/createrewardpool/CreatorPoolPanel.tsx";
+import { MyPoolDestination } from "./panels/broadcast/MyPoolDestination";
+import { InboxPanel } from "./panels/broadcast/InboxPanel";
+import { BROADCAST_ON } from "./panels/broadcast/utils";
 import { LeaderboardPanel } from "./panels/leaderboard/LeaderboardPanel";
 import { RNSPanel } from "./panels/rns/RNSPanel";
 import { HomePanel } from "./panels/home/HomePanel";
 import { MyWalletPanel } from "./panels/wallet/MyWalletPanel";
 import RewardPanel from "./panels/reward/RewardPanel.tsx";
-import PayPanel from "./panels/pay/PayPanel.tsx";
+import PayRedirect from "./panels/wallet/send/PayRedirect";
 import ExplorePage from "./panels/explore/ExplorePanel.tsx";
 import { AnalyticsPanel } from "./panels/analytics/AnalyticsPanel";
+import { PeoplePanel } from "./panels/people/PeoplePanel";
 import { PagePanel } from "./panels/page/PagePanel";
 import { DesignPanel } from "./panels/design/DesignPanel";
 import { AccountPanel } from "./panels/account/AccountPanel";
@@ -38,47 +40,51 @@ const PREVIEW_PANELS: EditorPanelType[] = ["page", "design"];
 
 // Destinations whose screens are restyled sit directly on the room (PR 3a Design,
 // 3b Page, 3c Account)
-const RESTYLED_PANELS: EditorPanelType[] = ["design", "page", "account"];
-
-function RnsDestination() {
-  // RNS navigation is the destination's own header, not the top bar (002 I08, D06)
-  return (
-    <>
-      <div className="flex items-center gap-4 border-b border-gray-200 px-6 py-3">
-        <RNSHeader />
-        <RNSHeader mobile />
-      </div>
-      <RNSPanel />
-    </>
-  );
-}
-
-/**
- * Screen Review 098 I06. Every routable panel names its screen here, so a
- * panel added to EDITOR_PANELS without one fails type checking. A null entry
- * has no screen today and redirects to Home with replace, so no valid route
- * shows an empty frame.
- */
-const PANEL_SCREENS: Record<EditorPanelType, ComponentType | null> = {
-  home: HomePanel,
-  analytics: AnalyticsPanel,
-  explore: ExplorePage,
-  page: PagePanel,
-  design: DesignPanel,
-  wallet: MyWalletPanel,
-  pay: PayPanel,
-  "my-pool": CreatorPoolPanel,
-  account: AccountPanel,
-  rns: import.meta.env.VITE_SHOW_RNS === "true" ? RnsDestination : null,
-  reward: RewardPanel,
-  rewardPools: null,
-  leaderboard: LeaderboardPanel,
-};
+const RESTYLED_PANELS: EditorPanelType[] = ["design", "page", "people", "inbox", "account"];
 
 function ActivePanel({ panel }: { panel: EditorPanelType }) {
-  const Screen = PANEL_SCREENS[panel];
-  if (!Screen) return <Navigate to="/home" replace />;
-  return <Screen />;
+  switch (panel) {
+    case "home":
+      return <HomePanel />;
+    case "analytics":
+      return <AnalyticsPanel />;
+    case "people":
+      return import.meta.env.VITE_FAN_GRAPH === "true" ? <PeoplePanel /> : null;
+    case "explore":
+      return <ExplorePage />;
+    case "page":
+      return <PagePanel />;
+    case "design":
+      return <DesignPanel />;
+    case "wallet":
+      return <MyWalletPanel />;
+    case "pay":
+      // 062 I01: Pay is the Send flow inside Wallet (D05, D12)
+      return <PayRedirect />;
+    case "my-pool":
+      return <MyPoolDestination />;
+    case "inbox":
+      return BROADCAST_ON ? <InboxPanel /> : null;
+    case "account":
+      return <AccountPanel />;
+    case "rns":
+      // RNS navigation is the destination's own header, not the top bar (002 I08, D06)
+      return import.meta.env.VITE_SHOW_RNS === "true" ? (
+        <>
+          <div className="flex items-center gap-4 border-b border-gray-200 px-6 py-3">
+            <RNSHeader />
+            <RNSHeader mobile />
+          </div>
+          <RNSPanel />
+        </>
+      ) : null;
+    case "reward":
+      return <RewardPanel />;
+    case "leaderboard":
+      return <LeaderboardPanel />;
+    default:
+      return null;
+  }
 }
 
 /**

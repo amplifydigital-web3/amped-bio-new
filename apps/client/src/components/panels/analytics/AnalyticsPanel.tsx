@@ -1,48 +1,204 @@
-import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { trpc, trpcClient } from "@repo/ui";
-import { ANALYTICS_RANGE_PRESETS, type AnalyticsRangePreset } from "@repo/constants";
-import { AlertCircle, BarChart3, Download, Loader2, ShieldCheck } from "lucide-react";
-import { toast } from "react-hot-toast";
+import { useCallback, useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router";
+import { Button, ErrorCard, Tabs, TabsContent, TabsList, TabsTrigger, trpc } from "@repo/ui";
+import type { AnalyticsRangePreset } from "@repo/constants";
+import { ExternalLink, ShieldCheck } from "lucide-react";
 import { useEditor } from "@/contexts/EditorContext";
+import { useDestinationTab } from "@/hooks/useDestinationTab";
+import { PHONE_QUERY, useMediaQuery } from "@/hooks/useMediaQuery";
+import { requestAddBlock } from "@/components/preview/addBlockRequest";
 import { ActivityHeatmap } from "./ActivityHeatmap";
 import { AnalyticsCard } from "./AnalyticsCard";
+import { ExportMenu, RangeSelect } from "./AnalyticsHeader";
 import { BreakdownCard } from "./BreakdownCard";
 import { CampaignsCard } from "./CampaignsCard";
-import { DEFINITIONS, SOURCES } from "./definitions";
+import {
+  DEFINITIONS,
+  PRIVACY_FOOTER,
+  PRIVACY_STEPS,
+  PRIVACY_STEP_SERVER_TOKEN,
+  SOURCES,
+} from "./definitions";
 import { GettingStartedCard } from "./GettingStartedCard";
 import { HowTo } from "./HowTo";
-import { RetentionCard } from "./RetentionCard";
 import { InsightsCard } from "./InsightsCard";
 import { KpiTiles } from "./KpiTiles";
 import { LinkDetailDialog } from "./LinkDetailDialog";
 import { RealtimeCard } from "./RealtimeCard";
+import { RetentionCard } from "./RetentionCard";
+import { SkeletonBlock, useShowAfter } from "./Skeleton";
 import { TopLinksTable } from "./TopLinksTable";
 import { TrackingPixelsCard } from "./TrackingPixelsCard";
 import { TrendChart } from "./TrendChart";
 import type { AnalyticsLink } from "./format";
-import { RANGE_LABELS, RANGE_SHORT_LABELS, getTzOffsetMinutes } from "./format";
+import {
+  RANGE_COMPARISON,
+  RANGE_LABELS,
+  getTzOffsetMinutes,
+  isRangePreset,
+  updatedAgo,
+} from "./format";
 
-function DashboardSkeleton() {
+const TABS = ["overview", "audience", "campaigns"] as const;
+type AnalyticsTab = (typeof TABS)[number];
+
+// Getting started jumps land on a section in its own tab (093 I01, I11)
+const SECTION_TAB: Record<string, AnalyticsTab> = {
+  campaigns: "campaigns",
+  pixels: "campaigns",
+  insights: "overview",
+};
+
+const MORE_METRICS_KEY = "amped_analytics_more_metrics";
+
+function readMoreMetrics() {
+  try {
+    return window.localStorage.getItem(MORE_METRICS_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeMoreMetrics(open: boolean) {
+  try {
+    if (open) window.localStorage.setItem(MORE_METRICS_KEY, "1");
+    else window.localStorage.removeItem(MORE_METRICS_KEY);
+  } catch {
+    // The choice still applies for this visit
+  }
+}
+
+/** 093 I07: the period lives in ?range=, default Last 28 days. */
+function useRangeParam() {
+  const [params, setParams] = useSearchParams();
+  const raw = params.get("range");
+  const range: AnalyticsRangePreset = isRangePreset(raw) ? raw : "28d";
+  const setRange = useCallback(
+    (next: AnalyticsRangePreset) =>
+      setParams(
+        current => {
+          const updated = new URLSearchParams(current);
+          if (next === "28d") updated.delete("range");
+          else updated.set("range", next);
+          return updated;
+        },
+        { replace: true }
+      ),
+    [setParams]
+  );
+  return [range, setRange] as const;
+}
+
+/** 093 I05, I06: one freshness line per tab, with the public page as a ghost link. */
+function Freshness({
+  range,
+  updatedAt,
+  handle,
+  action,
+}: {
+  range: AnalyticsRangePreset;
+  updatedAt?: Date | string | null;
+  handle: string;
+  action?: React.ReactNode;
+}) {
+  const comparison = RANGE_COMPARISON[range];
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setTick(tick => tick + 1), 30_000);
+    return () => clearInterval(timer);
+  }, []);
   return (
-    <div className="space-y-4" aria-busy>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {Array.from({ length: 8 }).map((_, index) => (
-          <div
-            key={index}
-            className="h-24 bg-white border border-gray-200 rounded-xl animate-pulse"
-          />
-        ))}
-      </div>
-      <div className="h-80 bg-white border border-gray-200 rounded-xl animate-pulse" />
+    <div className="flex min-h-touch flex-wrap items-center justify-between gap-x-[13px] gap-y-1">
+      <p className="flex flex-wrap items-center gap-x-2 text-prism-meta text-prism-ink-2">
+        <span>
+          {comparison
+            ? `${RANGE_LABELS[range]} compared with ${comparison}.`
+            : `${RANGE_LABELS[range]}.`}
+          {updatedAt ? ` Updated ${updatedAgo(updatedAt)}.` : ""}
+        </span>
+        <a
+          href={`https://amped.bio/${handle}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="prism-focus inline-flex min-h-touch items-center gap-1 rounded-prism-8 font-semibold text-prism-nav hover:underline"
+        >
+          amped.bio/{handle}
+          <ExternalLink aria-hidden className="h-[13px] w-[13px]" />
+          <span className="sr-only"> (opens in a new tab)</span>
+        </a>
+      </p>
+      {action}
     </div>
   );
 }
 
+/** 093 I42: the privacy footer, verbatim, at the bottom of every tab. */
+function PrivacyFooter() {
+  return (
+    <p className="flex items-start gap-2 pb-2 text-prism-meta text-prism-ink-2">
+      <ShieldCheck aria-hidden className="h-[21px] w-[21px] shrink-0" />
+      {PRIVACY_FOOTER}
+    </p>
+  );
+}
+
+function PrivacyHowTo({ hasServerToken }: { hasServerToken: boolean }) {
+  return (
+    <HowTo
+      storageKey="privacy"
+      title="How visitor privacy works on your page"
+      steps={hasServerToken ? [...PRIVACY_STEPS, PRIVACY_STEP_SERVER_TOKEN] : PRIVACY_STEPS}
+    />
+  );
+}
+
+/** 093 I09: skeletons that match each tab, shown after 400ms. */
+function TabSkeleton({ tab }: { tab: AnalyticsTab }) {
+  const shown = useShowAfter(true);
+  if (!shown) return <div aria-busy className="min-h-[377px]" />;
+  if (tab === "overview") {
+    return (
+      <div aria-busy aria-label="Loading analytics" className="space-y-[21px]">
+        <div className="grid grid-cols-2 gap-[13px] md:grid-cols-4 md:gap-[21px]">
+          {[0, 1, 2, 3].map(index => (
+            <SkeletonBlock key={index} className="h-[127px]" />
+          ))}
+        </div>
+        <div className="grid gap-[13px] xl:grid-cols-[minmax(0,1fr)_508px] xl:gap-[21px]">
+          <SkeletonBlock className="h-[377px]" />
+          <SkeletonBlock className="h-[377px]" />
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div
+      aria-busy
+      aria-label="Loading analytics"
+      className="grid gap-[13px] xl:grid-cols-2 xl:gap-[21px]"
+    >
+      {[0, 1, 2, 3].map(index => (
+        <SkeletonBlock key={index} className="h-[377px]" />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Screen Review 093: Analytics as three tabs, Overview | Audience | Campaigns,
+ * on the full width grid. The range select and Export sit in the header row
+ * and stay usable while a tab loads or fails.
+ */
 export function AnalyticsPanel() {
-  const { profile } = useEditor();
-  const [range, setRange] = useState<AnalyticsRangePreset>("28d");
-  const [selectedLink, setSelectedLink] = useState<AnalyticsLink | null>(null);
+  const { profile, setActivePanelAndNavigate, selectBlock } = useEditor();
+  const mobile = useMediaQuery(PHONE_QUERY);
+  const [tab, setTab] = useDestinationTab(TABS);
+  const [range, setRange] = useRangeParam();
+  const [selected, setSelected] = useState<{ link: AnalyticsLink; trigger: HTMLElement } | null>(
+    null
+  );
+  const [moreMetrics, setMoreMetrics] = useState(readMoreMetrics);
   const [tzOffsetMinutes] = useState(getTzOffsetMinutes);
 
   const { data, isLoading, isError, refetch } = useQuery({
@@ -54,256 +210,276 @@ export function AnalyticsPanel() {
     trpc.analytics.campaigns.queryOptions({ range, tzOffsetMinutes })
   );
   const { data: pixelData } = useQuery(trpc.trackingPixels.get.queryOptions());
+  const hasServerToken = !!(pixelData?.hasMetaCapiToken || pixelData?.hasTiktokEventsToken);
 
-  const goTo = (sectionId: string) =>
-    document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  const period = RANGE_LABELS[range];
+  const goTo = (sectionId: string) => {
+    const target = SECTION_TAB[sectionId] ?? "overview";
+    if (target !== tab) setTab(target);
+    // Wait for the tab to render, then bring the section into view and focus it
+    setTimeout(() => {
+      const section = document.getElementById(sectionId);
+      if (!section) return;
+      section.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (!section.hasAttribute("tabindex")) section.setAttribute("tabindex", "-1");
+      section.focus({ preventScroll: true });
+    }, 50);
+  };
 
-  const exportMutation = useMutation({
-    mutationFn: () => trpcClient.analytics.exportCsv.mutate({ range, tzOffsetMinutes }),
-    onSuccess: result => {
-      if (!result) return;
-      const blob = new Blob([result.csv], { type: "text/csv;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `amped-bio-analytics-${profile.handle}-${range}.csv`;
-      anchor.click();
-      setTimeout(() => URL.revokeObjectURL(url), 0);
-      toast.success(
-        result.truncated
-          ? `Exported the first ${result.rowCount.toLocaleString()} events`
-          : `Exported ${result.rowCount.toLocaleString()} events`
-      );
-    },
-    onError: () => toast.error("Export failed. Please try again."),
-  });
+  const toggleMoreMetrics = () => {
+    setMoreMetrics(open => {
+      writeMoreMetrics(!open);
+      return !open;
+    });
+  };
+
+  // 093 I22, D18: Add a link opens Page with the Add block dialog
+  const addLink = () => {
+    setActivePanelAndNavigate("page");
+    requestAddBlock();
+  };
+
+  // 093 I26, D18: Edit this link opens Page with that block's row open
+  const editLink = (blockId: number) => {
+    setSelected(null);
+    selectBlock(blockId);
+    setActivePanelAndNavigate("page");
+  };
+
+  const updatedAt = data?.meta.generatedAt;
+  const failed = isError || (!isLoading && !data);
+  const errorCard = (
+    <ErrorCard
+      title="Analytics did not load"
+      cause="We could not reach the analytics service. Your data is safe."
+      onRetry={() => void refetch()}
+      retryLabel="Retry"
+    />
+  );
 
   return (
-    <div className="min-h-full bg-gray-50">
-      <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-4">
-        {/* Header and filters */}
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-              <BarChart3 className="w-5 h-5" aria-hidden />
-              Analytics
-            </h2>
-            <p className="text-sm text-gray-500">
-              {RANGE_LABELS[range]} for amped.bio/{profile.handle}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <div
-              role="radiogroup"
-              aria-label="Date range"
-              className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5"
-            >
-              {ANALYTICS_RANGE_PRESETS.map(preset => (
-                <button
-                  key={preset}
-                  role="radio"
-                  aria-checked={range === preset}
-                  title={RANGE_LABELS[preset]}
-                  onClick={() => setRange(preset)}
-                  className={`px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                    range === preset ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"
-                  }`}
-                >
-                  {RANGE_SHORT_LABELS[preset]}
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => exportMutation.mutate()}
-              disabled={exportMutation.isPending}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-            >
-              {exportMutation.isPending ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Download className="w-3.5 h-3.5" />
-              )}
-              Export CSV
-            </button>
+    <div className="min-h-full font-prism">
+      <Tabs value={tab} onValueChange={setTab} className="flex flex-col">
+        {/* 093 I01 to I03: tabs left, period and Export right; one row at 1440 */}
+        <div className="flex flex-col gap-[13px] px-[13px] pt-5 md:flex-row md:items-center md:px-6">
+          <TabsList aria-label="Analytics sections" className="w-full md:w-auto">
+            <TabsTrigger value="overview" className="flex-1 px-4 md:flex-none md:px-5">
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="audience" className="flex-1 px-4 md:flex-none md:px-5">
+              Audience
+            </TabsTrigger>
+            <TabsTrigger value="campaigns" className="flex-1 px-4 md:flex-none md:px-5">
+              Campaigns
+            </TabsTrigger>
+          </TabsList>
+          <div className="flex items-center gap-[13px] md:ml-auto">
+            <RangeSelect range={range} onChange={setRange} className="flex-1 md:flex-none" />
+            <ExportMenu
+              range={range}
+              tzOffsetMinutes={tzOffsetMinutes}
+              handle={profile.handle}
+              compact={mobile}
+            />
           </div>
         </div>
 
-        {isLoading ? (
-          <DashboardSkeleton />
-        ) : isError || !data ? (
-          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            Analytics could not be loaded.
-            <button onClick={() => refetch()} className="underline font-medium ml-1">
-              Try again
-            </button>
-          </div>
-        ) : (
-          <>
-            <GettingStartedCard
-              handle={profile.handle}
-              hasViews={data.summary.views > 0}
-              hasCampaign={(campaignData?.campaigns.length ?? 0) > 0}
-              hasPixel={
-                !!(
-                  pixelData?.ga4MeasurementId ||
-                  pixelData?.metaPixelId ||
-                  pixelData?.tiktokPixelId
-                )
-              }
-              onGoTo={goTo}
-            />
+        <div className="px-[13px] pb-[calc(89px+env(safe-area-inset-bottom,0px))] md:px-6 md:pb-[55px]">
+          <TabsContent value="overview" className="mt-[21px] space-y-[13px] md:space-y-[21px]">
+            {isLoading ? (
+              <TabSkeleton tab="overview" />
+            ) : failed || !data ? (
+              errorCard
+            ) : (
+              <>
+                <GettingStartedCard
+                  handle={profile.handle}
+                  hasViews={data.summary.views > 0}
+                  hasCampaign={(campaignData?.campaigns.length ?? 0) > 0}
+                  hasPixel={
+                    !!(
+                      pixelData?.ga4MeasurementId ||
+                      pixelData?.metaPixelId ||
+                      pixelData?.tiktokPixelId
+                    )
+                  }
+                  onGoTo={goTo}
+                />
 
-            <KpiTiles
-              summary={data.summary}
-              previous={data.previous}
-              audience={data.audience}
-              previousAudience={data.previousAudience}
-              periodLabel={period}
-              updatedAt={data.meta.generatedAt}
-            />
+                <KpiTiles
+                  summary={data.summary}
+                  previous={data.previous}
+                  audience={data.audience}
+                  previousAudience={data.previousAudience}
+                  showMore={moreMetrics}
+                />
 
-            <div className="grid lg:grid-cols-3 gap-4">
-              <AnalyticsCard
-                title="Activity"
-                description={
-                  data.range.bucket === "hour"
-                    ? "Hourly, in your local time"
-                    : "Daily, in your local time"
-                }
-                info={DEFINITIONS.activity}
-                source={SOURCES.pageEvents}
-                period={period}
-                updatedAt={data.meta.generatedAt}
-                className="lg:col-span-2"
-              >
-                <TrendChart data={data.timeseries} bucket={data.range.bucket} />
-              </AnalyticsCard>
-              <RealtimeCard />
-            </div>
+                <Freshness
+                  range={range}
+                  updatedAt={updatedAt}
+                  handle={profile.handle}
+                  action={
+                    <Button
+                      variant="ghost"
+                      aria-expanded={moreMetrics}
+                      aria-controls="more-metrics"
+                      onClick={toggleMoreMetrics}
+                    >
+                      {moreMetrics ? "Hide 4 more metrics" : "Show 4 more metrics"}
+                    </Button>
+                  }
+                />
 
-            <div className="grid lg:grid-cols-3 gap-4">
-              <AnalyticsCard
-                title="Links"
-                description="Select a link for its sources, locations and trend."
-                info={DEFINITIONS.links}
-                source={SOURCES.pageEvents}
-                period={period}
-                updatedAt={data.meta.generatedAt}
-                className="lg:col-span-2"
-              >
-                <TopLinksTable links={data.links} onSelect={setSelectedLink} />
-              </AnalyticsCard>
-              <InsightsCard
-                insights={data.insights}
-                range={range}
-                tzOffsetMinutes={tzOffsetMinutes}
-                updatedAt={data.meta.generatedAt}
-              />
-            </div>
+                {/* 1440: Activity then Links left of the golden line, Insights then
+                    Live right of it. 390: Insights, Activity, Links, Live. */}
+                <div className="flex flex-col gap-[13px] xl:grid xl:grid-cols-[minmax(0,1fr)_508px] xl:items-start xl:gap-[21px]">
+                  <div className="contents xl:flex xl:flex-col xl:gap-[21px]">
+                    <AnalyticsCard
+                      id="activity"
+                      title="Activity"
+                      description={
+                        data.range.bucket === "hour"
+                          ? "Hourly, in your local time"
+                          : "Daily, in your local time"
+                      }
+                      info={DEFINITIONS.activity}
+                      source={SOURCES.pageEvents}
+                      className="order-2 xl:order-none"
+                    >
+                      <TrendChart data={data.timeseries} bucket={data.range.bucket} />
+                    </AnalyticsCard>
+                    <AnalyticsCard
+                      id="links"
+                      title="Links"
+                      description="Select a link for its sources, locations and trend."
+                      info={DEFINITIONS.links}
+                      source={SOURCES.pageEvents}
+                      className="order-3 xl:order-none"
+                    >
+                      <TopLinksTable
+                        links={data.links}
+                        onSelect={(link, trigger) => setSelected({ link, trigger })}
+                        onAddLink={addLink}
+                      />
+                    </AnalyticsCard>
+                  </div>
+                  <div className="contents xl:flex xl:flex-col xl:gap-[21px]">
+                    <InsightsCard
+                      insights={data.insights}
+                      range={range}
+                      tzOffsetMinutes={tzOffsetMinutes}
+                      className="order-1 xl:order-none"
+                    />
+                    <RealtimeCard handle={profile.handle} className="order-4 xl:order-none" />
+                  </div>
+                </div>
 
-            <RetentionCard
-              tzOffsetMinutes={tzOffsetMinutes}
-              coverage={
-                data.summary.visitors > 0
-                  ? data.audience.consentedVisitors / data.summary.visitors
-                  : 0
-              }
-            />
+                <PrivacyHowTo hasServerToken={hasServerToken} />
+                <PrivacyFooter />
+              </>
+            )}
+          </TabsContent>
 
+          <TabsContent value="audience" className="mt-[13px] space-y-[13px] md:space-y-[21px]">
+            <Freshness range={range} updatedAt={updatedAt} handle={profile.handle} />
+            {isLoading ? (
+              <TabSkeleton tab="audience" />
+            ) : failed || !data ? (
+              errorCard
+            ) : (
+              <>
+                <div className="flex flex-col gap-[13px] xl:grid xl:grid-cols-[minmax(0,1fr)_508px] xl:items-start xl:gap-[21px]">
+                  <div className="contents xl:flex xl:flex-col xl:gap-[21px]">
+                    <BreakdownCard
+                      id="sources"
+                      title="Traffic sources"
+                      description="Where visitors came from"
+                      info={DEFINITIONS.sources}
+                      tabs={[
+                        { dimension: "source", label: "Source" },
+                        { dimension: "referrer", label: "Referrer" },
+                      ]}
+                      range={range}
+                      tzOffsetMinutes={tzOffsetMinutes}
+                      className="order-1 xl:order-none"
+                    />
+                    <BreakdownCard
+                      id="technology"
+                      title="Technology"
+                      info={DEFINITIONS.technology}
+                      tabs={[
+                        { dimension: "device", label: "Device" },
+                        { dimension: "browser", label: "Browser or app" },
+                        { dimension: "os", label: "OS" },
+                      ]}
+                      range={range}
+                      tzOffsetMinutes={tzOffsetMinutes}
+                      className="order-3 xl:order-none"
+                    />
+                  </div>
+                  <div className="contents xl:flex xl:flex-col">
+                    <BreakdownCard
+                      id="locations"
+                      title="Locations"
+                      info={DEFINITIONS.locations}
+                      tabs={[
+                        { dimension: "country", label: "Country" },
+                        { dimension: "city", label: "City" },
+                      ]}
+                      range={range}
+                      tzOffsetMinutes={tzOffsetMinutes}
+                      className="order-2 xl:order-none"
+                    />
+                  </div>
+                </div>
+                <AnalyticsCard
+                  id="heatmap"
+                  title="When people visit"
+                  description="Views by weekday and hour, local time"
+                  info={DEFINITIONS.heatmap}
+                  source={SOURCES.pageEvents}
+                >
+                  <ActivityHeatmap cells={data.heatmap} />
+                </AnalyticsCard>
+                <RetentionCard tzOffsetMinutes={tzOffsetMinutes} />
+                <PrivacyFooter />
+              </>
+            )}
+          </TabsContent>
+
+          <TabsContent value="campaigns" className="mt-[13px] space-y-[13px] md:space-y-[21px]">
+            <Freshness range={range} updatedAt={updatedAt} handle={profile.handle} />
             <CampaignsCard
               handle={profile.handle}
               range={range}
               tzOffsetMinutes={tzOffsetMinutes}
             />
-
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <BreakdownCard
-                title="Traffic sources"
-                description="Where visitors came from"
-                info={DEFINITIONS.sources}
-                tabs={[
-                  { dimension: "source", label: "Source" },
-                  { dimension: "referrer", label: "Referrer" },
-                ]}
-                range={range}
-                tzOffsetMinutes={tzOffsetMinutes}
-              />
-              <BreakdownCard
-                title="Link tags"
-                description="All tagged links, including ones made outside Amped (UTM)"
-                info="Reads utm_campaign, utm_source and utm_medium from the address visitors arrived on. Campaigns you create above appear here too."
-                tabs={[
-                  { dimension: "utm_campaign", label: "Campaign" },
-                  { dimension: "utm_source", label: "UTM source" },
-                  { dimension: "utm_medium", label: "UTM medium" },
-                ]}
-                range={range}
-                tzOffsetMinutes={tzOffsetMinutes}
-              />
-              <BreakdownCard
-                title="Locations"
-                info={DEFINITIONS.locations}
-                tabs={[
-                  { dimension: "country", label: "Country" },
-                  { dimension: "city", label: "City" },
-                ]}
-                range={range}
-                tzOffsetMinutes={tzOffsetMinutes}
-              />
-              <BreakdownCard
-                title="Technology"
-                info={DEFINITIONS.technology}
-                tabs={[
-                  { dimension: "device", label: "Device" },
-                  { dimension: "browser", label: "Browser / app" },
-                  { dimension: "os", label: "OS" },
-                ]}
-                range={range}
-                tzOffsetMinutes={tzOffsetMinutes}
-              />
-              <AnalyticsCard
-                title="When people visit"
-                description="Views by weekday and hour, local time"
-                info={DEFINITIONS.heatmap}
-                source={SOURCES.pageEvents}
-                period={period}
-                updatedAt={data.meta.generatedAt}
-                className="md:col-span-2"
-              >
-                <ActivityHeatmap cells={data.heatmap} />
-              </AnalyticsCard>
-            </div>
-
-            <TrackingPixelsCard />
-
-            <HowTo
-              storageKey="privacy"
-              title="How visitor privacy works on your page"
-              steps={[
-                "Every visit is counted without cookies. Visitors' IP addresses are never stored.",
-                "Visitors see a privacy banner with Accept all, Reject all and Choose. Their choice is saved for up to 13 months and can be changed from the Privacy choices link on your page.",
-                "Returning visitors and retention only include visitors who allowed return visits, so those numbers show their coverage.",
-                "Your pixels load only for visitors who allow ads and analytics. Browsers that send a Global Privacy Control signal are always treated as a no.",
+            <BreakdownCard
+              id="link-tags"
+              title="Link tags"
+              description="All tagged links, including ones made outside Amped (UTM)"
+              info="Reads utm_campaign, utm_source and utm_medium from the address visitors arrived on. Campaigns you create above appear here too."
+              tabs={[
+                { dimension: "utm_campaign", label: "Campaign" },
+                { dimension: "utm_source", label: "UTM source" },
+                { dimension: "utm_medium", label: "UTM medium" },
               ]}
+              range={range}
+              tzOffsetMinutes={tzOffsetMinutes}
             />
-
-            <p className="flex items-start gap-1.5 text-xs text-gray-500 pb-6">
-              <ShieldCheck className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden />
-              Visits are counted without cookies and IP addresses are not stored. Return visits are
-              measured only for visitors who opt in. Your own visits while signed in are excluded.
-              Location data includes GeoLite2 data created by MaxMind.
-            </p>
-          </>
-        )}
-      </div>
+            <TrackingPixelsCard />
+            <PrivacyHowTo hasServerToken={hasServerToken} />
+            <PrivacyFooter />
+          </TabsContent>
+        </div>
+      </Tabs>
 
       <LinkDetailDialog
-        link={selectedLink}
+        link={selected?.link ?? null}
         range={range}
         tzOffsetMinutes={tzOffsetMinutes}
-        onClose={() => setSelectedLink(null)}
+        onClose={() => setSelected(null)}
+        onEdit={editLink}
+        returnFocusTo={selected?.trigger}
       />
     </div>
   );

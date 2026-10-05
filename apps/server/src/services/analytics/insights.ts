@@ -210,8 +210,10 @@ export function buildInsights({
 }
 
 /**
- * Optional narrative summary written by Claude from the aggregated numbers.
- * Only aggregate metrics are sent. No visitor level data leaves the server.
+ * Optional narrative summary written by Claude, on the creator's request only
+ * (Screen Review 093 D1). It sends this period's and the last period's totals,
+ * top sources, devices, visitor counts and up to 10 link names. No visitor
+ * level data leaves the server.
  */
 export async function generateAiSummary(input: InsightInput & { rangeLabel: string }) {
   if (!env.ANTHROPIC_API_KEY) return null;

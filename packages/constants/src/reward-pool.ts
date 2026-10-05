@@ -70,6 +70,8 @@ export interface PoolSearchResult {
   address: string;
   fans: number;
   creatorHandle: string | null;
+  /** Pool art, when the creator uploaded one */
+  imageUrl?: string | null;
 }
 
 // Interface specifically for getPoolDetailsForModal return type
