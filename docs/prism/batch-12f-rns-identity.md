@@ -15,7 +15,7 @@ Stacked on 12c (`ui/prism-rns-name-page`, #269) and carries #265 (`fix/rns-attri
 | Attributes (105) | `AttributesTab.tsx`, `catalog.ts` | Intro card with Coming soon and Notify me, the nine planned attributes as a list (full opacity icons, example facets as badges, no per card status), the not verified line with Go to Identity, the footer rule. No "vault" (I05) |
 | Facets (106) | `FacetsTab.tsx` | Hero 26/33 with Notify me, How a proof works with the I01 wording and no technical caption, Your facets read only with one Coming soon badge each, Planned uses. No switches and no proof log in the placeholder phase (I03) |
 | Notify me | `parts.tsx`, `useIdentityInterest.ts`, `apps/server/src/trpc/authbase.ts` | `authbase.identityInterest` and `authbase.setIdentityInterest` (private). One record per account, shared by both tabs. Default, saving, On with Turn off, error with Retry (105 I04) |
-| Data | `schema.prisma`, migration `20261003200000_add_feature_interest` | New `FeatureInterest` (user, feature, source, created_at, notified_at), unique per user and feature |
+| Data | `schema.prisma`, migration `20261005130000_add_feature_interest` | New `FeatureInterest` (user, feature, source, created_at, notified_at), unique per user and feature |
 | Removed | `components/rns/verification/VerificationDetails.tsx` | The legacy Identity view |
 | Tests | `apps/server/src/__tests__/authbase-identity.test.ts` | Public lookup has no attributes; getMyStatus uses the session wallet and returns null with none; Notify me needs a session, is one record across tabs and per account |
 
@@ -31,7 +31,7 @@ Stacked on 12c (`ui/prism-rns-name-page`, #269) and carries #265 (`fix/rns-attri
 ## For Gustavo
 
 - Run the migration. It adds one table; it does not change `users`.
-- `FeatureInterest` sits after `TrackingPixels` and its relation line sits under `referralsMade`, away from the lines #267 changes in `schema.prisma`. The push tool also dropped the blank first line of `schema.prisma`; it has no effect.
+- `FeatureInterest` sits after `Referral`, before `Jwks`, and its relation line sits under `referralsMade`. That keeps it clear of `UserOnboarding` from #267, so `schema.prisma` merges cleanly.
 
 ## For counsel
 
