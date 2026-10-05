@@ -2,13 +2,15 @@ import { Banner, type BannerPanel } from "./Banner";
 import { InlinePreview, PreviewFrame, PreviewSwitch } from "./preview/PreviewFrame";
 import { useSearchParams } from "react-router";
 import { useEditor } from "../contexts/EditorContext";
-import { CreatorPoolPanel } from "./panels/createrewardpool/CreatorPoolPanel.tsx";
+import { MyPoolDestination } from "./panels/broadcast/MyPoolDestination";
+import { InboxPanel } from "./panels/broadcast/InboxPanel";
+import { BROADCAST_ON } from "./panels/broadcast/utils";
 import { LeaderboardPanel } from "./panels/leaderboard/LeaderboardPanel";
 import { RNSPanel } from "./panels/rns/RNSPanel";
 import { HomePanel } from "./panels/home/HomePanel";
 import { MyWalletPanel } from "./panels/wallet/MyWalletPanel";
 import RewardPanel from "./panels/reward/RewardPanel.tsx";
-import PayPanel from "./panels/pay/PayPanel.tsx";
+import PayRedirect from "./panels/wallet/send/PayRedirect";
 import ExplorePage from "./panels/explore/ExplorePanel.tsx";
 import { AnalyticsPanel } from "./panels/analytics/AnalyticsPanel";
 import { PeoplePanel } from "./panels/people/PeoplePanel";
@@ -37,7 +39,7 @@ interface LayoutProps {
 const PREVIEW_PANELS: EditorPanelType[] = ["page", "design"];
 
 // Destinations whose screens are restyled sit directly on the room (PR 3a Design, 3b Page)
-const RESTYLED_PANELS: EditorPanelType[] = ["design", "page", "people"];
+const RESTYLED_PANELS: EditorPanelType[] = ["design", "page", "people", "inbox"];
 
 function ActivePanel({ panel }: { panel: EditorPanelType }) {
   switch (panel) {
@@ -56,9 +58,12 @@ function ActivePanel({ panel }: { panel: EditorPanelType }) {
     case "wallet":
       return <MyWalletPanel />;
     case "pay":
-      return <PayPanel />;
+      // 062 I01: Pay is the Send flow inside Wallet (D05, D12)
+      return <PayRedirect />;
     case "my-pool":
-      return <CreatorPoolPanel />;
+      return <MyPoolDestination />;
+    case "inbox":
+      return BROADCAST_ON ? <InboxPanel /> : null;
     case "account":
       return <AccountPanel />;
     case "rns":

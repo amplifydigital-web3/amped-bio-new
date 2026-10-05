@@ -21,3 +21,20 @@ export function useAuthbaseIdentityStatus(address: string | null | undefined) {
     retry: 1,
   });
 }
+
+/**
+ * The signed-in user's own Authbase status, including the attributes they
+ * shared with Amped.Bio. Owner only on the server (keyed by the session
+ * wallet). Enable it only when the viewer owns the name being shown.
+ */
+export function useMyAuthbaseStatus(enabled: boolean) {
+  return useQuery({
+    ...trpc.authbase.getMyStatus.queryOptions(),
+    enabled,
+    staleTime: 45_000,
+    gcTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: 1,
+  });
+}

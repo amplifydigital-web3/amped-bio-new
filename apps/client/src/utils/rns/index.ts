@@ -1,6 +1,7 @@
 import { bytesToHex, Hex, numberToBytes } from "viem";
 import { format, formatDistanceToNow, addDays, fromUnixTime, isValid } from "date-fns";
-import { DOMAIN_SUFFIX, NAME_REQUIREMENTS } from "@/config/rns/constants";
+import { formatRnsName, isRnsNameActive, rnsExpiryFromGraceEnd } from "@repo/web3";
+import { NAME_REQUIREMENTS } from "@/config/rns/constants";
 
 export interface FormattedDateTime {
   date: string;
@@ -11,13 +12,12 @@ export interface FormattedDateTime {
 
 export type scannerType = "nft" | "address" | "tx";
 
-export const domainName = (name: string) => {
-  return `${name}${DOMAIN_SUFFIX}`;
-};
+/** Display name of a label. The suffix comes from chain config (100 I01, 101 D1). */
+export const domainName = (name: string, chainId?: number) => formatRnsName(name, chainId);
 
-export const trimmedDomainName = (name: string): string => {
+export const trimmedDomainName = (name: string, chainId?: number): string => {
   const trimmedName = name.length > 15 ? `${name.slice(0, 15)}...` : name;
-  return `${trimmedName}${DOMAIN_SUFFIX}`;
+  return formatRnsName(trimmedName, chainId);
 };
 
 export const formatDateTime = (timestamp: number): FormattedDateTime => {
@@ -59,14 +59,9 @@ export const isValidRevolutionName = (name: string): boolean => {
   return false;
 };
 
-export const isRevoNameExpired = (expiryDateWithGrace: string): boolean => {
-  const currentTime = Math.floor(Date.now() / 1000);
-  const expiresTime = Number(expiryDateWithGrace);
-
-  if (expiresTime < currentTime) return true;
-
-  return false;
-};
+/** True once the registration has expired. The grace period counts as expired (100 I04). */
+export const isRevoNameExpired = (expiryDateWithGrace: string): boolean =>
+  !isRnsNameActive(rnsExpiryFromGraceEnd(expiryDateWithGrace));
 
 export const smoothScrollTo = (target: number, duration = 300, container?: HTMLElement) => {
   const start = container ? container.scrollTop : window.scrollY;

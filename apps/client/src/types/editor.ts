@@ -54,6 +54,7 @@ export const EDITOR_PANELS = [
   "reward",
   "rewardPools",
   "leaderboard",
+  "inbox",
 ] as const;
 
 export type EditorPanelType = (typeof EDITOR_PANELS)[number];

@@ -101,6 +101,7 @@ export const PANEL_TITLES: Record<EditorPanelType, string> = {
   reward: "Reward",
   rewardPools: "Reward pools",
   leaderboard: "Leaderboard",
+  inbox: "Inbox",
 };
 
 /** Destinations with autosaved fields show the save status (002 I01, I13). */

@@ -1,10 +1,8 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route } from "react-router";
 import { Editor } from "./pages/Editor";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
-import { initParticlesEngine } from "@tsparticles/react";
-import { loadAll } from "@tsparticles/all";
 import { Toaster, toast as hotToast, resolveValue } from "react-hot-toast";
 import { EditorProvider } from "./contexts/EditorContext";
 import { useTokenExpiration } from "./hooks/useTokenExpiration";
@@ -91,12 +89,6 @@ function PublicSiteRedirect() {
 
 function App() {
   useReferralHandler();
-
-  useEffect(() => {
-    initParticlesEngine(async engine => {
-      await loadAll(engine);
-    });
-  }, []);
 
   return (
     <BrowserRouter>

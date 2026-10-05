@@ -7,12 +7,14 @@ import { SaveStatusIndicator } from "./SaveStatusIndicator";
 import { HelpMenu } from "./HelpMenu";
 import { WalletChip } from "./WalletChip";
 import { AccountMenu } from "./AccountMenu";
+import { InboxButton } from "./InboxButton";
 import { copyPageLink, publicPageUrl } from "./pageLink";
 
 // Tab names shown after the destination title, for example "Design, Themes" (002 I09)
 const TAB_TITLES: Record<string, Record<string, string>> = {
   design: { themes: "Themes", style: "Style", motion: "Motion" },
   account: { settings: "Settings", developers: "Developers" },
+  "my-pool": { overview: "Overview", broadcasts: "Broadcasts" },
 };
 
 function useTitle() {
@@ -59,6 +61,7 @@ export function TopBar() {
           </button>
         </>
       )}
+      <InboxButton />
       <HelpMenu />
       {WALLET_CHIP_PANELS.includes(activePanel) && <WalletChip />}
       <AccountMenu />
@@ -76,6 +79,7 @@ export function MobileTopBar() {
     <header className="prism-glass-nav sticky top-0 z-20 flex min-h-[calc(55px+env(safe-area-inset-top,0px))] items-center gap-2 rounded-none !border-x-0 !border-t-0 pl-[21px] pr-[13px] pt-[env(safe-area-inset-top,0px)] font-prism md:hidden">
       <h1 className="min-w-0 flex-1 truncate text-prism-panel-title text-prism-ink">{title}</h1>
       {SAVE_STATUS_PANELS.includes(activePanel) && <SaveStatusIndicator compact />}
+      <InboxButton />
       <AccountMenu mobile />
     </header>
   );
