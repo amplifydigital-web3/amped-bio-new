@@ -4,16 +4,20 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "./utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  // Prism badge: 26 high, r8, 13 600 label (section 9)
+  "inline-flex h-[26px] items-center gap-1 whitespace-nowrap rounded-prism-8 px-2 font-prism text-prism-meta font-semibold tabular-nums",
   {
     variants: {
       variant: {
-        default: "border-transparent bg-primary text-primary-foreground shadow hover:bg-primary/80",
-        secondary:
-          "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        destructive:
-          "border-transparent bg-destructive text-destructive-foreground shadow hover:bg-destructive/80",
-        outline: "text-foreground",
+        // Selected or active state (indigo)
+        default: "bg-prism-nav text-white",
+        // Category or neutral label
+        secondary: "bg-white/90 text-prism-ink-2 shadow-[inset_0_0_0_1px_rgba(22,21,43,0.10)]",
+        destructive: "bg-prism-danger text-white",
+        outline: "text-prism-ink-2 shadow-[inset_0_0_0_1px_rgba(22,21,43,0.18)]",
+        success: "bg-white/90 text-prism-success shadow-[inset_0_0_0_1px_rgba(23,105,63,0.28)]",
+        warning:
+          "bg-prism-warning-bg text-prism-warning-ink shadow-[inset_0_0_0_1px_rgba(122,79,0,0.28)]",
       },
     },
     defaultVariants: {

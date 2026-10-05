@@ -3,7 +3,8 @@ import React, { useState } from "react";
 import FundWalletDialog from "./dialogs/FundWalletDialog";
 import ReceiveDialog from "./dialogs/ReceiveDialog";
 import { useWalletContext } from "@/contexts/WalletContext";
-import { useEditor } from "@/contexts/EditorContext";
+import { useSearchParams } from "react-router";
+import SendFlow from "./send/SendFlow";
 
 type WalletBalanceProps = {
   loading?: boolean;
@@ -14,7 +15,7 @@ const WalletBalance: React.FC<WalletBalanceProps> = ({ loading = false }) => {
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showFundModal, setShowFundModal] = useState(false);
 
-  const { setActivePanel } = useEditor();
+  const [, setParams] = useSearchParams();
 
   // Skeleton Loading State
   if (loading) {
@@ -100,6 +101,8 @@ const WalletBalance: React.FC<WalletBalanceProps> = ({ loading = false }) => {
       {/* Action Buttons */}
       <div className="grid grid-cols-3 gap-2 sm:gap-3">
         <button
+          // Activity's empty state points here (Screen Review 057 I11)
+          data-get-trevo
           onClick={() => setShowFundModal(true)}
           className="flex flex-col items-center justify-center p-2 sm:p-3 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors duration-200 group touch-manipulation"
         >
@@ -108,7 +111,17 @@ const WalletBalance: React.FC<WalletBalanceProps> = ({ loading = false }) => {
         </button>
 
         <button
-          onClick={() => setActivePanel("pay")}
+          // 062 I01: Send opens the Send flow in the value panel (?send=1)
+          onClick={() =>
+            setParams(
+              current => {
+                const next = new URLSearchParams(current);
+                next.set("send", "1");
+                return next;
+              },
+              { replace: true }
+            )
+          }
           className="flex flex-col items-center justify-center p-2 sm:p-3 bg-green-50 hover:bg-green-100 text-green-600 rounded-lg transition-colors duration-200 group touch-manipulation"
         >
           <ArrowUpRight className="w-4 h-4 sm:w-5 sm:h-5 mb-1 group-hover:scale-110 transition-transform duration-200" />
@@ -131,6 +144,7 @@ const WalletBalance: React.FC<WalletBalanceProps> = ({ loading = false }) => {
       />
 
       <ReceiveDialog open={showReceiveModal} onOpenChange={setShowReceiveModal} />
+      <SendFlow />
     </div>
   );
 };

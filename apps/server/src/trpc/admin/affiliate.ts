@@ -1,9 +1,9 @@
 import { adminProcedure, router } from "../trpc";
 import { env } from "../../env";
-import { createPublicClient, http } from "viem";
+import { createPublicClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { AVAILABLE_CHAINS } from "@repo/web3";
-import { prisma } from "../../services/DB";
+import { AVAILABLE_CHAINS, getRpcTransport } from "@repo/web3";
+import { prisma } from "@repo/database";
 import { AFFILIATES_CHAIN_ID, SITE_SETTINGS } from "@repo/constants";
 
 export const affiliateAdminRouter = router({
@@ -41,7 +41,7 @@ export const affiliateAdminRouter = router({
         // Create public client for fetching blockchain data
         const publicClient = createPublicClient({
           chain: affiliateChain,
-          transport: http(affiliateChain.rpcUrls.default.http[0]),
+          transport: getRpcTransport(affiliateChain),
         });
 
         // Get wallet balance with timeout

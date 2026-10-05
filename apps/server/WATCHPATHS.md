@@ -4,7 +4,6 @@
 
 # Application source
 apps/server/src/.*
-apps/server/prisma/.*
 
 # Application configuration
 apps/server/package\.json
@@ -14,6 +13,11 @@ apps/server/Dockerfile
 # Shared packages the server depends on
 packages/constants/src/.*
 packages/constants/package\.json
+packages/web3/src/.*
+packages/web3/package\.json
+packages/database/src/.*
+packages/database/prisma/.*
+packages/database/package\.json
 
 # Root workspace configuration (affects all apps)
 ^package\.json

@@ -1,5 +1,5 @@
 import { schedule, ScheduledTask } from "node-cron";
-import { prisma } from "./DB";
+import { prisma } from "@repo/database";
 import { sendPendingBatch } from "./dailyAirdrop";
 import { env } from "../env";
 
@@ -25,9 +25,9 @@ export function startCronJobs(): void {
       if (!firstEntry) return;
 
       const now = new Date();
-      const batchHourUTC = env.DAILY_AIRDROP_BATCH_HOUR || 14;
-      const minEntries = env.DAILY_AIRDROP_MIN_ENTRIES || 5;
-      const maxWaitHours = env.DAILY_AIRDROP_MAX_WAIT_HOURS || 6;
+      const batchHourUTC = env.DAILY_AIRDROP_BATCH_HOUR ?? 14;
+      const minEntries = env.DAILY_AIRDROP_MIN_ENTRIES ?? 5;
+      const maxWaitHours = env.DAILY_AIRDROP_MAX_WAIT_HOURS ?? 6;
 
       const isPastBatchHour = now.getUTCHours() >= batchHourUTC;
       const hasMinEntries = entryCount >= minEntries;

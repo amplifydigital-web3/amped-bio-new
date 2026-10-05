@@ -19,10 +19,11 @@
 .playwright-mcp
 .vscode
 
-# The server reads its configuration from the environment at runtime
-# (docker run --env-file ./apps/server/.env), so this file must not be baked into
-# the image: it holds real secrets (JWT_PRIVATE_KEY, AWS keys, BETTER_AUTH_SECRET).
+# The servers read their configuration from the environment at runtime
+# (docker run --env-file ./apps/<app>/.env), so these files must not be baked into
+# the image: they hold real secrets (JWT_PRIVATE_KEY, AWS keys, BETTER_AUTH_SECRET).
 apps/server/.env
+apps/auth-server/.env
 
 # Local env overrides. The committed apps/client/.env.<mode> files are kept on
 # purpose: the client build inlines the selected one.

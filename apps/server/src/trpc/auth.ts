@@ -2,8 +2,8 @@ import { router, publicProcedure, privateProcedure } from "./trpc";
 import { TRPCError } from "@trpc/server";
 import { getFileUrl } from "../utils/fileUrlResolver";
 import { env } from "../env";
-import { prisma } from "../services/DB";
-import { auth } from "../utils/auth";
+import { prisma } from "@repo/database";
+import { auth, WEB3AUTH_AUDIENCE } from "../utils/auth";
 import type { EnrichedSessionUser } from "../types/auth-helpers";
 
 // Helper function to handle Prisma errors
@@ -55,6 +55,8 @@ export const authRouter = router({
             role: sessionUser.role || "user",
             wallet: sessionUser.wallet ?? null,
             twoFactorEnabled: sessionUser.twoFactorEnabled || false,
+            // Web3Auth's verifier compares this against its configured audience.
+            aud: WEB3AUTH_AUDIENCE,
           },
         },
       });

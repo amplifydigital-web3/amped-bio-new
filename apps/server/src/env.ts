@@ -38,14 +38,13 @@ const envSchema = z.object({
 
   // Private key for JWT signing
   JWT_PRIVATE_KEY: z.string(),
-  // Audience of the JWT token
-  JWT_AUDIENCE: z.string().default("amped.bio"),
 
   // Port for the server to listen on
   PORT: portSchema(43000),
   // URL for the client app (apps/client)
   APP_URL: z.string().default("http://localhost:5173"),
-  // URL for the public landing page (apps/landingpage)
+  // URL for the public landing page (apps/landingpage). Its origin is the `aud`
+  // of the wallet token handed to Web3Auth.
   LANDINGPAGE_URL: z.string().default("http://localhost:3000"),
   // Cookie domain for cross-subdomain auth (e.g. .amped.bio). Leave empty for localhost.
   COOKIE_DOMAIN: z.string().default(""),
@@ -53,6 +52,11 @@ const envSchema = z.object({
   CORS_ORIGINS: z.string().default("http://localhost:5173,http://localhost:3000"),
   // Host for the API
   API_HOST: z.string().default("localhost:43000"),
+  // How many proxies (or which addresses) sit in front of the server, so
+  // Express derives req.ip from X-Forwarded-For only for trusted hops.
+  // Accepts an Express trust proxy expression: a hop count ("1"), "loopback",
+  // a subnet ("10.0.0.0/8") or a comma-separated list. Empty disables trust.
+  TRUST_PROXY: z.string().default(""),
 
   // New SMTP variables with MailDev defaults
   // SMTP server host
@@ -122,6 +126,15 @@ const envSchema = z.object({
   // Google OAuth 2.0 Client ID
   GOOGLE_CLIENT_ID: z.string().default(""),
 
+  // Public origin of the auth server (apps/auth-server), used as the OAuth/OIDC
+  // issuer. Required: tokens signed here must carry the same issuer as the auth
+  // server. Example: https://auth.staging.amped.bio
+  BETTER_AUTH_URL: z.string().url(),
+  // Canonical protected resource identifier of the MCP server (RFC 8707/RFC 9728).
+  MCP_RESOURCE_URL: z.string().url(),
+  // Comma-separated list of OAuth client ids that skip the consent screen.
+  OAUTH_TRUSTED_CLIENT_IDS: z.string().default(""),
+
   // Better Auth secret for authentication
   BETTER_AUTH_SECRET: z.string(),
 
@@ -135,6 +148,10 @@ const envSchema = z.object({
   // Enable TLS connection for Redis (required for Upstash)
   REDIS_TLS: boolSchema(false),
 
+  // Creator Pool Broadcast (Build Board #1). While true, only pool owners an
+  // admin has invited can send. Default true for the pilot.
+  BROADCAST_INVITE_ONLY: boolSchema(true),
+
   // URL for the RNS subgraph to validate name ownership and expiry
   SUBGRAPH_URL: z.string().default(""),
 
@@ -145,13 +162,28 @@ const envSchema = z.object({
   // Authbase API secret (Basic auth password)
   AUTHBASE_API_SECRET: z.string().default(""),
 
-  // Daily Airdrop Batch Configuration
+// Daily Airdrop Batch Configuration
   // Hour (UTC) when the daily airdrop batch is sent (0-23)
   DAILY_AIRDROP_BATCH_HOUR: numSchema(14),
   // Minimum number of queue entries before triggering the batch send
   DAILY_AIRDROP_MIN_ENTRIES: numSchema(5),
   // Maximum hours to wait before forcibly sending the batch
   DAILY_AIRDROP_MAX_WAIT_HOURS: numSchema(6),
+
+  // Creator analytics
+  // Secret mixed into the daily visitor hash salt. Falls back to BETTER_AUTH_SECRET when empty.
+  ANALYTICS_SALT_SECRET: z.string().default(""),
+  // Optional Anthropic API key. When set, the analytics dashboard adds an AI written summary.
+  ANTHROPIC_API_KEY: z.string().default(""),
+  // Anthropic model used for the AI analytics summary
+  ANTHROPIC_MODEL: z.string().default("claude-haiku-4-5-20251001"),
+
+  // Creator tracking pixels
+  // Secret used to encrypt creators' Meta and TikTok API tokens. Falls back to BETTER_AUTH_SECRET.
+  // Changing it makes stored tokens unreadable, so creators would need to re-enter them.
+  TRACKING_TOKEN_SECRET: z.string().default(""),
+  // Meta Graph API version used for the Conversions API
+  META_GRAPH_API_VERSION: z.string().default("v24.0"),
 });
 
 // ================ parse & export ================

@@ -1,11 +1,14 @@
 import { privateProcedure, publicProcedure, router } from "./trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { sendEmailChangeVerification } from "../utils/email/email";
+import { sendEmailChangeNotice, sendEmailChangeVerification } from "../utils/email/email";
 import crypto from "crypto";
 import { prisma } from "../services/DB";
 import { editUserSchema } from "../schemas/user.schema";
 import Decimal from "decimal.js";
+import { htmlToPlainText, sanitizeRichText } from "@repo/constants";
+import { parseRnsInput, RNS_CHAIN } from "@repo/web3";
+import { assertRnsBinding } from "../services/rns";
 
 // Schema for initiating email change
 const initiateEmailChangeSchema = z.object({
@@ -53,14 +56,35 @@ export const userRouter = router({
       `📋 Edit data: ${JSON.stringify({ name, description, theme, image, reward_business_id, revo_name })}`
     );
 
+    // Screen Review 100 I02: an RNS name is stored only when it is bound to the
+    // account wallet (owner and resolver addr equal the wallet, registration not
+    // expired). An empty value clears it. An unchanged name is kept as stored so
+    // a lapsed name never blocks other edits; the public page re-checks it (I03).
+    let revoNameToStore: string | null | undefined = revo_name;
+    if (revo_name) {
+      const current = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { revo_name: true, wallet: { select: { address: true } } },
+      });
+      const sameAsStored =
+        !!current?.revo_name &&
+        parseRnsInput(current.revo_name, RNS_CHAIN.id) === parseRnsInput(revo_name, RNS_CHAIN.id);
+      revoNameToStore = sameAsStored
+        ? current!.revo_name
+        : await assertRnsBinding(revo_name, current?.wallet?.address ?? null);
+    } else if (revo_name === "") {
+      revoNameToStore = null;
+    }
+
     try {
       console.info("💾 Updating user information");
       await prisma.user.update({
         where: { id: userId },
         data: {
           name,
-          description,
-          revo_name,
+          // Bio HTML is stored only after the shared allowlist sanitizer runs
+          description: sanitizeRichText(description),
+          revo_name: revoNameToStore,
           theme: `${theme}`,
           image,
           reward_business_id,
@@ -167,22 +191,25 @@ export const userRouter = router({
           },
         });
 
-        // Create a new confirmation code
+        // Create a new confirmation code, bound to the address it is sent to
         await prisma.confirmationCode.create({
           data: {
             code,
             type: "EMAIL_CHANGE",
             userId,
+            target: input.newEmail,
             expiresAt,
           },
         });
 
-        // Send verification email with the code to the user's current email
-        await sendEmailChangeVerification(user.email, input.newEmail, code);
+        // Screen Review 019 I02: the code goes to the new address, which proves
+        // the person controls it. The current address gets a notice.
+        await sendEmailChangeVerification(input.newEmail, code);
+        await sendEmailChangeNotice(user.email, input.newEmail);
 
         return {
           success: true,
-          message: "Verification code sent to your email",
+          message: "Verification code sent to your new email",
           expiresAt,
         };
       } catch (error: any) {
@@ -237,6 +264,8 @@ export const userRouter = router({
             userId,
             code: input.code,
             type: "EMAIL_CHANGE",
+            // Only the address the code was sent to can be confirmed (019 I02)
+            target: input.newEmail,
             used: false,
             expiresAt: {
               gt: new Date(),
@@ -297,7 +326,7 @@ export const userRouter = router({
       }
     }),
 
-  // Resend email verification code without deleting existing ones
+  // Resend the email change code to the address of the pending request
   resendEmailVerification: privateProcedure
     .input(resendEmailVerificationSchema)
     .mutation(async ({ ctx, input }) => {
@@ -365,6 +394,25 @@ export const userRouter = router({
           });
         }
 
+        // Resend only to the address of a pending request. initiateEmailChange
+        // is the path that notifies the current address, so a resend must not
+        // start a change to a new address (019 I02)
+        const pendingCode = await prisma.confirmationCode.findFirst({
+          where: {
+            userId,
+            type: "EMAIL_CHANGE",
+            target: input.newEmail,
+            used: false,
+          },
+        });
+
+        if (!pendingCode) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "No pending email change for this address. Start the change again.",
+          });
+        }
+
         // Generate a 6-digit code
         const code = generateSixDigitCode();
 
@@ -372,22 +420,31 @@ export const userRouter = router({
         const expiresAt = new Date();
         expiresAt.setMinutes(expiresAt.getMinutes() + 5);
 
-        // Create a new confirmation code without deleting existing ones
+        // The new code replaces the earlier ones, so only one code is valid
+        await prisma.confirmationCode.deleteMany({
+          where: {
+            userId,
+            type: "EMAIL_CHANGE",
+            used: false,
+          },
+        });
+
         await prisma.confirmationCode.create({
           data: {
             code,
             type: "EMAIL_CHANGE",
             userId,
+            target: input.newEmail,
             expiresAt,
           },
         });
 
-        // Send verification email with the code to the user's current email
-        await sendEmailChangeVerification(user.email, input.newEmail, code);
+        // The code goes to the new address (019 I02)
+        await sendEmailChangeVerification(input.newEmail, code);
 
         return {
           success: true,
-          message: "New verification code sent to your email",
+          message: "New verification code sent to your new email",
           expiresAt,
         };
       } catch (error: any) {
@@ -406,14 +463,8 @@ export const userRouter = router({
     .input(
       z.object({
         search: z.string().optional(),
-        filter: z
-          .enum(["all", "active-7-days", "has-creator-pool"])
-          .optional()
-          .default("all"),
-        sort: z
-          .enum(["newest", "name-asc", "name-desc"])
-          .optional()
-          .default("newest"),
+        filter: z.enum(["all", "active-7-days", "has-creator-pool"]).optional().default("all"),
+        sort: z.enum(["newest", "name-asc", "name-desc"]).optional().default("newest"),
         page: z.number().optional().default(1),
         limit: z.number().optional().default(20), // Default to 20 users per page, max 20
       })
@@ -423,8 +474,9 @@ export const userRouter = router({
       const safeLimit = Math.min(input.limit || 20, 20);
       const safePage = Math.max(input.page || 1, 1);
 
-      // Build the base where clause based on search
-      const whereClause: any = {};
+      // Build the base where clause based on search. Only published, not
+      // suspended pages are listed (Fan Graph #22: fan accounts have no page).
+      const whereClause: any = { page_status: "PUBLISHED", block: "no" };
       if (input.search) {
         whereClause.name = {
           contains: input.search,
@@ -481,12 +533,12 @@ export const userRouter = router({
           displayName: user.name,
           username: user.handle || "",
           avatar: user.image,
-          bio: user.description || "",
+          // Explore cards show the bio as plain text; no creator HTML renders there
+          bio: htmlToPlainText(user.description),
           banner: null, // Placeholder
           category: "uncategorized",
         })),
         total,
       };
     }),
-
 });

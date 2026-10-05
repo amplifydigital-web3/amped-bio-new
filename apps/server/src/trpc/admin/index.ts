@@ -9,6 +9,8 @@ import { walletAdminRouter } from "./wallet";
 import { settingsRouter } from "./settings";
 import { adminPoolsRouter } from "./pools";
 import { affiliateAdminRouter } from "./affiliate";
+import { oauthAppsAdminRouter } from "./oauthApps";
+import { broadcastsAdminRouter } from "./broadcasts";
 
 export const adminRouter = router({
   // User Management
@@ -38,6 +40,12 @@ export const adminRouter = router({
   // Pool Management
   pools: adminPoolsRouter,
 
+  // Creator Pool Broadcast review and pilot (Build Board #1)
+  broadcasts: broadcastsAdminRouter,
+
   // Affiliate Rewards Management
   affiliate: affiliateAdminRouter,
+
+  // OAuth Applications
+  oauthApps: oauthAppsAdminRouter,
 });

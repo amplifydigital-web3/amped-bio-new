@@ -19,6 +19,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useAccount, useSignMessage } from "wagmi";
 import { useCaptcha } from "@/hooks/useCaptcha";
 import { GoogleLoginButton } from "@/components/auth/GoogleLoginButton";
+import { useWeb3Auth, useWeb3AuthConnect } from "@web3auth/modal/react";
+import { WALLET_CONNECTORS, AUTH_CONNECTION, CONNECTOR_STATUS } from "@web3auth/modal";
+import { trpcClient } from "@/lib/trpc";
 import {
   Check,
   Loader2,
@@ -57,7 +60,82 @@ export default function SignPage() {
   const { signMessageAsync, isPending: isSigning } = useSignMessage();
   const { executeCaptcha } = useCaptcha();
 
-  const isPopup = typeof window !== "undefined" && !!window.opener;
+  // Web3Auth
+  const dataWeb3Auth = useWeb3Auth();
+  const { connectTo, error: web3AuthError } = useWeb3AuthConnect();
+  const { web3Auth } = dataWeb3Auth;
+
+  const connectInFlightRef = useRef(false);
+
+  const connectWeb3Auth = useCallback(async () => {
+    if (connectInFlightRef.current) {
+      console.log('[S] Web3Auth connect skipped: already in flight');
+      return;
+    }
+    const coreStatus = web3Auth?.status;
+    if (coreStatus === CONNECTOR_STATUS.CONNECTED || coreStatus === CONNECTOR_STATUS.CONNECTING) {
+      console.log('[S] Web3Auth connect skipped: status is', JSON.stringify(coreStatus));
+      return;
+    }
+
+    connectInFlightRef.current = true;
+    try {
+      console.log('[S] Fetching wallet token from server...');
+      const { walletToken } = await trpcClient.auth.getWalletToken.query();
+      console.log('[S] Wallet token received');
+
+      try {
+        const payload = JSON.parse(atob(walletToken.token.split(".")[1]));
+        if (payload.exp) {
+          const expirationTime = payload.exp * 1000;
+          localStorage.setItem("walletTokenExpiration", expirationTime.toString());
+        }
+      } catch (error) {
+        console.error("Error decoding token expiration:", error);
+      }
+
+      console.log('[S] Connecting to Web3Auth...');
+      await connectTo(WALLET_CONNECTORS.AUTH, {
+        authConnection: AUTH_CONNECTION.CUSTOM,
+        authConnectionId: process.env.NEXT_PUBLIC_WEB3AUTH_AUTH_CONNECTION_ID,
+        idToken: walletToken.token,
+        extraLoginOptions: { isUserIdCaseSensitive: false },
+      });
+      console.log('[S] Web3Auth connected successfully');
+    } catch (err) {
+      console.error('[S] Web3Auth connection error:', err);
+      setErrorState(
+        err instanceof Error
+          ? err.message
+          : "Failed to connect wallet. Please try again."
+      );
+    } finally {
+      connectInFlightRef.current = false;
+    }
+  }, [connectTo, web3Auth]);
+
+  // window.opener is only available in the browser, so resolve it after mount.
+  // Until then (SSR + first client render) it is null, which renders a loader
+  // instead of flashing the "Invalid Access" screen.
+  const [isPopup, setIsPopup] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const hasOpener = !!window.opener;
+    console.log(
+      '[S] mount:',
+      JSON.stringify({
+        hasOpener,
+        href: window.location.href,
+        referrer: document.referrer || null,
+        sessionOpenerOrigin: sessionStorage.getItem("sign_opener_origin"),
+        sessionIsPopup: sessionStorage.getItem("sign_is_popup"),
+      })
+    );
+    if (!hasOpener) {
+      console.warn('[S] window.opener is missing — rendering "Invalid Access"');
+    }
+    setIsPopup(hasOpener);
+  }, []);
 
   const [flowStep, setFlowStep] = useState<FlowStep>("login");
   const [openerOrigin, setOpenerOrigin] = useState<string | null>(null);
@@ -65,7 +143,22 @@ export default function SignPage() {
 
   useEffect(() => {
     openerOriginRef.current = openerOrigin;
+    console.log('[S] openerOrigin changed:', JSON.stringify(openerOrigin));
   }, [openerOrigin]);
+
+  // After a full-page redirect (e.g. Google OAuth callback), React state is
+  // lost and window.opener may be null in some browsers.  Recover the origin
+  // from sessionStorage, which survives the navigation.
+  useEffect(() => {
+    const savedOrigin = sessionStorage.getItem("sign_opener_origin");
+    if (savedOrigin) {
+      console.log('[S] recovered opener origin from sessionStorage:', JSON.stringify(savedOrigin));
+      openerOriginRef.current = savedOrigin;
+      setOpenerOrigin(savedOrigin);
+      sessionStorage.removeItem("sign_opener_origin");
+    }
+    sessionStorage.removeItem("sign_is_popup");
+  }, []);
   const [messageToSign, setMessageToSign] = useState<string | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
@@ -74,7 +167,53 @@ export default function SignPage() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [errorState, setErrorState] = useState<string | null>(null);
+  const [originFailed, setOriginFailed] = useState(false);
   const prevFlowStep = useRef<FlowStep>("login");
+
+  // Diagnostic logs for external state the flow depends on
+  useEffect(() => {
+    console.log(
+      '[S] auth state:',
+      JSON.stringify({ isAuthPending, userId: authUser?.id ?? null })
+    );
+  }, [authUser, isAuthPending]);
+
+  useEffect(() => {
+    console.log(
+      '[S] wallet state:',
+      JSON.stringify({ isConnected, address: address ?? null, web3AuthStatus: web3Auth?.status ?? null })
+    );
+  }, [isConnected, address, web3Auth?.status]);
+
+  useEffect(() => {
+    if (web3AuthError) console.error('[S] Web3Auth hook error:', web3AuthError);
+  }, [web3AuthError]);
+
+  useEffect(() => {
+    if (errorState) console.error('[S] errorState set:', JSON.stringify(errorState));
+  }, [errorState]);
+
+  useEffect(() => {
+    if (statusMessage) console.log('[S] status:', JSON.stringify(statusMessage));
+  }, [statusMessage]);
+
+  // Log every message received by this window, regardless of flow step, so
+  // messages arriving too early/late (and silently ignored) are visible.
+  useEffect(() => {
+    const logMessage = (event: MessageEvent) => {
+      console.log(
+        '[S] window message event:',
+        JSON.stringify({
+          origin: event.origin,
+          fromOpener: !!window.opener && event.source === window.opener,
+          flowStep: prevFlowStep.current,
+          data: event.data,
+        })
+      );
+    };
+    window.addEventListener("message", logMessage);
+    return () => window.removeEventListener("message", logMessage);
+  }, []);
 
   const {
     register,
@@ -87,8 +226,22 @@ export default function SignPage() {
 
   const sendToOpener = useCallback(
     (data: object) => {
+      const targetOrigin = openerOriginRef.current || "*";
       if (isPopup && window.opener) {
-        window.opener.postMessage(data, openerOriginRef.current || "*");
+        console.log(
+          '[S] postMessage sent:',
+          JSON.stringify({ targetOrigin, data })
+        );
+        try {
+          window.opener.postMessage(data, targetOrigin);
+        } catch (error) {
+          console.error('[S] postMessage failed:', error);
+        }
+      } else {
+        console.warn(
+          '[S] postMessage skipped (no opener):',
+          JSON.stringify({ isPopup, hasOpener: !!window.opener, data })
+        );
       }
     },
     [isPopup]
@@ -100,51 +253,71 @@ export default function SignPage() {
     setFlowStep("announcing");
     console.log(`[S] flowStep changed: ${from} → announcing`);
     setStatusMessage("Preparing to communicate with requesting site...");
+    console.log('[S] waiting 2500ms before announcing SIGN_READY...');
     await delay(2500);
-    console.log('[S] postMessage sent:', JSON.stringify({ type: "SIGN_READY" }));
-    sendToOpener({ type: "SIGN_READY" });
+    // SIGN_READY is sent by the awaiting_message effect, only after the
+    // SIGN_MESSAGE listener is attached — otherwise a fast opener reply
+    // could arrive before the listener exists and be silently dropped.
     prevFlowStep.current = "awaiting_message";
     setFlowStep("awaiting_message");
     console.log('[S] flowStep changed: announcing → awaiting_message');
     setStatusMessage("Waiting for message to sign...");
-  }, [sendToOpener]);
+  }, []);
 
   // Transition: user logs in
   useEffect(() => {
     if (!authUser) return;
     if (flowStep !== "login") return;
 
+    console.log(
+      '[S] user authenticated on login step:',
+      JSON.stringify({ userId: authUser.id, isConnected })
+    );
+
     if (!isConnected) {
       prevFlowStep.current = "wallet_wait";
       setFlowStep("wallet_wait");
       console.log('[S] flowStep changed: login → wallet_wait');
-      setStatusMessage("Connecting wallet...");
+      setStatusMessage("Connecting wallet via Web3Auth...");
+      // Auto-connect via Web3Auth (no injected wallet needed)
+      connectWeb3Auth();
     } else {
+      console.log('[S] wallet already connected, skipping wallet_wait');
       startAnnouncing();
     }
-  }, [authUser, isConnected, flowStep, startAnnouncing]);
+  }, [authUser, isConnected, flowStep, startAnnouncing, connectWeb3Auth]);
 
   // Transition: wallet connects
   useEffect(() => {
     if (!isConnected || !authUser) return;
     if (flowStep === "wallet_wait") {
+      console.log('[S] wallet connected:', JSON.stringify({ address }));
       console.log('[S] flowStep changed: wallet_wait → announcing');
       startAnnouncing();
     }
-  }, [isConnected, authUser, flowStep, startAnnouncing]);
+  }, [isConnected, authUser, flowStep, startAnnouncing, address]);
 
   // Listen for SIGN_MESSAGE from opener
   useEffect(() => {
     if (flowStep !== "awaiting_message") return;
 
+    console.log('[S] listening for SIGN_MESSAGE (timeout 30000ms)');
+
     const timeout = setTimeout(() => {
+      console.error('[S] timeout: no SIGN_MESSAGE received within 30000ms');
       setErrorState(
         "Communication timeout — The requesting site did not respond."
       );
     }, 30000);
 
     const handleMessage = async (event: MessageEvent) => {
-      if (event.data?.type !== "SIGN_MESSAGE") return;
+      if (event.data?.type !== "SIGN_MESSAGE") {
+        console.log(
+          '[S] ignoring message (not SIGN_MESSAGE):',
+          JSON.stringify({ origin: event.origin, type: event.data?.type ?? null })
+        );
+        return;
+      }
       clearTimeout(timeout);
 
       console.log(
@@ -159,6 +332,8 @@ export default function SignPage() {
       const origin = event.origin;
 
       if (!origin || origin === "null") {
+        console.error('[S] SIGN_MESSAGE rejected: invalid origin', JSON.stringify(origin));
+        setOriginFailed(true);
         setErrorState(
           "Unable to verify requesting site — Cannot determine the origin of the request."
         );
@@ -168,7 +343,12 @@ export default function SignPage() {
       let decodedMessage: string;
       try {
         decodedMessage = atob(event.data.message);
-      } catch {
+      } catch (error) {
+        console.error(
+          '[S] SIGN_MESSAGE ignored: message is not valid base64',
+          JSON.stringify({ message: event.data.message }),
+          error
+        );
         return;
       }
 
@@ -178,13 +358,10 @@ export default function SignPage() {
       openerOriginRef.current = origin;
       setMessageToSign(decodedMessage);
 
-      console.log(
-        '[S] postMessage sent:',
-        JSON.stringify({ type: "SIGN_MESSAGE_RECEIVED" })
-      );
       sendToOpener({ type: "SIGN_MESSAGE_RECEIVED" });
 
       setStatusMessage("Message received. Verifying requesting site...");
+      console.log('[S] waiting 2500ms before showing trust step...');
       await delay(2500);
 
       prevFlowStep.current = "trust";
@@ -193,6 +370,7 @@ export default function SignPage() {
     };
 
     window.addEventListener("message", handleMessage);
+    sendToOpener({ type: "SIGN_READY" });
     return () => {
       window.removeEventListener("message", handleMessage);
       clearTimeout(timeout);
@@ -200,14 +378,22 @@ export default function SignPage() {
   }, [flowStep, sendToOpener]);
 
   const handleTrustConfirm = () => {
+    console.log('[S] user trusted origin:', JSON.stringify(openerOrigin));
     prevFlowStep.current = "sign";
     setFlowStep("sign");
     console.log('[S] flowStep changed: trust → sign');
   };
 
   const handleSign = async () => {
-    if (!messageToSign) return;
+    if (!messageToSign) {
+      console.warn('[S] handleSign called without a message to sign');
+      return;
+    }
     setSignError(null);
+    console.log(
+      '[S] requesting wallet signature:',
+      JSON.stringify({ address, message: messageToSign })
+    );
     try {
       const sig = await signMessageAsync({ message: messageToSign });
       console.log('[S] signMessageAsync result:', JSON.stringify(sig));
@@ -216,57 +402,49 @@ export default function SignPage() {
       setFlowStep("done");
       console.log('[S] flowStep changed: sign → done');
 
-      console.log(
-        '[S] postMessage sent:',
-        JSON.stringify({
-          type: "SIGNATURE_RESULT",
-          signature: sig,
-          address,
-        })
-      );
-
       sendToOpener({
         type: "SIGNATURE_RESULT",
         signature: sig,
         address,
       });
     } catch (error) {
+      console.error('[S] signMessageAsync failed:', error);
       setSignError((error as Error).message || "Signing failed");
     }
   };
 
   const handleCloseWindow = () => {
-    if (!signature || !address) return;
+    if (!signature || !address) {
+      console.warn(
+        '[S] close window ignored: missing signature or address',
+        JSON.stringify({ hasSignature: !!signature, address })
+      );
+      return;
+    }
 
     sessionStorage.removeItem("sign_opener_origin");
 
-    console.log(
-      '[S] postMessage sent:',
-      JSON.stringify({
-        type: "SIGNATURE_RESULT",
-        signature,
-        address,
-      })
-    );
-
+    console.log('[S] re-sending SIGNATURE_RESULT before closing window');
     sendToOpener({
       type: "SIGNATURE_RESULT",
       signature,
       address,
     });
 
+    console.log('[S] closing window');
     window.close();
   };
 
   const onSubmitLogin = async (data: z.infer<typeof loginSchema>) => {
     setIsLoggingIn(true);
     setLoginError(null);
+    console.log('[S] email login started');
     try {
       const captchaToken = await executeCaptcha();
+      console.log('[S] captcha resolved:', JSON.stringify({ hasToken: !!captchaToken }));
       const response = await authClient.signIn.email({
         email: data.email,
         password: data.password,
-        callbackURL: window.location.href,
         rememberMe: true,
         fetchOptions: {
           headers: captchaToken
@@ -279,7 +457,9 @@ export default function SignPage() {
       if (response?.error) {
         throw new Error(response.error.message || "Login failed");
       }
+      console.log('[S] email login succeeded');
     } catch (error) {
+      console.error('[S] email login failed:', error);
       setLoginError((error as Error).message || "Login failed");
     } finally {
       setIsLoggingIn(false);
@@ -290,6 +470,20 @@ export default function SignPage() {
     setIsLoggingIn(true);
     setLoginError(null);
 
+    // Save popup state to sessionStorage before the full-page OAuth redirect,
+    // so it can be restored when the user is redirected back to /sign.
+    sessionStorage.setItem("sign_is_popup", "true");
+    if (openerOriginRef.current) {
+      sessionStorage.setItem("sign_opener_origin", openerOriginRef.current);
+    }
+    console.log(
+      '[S] Google login started, redirecting:',
+      JSON.stringify({
+        callbackURL: window.location.href,
+        savedOpenerOrigin: openerOriginRef.current,
+      })
+    );
+
     try {
       const response = await authClient.signIn.social({
         provider: "google",
@@ -297,11 +491,13 @@ export default function SignPage() {
       });
 
       if (response?.error) {
+        console.error('[S] Google login failed:', response.error);
         setIsLoggingIn(false);
         setLoginError(response.error.message || "Google login failed");
         return;
       }
     } catch (error) {
+      console.error('[S] Google login failed:', error);
       setLoginError((error as Error).message || "Google login failed");
       setIsLoggingIn(false);
     }
@@ -309,7 +505,7 @@ export default function SignPage() {
 
   const isSubmitting = isLoggingIn;
 
-  if (!isPopup) {
+  if (isPopup === false) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <Card className="w-full max-w-sm">
@@ -327,7 +523,7 @@ export default function SignPage() {
     );
   }
 
-  if (isAuthPending) {
+  if (isPopup === null || isAuthPending) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
@@ -415,10 +611,10 @@ export default function SignPage() {
           </Card>
         )}
 
-        {/* Wallet Wait Step */}
+        {/* Wallet Wait Step — connects via Web3Auth automatically */}
         {!errorState && flowStep === "wallet_wait" && (
           <Card className="w-full">
-            <CardContent className="py-12">
+            <CardContent className="py-8">
               <div className="flex flex-col items-center gap-4">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
                 <p className="text-sm text-gray-500">{statusMessage}</p>
@@ -452,7 +648,7 @@ export default function SignPage() {
         )}
 
         {/* Trust Step */}
-        {!errorState && flowStep === "trust" && openerOrigin === null && (
+        {!errorState && flowStep === "trust" && originFailed && (
           <Card className="w-full border-red-200">
             <CardContent className="py-12">
               <div className="flex flex-col items-center gap-4 text-center">
@@ -466,7 +662,18 @@ export default function SignPage() {
           </Card>
         )}
 
-        {!errorState && flowStep === "trust" && openerOrigin !== null && (
+        {!errorState && flowStep === "trust" && !originFailed && openerOrigin === null && (
+          <Card className="w-full">
+            <CardContent className="py-8">
+              <div className="flex flex-col items-center gap-4">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                <p className="text-sm text-gray-500">Preparing verification...</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {!errorState && flowStep === "trust" && !originFailed && openerOrigin !== null && (
           <Card className="w-full">
             <CardHeader>
               <div className="flex items-center gap-2 text-blue-600">
@@ -561,7 +768,10 @@ export default function SignPage() {
                   </div>
                 )}
                 <Button
-                  onClick={() => setShowConfirmModal(true)}
+                  onClick={() => {
+                    console.log('[S] sign button clicked, opening confirm modal');
+                    setShowConfirmModal(true);
+                  }}
                   className="w-full"
                   disabled={isSigning}
                 >
@@ -636,7 +846,10 @@ export default function SignPage() {
           <DialogFooter className="mt-4 flex gap-2">
             <Button
               variant="outline"
-              onClick={() => setShowConfirmModal(false)}
+              onClick={() => {
+                console.log('[S] user cancelled signing in confirm modal');
+                setShowConfirmModal(false);
+              }}
               className="flex-1"
               disabled={isSigning}
             >
@@ -644,6 +857,7 @@ export default function SignPage() {
             </Button>
             <Button
               onClick={() => {
+                console.log('[S] user confirmed signing in confirm modal');
                 setShowConfirmModal(false);
                 handleSign();
               }}

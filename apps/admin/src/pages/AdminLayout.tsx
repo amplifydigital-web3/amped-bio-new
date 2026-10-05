@@ -9,6 +9,8 @@ import {
   Files,
   CoinsIcon,
   ArrowRightLeft,
+  KeyRound,
+  Megaphone,
 } from "lucide-react";
 import { useAuth } from "@repo/ui";
 import { AdminHeader } from "../components";
@@ -39,6 +41,14 @@ export function AdminLayout() {
       path: "/ndau-conversions",
       shortcut: "⌘⌥N",
     },
+    {
+      id: "oauth-clients",
+      icon: KeyRound,
+      label: "OAuth Clients",
+      path: "/oauth-clients",
+      shortcut: "⌘⌥O",
+    },
+    { id: "broadcasts", icon: Megaphone, label: "Broadcasts", path: "/broadcasts" },
   ];
 
   // Handle logout
@@ -69,6 +79,10 @@ export function AdminLayout() {
         return "Pool Management";
       case "/ndau-conversions":
         return "NDAU Conversions";
+      case "/oauth-clients":
+        return "OAuth Clients";
+      case "/broadcasts":
+        return "Broadcasts";
       default:
         return "Admin Dashboard";
     }

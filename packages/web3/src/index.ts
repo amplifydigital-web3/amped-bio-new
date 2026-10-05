@@ -1,11 +1,14 @@
-import { type Address } from "viem";
+import { type Address, http, fallback, namehash, type Transport } from "viem";
+import { normalize } from "viem/ens";
 import { chainConfig } from "viem/zksync";
+import { RNS_KNOWN_SUFFIXES, stripRnsSuffix } from "./rns";
 
 export * from "./pools";
 export * from "./abis/multicall3";
 export * from "./abis/rns/index";
 export * from "./apy";
 export * from "./batches";
+export * from "./rns";
 
 export const revolutionDevnet = {
   ...chainConfig,
@@ -46,6 +49,8 @@ export const revolutionDevnet = {
   gas: 5_000_000,
   /** First block where the RNS infrastructure (BaseRegistrar etc.) exists. */
   rnsDeployBlock: 0n,
+  /** RNS name suffix for display, input parsing and the namehash (101 D1). */
+  rnsSuffix: ".revotest.eth",
 } as const;
 
 export const libertasTestnet = {
@@ -60,7 +65,7 @@ export const libertasTestnet = {
   },
   rpcUrls: {
     default: {
-      http: ["https://libertas.revolutionchain.io"],
+      http: ["https://rpc.revolutionnetwork.dev/", "https://libertas.revolutionchain.io"],
     },
   },
   blockExplorers: {
@@ -88,6 +93,11 @@ export const libertasTestnet = {
   gas: 5_000_000,
   /** First block where the RNS infrastructure (BaseRegistrar etc.) exists. */
   rnsDeployBlock: 504472n,
+  /**
+   * RNS name suffix for display, input parsing and the namehash (101 D1).
+   * Changes to ".revo" once the RNS team confirms the TLD and base node.
+   */
+  rnsSuffix: ".revotest.eth",
 } as const;
 
 export const AVAILABLE_CHAINS = [libertasTestnet, revolutionDevnet] as const;
@@ -96,9 +106,47 @@ export const getChainConfig = (chainId: number) => {
   return AVAILABLE_CHAINS.find(c => c.id === chainId) ?? null;
 };
 
+/** The chain that holds the RNS contracts the server reads (Libertas Testnet). */
+export const RNS_CHAIN = libertasTestnet;
+
+/** The configured RNS suffix for a chain, falling back to the RNS chain. */
+export const getRnsSuffix = (chainId?: number | null): string =>
+  (chainId ? getChainConfig(chainId)?.rnsSuffix : undefined) ?? RNS_CHAIN.rnsSuffix;
+
+/** Display form of an RNS name: label plus the chain suffix (mayalin.revotest.eth). */
+export const formatRnsName = (label: string, chainId?: number | null): string =>
+  `${label}${getRnsSuffix(chainId)}`;
+
+/** Namehash of the full RNS name, the node the resolver and registry use. */
+export const rnsNode = (label: string, chainId?: number | null): `0x${string}` =>
+  namehash(normalize(formatRnsName(label, chainId)));
+
+/**
+ * Turns anything a person types or pastes into a bare label: trims, lowercases,
+ * drops a leading @ and strips the configured suffix or a known one
+ * (.revotest.eth, .revo, .eth). The name rule runs on the result.
+ */
+export const parseRnsInput = (input: string, chainId?: number | null): string =>
+  stripRnsSuffix(input, [getRnsSuffix(chainId), ...RNS_KNOWN_SUFFIXES]);
+
 export const getCurrencySymbol = (chainId: number) => {
   const chain = getChainConfig(chainId);
   return chain ? chain.nativeCurrency.symbol : "REVO";
+};
+
+/**
+ * RPC transport with automatic failover.
+ * The first URL is the primary; the remaining URLs are used as fallbacks.
+ * Chains with a single URL keep the plain http(url) behavior.
+ * // lean-ctx: RPCs hardcoded; move to env if per-environment override is needed.
+ */
+export const getRpcTransport = (
+  chain: (typeof AVAILABLE_CHAINS)[number],
+  options?: Parameters<typeof http>[1]
+): Transport => {
+  const urls = chain.rpcUrls.default.http;
+  if (urls.length <= 1) return http(urls[0], options);
+  return fallback(urls.map(url => http(url, options)));
 };
 
 export const REVO_NODE_ADDRESSES = {

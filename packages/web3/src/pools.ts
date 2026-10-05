@@ -1,5 +1,5 @@
-import { Address, createPublicClient, http } from "viem";
-import { getChainConfig, CREATOR_POOL_ABI } from "./index";
+import { Address, createPublicClient } from "viem";
+import { getChainConfig, getRpcTransport, CREATOR_POOL_ABI } from "./index";
 
 /**
  * @deprecated call using multicall instead
@@ -15,7 +15,7 @@ export const getPoolName = async (
 
   const publicClient = createPublicClient({
     chain: chain,
-    transport: http(),
+    transport: getRpcTransport(chain),
   });
 
   try {

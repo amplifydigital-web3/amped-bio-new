@@ -19,7 +19,12 @@ import {
   SelectValue,
 } from "@repo/ui";
 import { useState, useEffect } from "react";
-import { BannerData } from "@repo/constants";
+import {
+  BANNER_LIVE_PANELS,
+  BANNER_PANEL_LABELS,
+  BannerData,
+  liveBannerPanel,
+} from "@repo/constants";
 
 export function AdminBannerSettings() {
   const queryClient = useQueryClient();
@@ -43,7 +48,8 @@ export function AdminBannerSettings() {
           : "info";
       setType(bannerType);
       setEnabled(bannerData.enabled || false);
-      setPanel(bannerData.panel || "");
+      // 098 I07: a legacy stored value shows as the destination it opens today
+      setPanel(liveBannerPanel(bannerData.panel as BannerData["panel"]) ?? "");
     }
   }, [bannerData]);
 
@@ -135,18 +141,11 @@ export function AdminBannerSettings() {
                 <SelectValue placeholder="Select panel (optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="home">Home</SelectItem>
-                <SelectItem value="profile">Profile</SelectItem>
-                <SelectItem value="reward">Reward</SelectItem>
-                <SelectItem value="gallery">Gallery</SelectItem>
-                <SelectItem value="blocks">Blocks</SelectItem>
-                <SelectItem value="rewardPools">Reward Pools</SelectItem>
-                <SelectItem value="createRewardPool">Create Reward Pool</SelectItem>
-                <SelectItem value="leaderboard">Leaderboard</SelectItem>
-                <SelectItem value="rns">RNS</SelectItem>
-                <SelectItem value="wallet">Wallet</SelectItem>
-                <SelectItem value="pay">Pay</SelectItem>
-                <SelectItem value="account">Account</SelectItem>
+                {BANNER_LIVE_PANELS.map(value => (
+                  <SelectItem key={value} value={value}>
+                    {BANNER_PANEL_LABELS[value]}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

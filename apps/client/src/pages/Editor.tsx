@@ -8,7 +8,12 @@ import { normalizeHandle, formatHandle, validateHandleFormat } from "@repo/ui";
 import { toast } from "react-hot-toast";
 import { trpc } from "@repo/ui";
 import { useQuery } from "@tanstack/react-query";
-import { EDITOR_PANELS, EditorPanelType } from "@/types/editor";
+import {
+  EDITOR_PANELS,
+  EditorPanelType,
+  LEGACY_PANEL_REDIRECTS,
+  LEGACY_PROFILE_TABS,
+} from "@/types/editor";
 
 export function Editor() {
   const { panel: panelParam, handle: legacyHandle } = useParams();
@@ -27,53 +32,6 @@ export function Editor() {
   // The dashboard is tied to the logged-in user, not to a handle in the URL
   const userHandle = authUser?.handle ?? "";
 
-  // Initialize Freshworks help widget
-  useEffect(() => {
-    // Set widget settings
-    window.fwSettings = {
-      widget_id: 154000003550,
-    };
-
-    // Initialize Freshworks Widget
-    if (typeof window.FreshworksWidget !== "function") {
-      const n = function (...args: any[]) {
-        n.q.push(args);
-      };
-      n.q = [];
-      window.FreshworksWidget = n;
-    }
-
-    // Load the script
-    const script = document.createElement("script");
-    script.type = "text/javascript";
-    script.src = "https://widget.freshworks.com/widgets/154000003550.js";
-    script.async = true;
-    script.defer = true;
-    document.body.appendChild(script);
-
-    window.FreshworksWidget(
-      "identify",
-      "ticketForm",
-      {
-        name: authUser!.handle,
-        email: authUser!.email,
-      },
-      {
-        formId: 1234, // Ticket Form ID
-      }
-    );
-
-    // Cleanup function to remove the script when component unmounts
-    return () => {
-      if (script.parentNode) {
-        script.parentNode.removeChild(script);
-      }
-      // Clean up the global variable
-      delete window.FreshworksWidget;
-      delete window.fwSettings;
-    };
-  }, []);
-
   // Normalize the URL: panels live as path segments (e.g. /gallery).
   // Backward compatible with the legacy /@handle/edit/... and ?p= routes.
   useEffect(() => {
@@ -81,9 +39,22 @@ export function Editor() {
     const hadPanelParam = searchParams.has("p");
     const queryPanel = searchParams.get("p");
     searchParams.delete("p");
+
+    let rawPanel = panelParam || queryPanel;
+
+    // Legacy destinations land on their new home (Screen Review 001 I01, I12)
+    const legacy = rawPanel ? LEGACY_PANEL_REDIRECTS[rawPanel] : undefined;
+    const profileTab =
+      rawPanel === "profile" ? LEGACY_PROFILE_TABS[searchParams.get("tab") ?? ""] : undefined;
+    if (profileTab) {
+      rawPanel = "design";
+      searchParams.set("tab", profileTab);
+    } else if (legacy) {
+      rawPanel = legacy.panel;
+      if (legacy.tab && !searchParams.has("tab")) searchParams.set("tab", legacy.tab);
+    }
     const query = searchParams.toString();
 
-    const rawPanel = panelParam || queryPanel;
     const panel =
       rawPanel && (EDITOR_PANELS as readonly string[]).includes(rawPanel)
         ? (rawPanel as EditorPanelType)
@@ -104,7 +75,12 @@ export function Editor() {
     // Compare path and search separately: `location.pathname` never contains the
     // query string, so comparing it against a target that includes `?query`
     // would always be truthy and navigate on every render (replaceState loop).
-    if (location.pathname !== targetPath || location.search !== targetSearch || hadPanelParam) {
+    if (
+      location.pathname !== targetPath ||
+      location.search !== targetSearch ||
+      hadPanelParam ||
+      legacy
+    ) {
       nav(`${targetPath}${targetSearch}`, { replace: true });
     }
     setActivePanel(panel);
@@ -145,11 +121,7 @@ export function Editor() {
     return null; // Render nothing while redirection happens
   }
 
-  return (
-    <div className="h-screen flex flex-col">
-      <div className="flex-1 overflow-hidden">
-        <Layout handle={userHandle} bannerData={bannerData} bannerLoading={bannerLoading} />
-      </div>
-    </div>
-  );
+  // The Prism shell scrolls the page itself (fixed rail and dock, sticky
+  // preview), so no viewport-height or overflow wrapper goes around it
+  return <Layout bannerData={bannerData} bannerLoading={bannerLoading} />;
 }

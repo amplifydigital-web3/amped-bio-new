@@ -1,0 +1,923 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             Int       @id @default(autoincrement())
+  name           String
+  revo_name      String?
+  email          String
+  email_verified Boolean   @default(false) @map("email_verified")
+  password       String?
+  image          String?   @db.LongText // Keep for backward compatibility
+  handle         String?   @unique @map("littlelink_name")
+  created_at     DateTime  @default(now())
+  updated_at     DateTime? @updatedAt
+  sessions       Session[]
+  accounts       Account[]
+
+  description        String? @map("littlelink_description") @db.LongText
+  role               String  @default("user")
+  block              String  @default("no")
+  theme              String?
+  image_file_id      Int?
+  reward_business_id String?
+
+  // Fan Graph (#22): accounts made from Follow have no public page until the
+  // owner publishes one. Existing accounts are PUBLISHED.
+  page_status               PageStatus @default(PUBLISHED)
+  show_follower_count       Boolean    @default(true)
+  follow_disclosure_seen_at DateTime?
+
+  themes            Theme[]
+  blocks            Block[]
+  confirmationCodes ConfirmationCode[]
+  uploadedFiles     UploadedFile[]
+  profileImage      UploadedFile?      @relation("UserProfileImage", fields: [image_file_id], references: [id], onDelete: SetNull)
+
+  wallet            UserWallet?
+  referralsMade     Referral[]  @relation("ReferrerReferrals")
+  referralsReceived Referral[]  @relation("ReferredReferrals")
+  twoFactorEnabled  Boolean     @default(false) @map("two_factor_enabled")
+  twoFactor         TwoFactor?
+  analyticsEvents    AnalyticsEvent[]
+  trackingPixels     TrackingPixels?
+  analyticsCampaigns AnalyticsCampaign[]
+  analyticsConsents  AnalyticsConsent[]
+  onboarding         UserOnboarding?
+
+  followsMade          Follow[]      @relation("FollowsMade")
+  followsReceived      Follow[]      @relation("FollowsReceived")
+  followBlocksMade     FollowBlock[] @relation("FollowBlocksMade")
+  followBlocksReceived FollowBlock[] @relation("FollowBlocksReceived")
+  followRemovals       FollowRemoval[]
+
+  oauthClients      OauthClient[]
+  oauthRefreshTokens OauthRefreshToken[]
+  oauthAccessTokens OauthAccessToken[]
+  oauthConsents     OauthConsent[]
+
+  broadcastsSent          Broadcast[]              @relation("BroadcastCreator")
+  broadcastDeliveries     BroadcastDelivery[]
+  broadcastReports        BroadcastReport[]
+  notificationPreferences NotificationPreference[]
+
+  @@unique([email])
+  @@map("users")
+}
+
+model Session {
+  id        Int      @id @default(autoincrement())
+  expiresAt DateTime
+  token     String
+  createdAt DateTime
+  updatedAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  oauthRefreshTokens OauthRefreshToken[]
+  oauthAccessTokens  OauthAccessToken[]
+
+  @@unique([token])
+  @@map("session")
+  @@index([userId])
+}
+
+model Account {
+  id                    Int       @id @default(autoincrement())
+  accountId             String
+  providerId            String
+  userId                Int
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?   @db.LongText
+  refreshToken          String?
+  idToken               String?   @db.LongText
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime
+  updatedAt             DateTime
+
+  @@map("account")
+  @@index([userId])
+}
+
+model Verification {
+  id         Int       @id @default(autoincrement())
+  identifier String
+  value      String    @db.LongText
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+
+  @@map("verification")
+  @@index([identifier(length: 191)])
+}
+
+model ThemeCategory {
+  id            Int       @id @default(autoincrement())
+  name          String    @unique
+  title         String
+  category      String
+  description   String?
+  visible       Boolean   @default(false)
+  image_file_id Int?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime? @updatedAt
+
+  themes        Theme[]
+  categoryImage UploadedFile? @relation("ThemeCategoryImage", fields: [image_file_id], references: [id], onDelete: SetNull)
+
+  @@map("theme_categories")
+}
+
+model Theme {
+  id                Int       @id @default(autoincrement())
+  user_id           Int? // if it is null it is a system theme
+  share_level       String    @default("private")
+  share_config      Json?
+  name              String?
+  description       String?   @db.LongText
+  config            Json?
+  category_id       Int?
+  thumbnail_file_id Int?
+  created_at        DateTime  @default(now())
+  updated_at        DateTime? @updatedAt
+
+  user           User?          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  category       ThemeCategory? @relation(fields: [category_id], references: [id], onDelete: SetNull)
+  thumbnailImage UploadedFile?  @relation("ThemeThumbnailImage", fields: [thumbnail_file_id], references: [id], onDelete: SetNull)
+
+  @@map("themes")
+}
+
+model Block {
+  id         Int       @id @default(autoincrement())
+  user_id    Int
+  type       String    @db.VarChar(255)
+  order      Int       @default(0)
+  clicks     Int       @default(0)
+  config     Json?
+  created_at DateTime  @default(now())
+  updated_at DateTime? @updatedAt
+
+  user            User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  analyticsEvents AnalyticsEvent[]
+
+  @@map("blocks")
+}
+
+model ConfirmationCode {
+  id        Int                  @id @default(autoincrement())
+  code      String               @db.Char(6)
+  type      ConfirmationCodeType
+  userId    Int
+  used      Boolean              @default(false)
+  /// The address an EMAIL_CHANGE code was sent to; confirm accepts only this address
+  target    String?              @db.VarChar(255)
+  expiresAt DateTime
+  createdAt DateTime             @default(now())
+  updatedAt DateTime?            @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([code])
+  @@map("confirmation_codes")
+}
+
+enum ConfirmationCodeType {
+  EMAIL_CONFIRMATION
+  EMAIL_CHANGE
+  PASSWORD_RESET
+}
+
+enum FileStatus {
+  PENDING
+  COMPLETED
+  DELETED
+}
+
+model UploadedFile {
+  id                  Int             @id @default(autoincrement())
+  s3_key              String          @db.VarChar(255)
+  bucket              String          @db.VarChar(100)
+  file_name           String          @db.VarChar(255)
+  file_type           String?         @db.VarChar(100)
+  size                BigInt?
+  user_id             Int? // Nullable for admin/server files
+  status              FileStatus      @default(PENDING)
+  uploaded_at         DateTime        @default(now())
+  created_at          DateTime        @default(now())
+  updated_at          DateTime?       @updatedAt
+  user                User?           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  userProfileImage    User[]          @relation("UserProfileImage")
+  themeCategoryImage  ThemeCategory[] @relation("ThemeCategoryImage")
+  themeThumbnailImage Theme[]         @relation("ThemeThumbnailImage")
+  creatorPoolImage    CreatorPool[]   @relation("CreatorPoolImage")
+
+  @@index([s3_key])
+  @@index([user_id])
+  @@index([status])
+  @@map("uploaded_files")
+}
+
+model UserWallet {
+  id                   Int           @id @default(autoincrement())
+  address              String        @unique
+  userId               Int           @unique // Ensure one-to-one relationship
+  last_airdrop_request DateTime?
+  created_at           DateTime      @default(now())
+  updated_at           DateTime?     @updatedAt
+  user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creatorPools         CreatorPool[]
+  stakedPools          StakedPool[]
+  stakeEvents          StakeEvent[]
+  airdropQueue         AirdropQueueEntry[]
+
+  @@map("user_wallets")
+}
+
+model CreatorPool {
+  id       Int    @id @default(autoincrement())
+  walletId Int
+  chainId  String
+
+  name          String?       @db.VarChar(255)
+  image_file_id Int?
+  description   String?       @db.LongText
+  fans          Int           @default(0)
+  revoStaked    String        @db.Text
+  poolAddress   String?       @unique
+  creationTxid  String?       @db.VarChar(66)
+  wallet        UserWallet    @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  poolImage     UploadedFile? @relation("CreatorPoolImage", fields: [image_file_id], references: [id], onDelete: SetNull)
+  stakedPools   StakedPool[]
+  stakeEvents   StakeEvent[]
+  hidden        Boolean?      @default(false)
+  broadcasts    Broadcast[]
+
+  @@unique([walletId, chainId])
+  @@map("creator_pools")
+}
+
+enum SettingValueType {
+  STRING
+  NUMBER
+  BOOLEAN
+  JSON
+}
+
+model SiteSettings {
+  setting_key   String           @id
+  setting_value String           @db.LongText
+  value_type    SettingValueType
+
+  @@map("site_settings")
+}
+
+model StakedPool {
+  id           Int       @id @default(autoincrement())
+  userWalletId Int
+  poolId       Int
+  stakeAmount  String    @db.Text // Using Text to handle potentially very large stake amounts
+  lastClaim    DateTime? // Timestamp of the last reward claim
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime? @updatedAt
+
+  userWallet UserWallet  @relation(fields: [userWalletId], references: [id], onDelete: Cascade)
+  pool       CreatorPool @relation(fields: [poolId], references: [id], onDelete: Cascade)
+
+  // Each wallet can only have one staking entry per pool
+  @@unique([userWalletId, poolId])
+  @@map("staked_pools")
+}
+
+model StakeEvent {
+  id              Int      @id @default(autoincrement())
+  userWalletId    Int
+  poolId          Int
+  amount          String   @db.Text // The amount of tokens staked or unstaked (positive for stake, negative for unstake)
+  eventType       String // "stake" or "unstake"
+  transactionHash String // Transaction hash for verification
+  createdAt       DateTime @default(now())
+
+  userWallet UserWallet  @relation(fields: [userWalletId], references: [id], onDelete: Cascade)
+  pool       CreatorPool @relation(fields: [poolId], references: [id], onDelete: Cascade)
+
+  @@unique([transactionHash, userWalletId, poolId])
+  @@map("stake_events")
+}
+
+model Referral {
+  id         Int      @id @default(autoincrement())
+  referrerId Int      @map("referrer_id")
+  referredId Int      @map("referred_id")
+  txid       String?  @map("txid") @db.Text
+  createdAt  DateTime @default(now())
+
+  referrer User @relation("ReferrerReferrals", fields: [referrerId], references: [id], onDelete: Cascade)
+  referred User @relation("ReferredReferrals", fields: [referredId], references: [id], onDelete: Cascade)
+
+  @@unique([referrerId, referredId])
+  @@index([referrerId])
+  @@index([referredId])
+  @@index([createdAt])
+  @@map("referrals")
+}
+
+model Jwks {
+  id         Int       @id @default(autoincrement())
+  publicKey  String    @db.LongText
+  privateKey String    @db.LongText
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime?
+  alg        String?
+  crv        String?
+
+  @@map("jwks")
+}
+
+model NdauConversion {
+  id                  Int       @id @default(autoincrement())
+  ndau_address        String    @db.VarChar(255)
+  ndau_amount         String    @db.Text
+  revo_amount         String    @db.Text
+  revo_address        String    @db.VarChar(255)
+  ampedbio_signature  String    @db.Text
+  ndau_signature      String    @db.Text
+  ndau_validation_key String    @db.Text
+  txid                String?   @unique @db.VarChar(66)
+  // Admin who locked the request for sending, and when. Cleared on release.
+  claimed_by          Int?
+  claimed_at          DateTime?
+  status              String    @default("pending")
+  group               String    @default("gn") @db.VarChar(10)
+  created_at          DateTime  @default(now())
+  updated_at          DateTime? @updatedAt
+  document_hash       String    @map("document_hash") @db.VarChar(255)
+  timestamp           Int
+
+  @@unique([ndau_address])
+  @@index([status])
+  @@index([created_at])
+  @@map("ndau_conversions")
+}
+
+model TwoFactor {
+  id                     String  @id @default(cuid())
+  userId                 Int     @map("user_id")
+  secret                 String  @db.Text
+  backupCodes            String  @map("backup_codes") @db.Text
+  verified               Boolean @default(false)
+  failedVerificationCount Int?   @default(0) @map("failed_verification_count")
+  lockedUntil            DateTime? @map("locked_until")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId])
+  @@map("two_factor")
+  @@index([secret(length: 191)])
+}
+
+enum AnalyticsEventType {
+  view
+  click
+  engage
+}
+
+// Cookieless creator analytics. Raw IP addresses are never stored: visitor_hash
+// is derived from a daily rotating salt, the page owner, IP and user agent.
+model AnalyticsEvent {
+  id                 Bytes              @id @db.Binary(16)
+  // Client generated UUID. Unique, so retried deliveries are stored once.
+  event_id           String?            @unique @db.VarChar(36)
+  user_id            Int
+  block_id           Int?
+  campaign_id        Bytes?             @db.Binary(16)
+  type               AnalyticsEventType
+  visitor_hash       String             @db.VarChar(32)
+  // Only with the visitor's "return visits" consent: keyed hash of a long-lived
+  // browser ID, scoped to this creator so visitors cannot be linked across creators
+  persistent_visitor String?            @db.VarChar(32)
+  // Per page-load (or per tab session with consent) identifier
+  session_id         String?            @db.VarChar(36)
+  // Signed-in Amped account of the visitor, only with consent, verified server side
+  visitor_user_id    Int?
+  duration_ms  Int?
+  source       String             @db.VarChar(32)
+  referrer     String?            @db.VarChar(255)
+  utm_source   String?            @db.VarChar(100)
+  utm_medium   String?            @db.VarChar(100)
+  utm_campaign String?            @db.VarChar(100)
+  country      String?            @db.VarChar(2)
+  city         String?            @db.VarChar(100)
+  device       String             @db.VarChar(16)
+  os           String?            @db.VarChar(32)
+  browser      String?            @db.VarChar(32)
+  created_at   DateTime           @default(now())
+
+  user     User               @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  block    Block?             @relation(fields: [block_id], references: [id], onDelete: SetNull)
+  campaign AnalyticsCampaign? @relation(fields: [campaign_id], references: [id], onDelete: SetNull)
+
+  @@index([user_id, created_at])
+  @@index([user_id, type, created_at])
+  @@index([block_id, created_at])
+  @@index([user_id, persistent_visitor, created_at])
+  @@index([campaign_id, created_at])
+  @@map("analytics_events")
+}
+
+// Named campaigns a creator creates for tagged links and QR codes.
+// Links carry the ID as utm_id so reporting does not depend on free text.
+model AnalyticsCampaign {
+  id          Bytes     @id @db.Binary(16)
+  user_id     Int
+  name        String    @db.VarChar(80)
+  slug        String    @db.VarChar(80)
+  channel     String    @db.VarChar(32)
+  archived_at DateTime?
+  created_at  DateTime  @default(now())
+
+  user    User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  events  AnalyticsEvent[]
+  follows Follow[]
+
+  @@unique([user_id, slug])
+  @@map("analytics_campaigns")
+}
+
+// Proof of each visitor consent decision (GDPR accountability).
+model AnalyticsConsent {
+  id                 Bytes    @id @db.Binary(16)
+  user_id            Int
+  visitor_hash       String   @db.VarChar(32)
+  persistent_visitor String?  @db.VarChar(32)
+  analytics          Boolean
+  advertising        Boolean
+  policy_version     String   @db.VarChar(16)
+  source             String   @db.VarChar(16)
+  created_at         DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, created_at])
+  @@map("analytics_consents")
+}
+
+// Third-party measurement tags a creator connects to their public page.
+// API tokens are stored encrypted (AES-256-GCM) and never returned to clients.
+model TrackingPixels {
+  id                      Bytes     @id @db.Binary(16)
+  user_id                 Int       @unique
+  ga4_measurement_id      String?   @db.VarChar(32)
+  meta_pixel_id           String?   @db.VarChar(32)
+  meta_capi_token_enc     String?   @db.Text
+  tiktok_pixel_id         String?   @db.VarChar(32)
+  tiktok_events_token_enc String?   @db.Text
+  // Screen Review 093 D2: the Creator Analytics and Tracking Terms version the
+  // creator accepted, and when. Null on rows saved before acceptance existed.
+  terms_version           String?   @db.VarChar(32)
+  terms_accepted_at       DateTime?
+  created_at              DateTime  @default(now())
+  updated_at              DateTime? @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("tracking_pixels")
+}
+
+// First run setup checklist on Home (Screen Review 015 I08). Photo, block and
+// theme steps derive from the user's data; only these moments are stored, so
+// progress follows the creator across devices.
+model UserOnboarding {
+  id                          Bytes     @id @db.Binary(16)
+  user_id                     Int       @unique
+  url_confirmed_at            DateTime?
+  shared_at                   DateTime?
+  checklist_dismissed_at      DateTime?
+  completed_at                DateTime?
+  analytics_card_dismissed_at DateTime?
+  created_at                  DateTime  @default(now())
+  updated_at                  DateTime? @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("user_onboarding")
+}
+
+// ===== OAuth 2.1 provider (Better Auth oauth-provider / MCP plugins) =====
+// Multi-value fields are stored as JSON strings because MySQL has no array type
+// and the adapter serializes `string[]` fields when `supportsArrays` is false.
+
+model OauthClient {
+  id                               Bytes     @id @db.Binary(16)
+  clientId                         String    @unique @map("client_id") @db.VarChar(255)
+  clientSecret                     String?   @map("client_secret") @db.Text
+  clientDiscoveryId                String?   @map("client_discovery_id")
+  disabled                         Boolean?  @default(false)
+  skipConsent                      Boolean?  @map("skip_consent")
+  enableEndSession                 Boolean?  @map("enable_end_session")
+  subjectType                      String?   @map("subject_type")
+  scopes                           String?   @db.Text
+  clientCredentialsScopes          String?   @map("client_credentials_scopes") @db.Text
+  userId                           Int?      @map("user_id")
+  createdAt                        DateTime? @map("created_at")
+  updatedAt                        DateTime? @map("updated_at")
+  name                             String?
+  uri                              String?
+  icon                             String?   @db.Text
+  contacts                         String?   @db.Text
+  tos                              String?
+  policy                           String?
+  softwareId                       String?   @map("software_id")
+  softwareVersion                  String?   @map("software_version")
+  softwareStatement                String?   @map("software_statement") @db.Text
+  redirectUris                     String    @map("redirect_uris") @db.Text
+  postLogoutRedirectUris           String?   @map("post_logout_redirect_uris") @db.Text
+  backchannelLogoutUri             String?   @map("backchannel_logout_uri")
+  backchannelLogoutSessionRequired Boolean?  @map("backchannel_logout_session_required")
+  tokenEndpointAuthMethod          String?   @map("token_endpoint_auth_method")
+  applicationType                  String?   @map("application_type")
+  jwks                             String?   @db.Text
+  jwksUri                          String?   @map("jwks_uri")
+  grantTypes                       String?   @map("grant_types") @db.Text
+  responseTypes                    String?   @map("response_types") @db.Text
+  requirePKCE                      Boolean?  @map("require_pkce")
+  dpopBoundAccessTokens            Boolean?  @default(false) @map("dpop_bound_access_tokens")
+  referenceId                      String?   @map("reference_id")
+  metadata                         Json?
+
+  user            User?                 @relation(fields: [userId], references: [id])
+  refreshTokens   OauthRefreshToken[]
+  accessTokens    OauthAccessToken[]
+  consents        OauthConsent[]
+  clientResources OauthClientResource[]
+
+  @@index([userId])
+  @@map("oauth_client")
+}
+
+model OauthResource {
+  id                          Bytes     @id @db.Binary(16)
+  identifier                  String    @unique @db.VarChar(255)
+  name                        String
+  accessTokenTtl              Int?      @map("access_token_ttl")
+  refreshTokenTtl             Int?      @map("refresh_token_ttl")
+  signingAlgorithm            String?   @map("signing_algorithm")
+  signingKeyId                String?   @map("signing_key_id")
+  allowedScopes               String?   @map("allowed_scopes") @db.Text
+  customClaims                Json?     @map("custom_claims")
+  dpopBoundAccessTokensRequired Boolean? @default(false) @map("dpop_bound_access_tokens_required")
+  disabled                    Boolean?  @default(false)
+  createdAt                   DateTime? @map("created_at")
+  updatedAt                   DateTime? @map("updated_at")
+  policyVersion               Int?      @default(1) @map("policy_version")
+  metadata                    Json?
+
+  clientResources OauthClientResource[]
+
+  @@map("oauth_resource")
+}
+
+model OauthClientResource {
+  id         Bytes     @id @db.Binary(16)
+  clientId   String    @map("client_id") @db.VarChar(255)
+  resourceId String    @map("resource_id") @db.VarChar(255)
+  metadata   Json?
+  createdAt  DateTime? @map("created_at")
+
+  client   OauthClient   @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  resource OauthResource @relation(fields: [resourceId], references: [identifier], onDelete: Cascade)
+
+  @@unique([clientId, resourceId])
+  @@index([clientId])
+  @@index([resourceId])
+  @@map("oauth_client_resource")
+}
+
+model OauthRefreshToken {
+  id                     Bytes     @id @db.Binary(16)
+  token                  String    @unique @db.VarChar(255)
+  clientId               String    @map("client_id") @db.VarChar(255)
+  sessionId              Int?      @map("session_id")
+  userId                 Int       @map("user_id")
+  referenceId            String?   @map("reference_id")
+  authorizationCodeId    String?   @map("authorization_code_id") @db.VarChar(255)
+  resources              String?   @db.Text
+  requestedUserInfoClaims String?  @map("requested_user_info_claims") @db.Text
+  scopes                 String    @db.Text
+  expiresAt              DateTime  @map("expires_at")
+  createdAt              DateTime  @map("created_at")
+  revoked                DateTime?
+  rotatedAt              DateTime? @map("rotated_at")
+  rotationReplayResponse String?   @map("rotation_replay_response") @db.Text
+  rotationReplayExpiresAt DateTime? @map("rotation_replay_expires_at")
+  authTime               DateTime? @map("auth_time")
+  confirmation           Json?
+
+  client      OauthClient       @relation(fields: [clientId], references: [clientId])
+  session     Session?          @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  user        User              @relation(fields: [userId], references: [id])
+  accessTokens OauthAccessToken[]
+
+  @@index([clientId])
+  @@index([sessionId])
+  @@index([userId])
+  @@index([authorizationCodeId])
+  @@map("oauth_refresh_token")
+}
+
+model OauthAccessToken {
+  id                     Bytes     @id @db.Binary(16)
+  token                  String    @unique @db.VarChar(255)
+  clientId               String    @map("client_id") @db.VarChar(255)
+  sessionId              Int?      @map("session_id")
+  userId                 Int?      @map("user_id")
+  referenceId            String?   @map("reference_id")
+  authorizationCodeId    String?   @map("authorization_code_id") @db.VarChar(255)
+  resources              String?   @db.Text
+  requestedUserInfoClaims String?  @map("requested_user_info_claims") @db.Text
+  refreshId              Bytes?    @map("refresh_id")
+  scopes                 String    @db.Text
+  expiresAt              DateTime  @map("expires_at")
+  createdAt              DateTime  @map("created_at")
+  revoked                DateTime?
+  confirmation           Json?
+
+  client   OauthClient        @relation(fields: [clientId], references: [clientId])
+  session  Session?           @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  user     User?              @relation(fields: [userId], references: [id])
+  refresh  OauthRefreshToken? @relation(fields: [refreshId], references: [id])
+
+  @@index([clientId])
+  @@index([sessionId])
+  @@index([userId])
+  @@index([refreshId])
+  @@index([authorizationCodeId])
+  @@map("oauth_access_token")
+}
+
+model OauthConsent {
+  id                     Bytes     @id @db.Binary(16)
+  clientId               String    @map("client_id") @db.VarChar(255)
+  userId                 Int?      @map("user_id")
+  referenceId            String?   @map("reference_id")
+  resources              String?   @db.Text
+  requestedUserInfoClaims String?  @map("requested_user_info_claims") @db.Text
+  scopes                 String    @db.Text
+  createdAt              DateTime  @map("created_at")
+  updatedAt              DateTime  @map("updated_at")
+
+  client OauthClient @relation(fields: [clientId], references: [clientId])
+  user   User?       @relation(fields: [userId], references: [id])
+
+  @@index([clientId])
+  @@index([userId])
+  @@map("oauth_consent")
+}
+
+model OauthClientAssertion {
+  id        Bytes    @id @db.Binary(16)
+  expiresAt DateTime @map("expires_at")
+
+  @@map("oauth_client_assertion")
+}
+
+model DeviceCode {
+  id               Bytes     @id @db.Binary(16)
+  deviceCode       String    @unique @map("device_code") @db.VarChar(255)
+  userCode         String    @map("user_code") @db.VarChar(255)
+  userId           String?   @map("user_id") @db.VarChar(255)
+  expiresAt        DateTime  @map("expires_at")
+  status           String
+  lastPolledAt     DateTime? @map("last_polled_at")
+  pollingInterval  Int?      @map("polling_interval")
+  clientId         String?   @map("client_id") @db.VarChar(255)
+  scope            String?   @db.Text
+  resources        String?   @db.Text
+  oauthClientId    String?   @map("oauth_client_id") @db.VarChar(255)
+
+  @@index([clientId])
+  @@map("device_code")
+}
+
+// ===== Fan Graph (Build Board #22, docs/features/fan-graph.md) =====
+
+enum PageStatus {
+  PUBLISHED
+  UNPUBLISHED
+}
+
+// A free follow from an account to a creator. A follow counts only while the
+// follower's email is verified and the account is not suspended; that is
+// checked at read time, so there is no pending status to keep in sync.
+model Follow {
+  id               Int       @id @default(autoincrement())
+  follower_id      Int
+  creator_id       Int
+  // The fan chose to appear on the creator's public follower list
+  show_publicly    Boolean   @default(false)
+  // The fan's consent to email updates from this creator, and when it was given.
+  // Broadcast (#1) reads it; a follow alone is never email consent.
+  email_updates    Boolean   @default(false)
+  email_updates_at DateTime?
+  // page | explore | pool | broadcast | qr
+  source           String    @db.VarChar(16)
+  campaign_id      Bytes?    @db.Binary(16)
+  created_at       DateTime  @default(now())
+
+  follower User               @relation("FollowsMade", fields: [follower_id], references: [id], onDelete: Cascade)
+  creator  User               @relation("FollowsReceived", fields: [creator_id], references: [id], onDelete: Cascade)
+  campaign AnalyticsCampaign? @relation(fields: [campaign_id], references: [id], onDelete: SetNull)
+
+  @@unique([follower_id, creator_id])
+  @@index([creator_id, created_at])
+  @@index([follower_id, created_at])
+  @@map("follows")
+}
+
+// Accounts a creator blocked from following them
+model FollowBlock {
+  creator_id Int
+  user_id    Int
+  created_at DateTime @default(now())
+
+  creator User @relation("FollowBlocksMade", fields: [creator_id], references: [id], onDelete: Cascade)
+  user    User @relation("FollowBlocksReceived", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@id([creator_id, user_id])
+  @@index([user_id])
+  @@map("follow_blocks")
+}
+
+// One row per ended follow, without the follower, so creators see how many
+// people left in a period and never who.
+model FollowRemoval {
+  id         Int      @id @default(autoincrement())
+  creator_id Int
+  // unfollow | removed | blocked
+  reason     String   @db.VarChar(16)
+  created_at DateTime @default(now())
+
+  creator User @relation(fields: [creator_id], references: [id], onDelete: Cascade)
+
+  @@index([creator_id, created_at])
+  @@map("follow_removals")
+}
+
+// Creator Pool Broadcast (Build Board #1), phase 1: Amped inbox only.
+// Spec: docs/features/creator-pool-broadcast.md, section 3.3.
+
+enum BroadcastStatus {
+  IN_REVIEW
+  QUEUED
+  SENDING
+  SENT
+  REJECTED
+  CANCELED
+  FAILED
+}
+
+enum BroadcastAudienceKind {
+  ALL_MEMBERS
+}
+
+enum BroadcastEmailStatus {
+  NOT_ELIGIBLE
+  PENDING
+  SENT
+  DELIVERED
+  DEFERRED
+  BOUNCED
+  COMPLAINED
+  FAILED
+}
+
+enum BroadcastReportReason {
+  FINANCIAL_PROMISE
+  SPAM
+  HARASSMENT
+  OTHER
+}
+
+model Broadcast {
+  id                Int                   @id @default(autoincrement())
+  creatorUserId     Int
+  poolId            Int?
+  audienceKind      BroadcastAudienceKind @default(ALL_MEMBERS)
+  title             String                @db.VarChar(120)
+  body              String                @db.Text // Markdown subset, rendered with an allowlist
+  sendEmail         Boolean               @default(false) // email arrives in phase 2
+  status            BroadcastStatus       @default(QUEUED)
+  idempotencyKey    String                @db.VarChar(64)
+  // Phrases the content check matched. Warn only: the creator confirmed and sent (Rob, 2026-10-04)
+  flaggedTerms      Json?
+  reviewReason      String?               @db.VarChar(16) // first_send
+  reviewNote        String?               @db.Text
+  reviewedById      Int?
+  reviewedAt        DateTime?
+  queuedAt          DateTime?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  recipientEstimate Int                   @default(0)
+  recipientCount    Int                   @default(0)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  creator    User                @relation("BroadcastCreator", fields: [creatorUserId], references: [id], onDelete: Cascade)
+  pool       CreatorPool?        @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  deliveries BroadcastDelivery[]
+  reports    BroadcastReport[]
+
+  @@unique([creatorUserId, idempotencyKey])
+  @@index([poolId, createdAt])
+  @@index([creatorUserId, createdAt])
+  @@index([status, updatedAt])
+  @@map("broadcasts")
+}
+
+model BroadcastDelivery {
+  id                Int                  @id @default(autoincrement())
+  broadcastId       Int
+  userId            Int
+  emailStatus       BroadcastEmailStatus @default(NOT_ELIGIBLE)
+  emailSkipReason   String?              @db.VarChar(32)
+  emailAttempts     Int                  @default(0)
+  providerMessageId String?              @db.VarChar(255)
+  emailSentAt       DateTime?
+  readAt            DateTime?
+  archivedAt        DateTime?
+  createdAt         DateTime             @default(now())
+
+  broadcast Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([broadcastId, userId])
+  @@index([userId, createdAt])
+  @@index([broadcastId, emailStatus])
+  @@map("broadcast_deliveries")
+}
+
+model BroadcastReport {
+  id             Int                   @id @default(autoincrement())
+  broadcastId    Int
+  reporterUserId Int
+  reason         BroadcastReportReason
+  note           String?               @db.VarChar(500)
+  createdAt      DateTime              @default(now())
+
+  broadcast Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  reporter  User      @relation(fields: [reporterUserId], references: [id], onDelete: Cascade)
+
+  @@unique([broadcastId, reporterUserId])
+  @@map("broadcast_reports")
+}
+
+// One row per sender. Created by an admin invite or on the first send.
+model BroadcastSenderStatus {
+  userId          Int       @id
+  invitedAt       DateTime? // invite-only pilot (BROADCAST_INVITE_ONLY)
+  firstApprovedAt DateTime? // set when the first broadcast passes review
+  pausedAt        DateTime?
+  pausedReason    String?   @db.VarChar(255)
+  updatedAt       DateTime  @updatedAt
+
+  @@map("broadcast_sender_status")
+}
+
+// creatorUserId 0 is the global row. MySQL unique keys ignore NULLs.
+model NotificationPreference {
+  id            Int       @id @default(autoincrement())
+  userId        Int
+  creatorUserId Int       @default(0)
+  emailEnabled  Boolean   @default(false)
+  mutedUntil    DateTime?
+  updatedAt     DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, creatorUserId])
+  @@map("notification_preferences")
+}
+
+
+model AirdropQueueEntry {
+  id           Int       @id @default(autoincrement())
+  userWalletId Int       @unique
+  amount       String    @db.Text
+  createdAt    DateTime  @default(now())
+
+  userWallet UserWallet @relation(fields: [userWalletId], references: [id], onDelete: Cascade)
+
+  @@map("airdrop_queue")
+}

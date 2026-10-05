@@ -3,10 +3,13 @@ import { render } from "@react-email/render";
 import verifyEmailTemplate from "./VerifyEmailTemplate";
 import resetPasswordTemplate from "./ResetPasswordTemplate";
 import emailChangeTemplate from "./EmailChangeTemplate";
+import emailChangeNoticeTemplate from "./EmailChangeNoticeTemplate";
 import welcomeEmailTemplate from "./WelcomeEmailTemplate";
 import { env } from "../../env";
 
 const baseURL = env.APP_URL;
+// Privacy Notice on the landing page of the current environment
+const privacyUrl = new URL("/privacy", env.LANDINGPAGE_URL).toString();
 
 type EmailOptions = {
   to: string | string[];
@@ -83,7 +86,7 @@ export const sendEmailVerification = async (email: string, token: string) => {
   console.log("🔗 Verification URL generated:", url);
 
   console.log("🎨 Rendering email verification template...");
-  const emailComponent = verifyEmailTemplate({ url });
+  const emailComponent = verifyEmailTemplate({ url, privacyUrl });
   const htmlContent = await render(emailComponent);
   console.log("✅ Email template rendered successfully");
 
@@ -101,7 +104,7 @@ export const sendPasswordResetEmail = async (email: string, token: string) => {
   console.log("🔗 Password reset URL generated:", url);
 
   console.log("🎨 Rendering password reset template...");
-  const emailComponent = resetPasswordTemplate({ url });
+  const emailComponent = resetPasswordTemplate({ url, privacyUrl });
   const htmlContent = await render(emailComponent);
   console.log("✅ Email template rendered successfully");
 
@@ -113,22 +116,20 @@ export const sendPasswordResetEmail = async (email: string, token: string) => {
   });
 };
 
-export const sendEmailChangeVerification = async (
-  email: string,
-  newEmail: string,
-  code: string
-) => {
-  console.log(`🔄 Generating email change verification code for ${email} -> ${newEmail}`);
+// Screen Review 019 I02: the code goes to the new address, which proves the
+// person controls it before it becomes their sign in email
+export const sendEmailChangeVerification = async (newEmail: string, code: string) => {
+  console.log("🔄 Sending email change verification code to the new address");
 
   console.log("🎨 Rendering email change template...");
-  const emailComponent = emailChangeTemplate({ code, newEmail });
+  const emailComponent = emailChangeTemplate({ code, newEmail, privacyUrl });
   const htmlContent = await render(emailComponent);
   console.log("✅ Email template rendered successfully");
 
   console.log("📨 Sending email change verification code...");
   return sendEmail({
-    to: email, // Send to the current/old email address for verification
-    subject: "Amped.Bio Email Change Verification",
+    to: newEmail,
+    subject: "Your Amped.Bio email change code",
     html_body: htmlContent,
   });
 };
@@ -137,7 +138,7 @@ export const sendWelcomeEmail = async (email: string, name?: string) => {
   console.log(`🎉 Sending welcome email to: ${email}`);
 
   console.log("🎨 Rendering welcome email template...");
-  const emailComponent = welcomeEmailTemplate({ name });
+  const emailComponent = welcomeEmailTemplate({ name, privacyUrl });
   const htmlContent = await render(emailComponent);
   console.log("✅ Email template rendered successfully");
 
@@ -145,6 +146,18 @@ export const sendWelcomeEmail = async (email: string, name?: string) => {
   return sendEmail({
     to: email,
     subject: "Welcome to Amped.Bio!",
+    html_body: htmlContent,
+  });
+};
+
+// The current address hears about an email change request (019 I02, I11)
+export const sendEmailChangeNotice = async (currentEmail: string, newEmail: string) => {
+  const privacyLink = new URL("/privacy", env.LANDINGPAGE_URL).toString();
+  const emailComponent = emailChangeNoticeTemplate({ newEmail, privacyUrl: privacyLink });
+  const htmlContent = await render(emailComponent);
+  return sendEmail({
+    to: currentEmail,
+    subject: "Your Amped.Bio email change request",
     html_body: htmlContent,
   });
 };

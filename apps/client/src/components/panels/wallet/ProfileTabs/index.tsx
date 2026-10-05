@@ -1,87 +1,61 @@
-import React, { useState } from "react";
-import { Coins, Image, Clock, ArrowLeftRight } from "lucide-react";
-import NFTModal from "../NFTModal";
-import { TabType, ProfileTabsProps, NFT } from "./types";
+import { useEffect } from "react";
+import { useSearchParams } from "react-router";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui";
+import { useDestinationTab } from "@/hooks/useDestinationTab";
+import { ProfileTabsProps } from "./types";
 import TokensTab from "./components/TokensTab";
-import NFTsTab from "./components/NFTsTab";
-import TransactionsTab from "./components/TransactionsTab";
-import TransfersTab from "./components/TransfersTab";
 import TabSkeletons, { EmptyState } from "./TabSkeletons";
+import { ActivityTab } from "../activity/ActivityTab";
 
-const tabs = [
-  { id: "tokens" as TabType, label: "Tokens", icon: Coins },
-  { id: "nfts" as TabType, label: "NFTs", icon: Image, disabled: true },
-  { id: "transactions" as TabType, label: "Transactions", icon: Clock },
-  { id: "transfers" as TabType, label: "Transfers", icon: ArrowLeftRight },
-];
+// Screen Review 057, 058 (D19). Wallet tabs: Tokens and Activity. Activity
+// replaces the Transactions and Transfers tabs; its chips live in ?filter=.
+// NFTs was a disabled tab with no content and is not rendered (D07).
+
+const TABS = ["tokens", "activity"] as const;
+
+// Old ?tab= values land on the Activity chip they became
+const LEGACY_TABS: Record<string, string | null> = {
+  transactions: null,
+  transfers: "transfers",
+};
 
 export default function ProfileTabs({ isEmpty = false, loading = false }: ProfileTabsProps) {
-  const [activeTab, setActiveTab] = useState<TabType>("tokens");
-  const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null);
-  const [isNFTModalOpen, setIsNFTModalOpen] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const [tab, setTab] = useDestinationTab(TABS);
 
-  const renderContent = () => {
-    if (loading) {
-      return <TabSkeletons activeTab={activeTab} />;
-    }
-
-    if (isEmpty) {
-      return <EmptyState />;
-    }
-
-    switch (activeTab) {
-      case "tokens":
-        return <TokensTab />;
-      case "nfts":
-        return <NFTsTab />;
-      case "transactions":
-        return <TransactionsTab />;
-      case "transfers":
-        return <TransfersTab />;
-      default:
-        return null;
-    }
-  };
+  useEffect(() => {
+    const raw = params.get("tab");
+    if (!raw || !(raw in LEGACY_TABS)) return;
+    setParams(
+      current => {
+        const updated = new URLSearchParams(current);
+        updated.set("tab", "activity");
+        const filter = LEGACY_TABS[raw];
+        if (filter) updated.set("filter", filter);
+        return updated;
+      },
+      { replace: true }
+    );
+  }, [params, setParams]);
 
   return (
-    <>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="border-b border-gray-200 overflow-x-auto">
-          <nav
-            className="flex space-x-4 sm:space-x-8 px-4 sm:px-6 min-w-max sm:min-w-0"
-            aria-label="Tabs"
-          >
-            {tabs.map(tab => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => !tab.disabled && !loading && setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 whitespace-nowrap py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors duration-200 touch-manipulation ${
-                    isActive
-                      ? "border-blue-500 text-blue-600"
-                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                  } ${tab.disabled || loading ? "opacity-50 cursor-not-allowed" : ""}`}
-                  disabled={tab.disabled || loading}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        <div className="p-4 sm:p-6">{renderContent()}</div>
-      </div>
-
-      <NFTModal
-        isOpen={isNFTModalOpen}
-        onClose={() => setIsNFTModalOpen(false)}
-        nft={selectedNFT}
-      />
-    </>
+    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+      <Tabs value={tab} onValueChange={setTab} className="flex flex-col gap-[21px]">
+        <TabsList aria-label="Wallet sections" className="max-sm:w-full">
+          <TabsTrigger value="tokens" className="max-sm:flex-1">
+            Tokens
+          </TabsTrigger>
+          <TabsTrigger value="activity" className="max-sm:flex-1">
+            Activity
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="tokens" className="mt-0">
+          {loading ? <TabSkeletons activeTab="tokens" /> : isEmpty ? <EmptyState /> : <TokensTab />}
+        </TabsContent>
+        <TabsContent value="activity" className="mt-0">
+          <ActivityTab />
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }

@@ -15,6 +15,8 @@ interface Requirement {
   description: string;
   completed: boolean;
   panel: EditorPanelType;
+  // Destination tab (?tab=), for example Design Style
+  tab?: string;
   actionLabel: string;
 }
 
@@ -28,28 +30,29 @@ const STEPS: Omit<Requirement, "completed">[] = [
     key: "photo",
     label: "Profile Photo",
     description: "Upload a profile picture",
-    panel: "profile",
+    panel: "page",
     actionLabel: "Upload Photo",
   },
   {
     key: "background",
     label: "Background",
     description: "Set a background for your page",
-    panel: "gallery",
+    panel: "design",
+    tab: "style",
     actionLabel: "Set Background",
   },
   {
     key: "bio",
     label: "Bio / About Text",
     description: "Write a short bio about yourself",
-    panel: "profile",
+    panel: "page",
     actionLabel: "Write Bio",
   },
   {
     key: "minLinks",
     label: "At Least 5 Blocks",
     description: "Add 5 or more blocks to your page",
-    panel: "blocks",
+    panel: "page",
     actionLabel: "Add Blocks",
   },
 ];
@@ -67,8 +70,8 @@ export function FaucetRequirementsChecklist({
 
   const completedCount = steps.filter(s => s.completed).length;
 
-  const handleAction = (panel: EditorPanelType) => {
-    setActivePanelAndNavigate(panel);
+  const handleAction = (panel: EditorPanelType, tab?: string) => {
+    setActivePanelAndNavigate(panel, undefined, { tab });
     onActionClick?.();
   };
 
@@ -118,7 +121,7 @@ export function FaucetRequirementsChecklist({
             {!step.completed && (
               <button
                 type="button"
-                onClick={() => handleAction(step.panel)}
+                onClick={() => handleAction(step.panel, step.tab)}
                 className="flex items-center space-x-1 text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors flex-shrink-0 ml-2"
               >
                 <span>{step.actionLabel}</span>
