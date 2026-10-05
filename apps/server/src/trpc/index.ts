@@ -16,6 +16,7 @@ import { authbaseRouter } from "./authbase";
 import { analyticsRouter } from "./analytics";
 import { trackingPixelsRouter } from "./trackingPixels";
 import { oauthAppsRouter } from "./oauthApps";
+import { broadcastRouter } from "./broadcast";
 import { inferRouterOutputs } from "@trpc/server";
 
 // Merge all routers
@@ -37,6 +38,7 @@ const mergedRouter = router({
   analytics: analyticsRouter,
   trackingPixels: trackingPixelsRouter,
   oauthApps: oauthAppsRouter,
+  broadcast: broadcastRouter,
 });
 
 export type AppRouter = typeof mergedRouter;
