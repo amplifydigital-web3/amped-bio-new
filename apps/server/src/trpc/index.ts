@@ -16,6 +16,7 @@ import { authbaseRouter } from "./authbase";
 import { analyticsRouter } from "./analytics";
 import { trackingPixelsRouter } from "./trackingPixels";
 import { oauthAppsRouter } from "./oauthApps";
+import { followRouter } from "./follow";
 import { broadcastRouter } from "./broadcast";
 import { inferRouterOutputs } from "@trpc/server";
 
@@ -38,6 +39,7 @@ const mergedRouter = router({
   analytics: analyticsRouter,
   trackingPixels: trackingPixelsRouter,
   oauthApps: oauthAppsRouter,
+  follow: followRouter,
   broadcast: broadcastRouter,
 });
 

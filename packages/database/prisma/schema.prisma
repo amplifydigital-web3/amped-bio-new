@@ -30,6 +30,12 @@ model User {
   image_file_id      Int?
   reward_business_id String?
 
+  // Fan Graph (#22): accounts made from Follow have no public page until the
+  // owner publishes one. Existing accounts are PUBLISHED.
+  page_status               PageStatus @default(PUBLISHED)
+  show_follower_count       Boolean    @default(true)
+  follow_disclosure_seen_at DateTime?
+
   themes            Theme[]
   blocks            Block[]
   confirmationCodes ConfirmationCode[]
@@ -45,6 +51,12 @@ model User {
   trackingPixels     TrackingPixels?
   analyticsCampaigns AnalyticsCampaign[]
   analyticsConsents  AnalyticsConsent[]
+
+  followsMade          Follow[]      @relation("FollowsMade")
+  followsReceived      Follow[]      @relation("FollowsReceived")
+  followBlocksMade     FollowBlock[] @relation("FollowBlocksMade")
+  followBlocksReceived FollowBlock[] @relation("FollowBlocksReceived")
+  followRemovals       FollowRemoval[]
 
   oauthClients      OauthClient[]
   oauthRefreshTokens OauthRefreshToken[]
@@ -433,8 +445,9 @@ model AnalyticsCampaign {
   archived_at DateTime?
   created_at  DateTime  @default(now())
 
-  user   User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  events AnalyticsEvent[]
+  user    User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  events  AnalyticsEvent[]
+  follows Follow[]
 
   @@unique([user_id, slug])
   @@map("analytics_campaigns")
@@ -674,6 +687,70 @@ model DeviceCode {
 
   @@index([clientId])
   @@map("device_code")
+}
+
+// ===== Fan Graph (Build Board #22, docs/features/fan-graph.md) =====
+
+enum PageStatus {
+  PUBLISHED
+  UNPUBLISHED
+}
+
+// A free follow from an account to a creator. A follow counts only while the
+// follower's email is verified and the account is not suspended; that is
+// checked at read time, so there is no pending status to keep in sync.
+model Follow {
+  id               Int       @id @default(autoincrement())
+  follower_id      Int
+  creator_id       Int
+  // The fan chose to appear on the creator's public follower list
+  show_publicly    Boolean   @default(false)
+  // The fan's consent to email updates from this creator, and when it was given.
+  // Broadcast (#1) reads it; a follow alone is never email consent.
+  email_updates    Boolean   @default(false)
+  email_updates_at DateTime?
+  // page | explore | pool | broadcast | qr
+  source           String    @db.VarChar(16)
+  campaign_id      Bytes?    @db.Binary(16)
+  created_at       DateTime  @default(now())
+
+  follower User               @relation("FollowsMade", fields: [follower_id], references: [id], onDelete: Cascade)
+  creator  User               @relation("FollowsReceived", fields: [creator_id], references: [id], onDelete: Cascade)
+  campaign AnalyticsCampaign? @relation(fields: [campaign_id], references: [id], onDelete: SetNull)
+
+  @@unique([follower_id, creator_id])
+  @@index([creator_id, created_at])
+  @@index([follower_id, created_at])
+  @@map("follows")
+}
+
+// Accounts a creator blocked from following them
+model FollowBlock {
+  creator_id Int
+  user_id    Int
+  created_at DateTime @default(now())
+
+  creator User @relation("FollowBlocksMade", fields: [creator_id], references: [id], onDelete: Cascade)
+  user    User @relation("FollowBlocksReceived", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@id([creator_id, user_id])
+  @@index([user_id])
+  @@map("follow_blocks")
+}
+
+// One row per ended follow, without the follower, so creators see how many
+// people left in a period and never who.
+model FollowRemoval {
+  id         Int      @id @default(autoincrement())
+  creator_id Int
+  // unfollow | removed | blocked
+  reason     String   @db.VarChar(16)
+  created_at DateTime @default(now())
+
+  creator User @relation(fields: [creator_id], references: [id], onDelete: Cascade)
+
+  @@index([creator_id, created_at])
+  @@map("follow_removals")
 }
 
 // Creator Pool Broadcast (Build Board #1), phase 1: Amped inbox only.

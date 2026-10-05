@@ -13,6 +13,7 @@ import RewardPanel from "./panels/reward/RewardPanel.tsx";
 import PayRedirect from "./panels/wallet/send/PayRedirect";
 import ExplorePage from "./panels/explore/ExplorePanel.tsx";
 import { AnalyticsPanel } from "./panels/analytics/AnalyticsPanel";
+import { PeoplePanel } from "./panels/people/PeoplePanel";
 import { PagePanel } from "./panels/page/PagePanel";
 import { DesignPanel } from "./panels/design/DesignPanel";
 import { AccountPanel } from "./panels/account/AccountPanel";
@@ -38,7 +39,7 @@ interface LayoutProps {
 const PREVIEW_PANELS: EditorPanelType[] = ["page", "design"];
 
 // Destinations whose screens are restyled sit directly on the room (PR 3a Design, 3b Page)
-const RESTYLED_PANELS: EditorPanelType[] = ["design", "page", "inbox"];
+const RESTYLED_PANELS: EditorPanelType[] = ["design", "page", "people", "inbox"];
 
 function ActivePanel({ panel }: { panel: EditorPanelType }) {
   switch (panel) {
@@ -46,6 +47,8 @@ function ActivePanel({ panel }: { panel: EditorPanelType }) {
       return <HomePanel />;
     case "analytics":
       return <AnalyticsPanel />;
+    case "people":
+      return import.meta.env.VITE_FAN_GRAPH === "true" ? <PeoplePanel /> : null;
     case "explore":
       return <ExplorePage />;
     case "page":

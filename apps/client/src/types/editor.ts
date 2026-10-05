@@ -42,6 +42,7 @@ export type Theme = {
 export const EDITOR_PANELS = [
   "home",
   "analytics",
+  "people",
   "explore",
   "page",
   "design",
