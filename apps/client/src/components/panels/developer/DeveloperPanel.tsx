@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
-import { Check, Copy, KeyRound, Plus, ShieldCheck, Trash2 } from "lucide-react";
+import { Check, Copy, KeyRound, Plus, Trash2 } from "lucide-react";
 import {
   Badge,
   Button,
@@ -26,7 +26,7 @@ import {
   Textarea,
   trpc,
 } from "@repo/ui";
-import { SCOPE_LABELS, parseRedirectUris, type OAuthClientSummary } from "./developer-types";
+import { parseRedirectUris, type OAuthClientSummary } from "./developer-types";
 
 interface ClientFormState {
   client_name: string;
@@ -52,7 +52,6 @@ export function DeveloperPanel() {
   const [copyingId, setCopyingId] = useState<string | null>(null);
 
   const clientsQuery = useQuery(trpc.oauthApps.list.queryOptions());
-  const consentsQuery = useQuery(trpc.oauthApps.consents.queryOptions());
 
   const clients = (clientsQuery.data ?? []) as unknown as Array<
     OAuthClientSummary & { client_id: string; client_name?: string; redirect_uris?: string[] }
@@ -60,7 +59,6 @@ export function DeveloperPanel() {
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: trpc.oauthApps.list.queryKey() });
-    void queryClient.invalidateQueries({ queryKey: trpc.oauthApps.consents.queryKey() });
   };
 
   const createMutation = useMutation({
@@ -94,15 +92,6 @@ export function DeveloperPanel() {
       invalidate();
     },
     onError: error => toast.error((error as { message?: string })?.message || "Unable to remove application"),
-  });
-
-  const revokeMutation = useMutation({
-    ...trpc.oauthApps.revokeConsent.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Access revoked");
-      invalidate();
-    },
-    onError: error => toast.error((error as { message?: string })?.message || "Unable to revoke access"),
   });
 
   const redirectUris = useMemo(
@@ -227,48 +216,6 @@ export function DeveloperPanel() {
                     {uris.length > 0 ? (
                       <p className="text-xs text-gray-500">Redirect URIs: {uris.join(", ")}</p>
                     ) : null}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <ShieldCheck className="h-5 w-5 text-blue-600" /> Authorized applications
-          </CardTitle>
-          <CardDescription>Applications that currently have access to your account.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {consentsQuery.isLoading ? (
-            <p className="text-sm text-gray-500">Loading authorized applications…</p>
-          ) : (consentsQuery.data ?? []).length === 0 ? (
-            <p className="text-sm text-gray-500">No application has access to your account.</p>
-          ) : (
-            <ul className="divide-y divide-gray-100">
-              {(consentsQuery.data as unknown as Array<Record<string, unknown>>).map(consent => {
-                const scopes = String(consent.scopes ?? "").split(/[\s,]+/).filter(Boolean);
-                return (
-                  <li key={String(consent.id)} className="flex items-center justify-between gap-3 py-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-gray-900">
-                        {String(consent.clientId ?? "Application")}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {scopes.map(scope => SCOPE_LABELS[scope] ?? scope).join(", ")}
-                      </p>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => revokeMutation.mutate({ id: String(consent.id) })}
-                      disabled={revokeMutation.isPending}
-                    >
-                      Revoke
-                    </Button>
                   </li>
                 );
               })}

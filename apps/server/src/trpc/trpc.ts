@@ -62,6 +62,16 @@ export const createContext = async ({
  * Should be done only once per backend!
  */
 const t = initTRPC.context<Context>().create({
+  // Rate limited procedures put retryAfter (ISO time) in the error cause. The
+  // default formatter drops the cause, so pass that one field to the client
+  // (Screen Review 019 I06).
+  errorFormatter({ shape, error }) {
+    const retryAfter = (error.cause as { retryAfter?: unknown } | undefined)?.retryAfter;
+    return {
+      ...shape,
+      data: { ...shape.data, retryAfter: typeof retryAfter === "string" ? retryAfter : undefined },
+    };
+  },
   sse: {
     ping: {
       enabled: true,

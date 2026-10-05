@@ -38,8 +38,9 @@ interface LayoutProps {
 // The live preview shows on Page and Design only (D10)
 const PREVIEW_PANELS: EditorPanelType[] = ["page", "design"];
 
-// Destinations whose screens are restyled sit directly on the room (PR 3a Design, 3b Page)
-const RESTYLED_PANELS: EditorPanelType[] = ["design", "page", "people", "inbox"];
+// Destinations whose screens are restyled sit directly on the room (PR 3a Design,
+// 3b Page, 3c Account)
+const RESTYLED_PANELS: EditorPanelType[] = ["design", "page", "people", "inbox", "account"];
 
 function ActivePanel({ panel }: { panel: EditorPanelType }) {
   switch (panel) {
