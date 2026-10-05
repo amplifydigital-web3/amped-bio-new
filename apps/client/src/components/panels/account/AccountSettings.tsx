@@ -1,24 +1,20 @@
 import { useSearchParams } from "react-router";
-import { useAuth } from "@repo/ui";
-import { SecurityTabContent } from "../profile/SecurityTabContent";
-import { DisclosureGroup, DisclosureRow } from "../design/kit/DisclosureRow";
+import { DisclosureGroup } from "../design/kit/DisclosureRow";
+import { CONNECTED_APPS_ROW, ConnectedAppsRow } from "./ConnectedAppsRow";
 import { EMAIL_ROW, EmailRow } from "./EmailRow";
+import { PASSWORD_ROW, PasswordRow } from "./PasswordRow";
 import { PUBLIC_URL_ROW, PublicUrlRow } from "./PublicUrlRow";
+import { TWO_FACTOR_ROW, TwoFactorRow } from "./TwoFactorRow";
 
-// Screen Review 019 I01 and 020 I01 (D04). Account Settings is one 610 column
-// with one G1 clear card of flat disclosure rows: Public URL, Email, then Two
-// factor. One row is open at a time; ?open=url or ?open=email opens one.
-//
-// The Password row (row three in 019 I01) comes with 021: there is no in
-// account password change today, only the reset link from sign in. The Two
-// factor row keeps today's content until 021 restyles it.
+// Screen Review 019 I01, 021 I01 and 098 I01 (D04, D30). Account Settings is
+// one 610 column with one G1 clear card of flat disclosure rows: Public URL,
+// Email, Password, Two factor, Connected apps. One row is open at a time;
+// ?open=<row> opens one.
 
-const TWO_FACTOR_ROW = "two-factor";
-const ROWS = [PUBLIC_URL_ROW, EMAIL_ROW, TWO_FACTOR_ROW];
+const ROWS = [PUBLIC_URL_ROW, EMAIL_ROW, PASSWORD_ROW, TWO_FACTOR_ROW, CONNECTED_APPS_ROW];
 
 export function AccountSettings() {
   const [params] = useSearchParams();
-  const { authUser } = useAuth();
   const requested = params.get("open");
   const initialOpen = requested && ROWS.includes(requested) ? requested : undefined;
 
@@ -33,13 +29,9 @@ export function AccountSettings() {
         >
           <PublicUrlRow />
           <EmailRow />
-          <DisclosureRow
-            id={TWO_FACTOR_ROW}
-            label="Two factor"
-            value={authUser?.twoFactorEnabled ? "On" : "Off"}
-          >
-            <SecurityTabContent />
-          </DisclosureRow>
+          <PasswordRow />
+          <TwoFactorRow />
+          <ConnectedAppsRow />
         </DisclosureGroup>
       </div>
     </div>

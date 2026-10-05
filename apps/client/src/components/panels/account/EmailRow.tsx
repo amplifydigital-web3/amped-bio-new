@@ -1,12 +1,13 @@
-import { useContext, useEffect, useRef, useState } from "react";
-import { OTPInput, OTPInputContext } from "input-otp";
+import { useEffect, useRef, useState } from "react";
+import { OTPInput } from "input-otp";
 import { Loader2 } from "lucide-react";
-import { Button, cn, trpcClient, useAuth } from "@repo/ui";
+import { Button, trpcClient, useAuth } from "@repo/ui";
 import { toast } from "@/components/ui/toast";
 import { formatClock, useSecondsLeft } from "@/hooks/useSecondsLeft";
 import { DisclosureRow, useDisclosureGroup } from "../design/kit/DisclosureRow";
 import { FieldError } from "../page/blocks/LinkFields";
 import { wellClass } from "../page/blocks/linkValue";
+import { CodeSlot, Footer } from "./fields";
 
 // Screen Review 019. Email, the second row of the Account card. A two step
 // change in place: New email with Send code, then the six digit code sent to
@@ -31,48 +32,6 @@ function retryDeadline(error: unknown) {
   return parsed && !Number.isNaN(parsed.getTime())
     ? parsed
     : new Date(Date.now() + RESEND_COOLDOWN_MS);
-}
-
-/** One 44 x 55 G2 slot (019 I07). */
-function CodeSlot({
-  index,
-  invalid,
-  disabled,
-}: {
-  index: number;
-  invalid: boolean;
-  disabled: boolean;
-}) {
-  const context = useContext(OTPInputContext);
-  const slot = context.slots[index];
-  return (
-    <div
-      className={cn(
-        "prism-well relative flex h-commit w-touch items-center justify-center text-prism-panel-title font-bold tabular-nums text-prism-ink",
-        !disabled &&
-          slot?.isActive &&
-          "shadow-[0_0_0_1.5px_#0B5A80,0_0_0_5.5px_rgba(39,170,225,0.32)]",
-        invalid && "!shadow-[inset_0_0_0_1.5px_#B3261E]"
-      )}
-    >
-      {slot?.char}
-      {!disabled && slot?.hasFakeCaret && (
-        <span
-          aria-hidden
-          className="h-[21px] w-px animate-caret-blink bg-prism-ink motion-reduce:animate-none"
-        />
-      )}
-    </div>
-  );
-}
-
-/** Cancel then the primary, right aligned; full width with the primary on top on phones (I12). */
-function Footer({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col-reverse gap-[13px] sm:flex-row sm:items-center sm:justify-end">
-      {children}
-    </div>
-  );
 }
 
 function EmailEditor() {

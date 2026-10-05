@@ -213,7 +213,7 @@ New preset recipes: `prism-dock` (dock capsule, tint 0.12, white 0.56), `prism-d
 
 ### Interim destinations
 
-Design is replaced in PR 3a, Page in PR 3b and Account Settings in PR 3c (below). The Two factor row content and the Developers tab keep today's look until 021 and 098. Destinations that are not restyled yet sit on a white surface so their current colors stay readable on the room; each batch removes it.
+Design is replaced in PR 3a, Page in PR 3b and Account in PR 3c and 6b (below). The Developers tab keeps today's look until 092. Destinations that are not restyled yet sit on a white surface so their current colors stay readable on the room; each batch removes it.
 
 ## Design (PR 3a, Screen Review 023 to 033)
 
@@ -270,9 +270,9 @@ Page lives in `apps/client/src/components/panels/page`. The live preview lives i
 - `addBlock` no longer toasts or clears the unsaved flag.
 - `removeBlock` throws on failure.
 
-## Account (PR 3c, Screen Review 019, 020)
+## Account (PR 3c, Screen Review 019, 020; PR 6b, 021, 098)
 
-Account Settings lives in `apps/client/src/components/panels/account`. It is one 610 column with one G1 clear card of flat disclosure rows (`design/kit/DisclosureRow.tsx`, with `inset` for rows inside a card). One row opens at a time. `?open=url` or `?open=email` opens a row; the @handle on the Page header card links to `?open=url`.
+Account Settings lives in `apps/client/src/components/panels/account`. It is one 610 column with one G1 clear card of flat disclosure rows (`design/kit/DisclosureRow.tsx`, with `inset` for rows inside a card): Public URL, Email, Password, Two factor, Connected apps. One row opens at a time. `?open=<row>` opens a row (url, email, password, two-factor, connected-apps); the @handle on the Page header card links to `?open=url`. Shared row pieces (code slot, footer, password field) live in `account/fields.tsx`.
 
 ### Pieces
 
@@ -281,15 +281,25 @@ Account Settings lives in `apps/client/src/components/panels/account`. It is one
 | Public URL (020) | `PublicUrlRow.tsx`, `hooks/useHandleAvailability.ts` | Row value amped.bio/handle (no @). One well with the prefix inside it. The status line names the state in words and an icon: Your current URL, Checking (after 400ms), available, taken, too short, or the check failed with Retry. The current handle is compared ignoring case before any format check, so a legacy handle with capitals never shows an error. Typed input is cleaned; a helper names the rule for 5 seconds. An available new URL shows the solid notice Your old links stop working. Use this URL is explicit, stays on Account, and the toast offers Copy link |
 | Email (019) | `EmailRow.tsx`, `hooks/useSecondsLeft.ts` | Two steps in place, no dialog. Step 1: Current email, then one New email field with Send code. Step 2: six 44 x 55 code slots (paste fills them, the sixth digit submits), the expiry countdown, Use a different email and Resend code (60 second cooldown). Errors sit under the field with their fix. Rate limits disable Send code with a countdown. An expired code swaps Verify for Send a new code. Success closes the row with a toast |
 | Email change server flow | `apps/server/src/trpc/user.ts`, `utils/email` | The code goes to the new address and is stored with that address (`confirmation_codes.target`). Confirm accepts only that address. The current address gets a notice email. The tRPC error formatter passes `retryAfter` from rate limited errors to the client |
-| Two factor | `profile/SecurityTabContent.tsx` | The third row for now, with today's content inside it until 021 |
+| Password (021 I02) | `PasswordRow.tsx` | Value Reset by email. Send reset link sends the same email as sign in (Cap captcha token from `useCaptcha`), with the link on the public site. Then Check <email> for a reset link. and a 60 second cooldown |
+| Two factor (021) | `TwoFactorRow.tsx`, `BackupCodesSlab.tsx` | Value Off, or On in success with a check. Turn on runs four steps in place with the StepBar: Confirm password, Scan (QR 144 and the key in groups of four with Copy; Open in authenticator app on touch), Enter code (six slots, the sixth digit verifies), Save codes (slab, Copy all, Download, required I saved these codes, then Done). A verified code turns the row On at once. Codes not yet confirmed stay in memory for the session, never in storage, and the On state shows the solid notice Save your backup codes with Show codes. New backup codes and Turn off each ask for the password in the shared Dialog; Turn off is destructive. A response without totpURI shows Two factor did not start. Retry. under Continue, not a password error |
+| Connected apps (D30, 092 I16 to I18) | `ConnectedAppsRow.tsx`, server `trpc/oauthApps.ts` consents | Value is the count (2 apps, or None). Each app shows its name, website host, the consent screen scope titles (`describeOAuthScope`, one source), Allowed <date> and Revoke. Loading, empty and error states. The consents query now joins the client name, icon and website. Revoke still deletes the consent only; ending tokens in the same call (D2) ships with 092 |
 
-The Password row (row three in 019 I01) comes with 021. There is no in account password change today.
+### Destination (098)
+
+- `Layout.tsx` renders panels from one `Record<EditorPanelType, ...>`, so a panel without a screen fails type checking. A panel with no screen today (rewardPools, and rns with its flag off) redirects to /home with replace.
+- `?tab=` drives Settings and Developers. An unknown value is removed with replace (`hooks/useDestinationTab.ts`). The top bar reads Account on Settings and Account, Developers on Developers. No save status on Account (D26).
+- On Account no rail item is current; the avatar button carries the ring. Focus moves to the h1 on arrival. A slow load shows the row skeletons after 400ms and the error card with Retry after 10 seconds.
+- Banner destinations come from `@repo/constants` (`BANNER_LIVE_PANELS`). The admin select lists only live destinations; legacy stored values map on read (rewardPools and leaderboard open Explore).
+- Developers keeps its look until row 092. Its Authorized applications card moved to Connected apps.
 
 ### Removed
 
 - `profile/ProfileSections`, `profile/URLPicker` and `dialogs/EmailChangeDialog`.
 - `ui/URLStatusIndicator`.
 - The current email and confirm email fields. The code to the new address is the confirmation.
+- `profile/SecurityTabContent`, `dialogs/BackupCodesDialog`, `ui/input-otp` and the sonner toasts they used (021).
+- `SCOPE_LABELS` in `developer/developer-types.ts`.
 
 ## Rules reviewers should enforce
 
