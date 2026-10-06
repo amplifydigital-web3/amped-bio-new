@@ -1,12 +1,13 @@
 import { useParams, useLocation } from "react-router";
 import { Layout } from "../components/Layout";
 import { useAuth } from "@repo/ui";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useEditor } from "../contexts/EditorContext";
 import { useNavigate } from "react-router";
 import { normalizeHandle, formatHandle, validateHandleFormat } from "@repo/ui";
-import { toast } from "react-hot-toast";
 import { trpc } from "@repo/ui";
+import { PANEL_TITLES } from "@/components/shell/destinations";
+import { ShellErrorCard, ShellPending } from "@/components/shell/ShellGate";
 import { useQuery } from "@tanstack/react-query";
 import {
   EDITOR_PANELS,
@@ -18,9 +19,10 @@ import {
 export function Editor() {
   const { panel: panelParam, handle: legacyHandle } = useParams();
   const { authUser } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const [authorized, setAuthorized] = useState(false);
-  const { profile, setUser, setActivePanel } = useEditor();
+  // 081 I01, I07: the profile load. "failed" shows the shell error card.
+  const [load, setLoad] = useState<"loading" | "ready" | "failed">("loading");
+  const [attempt, setAttempt] = useState(0);
+  const { profile, setUser, setActivePanel, activePanel } = useEditor();
   const nav = useNavigate();
   const location = useLocation();
 
@@ -86,40 +88,44 @@ export function Editor() {
     setActivePanel(panel);
   }, [panelParam, legacyHandle, location, nav, setActivePanel]);
 
-  // Check if the user is allowed to use the dashboard
+  // ProtectedRoute owns the signed out redirect (with returnTo, 081 I05, I06);
+  // the editor only loads the signed in creator's profile.
   useEffect(() => {
-    const isLoggedIn = authUser !== null;
-
-    if (!isLoggedIn) {
-      // User is not logged in, redirect to the login page on the public site
-      toast.error("You need to log in to use the dashboard");
-      window.location.href = `${import.meta.env.VITE_LANDINGPAGE_URL}/login`;
+    if (!userHandle) return;
+    if (userHandle === profile.handle) {
+      setLoad("ready");
       return;
     }
+    let active = true;
+    setLoad("loading");
+    void setUser(userHandle).then(loaded => {
+      if (active) setLoad(loaded ? "ready" : "failed");
+    });
+    return () => {
+      active = false;
+    };
+    // profile.handle changes when setUser succeeds; attempt reruns a failed load
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userHandle, attempt, setUser]);
 
-    // User is authorized to use the dashboard
-    setAuthorized(true);
-  }, [authUser]);
+  const retry = useCallback(() => setAttempt(current => current + 1), []);
 
+  // 081 I03: <Destination> · Amped.Bio once loaded
   useEffect(() => {
-    if (userHandle && userHandle !== profile.handle) {
-      setLoading(true);
-      setUser(userHandle).then(() => {
-        setLoading(false);
-      });
-    } else {
-      setLoading(false);
-    }
-  }, [userHandle, profile, setUser]);
+    if (load === "ready") document.title = `${PANEL_TITLES[activePanel]} · Amped.Bio`;
+  }, [load, activePanel]);
 
-  if (loading) {
-    return <div>Loading...</div>;
+  if (!authUser) return null;
+  if (load === "failed") {
+    return (
+      <ShellErrorCard
+        title="Your editor did not load"
+        cause="We could not load your page details. Check your connection, then try again."
+        onRetry={retry}
+      />
+    );
   }
-
-  // Only render the editor if the user is authorized
-  if (!authorized) {
-    return null; // Render nothing while redirection happens
-  }
+  if (load === "loading") return <ShellPending onRetry={retry} />;
 
   // The Prism shell scrolls the page itself (fixed rail and dock, sticky
   // preview), so no viewport-height or overflow wrapper goes around it

@@ -1,47 +1,41 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { Navigate } from "react-router";
-import { ExternalRedirect, useAuth } from "@repo/ui";
-import { Loader2 } from "lucide-react";
+import { useAuth } from "@repo/ui";
+import { useEditor } from "@/contexts/EditorContext";
+import { ShellPending, signInUrl } from "./shell/ShellGate";
 
 interface ProtectedRouteProps {
   children: ReactNode;
   adminOnly?: boolean;
 }
 
+/**
+ * Screen Review 081 I01, I05, I08. While the session is read, the room and
+ * then the shell skeleton; after 10 s, the timeout card. Signed out goes to
+ * the public sign in with the exact app URL as returnTo, so deep links such
+ * as /explore?pool=<address> survive sign in.
+ */
 export function ProtectedRoute({ children, adminOnly = false }: ProtectedRouteProps) {
   const { isPending, authUser } = useAuth();
+  const { keepUnsavedEdits } = useEditor();
+  const signedOut = !isPending && authUser === null;
 
-  // Show loading while checking authentication status
-  if (isPending) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="text-center p-8">
-          <div className="relative">
-            <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-6" />
-            <div className="absolute inset-0 h-12 w-12 rounded-full border-2 border-blue-200 border-t-transparent animate-pulse mx-auto"></div>
-          </div>
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">Loading...</h2>
-          <p className="text-gray-600">Checking authentication status</p>
-        </div>
-      </div>
-    );
-  }
+  // A session that ends while editing keeps the unsaved edits for after sign
+  // in (081 I09), then leaves with the exact app URL as returnTo
+  useEffect(() => {
+    if (!signedOut) return;
+    keepUnsavedEdits();
+    window.location.replace(signInUrl());
+  }, [signedOut, keepUnsavedEdits]);
 
-  // Redirect to the public site with the login popup open if not authenticated
-  if (authUser === null) {
-    // Send the person back to the exact editor URL after sign in, so deep links such
-    // as /explore?t=pools&pa=<address> (the Stake link on public pool pages) survive
-    const returnTo = encodeURIComponent(window.location.href);
-    return (
-      <ExternalRedirect to={`${import.meta.env.VITE_LANDINGPAGE_URL}/login?redirect=${returnTo}`} />
-    );
-  }
+  // The auth context has no refetch; a reload reads the session again
+  if (isPending) return <ShellPending onRetry={() => window.location.reload()} />;
 
-  // Check admin access if required
+  if (authUser === null) return <div className="prism-room min-h-dvh" />;
+
   if (adminOnly && !authUser.role.includes("admin")) {
     return <Navigate to="/" replace />;
   }
 
-  // User is authenticated, render children
   return <>{children}</>;
 }
