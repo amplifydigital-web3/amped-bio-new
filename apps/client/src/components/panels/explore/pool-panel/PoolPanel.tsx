@@ -48,6 +48,7 @@ import {
   PanelSkeletonBody,
   PoolDescription,
   POOL_REWARDS_ARTICLE,
+  RATE_ARTICLE,
   RATE_HELPER,
   Slab,
   SlabRow,
@@ -588,15 +589,17 @@ export default function PoolPanel({
             {pool.apy !== undefined && pool.apy !== null ? (
               <>
                 <p className="mt-1 text-prism-meta text-prism-ink-2">{RATE_HELPER}</p>
-                <a
-                  href={POOL_REWARDS_ARTICLE}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="prism-focus mt-1 inline-block text-prism-meta font-semibold text-prism-nav underline underline-offset-2"
-                >
-                  How it is calculated
-                  <span className="sr-only"> (Network Reward Rate)</span>
-                </a>
+                {RATE_ARTICLE && (
+                  <a
+                    href={RATE_ARTICLE}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="prism-focus mt-1 inline-block text-prism-meta font-semibold text-prism-nav underline underline-offset-2"
+                  >
+                    How it is calculated
+                    <span className="sr-only"> (Network Reward Rate)</span>
+                  </a>
+                )}
               </>
             ) : (
               <p className="mt-1 text-prism-body text-prism-ink">
@@ -611,14 +614,16 @@ export default function PoolPanel({
           <p className="mt-1 text-prism-body text-prism-ink">{UNSTAKE_TERMS}</p>
         </SlabRow>
         {pool.description && <PoolDescription text={pool.description} />}
-        <div className="px-4 py-3">
-          <Button variant="ghost" asChild>
-            <a href={POOL_REWARDS_ARTICLE} target="_blank" rel="noopener noreferrer">
-              How pool rewards work
-              <ArrowRight aria-hidden />
-            </a>
-          </Button>
-        </div>
+        {POOL_REWARDS_ARTICLE && (
+          <div className="px-4 py-3">
+            <Button variant="ghost" asChild>
+              <a href={POOL_REWARDS_ARTICLE} target="_blank" rel="noopener noreferrer">
+                How pool rewards work
+                <ArrowRight aria-hidden />
+              </a>
+            </Button>
+          </div>
+        )}
       </Slab>
     </section>
   );
