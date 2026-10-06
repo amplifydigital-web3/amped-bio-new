@@ -23,6 +23,21 @@ import { BROADCAST_FOOTER } from "@repo/constants";
 type Item = RouterOutputs["admin"]["broadcasts"]["reviewQueue"][number];
 type Tab = "review" | "flagged" | "reported" | "senders";
 
+/** Error card for a failed list query, with a retry (QA-018). */
+function LoadError({ what, onRetry }: { what: string; onRetry: () => void }) {
+  return (
+    <div
+      role="alert"
+      className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-red-50 p-3 text-sm text-red-700"
+    >
+      <span>The {what} did not load. Try again in a moment.</span>
+      <Button variant="outline" size="sm" onClick={onRetry}>
+        Try again
+      </Button>
+    </div>
+  );
+}
+
 function BroadcastCard({
   item,
   actions,
@@ -153,12 +168,16 @@ export function AdminBroadcasts() {
   ];
 
   const list = (
-    items: Item[] | undefined,
+    query: { data?: unknown; isError: boolean; refetch: () => unknown },
+    what: string,
     empty: string,
     actions: (i: Item) => React.ReactNode,
     extra?: (i: Item) => React.ReactNode
-  ) =>
-    !items ? (
+  ) => {
+    const items = query.data as Item[] | undefined;
+    return query.isError ? (
+      <LoadError what={what} onRetry={() => void query.refetch()} />
+    ) : !items ? (
       <p className="text-sm text-gray-500">Loading…</p>
     ) : items.length === 0 ? (
       <p className="text-sm text-gray-500">{empty}</p>
@@ -169,6 +188,7 @@ export function AdminBroadcasts() {
         ))}
       </div>
     );
+  };
 
   return (
     <div className="space-y-6">
@@ -191,7 +211,7 @@ export function AdminBroadcasts() {
       )}
 
       {tab === "review" &&
-        list(review.data, "No broadcasts waiting for review.", i => (
+        list(review, "review queue", "No broadcasts waiting for review.", i => (
           <>
             <Button onClick={() => approve.mutate({ id: i.id })} disabled={approve.isPending}>
               Approve and send
@@ -203,7 +223,7 @@ export function AdminBroadcasts() {
         ))}
 
       {tab === "flagged" &&
-        list(flagged.data, "No flagged broadcasts.", i =>
+        list(flagged, "flagged sends", "No flagged broadcasts.", i =>
           i.status === "SENT" || i.status === "SENDING" ? (
             <Button variant="outline" onClick={() => setNoteFor({ id: i.id, action: "remove" })}>
               Remove from inboxes
@@ -213,7 +233,8 @@ export function AdminBroadcasts() {
 
       {tab === "reported" &&
         list(
-          reported.data as Item[] | undefined,
+          reported,
+          "reports",
           "No reports.",
           i => (
             <>
@@ -280,7 +301,9 @@ export function AdminBroadcasts() {
                 Invite
               </Button>
             </form>
-            {!senders.data ? (
+            {senders.isError ? (
+              <LoadError what="pilot senders" onRetry={() => void senders.refetch()} />
+            ) : !senders.data ? (
               <p className="text-sm text-gray-500">Loading…</p>
             ) : (
               <table className="w-full text-left text-sm">
