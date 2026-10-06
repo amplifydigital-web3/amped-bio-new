@@ -228,11 +228,7 @@ export const auth = betterAuth({
       // Required to send the verification email
       sendVerificationEmail: async ({ user, url, token }: { user: any; url: any; token: any }) => {
         console.info("Sending email verification to:", JSON.stringify({ user, url, token }));
-        try {
-          await sendEmailVerification(user.email, token);
-        } catch (error) {
-          console.error("Failed to send verification email:", error);
-        }
+        await sendEmailVerification(user.email, token);
       },
       sendOnSignUp: true,
       autoSignInAfterVerification: true,
@@ -288,11 +284,7 @@ export const auth = betterAuth({
     },
     sendResetPassword: async ({ user, url, token }: { user: any; url: any; token: any }) => {
       console.info("Sending password reset email to:", JSON.stringify({ user, url, token }));
-      try {
-        await sendPasswordResetEmail(user.email, token);
-      } catch (error) {
-        console.error("Failed to send password reset email:", error);
-      }
+      await sendPasswordResetEmail(user.email, token);
     },
   },
   socialProviders: {
