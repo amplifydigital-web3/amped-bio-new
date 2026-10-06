@@ -43,10 +43,8 @@ const envSchema = z.object({
 
   // Port for the server to listen on
   PORT: portSchema(43000),
-  // URL for the app in production
-  FRONTEND_URL: z.string().default("http://localhost:5173"),
-  // URL for the public Next.js site (for cross-subdomain auth)
-  SITE_URL: z.string().default("http://localhost:3000"),
+  FRONTEND_URL: z.string(),
+  SITE_URL: z.string(),
   // Cookie domain for cross-subdomain auth (e.g. .amped.bio). Leave empty for localhost.
   COOKIE_DOMAIN: z.string().default(""),
   // Comma-separated list of allowed CORS origins
@@ -54,11 +52,8 @@ const envSchema = z.object({
   // Host for the API
   API_HOST: z.string().default("localhost:43000"),
 
-  // New SMTP variables with MailDev defaults
-  // SMTP server host
-  SMTP_HOST: z.string().default("localhost"), // Default for MailDev
-  // SMTP server port
-  SMTP_PORT: portSchema(1025), // Default for MailDev
+  SMTP_HOST: z.string(),
+  SMTP_PORT: z.preprocess(value => Number(value), z.number().int().min(1).max(65535)),
   // Whether to use secure connection (TLS)
   SMTP_SECURE: boolSchema(false),
   // SMTP authentication username
