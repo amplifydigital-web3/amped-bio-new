@@ -1,20 +1,13 @@
 import { useId, useRef, useState } from "react";
-import { ExternalLink, Play } from "lucide-react";
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  cn,
-} from "@repo/ui";
+import { Play } from "lucide-react";
+import { cn } from "@repo/ui";
 import { Eyebrow } from "./TestnetCard";
 import { VIDEO_GUIDES } from "./homeContent";
+import { VideoPlayerDialog } from "./VideoPlayerDialog";
 
 // Screen Review 016, Video guides (Rob, 1 Oct). Nothing loads from YouTube
-// until play: the cards draw their own poster, and the player is a
-// youtube-nocookie.com embed inside the shared Dialog.
+// until play: the cards draw their own poster, and the player is the shared
+// VideoPlayerDialog (a youtube-nocookie.com embed in the shared Dialog).
 
 type Guide = (typeof VIDEO_GUIDES)[number];
 
@@ -57,52 +50,7 @@ export function VideoGuides({ className }: { className?: string }) {
         ))}
       </ul>
 
-      <Dialog open={!!playing} onOpenChange={open => !open && setPlaying(null)}>
-        <DialogContent
-          className="sm:max-w-[508px]"
-          // Keep focus on the dialog, not inside the player: a focused cross
-          // origin frame swallows Escape
-          onOpenAutoFocus={event => {
-            event.preventDefault();
-            (event.currentTarget as HTMLElement | null)?.focus();
-          }}
-          // Escape or close returns focus to the card that opened the player
-          onCloseAutoFocus={event => {
-            event.preventDefault();
-            opener.current?.focus();
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle>{playing?.title}</DialogTitle>
-            <DialogDescription className="sr-only">Video from YouTube</DialogDescription>
-          </DialogHeader>
-          {playing && (
-            <div className="aspect-video w-full overflow-hidden rounded-prism-13 bg-black">
-              <iframe
-                src={`https://www.youtube-nocookie.com/embed/${playing.id}?autoplay=1&rel=0`}
-                title={playing.title}
-                className="h-full w-full"
-                allow="autoplay; encrypted-media; picture-in-picture"
-                allowFullScreen
-                referrerPolicy="strict-origin-when-cross-origin"
-              />
-            </div>
-          )}
-          {playing && (
-            <Button asChild variant="ghost" className="-ml-3 justify-self-start">
-              <a
-                href={`https://www.youtube.com/watch?v=${playing.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Watch on YouTube
-                <ExternalLink aria-hidden />
-                <span className="sr-only">(opens in a new tab)</span>
-              </a>
-            </Button>
-          )}
-        </DialogContent>
-      </Dialog>
+      <VideoPlayerDialog video={playing} onClose={() => setPlaying(null)} returnFocus={opener} />
     </section>
   );
 }

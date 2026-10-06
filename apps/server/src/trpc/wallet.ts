@@ -6,7 +6,7 @@ import { createWalletClient, parseEther, Address, createPublicClient, keccak256 
 import { privateKeyToAccount } from "viem/accounts";
 import { getAddress } from "viem/utils";
 import { prisma } from "../services/DB";
-import { getChainConfig, getRpcTransport } from "@repo/web3";
+import { CREATOR_POOL_ABI, getChainConfig, getRpcTransport } from "@repo/web3";
 import * as jose from "jose";
 import Decimal from "decimal.js";
 import { SITE_SETTINGS } from "@repo/constants";
@@ -827,31 +827,55 @@ export const walletRouter = router({
         });
       }
 
-      // Calculate "My Stake" - Total amount the user has staked across all pools
-      const userStakes = await prisma.stakedPool.findMany({
-        where: {
-          userWalletId: userWallet.id,
-          stakeAmount: {
-            gt: "0", // Only count active stakes greater than 0
+      // Fan stakes: every pool row with a stake above 0
+      const userStakes = (
+        await prisma.stakedPool.findMany({
+          where: {
+            userWalletId: userWallet.id,
+            stakeAmount: {
+              gt: "0",
+            },
           },
-        },
-      });
+          select: { poolId: true, stakeAmount: true },
+        })
+      ).filter(stake => BigInt(stake.stakeAmount) > 0n);
 
-      const myStake = userStakes.reduce((total, stake) => {
-        const stakeAmount = BigInt(stake.stakeAmount);
-        return total + stakeAmount;
-      }, 0n);
+      const fanStake = userStakes.reduce((total, stake) => total + BigInt(stake.stakeAmount), 0n);
 
-      // Calculate "Staked to Me" - Total amount staked in pools created by the user
       const userCreatorPools = await prisma.creatorPool.findMany({
         where: {
           walletId: userWallet.id,
         },
         select: {
           id: true,
+          chainId: true,
+          poolAddress: true,
         },
       });
 
+      // Screen Review 049 I14: the creator's own stake sits in the pool
+      // contract (creatorStaked), not in stakedPool rows. Read it the same way
+      // pools read Total Stake. A failed read fails the query, so the Wallet
+      // shows Could not load instead of a figure that leaves real stake out.
+      const ownPoolStakes = await Promise.all(
+        userCreatorPools.map(async pool => {
+          if (!pool.poolAddress) return 0n;
+          const chain = getChainConfig(Number(pool.chainId));
+          if (!chain) return 0n;
+          const client = createPublicClient({ chain, transport: getRpcTransport(chain) });
+          return (await client.readContract({
+            address: pool.poolAddress as Address,
+            abi: CREATOR_POOL_ABI,
+            functionName: "creatorStaked",
+          })) as bigint;
+        })
+      );
+      const ownPoolStake = ownPoolStakes.reduce((total, stake) => total + stake, 0n);
+
+      // Staked: fan stakes plus the creator's own pool stake (049 I14)
+      const myStake = fanStake + ownPoolStake;
+
+      // Calculate "Staked to Me" - Total amount staked in pools created by the user
       const poolIds = userCreatorPools.map(pool => pool.id);
       let stakedToMe = 0n;
       if (poolIds.length > 0) {
@@ -894,18 +918,16 @@ export const walletRouter = router({
         stakersSupportingMe = uniqueUserWalletIds.size;
       }
 
-      // Calculate "Creator Pools Joined" - Number of pools the user has staked in with a stake greater than 0
-      const creatorPoolsJoined = await prisma.stakedPool.count({
-        where: {
-          userWalletId: userWallet.id,
-          stakeAmount: {
-            gt: "0", // Only count active stakes greater than 0
-          },
-        },
-      });
+      // Pools joined: other creators' pools only, never the creator's own pool
+      // even when they also stake in it as a fan (049 I15)
+      const ownPoolIds = new Set(poolIds);
+      const creatorPoolsJoined = new Set(
+        userStakes.filter(stake => !ownPoolIds.has(stake.poolId)).map(stake => stake.poolId)
+      ).size;
 
       return {
         myStake: myStake, // Return as bigint (wei)
+        ownPoolStake, // Return as bigint (wei)
         stakedToMe: stakedToMe, // Return as bigint (wei)
         stakersSupportingMe,
         creatorPoolsJoined,
