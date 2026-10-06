@@ -1,4 +1,4 @@
-import { prisma } from "@repo/database";
+import { prisma, withNumericIdCoercion } from "@repo/database";
 import { env } from "../env";
 import { generateFanHandle, processEmailToUniqueHandle } from "./onelink-generator";
 import { sendEmailVerification, sendPasswordResetEmail, sendWelcomeEmail } from "./email/email";
@@ -309,7 +309,7 @@ export const auth = betterAuth({
     // Device authorization grant (RFC 8628) for CLIs and limited-input clients.
     asBetterAuthPlugin(oauthDeviceAuthorization({ verificationUri: OAUTH_DEVICE_PATH })),
   ],
-  database: prismaAdapter(prisma, {
+  database: prismaAdapter(withNumericIdCoercion(prisma) as any, {
     provider: "mysql",
   }),
   advanced: {
