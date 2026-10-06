@@ -13,7 +13,6 @@ One commit per item, so each can be reviewed or reverted alone. Editor app and `
 | QA-016 | Fan graph | People list cursor is tied to the search and filter | `PeoplePanel.tsx` | Show more, then clear the search: only the first page of the new query |
 | QA-017 | Fan graph | Remove restarts from page 1, pages never repeat a person, removed people stay out until Undo | `PeoplePanel.tsx` | Show more, Remove a follower: no duplicate rows |
 | QA-026 | Wallet | Legacy summary tiles use the app network unit (tREVO) | `MyWalletPanel.tsx` | Wallet: Total tREVO, My Stake in tREVO |
-| QA-027 | Explore | People cards in Prism per the 042 brief I02 to I06 and I11: avatar, name, @handle, bio, whole card links to the page | `UsersTab.tsx`, `UserSkeleton.tsx`, `ExplorePanel.tsx` | Explore, Users: no gradient banners, no View Profile button |
 
 ## Root cause notes
 
@@ -24,7 +23,7 @@ One commit per item, so each can be reviewed or reverted alone. Editor app and `
 ## Scope notes
 
 - QA-024 (preview frame) is not here. It waits for Rob's call on the desktop preview approach and moves to PR 3.
-- QA-027 covers the card only. 042 I07 (Show more instead of numbered pages) and I09 (no results and error states) come with the full 042 batch. Row 042 is not yet Design approved; the card follows its brief.
+- QA-027 was in this PR and is reverted: #278 (Prism 14b) builds the full row 042 Users tab and changes the same three files. QA-027 ships with #278.
 - QA-026 is interim. Rows 049 and 050 replace the tiles.
 
 ## Verification

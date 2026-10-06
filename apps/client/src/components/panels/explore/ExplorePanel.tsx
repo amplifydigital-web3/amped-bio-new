@@ -215,6 +215,14 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
     </div>
   );
 
+  const handleViewProfile = (username: string) => {
+    window.open(
+      `${import.meta.env.VITE_LANDINGPAGE_URL}/${username}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  };
+
   return (
     <div className="px-[21px] pb-[55px] pt-[21px] font-prism lg:px-[21px]">
       <section aria-label="Find on Explore" className="space-y-[13px]">
@@ -370,6 +378,7 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
             searchQuery={users.q}
             userFilter={users.filter}
             userSort={users.sort}
+            handleViewProfile={handleViewProfile}
             onResult={setResult}
             emptyActions={emptyActions}
           />
