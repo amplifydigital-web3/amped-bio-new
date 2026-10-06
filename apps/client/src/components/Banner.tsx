@@ -78,15 +78,28 @@ export function Banner({ message, type = "info", panel }: BannerProps) {
   }, [key]);
 
   // Expand from 0 height over 233ms (I07). Instant under reduced motion.
+  // requestAnimationFrame does not run in a hidden tab, so a notice mounted in
+  // a background tab opens at once instead of waiting (QA-003).
   useEffect(() => {
+    const instant =
+      document.visibilityState === "hidden" ||
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (instant) {
+      setEntered(true);
+      setSettled(true);
+      return;
+    }
     const frame = requestAnimationFrame(() => setEntered(true));
-    // Reduced motion has no transition end event; settle after the duration
-    const settle = setTimeout(() => setSettled(true), 300);
-    return () => {
-      cancelAnimationFrame(frame);
-      clearTimeout(settle);
-    };
+    return () => cancelAnimationFrame(frame);
   }, []);
+
+  // Keep the clip until the row has opened. The timer only starts once the
+  // expansion has started, in case transitionend never fires.
+  useEffect(() => {
+    if (!entered || settled) return;
+    const settle = setTimeout(() => setSettled(true), 300);
+    return () => clearTimeout(settle);
+  }, [entered, settled]);
 
   if (dismissed) return null;
 
@@ -111,7 +124,10 @@ export function Banner({ message, type = "info", panel }: BannerProps) {
         "grid transition-[grid-template-rows] duration-prism-control ease-prism motion-reduce:transition-none",
         entered ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
       )}
-      onTransitionEnd={() => setSettled(true)}
+      onTransitionEnd={event => {
+        // Only the row's own expansion; transitions inside the notice bubble up
+        if (event.target === event.currentTarget && entered) setSettled(true);
+      }}
     >
       <div className={cn("min-h-0", settled ? "overflow-visible" : "overflow-hidden")}>
         <div
