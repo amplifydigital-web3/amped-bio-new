@@ -1,6 +1,6 @@
 -- CreateTable
 CREATE TABLE `feature_interests` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `id` BINARY(16) NOT NULL,
     `user_id` INTEGER NOT NULL,
     `feature` VARCHAR(32) NOT NULL,
     `source` VARCHAR(16) NOT NULL,

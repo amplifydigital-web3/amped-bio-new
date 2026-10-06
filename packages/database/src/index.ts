@@ -1,6 +1,7 @@
+import { randomBytes } from "crypto";
 import { Prisma, PrismaClient } from "./generated/index.js";
 
-const prisma = new PrismaClient();
+const prisma = withUuidV7Id(new PrismaClient());
 
 export { prisma, PrismaClient };
 export * from "./generated/index.js";
@@ -60,12 +61,12 @@ const coerceObject = (value: unknown, intFields: Set<string>): unknown => {
  * reach Prisma with strings for Int columns. This extension converts numeric
  * strings back to numbers for Int fields in `where` and `data` arguments.
  */
-export function withNumericIdCoercion(client: PrismaClient) {
+export function withNumericIdCoercion(client: any) {
   return client.$extends({
     name: "numeric-id-coercion",
     query: {
       $allModels: {
-        async $allOperations({ model, args, query }) {
+        async $allOperations({ model, args, query }: { model: string; args: unknown; query: (args: unknown) => unknown }) {
           const intFields = intFieldsByModel.get(model);
           if (!intFields || intFields.size === 0 || !args || typeof args !== "object")
             return query(args);
@@ -75,6 +76,54 @@ export function withNumericIdCoercion(client: PrismaClient) {
             if (key in nextArgs) nextArgs[key] = coerceObject(nextArgs[key], intFields);
           }
           return query(nextArgs as typeof args);
+        },
+      },
+    },
+  });
+}
+
+// ── UUID v7 for new entities ──────────────────────────────────────────────
+
+/**
+ * Generate a UUID v7 (time-ordered) as a 16-byte Uint8Array.
+ */
+function uuidv7(): Uint8Array {
+  const time = Date.now();
+  const buf = randomBytes(16);
+  const hi = Math.floor(time / 0x10000);
+  const lo = time & 0xffff;
+  buf[0] = (hi >>> 24) & 0xff;
+  buf[1] = (hi >>> 16) & 0xff;
+  buf[2] = (hi >>> 8) & 0xff;
+  buf[3] = hi & 0xff;
+  buf[4] = (lo >>> 8) & 0xff;
+  buf[5] = lo & 0xff;
+  buf[6] = 0x70 | ((buf[6] as number) & 0x0f);
+  buf[8] = 0x80 | ((buf[8] as number) & 0x3f);
+  return buf;
+}
+
+const uuidV7Models = new Set<string>(["FeatureInterest"]);
+
+export function withUuidV7Id(client: any) {
+  return client.$extends({
+    name: "uuid-v7-id",
+    query: {
+      $allModels: {
+        async $allOperations({ model, args, query }: { model: string; args: unknown; query: (args: unknown) => unknown }) {
+          if (!uuidV7Models.has(model)) return query(args);
+          const next = { ...(args as Record<string, unknown>) } as Record<string, unknown>;
+          for (const key of ["data", "create"] as const) {
+            const val = next[key as string];
+            if (val && typeof val === "object" && !Array.isArray(val) && !("id" in val)) {
+              (val as Record<string, unknown>)["id"] = uuidv7();
+            }
+          }
+          const upsert = next["upsert"] as Record<string, unknown> | undefined;
+          if (upsert && typeof upsert["create"] === "object" && upsert["create"] !== null && !("id" in (upsert["create"] as Record<string, unknown>))) {
+            (upsert["create"] as Record<string, unknown>)["id"] = uuidv7();
+          }
+          return query(next as typeof args);
         },
       },
     },

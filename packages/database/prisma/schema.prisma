@@ -341,7 +341,7 @@ model Referral {
 // Screen Review 105 I04, 106 I08: Notify me for features that open later.
 // One row per user and feature; notified_at is set when the launch email goes.
 model FeatureInterest {
-  id          Int       @id @default(autoincrement())
+id          Bytes     @id @db.Binary(16)
   user_id     Int
   // rns_identity_next: RNS attributes and facets
   feature     String    @db.VarChar(32)
