@@ -61,7 +61,7 @@ const coerceObject = (value: unknown, intFields: Set<string>): unknown => {
  * reach Prisma with strings for Int columns. This extension converts numeric
  * strings back to numbers for Int fields in `where` and `data` arguments.
  */
-export function withNumericIdCoercion(client: any) {
+export function withNumericIdCoercion(client: PrismaClient) {
   return client.$extends({
     name: "numeric-id-coercion",
     query: {
@@ -105,7 +105,7 @@ function uuidv7(): Uint8Array {
 
 const uuidV7Models = new Set<string>(["FeatureInterest"]);
 
-export function withUuidV7Id(client: any) {
+export function withUuidV7Id(client: PrismaClient) {
   return client.$extends({
     name: "uuid-v7-id",
     query: {

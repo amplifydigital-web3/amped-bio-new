@@ -103,7 +103,7 @@ export const authbaseRouter = router({
       if (input.on) {
         await prisma.featureInterest.upsert({
           where: { user_id_feature: key },
-          create: { ...key, source: input.source },
+          create: { ...key, source: input.source } as any,
           update: {},
         });
       } else {
