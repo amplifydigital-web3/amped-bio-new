@@ -1,57 +1,128 @@
-import React from "react";
-import { useChainId } from "wagmi";
+import { useSearchParams } from "react-router";
+import { ChevronRight, Coins } from "lucide-react";
 import { getCurrencySymbol } from "@repo/web3";
-import { Coins, Loader } from "lucide-react";
+import { Button, EmptyState, ErrorCard, Skeleton } from "@repo/ui";
 import { useWalletContext } from "@/contexts/WalletContext";
+import { useDelayed } from "@/hooks/useDelayed";
+import { appChainId } from "@/utils/appChain";
+import { focusFaucetHeading } from "../../faucet/fundRow";
 
-const TokensTab: React.FC = () => {
-  const chainId = useChainId();
-  const currencySymbol = getCurrencySymbol(chainId);
-  const { balance } = useWalletContext();
+/** 055 I03: up to 4 decimals, trailing zeros removed. */
+function formatBalance(formatted: string) {
+  const value = Number(formatted);
+  if (!Number.isFinite(value)) return "0";
+  return value.toLocaleString("en-US", { maximumFractionDigits: 4 });
+}
 
-  if (balance?.isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader className="w-8 h-8 text-gray-400 animate-spin" />
-        <p className="ml-3 text-gray-500">Loading {currencySymbol} balance...</p>
-      </div>
-    );
-  }
-
-  if (!balance?.data?.formatted) {
-    return (
-      <div className="text-center py-12">
-        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Coins className="w-8 h-8 text-gray-400" />
-        </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No {currencySymbol} balance found</h3>
-        <p className="text-gray-500 mb-6 max-w-sm mx-auto">
-          Your {currencySymbol} token balance will appear here.
-        </p>
-      </div>
-    );
-  }
-
+function TokenMark() {
   return (
-    <div className="py-6">
-      <h4 className="text-lg font-semibold text-gray-900 mb-4">Your Tokens</h4>
-      <div className="bg-gray-50 rounded-lg p-4 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <Coins className="w-6 h-6 text-blue-500" />
-          <div>
-            <p className="text-sm font-medium text-gray-900">{currencySymbol}</p>
-            <p className="text-xs text-gray-500">Revolution Chain Native Token</p>
-          </div>
+    <span
+      aria-hidden
+      className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-[linear-gradient(180deg,#FFFFFF_0%,#F1F0F9_100%)] shadow-[inset_0_0_0_1px_rgba(22,21,43,0.10)]"
+    >
+      <Coins className="h-[18px] w-[18px] text-prism-nav-pressed" strokeWidth={1.75} />
+    </span>
+  );
+}
+
+function TokenRowSkeleton() {
+  return (
+    <div
+      aria-busy
+      aria-label="Loading your tokens"
+      className="prism-glass-clear !rounded-prism-21 px-[21px] py-2"
+    >
+      <div className="flex h-commit items-center gap-[13px]">
+        <Skeleton className="h-[34px] w-[34px] shrink-0 rounded-full" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-4 w-[55px] rounded-prism-5" />
+          <Skeleton className="h-3 w-[160px] rounded-prism-5" />
         </div>
-        <div className="text-right">
-          <p className="text-sm font-medium text-gray-900">
-            {parseFloat(balance.data!.formatted).toFixed(4)} {currencySymbol}
-          </p>
-          <p className="text-xs text-gray-500">$0.00 USD</p>
-        </div>
+        <Skeleton className="h-4 w-[89px] rounded-prism-5" />
       </div>
     </div>
   );
-};
+}
 
-export default TokensTab;
+/**
+ * Screen Review 055. The Tokens view: one G0 row 55 per token on a G1 clear
+ * card. The native token comes first. The row opens Activity for that token.
+ * No fiat value is shown for tREVO. Loading, zero and error follow the shared
+ * conventions.
+ */
+export default function TokensTab() {
+  const { balance, address } = useWalletContext();
+  const [, setParams] = useSearchParams();
+  const symbol = getCurrencySymbol(Number(appChainId()));
+  const loading = !address || !!balance?.isLoading;
+  const showSkeleton = useDelayed(loading, 400);
+
+  if (balance?.isError) {
+    return (
+      <ErrorCard
+        title="Balance did not load"
+        cause="Check your connection and retry."
+        retryLabel="Retry"
+        onRetry={() => void balance.refetch()}
+        className="!rounded-prism-21"
+      />
+    );
+  }
+
+  if (loading) return showSkeleton ? <TokenRowSkeleton /> : null;
+
+  const amount = balance?.data ? formatBalance(balance.data.formatted) : "0";
+  const zero = !balance?.data || balance.data.value === 0n;
+
+  const openActivity = () =>
+    setParams(
+      current => {
+        const next = new URLSearchParams(current);
+        next.set("tab", "activity");
+        next.set("token", symbol);
+        return next;
+      },
+      { replace: true }
+    );
+
+  return (
+    <div className="space-y-[21px] font-prism">
+      <ul aria-label="Tokens" className="prism-glass-clear !rounded-prism-21 px-[21px] py-2">
+        <li>
+          <button
+            type="button"
+            onClick={openActivity}
+            aria-label={`${symbol}, Revolution Chain native token, ${amount} ${symbol}. Open activity`}
+            className="prism-focus group -mx-2 flex h-commit w-[calc(100%+16px)] items-center gap-[13px] rounded-prism-13 px-2 text-left transition-colors duration-prism-hover ease-prism hover:bg-white/50 motion-reduce:transition-none"
+          >
+            <TokenMark />
+            <span className="min-w-0 flex-1">
+              <span className="block text-prism-label font-semibold text-prism-ink">{symbol}</span>
+              <span className="block truncate text-prism-meta text-prism-ink-2">
+                Revolution Chain native token
+              </span>
+            </span>
+            <span className="shrink-0 text-prism-label font-semibold tabular-nums text-prism-ink">
+              {amount} {symbol}
+            </span>
+            <ChevronRight aria-hidden className="h-[21px] w-[21px] shrink-0 text-prism-ink-2" />
+          </button>
+        </li>
+      </ul>
+
+      {zero && (
+        <EmptyState
+          icon={Coins}
+          title={`No ${symbol} yet`}
+          description={`Request testnet ${symbol} from the faucet or receive it from another creator.`}
+          // 055 I06: Get tREVO scrolls to the Testnet faucet card (053) and focuses it
+          action={
+            <Button type="button" variant="secondary" onClick={focusFaucetHeading}>
+              Get {symbol}
+            </Button>
+          }
+        />
+      )}
+    </div>
+  );
+}
