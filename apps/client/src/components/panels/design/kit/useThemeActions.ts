@@ -78,7 +78,6 @@ export function useThemeActions() {
         await trpcClient.user.edit.mutate({
           name: profile.name,
           description: profile.bio,
-          revo_name: profile.revoName || "",
           image: profile.photoUrl || "",
           reward_business_id: "",
           theme: previous.id,
