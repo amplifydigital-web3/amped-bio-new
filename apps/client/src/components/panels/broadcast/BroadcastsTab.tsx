@@ -232,6 +232,9 @@ export function BroadcastsTab({ chainId }: { chainId: string }) {
   const list = useQuery({
     ...trpc.broadcast.creator.list.queryOptions({ chainId }),
     enabled: !!overview.data?.pool,
+    // Keep chips current while a send is in flight (QA-031); stops once none is
+    refetchInterval: q =>
+      q.state.data?.some(b => b.status === "QUEUED" || b.status === "SENDING") ? 5000 : false,
   });
   const showSkeleton = useDelayed(overview.isLoading || list.isLoading, 400);
 
@@ -342,7 +345,13 @@ export function BroadcastsTab({ chainId }: { chainId: string }) {
         </Notice>
       )}
 
-      {items.length === 0 ? (
+      {list.isError ? (
+        <ErrorCard
+          title="Your broadcasts did not load"
+          cause="Try again in a moment."
+          onRetry={() => void list.refetch()}
+        />
+      ) : items.length === 0 ? (
         <EmptyState
           icon={Megaphone}
           title="No broadcasts yet"
