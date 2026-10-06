@@ -58,7 +58,7 @@ export const RNS_LABEL_FIX: Record<RnsLabelProblem, string> = {
 
 /** Words the person sees when the server refuses an RNS name (100 I02). */
 export const RNS_BINDING_MESSAGES = {
-  no_wallet: "Connect a wallet to show an RNS name.",
+  no_wallet: "Add a wallet to use an RNS name.",
   not_linked: "This RNS name is not linked to your wallet.",
   unavailable: "We could not check this RNS name. Try again in a moment.",
 } as const;

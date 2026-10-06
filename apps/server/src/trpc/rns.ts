@@ -1,9 +1,24 @@
 import { z } from "zod";
-import { isAddress } from "viem";
+import { getAddress, isAddress } from "viem";
 import { TRPCError } from "@trpc/server";
-import { publicProcedure, router } from "./trpc";
+import { privateProcedure, publicProcedure, router } from "./trpc";
+import { prisma } from "@repo/database";
 import { getRnsAddressSummary } from "../services/rnsSummary";
 import { getRecipientTrust } from "../services/rnsTrust";
+import {
+  computeRnsIdentity,
+  listRnsNamesForWallet,
+  parseRnsDisplay,
+} from "../services/rnsIdentity";
+import { isAuthbaseConfigured } from "../services/authbase";
+import { env } from "../env";
+
+async function accountRns(userId: number) {
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: { revo_name: true, rns_display: true, wallet: { select: { address: true } } },
+  });
+}
 
 // 110 I04: per process limit on the public trust read (60 a minute per client)
 const TRUST_LIMIT = 60;
@@ -68,4 +83,59 @@ export const rnsRouter = router({
         });
       }
     }),
+
+  /**
+   * Screen Review 108 I03: the names the account wallet (UserWallet) owns,
+   * never the browser's connected wallet. Each carries its binding state, so
+   * the select offers only names the server will accept.
+   */
+  listMyNames: privateProcedure.query(async ({ ctx }) => {
+    const account = await accountRns(ctx.user!.sub);
+    const address = account?.wallet?.address;
+    if (!address || !isAddress(address, { strict: false })) return { wallet: null, names: [] };
+    try {
+      return {
+        wallet: getAddress(address),
+        names: await listRnsNamesForWallet(getAddress(address)),
+      };
+    } catch (error) {
+      console.error("[rns] listMyNames failed", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Your RNS names did not load. Try again in a moment.",
+      });
+    }
+  }),
+
+  /**
+   * Screen Review 108 I07, I08, I11: the owner's view. The stored name and its
+   * state now (the private status that left getHandle, 108 I02), the identity
+   * check without attributes, the display settings, and the public identity
+   * exactly as getHandle returns it, for the preview chip.
+   */
+  getMyPageIdentity: privateProcedure.query(async ({ ctx }) => {
+    const account = await accountRns(ctx.user!.sub);
+    const display = parseRnsDisplay(account?.rns_display);
+    const result = await computeRnsIdentity(
+      {
+        storedName: account?.revo_name ?? null,
+        wallet: account?.wallet?.address ?? null,
+        display,
+      },
+      { fresh: true }
+    );
+    return {
+      label: result.label,
+      name: result.name,
+      nameState: result.nameState,
+      expiry: result.expiry,
+      display,
+      /** off: Authbase is not configured or the public identity flag is off; no badge row */
+      verification:
+        isAuthbaseConfigured() && env.RNS_PUBLIC_IDENTITY
+          ? result.verification
+          : { state: "off" as const },
+      identity: result.identity,
+    };
+  }),
 });
