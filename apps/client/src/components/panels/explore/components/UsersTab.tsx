@@ -1,40 +1,53 @@
 import React, { useEffect, useState } from "react";
-import { User, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import UserSkeleton from "./UserSkeleton";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { trpc } from "@repo/ui";
 import { htmlToPlainText } from "@repo/constants";
+import { publicPageUrl } from "@/components/shell/pageLink";
 
 // Define filter and sort types
 type UserFilter = "all" | "active-7-days" | "has-creator-pool";
 type UserSort = "newest" | "name-asc" | "name-desc";
 
-interface User {
-  id: string;
-  username: string;
-  displayName: string;
-  avatar: string | null;
-  banner: string | null;
-  bio: string;
-  category: string;
-}
-
 interface UsersTabProps {
   searchQuery: string;
   userFilter: UserFilter;
   userSort: UserSort;
-  handleViewProfile: (username: string) => void;
   // 045 I10: the result count beside Sort, and Searching while a new query loads
   onResult?: (result: { count: number; fetching: boolean }) => void;
   // 045 I13: Clear search and Clear filter in the no results state
   emptyActions?: React.ReactNode;
 }
 
+// 55 avatar with a hairline ring. With no image, or when it fails to load,
+// the first letter of the name on the lens thumb gradient (042 I05).
+function Avatar({ url, name }: { url: string | null; name: string }) {
+  const [failed, setFailed] = useState(false);
+  if (url && !failed) {
+    return (
+      <img
+        src={url}
+        alt=""
+        onError={() => setFailed(true)}
+        className="h-[55px] w-[55px] shrink-0 rounded-full object-cover shadow-[0_0_0_1px_rgba(22,21,43,0.10)]"
+      />
+    );
+  }
+  return (
+    <span
+      aria-hidden
+      className="flex h-[55px] w-[55px] shrink-0 items-center justify-center rounded-full bg-[linear-gradient(180deg,#FFFFFF_0%,#F1F0F9_100%)] text-[20px] font-bold leading-[23px] text-prism-nav-pressed shadow-[0_0_0_1px_rgba(22,21,43,0.10)]"
+    >
+      {(name || "?").slice(0, 1).toUpperCase()}
+    </span>
+  );
+}
+
 const UsersTab: React.FC<UsersTabProps> = ({
   searchQuery,
   userFilter,
   userSort,
-  handleViewProfile,
   onResult,
   emptyActions,
 }) => {
@@ -107,72 +120,60 @@ const UsersTab: React.FC<UsersTabProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Prism people cards (QA-027, from the 042 brief I02 to I06 and I11): G1
+          clear, avatar, name, @handle and a two line plain text bio. The whole
+          card opens the person's page in a new tab. No banner. */}
+      <ul className="grid grid-cols-1 gap-[13px] sm:grid-cols-2 sm:gap-[21px] lg:grid-cols-3 2xl:grid-cols-4">
         {isLoading ? (
-          Array.from({ length: 6 }).map((_, index) => <UserSkeleton key={index} />)
-        ) : users && users.length > 0 ? (
-          users.map(user => (
-            <div
-              key={user.id}
-              className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden"
-            >
-              {user.banner ? (
-                <div className="h-24 bg-gradient-to-r from-blue-500 to-purple-600 relative">
-                  <img
-                    src={user.banner}
-                    alt={`${user.displayName} banner`}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black bg-opacity-20"></div>
-                </div>
-              ) : (
-                <div className="h-24 bg-gradient-to-r from-blue-500 to-purple-600 relative shadow-inner"></div>
-              )}
-
-              <div className="p-6 relative">
-                <div className="absolute -top-12 left-6">
-                  {user.avatar ? (
-                    <img
-                      src={user.avatar}
-                      alt={user.displayName}
-                      className="w-16 h-16 rounded-full border-4 border-white shadow-lg object-cover"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-full border-4 border-white shadow-lg object-cover flex items-center justify-center bg-gray-200 text-gray-500">
-                      <User className="w-8 h-8" />
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-6">
-                  <div className="flex items-center mb-2">
-                    <h3 className="font-semibold text-gray-900">{user.displayName}</h3>
-                  </div>
-
-                  <p className="text-sm text-gray-500 mb-2">@{user.username}</p>
-                  <p className="text-sm text-gray-600 mb-4 line-clamp-2">
-                    {htmlToPlainText(user.bio)}
-                  </p>
-
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleViewProfile(user.username)}
-                      className="flex-1 py-2 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors duration-200 text-sm"
-                    >
-                      View Profile
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+          Array.from({ length: 6 }).map((_, index) => (
+            <li key={index}>
+              <UserSkeleton />
+            </li>
           ))
+        ) : users && users.length > 0 ? (
+          users.map(user => {
+            const bio = htmlToPlainText(user.bio ?? "")
+              .replace(/\s+/g, " ")
+              .trim();
+            return (
+              <li key={user.id}>
+                <a
+                  href={publicPageUrl(user.username)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`View ${user.displayName || `@${user.username}`}'s page, @${user.username} (opens in a new tab)`}
+                  title={user.displayName || undefined}
+                  className="prism-glass-clear prism-focus flex min-h-[189px] flex-col gap-[13px] p-[21px] font-prism transition-shadow duration-prism-hover ease-prism hover:shadow-prism-e4"
+                >
+                  <span className="flex items-start gap-[13px]">
+                    <Avatar url={user.avatar} name={user.displayName || user.username} />
+                    <span className="min-w-0 flex-1 pt-1">
+                      <span className="block truncate text-prism-label font-bold text-prism-ink">
+                        {user.displayName || `@${user.username}`}
+                      </span>
+                      <span className="block break-all text-prism-meta text-prism-ink-2">
+                        @{user.username}
+                      </span>
+                    </span>
+                    <ExternalLink
+                      aria-hidden
+                      className="h-[21px] w-[21px] shrink-0 text-prism-ink-2"
+                    />
+                  </span>
+                  {bio && (
+                    <span className="line-clamp-2 text-prism-meta text-prism-ink-2">{bio}</span>
+                  )}
+                </a>
+              </li>
+            );
+          })
         ) : (
-          <div className="col-span-full space-y-3 py-8 text-center text-gray-500">
+          <li className="col-span-full space-y-3 py-8 text-center font-prism text-prism-body text-prism-ink-2">
             <p>No users found.</p>
             {emptyActions}
-          </div>
+          </li>
         )}
-      </div>
+      </ul>
 
       {/* Pagination Controls */}
       {total > limit && (
