@@ -309,7 +309,8 @@ export const auth = betterAuth({
     // Device authorization grant (RFC 8628) for CLIs and limited-input clients.
     asBetterAuthPlugin(oauthDeviceAuthorization({ verificationUri: OAUTH_DEVICE_PATH })),
   ],
-  database: prismaAdapter(withNumericIdCoercion(prisma) as any, {
+  // @ts-expect-error — $extends changes the return type; prismaAdapter needs PrismaClient at runtime
+  database: prismaAdapter(withNumericIdCoercion(prisma), {
     provider: "mysql",
   }),
   advanced: {
