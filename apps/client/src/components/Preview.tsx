@@ -192,62 +192,63 @@ export function Preview({
 
   return (
     <div
-      className={cn("flex flex-col", isEditing ? "h-full" : "h-screen")}
+      className={cn(
+        "relative flex flex-col",
+        isEditing ? "h-full" : "h-screen",
+        themeConfig?.background?.type === "color" &&
+          !themeConfig?.background?.value?.includes("gradient")
+          ? "bg-gray-100"
+          : ""
+      )}
       style={themeCssVars(themeConfig)}
     >
+      {/* Background layer: fixed to the viewport on a page; in the editor it
+          stays put outside the scroller, so it fills the device while the page
+          scrolls inside (QA-024) */}
       <div
-        className={cn(
-          "flex-1 overflow-auto relative",
-          themeConfig?.background?.type === "color" &&
+        className={cn(isEditing ? "absolute" : "fixed", "inset-0 w-full h-full z-[1]")}
+        style={{
+          backgroundColor:
+            themeConfig?.background?.type === "color" &&
             !themeConfig?.background?.value?.includes("gradient")
-            ? "bg-gray-100"
-            : ""
-        )}
-      >
-        {/* Background Layer - Fixed to viewport */}
-        <div
-          className={cn(isEditing ? "absolute" : "fixed", "inset-0 w-full h-full z-[1]")}
-          style={{
-            backgroundColor:
-              themeConfig?.background?.type === "color" &&
-              !themeConfig?.background?.value?.includes("gradient")
-                ? themeConfig?.background?.value || undefined
-                : themeConfig?.background?.type === "video"
-                  ? VIDEO_BACKDROP
-                  : undefined,
-            background:
-              themeConfig?.background?.type === "color" &&
-              themeConfig?.background?.value?.includes("gradient")
-                ? themeConfig?.background?.value || undefined
+              ? themeConfig?.background?.value || undefined
+              : themeConfig?.background?.type === "video"
+                ? VIDEO_BACKDROP
                 : undefined,
-          }}
-        >
-          {themeConfig?.background?.type === "video" ? (
-            <video
-              src={themeConfig.background.value || ""}
-              poster={themeConfig.background.thumbnail || undefined}
-              className="w-full h-full object-cover"
-              autoPlay
-              muted
-              loop
-              playsInline
-            />
-          ) : themeConfig?.background?.type === "image" ? (
-            <div
-              className="w-full h-full bg-no-repeat bg-center"
-              style={{
-                backgroundImage: `url(${themeConfig.background.value})`,
-                backgroundSize: "cover",
-              }}
-            />
-          ) : null}
-          <div className="absolute inset-0">
-            <ParticlesBackground
-              effect={themeConfig?.particlesEffect ?? THEME_DEFAULTS.particlesEffect}
-            />
-          </div>
+          background:
+            themeConfig?.background?.type === "color" &&
+            themeConfig?.background?.value?.includes("gradient")
+              ? themeConfig?.background?.value || undefined
+              : undefined,
+        }}
+      >
+        {themeConfig?.background?.type === "video" ? (
+          <video
+            src={themeConfig.background.value || ""}
+            poster={themeConfig.background.thumbnail || undefined}
+            className="w-full h-full object-cover"
+            autoPlay
+            muted
+            loop
+            playsInline
+          />
+        ) : themeConfig?.background?.type === "image" ? (
+          <div
+            className="w-full h-full bg-no-repeat bg-center"
+            style={{
+              backgroundImage: `url(${themeConfig.background.value})`,
+              backgroundSize: "cover",
+            }}
+          />
+        ) : null}
+        <div className="absolute inset-0">
+          <ParticlesBackground
+            effect={themeConfig?.particlesEffect ?? THEME_DEFAULTS.particlesEffect}
+          />
         </div>
+      </div>
 
+      <div className="relative z-[2] flex-1 overflow-auto">
         {/* Content Layer */}
         <div className="min-h-full relative z-[2]">
           <div
