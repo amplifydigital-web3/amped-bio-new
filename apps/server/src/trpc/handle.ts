@@ -9,7 +9,11 @@ import { sanitizeBlockConfig } from "../utils/sanitizeBlockConfig";
 import { logger } from "better-auth";
 import { getPublicTrackingPixels } from "./trackingPixels";
 import { indexableUserWhere, isUserIndexable } from "../utils/indexable";
-import { checkRnsBindingCached } from "../services/rns";
+import {
+  computeRnsIdentity,
+  parseRnsDisplay,
+  type PublicRnsIdentity,
+} from "../services/rnsIdentity";
 
 export const SITEMAP_MAX_PAGE_SIZE = 10000;
 
@@ -29,8 +33,6 @@ export const handleBaseSchema = z
 export const handleParamSchema = z.object({
   handle: handleBaseSchema,
 });
-
-type RevoNameStatus = "active" | "expired" | "taken" | null;
 
 // Load the user's theme and resolve its background file into a public URL
 async function getPublicTheme(themeId: number) {
@@ -54,35 +56,6 @@ async function getPublicTheme(themeId: number) {
   // Return a clean DTO instead of the raw Prisma row (no relations) so the
   // tRPC output stays shallow and type-safe for consumers
   return { id: theme.id, name: theme.name, config: themeConfig ?? null };
-}
-
-// Screen Review 100 I03, I04: the public page shows the stored RNS name only
-// when it is bound to the page wallet (owner and resolver addr equal the
-// wallet, registration expiry in the future). No wallet or a failed read shows
-// no name. expired and taken let the owner's editor explain why it is gone.
-async function validateRevoName(
-  revoName: string | null,
-  walletAddress: string | null
-): Promise<{ revoName: string | null; status: RevoNameStatus }> {
-  const cleared = { revoName: null, status: null };
-  if (!revoName || !walletAddress) return cleared;
-
-  try {
-    const result = await checkRnsBindingCached(revoName, walletAddress);
-    if (result.ok) return { revoName: result.name, status: "active" };
-    if (result.reason === "expired") return { revoName: null, status: "expired" };
-    if (
-      result.reason === "not_owner" ||
-      result.reason === "addr_elsewhere" ||
-      result.reason === "not_found"
-    ) {
-      return { revoName: null, status: "taken" };
-    }
-    return cleared;
-  } catch (err) {
-    console.warn("[revoName] RNS binding check failed, hiding the name:", err);
-    return cleared;
-  }
 }
 
 // Unwrap an optional result: log the failure and fall back instead of failing the request
@@ -231,12 +204,13 @@ const appRouter = router({
         id: user_id,
         name,
         revo_name,
+        rns_display,
         description,
         image,
         image_file_id,
       } = user;
 
-      const [themeResult, blocksResult, imageResult, revoNameResult, trackingPixelsResult] =
+      const [themeResult, blocksResult, imageResult, identityResult, trackingPixelsResult] =
         await Promise.allSettled([
           getPublicTheme(Number(theme_id)),
           prisma.block.findMany({
@@ -248,7 +222,13 @@ const appRouter = router({
             legacyImageField: image,
             imageFileId: image_file_id,
           }),
-          validateRevoName(revo_name ?? null, user.wallet?.address ?? null),
+          // 108 I02, 109 I01: the binding and the owner's limits are applied
+          // here, so a hidden field never reaches a visitor
+          computeRnsIdentity({
+            storedName: revo_name ?? null,
+            wallet: user.wallet?.address ?? null,
+            display: parseRnsDisplay(rns_display),
+          }),
           getPublicTrackingPixels(user_id),
         ]);
 
@@ -267,20 +247,21 @@ const appRouter = router({
         updated_at: block.updated_at,
       }));
 
-      const revoName = settledOrFallback(
-        revoNameResult,
-        { revoName: null, status: null },
-        "revoName validation"
-      );
+      // Any failure shows no chip (fails closed)
+      const identity: PublicRnsIdentity =
+        identityResult.status === "fulfilled" ? identityResult.value.identity : null;
+      if (identityResult.status === "rejected") {
+        console.error("[getHandle] RNS identity failed, showing no chip:", identityResult.reason);
+      }
 
       const result = {
         user: {
           id: user_id,
           name,
           // Email is private. It is never part of a public profile response.
-          revoName: revoName.revoName,
-          revoNameStatus: revoName.status,
-          originalRevoName: revo_name ?? null,
+          // 109 I01: the RNS chip and what the owner allows in the sheet. The
+          // name's private status lives in rns.getMyPageIdentity (108 I02).
+          identity,
           // Sanitized on read as well as on save, so bios stored before the sanitizer are safe
           description: sanitizeRichText(description),
           image: settledOrFallback(imageResult, null, "profile image URL"),

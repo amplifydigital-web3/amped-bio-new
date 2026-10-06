@@ -161,6 +161,9 @@ const envSchema = z.object({
   AUTHBASE_API_KEY: z.string().default(""),
   // Authbase API secret (Basic auth password)
   AUTHBASE_API_SECRET: z.string().default(""),
+  // Screen Review 109 I01: the public page may show the Verified chip and the
+  // check dates. Off: the page shows the RNS name only and never calls Authbase.
+  RNS_PUBLIC_IDENTITY: boolSchema(false),
 
   // Creator analytics
   // Secret mixed into the daily visitor hash salt. Falls back to BETTER_AUTH_SECRET when empty.
