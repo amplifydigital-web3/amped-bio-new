@@ -6,6 +6,8 @@ import { type StatBoxProps } from "./types";
 import { useWalletStats } from "./hooks/useWalletStats";
 import { useRnsSubPage } from "./rns/useRnsRoute";
 import { RnsSubPage } from "./rns/RnsTab";
+import { getChainConfig } from "@repo/web3";
+import { appChainId } from "@/utils/appChain";
 
 const WalletBalance = lazy(() => import("./WalletBalance"));
 // Screen Review 059: Stakes replaces StakedPoolsSection on the Wallet
@@ -24,39 +26,48 @@ export function MyWalletPanel() {
   // Get wallet stats from backend
   const { stats, isLoading: statsLoading } = useWalletStats();
 
+  // Units follow the app network: tREVO on testnet, never a bare REVO (QA-026).
+  // Interim until rows 049 and 050 replace these tiles.
+  const symbol =
+    getChainConfig(Number(appChainId()))?.nativeCurrency.symbol ??
+    wallet.balance?.data?.symbol ??
+    "tREVO";
+
   // Create stats for the wallet stats section
   const walletStats = useMemo<StatBoxProps[]>(
     () => [
       {
         icon: TrendingUp,
-        label: "Total REVO",
+        label: `Total ${symbol}`,
         value: wallet.balance?.data?.formatted
-          ? `${parseFloat(wallet.balance?.data!.formatted).toFixed(8)} ${wallet.balance?.data?.symbol ?? "REVO"}`
+          ? `${parseFloat(wallet.balance?.data!.formatted).toFixed(8)} ${symbol}`
           : "-",
-        tooltip: "Total amount of REVO tokens in your wallet",
+        tooltip: `Total amount of ${symbol} in your wallet`,
         color: "bg-blue-100 text-blue-600",
         soon: false,
       },
       {
         icon: Coins,
         label: "My Stake",
-        value: stats.myStake ? `${parseFloat(stats.myStake).toFixed(8)} REVO` : "0 REVO",
-        tooltip: "Total amount of REVO tokens you have staked across all pools",
+        value: stats.myStake ? `${parseFloat(stats.myStake).toFixed(8)} ${symbol}` : `0 ${symbol}`,
+        tooltip: `Total amount of ${symbol} you have staked across all pools`,
         color: "bg-green-100 text-green-600",
         soon: false,
       },
       {
         icon: Users,
         label: "Staked to Me",
-        value: stats.stakedToMe ? `${parseFloat(stats.stakedToMe).toFixed(8)} REVO` : "0 REVO",
-        tooltip: "Total amount of REVO staked in pools you have created",
+        value: stats.stakedToMe
+          ? `${parseFloat(stats.stakedToMe).toFixed(8)} ${symbol}`
+          : `0 ${symbol}`,
+        tooltip: `Total amount of ${symbol} staked in pools you have created`,
         color: "bg-purple-100 text-purple-600",
         soon: false,
       },
       {
         icon: Gift,
         label: "Earnings to Date",
-        value: "- REVO",
+        value: `- ${symbol}`,
         tooltip: "Total rewards earned from all your staking activities",
         color: "bg-orange-100 text-orange-600",
         soon: true,
@@ -78,7 +89,7 @@ export function MyWalletPanel() {
         soon: false,
       },
     ],
-    [wallet.balance?.data?.formatted, wallet.balance?.data?.symbol, stats, statsLoading]
+    [wallet.balance?.data?.formatted, symbol, stats, statsLoading]
   );
 
   // 100 I07, 111 I01: the address view and the RNS name page replace the

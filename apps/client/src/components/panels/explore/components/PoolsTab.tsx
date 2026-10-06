@@ -1,8 +1,7 @@
 import React, { useEffect } from "react";
-import { Users, Coins } from "lucide-react";
 import PoolSkeleton from "./PoolSkeleton";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { trpc } from "@repo/ui";
+import { PoolCardMedium, trpc } from "@repo/ui";
 import { getChainConfig } from "@repo/web3";
 import { useSearchParams } from "react-router";
 import PoolPanel from "../pool-panel/PoolPanel";
@@ -83,11 +82,6 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
     setParams(next, { replace: true });
   };
 
-  const handleJoinPool = (poolId: number) => {
-    const pool = pools?.find(p => p.id === poolId);
-    if (pool?.address) openPool(pool.address);
-  };
-
   const handleViewPool = (poolId: number) => {
     if (pools) {
       const pool = pools.find(p => p.id === poolId);
@@ -102,82 +96,50 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
     }
   };
 
-  // Apply filtering and sorting
-
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Prism medium pool cards (QA-028), the same card as the public pools
+          directory (070). The whole card opens the pool panel. */}
+      <ul className="grid grid-cols-1 gap-[21px] sm:grid-cols-2 xl:grid-cols-3">
         {isLoading ? (
-          Array.from({ length: 6 }).map((_, index) => <PoolSkeleton key={index} />)
-        ) : pools && pools.length > 0 ? (
-          pools.map(pool => (
-            <div
-              key={pool.id}
-              className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden"
-            >
-              {pool.image ? (
-                <div className="h-32 bg-gradient-to-r from-blue-500 to-purple-600 relative overflow-hidden">
-                  <img
-                    src={pool.image.url}
-                    alt={pool.name}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black bg-opacity-20"></div>
-                </div>
-              ) : (
-                <div className="h-32 bg-gray-200" />
-              )}
-
-              <div className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">{pool.name}</h3>
-                <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                  {pool.description ?? "No description available."}
-                </p>
-
-                <div className="space-y-3 mb-4">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500">Total Stake</span>
-                    <span className="font-semibold text-gray-900">
-                      {pool.stakedAmount !== undefined && pool.stakedAmount !== null
-                        ? formatTokenAmount(BigInt(pool.stakedAmount))
-                        : "0"}{" "}
-                      {getChainConfig(parseInt(pool.chainId))?.nativeCurrency.symbol || "REVO"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500">Fans</span>
-                    <span className="font-semibold text-gray-900">
-                      {(pool.fans ?? 0).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => handleViewPool(pool.id)}
-                    className="flex-1 py-2 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-1"
-                  >
-                    <Users className="w-4 h-4" />
-                    <span>View Pool</span>
-                  </button>
-                  <button
-                    onClick={() => handleJoinPool(pool.id)}
-                    className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-1 bg-blue-600 text-white hover:bg-blue-700`}
-                  >
-                    <Coins className="w-4 h-4" />
-                    <span>Stake</span>
-                  </button>
-                </div>
-              </div>
-            </div>
+          Array.from({ length: 6 }).map((_, index) => (
+            <li key={index}>
+              <PoolSkeleton />
+            </li>
           ))
+        ) : pools && pools.length > 0 ? (
+          pools.map(pool => {
+            const symbol = getChainConfig(parseInt(pool.chainId))?.nativeCurrency.symbol || "tREVO";
+            const staked = `${
+              pool.stakedAmount !== undefined && pool.stakedAmount !== null
+                ? formatTokenAmount(BigInt(pool.stakedAmount))
+                : "0"
+            } ${symbol}`;
+            const fans = `${(pool.fans ?? 0).toLocaleString("en-US")} ${pool.fans === 1 ? "fan" : "fans"}`;
+            return (
+              <li key={pool.id}>
+                <PoolCardMedium
+                  onSelect={() => handleViewPool(pool.id)}
+                  ariaLabel={`${pool.name}, ${fans}, ${staked} staked`}
+                  pool={{
+                    name: pool.name,
+                    artUrl: pool.image?.url,
+                    stats: [
+                      { label: "Fans", value: fans },
+                      { label: "Total staked", value: staked },
+                    ],
+                  }}
+                />
+              </li>
+            );
+          })
         ) : (
-          <div className="col-span-full space-y-3 py-8 text-center text-gray-500">
+          <li className="col-span-full space-y-3 py-8 text-center font-prism text-prism-body text-prism-ink-2">
             <p>No reward pools found.</p>
             {emptyActions}
-          </div>
+          </li>
         )}
-      </div>
+      </ul>
 
       {/* Pool details and the stake, unstake and claim flows (rows 046 to 048) */}
       <PoolPanel
