@@ -6,6 +6,7 @@ import { AppProviders } from "@/components/providers/AppProviders";
 import Script from "next/script";
 import { AmpedAnalytics } from "@/components/AmpedAnalytics";
 import { CONSENT_DEFAULT_SNIPPET } from "@/lib/ampedAnalytics";
+import { STORAGE_GUARD_SNIPPET } from "@/lib/storageGuard";
 import "@/styles/globals.css";
 
 const SITE_URL = process.env.NEXT_PUBLIC_LANDINGPAGE_URL ?? "https://amped.bio";
@@ -36,6 +37,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* QA-010: must run before any app chunk; see lib/storageGuard.ts */}
+        <script id="amped-storage-guard" dangerouslySetInnerHTML={{ __html: STORAGE_GUARD_SNIPPET }} />
+      </head>
       <body className="antialiased">
         {/* Google Consent Mode default: denied until the visitor chooses */}
         <Script id="amped-consent-default" strategy="beforeInteractive">
