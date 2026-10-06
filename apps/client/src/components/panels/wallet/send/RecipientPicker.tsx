@@ -4,13 +4,21 @@ import { isAddress, type Address } from "viem";
 import { AlertCircle, ChevronRight, Loader2, QrCode, Search, Wallet, X } from "lucide-react";
 import { Button, EmptyState, ErrorCard, Skeleton, cn, trpc } from "@repo/ui";
 import { useDelayed } from "@/hooks/useDelayed";
-import { useResolveRevoName } from "@/hooks/rns/useResolveRevoName";
-import { DOMAIN_SUFFIX } from "@/config/rns/constants";
+import { checkRnsLabel, parseRnsInput } from "@repo/web3";
+import { RNS_FLAGS } from "@/config/rns/flags";
 import { formatTokenAmount } from "../../explore/pool-panel/format";
-import { avatarUrl, sameAddress, shortAddress, timeAgo, type Recipient } from "./model";
+import {
+  avatarUrl,
+  sameAddress,
+  shortAddress,
+  timeAgo,
+  ZERO_ADDRESS,
+  type Recipient,
+} from "./model";
 import type { RecentRecipient } from "./useRecentRecipients";
+import { useRecipientTrust, type RecipientTrust } from "./useRecipientTrust";
 
-const SHOW_RNS = import.meta.env.VITE_SHOW_RNS === "true";
+const SHOW_RNS = RNS_FLAGS.enabled;
 const DEBOUNCE_MS = 300;
 
 export function RecipientAvatar({
@@ -140,7 +148,11 @@ export function RecipientPicker({
   const term = debounced.trim();
   const isHex = term.toLowerCase().startsWith("0x");
   const validAddress = isHex && isAddress(term, { strict: false }) ? (term as Address) : null;
-  const isRns = SHOW_RNS && !isHex && term.endsWith(DOMAIN_SUFFIX);
+  // 110 I02: a bare label, label plus a suffix, or a 0x address. A typed
+  // suffix means a name only; a bare label also searches people.
+  const isRns = SHOW_RNS && !isHex && !term.startsWith("@") && term.includes(".");
+  const label = SHOW_RNS && !isHex && !term.startsWith("@") ? parseRnsInput(term) : "";
+  const labelValid = !!label && checkRnsLabel(label) === null;
   const peopleTerm = !isHex && !isRns ? term.replace(/^@/, "") : "";
 
   const people = useQuery({
@@ -152,9 +164,31 @@ export function RecipientPicker({
     ...trpc.wallet.getUserByAddress.queryOptions({ address: validAddress ?? "" }),
     enabled: !!validAddress && !sameAddress(validAddress, ownAddress),
   });
-  const rns = useResolveRevoName(isRns ? term : "");
+  const trust = useRecipientTrust(labelValid ? label : "");
+  const resolved = trust.data?.status === "ok" ? trust.data : null;
   const showSkeleton = useDelayed(people.isFetching && !people.data, 400);
   const showRecentSkeleton = useDelayed(recent.isPending, 400);
+
+  // 110 I02, I08: the row for a resolved RNS name
+  const nameRow = (data: Extract<RecipientTrust, { status: "ok" }>): Row => {
+    const own = sameAddress(data.resolvedAddress, ownAddress);
+    const person = data.profile;
+    return {
+      key: `rns:${data.label}`,
+      recipient: {
+        address: data.resolvedAddress,
+        name: person?.displayName ?? null,
+        handle: person?.handle ?? null,
+        avatar: person?.avatar ?? null,
+        rnsName: data.name,
+      },
+      title: data.name ?? shortAddress(data.resolvedAddress),
+      line: person
+        ? `${person.displayName || `@${person.handle}`} · ${shortAddress(data.resolvedAddress)}`
+        : `Resolves to ${shortAddress(data.resolvedAddress)}`,
+      blockedReason: own ? "This is your wallet. Choose someone else." : undefined,
+    };
+  };
 
   // Rows for the current state
   let section: { label: string; count?: string } | null = null;
@@ -202,6 +236,16 @@ export function RecipientPicker({
           Addresses start with 0x and have 42 characters.
         </p>
       );
+    } else if (sameAddress(validAddress, ZERO_ADDRESS)) {
+      note = (
+        <p
+          role="alert"
+          className="prism-slab flex items-start gap-2 !rounded-prism-13 px-3 py-2 text-prism-meta text-prism-danger"
+        >
+          <AlertCircle aria-hidden className="mt-px h-[21px] w-[21px] shrink-0" />
+          This is the zero address. tREVO sent there is lost.
+        </p>
+      );
     } else if (sameAddress(validAddress, ownAddress)) {
       note = (
         <p
@@ -243,29 +287,48 @@ export function RecipientPicker({
     }
   } else if (isRns) {
     section = { label: "Name" };
-    if (rns.isLoading) {
+    const data = trust.data;
+    const fail = (text: string) => (
+      <p
+        role="alert"
+        className="prism-slab flex items-start gap-2 !rounded-prism-13 px-3 py-2 text-prism-meta text-prism-danger"
+      >
+        <AlertCircle aria-hidden className="mt-px h-[21px] w-[21px] shrink-0" />
+        {text}
+      </p>
+    );
+    if (!labelValid || data?.status === "invalid" || data?.status === "not_found") {
+      section = null;
+      note = fail(`No RNS name matches ${term}.`);
+    } else if (trust.isPending) {
       body = (
         <div className="prism-slab flex h-commit items-center gap-3 !rounded-prism-21 px-4">
           <Loader2
             aria-hidden
             className="h-[21px] w-[21px] text-prism-nav motion-safe:animate-spin"
           />
-          <span className="text-prism-label font-semibold text-prism-ink">{term}</span>
+          <span className="text-prism-label font-semibold text-prism-ink">Checking {term}</span>
         </div>
       );
-    } else if (rns.error) {
-      body = <p className="text-prism-meta text-prism-ink-2">Name lookup failed</p>;
-    } else if (rns.address && rns.address !== "0x0000000000000000000000000000000000000000") {
-      rows = [
-        {
-          key: rns.address,
-          recipient: { address: rns.address, name: term },
-          title: term,
-          line: shortAddress(rns.address),
-        },
-      ];
-    } else {
-      body = <p className="text-prism-meta text-prism-ink-2">No wallet uses {term}</p>;
+    } else if (trust.isError) {
+      section = null;
+      body = (
+        <ErrorCard
+          title="We could not check this RNS name"
+          onRetry={() => void trust.refetch()}
+          retryLabel="Retry"
+        />
+      );
+    } else if (data?.status === "expired") {
+      section = null;
+      note = fail(
+        `${data.name} has expired. It no longer belongs to anyone. Send to a wallet address instead.`
+      );
+    } else if (data?.status === "no_address") {
+      section = null;
+      note = fail(`${data.name} does not point to a wallet yet.`);
+    } else if (resolved) {
+      rows = [nameRow(resolved)];
     }
   } else if (people.isError) {
     body = (
@@ -277,7 +340,7 @@ export function RecipientPicker({
     );
   } else if (!people.data) {
     body = showSkeleton ? <SkeletonRows /> : null;
-  } else if (people.data.length === 0) {
+  } else if (people.data.length === 0 && !resolved) {
     body = (
       <EmptyState
         icon={Search}
@@ -298,32 +361,34 @@ export function RecipientPicker({
     );
   } else {
     section = {
-      label: "People",
+      label: resolved ? "Name and people" : "People",
       count: `${people.data.length} ${people.data.length === 1 ? "person" : "people"}`,
     };
-    rows = people.data.map(person => {
-      const own = sameAddress(person.walletAddress, ownAddress);
-      return {
-        key: person.id,
-        recipient: person.walletAddress
-          ? {
-              address: person.walletAddress,
-              name: person.displayName,
-              handle: person.username,
-              avatar: person.avatar,
-            }
-          : null,
-        title: person.displayName || `@${person.username}`,
-        line: person.walletAddress
-          ? `@${person.username} · ${shortAddress(person.walletAddress)}`
-          : `@${person.username} · No wallet yet`,
-        blockedReason: !person.walletAddress
-          ? "They need a wallet before they can receive tREVO."
-          : own
-            ? "This is your wallet. Choose someone else."
-            : undefined,
-      };
-    });
+    rows = (resolved ? [nameRow(resolved)] : []).concat(
+      people.data.map(person => {
+        const own = sameAddress(person.walletAddress, ownAddress);
+        return {
+          key: person.id,
+          recipient: person.walletAddress
+            ? {
+                address: person.walletAddress,
+                name: person.displayName,
+                handle: person.username,
+                avatar: person.avatar,
+              }
+            : null,
+          title: person.displayName || `@${person.username}`,
+          line: person.walletAddress
+            ? `@${person.username} · ${shortAddress(person.walletAddress)}`
+            : `@${person.username} · No wallet yet`,
+          blockedReason: !person.walletAddress
+            ? "They need a wallet before they can receive tREVO."
+            : own
+              ? "This is your wallet. Choose someone else."
+              : undefined,
+        };
+      })
+    );
   }
 
   const options = () =>
@@ -366,7 +431,7 @@ export function RecipientPicker({
               }
             }}
             placeholder={
-              SHOW_RNS ? "Name, @handle, address or name.revo" : "Name, @handle or 0x address"
+              SHOW_RNS ? "Name, @handle, address or RNS name" : "Name, @handle or 0x address"
             }
             className="h-full min-w-0 flex-1 bg-transparent text-prism-label text-prism-ink placeholder:text-prism-ink-3 focus:outline-none"
           />

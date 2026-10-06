@@ -7,6 +7,8 @@ export type Recipient = {
   name?: string | null;
   handle?: string | null;
   avatar?: string | null;
+  /** The RNS name the sender used, shown with the address on every step (110 I06) */
+  rnsName?: string | null;
 };
 
 // Person first, then the address as 6 plus 4 characters
@@ -16,11 +18,18 @@ export function shortAddress(address: string) {
 
 export function recipientTitle(recipient: Recipient) {
   return (
-    recipient.name || (recipient.handle ? `@${recipient.handle}` : shortAddress(recipient.address))
+    recipient.name ||
+    (recipient.handle ? `@${recipient.handle}` : null) ||
+    recipient.rnsName ||
+    shortAddress(recipient.address)
   );
 }
 
 export function recipientLine(recipient: Recipient) {
+  // The RNS name stays in view on every step, unless it is already the title
+  if (recipient.rnsName && recipientTitle(recipient) !== recipient.rnsName) {
+    return `${recipient.rnsName} · ${shortAddress(recipient.address)}`;
+  }
   return recipient.handle
     ? `@${recipient.handle} · ${shortAddress(recipient.address)}`
     : shortAddress(recipient.address);
@@ -30,6 +39,8 @@ export function recipientLine(recipient: Recipient) {
 export function avatarUrl(value?: string | null) {
   return value && /^https?:\/\//.test(value) ? value : null;
 }
+
+export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 export function sameAddress(a?: string | null, b?: string | null) {
   return !!a && !!b && a.toLowerCase() === b.toLowerCase();

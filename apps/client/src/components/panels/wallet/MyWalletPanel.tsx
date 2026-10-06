@@ -4,6 +4,8 @@ import { ProfileSection } from "./ProfileSection";
 import { useWalletContext } from "@/contexts/WalletContext";
 import { type StatBoxProps } from "./types";
 import { useWalletStats } from "./hooks/useWalletStats";
+import { useRnsSubPage } from "./rns/useRnsRoute";
+import { RnsSubPage } from "./rns/RnsTab";
 
 const WalletBalance = lazy(() => import("./WalletBalance"));
 // Screen Review 059: Stakes replaces StakedPoolsSection on the Wallet
@@ -78,6 +80,19 @@ export function MyWalletPanel() {
     ],
     [wallet.balance?.data?.formatted, wallet.balance?.data?.symbol, stats, statsLoading]
   );
+
+  // 100 I07, 111 I01: the address view and the RNS name page replace the
+  // Wallet summary and tabs, with a back lens to the RNS tab
+  const rnsSubPage = useRnsSubPage();
+  if (rnsSubPage) {
+    return (
+      <div className="h-full overflow-y-auto">
+        <div className="p-6 pb-[calc(89px+env(safe-area-inset-bottom,0px))] max-sm:px-[13px] sm:pb-6 md:mx-auto md:w-4/5">
+          <RnsSubPage />
+        </div>
+      </div>
+    );
+  }
 
   // Connected view (existing wallet interface)
   const loggedInView = (

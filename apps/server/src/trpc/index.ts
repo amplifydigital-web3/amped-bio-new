@@ -2,6 +2,7 @@ import { router } from "./trpc";
 import { userRouter } from "./user";
 import { authRouter } from "./auth";
 import appRouter from "./handle";
+import { rnsRouter } from "./rns";
 import { adminRouter } from "./admin/index";
 import { uploadRouter } from "./upload";
 import { themeRouter } from "./theme";
@@ -24,6 +25,7 @@ import { inferRouterOutputs } from "@trpc/server";
 // Merge all routers
 const mergedRouter = router({
   handle: appRouter,
+  rns: rnsRouter,
   user: userRouter,
   auth: authRouter,
   referral: referralRouter,

@@ -2,7 +2,11 @@ import { privateProcedure, publicProcedure, router } from "./trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { isAddress } from "viem";
+import { prisma } from "@repo/database";
 import { AuthbaseError, getAuthbaseWalletStatus, isAuthbaseConfigured } from "../services/authbase";
+
+// Screen Review 105 I04, 106 I08: one Notify me for RNS attributes and facets.
+const IDENTITY_NEXT = "rns_identity_next";
 
 // Map an upstream Authbase failure to a client-safe tRPC error. The raw detail
 // stays in the server log; the user-facing copy stays generic.
@@ -13,8 +17,7 @@ function toTrpcError(err: unknown): never {
     if (err.httpStatus === 401) {
       throw new TRPCError({
         code: "SERVICE_UNAVAILABLE",
-        message:
-          "Authbase verification is temporarily unavailable. Please try again later.",
+        message: "Authbase verification is temporarily unavailable. Please try again later.",
       });
     }
     if (err.httpStatus === 429) {
@@ -55,9 +58,7 @@ export const authbaseRouter = router({
   getWalletStatus: publicProcedure
     .input(
       z.object({
-        address: z
-          .string()
-          .refine(isAddress, { message: "Invalid wallet address" }),
+        address: z.string().refine(isAddress, { message: "Invalid wallet address" }),
       })
     )
     .query(async ({ input }) => {
@@ -84,4 +85,30 @@ export const authbaseRouter = router({
       toTrpcError(err);
     }
   }),
+
+  // Notify me on the RNS Attributes and Facets tabs (105 I04, 106 I08). One
+  // record per account, shared by both tabs.
+  identityInterest: privateProcedure.query(async ({ ctx }) => {
+    const row = await prisma.featureInterest.findUnique({
+      where: { user_id_feature: { user_id: ctx.user!.sub, feature: IDENTITY_NEXT } },
+      select: { id: true },
+    });
+    return { on: !!row };
+  }),
+
+  setIdentityInterest: privateProcedure
+    .input(z.object({ on: z.boolean(), source: z.enum(["attributes", "facets"]) }))
+    .mutation(async ({ ctx, input }) => {
+      const key = { user_id: ctx.user!.sub, feature: IDENTITY_NEXT };
+      if (input.on) {
+        await prisma.featureInterest.upsert({
+          where: { user_id_feature: key },
+          create: { ...key, source: input.source },
+          update: {},
+        });
+      } else {
+        await prisma.featureInterest.deleteMany({ where: key });
+      }
+      return { on: input.on };
+    }),
 });
