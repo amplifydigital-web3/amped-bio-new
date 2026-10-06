@@ -15,6 +15,13 @@ type EmailOptions = {
 };
 
 // Create a nodemailer transporter
+const _ts = new Date().toISOString();
+console.error(`[${_ts}] [EMAIL] Creating nodemailer transporter with:`);
+console.error(`[${_ts}] [EMAIL]   host=${env.SMTP_HOST} port=${env.SMTP_PORT} secure=${env.SMTP_SECURE}`);
+console.error(`[${_ts}] [EMAIL]   user=${env.SMTP_USER ? "SET" : "EMPTY"} pass=${env.SMTP_PASSWORD ? "SET" : "EMPTY"}`);
+console.error(`[${_ts}] [EMAIL]   from=${env.SMTP_FROM_EMAIL || "noreply@amped.bio"}`);
+console.error(`[${_ts}] [EMAIL]   siteURL=${siteURL}`);
+
 const transporter = nodemailer.createTransport({
   host: env.SMTP_HOST,
   port: env.SMTP_PORT,
@@ -25,31 +32,38 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// Verify SMTP connection on startup
+transporter.verify().then(() => {
+  console.error(`[${new Date().toISOString()}] [EMAIL] SMTP connection VERIFIED OK`);
+}).catch((err: any) => {
+  console.error(`[${new Date().toISOString()}] [EMAIL] SMTP connection VERIFY FAILED:`, err.message, err.stack);
+});
+
 const sendEmail = async (options: EmailOptions) => {
-  console.log("📧 Starting email sending process:", { to: options.to, subject: options.subject });
+  const ts = new Date().toISOString();
+  console.error(`[${ts}] [EMAIL.sendEmail] ENTERED to=${options.to} subject=${options.subject}`);
+  console.log(`[${ts}] 📧 Starting email sending process:`, { to: options.to, subject: options.subject });
 
   // Validate required options
-  console.log("🔍 Validating SMTP credentials...");
-
-  console.log("🔍 Validating email options...");
   if (!options.to) {
-    console.error("❌ Email recipient missing");
+    console.error(`[${ts}] ❌ Email recipient missing`);
     throw new Error("Email recipient is required");
   }
 
   if (!options.subject) {
-    console.error("❌ Email subject missing");
+    console.error(`[${ts}] ❌ Email subject missing`);
     throw new Error("Email subject is required");
   }
 
   if (!options.html_body) {
-    console.error("❌ Email body missing");
+    console.error(`[${ts}] ❌ Email body missing`);
     throw new Error("html_body is required");
   }
-  console.log("✅ Email options validated");
+  console.log(`[${ts}] ✅ Email options validated`);
 
   const recipients = Array.isArray(options.to) ? options.to : [options.to];
-  console.log(`👥 Preparing email for ${recipients.length} recipient(s):`, recipients);
+  console.error(`[${ts}] [EMAIL.sendEmail] recipients=${recipients.join(",")}`);
+  console.log(`[${ts}] 👥 Preparing email for ${recipients.length} recipient(s):`, recipients);
 
   const mailOptions = {
     from: env.SMTP_FROM_EMAIL || "noreply@amped.bio",
@@ -58,36 +72,46 @@ const sendEmail = async (options: EmailOptions) => {
     html: options.html_body,
   };
 
-  console.log("📤 Attempting to send email via SMTP...");
+  console.error(`[${ts}] [EMAIL.sendEmail] Calling transporter.sendMail...`);
+  console.log(`[${ts}] 📤 Attempting to send email via SMTP...`);
   try {
     const info = await transporter.sendMail(mailOptions);
-    console.log("✅ Email sent successfully:", {
+    console.error(`[${ts}] [EMAIL.sendEmail] SENT OK messageId=${info.messageId} response=${info.response}`);
+    console.log(`[${ts}] ✅ Email sent successfully:`, {
       messageId: info.messageId,
       response: info.response,
-      timestamp: new Date().toISOString(),
+      timestamp: ts,
     });
     return info;
   } catch (error: any) {
-    console.error("❌ Email sending failed:", {
+    console.error(`[${ts}] ❌❌❌ Email sending FAILED:`, {
       error: error.message,
+      code: error.code,
+      command: error.command,
       stack: error.stack,
-      timestamp: new Date().toISOString(),
+      timestamp: ts,
     });
     throw new Error(`Failed to send email: ${error.message}`);
   }
 };
 
 export const sendEmailVerification = async (email: string, token: string) => {
-  console.log(`🔗 Generating verification URL for email: ${email}`);
+  const ts = new Date().toISOString();
+  console.error(`[${ts}] [EMAIL.sendEmailVerification] ENTERED email=${email} token=${token}`);
+  console.log(`[${ts}] 🔗 Generating verification URL for email: ${email}`);
   const url = `${siteURL}/auth/verify-email/${token}?email=${encodeURIComponent(email)}`;
-  console.log("🔗 Verification URL generated:", url);
+  console.error(`[${ts}] [EMAIL.sendEmailVerification] url=${url}`);
+  console.log(`[${ts}] 🔗 Verification URL generated:`, url);
 
-  console.log("🎨 Rendering email verification template...");
+  console.error(`[${ts}] [EMAIL.sendEmailVerification] Rendering verifyEmailTemplate...`);
+  console.log(`[${ts}] 🎨 Rendering email verification template...`);
   const emailComponent = verifyEmailTemplate({ url });
   const htmlContent = await render(emailComponent);
-  console.log("✅ Email template rendered successfully");
+  console.error(`[${ts}] [EMAIL.sendEmailVerification] Template rendered (${htmlContent.length} chars)`);
+  console.log(`[${ts}] ✅ Email template rendered successfully`);
 
-  console.log("📨 Sending verification email...");
+  console.error(`[${ts}] [EMAIL.sendEmailVerification] Calling sendEmail...`);
+  console.log(`[${ts}] 📨 Sending verification email...`);
   return sendEmail({
     to: email,
     subject: "Amped.Bio Email Verification",
@@ -96,16 +120,22 @@ export const sendEmailVerification = async (email: string, token: string) => {
 };
 
 export const sendPasswordResetEmail = async (email: string, token: string) => {
-  console.log(`🔑 Generating password reset URL for email: ${email}`);
+  const ts = new Date().toISOString();
+  console.error(`[${ts}] [EMAIL.sendPasswordResetEmail] ENTERED email=${email} token=${token}`);
+  console.log(`[${ts}] 🔑 Generating password reset URL for email: ${email}`);
   const url = `${siteURL}/auth/reset-password/${token}`;
-  console.log("🔗 Password reset URL generated:", url);
+  console.error(`[${ts}] [EMAIL.sendPasswordResetEmail] url=${url}`);
+  console.log(`[${ts}] 🔗 Password reset URL generated:`, url);
 
-  console.log("🎨 Rendering password reset template...");
+  console.error(`[${ts}] [EMAIL.sendPasswordResetEmail] Rendering resetPasswordTemplate...`);
+  console.log(`[${ts}] 🎨 Rendering password reset template...`);
   const emailComponent = resetPasswordTemplate({ url });
   const htmlContent = await render(emailComponent);
-  console.log("✅ Email template rendered successfully");
+  console.error(`[${ts}] [EMAIL.sendPasswordResetEmail] Template rendered (${htmlContent.length} chars)`);
+  console.log(`[${ts}] ✅ Email template rendered successfully`);
 
-  console.log("📨 Sending password reset email...");
+  console.error(`[${ts}] [EMAIL.sendPasswordResetEmail] Calling sendEmail...`);
+  console.log(`[${ts}] 📨 Sending password reset email...`);
   return sendEmail({
     to: email,
     subject: "Amped.Bio Password Reset",

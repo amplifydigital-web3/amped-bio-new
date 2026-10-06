@@ -283,8 +283,16 @@ export const auth = betterAuth({
       verify: verifyPassword,
     },
     sendResetPassword: async ({ user, url, token }: { user: any; url: any; token: any }) => {
-      console.info("Sending password reset email to:", JSON.stringify({ user, url, token }));
-      await sendPasswordResetEmail(user.email, token);
+      const ts = new Date().toISOString();
+      console.error(`[${ts}] [sendResetPassword] ENTERED with email=${user.email}`);
+      console.error(`[${ts}] [sendResetPassword] url=${url} token=${token}`);
+      try {
+        await sendPasswordResetEmail(user.email, token);
+        console.error(`[${ts}] [sendResetPassword] COMPLETED`);
+      } catch (err: any) {
+        console.error(`[${ts}] [sendResetPassword] FAILED:`, err.message, err.stack);
+        throw err;
+      }
     },
   },
   socialProviders: {
