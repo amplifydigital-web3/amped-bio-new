@@ -149,7 +149,13 @@ export function PeoplePanel() {
   const [filter, setFilter] = useState<Filter>("all");
   const [text, setText] = useState("");
   const q = useDebounce(text, 300).trim();
-  const [cursor, setCursor] = useState(0);
+  // The cursor belongs to one search and filter. When either changes, the
+  // cursor is 0 in the same render, so no stale page is fetched or appended
+  // (QA-016).
+  const listKey = `${filter}|${q}`;
+  const [paging, setPaging] = useState({ key: listKey, cursor: 0 });
+  const cursor = paging.key === listKey ? paging.cursor : 0;
+  const setCursor = (next: number) => setPaging({ key: listKey, cursor: next });
   const [rows, setRows] = useState<Follower[]>([]);
   const [blockTarget, setBlockTarget] = useState<Follower | null>(null);
   const [blockedOpen, setBlockedOpen] = useState(false);
@@ -170,12 +176,6 @@ export function PeoplePanel() {
   });
   const blocked = useQuery(trpc.follow.listBlocked.queryOptions());
 
-  // A new query starts from the first page
-  useEffect(() => {
-    if (!q && filter === "all") return;
-    setCursor(0);
-    setRows([]);
-  }, [q, filter]);
   useEffect(() => {
     if (!list.data || list.isPlaceholderData) return;
     setRows(previous => (cursor === 0 ? list.data.items : [...previous, ...list.data.items]));
