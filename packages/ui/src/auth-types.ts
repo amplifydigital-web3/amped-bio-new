@@ -7,4 +7,6 @@ export type AuthUser = {
   wallet: string | null;
   poolAddresses: Record<string, string>;
   twoFactorEnabled: boolean;
+  /** From the session; undefined when the source did not say (QA-035) */
+  emailVerified?: boolean;
 };

@@ -65,11 +65,19 @@ const t = initTRPC.context<Context>().create({
   // Rate limited procedures put retryAfter (ISO time) in the error cause. The
   // default formatter drops the cause, so pass that one field to the client
   // (Screen Review 019 I06).
+  // tRPC adds data.stack whenever NODE_ENV is not production. Never send it:
+  // it exposes server paths and code to any caller, whatever the environment
+  // (QA-002). Server logs keep the full error.
   errorFormatter({ shape, error }) {
     const retryAfter = (error.cause as { retryAfter?: unknown } | undefined)?.retryAfter;
     return {
       ...shape,
-      data: { ...shape.data, retryAfter: typeof retryAfter === "string" ? retryAfter : undefined },
+      data: {
+        ...shape.data,
+        // undefined keys are dropped when the response is serialized
+        stack: undefined,
+        retryAfter: typeof retryAfter === "string" ? retryAfter : undefined,
+      },
     };
   },
   sse: {

@@ -232,6 +232,9 @@ export function BroadcastsTab({ chainId }: { chainId: string }) {
   const list = useQuery({
     ...trpc.broadcast.creator.list.queryOptions({ chainId }),
     enabled: !!overview.data?.pool,
+    // Keep chips current while a send is in flight (QA-031); stops once none is
+    refetchInterval: q =>
+      q.state.data?.some(b => b.status === "QUEUED" || b.status === "SENDING") ? 5000 : false,
   });
   const showSkeleton = useDelayed(overview.isLoading || list.isLoading, 400);
 
@@ -323,10 +326,12 @@ export function BroadcastsTab({ chainId }: { chainId: string }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-prism-label text-prism-ink-2">
           {members.toLocaleString()} {members === 1 ? "member" : "members"} in{" "}
-          {pool.name ?? "your pool"}.{" "}
-          {quota.leftToday > 0
-            ? `${quota.leftToday} ${quota.leftToday === 1 ? "send" : "sends"} left today.`
-            : "No sends left today."}
+          {pool.name ?? "your pool"}.
+          {/* The quota means nothing until the creator is invited (QA-037) */}
+          {canSend &&
+            (quota.leftToday > 0
+              ? ` ${quota.leftToday} ${quota.leftToday === 1 ? "send" : "sends"} left today.`
+              : " No sends left today.")}
         </p>
         {newButton}
       </div>
@@ -342,7 +347,13 @@ export function BroadcastsTab({ chainId }: { chainId: string }) {
         </Notice>
       )}
 
-      {items.length === 0 ? (
+      {list.isError ? (
+        <ErrorCard
+          title="Your broadcasts did not load"
+          cause="Try again in a moment."
+          onRetry={() => void list.refetch()}
+        />
+      ) : items.length === 0 ? (
         <EmptyState
           icon={Megaphone}
           title="No broadcasts yet"

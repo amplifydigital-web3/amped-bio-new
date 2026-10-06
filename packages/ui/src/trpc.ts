@@ -10,7 +10,22 @@ import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import type { AppRouter, RouterOutputs } from "../../../apps/server/src/trpc";
 import { mockLink } from "./trpc-links/mock/mock-link";
 
-export const queryClient = new QueryClient();
+/**
+ * Retry only failures that can pass on a second try: network errors and 5xx.
+ * A 4xx (unknown procedure, bad input, signed out, forbidden, rate limited)
+ * fails the same way every time. Retrying it only delays the error state, and
+ * React Query pauses retries while the tab is hidden, so a hidden tab could
+ * keep a query pending with no error shown (QA-009).
+ */
+export function shouldRetryQuery(failureCount: number, error: unknown): boolean {
+  if (failureCount >= 3) return false;
+  const status = (error as { data?: { httpStatus?: unknown } } | null)?.data?.httpStatus;
+  return !(typeof status === "number" && status >= 400 && status < 500);
+}
+
+export const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: shouldRetryQuery } },
+});
 
 const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
 
