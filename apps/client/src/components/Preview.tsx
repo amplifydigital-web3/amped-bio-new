@@ -36,6 +36,10 @@ const extractRootDomain = (url: string): string => {
   }
 };
 
+/** QA-004: shows behind a video background until its first frame arrives
+ *  (same value as the public page). */
+const VIDEO_BACKDROP = "#14141C";
+
 interface PreviewProps {
   isEditing: boolean;
   profile: UserProfile;
@@ -208,7 +212,9 @@ export function Preview({
               themeConfig?.background?.type === "color" &&
               !themeConfig?.background?.value?.includes("gradient")
                 ? themeConfig?.background?.value || undefined
-                : undefined,
+                : themeConfig?.background?.type === "video"
+                  ? VIDEO_BACKDROP
+                  : undefined,
             background:
               themeConfig?.background?.type === "color" &&
               themeConfig?.background?.value?.includes("gradient")
@@ -219,6 +225,7 @@ export function Preview({
           {themeConfig?.background?.type === "video" ? (
             <video
               src={themeConfig.background.value || ""}
+              poster={themeConfig.background.thumbnail || undefined}
               className="w-full h-full object-cover"
               autoPlay
               muted

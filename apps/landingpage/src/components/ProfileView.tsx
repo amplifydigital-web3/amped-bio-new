@@ -111,6 +111,9 @@ function ProfileSkeleton() {
 
 const PAUSE_KEY = "amped.motion.paused";
 
+/** QA-004: shows behind a video background until its first frame arrives. */
+const VIDEO_BACKDROP = "#14141C";
+
 /** Pause motion, remembered per visitor (041 I02). Storage may be unavailable. */
 function readPaused() {
   try {
@@ -363,7 +366,11 @@ export function ProfileView({
         className="fixed inset-0 z-0"
         style={{
           backgroundColor:
-            background?.type === "color" && !isGradient ? background.value || undefined : undefined,
+            background?.type === "color" && !isGradient
+              ? background.value || undefined
+              : background?.type === "video"
+                ? VIDEO_BACKDROP
+                : undefined,
           background: isGradient ? background?.value || undefined : undefined,
         }}
       >
@@ -371,6 +378,7 @@ export function ProfileView({
           <video
             ref={videoRef}
             src={background.value || ""}
+            poster={background.thumbnail || undefined}
             className="h-full w-full object-cover"
             autoPlay
             muted
