@@ -326,10 +326,12 @@ export function BroadcastsTab({ chainId }: { chainId: string }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-prism-label text-prism-ink-2">
           {members.toLocaleString()} {members === 1 ? "member" : "members"} in{" "}
-          {pool.name ?? "your pool"}.{" "}
-          {quota.leftToday > 0
-            ? `${quota.leftToday} ${quota.leftToday === 1 ? "send" : "sends"} left today.`
-            : "No sends left today."}
+          {pool.name ?? "your pool"}.
+          {/* The quota means nothing until the creator is invited (QA-037) */}
+          {canSend &&
+            (quota.leftToday > 0
+              ? ` ${quota.leftToday} ${quota.leftToday === 1 ? "send" : "sends"} left today.`
+              : " No sends left today.")}
         </p>
         {newButton}
       </div>
