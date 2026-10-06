@@ -2,8 +2,13 @@ import { HANDLE_BASE_URL, type PlatformId } from "@repo/constants";
 import { stripHtml } from "./blog";
 import type { ProfilePageData } from "./profilePageData";
 
-/** Public origin of the site, without a trailing slash. */
-export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? HANDLE_BASE_URL).replace(/\/+$/, "");
+/** Public origin of the site, without a trailing slash. Staging and local
+ *  builds use their own host (QA-015); production is https://amped.bio. */
+export const SITE_URL = (
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  process.env.NEXT_PUBLIC_LANDINGPAGE_URL ??
+  HANDLE_BASE_URL
+).replace(/\/+$/, "");
 
 export const SITE_NAME = "Amped.Bio";
 export const SITE_TAGLINE = "Your digital identity, amplified.";

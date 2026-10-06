@@ -99,7 +99,7 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
     );
   }
 
-  const poolUrl = `https://amped.bio/i/pools/${poolData.address}`;
+  const poolUrl = `${import.meta.env.VITE_LANDINGPAGE_URL ?? "https://amped.bio"}/i/pools/${poolData.address}`;
 
   return (
     <div className="w-full p-4 bg-white/10 backdrop-blur-md rounded-xl border border-white/20 shadow-lg mb-8">
