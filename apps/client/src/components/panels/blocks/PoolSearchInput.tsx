@@ -297,10 +297,15 @@ export function PoolSearchInput({
         select(options[active]);
       }
     } else if (event.key === "Escape") {
+      // Escape that the search uses stays here. Without stopPropagation the
+      // block row also collapses, and an empty draft row is then removed
+      // (QA-036, 037 I14). A further Escape still collapses the row.
       if (open) {
         event.preventDefault();
+        event.stopPropagation();
         setOpen(false);
       } else if (currentAddress) {
+        event.stopPropagation();
         setChanging(false);
         setQuery("");
       }
