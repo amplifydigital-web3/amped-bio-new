@@ -12,6 +12,7 @@ import {
   decodeRestoreToken,
   encodeRestoreToken,
   publicCount,
+  publicFollowerHandle,
 } from "../services/follow/rules";
 
 export { FOLLOWER_COUNT_FLOOR };
@@ -648,11 +649,18 @@ export const followRouter = router({
         orderBy: { id: "desc" },
         take: PAGE_SIZE + 1,
         ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
-        select: { id: true, follower: { select: { name: true, handle: true } } },
+        select: {
+          id: true,
+          follower: { select: { name: true, handle: true, page_status: true } },
+        },
       });
       const page = rows.slice(0, PAGE_SIZE);
       return {
-        items: page.map(row => ({ name: row.follower.name, handle: row.follower.handle })),
+        // Unpublished fans show by name only, never a link to a 404 (QA-008)
+        items: page.map(row => ({
+          name: row.follower.name,
+          handle: publicFollowerHandle(row.follower),
+        })),
         nextCursor: rows.length > PAGE_SIZE ? page[page.length - 1].id : null,
       };
     }),

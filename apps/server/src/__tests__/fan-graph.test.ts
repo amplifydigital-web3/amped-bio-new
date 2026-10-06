@@ -12,6 +12,7 @@ import {
   decodeRestoreToken,
   encodeRestoreToken,
   publicCount,
+  publicFollowerHandle,
 } from "../services/follow/rules";
 import { isUserIndexable } from "../utils/indexable";
 
@@ -109,6 +110,16 @@ describe("fan accounts are never indexable", () => {
   it("excludes unpublished pages", () => {
     expect(isUserIndexable({ ...base, page_status: "UNPUBLISHED" }, 3)).toBe(false);
     expect(isUserIndexable({ ...base, page_status: "PUBLISHED" }, 3)).toBe(true);
+  });
+});
+
+describe("public follower lists never link to an unpublished page (QA-008)", () => {
+  it("shows the handle only for a published page", () => {
+    expect(publicFollowerHandle({ handle: "jordan", page_status: "PUBLISHED" })).toBe("jordan");
+    expect(
+      publicFollowerHandle({ handle: "jordan-ellis-4821", page_status: "UNPUBLISHED" })
+    ).toBeNull();
+    expect(publicFollowerHandle({ handle: null, page_status: "PUBLISHED" })).toBeNull();
   });
 });
 
