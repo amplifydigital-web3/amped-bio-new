@@ -81,3 +81,15 @@ export function csvCell(value: string | number | boolean) {
   const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
   return `"${safe.replace(/"/g, '""')}"`;
 }
+
+/**
+ * QA-008: the handle a public follower list may show. Fan accounts from Follow
+ * start with an unpublished page, and their handle would link to a 404, so the
+ * list shows them by name only until they publish.
+ */
+export function publicFollowerHandle(follower: {
+  handle: string | null;
+  page_status: "PUBLISHED" | "UNPUBLISHED";
+}): string | null {
+  return follower.page_status === "PUBLISHED" ? follower.handle : null;
+}
