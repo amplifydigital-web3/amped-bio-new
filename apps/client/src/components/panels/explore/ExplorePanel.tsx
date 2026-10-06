@@ -24,6 +24,10 @@ import FollowingTab from "./components/FollowingTab";
 // Fan Graph (#22): Explore, Following (decision 6)
 const FAN_GRAPH = import.meta.env.VITE_FAN_GRAPH === "true";
 
+// Screen Review 044 (D07): NFTs is not rendered. It returns as a tab of this
+// container behind VITE_SHOW_NFTS (default off) once NFT data exists; until
+// then old ?t=nfts and ?tab=nfts links open Users and the URL is rewritten.
+
 // Screen Review 045 (D07, D08, D14). One control stack under the top bar:
 // tabs (Users, Pools), a search well with the result count and Sort, then the
 // filter chips. Each tab keeps its own query, filter and sort, written to the
@@ -91,7 +95,9 @@ function readTab(params: URLSearchParams, initialTab?: string): Tab {
   if (params.get("pool") || params.get("pa")) return "pools";
   const raw = params.get("tab") ?? params.get("t") ?? initialTab;
   if (raw === "following" && FAN_GRAPH) return "following";
-  return raw === "pools" ? "pools" : "users";
+  if (raw === "pools") return "pools";
+  // 044 I04: nfts, unknown and missing values land on Users (rewritten to ?tab=users)
+  return "users";
 }
 
 function countText(tab: Exclude<Tab, "following">, count: number) {
@@ -100,9 +106,10 @@ function countText(tab: Exclude<Tab, "following">, count: number) {
   return `${count.toLocaleString("en-US")} ${count === 1 ? "pool" : "pools"}`;
 }
 
+// 044 I04: nfts is not a tab while VITE_SHOW_NFTS is off
 interface ExplorePageProps {
-  initialTab?: "users" | "pools" | "nfts";
-  onTabChange?: (tab: "users" | "pools" | "nfts") => void;
+  initialTab?: "users" | "pools";
+  onTabChange?: (tab: "users" | "pools") => void;
 }
 
 export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProps) {
@@ -215,16 +222,10 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
     </div>
   );
 
-  const handleViewProfile = (username: string) => {
-    window.open(
-      `${import.meta.env.VITE_LANDINGPAGE_URL}/${username}`,
-      "_blank",
-      "noopener,noreferrer"
-    );
-  };
-
   return (
-    <div className="px-[21px] pb-[55px] pt-[21px] font-prism lg:px-[21px]">
+    // 042: Explore sits on the room like the other restyled destinations. The
+    // shell gives 13 at the sides on mobile; 8 more makes the 21 gutter.
+    <div className="px-2 pb-[13px] font-prism md:px-0">
       <section aria-label="Find on Explore" className="space-y-[13px]">
         <Tabs value={tab} onValueChange={changeTab}>
           <TabsList aria-label="Explore sections" className="max-sm:w-full">
@@ -378,7 +379,6 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
             searchQuery={users.q}
             userFilter={users.filter}
             userSort={users.sort}
-            handleViewProfile={handleViewProfile}
             onResult={setResult}
             emptyActions={emptyActions}
           />
