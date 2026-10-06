@@ -1,7 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, EyeOff, Eye, UserCheck, UserMinus, UserPlus, UsersRound } from "lucide-react";
+import {
+  ChevronDown,
+  EyeOff,
+  Eye,
+  RotateCw,
+  UserCheck,
+  UserMinus,
+  UserPlus,
+  UsersRound,
+} from "lucide-react";
 import {
   BottomSheet,
   BottomSheetContent,
@@ -33,6 +42,34 @@ export function FollowerCount({ status }: { status: FollowStatus | null }) {
         </>
       )}
     </span>
+  );
+}
+
+/**
+ * QA-032: the follow status did not load (network or server error). Follow
+ * shows disabled with a Try again, instead of vanishing from the capsule.
+ */
+export function FollowRetry({ busy, onRetry }: { busy: boolean; onRetry: () => void }) {
+  return (
+    <>
+      <Button disabled className="flex-1 sm:flex-none" aria-describedby="follow-retry-note">
+        <UserPlus aria-hidden />
+        Follow
+      </Button>
+      <Button
+        variant="secondary"
+        onClick={onRetry}
+        disabled={busy}
+        aria-busy={busy || undefined}
+        className="flex-1 sm:flex-none"
+      >
+        <RotateCw aria-hidden />
+        Try again
+      </Button>
+      <span id="follow-retry-note" className="sr-only">
+        Follow did not load.
+      </span>
+    </>
   );
 }
 

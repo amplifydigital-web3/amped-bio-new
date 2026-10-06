@@ -37,6 +37,12 @@ function errorText(error: unknown): string {
   return "That didn't work. Check your connection and try again.";
 }
 
+/** Network errors and 5xx can pass on a retry; a 4xx answer is final. */
+function isTransient(error: unknown): boolean {
+  const httpStatus = (error as { data?: { httpStatus?: number } })?.data?.httpStatus;
+  return httpStatus === undefined || httpStatus >= 500;
+}
+
 /**
  * Fan Graph (#22) state for one creator page: the public count, the viewer's
  * follow, the first-follow sheet, and toasts. Signed out visitors are sent to
@@ -44,6 +50,8 @@ function errorText(error: unknown): string {
  */
 export function useFollow(handle: string, signedIn: boolean, authPending: boolean) {
   const [status, setStatus] = useState<FollowStatus | null>(null);
+  // QA-032: the status read failed for a reason a retry can fix
+  const [failed, setFailed] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<FollowToast | null>(null);
@@ -62,10 +70,26 @@ export function useFollow(handle: string, signedIn: boolean, authPending: boolea
   const refresh = useCallback(async () => {
     try {
       setStatus(await trpcClient.follow.status.query({ handle }));
-    } catch {
-      setStatus(null);
+      setFailed(false);
+    } catch (error) {
+      if (isTransient(error)) {
+        // Keep the last known state; with none, the page offers Try again
+        setFailed(true);
+      } else {
+        setStatus(null);
+        setFailed(false);
+      }
     }
   }, [handle]);
+
+  const retry = useCallback(async () => {
+    setBusy(true);
+    try {
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  }, [refresh]);
 
   useEffect(() => {
     if (authPending) return;
@@ -175,26 +199,31 @@ export function useFollow(handle: string, signedIn: boolean, authPending: boolea
     if (autoFollowDone.current || !status?.viewer || !signedIn) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get("follow") !== "1") return;
-    let recordedHandle: string | null = null;
-    try {
-      recordedHandle = sessionStorage.getItem(FOLLOW_INTENT_KEY);
-    } catch { /* noop */ }
-    if (recordedHandle !== handle) return;
     autoFollowDone.current = true;
-    try {
-      sessionStorage.removeItem(FOLLOW_INTENT_KEY);
-    } catch { /* noop */ }
+    // QA-032: the param is used once, so a reload or a shared link never
+    // follows again. Drop it whether or not this visit carried an intent.
+    params.delete("follow");
     const query = params.toString();
     window.history.replaceState(
       null,
       "",
       `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`
     );
+    let recordedHandle: string | null = null;
+    try {
+      recordedHandle = sessionStorage.getItem(FOLLOW_INTENT_KEY);
+    } catch { /* noop */ }
+    if (recordedHandle !== handle) return;
+    try {
+      sessionStorage.removeItem(FOLLOW_INTENT_KEY);
+    } catch { /* noop */ }
     if (!status.viewer.following) startFollow();
   }, [status, signedIn, startFollow]);
 
   return {
     status,
+    failed,
+    retry,
     busy,
     sheetOpen,
     setSheetOpen,

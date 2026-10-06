@@ -41,6 +41,7 @@ import { useFollow } from "@/components/follow/useFollow";
 import {
   FirstFollowSheet,
   FollowButton,
+  FollowRetry,
   FollowerCount,
   FollowToastView,
 } from "@/components/follow/FollowControls";
@@ -343,7 +344,8 @@ export function ProfileView({
   // 039 I03: one neutral frame capsule; nothing renders when it would be empty
   const isOwner = isOwnerView || (!!authUser && authUser.handle === normalizedHandle);
   const showViewPool = hasCreatorPool && !!creatorPoolAddress && !hasPoolBlock;
-  const showFollow = followEnabled && !isOwner && !!followState.status;
+  const showFollow =
+    followEnabled && !isOwner && (!!followState.status || followState.failed);
   const showCapsule = showViewPool || isOwner || showFollow;
   const showPrivacyChoices = trackableProfileId !== null && consent !== null;
   const cardShowing = bannerMode !== "hidden" && trackableProfileId !== null;
@@ -609,7 +611,10 @@ export function ProfileView({
             <div
               className={cn("flex items-center gap-[5px]", showFollow && "w-full gap-2 sm:w-auto")}
             >
-              {showFollow && (
+              {showFollow && !followState.status && (
+                <FollowRetry busy={followState.busy} onRetry={() => void followState.retry()} />
+              )}
+              {showFollow && followState.status && (
                 <FollowButton
                   status={followState.status}
                   busy={followState.busy}
