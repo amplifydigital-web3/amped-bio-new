@@ -477,10 +477,11 @@ export const userRouter = router({
       // Build the base where clause based on search. Only published, not
       // suspended pages are listed (Fan Graph #22: fan accounts have no page).
       const whereClause: any = { page_status: "PUBLISHED", block: "no" };
-      if (input.search) {
-        whereClause.name = {
-          contains: input.search,
-        };
+      // Screen Review 042 I10: match the display name or the @handle. A leading
+      // @ is ignored; the MySQL collation makes contains case insensitive.
+      const term = input.search?.trim().replace(/^@+/, "");
+      if (term) {
+        whereClause.OR = [{ name: { contains: term } }, { handle: { contains: term } }];
       }
 
       // Apply has-creator-pool filter
