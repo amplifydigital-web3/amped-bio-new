@@ -15,13 +15,13 @@ import { isHTML } from "@/utils/htmlutils";
 import { type BlockType, sanitizeRichHtml } from "@repo/constants";
 import { Theme, UserProfile } from "@/types/editor";
 import { trpcClient } from "@repo/ui";
-import { THEME_DEFAULTS, themeCssVars } from "@repo/ui";
-import { useState, type ReactNode } from "react";
-import { Check, Copy, ExternalLink } from "lucide-react";
+import { RnsIdentityChip, RnsVerifiedMark, THEME_DEFAULTS, themeCssVars } from "@repo/ui";
+import { type ReactNode } from "react";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { AlertCircle } from "lucide-react";
 import { blockNeed, isHidden, mediaName } from "./panels/page/blocks/blockInfo";
+import { useMyPageIdentity } from "./panels/page/rns/useMyPageIdentity";
 
 // Helper function to extract the root domain from a URL
 const extractRootDomain = (url: string): string => {
@@ -91,11 +91,13 @@ export function Preview({
   userId,
   onBlockSelect,
 }: PreviewProps) {
-  const [copied, setCopied] = useState(false);
   const themeConfig = theme.config;
   const { handleReferrerClick } = useReferralHandler();
 
-  const showRns = import.meta.env.VITE_SHOW_RNS === "true";
+  // 108 I11, 109 I14: the chip exactly as the public page renders it, from
+  // the same server rule (rns.getMyPageIdentity), with the sheet read only
+  const pageIdentity = useMyPageIdentity(isEditing);
+  const identity = pageIdentity.data?.identity ?? null;
 
   const handleLinkClick = (block: BlockType) => {
     // The editor preview is the creator looking at their own page. Those clicks
@@ -105,17 +107,6 @@ export function Preview({
       trpcClient.blocks.registerClick.mutate({ id: block.id });
     }
   };
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(profile.revoName ?? "");
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const revoNameUrl =
-    profile.revoName && !isEditing
-      ? `${import.meta.env.VITE_RNS_URL}/#/profile/${profile.revoName.split(".")[0]}`
-      : null;
 
   // One block as visitors see it. `fallback` shows when the block throws.
   const renderBlock = (block: BlockType, fallback: ReactNode) => {
@@ -298,43 +289,21 @@ export function Preview({
                       }}
                     >
                       {profile.name}
+                      {identity?.chip === "verified" && (
+                        <RnsVerifiedMark className="ml-2 align-[-3px]" />
+                      )}
                     </h1>
-                    {profile.revoName && showRns && (
-                      <div
-                        className={cn(
-                          "font-bold tracking-tight flex items-center justify-center gap-1 w-full overflow-hidden",
-                          getHeroEffectStyle(themeConfig?.heroEffect)
-                        )}
-                        style={{
-                          fontFamily: themeConfig?.fontFamily,
-                          color: themeConfig?.fontColor,
-                        }}
-                      >
-                        <button
-                          onClick={handleCopy}
-                          className="text-sm font-bold transition-all duration-300 shrink-0"
-                        >
-                          {!copied ? (
-                            <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                          ) : (
-                            <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" />
-                          )}
-                        </button>
-                        {revoNameUrl ? (
-                          <a
-                            href={revoNameUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="font-medium flex items-center gap-1 hover:underline min-w-0"
-                          >
-                            <span className="break-all">{profile.revoName}</span>
-                            <ExternalLink className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                          </a>
-                        ) : (
-                          <span className="font-medium min-w-0">
-                            <span className="break-all">{profile.revoName}</span>
-                          </span>
-                        )}
+                    {identity && (
+                      <div className="mt-2 flex justify-center">
+                        <RnsIdentityChip
+                          identity={identity}
+                          displayName={profile.name}
+                          avatarUrl={profile.photoUrl || null}
+                          fontFamily={themeConfig?.fontFamily}
+                          fontColor={themeConfig?.fontColor}
+                          rnsUrl={import.meta.env.VITE_RNS_URL}
+                          readOnly
+                        />
                       </div>
                     )}
                   </div>

@@ -20,9 +20,8 @@ import initialState from "../store/defaults";
 import { useAuth } from "@repo/ui";
 import toast from "react-hot-toast";
 import { BlockType } from "@repo/constants";
-import { RNS_BINDING_MESSAGES } from "@repo/web3";
 import { formatHandle, normalizeHandle } from "@repo/ui";
-import { trpcClient } from "@repo/ui";
+import { queryClient, trpcClient } from "@repo/ui";
 import { exportThemeConfigAsJson } from "@repo/ui";
 import { mergeTheme } from "@/utils/mergeTheme";
 import { useNavigate, useLocation } from "react-router";
@@ -81,7 +80,10 @@ interface EditorContextType extends EditorState {
   setBackground: (background: Background) => void;
   setBackgroundForUpload: (background: Background) => void;
   saveChanges: () => Promise<boolean>;
+  /** Clears the page RNS name on the server (108 I01), e.g. after a transfer */
   clearRevoName: () => Promise<void>;
+  /** The page RNS name as stored, set by the Page RNS section after a save. Not an edit. */
+  setSavedRevoName: (name: string) => void;
   setDefault: () => void;
   addToGallery: (image: GalleryImage) => void;
   removeFromGallery: (url: string) => void;
@@ -91,11 +93,6 @@ interface EditorContextType extends EditorState {
   exportTheme: (customFilename?: string) => void;
   /** Replace the whole theme config (theme file import and its Undo, 031). */
   replaceThemeConfig: (config: ThemeConfig) => void;
-  expiredRevoName: string;
-  dismissRevoName: () => Promise<void>;
-  lostRevoName: string;
-  /** Why the last RNS name choice was not saved (100 I02). null when it saved. */
-  revoNameError: string | null;
 }
 
 const EditorContext = createContext<EditorContextType | undefined>(undefined);
@@ -128,13 +125,6 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     themeChangesRef.current = true;
     setThemeChanges(true);
   }, []);
-  const [expiredRevoName, setExpiredRevoName] = useState("");
-  const [lostRevoName, setLostRevoName] = useState("");
-  // 100 I02: the RNS name as stored on the server. A save sends revo_name only
-  // when the choice changed, so a lapsed or unreadable name never blocks the
-  // other edits, and a refused name rolls back to this value.
-  const savedRevoNameRef = useRef("");
-  const [revoNameError, setRevoNameError] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -152,16 +142,11 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       const { user, theme, blocks: blocks_raw, hasCreatorPool } = onlinkData;
-      const { id, name, revoName, revoNameStatus, originalRevoName, description, image } = user;
+      const { id, name, description, image } = user;
       const normalizedHandle = normalizeHandle(handle);
       const formattedHandle = formatHandle(handle);
 
       const blocks = blocks_raw.sort((a, b) => a.order - b.order);
-
-      // Server already validated ownership and expiry; just read the status
-      if (revoNameStatus === "expired") setExpiredRevoName(originalRevoName ?? "");
-      else if (revoNameStatus === "taken") setLostRevoName(originalRevoName ?? "");
-      savedRevoNameRef.current = revoName ?? "";
 
       setState(prevState => ({
         ...prevState,
@@ -170,7 +155,9 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
           name,
           handle: normalizedHandle,
           handleFormatted: formattedHandle,
-          revoName: revoName ?? "",
+          // 108 I02: the stored RNS name is private. The Page RNS section
+          // reads it from rns.getMyPageIdentity and sets it here.
+          revoName: "",
           // getHandle is public and does not return email. The signed in owner's
           // email comes from the session (authUser) where it is needed.
           email: "",
@@ -181,6 +168,23 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         blocks: blocks as unknown as BlockType[],
         hasCreatorPool,
       }));
+      // 108 I02: the stored RNS name comes from the owner's private read.
+      // Wallet name pages compare against it.
+      if (import.meta.env.VITE_SHOW_RNS === "true") {
+        void queryClient
+          .fetchQuery({
+            queryKey: ["rns", "myPageIdentity"],
+            queryFn: () => trpcClient.rns.getMyPageIdentity.query(),
+            staleTime: 30_000,
+          })
+          .then(data =>
+            setState(prevState => ({
+              ...prevState,
+              profile: { ...prevState.profile, revoName: data.name ?? "" },
+            }))
+          )
+          .catch(() => undefined);
+      }
       // console.info("✅ User setup complete");
       // console.groupEnd();
       return onlinkData;
@@ -469,43 +473,14 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
       }));
     }
 
-    const revoName = profile.revoName || "";
-    const revoNameChanged = revoName !== savedRevoNameRef.current;
-    const editUser = (revo_name: string | undefined) =>
-      trpcClient.user.edit.mutate({
-        name: profile.name,
-        description: profile.bio,
-        revo_name,
-        image: profile.photoUrl || "",
-        reward_business_id: "",
-        theme: themeId,
-      });
-
-    let userStatus: Awaited<ReturnType<typeof editUser>>;
-    try {
-      userStatus = await editUser(revoNameChanged ? revoName : undefined);
-      if (revoNameChanged) {
-        savedRevoNameRef.current = revoName;
-        setRevoNameError(null);
-      }
-    } catch (error) {
-      // 100 I02: the server refused the RNS name. Roll the choice back, say
-      // why next to the field, and save everything else.
-      const message = error instanceof Error ? error.message : "";
-      const refused = (Object.values(RNS_BINDING_MESSAGES) as string[]).includes(message);
-      if (!revoNameChanged || !refused) throw error;
-      const previous = savedRevoNameRef.current;
-      stateRef.current = {
-        ...stateRef.current,
-        profile: { ...stateRef.current.profile, revoName: previous },
-      };
-      setState(prevState => ({
-        ...prevState,
-        profile: { ...prevState.profile, revoName: previous },
-      }));
-      setRevoNameError(message);
-      userStatus = await editUser(undefined);
-    }
+    // 108 I01: the RNS name has its own validated write (user.setRnsName)
+    const userStatus = await trpcClient.user.edit.mutate({
+      name: profile.name,
+      description: profile.bio,
+      image: profile.photoUrl || "",
+      reward_business_id: "",
+      theme: themeId,
+    });
 
     if (!userStatus || !blocksStatus) return false;
     // A theme edit made during this save stays dirty for the next one
@@ -618,27 +593,24 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [hasUnsavedChanges]);
 
+  const setSavedRevoName = useCallback((name: string) => {
+    stateRef.current = {
+      ...stateRef.current,
+      profile: { ...stateRef.current.profile, revoName: name },
+    };
+    setState(prevState => ({ ...prevState, profile: { ...prevState.profile, revoName: name } }));
+  }, []);
+
   const clearRevoName = useCallback(async () => {
-    const { profile, theme } = state;
     try {
-      await trpcClient.user.edit.mutate({
-        name: profile.name,
-        description: profile.bio,
-        revo_name: "",
-        image: profile.photoUrl || "",
-        reward_business_id: "",
-        theme: theme.id,
-      });
-      savedRevoNameRef.current = "";
-      setState(prevState => ({
-        ...prevState,
-        profile: { ...prevState.profile, revoName: "" },
-      }));
+      await trpcClient.user.setRnsName.mutate({ label: null });
+      setSavedRevoName("");
+      void queryClient.invalidateQueries({ queryKey: ["rns", "myPageIdentity"] });
     } catch (error) {
-      console.error("❌ Failed to clear revoName:", error);
-      toast.error("Failed to clear revoName");
+      console.error("❌ Failed to clear the RNS name:", error);
+      toast.error("We could not remove the RNS name from your page. Try again.");
     }
-  }, [state]);
+  }, [setSavedRevoName]);
 
   const setDefault = useCallback(() => {
     console.group("🔄 Resetting to Default");
@@ -695,6 +667,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     setBackgroundForUpload,
     saveChanges,
     clearRevoName,
+    setSavedRevoName,
     setDefault,
     addToGallery,
     removeFromGallery,
@@ -702,14 +675,6 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     setSelectedPoolId,
     exportTheme,
     replaceThemeConfig,
-    expiredRevoName,
-    lostRevoName,
-    revoNameError,
-    dismissRevoName: async () => {
-      await clearRevoName();
-      setLostRevoName("");
-      setExpiredRevoName("");
-    },
   };
 
   return <EditorContext.Provider value={value}>{children}</EditorContext.Provider>;
