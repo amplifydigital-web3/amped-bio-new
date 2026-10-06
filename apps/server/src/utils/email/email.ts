@@ -6,7 +6,7 @@ import emailChangeTemplate from "./EmailChangeTemplate";
 import welcomeEmailTemplate from "./WelcomeEmailTemplate";
 import { env } from "../../env";
 
-const baseURL = env.FRONTEND_URL;
+const siteURL = env.SITE_URL;
 
 type EmailOptions = {
   to: string | string[];
@@ -79,7 +79,7 @@ const sendEmail = async (options: EmailOptions) => {
 
 export const sendEmailVerification = async (email: string, token: string) => {
   console.log(`🔗 Generating verification URL for email: ${email}`);
-  const url = `${baseURL}/auth/verify-email/${token}?email=${encodeURIComponent(email)}`;
+  const url = `${siteURL}/auth/verify-email/${token}?email=${encodeURIComponent(email)}`;
   console.log("🔗 Verification URL generated:", url);
 
   console.log("🎨 Rendering email verification template...");
@@ -97,7 +97,7 @@ export const sendEmailVerification = async (email: string, token: string) => {
 
 export const sendPasswordResetEmail = async (email: string, token: string) => {
   console.log(`🔑 Generating password reset URL for email: ${email}`);
-  const url = `${baseURL}/auth/reset-password/${token}`;
+  const url = `${siteURL}/auth/reset-password/${token}`;
   console.log("🔗 Password reset URL generated:", url);
 
   console.log("🎨 Rendering password reset template...");

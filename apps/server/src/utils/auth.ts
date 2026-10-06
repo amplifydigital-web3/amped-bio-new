@@ -35,6 +35,7 @@ export const JWT_KEYS = {
 // ================ better-auth configuration ==================
 export const auth = betterAuth({
   basePath: "/auth",
+  baseURL: env.API_HOST.startsWith("http") ? env.API_HOST : `https://${env.API_HOST}`,
   trustedOrigins: [
     env.FRONTEND_URL,
     env.SITE_URL,
@@ -227,7 +228,11 @@ export const auth = betterAuth({
       // Required to send the verification email
       sendVerificationEmail: async ({ user, url, token }: { user: any; url: any; token: any }) => {
         console.info("Sending email verification to:", JSON.stringify({ user, url, token }));
-        sendEmailVerification(user.email, token);
+        try {
+          await sendEmailVerification(user.email, token);
+        } catch (error) {
+          console.error("Failed to send verification email:", error);
+        }
       },
       sendOnSignUp: true,
       autoSignInAfterVerification: true,
@@ -283,7 +288,11 @@ export const auth = betterAuth({
     },
     sendResetPassword: async ({ user, url, token }: { user: any; url: any; token: any }) => {
       console.info("Sending password reset email to:", JSON.stringify({ user, url, token }));
-      await sendPasswordResetEmail(user.email, token);
+      try {
+        await sendPasswordResetEmail(user.email, token);
+      } catch (error) {
+        console.error("Failed to send password reset email:", error);
+      }
     },
   },
   socialProviders: {
