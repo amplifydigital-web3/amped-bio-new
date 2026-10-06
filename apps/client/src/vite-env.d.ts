@@ -21,7 +21,9 @@ interface ImportMetaEnv {
   readonly VITE_WEB3AUTH_AUTH_CONNECTION_ID: string;
   readonly VITE_WEB3AUTH_NETWORK: string;
   readonly VITE_SHOW_WALLET: string;
-readonly VITE_FAN_GRAPH?: string;
+  readonly VITE_FAN_GRAPH?: string;
+  /** Explore NFTs tab (Screen Review 044, D07). Off until NFT data exists. */
+  readonly VITE_SHOW_NFTS?: string;
   /** Creator Pool Broadcast (Build Board #1): My Pool Broadcasts tab and the Inbox */
   readonly VITE_SHOW_BROADCAST: string;
   readonly VITE_DEFAULT_NETWORK_ID_HEX: `0x${string}`;

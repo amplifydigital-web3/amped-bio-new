@@ -39,8 +39,16 @@ interface LayoutProps {
 const PREVIEW_PANELS: EditorPanelType[] = ["page", "design"];
 
 // Destinations whose screens are restyled sit directly on the room (PR 3a Design,
-// 3b Page, 3c Account, 5b Home)
-const RESTYLED_PANELS: EditorPanelType[] = ["design", "page", "people", "inbox", "account", "home"];
+// 3b Page, 3c Account, 5b Home, 14b Explore)
+const RESTYLED_PANELS: EditorPanelType[] = [
+  "design",
+  "page",
+  "people",
+  "inbox",
+  "account",
+  "home",
+  "explore",
+];
 
 function ActivePanel({ panel }: { panel: EditorPanelType }) {
   switch (panel) {
