@@ -15,7 +15,8 @@ function readHidden() {
 
 // Verify email reminder on Home (Screen Review 015 I11): informational notice
 // while the email is unverified, Resend email with the 60 second cooldown of
-// row 012, and a 44 dismiss that hides it for this session.
+// row 012, and a 44 dismiss that hides it for this session. The copy does not
+// claim a link was just sent (QA-035, wording approved by Rob 6 Oct).
 export function VerifyEmailNotice({ email }: { email: string }) {
   const [hidden, setHidden] = useState(readHidden);
   const [sending, setSending] = useState(false);
@@ -62,7 +63,7 @@ export function VerifyEmailNotice({ email }: { email: string }) {
       <Info className="mt-[12px] h-[21px] w-[21px] shrink-0 text-prism-nav sm:mt-0" aria-hidden />
       <div className="flex min-w-0 flex-1 flex-col gap-x-3 sm:flex-row sm:items-center">
         <p className="min-w-0 flex-1 py-[10px] text-prism-body text-prism-ink sm:py-0">
-          Verify your email. We sent a link to <span className="break-words">{email}</span>.
+          Your email is not verified yet. Resend the link.
         </p>
         <Button
           variant="ghost"

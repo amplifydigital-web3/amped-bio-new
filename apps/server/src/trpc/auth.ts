@@ -107,7 +107,7 @@ export const authRouter = router({
           id: user.id,
           email: user.email,
           handle: user.handle,
-          // emailVerified: user.email_verified_at !== null,
+          emailVerified: user.email_verified,
           role: user.role,
           image: imageUrl,
           wallet: userWallet?.address || null,

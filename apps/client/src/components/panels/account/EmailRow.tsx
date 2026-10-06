@@ -364,8 +364,21 @@ function EmailEditor() {
 
 export function EmailRow() {
   const { authUser } = useAuth();
+  // Only an explicit false shows the chip; unknown stays quiet (QA-035)
+  const unverified = !!authUser?.email && authUser.emailVerified === false;
   return (
-    <DisclosureRow id={EMAIL_ROW} label="Email" value={authUser?.email ?? ""}>
+    <DisclosureRow
+      id={EMAIL_ROW}
+      label="Email"
+      value={authUser?.email ?? ""}
+      status={
+        unverified ? (
+          <span className="shrink-0 rounded-prism-8 bg-prism-warning-bg px-2 py-1 text-prism-meta font-semibold text-prism-warning-ink">
+            Not verified
+          </span>
+        ) : undefined
+      }
+    >
       <EmailEditor />
     </DisclosureRow>
   );
