@@ -22,7 +22,11 @@ export function useCreatorPool() {
   const hasFetchedRef = useRef(false);
 
   // Use wagmi's useReadContract hook to get the pool address
-  const { data: contractPoolAddress, isLoading: isReadingPoolAddress } = useReadContract({
+  const {
+    data: contractPoolAddress,
+    isLoading: isReadingPoolAddress,
+    refetch,
+  } = useReadContract({
     address: chain?.contracts?.CREATOR_POOL_FACTORY?.address,
     abi: CREATOR_POOL_FACTORY_ABI,
     functionName: "getPoolForCreator",
@@ -93,5 +97,7 @@ export function useCreatorPool() {
     createPool: handleCreatePool,
     poolAddress,
     isLoading: isReadingPoolAddress,
+    // 066 I10: Open My Pool reads the new pool address after launch
+    refetch,
   };
 }
