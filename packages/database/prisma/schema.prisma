@@ -242,6 +242,7 @@ model UserWallet {
   creatorPools         CreatorPool[]
   stakedPools          StakedPool[]
   stakeEvents          StakeEvent[]
+  airdropQueue         AirdropQueueEntry[]
 
   @@map("user_wallets")
 }
@@ -930,4 +931,16 @@ model NotificationPreference {
 
   @@unique([userId, creatorUserId])
   @@map("notification_preferences")
+}
+
+
+model AirdropQueueEntry {
+  id           Int       @id @default(autoincrement())
+  userWalletId Int       @unique
+  amount       String    @db.Text
+  createdAt    DateTime  @default(now())
+
+  userWallet UserWallet @relation(fields: [userWalletId], references: [id], onDelete: Cascade)
+
+  @@map("airdrop_queue")
 }
