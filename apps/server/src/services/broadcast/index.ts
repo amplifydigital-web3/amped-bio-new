@@ -16,6 +16,8 @@ const CHUNK = 1000;
 /** A SENDING broadcast untouched this long is treated as abandoned and resumed. */
 const STALE_MS = 5 * 60 * 1000;
 const SWEEP_MS = 60 * 1000;
+/** Fan-out runs allowed per broadcast before it is marked FAILED (QA-034). */
+export const BROADCAST_MAX_SEND_ATTEMPTS = 5;
 
 /** Members of a pool: a positive stake in the StakedPool mirror, not suspended, not the owner. */
 export async function memberUserIds(poolId: number, ownerUserId: number): Promise<number[]> {
@@ -51,17 +53,21 @@ const COUNTED: Prisma.BroadcastWhereInput["status"] = {
   in: ["IN_REVIEW", "QUEUED", "SENDING", "SENT"],
 };
 
-export async function getQuota(userId: number, now = new Date()) {
+export async function getQuota(
+  userId: number,
+  now = new Date(),
+  db: Pick<typeof prisma, "broadcast" | "broadcastSenderStatus"> = prisma
+) {
   const dayAgo = new Date(now.getTime() - 24 * 3600 * 1000);
   const weekAgo = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
   const [day, week, status] = await Promise.all([
-    prisma.broadcast.count({
+    db.broadcast.count({
       where: { creatorUserId: userId, status: COUNTED, createdAt: { gte: dayAgo } },
     }),
-    prisma.broadcast.count({
+    db.broadcast.count({
       where: { creatorUserId: userId, status: COUNTED, createdAt: { gte: weekAgo } },
     }),
-    prisma.broadcastSenderStatus.findUnique({ where: { userId } }),
+    db.broadcastSenderStatus.findUnique({ where: { userId } }),
   ]);
   return {
     usedToday: day,
@@ -125,15 +131,16 @@ export async function processBroadcast(
   const claimed = await prisma.broadcast.updateMany({
     where: {
       id: broadcastId,
+      sendAttempts: { lt: BROADCAST_MAX_SEND_ATTEMPTS },
       OR: [{ status: "QUEUED" }, { status: "SENDING", updatedAt: { lt: staleBefore } }],
     },
-    data: { status: "SENDING", startedAt: new Date() },
+    data: { status: "SENDING", startedAt: new Date(), sendAttempts: { increment: 1 } },
   });
   if (claimed.count === 0) return "skipped";
 
   const b = await prisma.broadcast.findUnique({
     where: { id: broadcastId },
-    select: { id: true, poolId: true, creatorUserId: true },
+    select: { id: true, poolId: true, creatorUserId: true, sendAttempts: true },
   });
   if (!b || b.poolId === null) {
     await prisma.broadcast.update({ where: { id: broadcastId }, data: { status: "FAILED" } });
@@ -163,10 +170,40 @@ export async function processBroadcast(
     console.log(`[broadcast] ${b.id} delivered to ${recipientCount} inboxes`);
     return "sent";
   } catch (error) {
-    // Leave it SENDING; the sweeper resumes it once the claim is stale
-    console.error(`[broadcast] fan-out failed for ${b.id}`, error);
+    console.error(
+      `[broadcast] fan-out failed for ${b.id} (attempt ${b.sendAttempts} of ${BROADCAST_MAX_SEND_ATTEMPTS})`,
+      error
+    );
+    if (b.sendAttempts >= BROADCAST_MAX_SEND_ATTEMPTS) {
+      // Out of attempts: stop retrying. Delivery rows already written stay.
+      await prisma.broadcast.update({
+        where: { id: b.id },
+        data: { status: "FAILED", completedAt: new Date() },
+      });
+    }
+    // Otherwise leave it SENDING; the sweeper resumes it once the claim is stale
     return "failed";
   }
+}
+
+/**
+ * Mark FAILED any stale SENDING broadcast that already used every attempt, for
+ * example when the process died mid fan-out on the last attempt.
+ */
+async function failExhausted() {
+  const staleBefore = new Date(Date.now() - STALE_MS);
+  const failed = await prisma.broadcast.updateMany({
+    where: {
+      status: "SENDING",
+      updatedAt: { lt: staleBefore },
+      sendAttempts: { gte: BROADCAST_MAX_SEND_ATTEMPTS },
+    },
+    data: { status: "FAILED", completedAt: new Date() },
+  });
+  if (failed.count > 0) {
+    console.error(`[broadcast] ${failed.count} broadcast(s) failed after max attempts`);
+  }
+  return failed.count;
 }
 
 /** Run fan-out without blocking the request that queued it. */
@@ -180,9 +217,11 @@ export function enqueueBroadcast(broadcastId: number) {
 
 /** Resume broadcasts left QUEUED, or SENDING past the stale window. */
 export async function sweepBroadcasts() {
+  await failExhausted();
   const staleBefore = new Date(Date.now() - STALE_MS);
   const pending = await prisma.broadcast.findMany({
     where: {
+      sendAttempts: { lt: BROADCAST_MAX_SEND_ATTEMPTS },
       OR: [{ status: "QUEUED" }, { status: "SENDING", updatedAt: { lt: staleBefore } }],
     },
     select: { id: true },

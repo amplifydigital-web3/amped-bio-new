@@ -7,6 +7,18 @@ import { env } from "../../env";
 import { countMembers, enqueueBroadcast, getQuota } from "../../services/broadcast";
 import { bodySchema, ownedPool, storedFlags, titleSchema } from "./shared";
 
+type Quota = Awaited<ReturnType<typeof getQuota>>;
+
+function quotaExceeded(quota: Quota) {
+  return new TRPCError({
+    code: "TOO_MANY_REQUESTS",
+    message:
+      quota.usedThisWeek >= BROADCAST_LIMITS.perWeek
+        ? `You have sent ${BROADCAST_LIMITS.perWeek} broadcasts this week. You can send again in a few days.`
+        : `You have sent ${BROADCAST_LIMITS.perDay} broadcasts today. You can send again tomorrow.`,
+  });
+}
+
 /**
  * broadcast.creator: the pool owner's composer and sent list (My Pool,
  * Broadcasts tab). Spec section 3.4. Every procedure resolves the pool from
@@ -102,15 +114,9 @@ export const broadcastCreatorRouter = router({
           message: "Broadcasting is paused for your account while Amped reviews it.",
         });
       }
-      if (quota.leftToday <= 0) {
-        throw new TRPCError({
-          code: "TOO_MANY_REQUESTS",
-          message:
-            quota.usedThisWeek >= BROADCAST_LIMITS.perWeek
-              ? `You have sent ${BROADCAST_LIMITS.perWeek} broadcasts this week. You can send again in a few days.`
-              : `You have sent ${BROADCAST_LIMITS.perDay} broadcasts today. You can send again tomorrow.`,
-        });
-      }
+      // Early answer for the common case. The binding check runs again below,
+      // under a lock, right before the insert.
+      if (quota.leftToday <= 0) throw quotaExceeded(quota);
 
       const members = await countMembers(pool.id, userId);
       if (members === 0) {
@@ -135,26 +141,35 @@ export const broadcastCreatorRouter = router({
       const firstSend = !status?.firstApprovedAt;
       const now = new Date();
       try {
-        const broadcast = await prisma.broadcast.create({
-          data: {
-            creatorUserId: userId,
-            poolId: pool.id,
-            audienceKind: "ALL_MEMBERS",
-            title: input.title,
-            body: input.body,
-            idempotencyKey: input.idempotencyKey,
-            flaggedTerms: flags.length ? storedFlags(flags) : undefined,
-            status: firstSend ? "IN_REVIEW" : "QUEUED",
-            reviewReason: firstSend ? "first_send" : null,
-            queuedAt: firstSend ? null : now,
-            recipientEstimate: members,
-          },
-          select: { id: true, status: true },
+        // QA-022: count and insert in one transaction while holding a row lock
+        // on the sender's users row, so parallel sends from one creator run one
+        // at a time and the second one sees the first one's row.
+        const broadcast = await prisma.$transaction(async tx => {
+          await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId} FOR UPDATE`;
+          const fresh = await getQuota(userId, now, tx);
+          if (fresh.leftToday <= 0) throw quotaExceeded(fresh);
+          return tx.broadcast.create({
+            data: {
+              creatorUserId: userId,
+              poolId: pool.id,
+              audienceKind: "ALL_MEMBERS",
+              title: input.title,
+              body: input.body,
+              idempotencyKey: input.idempotencyKey,
+              flaggedTerms: flags.length ? storedFlags(flags) : undefined,
+              status: firstSend ? "IN_REVIEW" : "QUEUED",
+              reviewReason: firstSend ? "first_send" : null,
+              queuedAt: firstSend ? null : now,
+              recipientEstimate: members,
+            },
+            select: { id: true, status: true },
+          });
         });
         if (broadcast.status === "QUEUED") enqueueBroadcast(broadcast.id);
         return broadcast;
       } catch (error) {
-        // Two concurrent calls with one key: return the row the other call wrote
+        // Two concurrent calls with one key: return the row the other call wrote.
+        // This also covers the second call failing the locked quota check.
         const raced = await prisma.broadcast.findUnique({
           where: {
             creatorUserId_idempotencyKey: {

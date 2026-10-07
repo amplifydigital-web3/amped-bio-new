@@ -22,6 +22,7 @@ const db = vi.hoisted(() => {
     broadcast: {
       count: fn(),
       findUnique: fn(),
+      findUniqueOrThrow: fn(),
       findFirst: fn(),
       findMany: fn(),
       create: fn(),
@@ -33,6 +34,7 @@ const db = vi.hoisted(() => {
     creatorPool: { findFirst: fn() },
     user: { findUnique: fn() },
     $queryRaw: fn(),
+    $transaction: fn(),
   };
 });
 
@@ -49,8 +51,15 @@ vi.mock("../services/S3Service", () => ({
   s3Service: { getFileUrl: (k: string) => `https://cdn/${k}` },
 }));
 
-import { checkReportThreshold, getQuota, processBroadcast } from "../services/broadcast";
+import {
+  BROADCAST_MAX_SEND_ATTEMPTS,
+  checkReportThreshold,
+  getQuota,
+  processBroadcast,
+  sweepBroadcasts,
+} from "../services/broadcast";
 import { broadcastCreatorRouter } from "../trpc/broadcast/creator";
+import { broadcastsAdminRouter } from "../trpc/admin/broadcasts";
 import { env } from "../env";
 
 const envMock = env as { BROADCAST_INVITE_ONLY: boolean };
@@ -58,6 +67,9 @@ const envMock = env as { BROADCAST_INVITE_ONLY: boolean };
 beforeEach(() => {
   vi.clearAllMocks();
   envMock.BROADCAST_INVITE_ONLY = true;
+  db.$transaction.mockImplementation((arg: unknown) =>
+    typeof arg === "function" ? (arg as (tx: typeof db) => unknown)(db) : Promise.all(arg as [])
+  );
 });
 
 describe("content check (warn only)", () => {
@@ -180,6 +192,60 @@ describe("fan-out", () => {
       })
     );
   });
+
+  it("counts each claim as an attempt and only claims under the cap (QA-034)", async () => {
+    db.broadcast.updateMany.mockResolvedValue({ count: 0 });
+    await processBroadcast(5);
+    expect(db.broadcast.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ sendAttempts: { lt: BROADCAST_MAX_SEND_ATTEMPTS } }),
+      data: expect.objectContaining({ sendAttempts: { increment: 1 } }),
+    });
+  });
+
+  it("leaves a failed run SENDING while attempts remain", async () => {
+    db.broadcast.updateMany.mockResolvedValue({ count: 1 });
+    db.broadcast.findUnique.mockResolvedValue({
+      id: 5,
+      poolId: 9,
+      creatorUserId: 1,
+      sendAttempts: 2,
+    });
+    db.$queryRaw.mockRejectedValue(new Error("db down"));
+    expect(await processBroadcast(5)).toBe("failed");
+    expect(db.broadcast.update).not.toHaveBeenCalled();
+  });
+
+  it("marks the broadcast FAILED on the last attempt", async () => {
+    db.broadcast.updateMany.mockResolvedValue({ count: 1 });
+    db.broadcast.findUnique.mockResolvedValue({
+      id: 5,
+      poolId: 9,
+      creatorUserId: 1,
+      sendAttempts: BROADCAST_MAX_SEND_ATTEMPTS,
+    });
+    db.$queryRaw.mockRejectedValue(new Error("db down"));
+    expect(await processBroadcast(5)).toBe("failed");
+    expect(db.broadcast.update).toHaveBeenCalledWith({
+      where: { id: 5 },
+      data: expect.objectContaining({ status: "FAILED" }),
+    });
+  });
+
+  it("the sweeper fails stale broadcasts that used every attempt and skips them", async () => {
+    db.broadcast.updateMany.mockResolvedValue({ count: 1 });
+    db.broadcast.findMany.mockResolvedValue([]);
+    await sweepBroadcasts();
+    expect(db.broadcast.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        status: "SENDING",
+        sendAttempts: { gte: BROADCAST_MAX_SEND_ATTEMPTS },
+      }),
+      data: expect.objectContaining({ status: "FAILED" }),
+    });
+    expect(db.broadcast.findMany.mock.calls[0][0].where.sendAttempts).toEqual({
+      lt: BROADCAST_MAX_SEND_ATTEMPTS,
+    });
+  });
 });
 
 describe("report pause", () => {
@@ -263,6 +329,21 @@ describe("send", () => {
     ]);
   });
 
+  it("re-counts the quota under a lock before the insert (QA-022)", async () => {
+    ready();
+    // First read says one slot is left; a parallel send took it before the lock.
+    db.broadcast.count
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(3)
+      .mockResolvedValueOnce(3);
+    await expect(caller.send(input)).rejects.toMatchObject({ code: "TOO_MANY_REQUESTS" });
+    expect(db.$transaction).toHaveBeenCalledTimes(1);
+    expect(db.broadcast.create).not.toHaveBeenCalled();
+    const lock = db.$queryRaw.mock.calls.find(c => String(c[0]).includes("FOR UPDATE"));
+    expect(lock).toBeDefined();
+  });
+
   it("refuses more than 5 links", async () => {
     ready();
     await expect(
@@ -271,6 +352,27 @@ describe("send", () => {
         body: "see [x](https://a.b) and [y](https://c.d) [1](https://1.io) [2](https://2.io) [3](https://3.io) [4](https://4.io)",
       })
     ).rejects.toThrow("5 links");
+  });
+});
+
+describe("admin review races (QA-019)", () => {
+  const admin = broadcastsAdminRouter.createCaller({ user: { sub: 2, role: "admin" } } as never);
+
+  it("approve claims the row only while it is in review", async () => {
+    db.broadcast.updateMany.mockResolvedValue({ count: 0 });
+    await expect(admin.approve({ id: 5 })).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(db.broadcast.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 5, status: "IN_REVIEW" } })
+    );
+    expect(db.broadcastSenderStatus.upsert).not.toHaveBeenCalled();
+  });
+
+  it("reject after another admin acted is a conflict", async () => {
+    db.broadcast.updateMany.mockResolvedValue({ count: 0 });
+    await expect(admin.reject({ id: 5, note: "Off topic" })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+    expect(db.broadcast.findUnique).not.toHaveBeenCalled();
   });
 });
 
