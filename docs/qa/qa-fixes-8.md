@@ -1,0 +1,23 @@
+# QA fixes 8: wallet confirm hang and resend verification
+
+Source: Amped.Bio staging QA, 7 Oct 2026 (Rob, app.staging.amped.bio). Tracker IDs are QA-xxx.
+One commit per item, in the order below. Branch `fix/staging-qa-8` from `development` (5520c9f). No migration.
+
+| QA | Area | Change | Files | How to check on staging |
+|---|---|---|---|---|
+| QA-057 | Wallet, stake, send, RNS | Stake, Pay and RNS writes sat on "Confirm in your wallet". Root cause is the chain RPC, not the flows: the embedded Web3Auth wallet signs and broadcasts through one RPC with no failover, and `rpc.revolutionnetwork.dev` (primary since e963f35) answers every read but rejects `eth_sendRawTransaction` after about 40 s with a 42 level nested `ServerError(3)` whose innermost cause is `ServerError(-32008) Response is too big, Exceeded max limit of 10485760`. The error body is 132 KB on the wire and 1.5 MB after the wallet re-escapes it, which froze the tab before the flow could show its error card. `libertas.revolutionchain.io` accepted the same signed transaction in 2.8 s. `web3authContext.ts` now hands the wallet `WALLET_RPC_URL` (libertas.revolutionchain.io) as its rpcTarget. The read failover list in `@repo/web3` is unchanged. Contract writes (stake, unstake, claim, pool launch, RNS register, renew and transfer) also wait at most two minutes through the shared `withWalletTimeout` (the QA-055 helper, moved to `utils/walletTimeout.ts`), so a wallet that never answers ends on the flow's error card with Retry instead of a step that cannot be dismissed. | `apps/client/src/utils/web3authContext.ts`, `apps/client/src/utils/walletTimeout.ts`, `hooks/useStakingManager.ts`, `hooks/usePoolReader.ts`, `hooks/useCreatorPool.ts`, `hooks/rns/useRegistration.ts`, `hooks/rns/useTransferOwnership.ts` | Stake 0.001 tREVO in a test pool: the Confirm in wallet step lasts a few seconds and the result card shows. Wallet > Send 0.001 tREVO to another address: same. RNS renew or transfer: same. For the bound, block `wallet.web3auth.io` in DevTools before confirming a stake: after two minutes the Review step shows "The stake did not go through. Nothing moved." with Retry. |
+| QA-058 | Account | Account Settings had the Not verified chip on the Email row but no way to resend. A card above the account rows now shows the address and a Resend verification email button while `emailVerified` is false. The request, 60 s cooldown and toasts are the Home notice's, shared through `hooks/useResendVerification.ts`. | `panels/account/VerifyEmailCard.tsx`, `panels/account/AccountSettings.tsx`, `panels/home/VerifyEmailNotice.tsx`, `hooks/useResendVerification.ts` | Sign in with an unverified account and open Account: the card sits above Public URL. Press Resend verification email: the "Verification email sent" toast shows, the button counts down from 60 s, and the link arrives. A verified account sees no card. Home still shows its own notice with the same behaviour. |
+
+## Notes
+
+- Follow-up: Wallet > Send still waits on the wallet without a bound (it calls wagmi `sendTransactionAsync` directly). With the RPC fix it answers in seconds; wrapping it with `withWalletTimeout` and a dedicated message is a small later change.
+
+- QA-057 is a workaround until `rpc.revolutionnetwork.dev` broadcasts again. The server side is slower but not broken: viem's `fallback` transport moves to the second URL when the primary fails, so payouts still land after the 40 s detour. Whoever runs the primary endpoint should look at its `eth_sendRawTransaction` path (a 10 MB response limit on an upstream proxy, by the innermost message). Once it is repaired, set `WALLET_RPC_URL` back to the primary read RPC.
+- While reproducing, one signed 0.001 tREVO stake into "Test Pool - Staging - 0% Creator Fee" was broadcast from @rob's wallet through the fallback RPC (hash 0xdbeec05f634fea3f73c5689be35c77a8bb73053c4378b715f97ebb97b3c7de39) without `pools.fan.confirmStake`, so the server's record of that position may be 0.001 behind the chain until it re-reads it.
+
+## Verification
+
+- Typecheck: `tsc -b` in apps/client, `tsc --noEmit` in apps/server. Both clean after building `packages/constants` and `packages/web3`.
+- Lint and format: eslint on changed files has no errors (two warnings on an untouched line of usePoolReader.ts), prettier check clean.
+- Build: `vite build --mode staging` in apps/client passes.
+- Root cause evidence: captured in the browser on staging with the wallet provider. `eth_estimateGas` and `personal_sign` through the wallet return in under a second, `eth_sendTransaction` returns the nested error after about 40 s, and the same signed transaction posted directly to the two RPCs fails on the primary and succeeds on the fallback.
