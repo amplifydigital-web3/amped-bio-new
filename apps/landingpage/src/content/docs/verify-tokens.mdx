@@ -1,7 +1,7 @@
 ---
 title: Verify tokens
-description: Validate the access token in your API without calling Amped.bio on every request.
-order: 12
+description: Validate the access token in your API without calling Amped.Bio on every request.
+order: 22
 group: Reference
 ---
 
@@ -18,17 +18,19 @@ const { payload } = await jwtVerify(accessToken, jwks, {
 });
 
 const userId = payload.sub as string;
-const scopes = String(payload.scope ?? "").split(" ").filter(Boolean);
+const scopes = String(payload.scope ?? "")
+  .split(" ")
+  .filter(Boolean);
 ```
 
 Checklist:
 
-1. **Signature** - verified with the JWKS above. Key ids (`kid`) are rotated by adding keys, never by
+1. **Signature**: verified with the JWKS above. Key ids (`kid`) are rotated by adding keys, never by
    replacing them.
-2. **Issuer** - must be `https://auth.amped.bio`.
-3. **Audience** - the `resource` the client requested. Reject tokens minted for another resource.
-4. **Expiry** - `exp` is 15 minutes from issuance by default.
-5. **Scopes** - require the scopes your endpoint needs.
+2. **Issuer**: must be `https://auth.amped.bio`.
+3. **Audience**: the `resource` the client requested. Reject tokens minted for another resource.
+4. **Expiry**: `exp` is 15 minutes from issuance by default.
+5. **Scopes**: require the scopes your endpoint needs.
 
 ## Using the Better Auth resource server helper
 
@@ -62,4 +64,4 @@ curl -sS https://auth.amped.bio/oauth2/introspect \
 
 - `POST /oauth2/revoke` with `token_type_hint=refresh_token` cuts off refresh, and every access token
   that carries the same session id stops verifying immediately.
-- Users can revoke your application from **Developers → Authorized applications**.
+- Users can revoke your application from [Account settings, Developers tab]({{APP_URL}}/account?tab=developers), Authorized applications.

@@ -1,12 +1,12 @@
 ---
 title: Introduction
-description: What "Sign in with Amped.bio" is and when to use it.
+description: What "Sign in with Amped.Bio" is and when to use it.
 order: 1
 group: Getting started
 ---
 
-Amped.bio runs an OAuth 2.1 authorization server with OpenID Connect on top. Any application can let its
-users sign in with their Amped.bio account instead of creating another password.
+Amped.Bio runs an OAuth 2.1 authorization server with OpenID Connect on top. Any application can let its
+users sign in with their Amped.Bio account instead of creating another password.
 
 - **Protocol**: OAuth 2.1 authorization code flow with PKCE, plus OpenID Connect for identity.
 - **Issuer**: `https://auth.amped.bio` (staging: `https://auth.staging.amped.bio`).
@@ -16,11 +16,11 @@ users sign in with their Amped.bio account instead of creating another password.
 
 ## What you can build
 
-| Use case | What you need |
-| --- | --- |
-| Sign in with Amped.bio | `openid profile email` scopes, the authorization code flow |
-| Long lived API access on behalf of a user | add `offline_access` and store the refresh token |
-| MCP clients (agents, IDEs) | register as a client and request the `mcp:read` scope |
+| Use case                                  | What you need                                              |
+| ----------------------------------------- | ---------------------------------------------------------- |
+| Sign in with Amped.Bio                    | `openid profile email` scopes, the authorization code flow |
+| Long lived API access on behalf of a user | add `offline_access` and store the refresh token           |
+| MCP clients (agents, IDEs)                | register as a client and request the `mcp:read` scope      |
 
 ## How the flow works
 
