@@ -13,6 +13,7 @@ import {
   encodeRestoreToken,
   publicCount,
   publicFollowerHandle,
+  type RemovedFollow,
 } from "../services/follow/rules";
 
 export { FOLLOWER_COUNT_FLOOR };
@@ -115,6 +116,61 @@ async function batchPoolFanCreatorIds(
     if (creatorId !== undefined) fanCreators.add(creatorId);
   }
   return fanCreators;
+}
+
+type FollowRow = {
+  follower_id: number;
+  creator_id: number;
+  show_publicly: boolean;
+  email_updates: boolean;
+  email_updates_at: Date | null;
+  source: string;
+  campaign_id: Uint8Array | null;
+  created_at: Date;
+};
+
+/** Signed, short lived token that lets Undo put a deleted follow back as it was. */
+function restoreTokenFor(row: FollowRow, extra: Pick<RemovedFollow, "u" | "r">) {
+  return encodeRestoreToken({
+    ...extra,
+    f: row.follower_id,
+    c: row.creator_id,
+    p: row.show_publicly,
+    e: row.email_updates,
+    ea: row.email_updates_at?.toISOString() ?? null,
+    s: row.source,
+    k: row.campaign_id ? idToHex(row.campaign_id) : null,
+    t: row.created_at.toISOString(),
+    x: Date.now() + RESTORE_TOKEN_TTL_MS,
+  });
+}
+
+const undoUnavailable = () =>
+  new TRPCError({ code: "BAD_REQUEST", message: "Undo is no longer available." });
+
+/** Put a follow back from a restore token. Safe to run twice. */
+async function restoreFollow(row: RemovedFollow) {
+  const blocked = await prisma.followBlock.findUnique({
+    where: { creator_id_user_id: { creator_id: row.c, user_id: row.f } },
+  });
+  if (blocked) throw undoUnavailable();
+  await prisma.follow.upsert({
+    where: { follower_id_creator_id: { follower_id: row.f, creator_id: row.c } },
+    update: {},
+    create: {
+      follower_id: row.f,
+      creator_id: row.c,
+      show_publicly: row.p,
+      email_updates: row.e,
+      email_updates_at: row.ea ? new Date(row.ea) : null,
+      source: row.s,
+      campaign_id: row.k ? hexToId(row.k) : null,
+      created_at: new Date(row.t),
+    },
+  });
+  // The removal is undone, so it no longer counts as a departure. deleteMany
+  // keeps a repeated Undo (double click, retry) from failing (QA-020).
+  if (row.r) await prisma.followRemoval.deleteMany({ where: { id: row.r } });
 }
 
 const followerFilterSchema = z.enum(["all", "new", "poolFans", "public"]).default("all");
@@ -266,18 +322,33 @@ export const followRouter = router({
       const creator = await findCreator(input.handle, { anyStatus: true });
       const row = await prisma.follow.findUnique({
         where: { follower_id_creator_id: { follower_id: viewerId, creator_id: creator.id } },
-        select: { id: true, created_at: true },
       });
-      if (row) {
-        await prisma.follow.delete({ where: { id: row.id } });
-        // A follow undone within 10 minutes is not counted as someone leaving
-        if (Date.now() - row.created_at.getTime() > UNDO_WINDOW_MS) {
-          await prisma.followRemoval.create({
-            data: { creator_id: creator.id, reason: "unfollow" },
-          });
-        }
+      if (!row) return { following: false, restoreToken: null };
+      await prisma.follow.delete({ where: { id: row.id } });
+      // A follow undone within 10 minutes is not counted as someone leaving
+      let removalId: number | undefined;
+      if (Date.now() - row.created_at.getTime() > UNDO_WINDOW_MS) {
+        const removal = await prisma.followRemoval.create({
+          data: { creator_id: creator.id, reason: "unfollow" },
+        });
+        removalId = removal.id;
       }
-      return { following: false };
+      // Undo puts the follow back with its settings, source and date (QA-033)
+      return {
+        following: false,
+        restoreToken: restoreTokenFor(row, { u: "unfollow", r: removalId }),
+      };
+    }),
+
+  /** Undo for Unfollow, within 8 seconds. Restores the follow as it was. */
+  undoUnfollow: privateProcedure
+    .input(z.object({ token: z.string().min(10).max(2000) }))
+    .mutation(async ({ ctx, input }) => {
+      const viewerId = ctx.user!.sub;
+      const row = decodeRestoreToken(input.token);
+      if (!row || row.u !== "unfollow" || row.f !== viewerId) throw undoUnavailable();
+      await restoreFollow(row);
+      return { following: true };
     }),
 
   /** The fan's own per-creator settings. */
@@ -502,18 +573,7 @@ export const followRouter = router({
         prisma.follow.delete({ where: { id: row.id } }),
         prisma.followRemoval.create({ data: { creator_id: creatorId, reason: "removed" } }),
       ]);
-      const token = encodeRestoreToken({
-        r: removal.id,
-        f: row.follower_id,
-        c: row.creator_id,
-        p: row.show_publicly,
-        e: row.email_updates,
-        ea: row.email_updates_at?.toISOString() ?? null,
-        s: row.source,
-        k: row.campaign_id ? idToHex(row.campaign_id) : null,
-        t: row.created_at.toISOString(),
-        x: Date.now() + RESTORE_TOKEN_TTL_MS,
-      });
+      const token = restoreTokenFor(row, { r: removal.id });
       return { restoreToken: token };
     }),
 
@@ -522,31 +582,8 @@ export const followRouter = router({
     .input(z.object({ token: z.string().min(10).max(2000) }))
     .mutation(async ({ ctx, input }) => {
       const row = decodeRestoreToken(input.token);
-      if (!row || row.c !== ctx.user!.sub) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Undo is no longer available." });
-      }
-      const blocked = await prisma.followBlock.findUnique({
-        where: { creator_id_user_id: { creator_id: row.c, user_id: row.f } },
-      });
-      if (blocked)
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Undo is no longer available." });
-      await prisma.follow.upsert({
-        where: { follower_id_creator_id: { follower_id: row.f, creator_id: row.c } },
-        update: {},
-        create: {
-          follower_id: row.f,
-          creator_id: row.c,
-          show_publicly: row.p,
-          email_updates: row.e,
-          email_updates_at: row.ea ? new Date(row.ea) : null,
-          source: row.s,
-          campaign_id: row.k ? hexToId(row.k) : null,
-          created_at: new Date(row.t),
-        },
-      });
-      // The removal is undone, so it no longer counts as a departure. deleteMany
-      // keeps a repeated Undo (double click, retry) from failing (QA-020).
-      if (row.r) await prisma.followRemoval.deleteMany({ where: { id: row.r } });
+      if (!row || row.u || row.c !== ctx.user!.sub) throw undoUnavailable();
+      await restoreFollow(row);
       return { ok: true };
     }),
 
@@ -557,6 +594,12 @@ export const followRouter = router({
       if (input.userId === creatorId) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "You can't block yourself." });
       }
+      // A missing account would fail the block's foreign key (P2003) (QA-033)
+      const target = await prisma.user.findUnique({
+        where: { id: input.userId },
+        select: { id: true },
+      });
+      if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "Account not found." });
       const deleted = await prisma.follow.deleteMany({
         where: { follower_id: input.userId, creator_id: creatorId },
       });

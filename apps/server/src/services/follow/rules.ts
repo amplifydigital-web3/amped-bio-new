@@ -33,10 +33,11 @@ export function publicCount(count: number, show: boolean) {
   return { followerCount: count, showCount: true, newOnAmped: false };
 }
 
-// ===== Restore token for Undo after Remove follower =====
+// ===== Restore token for Undo after Remove follower or Unfollow =====
 
 export type RemovedFollow = {
-  r: number; // follow_removal.id
+  u?: "unfollow"; // set when the fan unfollowed; absent when the creator removed them
+  r?: number; // follow_removal.id, when one was written
   f: number; // follower_id
   c: number; // creator_id
   p: boolean; // show_publicly
