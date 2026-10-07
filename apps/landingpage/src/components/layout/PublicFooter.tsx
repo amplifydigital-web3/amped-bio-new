@@ -21,7 +21,7 @@ export function PublicFooter() {
           <Image
             src="/logo.svg"
             alt="Amped.Bio home"
-            width={18}
+            width={42}
             height={21}
             className="h-[21px] w-auto"
           />

@@ -1,18 +1,18 @@
 # QA fixes 4: Explore navigation and the rail logo
 
 Source: Amped.Bio staging QA, 7 Oct 2026 (Rob, app.staging.amped.bio at development 8fcb0ec). Tracker IDs are QA-xxx.
-One commit per item. `apps/client` only. No server changes.
+One commit per item. `apps/client` and `apps/landingpage`. No server changes.
 
 | QA | Area | Change | Files | How to check |
 |---|---|---|---|---|
-| QA-040 | Shell brand | The Amplify mark heads the desktop rail (55 slot above Home) and leads the mobile top bar, both as a Home link with a 44 target. | `assets/amplify-mark.svg`, `shell/BrandMark.tsx`, `shell/Rail.tsx`, `shell/TopBar.tsx` | Desktop: the four stripe mark sits at the top of the rail, 26 high; click it from any destination: `/home`. 390 wide: the mark leads the top bar at 22 high, before the title; tap: `/home`. Tab to it: the focus ring shows and the name reads Amped.Bio home. |
+| QA-040 | Shell brand | The Amplify mark heads the desktop rail (55 slot above Home) and leads the mobile top bar, both as a Home link with a 44 target. | `assets/amplify-mark.svg`, `shell/BrandMark.tsx`, `shell/Rail.tsx`, `shell/TopBar.tsx`; public site `public/logo.svg`, `layout/PublicHeader.tsx`, `layout/PublicFooter.tsx` | Desktop: the four stripe mark sits at the top of the rail, 26 high; click it from any destination: `/home`. 390 wide: the mark leads the top bar at 22 high, before the title; tap: `/home`. Tab to it: the focus ring shows and the name reads Amped.Bio home. Public site: the same mark in the header at 28 high and in the footer at 21 high, both linking to `/`. |
 | QA-039 | Shell navigation | Explore in the rail, the mobile dock and every in app link now lands on `/explore?tab=users`. Before, it landed on `/home?tab=users` and showed Home. | `contexts/EditorContext.tsx` | Signed in on `/home`, click Explore in the rail: URL is `/explore?tab=users`, the Explore page shows, Explore carries the rail highlight. Same from the mobile More sheet at 390, and from Wallet > Stakes > Browse pools (`/explore?tab=pools`). Opening `/explore` directly, and Explore in a new tab (cmd click), already worked and still do. |
 
 ## QA-040 notes
 
 - The mark is a vector traced from the brand render Rob supplied (four parallelograms, 2:1, shear 0.72; colors #0187E8, #5125DB, #AA10EE, and a #1F33F8 to #DC00FF gradient on the right stripe). The render had a navy background and shadows, so it could not be used as is on the light dock.
 - The 55 slot above the Start group is the one `ShellSkeleton` already reserved (081), so the loading skeleton and the live rail now match.
-- The public site header still uses `apps/landingpage/public/logo.svg` (mark plus wordmark). Not changed here.
+- The public site `logo.svg` (previously the mark with the AMPLIFY wordmark, rendered at 34 high where the wordmark was unreadable) is replaced by the same mark. Header 28 high, footer 21 high. The Organization schema in `lib/seo.ts` keeps pointing at `/logo.svg`, so search engines pick up the new mark too.
 
 ## QA-039 root cause
 
@@ -32,6 +32,7 @@ Explore was the only destination affected because it is the only one that writes
 
 - Typecheck: `tsc --noEmit` in apps/client clean.
 - Build: `vite build --mode staging` passes. eslint clean on the four shell files.
+- Landing: `tsc --noEmit` has the same 173 errors before and after this change in this environment, all from the Prisma client that could not be generated here (engine download blocked); none in the two edited files. eslint clean on both.
 - QA-040: rendered the rail and mobile bar geometry with the SVG at 26 and 22 high in Chromium; the mark reads cleanly on the dock. Not checked inside the live app from this environment.
 - Reproduced outside the app with a 40 line harness (react 18.3.1, react-router 7.11.0, jsdom): a shell that sets panel state and navigates, and a child that writes `?tab=users` on mount. Without the transition the URL ends at `/home?tab=users`; with it, `/explore?tab=users`.
 - Not run against a live API from this environment. Check on staging with the table above after the deploy.
