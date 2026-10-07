@@ -136,6 +136,7 @@ describe("follow surfaces carry no value language (spec 3.8)", () => {
     "../../../client/src/components/shell/PublishPageSheet.tsx",
     "../../../client/src/components/shell/pageVisibility.ts",
     "../../../client/src/components/shell/PublishFirstHint.tsx",
+    "../../../client/src/components/panels/account/PageVisibilityRow.tsx",
   ];
   const banned = /\b(earn\w*|rewards?|points?|tokens?|perks?|apy|apr|yield)\b/i;
 
