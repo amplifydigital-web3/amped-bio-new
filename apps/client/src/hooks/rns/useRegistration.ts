@@ -74,7 +74,45 @@ export type TxState = {
   /** Value sent plus gasUsed times effectiveGasPrice, from the receipt */
   paidWei?: bigint;
   reverted?: boolean;
+  /** Why a write failed, for the error card (QA-055) */
+  reason?: TxFailReason;
 };
+
+export type TxFailReason = "wallet-timeout" | "wallet-error" | "receipt-timeout" | "reverted";
+
+/** How long the wallet gets to answer a signing request (QA-055). */
+export const WALLET_SIGN_TIMEOUT_MS = 120_000;
+/** How long the chain gets to include a sent transaction (QA-055). */
+export const RECEIPT_TIMEOUT_MS = 180_000;
+
+class TxTimeoutError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TxTimeoutError";
+  }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new TxTimeoutError(message)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+/** Text for the error card, by failure reason (QA-055). */
+export function txFailureCause(state: TxState, fallback: string) {
+  switch (state.reason) {
+    case "wallet-timeout":
+      return "Your wallet did not answer within two minutes. Nothing was sent. Try again.";
+    case "receipt-timeout":
+      return "The transaction was sent but the network has not included it after three minutes. Check it in the explorer before trying again.";
+    case "reverted":
+      return "The transaction failed on chain. The amount did not move. The network fee may still be charged.";
+    default:
+      return fallback;
+  }
+}
 
 /** Network fee estimate: estimateContractGas times the current gas price. */
 export function useFeeEstimate(
@@ -107,23 +145,41 @@ export function useTrackedWrite() {
       setState({ phase: "signing" });
       let hash: `0x${string}`;
       try {
-        hash = await writeContractAsync(request);
+        // QA-055: a wallet that never answers (popup lost, embed not ready)
+        // left the flow on "Confirm in wallet" for good. Bound the wait.
+        hash = await withTimeout(
+          writeContractAsync(request),
+          WALLET_SIGN_TIMEOUT_MS,
+          "Wallet did not respond"
+        );
       } catch (error) {
-        setState({ phase: classifyTxError(error) === "rejected" ? "declined" : "failed" });
+        console.error("RNS write failed in the wallet", error);
+        if (classifyTxError(error) === "rejected") {
+          setState({ phase: "declined" });
+        } else {
+          setState({
+            phase: "failed",
+            reason: error instanceof TxTimeoutError ? "wallet-timeout" : "wallet-error",
+          });
+        }
         return false;
       }
       setState({ phase: "chain", hash });
       try {
-        const receipt = await (publicClient as PublicClient).waitForTransactionReceipt({ hash });
+        const receipt = await (publicClient as PublicClient).waitForTransactionReceipt({
+          hash,
+          timeout: RECEIPT_TIMEOUT_MS,
+        });
         if (receipt.status !== "success") {
-          setState({ phase: "failed", hash, reverted: true });
+          setState({ phase: "failed", hash, reverted: true, reason: "reverted" });
           return false;
         }
         const paidWei = value + receipt.gasUsed * receipt.effectiveGasPrice;
         setState({ phase: "done", hash, paidWei });
         return true;
-      } catch {
-        setState({ phase: "failed", hash });
+      } catch (error) {
+        console.error("RNS transaction receipt wait failed", error);
+        setState({ phase: "failed", hash, reason: "receipt-timeout" });
         return false;
       }
     },

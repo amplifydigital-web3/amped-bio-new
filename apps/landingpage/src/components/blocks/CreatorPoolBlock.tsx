@@ -101,20 +101,23 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
       {pool.description && (
         <p className="line-clamp-3 text-[16px] leading-[26px]">{pool.description}</p>
       )}
-      <dl className="grid grid-cols-3 gap-[13px]">
-        <div>
+      {/* QA-054: two columns at any width. Three columns broke the values into
+          two to four lines inside a 348 wide phone column. Creator share takes
+          the second row in full. */}
+      <dl className="grid grid-cols-2 gap-[13px]">
+        <div className="min-w-0">
           <dt className="text-[13px] leading-[16px]">Total staked</dt>
-          <dd className="text-[16px] font-semibold leading-[20px] tabular-nums">
+          <dd className="break-words text-[16px] font-semibold leading-[20px] tabular-nums">
             {formatAmount(toWei(pool.stakedAmount))} {symbol}
           </dd>
         </div>
-        <div>
+        <div className="min-w-0">
           <dt className="text-[13px] leading-[16px]">Fans</dt>
           <dd className="text-[16px] font-semibold leading-[20px] tabular-nums">
             {pool.fans.toLocaleString("en-US")}
           </dd>
         </div>
-        <div>
+        <div className="col-span-2 min-w-0">
           <dt className="text-[13px] leading-[16px]">Creator share</dt>
           <dd className="text-[16px] font-semibold leading-[20px] tabular-nums">
             {share === null

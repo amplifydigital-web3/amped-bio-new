@@ -19,7 +19,7 @@ import { toast } from "@/components/ui/toast";
 import { useWalletContext } from "@/contexts/WalletContext";
 import { useDelayed } from "@/hooks/useDelayed";
 import { useAuthbaseIdentityStatus } from "@/hooks/rns/useAuthbaseIdentityStatus";
-import { useRegisterName, useSetPrimaryName } from "@/hooks/rns/useRegistration";
+import { txFailureCause, useRegisterName, useSetPrimaryName } from "@/hooks/rns/useRegistration";
 import { RNS_FLAGS } from "@/config/rns/flags";
 import FundWalletDialog from "../dialogs/FundWalletDialog";
 import { Eyebrow, TestnetLine } from "../../explore/pool-panel/sections";
@@ -352,7 +352,10 @@ export function RegisterFlow({
             <div className="space-y-2">
               <ErrorCard
                 title="Registration did not go through"
-                cause="The transaction failed. The amount did not move. The network fee may still be charged."
+                cause={txFailureCause(
+                  reg.tx,
+                  "The transaction failed. The amount did not move. The network fee may still be charged."
+                )}
                 onRetry={() => {
                   reg.reset();
                   void reg.register();
@@ -538,7 +541,10 @@ export function RegisterFlow({
       {primary.tx.phase === "failed" && (
         <ErrorCard
           title="Primary RNS name did not change"
-          cause="The transaction failed. The network fee may still be charged."
+          cause={txFailureCause(
+            primary.tx,
+            "The transaction failed. The network fee may still be charged."
+          )}
           onRetry={() => {
             primary.reset();
             void primary.setPrimary();

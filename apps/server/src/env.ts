@@ -149,7 +149,8 @@ const envSchema = z.object({
   REDIS_TLS: boolSchema(false),
 
   // Creator Pool Broadcast (Build Board #1). While true, only pool owners an
-  // admin has invited can send. Default true for the pilot.
+  // admin has invited can send. Defaults to true in production for the pilot
+  // and to false everywhere else, so staging can test sends (QA-056, below).
   BROADCAST_INVITE_ONLY: boolSchema(true),
 
   // URL for the RNS subgraph to validate name ownership and expiry
@@ -195,3 +196,9 @@ if (!result.success) {
 }
 
 export const env = result.data;
+
+// QA-056: the pilot gate is on by default in production only. Staging, testing
+// and local runs open Broadcast to every pool owner unless the variable is set.
+if (process.env.BROADCAST_INVITE_ONLY === undefined && env.APP_ENV !== "production") {
+  env.BROADCAST_INVITE_ONLY = false;
+}

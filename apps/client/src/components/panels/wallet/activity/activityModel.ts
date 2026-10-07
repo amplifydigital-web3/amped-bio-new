@@ -17,7 +17,13 @@ export type ActivityKind =
 export type ActivityStatus = "included" | "pending" | "failed";
 
 export interface ActivityItem {
-  hash: string;
+  /**
+   * Stable row key: the lowercased hash, or a synthetic key for an internal
+   * transfer the explorer reports without a transaction hash (QA-052).
+   */
+  key: string;
+  /** Transaction hash. null for an internal transfer with none */
+  hash: string | null;
   time: string;
   status: ActivityStatus;
   kind: ActivityKind;
@@ -82,6 +88,7 @@ export function fromTransaction(tx: Transaction, me: string, nativeSymbol: strin
   const value = toBigInt(tx.value);
   const outgoing = same(tx.from, me);
   const base: ActivityItem = {
+    key: tx.hash.toLowerCase(),
     hash: tx.hash,
     time: tx.receivedAt,
     status: tx.status,
@@ -145,16 +152,27 @@ export function fromTransaction(tx: Transaction, me: string, nativeSymbol: strin
   return base;
 }
 
-/** A token transfer from the explorer (058 I02, I03). */
-export function fromTransfer(transfer: Transfer, me: string, nativeSymbol: string): ActivityItem {
+/**
+ * A token transfer from the explorer (058 I02, I03). `position` is the
+ * transfer's index across the fetched pages; it keys the rows whose
+ * transactionHash the explorer leaves null (internal reward payouts, QA-052).
+ */
+export function fromTransfer(
+  transfer: Transfer,
+  me: string,
+  nativeSymbol: string,
+  position = 0
+): ActivityItem {
   const outgoing = same(transfer.from, me);
+  const hash = transfer.transactionHash || null;
   const native =
     transfer.token?.symbol?.toUpperCase() === nativeSymbol.toUpperCase() ||
     /^0x0+800a$/i.test(transfer.tokenAddress ?? "");
   const amount = toBigInt(transfer.amount);
   const type = transfer.isInternal ? "Internal" : transfer.type;
   return {
-    hash: transfer.transactionHash,
+    key: hash ? hash.toLowerCase() : `internal:${transfer.blockNumber}:${position}`,
+    hash,
     time: transfer.timestamp,
     status: "included",
     kind: outgoing ? "sent" : "received",
@@ -189,13 +207,12 @@ export function fromTransfer(transfer: Transfer, me: string, nativeSymbol: strin
  * contract call reads as what it did, not as a send to the contract.
  */
 export function mergeByHash(transactions: ActivityItem[], transfers: ActivityItem[]) {
-  const byHash = new Map<string, ActivityItem>();
-  for (const item of transactions) byHash.set(item.hash.toLowerCase(), item);
+  const byKey = new Map<string, ActivityItem>();
+  for (const item of transactions) byKey.set(item.key, item);
   for (const item of transfers) {
-    const key = item.hash.toLowerCase();
-    if (!byHash.has(key)) byHash.set(key, item);
+    if (!byKey.has(item.key)) byKey.set(item.key, item);
   }
-  return [...byHash.values()].sort((a, b) => Date.parse(b.time) - Date.parse(a.time));
+  return [...byKey.values()].sort((a, b) => Date.parse(b.time) - Date.parse(a.time));
 }
 
 /** Up to `max` decimals, trailing zeros removed, thousands grouped (057 I06). */

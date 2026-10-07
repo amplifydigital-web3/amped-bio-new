@@ -186,23 +186,34 @@ function DetailSlab({
   return (
     <dl className="prism-well !rounded-prism-21 mx-0 mb-[13px] mt-1 overflow-hidden p-0">
       <SlabRow label="Transaction">
-        <span>{shortAddress(item.hash)}</span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label="Copy transaction hash"
-          onClick={() => void copy(item.hash, "Hash")}
-        >
-          <Copy aria-hidden />
-        </Button>
-        {explorerUrl && (
-          <Button asChild variant="ghost" className="-mr-3">
-            <a href={`${explorerUrl}/tx/${item.hash}`} target="_blank" rel="noopener noreferrer">
-              Open in explorer
-              <ExternalLink aria-hidden />
-            </a>
-          </Button>
+        {item.hash ? (
+          <>
+            <span>{shortAddress(item.hash)}</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Copy transaction hash"
+              onClick={() => void copy(item.hash ?? "", "Hash")}
+            >
+              <Copy aria-hidden />
+            </Button>
+            {explorerUrl && (
+              <Button asChild variant="ghost" className="-mr-3">
+                <a
+                  href={`${explorerUrl}/tx/${item.hash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Open in explorer
+                  <ExternalLink aria-hidden />
+                </a>
+              </Button>
+            )}
+          </>
+        ) : (
+          // QA-052: internal transfers (pool reward payouts) carry no hash
+          <span className="text-prism-ink-2">Internal transfer, no hash</span>
         )}
       </SlabRow>
       <SlabRow label="Date">{absoluteTime(item.time)}</SlabRow>
