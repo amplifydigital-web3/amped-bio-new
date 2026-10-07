@@ -188,8 +188,9 @@ export function PoolCardMedium({
       {...(href ? { href } : onSelect ? { type: "button" as const, onClick: onSelect } : {})}
       aria-label={ariaLabel}
       className={cn(
-        "prism-glass-clear prism-focus flex w-full flex-col gap-2 p-2 text-left font-prism transition-shadow duration-prism-hover ease-prism",
-        interactive && "hover:shadow-prism-e4",
+        "prism-glass-clear prism-focus flex w-full flex-col gap-2 p-2 text-left font-prism",
+        // An openable card rises 3 on hover (#26); prism-lift carries the shadow transition
+        interactive && "prism-lift hover:shadow-prism-e4",
         className
       )}
     >
