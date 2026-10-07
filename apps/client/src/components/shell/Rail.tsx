@@ -9,6 +9,7 @@ import {
   type DestinationGroup,
 } from "./destinations";
 import { NavItemLink } from "./NavItemLink";
+import { BrandMark } from "./BrandMark";
 
 // Screen Review 001. The desktop rail: a vertical G1 navigate dock capsule at
 // x 21, 89 wide, full height minus 21 top and bottom, padding 13. Seven
@@ -27,6 +28,18 @@ export function Rail() {
       aria-label="Editor"
       className="prism-dock fixed bottom-[21px] left-[21px] top-[21px] z-30 hidden w-[89px] overflow-y-auto rounded-prism-34 p-[13px] font-prism md:block"
     >
+      {/* QA-040: the Amplify mark heads the rail in the 55 slot the shell
+          skeleton reserves (081). It is a Home link with a 44 target. */}
+      <div className="mb-2 flex justify-center">
+        <NavItemLink
+          panel="home"
+          current={false}
+          className="flex h-[55px] w-[61px] items-center justify-center rounded-prism-13"
+        >
+          <BrandMark className="h-[26px] w-auto" />
+          <span className="sr-only">Amped.Bio home</span>
+        </NavItemLink>
+      </div>
       {GROUP_ORDER.map((group, index) => {
         const items = enabled.filter(d => d.group === group);
         // A group label never sits above an empty group (I03)
