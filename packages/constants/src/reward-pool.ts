@@ -99,3 +99,13 @@ export interface PoolDetailsForModal {
     name: string;
   };
 }
+
+/**
+ * Network Reward Rate (J2) as shown to people. The server sends basis points
+ * (1250 = 12.5%). One decimal at most, so every surface shows the same figure
+ * for the same pool (QA-025).
+ */
+export function formatNetworkRewardRate(basisPoints: number): string {
+  const percent = (basisPoints / 100).toLocaleString("en-US", { maximumFractionDigits: 1 });
+  return `${percent}% a year (est.)`;
+}

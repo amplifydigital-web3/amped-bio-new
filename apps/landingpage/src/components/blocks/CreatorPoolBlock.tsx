@@ -3,7 +3,7 @@ import Decimal from "decimal.js";
 import { formatEther } from "viem";
 import { useQuery } from "@tanstack/react-query";
 import type { ThemeConfig } from "@repo/constants";
-import { PoolBlock } from "@repo/constants";
+import { PoolBlock, formatNetworkRewardRate } from "@repo/constants";
 import { TESTNET_NOTICE } from "@repo/ui";
 import { getChainConfig } from "@repo/web3";
 import { trpc } from "@/lib/trpc";
@@ -133,8 +133,7 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
             <p className="flex flex-wrap items-baseline justify-between gap-x-3 text-[16px] leading-[20px]">
               <span>Network Reward Rate</span>
               <span className="font-semibold tabular-nums">
-                {(pool.apy / 100).toLocaleString("en-US", { maximumFractionDigits: 1 })}% a year
-                (est.)
+                {formatNetworkRewardRate(pool.apy)}
               </span>
             </p>
             <p className="mt-1 text-[13px] leading-[16px]">{RATE_HELPER}</p>
