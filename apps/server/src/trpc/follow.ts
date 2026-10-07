@@ -540,8 +540,9 @@ export const followRouter = router({
           created_at: new Date(row.t),
         },
       });
-      // The removal is undone, so it no longer counts as a departure
-      if (row.r) await prisma.followRemoval.delete({ where: { id: row.r } });
+      // The removal is undone, so it no longer counts as a departure. deleteMany
+      // keeps a repeated Undo (double click, retry) from failing (QA-020).
+      if (row.r) await prisma.followRemoval.deleteMany({ where: { id: row.r } });
       return { ok: true };
     }),
 
