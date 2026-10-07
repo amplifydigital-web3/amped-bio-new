@@ -8,8 +8,6 @@ import { toast } from "@/components/ui/toast";
 import { VideoPlayerDialog, type PlayerVideo } from "../../home/VideoPlayerDialog";
 import { useFaucet, type FaucetRequirements } from "./useFaucet";
 
-// 053 approved wording (D1 answered, Rob 30 Sep)
-const CONVERSION_NOTE = "Planned to convert 1:1 to REVO at mainnet. Not guaranteed.";
 const WATCH_HOW: PlayerVideo = { id: "j_TED4IA4bc", title: "Get testnet tREVO from the faucet" };
 const MIN_BLOCKS = 5;
 
@@ -84,12 +82,10 @@ function StepStatus({ done }: { done: boolean }) {
 function Notes() {
   return (
     <div className="space-y-2 border-t border-prism-line pt-[21px]">
-      {[CONVERSION_NOTE, TESTNET_NOTICE].map(line => (
-        <p key={line} className="flex items-start gap-2 text-prism-meta text-prism-ink-2">
-          <Info className="h-[21px] w-[21px] shrink-0 text-prism-nav" aria-hidden />
-          <span className="pt-0.5">{line}</span>
-        </p>
-      ))}
+      <p className="flex items-start gap-2 text-prism-meta text-prism-ink-2">
+        <Info className="h-[21px] w-[21px] shrink-0 text-prism-nav" aria-hidden />
+        <span className="pt-0.5">{TESTNET_NOTICE}</span>
+      </p>
     </div>
   );
 }
