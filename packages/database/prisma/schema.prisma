@@ -12,6 +12,9 @@ model User {
   id             Int       @id @default(autoincrement())
   name           String
   revo_name      String?
+  // Screen Review 108 I04: what the public page shows about the RNS name.
+  // {showName, showBadge, details: {name, wallet, check}}; null means all on.
+  rns_display    Json?
   email          String
   email_verified Boolean   @default(false) @map("email_verified")
   password       String?

@@ -4,11 +4,12 @@ import { TRPCError } from "@trpc/server";
 import { sendEmailChangeNotice, sendEmailChangeVerification } from "../utils/email/email";
 import crypto from "crypto";
 import { prisma } from "../services/DB";
-import { editUserSchema } from "../schemas/user.schema";
+import { editUserSchema, setRnsNameSchema } from "../schemas/user.schema";
 import Decimal from "decimal.js";
 import { htmlToPlainText, sanitizeRichText } from "@repo/constants";
 import { parseRnsInput, RNS_CHAIN } from "@repo/web3";
 import { assertRnsBinding } from "../services/rns";
+import { rnsDisplaySchema } from "../services/rnsIdentity";
 
 // Schema for initiating email change
 const initiateEmailChangeSchema = z.object({
@@ -51,30 +52,10 @@ export const userRouter = router({
     console.info("📝 Starting user edit process");
     console.info(`👤 User ID: ${userId}`);
 
-    const { name, description, theme, image, reward_business_id, revo_name } = input;
+    const { name, description, theme, image, reward_business_id } = input;
     console.info(
-      `📋 Edit data: ${JSON.stringify({ name, description, theme, image, reward_business_id, revo_name })}`
+      `📋 Edit data: ${JSON.stringify({ name, description, theme, image, reward_business_id })}`
     );
-
-    // Screen Review 100 I02: an RNS name is stored only when it is bound to the
-    // account wallet (owner and resolver addr equal the wallet, registration not
-    // expired). An empty value clears it. An unchanged name is kept as stored so
-    // a lapsed name never blocks other edits; the public page re-checks it (I03).
-    let revoNameToStore: string | null | undefined = revo_name;
-    if (revo_name) {
-      const current = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { revo_name: true, wallet: { select: { address: true } } },
-      });
-      const sameAsStored =
-        !!current?.revo_name &&
-        parseRnsInput(current.revo_name, RNS_CHAIN.id) === parseRnsInput(revo_name, RNS_CHAIN.id);
-      revoNameToStore = sameAsStored
-        ? current!.revo_name
-        : await assertRnsBinding(revo_name, current?.wallet?.address ?? null);
-    } else if (revo_name === "") {
-      revoNameToStore = null;
-    }
 
     try {
       console.info("💾 Updating user information");
@@ -84,7 +65,6 @@ export const userRouter = router({
           name,
           // Bio HTML is stored only after the shared allowlist sanitizer runs
           description: sanitizeRichText(description),
-          revo_name: revoNameToStore,
           theme: `${theme}`,
           image,
           reward_business_id,
@@ -105,6 +85,34 @@ export const userRouter = router({
         message: "Server error",
       });
     }
+  }),
+
+  // Screen Review 108 I01: the RNS name has its own write. A name is stored
+  // only while it is bound to the account wallet (UserWallet): the
+  // registration has not expired (no grace), the BaseRegistrar owner and the
+  // resolver addr are the wallet. Any failed read refuses the write. Only the
+  // label is stored. null clears it.
+  setRnsName: privateProcedure.input(setRnsNameSchema).mutation(async ({ ctx, input }) => {
+    const userId = ctx.user!.sub;
+    if (input.label === null) {
+      await prisma.user.update({ where: { id: userId }, data: { revo_name: null } });
+      return { label: null };
+    }
+    const account = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { wallet: { select: { address: true } } },
+    });
+    await assertRnsBinding(input.label, account?.wallet?.address ?? null);
+    const label = parseRnsInput(input.label, RNS_CHAIN.id);
+    await prisma.user.update({ where: { id: userId }, data: { revo_name: label } });
+    return { label };
+  }),
+
+  // Screen Review 108 I04: what the public page shows. getHandle applies it on
+  // the server, so a hidden field never reaches a visitor.
+  setRnsDisplay: privateProcedure.input(rnsDisplaySchema).mutation(async ({ ctx, input }) => {
+    await prisma.user.update({ where: { id: ctx.user!.sub }, data: { rns_display: input } });
+    return input;
   }),
 
   // Initiate email change by requesting a verification code

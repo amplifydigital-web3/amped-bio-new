@@ -1,11 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, Copy, ExternalLink, Pause, Pencil, Play } from "lucide-react";
+import { Pause, Pencil, Play } from "lucide-react";
 import { getPlatformIcon } from "@/lib/platforms";
 import { trpcClient } from "@/lib/trpc";
 import { normalizeHandle } from "@/lib/handle";
-import { Button, Skeleton, cn, THEME_DEFAULTS, themeCssVars } from "@repo/ui";
+import {
+  Button,
+  RnsIdentityChip,
+  RnsVerifiedMark,
+  Skeleton,
+  cn,
+  THEME_DEFAULTS,
+  themeCssVars,
+} from "@repo/ui";
 import { ParticlesBackground } from "@/components/ParticlesBackground";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { TextBlock } from "@/components/blocks/text/TextBlock";
@@ -175,7 +183,6 @@ export function ProfileView({
   } | null>(null);
   const [bannerMode, setBannerMode] = useState<"hidden" | "prompt" | "settings">("hidden");
   const [loading, setLoading] = useState(!initialData);
-  const [copied, setCopied] = useState(false);
 
   const { authUser, isPending: authPending } = useAuth();
   const { handleReferrerClick } = useReferralHandler();
@@ -187,16 +194,6 @@ export function ProfileView({
     process.env.NEXT_PUBLIC_FAN_GRAPH === "true" && normalizedHandle !== DEFAULT_HANDLE;
   const followState = useFollow(normalizedHandle, !!authUser, authPending || !followEnabled);
   const showRns = process.env.NEXT_PUBLIC_SHOW_RNS === "true";
-
-  const handleCopy = () => {
-    void navigator.clipboard
-      .writeText(profile?.revoName ?? "")
-      .then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      })
-      .catch(() => undefined);
-  };
 
   // Pause motion (041 I02): read the remembered choice once on the client
   useEffect(() => {
@@ -329,10 +326,13 @@ export function ProfileView({
   const themeConfig = theme?.config;
   const fontColor = themeConfig?.fontColor || THEME_DEFAULTS.fontColor;
   const textStyle = { fontFamily: themeConfig?.fontFamily, color: fontColor };
-  const revoNameUrl =
-    profile.revoName && showRns
-      ? `${process.env.NEXT_PUBLIC_RNS_URL}/#/profile/${profile.revoName.split(".")[0]}`
-      : null;
+  // 109 I05: Send opens the editor Send flow with the recipient filled in;
+  // signed out visitors pass through sign in and come back to it
+  const identity = showRns ? (profile.identity ?? null) : null;
+  const sendTo = identity?.label ?? identity?.wallet ?? null;
+  const sendHref = sendTo
+    ? `${process.env.NEXT_PUBLIC_PANEL_URL}/wallet?send=1&to=${encodeURIComponent(sendTo)}`
+    : null;
   const particlesEffect = themeConfig?.particlesEffect ?? THEME_DEFAULTS.particlesEffect;
   const heroEffect = themeConfig?.heroEffect ?? 0;
   // 041 I02: any looping motion gets the Pause motion control
@@ -442,47 +442,21 @@ export function ProfileView({
               style={textStyle}
             >
               {profile.name}
+              {identity?.chip === "verified" && <RnsVerifiedMark className="ml-2 align-[-3px]" />}
             </h1>
-            {/* 039 I09: RevoName row, never animated */}
-            {profile.revoName && showRns && (
-              <div className="mt-2 flex items-center justify-center gap-1" style={textStyle}>
-                {revoNameUrl ? (
-                  <a
-                    href={revoNameUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={cn(
-                      "flex min-h-[44px] min-w-0 items-center gap-1 text-[16px] font-semibold leading-[20px] underline-offset-2 hover:underline",
-                      CREATOR_FOCUS
-                    )}
-                  >
-                    <span className="break-all">{profile.revoName}</span>
-                    <ExternalLink aria-hidden className="h-[21px] w-[21px] shrink-0" />
-                    <span className="sr-only"> (opens in a new tab)</span>
-                  </a>
-                ) : (
-                  <span className="break-all text-[16px] font-semibold leading-[20px]">
-                    {profile.revoName}
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={handleCopy}
-                  aria-label="Copy RevoName"
-                  className={cn(
-                    "flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full",
-                    CREATOR_FOCUS
-                  )}
-                >
-                  {copied ? (
-                    <Check aria-hidden className="h-[21px] w-[21px]" />
-                  ) : (
-                    <Copy aria-hidden className="h-[21px] w-[21px]" />
-                  )}
-                </button>
-                <span role="status" className="sr-only">
-                  {copied ? "Copied" : ""}
-                </span>
+            {/* 109 I06, I07: the RNS chip in the creator font and color, never animated */}
+            {identity && (
+              <div className="mt-2 flex justify-center">
+                <RnsIdentityChip
+                  identity={identity}
+                  displayName={profile.name}
+                  avatarUrl={photo || null}
+                  fontFamily={textStyle?.fontFamily}
+                  fontColor={fontColor}
+                  sendHref={sendHref}
+                  rnsUrl={process.env.NEXT_PUBLIC_RNS_URL}
+                  className={CREATOR_FOCUS}
+                />
               </div>
             )}
             {/* 039 I07: bio 16/26 at the creator's full text color */}

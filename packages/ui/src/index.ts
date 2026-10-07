@@ -44,6 +44,15 @@ export {
   type PrismToastType,
 } from "./prism/states";
 export {
+  RnsIdentityChip,
+  RnsVerifiedMark,
+  RNS_IDENTITY_COPY,
+  formatRnsDate,
+  type RnsIdentity,
+  type RnsIdentityCheck,
+  type RnsIdentityChipProps,
+} from "./prism/rns-identity";
+export {
   SidePanel,
   StepBar,
   AmountWell,
