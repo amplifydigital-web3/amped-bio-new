@@ -175,8 +175,10 @@ const appRouter = router({
       });
 
       // Fan Graph (#22): an account made from Follow has no public page until
-      // its owner publishes one, so its handle reads as not found.
-      if (user === null || user.page_status !== "PUBLISHED") {
+      // its owner publishes one, so its handle reads as not found to everyone
+      // else. The owner still loads it to open the editor (QA-041).
+      const isOwner = user !== null && opts.ctx.user?.sub === user.id;
+      if (user === null || (user.page_status !== "PUBLISHED" && !isOwner)) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: `Handle not found: ${handle}`,
