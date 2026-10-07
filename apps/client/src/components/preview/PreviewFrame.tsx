@@ -4,6 +4,7 @@ import { Button, Tabs, TabsList, TabsTrigger, cn } from "@repo/ui";
 import { useEditor } from "@/contexts/EditorContext";
 import { Preview } from "@/components/Preview";
 import { publicPageUrl } from "@/components/shell/pageLink";
+import { PUBLISH_FIRST, usePageUnpublished } from "@/components/shell/pageVisibility";
 import { requestAddBlock } from "./addBlockRequest";
 import { usePreviewBlockSelect, usePreviewTheme } from "./previewHooks";
 
@@ -100,6 +101,17 @@ function OverrideLabel() {
   );
 }
 
+/** QA-008: while the page is unpublished, nobody else can see it. */
+function PrivatePreviewLabel() {
+  const unpublished = usePageUnpublished();
+  if (!unpublished) return null;
+  return (
+    <p className="prism-raised absolute left-[13px] top-[13px] z-10 rounded-prism-13 px-3 py-1 font-prism text-prism-meta text-prism-ink-2">
+      Only you can see this preview.
+    </p>
+  );
+}
+
 function EmptyHint() {
   const { blocks, activePanel, setActivePanelAndNavigate } = useEditor();
   if (blocks.length > 0) return null;
@@ -123,6 +135,7 @@ function EmptyHint() {
 /** The commitment field frame at x 911 on Page and Design (006 I02). */
 export function PreviewFrame() {
   const { profile } = useEditor();
+  const unpublished = usePageUnpublished();
   const [mode, setMode] = useState<Mode>(readMode);
 
   useEffect(() => {
@@ -153,18 +166,31 @@ export function PreviewFrame() {
           creator's fixed background inside it (006 I04) */}
       <div className="relative min-h-0 flex-1 overflow-hidden rounded-prism-21 [transform:translateZ(0)]">
         <DeviceRender key={mode} {...DEVICES[mode]} />
+        <PrivatePreviewLabel />
         <OverrideLabel />
       </div>
 
       <EmptyHint />
 
-      <div className="flex justify-end">
-        <Button variant="secondary" asChild>
-          <a href={publicPageUrl(profile.handle)} target="_blank" rel="noopener noreferrer">
-            View page
-            <ExternalLink aria-hidden />
-          </a>
-        </Button>
+      <div className="flex items-center justify-end gap-3">
+        {unpublished ? (
+          <>
+            <p id="preview-publish-first" className="text-prism-meta text-prism-ink-2">
+              {PUBLISH_FIRST}
+            </p>
+            <Button variant="secondary" disabled aria-describedby="preview-publish-first">
+              View page
+              <ExternalLink aria-hidden />
+            </Button>
+          </>
+        ) : (
+          <Button variant="secondary" asChild>
+            <a href={publicPageUrl(profile.handle)} target="_blank" rel="noopener noreferrer">
+              View page
+              <ExternalLink aria-hidden />
+            </a>
+          </Button>
+        )}
       </div>
     </aside>
   );
@@ -212,6 +238,7 @@ export function InlinePreview({ onSelected }: { onSelected: () => void }) {
           userId={profile.id}
           onBlockSelect={onBlockSelect}
         />
+        <PrivatePreviewLabel />
         <OverrideLabel />
       </div>
       <EmptyHint />

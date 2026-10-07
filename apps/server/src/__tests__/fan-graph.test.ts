@@ -131,6 +131,11 @@ describe("follow surfaces carry no value language (spec 3.8)", () => {
     "../../../landingpage/src/components/auth/FanRegisterForm.tsx",
     "../../../client/src/components/panels/people/PeoplePanel.tsx",
     "../../../client/src/components/panels/explore/components/FollowingTab.tsx",
+    // QA-008: fan page publish
+    "../../../client/src/components/panels/home/MakeYourPageCard.tsx",
+    "../../../client/src/components/shell/PublishPageSheet.tsx",
+    "../../../client/src/components/shell/pageVisibility.ts",
+    "../../../client/src/components/shell/PublishFirstHint.tsx",
   ];
   const banned = /\b(earn\w*|rewards?|points?|tokens?|perks?|apy|apr|yield)\b/i;
 

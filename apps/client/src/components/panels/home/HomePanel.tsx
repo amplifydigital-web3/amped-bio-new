@@ -4,7 +4,10 @@ import { useSearchParams } from "react-router";
 import { trpc, useAuth } from "@repo/ui";
 import { useEditor } from "@/contexts/EditorContext";
 import { useDelayed } from "@/hooks/useDelayed";
+import { FAN_GRAPH } from "@/components/shell/pageVisibility";
+import { PublishPageSheet } from "@/components/shell/PublishPageSheet";
 import { HOME_UPDATES_FRAME } from "./homeContent";
+import { MakeYourPageCard } from "./MakeYourPageCard";
 import { PageStatusCard, PageStatusError, PageStatusSkeleton } from "./PageStatusCard";
 import { SetupChecklist, SetupChecklistError, SetupChecklistSkeleton } from "./SetupChecklist";
 import { NetworkSection, TestnetCard } from "./TestnetCard";
@@ -89,10 +92,16 @@ export function HomePanel() {
   }, []);
 
   const data = status.data;
+  // QA-008: an unpublished page gets the Make your own page card, not the checklist
+  const unpublished = FAN_GRAPH && data?.pageStatus === "UNPUBLISHED";
+  const [publishOpen, setPublishOpen] = useState(false);
   // The checklist retires once completed; the complete state shows on the visit that finished it
   const showChecklist =
-    !!data && !data.dismissed && (!data.completed || sawComplete || data.justCompleted);
-  const canRestore = !!data && data.dismissed && !data.completed;
+    !!data &&
+    !unpublished &&
+    !data.dismissed &&
+    (!data.completed || sawComplete || data.justCompleted);
+  const canRestore = !!data && !unpublished && data.dismissed && !data.completed;
 
   const restoreChecklist = () => restore.mutate({ moment: "checklistDismissed", clear: true });
 
@@ -105,6 +114,9 @@ export function HomePanel() {
           {status.isPending && showSkeleton && <SetupChecklistSkeleton />}
           {status.isError && <SetupChecklistError onRetry={() => void status.refetch()} />}
           {showChecklist && <SetupChecklist status={data} welcome={welcome} />}
+          {unpublished && data && !data.publishCardDismissed && (
+            <MakeYourPageCard onPublish={() => setPublishOpen(true)} />
+          )}
 
           {profileLoaded ? (
             <PageStatusCard
@@ -113,6 +125,7 @@ export function HomePanel() {
               photoUrl={profile.photoUrl}
               onShowChecklist={canRestore ? restoreChecklist : undefined}
               restoring={restore.isPending}
+              unpublished={unpublished}
             />
           ) : profileFailed ? (
             <PageStatusError onRetry={() => void retryProfile()} retrying={retrying} />
@@ -133,6 +146,8 @@ export function HomePanel() {
           <UpdatesFrame className="min-w-0 lg:col-start-1 lg:row-start-2 lg:self-start" />
         )}
       </div>
+
+      {FAN_GRAPH && <PublishPageSheet open={publishOpen} onOpenChange={setPublishOpen} />}
     </div>
   );
 }
