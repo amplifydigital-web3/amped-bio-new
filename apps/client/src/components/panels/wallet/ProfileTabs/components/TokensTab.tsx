@@ -6,13 +6,7 @@ import { useWalletContext } from "@/contexts/WalletContext";
 import { useDelayed } from "@/hooks/useDelayed";
 import { appChainId } from "@/utils/appChain";
 import { focusFaucetHeading } from "../../faucet/fundRow";
-
-/** 055 I03: up to 4 decimals, trailing zeros removed. */
-function formatBalance(formatted: string) {
-  const value = Number(formatted);
-  if (!Number.isFinite(value)) return "0";
-  return value.toLocaleString("en-US", { maximumFractionDigits: 4 });
-}
+import { formatTokenAmount } from "../../../explore/pool-panel/format";
 
 function TokenMark() {
   return (
@@ -71,7 +65,8 @@ export default function TokensTab() {
 
   if (loading) return showSkeleton ? <TokenRowSkeleton /> : null;
 
-  const amount = balance?.data ? formatBalance(balance.data.formatted) : "0";
+  // 055 I03, QA-048: the same rounded down figure as the wallet header
+  const amount = balance?.data ? formatTokenAmount(balance.data.value) : "0";
   const zero = !balance?.data || balance.data.value === 0n;
 
   const openActivity = () =>

@@ -198,19 +198,16 @@ export function Preview({
           scrolls inside (QA-024) */}
       <div
         className={cn(isEditing ? "absolute" : "fixed", "inset-0 w-full h-full z-[1]")}
+        // QA-004: set only the background shorthand. Pairing it with
+        // backgroundColor makes React write background="" on render, which
+        // clears the color and the video backdrop.
         style={{
-          backgroundColor:
-            themeConfig?.background?.type === "color" &&
-            !themeConfig?.background?.value?.includes("gradient")
-              ? themeConfig?.background?.value || undefined
+          background:
+            themeConfig?.background?.type === "color"
+              ? themeConfig.background.value || undefined
               : themeConfig?.background?.type === "video"
                 ? VIDEO_BACKDROP
                 : undefined,
-          background:
-            themeConfig?.background?.type === "color" &&
-            themeConfig?.background?.value?.includes("gradient")
-              ? themeConfig?.background?.value || undefined
-              : undefined,
         }}
       >
         {themeConfig?.background?.type === "video" ? (

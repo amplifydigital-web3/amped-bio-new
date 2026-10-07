@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { useLocation } from "react-router";
 import { Copy, ExternalLink } from "lucide-react";
-import { useAuth } from "@repo/ui";
+import { Button, useAuth } from "@repo/ui";
 import { useEditor } from "@/contexts/EditorContext";
 import { PANEL_TITLES, SAVE_STATUS_PANELS, WALLET_CHIP_PANELS } from "./destinations";
 import { SaveStatusIndicator } from "./SaveStatusIndicator";
@@ -11,6 +12,9 @@ import { InboxButton } from "./InboxButton";
 import { NavItemLink } from "./NavItemLink";
 import { BrandMark } from "./BrandMark";
 import { copyPageLink, publicPageUrl } from "./pageLink";
+import { usePageUnpublished } from "./pageVisibility";
+import { PublishFirstHint } from "./PublishFirstHint";
+import { PublishPageSheet } from "./PublishPageSheet";
 
 // Tab names shown after the destination title, for example "Design, Themes" (002 I09)
 const TAB_TITLES: Record<string, Record<string, string>> = {
@@ -32,11 +36,15 @@ function useTitle() {
 // Screen Review 002 (D08). Desktop: the context field top bar, a 55 high G1
 // navigate capsule, r34. Title at left as the page h1; at right, in this
 // order: save status, View page and Copy page link, Help, wallet chip, avatar.
+// QA-008: while the page is unpublished, Publish leads and View page and Copy
+// page link are disabled with the reason.
 export function TopBar() {
   const { activePanel } = useEditor();
   const { authUser } = useAuth();
   const title = useTitle();
   const handle = authUser?.handle ?? "";
+  const unpublished = usePageUnpublished();
+  const [publishOpen, setPublishOpen] = useState(false);
 
   return (
     <header className="prism-glass-nav sticky top-[21px] z-20 hidden h-commit items-center gap-2 rounded-prism-34 pl-[21px] pr-[5px] font-prism md:flex">
@@ -48,7 +56,32 @@ export function TopBar() {
         {title}
       </h1>
       {SAVE_STATUS_PANELS.includes(activePanel) && <SaveStatusIndicator />}
-      {handle && (
+      {handle && unpublished && (
+        <>
+          <Button className="shrink-0" onClick={() => setPublishOpen(true)}>
+            Publish
+          </Button>
+          <PublishFirstHint label="View page">
+            <Button variant="secondary" disabled tabIndex={-1} className="rounded-prism-13">
+              View page
+              <ExternalLink aria-hidden className="h-[21px] w-[21px]" strokeWidth={1.5} />
+            </Button>
+          </PublishFirstHint>
+          <PublishFirstHint label="Copy page link">
+            <button
+              type="button"
+              disabled
+              tabIndex={-1}
+              aria-label="Copy page link"
+              className="prism-icon-btn disabled:opacity-50"
+            >
+              <Copy aria-hidden className="h-[21px] w-[21px] text-prism-ink-2" strokeWidth={1.5} />
+            </button>
+          </PublishFirstHint>
+          <PublishPageSheet open={publishOpen} onOpenChange={setPublishOpen} />
+        </>
+      )}
+      {handle && !unpublished && (
         <>
           <a
             href={publicPageUrl(handle)}
@@ -80,10 +113,13 @@ export function TopBar() {
 
 // Screen Review 003 I05 (D09). Mobile: one compact top bar, full width, 55
 // high plus the safe area: title, save status, avatar. View page and Copy page
-// link move into the avatar menu.
+// link move into the avatar menu. QA-008: Publish sits before the avatar
+// while the page is unpublished.
 export function MobileTopBar() {
   const { activePanel } = useEditor();
   const title = useTitle();
+  const unpublished = usePageUnpublished();
+  const [publishOpen, setPublishOpen] = useState(false);
   return (
     <header className="prism-glass-nav sticky top-0 z-20 flex min-h-[calc(55px+env(safe-area-inset-top,0px))] items-center gap-2 rounded-none !border-x-0 !border-t-0 pl-[13px] pr-[13px] pt-[env(safe-area-inset-top,0px)] font-prism md:hidden">
       {/* QA-040: the Amplify mark leads the mobile bar as a Home link (44 target) */}
@@ -103,6 +139,14 @@ export function MobileTopBar() {
         {title}
       </h1>
       {SAVE_STATUS_PANELS.includes(activePanel) && <SaveStatusIndicator compact />}
+      {unpublished && (
+        <>
+          <Button size="sm" className="shrink-0" onClick={() => setPublishOpen(true)}>
+            Publish
+          </Button>
+          <PublishPageSheet open={publishOpen} onOpenChange={setPublishOpen} />
+        </>
+      )}
       <InboxButton />
       <AccountMenu mobile />
     </header>

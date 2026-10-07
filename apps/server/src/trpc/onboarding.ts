@@ -30,6 +30,13 @@ async function getOrCreateRecord(userId: number) {
   });
 }
 
+const PUBLISH_CARD_SNOOZE_DAYS = 30;
+
+export function isPublishCardSnoozed(dismissedAt: Date | null, now = new Date()): boolean {
+  if (!dismissedAt) return false;
+  return now.getTime() - dismissedAt.getTime() < PUBLISH_CARD_SNOOZE_DAYS * 24 * 60 * 60 * 1000;
+}
+
 async function readStatus(userId: number) {
   const [record, user, blockCount] = await Promise.all([
     getOrCreateRecord(userId),
@@ -42,6 +49,7 @@ async function readStatus(userId: number) {
         image: true,
         image_file_id: true,
         theme: true,
+        page_status: true,
       },
     }),
     prisma.block.count({ where: { user_id: userId } }),
@@ -76,11 +84,21 @@ async function readStatus(userId: number) {
     justCompleted: allDone && !record.completed_at,
     completed: !!completedAt,
     analyticsCardDismissed: !!record.analytics_card_dismissed_at,
+    // QA-008: an unpublished page shows the Make your own page card instead of
+    // the checklist. Not now hides the card for PUBLISH_CARD_SNOOZE_DAYS.
+    pageStatus: user?.page_status ?? "PUBLISHED",
+    publishCardDismissed: isPublishCardSnoozed(record.publish_card_dismissed_at),
   };
 }
 
 const markInput = z.object({
-  moment: z.enum(["urlConfirmed", "shared", "checklistDismissed", "analyticsCardDismissed"]),
+  moment: z.enum([
+    "urlConfirmed",
+    "shared",
+    "checklistDismissed",
+    "analyticsCardDismissed",
+    "publishCardDismissed",
+  ]),
   // Undo of Hide checklist clears the moment instead of setting it
   clear: z.boolean().optional(),
 });
@@ -90,6 +108,7 @@ const COLUMN = {
   shared: "shared_at",
   checklistDismissed: "checklist_dismissed_at",
   analyticsCardDismissed: "analytics_card_dismissed_at",
+  publishCardDismissed: "publish_card_dismissed_at",
 } as const;
 
 export const onboardingRouter = router({

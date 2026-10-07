@@ -10,6 +10,8 @@ import { htmlToPlainText, sanitizeRichText } from "@repo/constants";
 import { parseRnsInput, RNS_CHAIN } from "@repo/web3";
 import { assertRnsBinding } from "../services/rns";
 import { rnsDisplaySchema } from "../services/rnsIdentity";
+import { newHandleSchema } from "../services/pageHandle";
+import { publishPage, unpublishPage } from "../services/pagePublish";
 
 // Schema for initiating email change
 const initiateEmailChangeSchema = z.object({
@@ -114,6 +116,15 @@ export const userRouter = router({
     await prisma.user.update({ where: { id: ctx.user!.sub }, data: { rns_display: input } });
     return input;
   }),
+
+  // QA-008: the owner publishes their page, optionally with a new URL checked
+  // like Account, Public URL. Publishing a live page again is a no-op.
+  publishPage: privateProcedure
+    .input(z.object({ handle: newHandleSchema.optional() }).optional())
+    .mutation(({ ctx, input }) => publishPage(ctx.user!.sub, input?.handle)),
+
+  // QA-008: the page reads as not found again. Followers stay.
+  unpublishPage: privateProcedure.mutation(({ ctx }) => unpublishPage(ctx.user!.sub)),
 
   // Initiate email change by requesting a verification code
   initiateEmailChange: privateProcedure

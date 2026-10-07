@@ -532,6 +532,8 @@ model UserOnboarding {
   checklist_dismissed_at      DateTime?
   completed_at                DateTime?
   analytics_card_dismissed_at DateTime?
+  // QA-008: Not now on the Make your own page card. The card stays hidden for 30 days.
+  publish_card_dismissed_at   DateTime?
   created_at                  DateTime  @default(now())
   updated_at                  DateTime? @updatedAt
 

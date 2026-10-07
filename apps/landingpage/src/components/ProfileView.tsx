@@ -340,15 +340,13 @@ export function ProfileView({
     (particlesEffect !== 0 && particlesEffect !== 6) || LOOPING_HERO_EFFECTS.includes(heroEffect);
   const containerOn = (themeConfig?.containerStyle ?? 0) !== 0;
   const background = themeConfig?.background;
-  const isGradient = background?.type === "color" && !!background.value?.includes("gradient");
   const renderable = blocks.filter(block => isRenderable(block));
   const hasPoolBlock = renderable.some(block => block.type === "pool");
 
   // 039 I03: one neutral frame capsule; nothing renders when it would be empty
   const isOwner = isOwnerView || (!!authUser && authUser.handle === normalizedHandle);
   const showViewPool = hasCreatorPool && !!creatorPoolAddress && !hasPoolBlock;
-  const showFollow =
-    followEnabled && !isOwner && (!!followState.status || followState.failed);
+  const showFollow = followEnabled && !isOwner && (!!followState.status || followState.failed);
   const showCapsule = showViewPool || isOwner || showFollow;
   const showPrivacyChoices = trackableProfileId !== null && consent !== null;
   const cardShowing = bannerMode !== "hidden" && trackableProfileId !== null;
@@ -364,14 +362,16 @@ export function ProfileView({
       <div
         aria-hidden
         className="fixed inset-0 z-0"
+        // QA-004: set only the background shorthand. Pairing it with
+        // backgroundColor makes React write background="" on the client,
+        // which clears the color and the video backdrop.
         style={{
-          backgroundColor:
-            background?.type === "color" && !isGradient
+          background:
+            background?.type === "color"
               ? background.value || undefined
               : background?.type === "video"
                 ? VIDEO_BACKDROP
                 : undefined,
-          background: isGradient ? background?.value || undefined : undefined,
         }}
       >
         {background?.type === "video" ? (

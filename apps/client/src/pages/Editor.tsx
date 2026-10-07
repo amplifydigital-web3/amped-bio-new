@@ -1,13 +1,15 @@
 import { useParams, useLocation } from "react-router";
 import { Layout } from "../components/Layout";
 import { useAuth } from "@repo/ui";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useEditor } from "../contexts/EditorContext";
 import { useNavigate } from "react-router";
 import { normalizeHandle, formatHandle, validateHandleFormat } from "@repo/ui";
 import { trpc } from "@repo/ui";
 import { PANEL_TITLES } from "@/components/shell/destinations";
-import { ShellErrorCard, ShellPending } from "@/components/shell/ShellGate";
+import { PREVIEW_PATHS, SHELL_TIMEOUT_MS, ShellErrorCard } from "@/components/shell/ShellGate";
+import { ShellSkeleton } from "@/components/shell/ShellSkeleton";
+import { useDelayed } from "@/hooks/useDelayed";
 import { useQuery } from "@tanstack/react-query";
 import {
   EDITOR_PANELS,
@@ -16,11 +18,29 @@ import {
   LEGACY_PROFILE_TABS,
 } from "@/types/editor";
 
+/**
+ * QA-045: the editor's own loading state. The room paints at once, then the
+ * shell skeleton after 400ms. The sign in timeout card belongs to
+ * ProtectedRoute; a slow profile load ends in the editor's load error.
+ */
+function EditorLoading() {
+  const showSkeleton = useDelayed(true, 400);
+  useEffect(() => {
+    document.title = "Amped.Bio";
+  }, []);
+  if (!showSkeleton) return <div className="prism-room min-h-dvh" />;
+  const preview = PREVIEW_PATHS.some(path => window.location.pathname.startsWith(path));
+  return <ShellSkeleton preview={preview} />;
+}
+
 export function Editor() {
   const { panel: panelParam, handle: legacyHandle } = useParams();
   const { authUser } = useAuth();
-  // 081 I01, I07: the profile load. "failed" shows the shell error card.
+  // 081 I01, I07: the profile load. "failed" shows the editor load error.
   const [load, setLoad] = useState<"loading" | "ready" | "failed">("loading");
+  // QA-045: one profile request at a time. Retry while a request is still
+  // running waits for it instead of starting a second setUser.
+  const inFlight = useRef<{ handle: string; promise: Promise<unknown> } | null>(null);
   const [attempt, setAttempt] = useState(0);
   const { profile, setUser, setActivePanel, activePanel } = useEditor();
   const nav = useNavigate();
@@ -88,27 +108,60 @@ export function Editor() {
     setActivePanel(panel);
   }, [panelParam, legacyHandle, location, nav, setActivePanel]);
 
+  const loadProfile = useCallback(
+    (handle: string) => {
+      const current = inFlight.current;
+      if (current && current.handle === handle) return current.promise;
+      const promise: Promise<unknown> = setUser(handle).finally(() => {
+        if (inFlight.current?.promise === promise) inFlight.current = null;
+      });
+      inFlight.current = { handle, promise };
+      return promise;
+    },
+    [setUser]
+  );
+
   // ProtectedRoute owns the signed out redirect (with returnTo, 081 I05, I06);
   // the editor only loads the signed in creator's profile.
   useEffect(() => {
-    if (!userHandle) return;
+    if (!authUser) return;
+    // QA-045: a session without a handle has no page to load; say so instead
+    // of waiting forever
+    if (!userHandle) {
+      setLoad("failed");
+      return;
+    }
     if (userHandle === profile.handle) {
       setLoad("ready");
       return;
     }
     let active = true;
     setLoad("loading");
-    void setUser(userHandle).then(loaded => {
+    // A load that runs past the timeout shows the error; it still lands if it
+    // finishes later
+    const timer = setTimeout(() => {
+      if (active) setLoad(current => (current === "loading" ? "failed" : current));
+    }, SHELL_TIMEOUT_MS);
+    void loadProfile(userHandle).then(loaded => {
+      clearTimeout(timer);
       if (active) setLoad(loaded ? "ready" : "failed");
     });
     return () => {
       active = false;
+      clearTimeout(timer);
     };
     // profile.handle changes when setUser succeeds; attempt reruns a failed load
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userHandle, attempt, setUser]);
+  }, [authUser, userHandle, attempt, loadProfile]);
 
-  const retry = useCallback(() => setAttempt(current => current + 1), []);
+  // Without a handle a new attempt cannot help; a reload reads the session again
+  const retry = useCallback(() => {
+    if (!userHandle) {
+      window.location.reload();
+      return;
+    }
+    setAttempt(current => current + 1);
+  }, [userHandle]);
 
   // 081 I03: <Destination> · Amped.Bio once loaded
   useEffect(() => {
@@ -119,13 +172,17 @@ export function Editor() {
   if (load === "failed") {
     return (
       <ShellErrorCard
-        title="Your editor did not load"
-        cause="We could not load your page details. Check your connection, then try again."
+        title="We could not load your page."
+        cause={
+          userHandle
+            ? "Check your connection, then try again."
+            : "Your account has no page name yet. Contact support if this keeps happening."
+        }
         onRetry={retry}
       />
     );
   }
-  if (load === "loading") return <ShellPending onRetry={retry} />;
+  if (load === "loading") return <EditorLoading />;
 
   // The Prism shell scrolls the page itself (fixed rail and dock, sticky
   // preview), so no viewport-height or overflow wrapper goes around it

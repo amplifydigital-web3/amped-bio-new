@@ -3,11 +3,14 @@ import { BarChart3, Copy, ExternalLink, Share2 } from "lucide-react";
 import { Button, ErrorCard, Skeleton } from "@repo/ui";
 import { copyPageLink, publicPageUrl } from "@/components/shell/pageLink";
 import { useShellNavigation } from "@/components/shell/ShellNavigation";
+import { PUBLISH_FIRST } from "@/components/shell/pageVisibility";
 import { Eyebrow } from "./TestnetCard";
 
 // Screen Review 016 I04, I15. Where the page stands: photo, name and URL,
 // View page, Copy page link, Share on touch, View analytics, and Show setup
-// checklist while setup is incomplete and the checklist is hidden.
+// checklist while setup is incomplete and the checklist is hidden. While the
+// page is unpublished (QA-008), View page, Copy page link and Share are
+// disabled and the reason shows below them.
 
 function displayUrl(handle: string) {
   return publicPageUrl(handle).replace(/^https?:\/\//, "");
@@ -19,12 +22,14 @@ export function PageStatusCard({
   photoUrl,
   onShowChecklist,
   restoring,
+  unpublished = false,
 }: {
   handle: string;
   name: string;
   photoUrl?: string;
   onShowChecklist?: () => void;
   restoring?: boolean;
+  unpublished?: boolean;
 }) {
   const { go } = useShellNavigation();
   const [photoFailed, setPhotoFailed] = useState(false);
@@ -72,18 +77,27 @@ export function PageStatusCard({
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-[13px]">
-        <Button asChild variant="secondary">
-          <a href={url} target="_blank" rel="noopener noreferrer">
+        {unpublished ? (
+          <Button type="button" variant="secondary" disabled aria-describedby="page-status-reason">
             View page
             <ExternalLink aria-hidden />
-            <span className="sr-only">(opens in a new tab)</span>
-          </a>
-        </Button>
+          </Button>
+        ) : (
+          <Button asChild variant="secondary">
+            <a href={url} target="_blank" rel="noopener noreferrer">
+              View page
+              <ExternalLink aria-hidden />
+              <span className="sr-only">(opens in a new tab)</span>
+            </a>
+          </Button>
+        )}
         <Button
           type="button"
           variant="secondary"
           size="icon"
           aria-label="Copy page link"
+          aria-describedby={unpublished ? "page-status-reason" : undefined}
+          disabled={unpublished}
           onClick={() => void copyPageLink(handle)}
           className="rounded-prism-13"
         >
@@ -95,6 +109,8 @@ export function PageStatusCard({
             variant="secondary"
             size="icon"
             aria-label="Share page"
+            aria-describedby={unpublished ? "page-status-reason" : undefined}
+            disabled={unpublished}
             onClick={() => void share()}
             className="rounded-prism-13 md:hidden"
           >
@@ -106,6 +122,11 @@ export function PageStatusCard({
           View analytics
         </Button>
       </div>
+      {unpublished && (
+        <p id="page-status-reason" className="-mt-[8px] text-prism-meta text-prism-ink-2">
+          {PUBLISH_FIRST}
+        </p>
+      )}
       {onShowChecklist && (
         <Button
           type="button"

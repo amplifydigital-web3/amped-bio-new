@@ -14,6 +14,7 @@ import {
   parseRnsDisplay,
   type PublicRnsIdentity,
 } from "../services/rnsIdentity";
+import { assertHandleAvailable, newHandleSchema } from "../services/pageHandle";
 
 export const SITEMAP_MAX_PAGE_SIZE = 10000;
 
@@ -97,44 +98,13 @@ const appRouter = router({
 
   // Redeem/change a user's handle
   redeem: privateProcedure
-    .input(
-      z.object({
-        newHandle: z
-          .string()
-          .transform(value => (value.startsWith("@") ? value.substring(1) : value)) // Normalize by removing @ prefix if present
-          .pipe(
-            z
-              .string()
-              .min(HANDLE_MIN_LENGTH, `Name must be at least ${HANDLE_MIN_LENGTH} characters`)
-              .regex(
-                HANDLE_REGEX,
-                "Name can only contain letters, numbers, underscores and hyphens"
-              )
-              .transform(value => value.toLowerCase()) // Force lowercase for storage
-          ),
-      })
-    )
+    .input(z.object({ newHandle: newHandleSchema }))
     .mutation(async ({ ctx, input }) => {
       const { newHandle } = input;
       const userId = ctx.user!.sub;
 
       try {
-        const existingHandle = await prisma.user.findFirst({
-          where: {
-            OR: [
-              { handle: newHandle },
-              { handle: newHandle.toLowerCase() },
-              { handle: newHandle.toUpperCase() },
-            ],
-          },
-        });
-
-        if (existingHandle) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "This handle is already taken",
-          });
-        }
+        await assertHandleAvailable(prisma, newHandle);
 
         await prisma.user.update({
           where: {
@@ -175,8 +145,10 @@ const appRouter = router({
       });
 
       // Fan Graph (#22): an account made from Follow has no public page until
-      // its owner publishes one, so its handle reads as not found.
-      if (user === null || user.page_status !== "PUBLISHED") {
+      // its owner publishes one, so its handle reads as not found to everyone
+      // else. The owner still loads it to open the editor (QA-041).
+      const isOwner = user !== null && opts.ctx.user?.sub === user.id;
+      if (user === null || (user.page_status !== "PUBLISHED" && !isOwner)) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: `Handle not found: ${handle}`,

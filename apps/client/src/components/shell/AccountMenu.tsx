@@ -17,13 +17,16 @@ import { toast } from "@/components/ui/toast";
 import { useShellNavigation } from "./ShellNavigation";
 import { HelpMenuItems } from "./HelpMenu";
 import { copyPageLink, publicPageUrl } from "./pageLink";
+import { PUBLISH_FIRST, usePageUnpublished } from "./pageVisibility";
 
 // Screen Review 002 I05, I06 and D17. The avatar button (44 circle, 34 photo,
 // initial on a lens disc as the fallback) opens the account menu: identity
 // header, Account settings, View my page, Help, Sign out. On mobile View page
-// and Copy page link are its first rows (003 I05).
+// and Copy page link are its first rows (003 I05). While the page is
+// unpublished (QA-008) those rows are disabled and name the reason.
 export function AccountMenu({ mobile = false }: { mobile?: boolean }) {
   const { authUser, signOut } = useAuth();
+  const unpublished = usePageUnpublished();
   const { profile, setDefault, activePanel } = useEditor();
   // 098 I04: on Account no rail item is current; the avatar ring is the cue
   const onAccount = activePanel === "account";
@@ -96,7 +99,27 @@ export function AccountMenu({ mobile = false }: { mobile?: boolean }) {
           </div>
         </div>
         <MenuSeparator />
-        {mobile && (
+        {unpublished && (
+          <>
+            <MenuItem disabled aria-describedby="account-menu-publish-first">
+              <ExternalLink aria-hidden />
+              View my page
+            </MenuItem>
+            {mobile && (
+              <MenuItem disabled aria-describedby="account-menu-publish-first">
+                <Copy aria-hidden />
+                Copy page link
+              </MenuItem>
+            )}
+            <p
+              id="account-menu-publish-first"
+              className="px-3 pb-2 text-prism-meta text-prism-ink-2"
+            >
+              {PUBLISH_FIRST}
+            </p>
+          </>
+        )}
+        {mobile && !unpublished && (
           <>
             <MenuItem asChild>
               <a href={publicPageUrl(handle)} target="_blank" rel="noopener noreferrer">
@@ -115,7 +138,7 @@ export function AccountMenu({ mobile = false }: { mobile?: boolean }) {
           <Settings aria-hidden />
           Account settings
         </MenuItem>
-        {!mobile && (
+        {!mobile && !unpublished && (
           <MenuItem asChild>
             <a href={publicPageUrl(handle)} target="_blank" rel="noopener noreferrer">
               <ExternalLink aria-hidden />

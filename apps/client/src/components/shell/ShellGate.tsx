@@ -19,7 +19,8 @@ export function signInUrl(returnTo: string = window.location.href) {
 }
 
 /** Panels that show the live preview frame beside the content (D10). */
-const PREVIEW_PATHS = ["/page", "/design"];
+// eslint-disable-next-line react-refresh/only-export-components
+export const PREVIEW_PATHS = ["/page", "/design"];
 
 /**
  * 081 I01, I08, I12. The room paints at once; after 400ms still pending, the

@@ -17,12 +17,18 @@ export function HandleNotFoundCard() {
         <AtSign className="h-[34px] w-[34px] text-prism-ink-3" strokeWidth={1.5} />
       </span>
       <h1 className="mt-[13px] break-all text-prism-panel-title text-prism-ink">
-        {handle ? `No page at @${handle} yet` : "No page here yet"}
+        {handle ? `No page at @${handle}` : "No page here"}
       </h1>
-      <p className="mt-2 text-prism-body text-prism-ink-2">This name is available on Amped.Bio.</p>
+      {/* QA-044: the card never says whether the name is free or taken. A
+          name can belong to an account with no published page. */}
+      <p className="mt-2 text-prism-body text-prism-ink-2">
+        {handle
+          ? "Want this name? Check if it is free when you sign up."
+          : "Check if a name is free when you sign up."}
+      </p>
       <Button asChild size="lg" className="mt-[21px] w-full">
         <Link href={handle ? `/register?handle=${encodeURIComponent(handle)}` : "/register"}>
-          {handle ? `Claim @${handle}` : "Claim your name"}
+          Check and claim
         </Link>
       </Button>
       <Button asChild variant="ghost" className="mt-2">
