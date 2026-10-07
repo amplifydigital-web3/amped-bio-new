@@ -1,19 +1,19 @@
 import { useEffect } from "react";
 import { useSearchParams } from "react-router";
-import { Tabs, TabsContent, TabsList, TabsTrigger, cn } from "@repo/ui";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui";
 import { useDestinationTab } from "@/hooks/useDestinationTab";
 import { RNS_FLAGS } from "@/config/rns/flags";
 import { RnsTab } from "../rns/RnsTab";
 import { clearRnsParams } from "../rns/useRnsRoute";
-import { ProfileTabsProps } from "./types";
 import TokensTab from "./components/TokensTab";
-import TabSkeletons, { EmptyState } from "./TabSkeletons";
 import { ActivityTab } from "../activity/ActivityTab";
 
 // Screen Review 057, 058 (D19). Wallet tabs: Tokens and Activity. Activity
 // replaces the Transactions and Transfers tabs; its chips live in ?filter=.
 // NFTs was a disabled tab with no content and is not rendered (D07).
 // Screen Review 101 I01: RNS is the third tab, only with VITE_SHOW_RNS on.
+// Screen Review 055 I01: the tabs container and each view sit on the room;
+// the Tokens view handles its own loading, zero and error states.
 
 const TABS = RNS_FLAGS.enabled
   ? (["tokens", "activity", "rns"] as const)
@@ -25,7 +25,7 @@ const LEGACY_TABS: Record<string, string | null> = {
   transfers: "transfers",
 };
 
-export default function ProfileTabs({ isEmpty = false, loading = false }: ProfileTabsProps) {
+export default function ProfileTabs() {
   const [params, setParams] = useSearchParams();
   const [tab, setDestinationTab] = useDestinationTab(TABS);
   // Leaving the RNS tab drops its view params (name, address, flow)
@@ -61,11 +61,7 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
   }, [params, setParams]);
 
   return (
-    <div
-      className={cn(
-        tab === "rns" ? "" : "rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-6"
-      )}
-    >
+    <div>
       <Tabs value={tab} onValueChange={setTab} className="flex flex-col gap-[21px]">
         <TabsList aria-label="Wallet sections" className="max-sm:w-full">
           <TabsTrigger value="tokens" className="max-sm:flex-1">
@@ -81,7 +77,7 @@ export default function ProfileTabs({ isEmpty = false, loading = false }: Profil
           )}
         </TabsList>
         <TabsContent value="tokens" className="mt-0">
-          {loading ? <TabSkeletons activeTab="tokens" /> : isEmpty ? <EmptyState /> : <TokensTab />}
+          <TokensTab />
         </TabsContent>
         <TabsContent value="activity" className="mt-0">
           <ActivityTab />

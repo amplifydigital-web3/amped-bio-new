@@ -24,6 +24,12 @@ import { formatHandle, normalizeHandle } from "@repo/ui";
 import { queryClient, trpcClient } from "@repo/ui";
 import { exportThemeConfigAsJson } from "@repo/ui";
 import { mergeTheme } from "@/utils/mergeTheme";
+import {
+  announceSessionEnded,
+  isSessionEnded,
+  stashUnsavedEdits,
+  takeUnsavedEdits,
+} from "./unsavedEdits";
 import { useNavigate, useLocation } from "react-router";
 import { MY_PAGE_IDENTITY_KEY } from "@/components/panels/page/rns/useMyPageIdentity";
 
@@ -56,6 +62,11 @@ interface EditorContextType extends EditorState {
   hasUnsavedChanges: boolean;
   /** Save now instead of waiting for the debounce. Resolves true when stored. */
   flushSave: () => Promise<boolean>;
+  /**
+   * 081 I09: keep the edits not stored yet in this tab before a sign in
+   * redirect. Returns true when there were edits and they were kept.
+   */
+  keepUnsavedEdits: () => boolean;
   previewOverride: PreviewOverride | null;
   setPreviewOverride: (override: PreviewOverride | null) => void;
   setUser: (handle: string) => Promise<any>;
@@ -131,69 +142,87 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
 
   const { authUser } = useAuth();
 
-  const setUser = useCallback(async (handle: string) => {
-    // console.group(`🔍 Setting User: ${handle}`);
-    // console.info("🚀 Loading user data...");
-    try {
-      const onlinkData = await trpcClient.handle.getHandle.query({ handle });
+  const setUser = useCallback(
+    async (handle: string) => {
+      // console.group(`🔍 Setting User: ${handle}`);
+      // console.info("🚀 Loading user data...");
+      try {
+        const onlinkData = await trpcClient.handle.getHandle.query({ handle });
 
-      if (!onlinkData) {
-        // console.info("❌ User not found:", handle);
+        if (!onlinkData) {
+          // console.info("❌ User not found:", handle);
+          // console.groupEnd();
+          return;
+        }
+        const { user, theme, blocks: blocks_raw, hasCreatorPool } = onlinkData;
+        const { id, name, description, image } = user;
+        const normalizedHandle = normalizeHandle(handle);
+        const formattedHandle = formatHandle(handle);
+
+        const blocks = blocks_raw.sort((a, b) => a.order - b.order);
+
+        setState(prevState => ({
+          ...prevState,
+          profile: {
+            id,
+            name,
+            handle: normalizedHandle,
+            handleFormatted: formattedHandle,
+            // 108 I02: the stored RNS name is private. The Page RNS section
+            // reads it from rns.getMyPageIdentity and sets it here.
+            revoName: "",
+            // getHandle is public and does not return email. The signed in owner's
+            // email comes from the session (authUser) where it is needed.
+            email: "",
+            bio: description ?? "",
+            photoUrl: image ?? "",
+          },
+          theme: mergeTheme(prevState.theme, theme as unknown as Theme),
+          blocks: blocks as unknown as BlockType[],
+          hasCreatorPool,
+        }));
+        // 108 I02: the stored RNS name comes from the owner's private read.
+        // Wallet name pages compare against it.
+        if (import.meta.env.VITE_SHOW_RNS === "true") {
+          void queryClient
+            .fetchQuery({
+              queryKey: MY_PAGE_IDENTITY_KEY,
+              queryFn: () => trpcClient.rns.getMyPageIdentity.query(),
+              staleTime: 30_000,
+            })
+            .then(data =>
+              setState(prevState => ({
+                ...prevState,
+                profile: { ...prevState.profile, revoName: data.name ?? "" },
+              }))
+            )
+            .catch(() => undefined);
+        }
+        // 081 I09: edits kept when the last session ended go back in, and
+        // autosave stores them
+        const kept = takeUnsavedEdits(id);
+        if (kept) {
+          setState(prevState => ({
+            ...prevState,
+            profile: { ...prevState.profile, ...kept.profile },
+            blocks: kept.blocks,
+            theme: kept.themeConfig
+              ? { ...prevState.theme, config: kept.themeConfig }
+              : prevState.theme,
+          }));
+          if (kept.themeConfig) markThemeDirty();
+          markDirty();
+        }
+        // console.info("✅ User setup complete");
         // console.groupEnd();
+        return onlinkData;
+      } catch (error) {
+        console.info("❌ Error getting user:", error);
         return;
       }
-      const { user, theme, blocks: blocks_raw, hasCreatorPool } = onlinkData;
-      const { id, name, description, image } = user;
-      const normalizedHandle = normalizeHandle(handle);
-      const formattedHandle = formatHandle(handle);
-
-      const blocks = blocks_raw.sort((a, b) => a.order - b.order);
-
-      setState(prevState => ({
-        ...prevState,
-        profile: {
-          id,
-          name,
-          handle: normalizedHandle,
-          handleFormatted: formattedHandle,
-          // 108 I02: the stored RNS name is private. The Page RNS section
-          // reads it from rns.getMyPageIdentity and sets it here.
-          revoName: "",
-          // getHandle is public and does not return email. The signed in owner's
-          // email comes from the session (authUser) where it is needed.
-          email: "",
-          bio: description ?? "",
-          photoUrl: image ?? "",
-        },
-        theme: mergeTheme(prevState.theme, theme as unknown as Theme),
-        blocks: blocks as unknown as BlockType[],
-        hasCreatorPool,
-      }));
-      // 108 I02: the stored RNS name comes from the owner's private read.
-      // Wallet name pages compare against it.
-      if (import.meta.env.VITE_SHOW_RNS === "true") {
-        void queryClient
-          .fetchQuery({
-            queryKey: MY_PAGE_IDENTITY_KEY,
-            queryFn: () => trpcClient.rns.getMyPageIdentity.query(),
-            staleTime: 30_000,
-          })
-          .then(data =>
-            setState(prevState => ({
-              ...prevState,
-              profile: { ...prevState.profile, revoName: data.name ?? "" },
-            }))
-          )
-          .catch(() => undefined);
-      }
-      // console.info("✅ User setup complete");
-      // console.groupEnd();
-      return onlinkData;
-    } catch (error) {
-      console.info("❌ Error getting user:", error);
-      return;
-    }
-  }, []);
+    },
+    [markDirty, markThemeDirty]
+  );
 
   const setProfile = useCallback(
     (profile: UserProfile) => {
@@ -515,6 +544,8 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     setSaveStatus("saving");
     const attempt = saveChanges().catch(error => {
       console.error("Autosave failed:", error);
+      // 081 I09: a 401 during a session opens Your session ended
+      if (isSessionEnded(error)) announceSessionEnded();
       return false;
     });
     inFlight.current = attempt;
@@ -582,6 +613,18 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
 
   // `changes` turns false only once the newest edit is stored
   const hasUnsavedChanges = changes;
+
+  const keepUnsavedEdits = useCallback(() => {
+    if (revision.current === savedRevision.current) return false;
+    const { profile, blocks, theme } = stateRef.current;
+    if (!profile.id) return false;
+    return stashUnsavedEdits({
+      userId: profile.id,
+      profile: { name: profile.name, bio: profile.bio, photoUrl: profile.photoUrl ?? "" },
+      blocks,
+      themeConfig: themeChangesRef.current ? theme.config : undefined,
+    });
+  }, []);
 
   // Leave page guard: the browser asks only while an edit is not stored (I03)
   useEffect(() => {
@@ -651,6 +694,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     saveStatus,
     hasUnsavedChanges,
     flushSave,
+    keepUnsavedEdits,
     previewOverride,
     setPreviewOverride,
     selectedBlockId,

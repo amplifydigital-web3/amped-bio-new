@@ -1,96 +1,43 @@
-import { lazy, Suspense, useState, useMemo } from "react";
-import { Users, Trophy, Coins, TrendingUp, Gift, Target } from "lucide-react";
-import { ProfileSection } from "./ProfileSection";
-import { useWalletContext } from "@/contexts/WalletContext";
-import { type StatBoxProps } from "./types";
-import { useWalletStats } from "./hooks/useWalletStats";
+import { lazy, Suspense, useState } from "react";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useRnsSubPage } from "./rns/useRnsRoute";
 import { RnsSubPage } from "./rns/RnsTab";
-import { getChainConfig } from "@repo/web3";
-import { appChainId } from "@/utils/appChain";
+import { WalletErrorCard, WalletSummary, useNoWalletTimeout } from "./summary/WalletSummary";
 
-const WalletBalance = lazy(() => import("./WalletBalance"));
+// 062 I01: Send opens in the value panel at ?send=1 (D05, D12)
+const SendFlow = lazy(() => import("./send/SendFlow"));
 // Screen Review 059: Stakes replaces StakedPoolsSection on the Wallet
 const StakesCard = lazy(() => import("./stakes/StakesCard"));
 const ProfileTabs = lazy(() => import("./ProfileTabs"));
 // Screen Review 060: referral cards live in the Get tREVO section
 const InviteCard = lazy(() => import("./referral/InviteCard"));
 const RefereeCard = lazy(() => import("./referral/RefereeCard"));
-// const ProfileOptionsDialog = lazy(() => import("./dialogs/ProfileOptionsDialog"));
+// Screen Review 053: the Testnet faucet card, first in the Get tREVO grid
+const FaucetCard = lazy(() => import("./faucet/FaucetCard"));
 const LaunchPoolAd = lazy(() => import("./LaunchPoolAd"));
 
 export function MyWalletPanel() {
-  const wallet = useWalletContext();
-  const [showProfileOptions, setShowProfileOptions] = useState(false);
-
-  // Get wallet stats from backend
-  const { stats, isLoading: statsLoading } = useWalletStats();
-
-  // Units follow the app network: tREVO on testnet, never a bare REVO (QA-026).
-  // Interim until rows 049 and 050 replace these tiles.
-  const symbol =
-    getChainConfig(Number(appChainId()))?.nativeCurrency.symbol ??
-    wallet.balance?.data?.symbol ??
-    "tREVO";
-
-  // Create stats for the wallet stats section
-  const walletStats = useMemo<StatBoxProps[]>(
-    () => [
-      {
-        icon: TrendingUp,
-        label: `Total ${symbol}`,
-        value: wallet.balance?.data?.formatted
-          ? `${parseFloat(wallet.balance?.data!.formatted).toFixed(8)} ${symbol}`
-          : "-",
-        tooltip: `Total amount of ${symbol} in your wallet`,
-        color: "bg-blue-100 text-blue-600",
-        soon: false,
-      },
-      {
-        icon: Coins,
-        label: "My Stake",
-        value: stats.myStake ? `${parseFloat(stats.myStake).toFixed(8)} ${symbol}` : `0 ${symbol}`,
-        tooltip: `Total amount of ${symbol} you have staked across all pools`,
-        color: "bg-green-100 text-green-600",
-        soon: false,
-      },
-      {
-        icon: Users,
-        label: "Staked to Me",
-        value: stats.stakedToMe
-          ? `${parseFloat(stats.stakedToMe).toFixed(8)} ${symbol}`
-          : `0 ${symbol}`,
-        tooltip: `Total amount of ${symbol} staked in pools you have created`,
-        color: "bg-purple-100 text-purple-600",
-        soon: false,
-      },
-      {
-        icon: Gift,
-        label: "Earnings to Date",
-        value: `- ${symbol}`,
-        tooltip: "Total rewards earned from all your staking activities",
-        color: "bg-orange-100 text-orange-600",
-        soon: true,
-      },
-      {
-        icon: Trophy,
-        label: "Stakers Supporting You",
-        value: stats.stakersSupportingMe ? stats.stakersSupportingMe.toString() : "0",
-        tooltip: "Number of users who have staked in pools you created",
-        color: "bg-indigo-100 text-indigo-600",
-        soon: false,
-      },
-      {
-        icon: Target,
-        label: "Creator Pools Joined",
-        value: stats.creatorPoolsJoined?.toString() || "0",
-        tooltip: "Number of creator pools you have joined",
-        color: "bg-pink-100 text-pink-600",
-        soon: false,
-      },
-    ],
-    [wallet.balance?.data?.formatted, symbol, stats, statsLoading]
+  // 049 I11: a render error shows the local error card, never a blank panel
+  const [attempt, setAttempt] = useState(0);
+  return (
+    <ErrorBoundary
+      key={attempt}
+      fallback={
+        <div className="h-full overflow-y-auto p-6 max-sm:px-[13px] md:mx-auto md:w-4/5">
+          <WalletErrorCard
+            title="Wallet did not load"
+            onRetry={() => setAttempt(current => current + 1)}
+          />
+        </div>
+      }
+    >
+      <WalletContent />
+    </ErrorBoundary>
   );
+}
+
+function WalletContent() {
+  const noWallet = useNoWalletTimeout();
 
   // 100 I07, 111 I01: the address view and the RNS name page replace the
   // Wallet summary and tabs, with a back lens to the RNS tab
@@ -105,21 +52,22 @@ export function MyWalletPanel() {
     );
   }
 
+  // 049 I11 edge case: no address 10 s after mount replaces the Wallet content
+  if (noWallet.timedOut) {
+    return (
+      <div className="h-full overflow-y-auto p-6 max-sm:px-[13px] md:mx-auto md:w-4/5">
+        <WalletErrorCard title="Wallet did not connect" onRetry={noWallet.retry} />
+      </div>
+    );
+  }
+
   // Connected view (existing wallet interface)
   const loggedInView = (
     <div className="h-full overflow-y-auto">
-      <div className="p-6 md:w-4/5 md:mx-auto">
-        <div className="space-y-6">
-          <ProfileSection
-            loading={!wallet.address}
-            address={wallet.address}
-            walletStats={walletStats}
-            onProfileOptionsClick={() => setShowProfileOptions(true)}
-          />
-
-          <Suspense>
-            <WalletBalance loading={!wallet.address} />
-          </Suspense>
+      <div className="p-6 pb-[calc(89px+env(safe-area-inset-bottom,0px))] max-sm:px-[13px] sm:pb-6 md:mx-auto md:w-4/5">
+        {/* D19 order, sections 34 apart (21 on mobile) */}
+        <div className="space-y-5 sm:space-y-8">
+          <WalletSummary />
 
           {/* D19: Stakes sits right under the summary, above the tabs. It is
               not rendered with the pools flag off (059 I01). */}
@@ -130,12 +78,13 @@ export function MyWalletPanel() {
           )}
 
           <Suspense>
-            <ProfileTabs loading={!wallet.address} />
+            <ProfileTabs />
           </Suspense>
 
-          {/* 060 I01: Get tREVO holds the referee card (only for creators who
-              joined through a link) and the Invite card. The Testnet faucet
-              card joins this section with row 053. */}
+          {/* 053 I01, 060 I01: Get tREVO holds the referee card (only for
+              creators who joined through a link) across the full width, then
+              the Testnet faucet and Invite cards in two equal columns
+              (stacked, faucet first, below 1024). */}
           <section aria-labelledby="get-trevo-title" className="space-y-[21px] font-prism">
             <h2
               id="get-trevo-title"
@@ -147,20 +96,24 @@ export function MyWalletPanel() {
             <Suspense>
               <RefereeCard />
             </Suspense>
-            <Suspense>
-              <InviteCard />
-            </Suspense>
+            <div className="grid items-start gap-[21px] lg:grid-cols-2">
+              <Suspense>
+                <FaucetCard />
+              </Suspense>
+              <Suspense>
+                <InviteCard />
+              </Suspense>
+            </div>
           </section>
 
           <Suspense>
             <LaunchPoolAd />
           </Suspense>
         </div>
-
-        {/* <Suspense fallback={null}>
-          <ProfileOptionsDialog open={showProfileOptions} onOpenChange={setShowProfileOptions} />
-        </Suspense> */}
       </div>
+      <Suspense>
+        <SendFlow />
+      </Suspense>
     </div>
   );
 

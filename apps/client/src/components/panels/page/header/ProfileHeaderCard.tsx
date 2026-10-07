@@ -1,6 +1,7 @@
 import { useState } from "react";
 import SlateEditor from "@/components/blocks/text/TextEditor/SlateEditor";
 import { useEditor } from "@/contexts/EditorContext";
+import { useOpenParam } from "@/hooks/useOpenParam";
 import { PhotoControl } from "./PhotoControl";
 
 // Screen Review 017, 018 (D03). The profile header card: photo, Display name,
@@ -14,6 +15,14 @@ import { PhotoControl } from "./PhotoControl";
 export function ProfileHeaderCard() {
   const { profile, setProfile, setActivePanelAndNavigate } = useEditor();
   const [nameBlurred, setNameBlurred] = useState(false);
+  // 053 I06: ?open=bio (Testnet faucet Write bio) focuses the Bio editor
+  useOpenParam("bio", () =>
+    requestAnimationFrame(() => {
+      const editor = document.querySelector<HTMLElement>('[aria-labelledby="bio-label"]');
+      editor?.scrollIntoView({ behavior: "smooth", block: "center" });
+      editor?.focus({ preventScroll: true });
+    })
+  );
 
   return (
     <section aria-label="Profile" className="prism-glass-clear space-y-[21px] p-[21px] font-prism">

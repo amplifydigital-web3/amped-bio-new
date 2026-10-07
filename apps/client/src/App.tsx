@@ -5,10 +5,10 @@ import { Editor } from "./pages/Editor";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Toaster, toast as hotToast, resolveValue } from "react-hot-toast";
 import { EditorProvider } from "./contexts/EditorContext";
-import { useTokenExpiration } from "./hooks/useTokenExpiration";
+import { SessionEndedDialog } from "./components/shell/SessionEndedDialog";
+import { signInUrl } from "./components/shell/ShellGate";
 import { useReferralHandler } from "./hooks/useReferralHandler";
 import { ExternalRedirect, ToastCard, useAuth } from "@repo/ui";
-import { Loader2 } from "lucide-react";
 import { ERROR_TOAST_DURATION } from "@/components/ui/toast";
 
 // Internal Prism component gallery for review (not linked in the app). Served in
@@ -19,71 +19,67 @@ const PrismGallery = lazy(() =>
 );
 
 function AppRouter() {
-  // Use the token expiration hook inside the router context
-  useTokenExpiration();
-
   return (
-    <Routes>
-      {SHOW_PRISM_GALLERY && (
+    <>
+      {/* 081 I09: any 401 during a session opens Your session ended */}
+      <SessionEndedDialog />
+      <Routes>
+        {SHOW_PRISM_GALLERY && (
+          <Route
+            path="/_prism"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={null}>
+                  <PrismGallery />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+        )}
+        {/* Legacy /@handle/edit/... URLs are normalized to the panel route by Editor */}
         <Route
-          path="/_prism"
+          path="/:handle/edit/:panel?"
           element={
             <ProtectedRoute>
-              <Suspense fallback={null}>
-                <PrismGallery />
-              </Suspense>
+              <Editor />
             </ProtectedRoute>
           }
         />
-      )}
-      {/* Legacy /@handle/edit/... URLs are normalized to the panel route by Editor */}
-      <Route
-        path="/:handle/edit/:panel?"
-        element={
-          <ProtectedRoute>
-            <Editor />
-          </ProtectedRoute>
-        }
-      />
 
-      {/* The client only serves the dashboard of the logged-in user; the panel
+        {/* The client only serves the dashboard of the logged-in user; the panel
           (home, gallery, wallet, ...) is the route */}
-      <Route
-        path="/:panel?"
-        element={
-          <ProtectedRoute>
-            <Editor />
-          </ProtectedRoute>
-        }
-      />
+        <Route
+          path="/:panel?"
+          element={
+            <ProtectedRoute>
+              <Editor />
+            </ProtectedRoute>
+          }
+        />
 
-      {/* All public pages live on the public site. Send unauthenticated users
+        {/* All public pages live on the public site. Send unauthenticated users
           there with the login popup open; redirect everything else to the site. */}
-      <Route path="*" element={<PublicSiteRedirect />} />
-    </Routes>
+        <Route path="*" element={<PublicSiteRedirect />} />
+      </Routes>
+    </>
   );
 }
 
-// Redirects to the public site, opening the login popup for unauthenticated users
+// 081 I04, I05: any other path belongs to the public site. While the session
+// is read and the cross origin redirect runs, only the room paints. Signed out
+// visitors go to sign in with this URL as returnTo.
 function PublicSiteRedirect() {
   const { authUser, isPending } = useAuth();
 
-  if (isPending) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
-      </div>
-    );
-  }
+  if (isPending) return <div className="prism-room min-h-dvh" />;
 
   return (
-    <ExternalRedirect
-      to={
-        authUser === null
-          ? `${import.meta.env.VITE_LANDINGPAGE_URL}/login`
-          : import.meta.env.VITE_LANDINGPAGE_URL
-      }
-    />
+    <>
+      <div className="prism-room min-h-dvh" />
+      <ExternalRedirect
+        to={authUser === null ? signInUrl() : import.meta.env.VITE_LANDINGPAGE_URL}
+      />
+    </>
   );
 }
 
