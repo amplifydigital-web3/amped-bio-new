@@ -51,17 +51,21 @@ const COUNTED: Prisma.BroadcastWhereInput["status"] = {
   in: ["IN_REVIEW", "QUEUED", "SENDING", "SENT"],
 };
 
-export async function getQuota(userId: number, now = new Date()) {
+export async function getQuota(
+  userId: number,
+  now = new Date(),
+  db: Pick<typeof prisma, "broadcast" | "broadcastSenderStatus"> = prisma
+) {
   const dayAgo = new Date(now.getTime() - 24 * 3600 * 1000);
   const weekAgo = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
   const [day, week, status] = await Promise.all([
-    prisma.broadcast.count({
+    db.broadcast.count({
       where: { creatorUserId: userId, status: COUNTED, createdAt: { gte: dayAgo } },
     }),
-    prisma.broadcast.count({
+    db.broadcast.count({
       where: { creatorUserId: userId, status: COUNTED, createdAt: { gte: weekAgo } },
     }),
-    prisma.broadcastSenderStatus.findUnique({ where: { userId } }),
+    db.broadcastSenderStatus.findUnique({ where: { userId } }),
   ]);
   return {
     usedToday: day,

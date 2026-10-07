@@ -269,6 +269,21 @@ describe("send", () => {
     ]);
   });
 
+  it("re-counts the quota under a lock before the insert (QA-022)", async () => {
+    ready();
+    // First read says one slot is left; a parallel send took it before the lock.
+    db.broadcast.count
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(3)
+      .mockResolvedValueOnce(3);
+    await expect(caller.send(input)).rejects.toMatchObject({ code: "TOO_MANY_REQUESTS" });
+    expect(db.$transaction).toHaveBeenCalledTimes(1);
+    expect(db.broadcast.create).not.toHaveBeenCalled();
+    const lock = db.$queryRaw.mock.calls.find(c => String(c[0]).includes("FOR UPDATE"));
+    expect(lock).toBeDefined();
+  });
+
   it("refuses more than 5 links", async () => {
     ready();
     await expect(
