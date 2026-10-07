@@ -82,7 +82,8 @@ export function useFaucet() {
   if (status.isLoading) state = "loading";
   else if (status.isError || !data) state = "error";
   else if (sending) state = "sending";
-  else if (!data.faucetEnabled) state = "paused";
+  // QA-042: a paused faucet comes back with amount 0 and every step unchecked
+  else if (!data.faucetEnabled || !data.amount) state = "paused";
   else if (!data.canRequestNow && data.lastRequestDate) {
     const since = Date.now() - data.lastRequestDate.getTime();
     state = since < PROCESSING_MS ? "sent" : "cooldown";

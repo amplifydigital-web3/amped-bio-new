@@ -145,6 +145,7 @@ export default function FaucetCard() {
     );
   }
 
+  const paused = faucet.state === "paused";
   const amount = formatAmount(faucet.amount);
   const requirements = faucet.requirements!;
   const allDone = faucet.doneCount === 4;
@@ -236,9 +237,10 @@ export default function FaucetCard() {
       break;
     case "paused":
       control = (
-        <Notice variant="info">
-          <p>The faucet is paused. Try again later.</p>
-        </Notice>
+        <Button type="button" variant="secondary" size="lg" className="w-full" disabled>
+          <Droplet aria-hidden />
+          Get tREVO
+        </Button>
       );
       break;
     case "empty":
@@ -274,12 +276,15 @@ export default function FaucetCard() {
             Watch how
           </Button>
         </div>
+        {/* QA-042: a paused faucet has no amount and no step status to show */}
         <p className="text-prism-body text-prism-ink-2">
-          Get {amount} tREVO once every 24 hours to try staking, pools and payments.
+          {paused
+            ? "The test token faucet is paused."
+            : `Get ${amount} tREVO once every 24 hours to try staking, pools and payments.`}
         </p>
       </div>
 
-      {allDone ? (
+      {paused ? null : allDone ? (
         <div className="flex h-commit items-center gap-3 border-y border-prism-line">
           <StepStatus done />
           <span className="text-prism-label font-semibold text-prism-ink">Page steps done</span>
