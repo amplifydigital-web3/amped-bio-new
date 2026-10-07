@@ -135,7 +135,7 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
           })
         ) : (
           <li className="col-span-full space-y-3 py-8 text-center font-prism text-prism-body text-prism-ink-2">
-            <p>No reward pools found.</p>
+            <p>No pools found.</p>
             {emptyActions}
           </li>
         )}

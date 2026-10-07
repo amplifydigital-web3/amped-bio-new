@@ -142,7 +142,7 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
     return (
       <EmptyState
         icon={Trophy}
-        title="No reward pools found."
+        title="No pools found."
         description="Creators launch pools from My Pool."
         action={
           <Button variant="secondary" asChild>
