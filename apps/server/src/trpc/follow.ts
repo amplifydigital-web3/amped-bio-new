@@ -42,11 +42,15 @@ function rangeStart(range: "7d" | "30d" | "90d"): Date {
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 }
 
-/** A published, not suspended creator page, found by handle. */
-async function findCreator(handle: string) {
+/**
+ * A creator found by handle. By default only a published, not suspended page.
+ * Unfollow and the fan's own settings pass `anyStatus` so a fan can still leave
+ * or change a follow after the creator unpublishes or is suspended (QA-021).
+ */
+async function findCreator(handle: string, { anyStatus = false } = {}) {
   const lower = handle.replace(/^@/, "").toLowerCase();
   const creator = await prisma.user.findFirst({
-    where: { handle: lower, page_status: "PUBLISHED", block: "no" },
+    where: anyStatus ? { handle: lower } : { handle: lower, page_status: "PUBLISHED", block: "no" },
     select: { id: true, name: true, handle: true, show_follower_count: true },
   });
   if (!creator) throw new TRPCError({ code: "NOT_FOUND", message: "Page not found" });
@@ -259,7 +263,7 @@ export const followRouter = router({
         ],
         "You're following too fast. Try again in a minute."
       );
-      const creator = await findCreator(input.handle);
+      const creator = await findCreator(input.handle, { anyStatus: true });
       const row = await prisma.follow.findUnique({
         where: { follower_id_creator_id: { follower_id: viewerId, creator_id: creator.id } },
         select: { id: true, created_at: true },
@@ -286,7 +290,7 @@ export const followRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const creator = await findCreator(input.handle);
+      const creator = await findCreator(input.handle, { anyStatus: true });
       const data: Prisma.FollowUpdateManyMutationInput = {};
       if (input.showPublicly !== undefined) data.show_publicly = input.showPublicly;
       if (input.emailUpdates !== undefined) {

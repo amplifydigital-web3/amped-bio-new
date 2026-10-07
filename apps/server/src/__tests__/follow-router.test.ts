@@ -64,3 +64,46 @@ describe("restoreFollower is idempotent (QA-020)", () => {
     expect(db.followRemoval.delete).not.toHaveBeenCalled();
   });
 });
+
+describe("a fan can leave a creator who unpublished (QA-021)", () => {
+  const fan = followRouter.createCaller({ user: { sub: 7 } } as never);
+  const unpublished = { id: 3, name: "Maya", handle: "maya", show_follower_count: true };
+
+  it("unfollow looks the creator up by handle only", async () => {
+    db.user.findFirst.mockResolvedValue(unpublished);
+    db.follow.findUnique.mockResolvedValue({
+      id: 11,
+      follower_id: 7,
+      creator_id: 3,
+      show_publicly: false,
+      email_updates: false,
+      email_updates_at: null,
+      source: "page",
+      campaign_id: null,
+      created_at: new Date(),
+    });
+    db.follow.delete.mockResolvedValue({});
+    await expect(fan.unfollow({ handle: "maya" })).resolves.toMatchObject({ following: false });
+    expect(db.user.findFirst.mock.calls[0][0].where).toEqual({ handle: "maya" });
+    expect(db.follow.delete).toHaveBeenCalledWith({ where: { id: 11 } });
+  });
+
+  it("settings update looks the creator up by handle only", async () => {
+    db.user.findFirst.mockResolvedValue(unpublished);
+    db.follow.updateMany.mockResolvedValue({ count: 1 });
+    await expect(fan.update({ handle: "maya", emailUpdates: false })).resolves.toEqual({
+      ok: true,
+    });
+    expect(db.user.findFirst.mock.calls[0][0].where).toEqual({ handle: "maya" });
+  });
+
+  it("follow still needs a published page", async () => {
+    db.user.findFirst.mockResolvedValue(null);
+    await expect(fan.follow({ handle: "maya" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(db.user.findFirst.mock.calls[0][0].where).toEqual({
+      handle: "maya",
+      page_status: "PUBLISHED",
+      block: "no",
+    });
+  });
+});
