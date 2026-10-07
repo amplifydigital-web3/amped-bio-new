@@ -58,15 +58,6 @@ export function SidePanel({
   const block = (event: Event) => {
     if (!dismissible) event.preventDefault();
   };
-  // Escape closes the top layer only. @radix-ui/react-dialog and
-  // @radix-ui/react-dropdown-menu resolve to different copies of
-  // react-dismissable-layer (1.1.10 and 1.1.7), so they keep separate layer
-  // stacks and both react to one Escape. While a menu, select or popover
-  // opened from the panel is showing, Escape is left to it (QA-012).
-  const onEscape = (event: KeyboardEvent) => {
-    block(event);
-    if (document.querySelector("[data-radix-popper-content-wrapper]")) event.preventDefault();
-  };
   return (
     <DialogPrimitive.Root
       open={open}
@@ -94,7 +85,7 @@ export function SidePanel({
             event.preventDefault();
             (event.currentTarget as HTMLElement | null)?.focus();
           }}
-          onEscapeKeyDown={onEscape}
+          onEscapeKeyDown={block}
           onPointerDownOutside={block}
           onInteractOutside={block}
           className={cn(
