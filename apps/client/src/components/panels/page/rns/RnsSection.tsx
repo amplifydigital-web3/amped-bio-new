@@ -211,7 +211,7 @@ export function RnsSection() {
     setSaving(true);
     try {
       const result = await trpcClient.user.setRnsName.mutate({ label });
-      setSavedRevoName(result.label);
+      setSavedRevoName(result.label ?? "");
       setDismissed(false);
       await queryClient.invalidateQueries({ queryKey: MY_PAGE_IDENTITY_KEY });
     } catch (error) {
