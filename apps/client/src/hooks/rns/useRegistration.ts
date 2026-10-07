@@ -15,6 +15,7 @@ import {
   rnsTokenId,
 } from "@repo/web3";
 import { classifyTxError } from "@/components/panels/explore/pool-panel/format";
+import { isWalletTimeout, withWalletTimeout } from "@/utils/walletTimeout";
 
 type RnsContracts = NonNullable<ReturnType<typeof getChainConfig>>["contracts"];
 
@@ -80,25 +81,8 @@ export type TxState = {
 
 export type TxFailReason = "wallet-timeout" | "wallet-error" | "receipt-timeout" | "reverted";
 
-/** How long the wallet gets to answer a signing request (QA-055). */
-export const WALLET_SIGN_TIMEOUT_MS = 120_000;
 /** How long the chain gets to include a sent transaction (QA-055). */
 export const RECEIPT_TIMEOUT_MS = 180_000;
-
-class TxTimeoutError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "TxTimeoutError";
-  }
-}
-
-function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
-  let timer: ReturnType<typeof setTimeout>;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new TxTimeoutError(message)), ms);
-  });
-  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
-}
 
 /** Text for the error card, by failure reason (QA-055). */
 export function txFailureCause(state: TxState, fallback: string) {
@@ -147,11 +131,7 @@ export function useTrackedWrite() {
       try {
         // QA-055: a wallet that never answers (popup lost, embed not ready)
         // left the flow on "Confirm in wallet" for good. Bound the wait.
-        hash = await withTimeout(
-          writeContractAsync(request),
-          WALLET_SIGN_TIMEOUT_MS,
-          "Wallet did not respond"
-        );
+        hash = await withWalletTimeout(writeContractAsync(request));
       } catch (error) {
         console.error("RNS write failed in the wallet", error);
         if (classifyTxError(error) === "rejected") {
@@ -159,7 +139,7 @@ export function useTrackedWrite() {
         } else {
           setState({
             phase: "failed",
-            reason: error instanceof TxTimeoutError ? "wallet-timeout" : "wallet-error",
+            reason: isWalletTimeout(error) ? "wallet-timeout" : "wallet-error",
           });
         }
         return false;
