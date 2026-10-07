@@ -153,7 +153,14 @@ export async function checkRnsBindingCached(
   if (!name || !wallet) return checkRnsBinding(name, wallet);
   const key = `rns_binding:${RNS_CHAIN.id}:${parseRnsInput(name, RNS_CHAIN.id)}:${wallet.toLowerCase()}`;
   const hit = await cache.get<RnsBindingResult>(key);
-  if (hit) return hit;
+  if (hit) {
+    // Reject cached results whose registration has expired while cached
+    if (hit.ok && hit.expiry && !isRnsNameActive(hit.expiry, Math.floor(Date.now() / 1000))) {
+      await cache.delete(key);
+      return checkRnsBinding(name, wallet);
+    }
+    return hit;
+  }
   const result = await checkRnsBinding(name, wallet);
   await cache.set(key, result, BINDING_CACHE_TTL_SECONDS);
   return result;

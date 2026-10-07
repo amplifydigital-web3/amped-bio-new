@@ -150,8 +150,13 @@ function useDisplaySettings(server: RnsDisplay | undefined) {
   useEffect(
     () => () => {
       if (timer.current) clearTimeout(timer.current);
-      // Store a change made just before leaving the page
-      if (pending.current) void trpcClient.user.setRnsDisplay.mutate(pending.current);
+      // Best-effort save before leaving. Failures are logged but do not block
+      // the transition; the saved state is still shown on the next visit.
+      if (pending.current) {
+        void trpcClient.user.setRnsDisplay
+          .mutate(pending.current)
+          .catch(() => console.warn("[RnsSection] Display settings save on leave failed"));
+      }
     },
     []
   );
@@ -205,7 +210,8 @@ export function RnsSection() {
     setNameError(null);
     setSaving(true);
     try {
-      await trpcClient.user.setRnsName.mutate({ label });
+      const result = await trpcClient.user.setRnsName.mutate({ label });
+      setSavedRevoName(result.label);
       setDismissed(false);
       await queryClient.invalidateQueries({ queryKey: MY_PAGE_IDENTITY_KEY });
     } catch (error) {

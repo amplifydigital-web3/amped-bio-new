@@ -68,8 +68,13 @@ export async function getRnsVerification(wallet: string): Promise<RnsVerificatio
   if (hit) return hit;
   try {
     const status = await getAuthbaseWalletStatus(wallet);
+    const alreadyExpired =
+      status.verified &&
+      status.verification &&
+      status.verification.valid_until &&
+      Date.now() > new Date(status.verification.valid_until).getTime();
     const result: RnsVerification =
-      status.verified && status.verification
+      status.verified && status.verification && !alreadyExpired
         ? {
             state: "verified",
             verifiedAt: status.verification.verified_at,
@@ -77,7 +82,11 @@ export async function getRnsVerification(wallet: string): Promise<RnsVerificatio
             tier: status.verification.type === "ENHANCED" ? "enhanced" : "standard",
           }
         : { state: "not_verified" };
-    await cache.set(key, result, VERIFICATION_TTL_SECONDS);
+    // Cache entries expire at most at validUntil so stale verified state is never shown
+    const ttl = result.state === "verified"
+      ? Math.min(VERIFICATION_TTL_SECONDS, Math.max(1, Math.floor((new Date(result.validUntil).getTime() - Date.now()) / 1000)))
+      : VERIFICATION_TTL_SECONDS;
+    await cache.set(key, result, ttl);
     return result;
   } catch (error) {
     console.warn("[rnsIdentity] Authbase read failed, showing the name only:", error);

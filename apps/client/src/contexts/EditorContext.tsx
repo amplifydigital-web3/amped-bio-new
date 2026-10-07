@@ -25,6 +25,7 @@ import { queryClient, trpcClient } from "@repo/ui";
 import { exportThemeConfigAsJson } from "@repo/ui";
 import { mergeTheme } from "@/utils/mergeTheme";
 import { useNavigate, useLocation } from "react-router";
+import { MY_PAGE_IDENTITY_KEY } from "@/components/panels/page/rns/useMyPageIdentity";
 
 /**
  * Autosave status shown in the top bar (Screen Review 002 I02, D11).
@@ -173,7 +174,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
       if (import.meta.env.VITE_SHOW_RNS === "true") {
         void queryClient
           .fetchQuery({
-            queryKey: ["rns", "myPageIdentity"],
+            queryKey: MY_PAGE_IDENTITY_KEY,
             queryFn: () => trpcClient.rns.getMyPageIdentity.query(),
             staleTime: 30_000,
           })
@@ -605,7 +606,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     try {
       await trpcClient.user.setRnsName.mutate({ label: null });
       setSavedRevoName("");
-      void queryClient.invalidateQueries({ queryKey: ["rns", "myPageIdentity"] });
+      void queryClient.invalidateQueries({ queryKey: MY_PAGE_IDENTITY_KEY });
     } catch (error) {
       console.error("❌ Failed to clear the RNS name:", error);
       toast.error("We could not remove the RNS name from your page. Try again.");
