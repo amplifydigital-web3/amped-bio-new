@@ -3,6 +3,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { prisma } from "@repo/database";
 import { Address, createPublicClient, decodeEventLog, type PublicClient } from "viem";
+import { getAddress } from "viem/utils";
 import {
   getChainConfig,
   getRpcTransport,
@@ -799,11 +800,20 @@ export const poolsFanRouter = router({
     .query(async ({ ctx, input }): Promise<Array<UserStakedPool>> => {
       const userId = ctx.user!.sub;
 
-      // Check cache first
+      // Check cache first (bigint fields serialized to strings for Redis)
       const userStakedCacheKey = getUserStakedCacheKey(input.chainId, userId);
-      const cachedStakedPools = await cache.get<UserStakedPool[]>(userStakedCacheKey);
+      const cachedStakedPools = await cache.get<string>(userStakedCacheKey);
       if (cachedStakedPools !== null) {
-        return cachedStakedPools;
+        return JSON.parse(cachedStakedPools, (_key, value) => {
+          if (typeof value === "string" && /^-?\d+$/.test(value)) {
+            try {
+              return BigInt(value);
+            } catch {
+              return value;
+            }
+          }
+          return value;
+        }) as UserStakedPool[];
       }
 
       try {
@@ -1037,8 +1047,14 @@ export const poolsFanRouter = router({
         // Filter out stakes where the user has 0 stake amount
         const filteredResultStakes = resultStakes.filter(stake => stake.pool.stakedByYou > 0n);
 
-        // Cache the result
-        await cache.set(userStakedCacheKey, filteredResultStakes, CACHE_TTL.USER_STAKED);
+        // Cache the result (serialize bigints to strings for Redis)
+        await cache.set(
+          userStakedCacheKey,
+          JSON.stringify(filteredResultStakes, (_key, value) =>
+            typeof value === "bigint" ? value.toString() : value
+          ),
+          CACHE_TTL.USER_STAKED
+        );
 
         return filteredResultStakes;
       } catch (error) {
@@ -1134,6 +1150,8 @@ export const poolsFanRouter = router({
           });
         }
 
+        const stakedPoolAddresses: string[] = [];
+
         for (const stake of parsedStakes) {
           // Convert the address to lowercase for comparison since Ethereum addresses are case-insensitive
           const poolAddressToFind = stake.delegatee?.toLowerCase();
@@ -1150,6 +1168,9 @@ export const poolsFanRouter = router({
               message: `Pool with address ${stake.delegatee} not found in database`,
             });
           }
+
+          // Collect pool address for live data cache invalidation
+          if (pool.poolAddress) stakedPoolAddresses.push(pool.poolAddress);
 
           if (transactionReceipt.from.toLowerCase() !== stake.delegator.toLowerCase()) {
             throw new TRPCError({
@@ -1232,6 +1253,13 @@ export const poolsFanRouter = router({
         try {
           await cache.delete(getWalletStatsCacheKey(userId));
           await cache.delete(getUserStakedCacheKey(input.chainId, userId));
+          // Invalidate live pool data for each staked pool
+          const chainIdNumber = parseInt(input.chainId);
+          for (const poolAddr of stakedPoolAddresses) {
+            await cache.delete(
+              getLiveUserPoolDataCacheKey(chainIdNumber, getAddress(poolAddr), getAddress(userWallet.address))
+            );
+          }
         } catch (cacheError) {
           console.error("Failed to invalidate cache after stake:", cacheError);
         }
@@ -1355,6 +1383,8 @@ export const poolsFanRouter = router({
           });
         }
 
+        const unstakedPoolAddresses: string[] = [];
+
         for (const unstake of parsedUnstakes) {
           console.log("Processing unstake event:", {
             delegatee: unstake.delegatee,
@@ -1377,6 +1407,9 @@ export const poolsFanRouter = router({
               message: `Pool with address ${unstake.delegatee} not found in database.`,
             });
           }
+
+          // Collect pool address for live data cache invalidation
+          if (pool.poolAddress) unstakedPoolAddresses.push(pool.poolAddress);
 
           if (transactionReceipt.from.toLowerCase() !== unstake.delegator.toLowerCase()) {
             throw new TRPCError({
@@ -1467,6 +1500,13 @@ export const poolsFanRouter = router({
         try {
           await cache.delete(getWalletStatsCacheKey(userId));
           await cache.delete(getUserStakedCacheKey(input.chainId, userId));
+          // Invalidate live pool data for each unstaked pool
+          const unstakeChainId = parseInt(input.chainId);
+          for (const poolAddr of unstakedPoolAddresses) {
+            await cache.delete(
+              getLiveUserPoolDataCacheKey(unstakeChainId, getAddress(poolAddr), getAddress(userWallet.address))
+            );
+          }
         } catch (cacheError) {
           console.error("Failed to invalidate cache after unstake:", cacheError);
         }
@@ -1969,10 +2009,12 @@ export const poolsFanRouter = router({
       })
     )
     .query(async ({ input }) => {
+      const normalizedPoolAddress = getAddress(input.poolAddress);
+      const normalizedUserAddress = getAddress(input.userAddress);
       const cacheKey = getLiveUserPoolDataCacheKey(
         parseInt(input.chainId),
-        input.poolAddress as Address,
-        input.userAddress as Address
+        normalizedPoolAddress,
+        normalizedUserAddress
       );
 
       const cached = await cache.get<{ fanStakes: string; pendingReward: string }>(cacheKey);
@@ -1985,34 +2027,36 @@ export const poolsFanRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Unsupported chain ID" });
       }
 
-      const publicClient = createPublicClient({ chain, transport: http() });
+      const publicClient = createPublicClient({ chain, transport: getRpcTransport(chain) });
       const results = await publicClient.multicall({
         contracts: [
           {
-            address: input.poolAddress as Address,
+            address: normalizedPoolAddress,
             abi: CREATOR_POOL_ABI,
             functionName: "fanStakes",
-            args: [input.userAddress as Address],
+            args: [normalizedUserAddress],
           },
           {
-            address: input.poolAddress as Address,
+            address: normalizedPoolAddress,
             abi: CREATOR_POOL_ABI,
             functionName: "pendingReward",
-            args: [input.userAddress as Address],
+            args: [normalizedUserAddress],
           },
         ],
       });
 
-      const fanStakes =
-        results[0].status === "success"
-          ? (results[0].result as bigint).toString()
-          : "0";
-      const pendingReward =
-        results[1].status === "success"
-          ? (results[1].result as bigint).toString()
-          : "0";
+      // Any failure means the RPC is unreachable or the contract does not exist
+      if (results[0].status !== "success" || results[1].status !== "success") {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to read live pool data from chain",
+        });
+      }
 
-      const data = { fanStakes, pendingReward };
+      const data = {
+        fanStakes: (results[0].result as bigint).toString(),
+        pendingReward: (results[1].result as bigint).toString(),
+      };
 
       await cache.set(cacheKey, data, CACHE_TTL.LIVE_USER_POOL_DATA);
 
@@ -2058,10 +2102,15 @@ export const poolsFanRouter = router({
         try {
           const pool = await prisma.creatorPool.findUnique({
             where: { id: input.poolId },
-            select: { chainId: true },
+            select: { chainId: true, poolAddress: true },
           });
           if (pool) {
             await cache.delete(getUserStakedCacheKey(pool.chainId, userId));
+            if (pool.poolAddress) {
+              await cache.delete(
+                getLiveUserPoolDataCacheKey(Number(pool.chainId), getAddress(pool.poolAddress), getAddress(userWallet.address))
+              );
+            }
           }
           await cache.delete(getWalletStatsCacheKey(userId));
         } catch (cacheError) {
