@@ -856,6 +856,8 @@ model Broadcast {
   completedAt       DateTime?
   recipientEstimate Int                   @default(0)
   recipientCount    Int                   @default(0)
+  // Fan-out runs claimed so far. At BROADCAST_MAX_SEND_ATTEMPTS the broadcast is marked FAILED (QA-034)
+  sendAttempts      Int                   @default(0)
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
 

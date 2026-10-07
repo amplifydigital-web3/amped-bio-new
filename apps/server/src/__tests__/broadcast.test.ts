@@ -51,7 +51,13 @@ vi.mock("../services/S3Service", () => ({
   s3Service: { getFileUrl: (k: string) => `https://cdn/${k}` },
 }));
 
-import { checkReportThreshold, getQuota, processBroadcast } from "../services/broadcast";
+import {
+  BROADCAST_MAX_SEND_ATTEMPTS,
+  checkReportThreshold,
+  getQuota,
+  processBroadcast,
+  sweepBroadcasts,
+} from "../services/broadcast";
 import { broadcastCreatorRouter } from "../trpc/broadcast/creator";
 import { broadcastsAdminRouter } from "../trpc/admin/broadcasts";
 import { env } from "../env";
@@ -185,6 +191,60 @@ describe("fan-out", () => {
         data: expect.objectContaining({ status: "SENT", recipientCount: 2 }),
       })
     );
+  });
+
+  it("counts each claim as an attempt and only claims under the cap (QA-034)", async () => {
+    db.broadcast.updateMany.mockResolvedValue({ count: 0 });
+    await processBroadcast(5);
+    expect(db.broadcast.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ sendAttempts: { lt: BROADCAST_MAX_SEND_ATTEMPTS } }),
+      data: expect.objectContaining({ sendAttempts: { increment: 1 } }),
+    });
+  });
+
+  it("leaves a failed run SENDING while attempts remain", async () => {
+    db.broadcast.updateMany.mockResolvedValue({ count: 1 });
+    db.broadcast.findUnique.mockResolvedValue({
+      id: 5,
+      poolId: 9,
+      creatorUserId: 1,
+      sendAttempts: 2,
+    });
+    db.$queryRaw.mockRejectedValue(new Error("db down"));
+    expect(await processBroadcast(5)).toBe("failed");
+    expect(db.broadcast.update).not.toHaveBeenCalled();
+  });
+
+  it("marks the broadcast FAILED on the last attempt", async () => {
+    db.broadcast.updateMany.mockResolvedValue({ count: 1 });
+    db.broadcast.findUnique.mockResolvedValue({
+      id: 5,
+      poolId: 9,
+      creatorUserId: 1,
+      sendAttempts: BROADCAST_MAX_SEND_ATTEMPTS,
+    });
+    db.$queryRaw.mockRejectedValue(new Error("db down"));
+    expect(await processBroadcast(5)).toBe("failed");
+    expect(db.broadcast.update).toHaveBeenCalledWith({
+      where: { id: 5 },
+      data: expect.objectContaining({ status: "FAILED" }),
+    });
+  });
+
+  it("the sweeper fails stale broadcasts that used every attempt and skips them", async () => {
+    db.broadcast.updateMany.mockResolvedValue({ count: 1 });
+    db.broadcast.findMany.mockResolvedValue([]);
+    await sweepBroadcasts();
+    expect(db.broadcast.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        status: "SENDING",
+        sendAttempts: { gte: BROADCAST_MAX_SEND_ATTEMPTS },
+      }),
+      data: expect.objectContaining({ status: "FAILED" }),
+    });
+    expect(db.broadcast.findMany.mock.calls[0][0].where.sendAttempts).toEqual({
+      lt: BROADCAST_MAX_SEND_ATTEMPTS,
+    });
   });
 });
 
