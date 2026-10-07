@@ -101,7 +101,7 @@ export function CreatorPoolBlock({ block, theme }: CreatorPoolBlockProps) {
       {pool.description && (
         <p className="line-clamp-3 text-[16px] leading-[26px]">{pool.description}</p>
       )}
-      {/* QA-043: two columns at any width. Three columns broke the values into
+      {/* QA-054: two columns at any width. Three columns broke the values into
           two to four lines inside a 348 wide phone column. Creator share takes
           the second row in full. */}
       <dl className="grid grid-cols-2 gap-[13px]">

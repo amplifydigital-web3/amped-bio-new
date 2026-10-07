@@ -212,7 +212,7 @@ function DetailSlab({
             )}
           </>
         ) : (
-          // QA-041: internal transfers (pool reward payouts) carry no hash
+          // QA-052: internal transfers (pool reward payouts) carry no hash
           <span className="text-prism-ink-2">Internal transfer, no hash</span>
         )}
       </SlabRow>

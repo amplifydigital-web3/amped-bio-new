@@ -19,7 +19,7 @@ export type ActivityStatus = "included" | "pending" | "failed";
 export interface ActivityItem {
   /**
    * Stable row key: the lowercased hash, or a synthetic key for an internal
-   * transfer the explorer reports without a transaction hash (QA-041).
+   * transfer the explorer reports without a transaction hash (QA-052).
    */
   key: string;
   /** Transaction hash. null for an internal transfer with none */
@@ -155,7 +155,7 @@ export function fromTransaction(tx: Transaction, me: string, nativeSymbol: strin
 /**
  * A token transfer from the explorer (058 I02, I03). `position` is the
  * transfer's index across the fetched pages; it keys the rows whose
- * transactionHash the explorer leaves null (internal reward payouts, QA-041).
+ * transactionHash the explorer leaves null (internal reward payouts, QA-052).
  */
 export function fromTransfer(
   transfer: Transfer,

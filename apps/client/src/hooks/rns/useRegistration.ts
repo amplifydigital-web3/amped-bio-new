@@ -74,15 +74,15 @@ export type TxState = {
   /** Value sent plus gasUsed times effectiveGasPrice, from the receipt */
   paidWei?: bigint;
   reverted?: boolean;
-  /** Why a write failed, for the error card (QA-044) */
+  /** Why a write failed, for the error card (QA-055) */
   reason?: TxFailReason;
 };
 
 export type TxFailReason = "wallet-timeout" | "wallet-error" | "receipt-timeout" | "reverted";
 
-/** How long the wallet gets to answer a signing request (QA-044). */
+/** How long the wallet gets to answer a signing request (QA-055). */
 export const WALLET_SIGN_TIMEOUT_MS = 120_000;
-/** How long the chain gets to include a sent transaction (QA-044). */
+/** How long the chain gets to include a sent transaction (QA-055). */
 export const RECEIPT_TIMEOUT_MS = 180_000;
 
 class TxTimeoutError extends Error {
@@ -100,7 +100,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-/** Text for the error card, by failure reason (QA-044). */
+/** Text for the error card, by failure reason (QA-055). */
 export function txFailureCause(state: TxState, fallback: string) {
   switch (state.reason) {
     case "wallet-timeout":
@@ -145,7 +145,7 @@ export function useTrackedWrite() {
       setState({ phase: "signing" });
       let hash: `0x${string}`;
       try {
-        // QA-044: a wallet that never answers (popup lost, embed not ready)
+        // QA-055: a wallet that never answers (popup lost, embed not ready)
         // left the flow on "Confirm in wallet" for good. Bound the wait.
         hash = await withTimeout(
           writeContractAsync(request),

@@ -44,7 +44,7 @@ function clampedFontSize(theme: ThemeConfig) {
 }
 
 /**
- * The live preview's pool block (Screen Review 040, QA-043). A port of the
+ * The live preview's pool block (Screen Review 040, QA-054). A port of the
  * public renderer in apps/landingpage/src/components/blocks/CreatorPoolBlock.tsx
  * so the editor shows what visitors see: the creator's colors, Total staked,
  * Fans and Creator share in two columns, View pool, the testnet line. The
