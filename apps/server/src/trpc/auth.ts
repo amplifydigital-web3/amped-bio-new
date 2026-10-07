@@ -107,6 +107,8 @@ export const authRouter = router({
           id: user.id,
           email: user.email,
           handle: user.handle,
+          // QA-008: the editor hides share actions until the page is published
+          pageStatus: user.page_status,
           emailVerified: user.email_verified,
           role: user.role,
           image: imageUrl,
