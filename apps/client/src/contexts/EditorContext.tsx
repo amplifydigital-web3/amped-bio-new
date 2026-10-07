@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useRef,
+  startTransition,
   ReactNode,
 } from "react";
 import type {
@@ -349,8 +350,6 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
 
   const setActivePanelAndNavigate = useCallback(
     (activePanel: EditorPanelType, tabs?: string, options?: { tab?: string; open?: string }) => {
-      setActivePanel(activePanel);
-
       // Panels live as path segments (e.g. /gallery); tabs stay as ?t=
       const basePath = "";
       const searchParams = new URLSearchParams(location.search);
@@ -370,7 +369,15 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
       if (options?.open) searchParams.set("open", options.open);
 
       const query = searchParams.toString();
-      navigate(`${basePath}/${activePanel}${query ? `?${query}` : ""}`, { replace: true });
+      // QA-039: BrowserRouter commits the new location inside a transition, while
+      // a plain setActivePanel commits at once. The destination then mounts one
+      // render before the URL changes, and a panel that writes its tab to the
+      // URL on mount (Explore) resolves "?tab=" against the old path, landing on
+      // /home?tab=users. Both updates in one transition commit together.
+      startTransition(() => {
+        setActivePanel(activePanel);
+        navigate(`${basePath}/${activePanel}${query ? `?${query}` : ""}`, { replace: true });
+      });
     },
     [navigate, location, setActivePanel]
   );
