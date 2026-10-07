@@ -76,6 +76,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const { slug } = await params;
   const [post, recent] = await Promise.all([getBlogPostBySlug(slug), getBlogPosts(4)]);
 
+  // Only a real miss is a 404; a WordPress failure throws above (QA-046)
   if (!post) notFound();
 
   const title = getPostTitle(post);

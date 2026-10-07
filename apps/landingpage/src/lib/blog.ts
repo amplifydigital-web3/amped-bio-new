@@ -61,19 +61,20 @@ export async function getBlogPosts(perPage = BLOG_PAGE_SIZE, page = 1): Promise<
   }
 }
 
-/** Fetch a single post by slug. Returns null when it does not exist or on error. */
+/**
+ * Fetch a single post by slug. Returns null only when WordPress answers and
+ * has no such post. A network failure or an error status throws (QA-046), so
+ * the page shows the error state and an outage is never cached as a 404.
+ */
 export async function getBlogPostBySlug(slug: string): Promise<WordPressPost | null> {
-  try {
-    const res = await fetch(`${WP_API}/posts?slug=${encodeURIComponent(slug)}&_embed=1`, {
-      next: { revalidate: BLOG_REVALIDATE_SECONDS },
-      headers: { Accept: "application/json" },
-    });
-    if (!res.ok) return null;
-    const posts = (await res.json()) as WordPressPost[];
-    return posts[0] ?? null;
-  } catch {
-    return null;
-  }
+  const res = await fetch(`${WP_API}/posts?slug=${encodeURIComponent(slug)}&_embed=1`, {
+    next: { revalidate: BLOG_REVALIDATE_SECONDS },
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) throw new Error(`WordPress answered ${res.status} for post "${slug}"`);
+  const posts = (await res.json()) as unknown;
+  if (!Array.isArray(posts)) throw new Error(`WordPress sent an unexpected body for "${slug}"`);
+  return (posts[0] as WordPressPost | undefined) ?? null;
 }
 
 /** Large preview version of the featured image, falling back to the original. */
