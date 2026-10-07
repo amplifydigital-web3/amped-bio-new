@@ -22,6 +22,7 @@ const db = vi.hoisted(() => {
     broadcast: {
       count: fn(),
       findUnique: fn(),
+      findUniqueOrThrow: fn(),
       findFirst: fn(),
       findMany: fn(),
       create: fn(),
@@ -33,6 +34,7 @@ const db = vi.hoisted(() => {
     creatorPool: { findFirst: fn() },
     user: { findUnique: fn() },
     $queryRaw: fn(),
+    $transaction: fn(),
   };
 });
 
@@ -51,6 +53,7 @@ vi.mock("../services/S3Service", () => ({
 
 import { checkReportThreshold, getQuota, processBroadcast } from "../services/broadcast";
 import { broadcastCreatorRouter } from "../trpc/broadcast/creator";
+import { broadcastsAdminRouter } from "../trpc/admin/broadcasts";
 import { env } from "../env";
 
 const envMock = env as { BROADCAST_INVITE_ONLY: boolean };
@@ -58,6 +61,9 @@ const envMock = env as { BROADCAST_INVITE_ONLY: boolean };
 beforeEach(() => {
   vi.clearAllMocks();
   envMock.BROADCAST_INVITE_ONLY = true;
+  db.$transaction.mockImplementation((arg: unknown) =>
+    typeof arg === "function" ? (arg as (tx: typeof db) => unknown)(db) : Promise.all(arg as [])
+  );
 });
 
 describe("content check (warn only)", () => {
@@ -271,6 +277,27 @@ describe("send", () => {
         body: "see [x](https://a.b) and [y](https://c.d) [1](https://1.io) [2](https://2.io) [3](https://3.io) [4](https://4.io)",
       })
     ).rejects.toThrow("5 links");
+  });
+});
+
+describe("admin review races (QA-019)", () => {
+  const admin = broadcastsAdminRouter.createCaller({ user: { sub: 2, role: "admin" } } as never);
+
+  it("approve claims the row only while it is in review", async () => {
+    db.broadcast.updateMany.mockResolvedValue({ count: 0 });
+    await expect(admin.approve({ id: 5 })).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(db.broadcast.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 5, status: "IN_REVIEW" } })
+    );
+    expect(db.broadcastSenderStatus.upsert).not.toHaveBeenCalled();
+  });
+
+  it("reject after another admin acted is a conflict", async () => {
+    db.broadcast.updateMany.mockResolvedValue({ count: 0 });
+    await expect(admin.reject({ id: 5, note: "Off topic" })).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+    expect(db.broadcast.findUnique).not.toHaveBeenCalled();
   });
 });
 
