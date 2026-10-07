@@ -8,12 +8,14 @@ import { HelpMenu } from "./HelpMenu";
 import { WalletChip } from "./WalletChip";
 import { AccountMenu } from "./AccountMenu";
 import { InboxButton } from "./InboxButton";
+import { NavItemLink } from "./NavItemLink";
+import { BrandMark } from "./BrandMark";
 import { copyPageLink, publicPageUrl } from "./pageLink";
 
 // Tab names shown after the destination title, for example "Design, Themes" (002 I09)
 const TAB_TITLES: Record<string, Record<string, string>> = {
   design: { themes: "Themes", style: "Style", motion: "Motion" },
-// Settings is the bare Account title (098 I05)
+  // Settings is the bare Account title (098 I05)
   account: { settings: "Settings", developers: "Developers" },
   "my-pool": { overview: "Overview", broadcasts: "Broadcasts" },
 };
@@ -83,7 +85,16 @@ export function MobileTopBar() {
   const { activePanel } = useEditor();
   const title = useTitle();
   return (
-    <header className="prism-glass-nav sticky top-0 z-20 flex min-h-[calc(55px+env(safe-area-inset-top,0px))] items-center gap-2 rounded-none !border-x-0 !border-t-0 pl-[21px] pr-[13px] pt-[env(safe-area-inset-top,0px)] font-prism md:hidden">
+    <header className="prism-glass-nav sticky top-0 z-20 flex min-h-[calc(55px+env(safe-area-inset-top,0px))] items-center gap-2 rounded-none !border-x-0 !border-t-0 pl-[13px] pr-[13px] pt-[env(safe-area-inset-top,0px)] font-prism md:hidden">
+      {/* QA-040: the Amplify mark leads the mobile bar as a Home link (44 target) */}
+      <NavItemLink
+        panel="home"
+        current={false}
+        className="flex h-11 shrink-0 items-center rounded-prism-13 px-1"
+      >
+        <BrandMark className="h-[22px] w-auto" />
+        <span className="sr-only">Amped.Bio home</span>
+      </NavItemLink>
       <h1
         data-shell-title
         tabIndex={-1}
