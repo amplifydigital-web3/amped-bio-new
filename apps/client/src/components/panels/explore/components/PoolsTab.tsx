@@ -100,7 +100,7 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
     <div className="space-y-6">
       {/* Prism medium pool cards (QA-028), the same card as the public pools
           directory (070). The whole card opens the pool panel. */}
-      <ul className="grid grid-cols-1 gap-[21px] sm:grid-cols-2 xl:grid-cols-3">
+      <ul className="prism-stagger grid grid-cols-1 gap-[21px] sm:grid-cols-2 xl:grid-cols-3">
         {isLoading ? (
           Array.from({ length: 6 }).map((_, index) => (
             <li key={index}>
