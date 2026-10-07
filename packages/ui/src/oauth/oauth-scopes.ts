@@ -14,7 +14,7 @@ export const OAUTH_SCOPE_DESCRIPTIONS: Record<OAuthScopeKey, OAuthScopeDescripti
   },
   profile: {
     title: "See your basic profile",
-    description: "Your name, handle and profile picture.",
+    description: "Your display name, profile picture and wallet address.",
   },
   email: {
     title: "See your email address",
