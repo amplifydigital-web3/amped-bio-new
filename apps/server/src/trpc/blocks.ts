@@ -2,7 +2,12 @@ import { privateProcedure, publicProcedure, router } from "./trpc";
 import { z } from "zod";
 import { prisma } from "@repo/database";
 import { TRPCError } from "@trpc/server";
-import { addBlockSchema, blockIdParamSchema, editBlocksSchema } from "@repo/constants";
+import {
+  SINGLETON_BLOCK_TYPES,
+  addBlockSchema,
+  blockIdParamSchema,
+  editBlocksSchema,
+} from "@repo/constants";
 import { sanitizeBlockConfig } from "../utils/sanitizeBlockConfig";
 
 export const blocksRouter = router({
@@ -167,18 +172,22 @@ export const blocksRouter = router({
 
     try {
       const result = await prisma.$transaction(async tx => {
-        if (type === "referral") {
-          const existingReferralBlock = await tx.block.findFirst({
+        // Referral, Follow button and Followers are one per page (#30 decision 3)
+        if ((SINGLETON_BLOCK_TYPES as readonly string[]).includes(type)) {
+          const existing = await tx.block.findFirst({
             where: {
               user_id: userId,
-              type: "referral",
+              type,
             },
           });
 
-          if (existingReferralBlock) {
+          if (existing) {
             throw new TRPCError({
               code: "BAD_REQUEST",
-              message: "You can only have one Referral Link block per profile",
+              message:
+                type === "referral"
+                  ? "You can only have one Referral Link block per profile"
+                  : "This block is already on your page",
             });
           }
         }
