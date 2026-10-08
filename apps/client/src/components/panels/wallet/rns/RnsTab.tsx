@@ -38,7 +38,7 @@ export function RnsTab() {
   const searchRef = useRef<HTMLInputElement>(null);
 
   return (
-    <div className="grid gap-[34px] font-prism lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] lg:gap-[21px]">
+    <div className="prism-stagger grid gap-[34px] font-prism lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] lg:gap-[21px]">
       <div className="min-w-0 space-y-[34px]">
         <FindRnsName
           inputRef={searchRef}

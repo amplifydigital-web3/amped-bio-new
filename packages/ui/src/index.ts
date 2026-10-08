@@ -17,6 +17,23 @@ export { Textarea } from "./Textarea";
 export { Chip, ChipGroup, type ChipProps, type ChipGroupOption } from "./prism/chip";
 export { Tabs, TabsList, TabsTrigger, TabsContent } from "./prism/tabs";
 export {
+  MOTION,
+  PRISM_EASE,
+  drawStroke,
+  listTransition,
+  markTransitionCommitted,
+  motionAllowed,
+  prefersReducedMotion,
+  pulseOnce,
+  roomTransition,
+  transitionName,
+  useIsomorphicLayoutEffect,
+  useOffscreenPause,
+  viewTransition,
+  type PrismTransitionKind,
+} from "./prism/motion";
+export { SuccessMoment, DrawnCheck } from "./prism/moments/success-moment";
+export {
   Menu,
   MenuTrigger,
   MenuGroup,

@@ -100,7 +100,8 @@ export function FollowButton({
         onClick={onFollow}
         disabled={busy}
         aria-busy={busy || undefined}
-        className="flex-1 sm:flex-none"
+        // Follow and Following crossfade in 233 ms (#26, section 3.4)
+        className="prism-swap flex-1 sm:flex-none"
       >
         <UserPlus aria-hidden />
         Follow
@@ -111,9 +112,13 @@ export function FollowButton({
   return (
     <Menu>
       <MenuTrigger asChild>
-        <Button variant="secondary" className="flex-1 sm:flex-none" disabled={busy}>
+        <Button variant="secondary" className="prism-swap flex-1 sm:flex-none" disabled={busy}>
           {viewer.pending ? (
-            <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-prism-warning-ink" />
+            // A pending follow pulses its dot once
+            <span
+              aria-hidden
+              className="prism-pulse-once h-2 w-2 shrink-0 rounded-full bg-prism-warning-ink"
+            />
           ) : (
             <UserCheck aria-hidden className="!text-prism-success" />
           )}
@@ -174,16 +179,15 @@ export function FirstFollowSheet({
     {
       icon: UsersRound,
       label: "Everyone sees",
-      value: showCount
-        ? "The follower count"
-        : "Only the creator sees it",
+      value: showCount ? "The follower count" : "Only the creator sees it",
     },
   ];
   return (
     <BottomSheet open={open} onOpenChange={onOpenChange}>
       <BottomSheetContent title={`Follow ${creatorName}`}>
         <div className="flex flex-col gap-4 pb-2">
-          <div className="prism-slab overflow-hidden rounded-prism-21">
+          {/* Rows stagger in, 55 ms apart (#26) */}
+          <div className="prism-slab prism-stagger overflow-hidden rounded-prism-21">
             {rows.map(row => (
               <div
                 key={row.label}

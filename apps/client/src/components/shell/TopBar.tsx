@@ -50,6 +50,7 @@ export function TopBar() {
     <header className="prism-glass-nav sticky top-[21px] z-20 hidden h-commit items-center gap-2 rounded-prism-34 pl-[21px] pr-[5px] font-prism md:flex">
       <h1
         data-shell-title
+        data-prism-vt-name="panel-title"
         tabIndex={-1}
         className="min-w-0 flex-1 truncate text-prism-panel-title text-prism-ink outline-none"
       >
@@ -133,6 +134,7 @@ export function MobileTopBar() {
       </NavItemLink>
       <h1
         data-shell-title
+        data-prism-vt-name="panel-title"
         tabIndex={-1}
         className="min-w-0 flex-1 truncate text-prism-panel-title text-prism-ink outline-none"
       >
