@@ -14,6 +14,8 @@ import {
   GripVertical,
   MoreHorizontal,
   Trash2,
+  UserPlus,
+  UsersRound,
 } from "lucide-react";
 import type { BlockType } from "@repo/constants";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, Tooltip, cn } from "@repo/ui";
@@ -40,7 +42,11 @@ function BlockIcon({ block }: { block: BlockType }) {
       ? Coins
       : block.type === "referral"
         ? Gift
-        : getPlatformIcon(block.type === "text" ? "text" : block.config.platform);
+        : block.type === "follow"
+          ? UserPlus
+          : block.type === "followers"
+            ? UsersRound
+            : getPlatformIcon(block.type === "text" ? "text" : block.config.platform);
   return <Icon aria-hidden className="h-[21px] w-[21px] shrink-0 text-prism-ink-2" />;
 }
 
