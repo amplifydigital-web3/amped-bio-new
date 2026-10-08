@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Info, X } from "lucide-react";
-import { Button, authClient, useCooldown } from "@repo/ui";
-import { toast } from "@/components/ui/toast";
+import { Button } from "@repo/ui";
+import { useResendVerification } from "@/hooks/useResendVerification";
 
 const DISMISS_KEY = "amped:verify-email-notice-hidden";
 
@@ -19,32 +19,10 @@ function readHidden() {
 // claim a link was just sent (QA-035, wording approved by Rob 6 Oct).
 export function VerifyEmailNotice({ email }: { email: string }) {
   const [hidden, setHidden] = useState(readHidden);
-  const [sending, setSending] = useState(false);
-  const { remaining, start } = useCooldown();
+  // The same resend as the Account email row (QA-058)
+  const { resend, sending, disabled, label } = useResendVerification(email);
 
   if (hidden) return null;
-
-  const resend = async () => {
-    setSending(true);
-    try {
-      const response = await authClient.sendVerificationEmail({
-        email,
-        callbackURL: `${import.meta.env.VITE_LANDINGPAGE_URL}/auth/verify-email`,
-      });
-      if (response.error) throw response.error;
-      start();
-      toast.add({ type: "success", title: "Verification email sent" });
-    } catch (error) {
-      console.error("Verification email failed:", error);
-      toast.add({
-        type: "error",
-        title: "The email did not send",
-        description: "Wait a minute, then send again.",
-      });
-    } finally {
-      setSending(false);
-    }
-  };
 
   const dismiss = () => {
     setHidden(true);
@@ -68,11 +46,11 @@ export function VerifyEmailNotice({ email }: { email: string }) {
         <Button
           variant="ghost"
           className="self-start tabular-nums sm:self-auto"
-          disabled={sending || remaining > 0}
+          disabled={disabled}
           aria-busy={sending || undefined}
           onClick={() => void resend()}
         >
-          {sending ? "Sending" : remaining > 0 ? `Resend in ${remaining}s` : "Resend email"}
+          {label("Resend email")}
         </Button>
       </div>
       <button

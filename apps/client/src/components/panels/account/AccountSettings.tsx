@@ -6,6 +6,7 @@ import { PAGE_VISIBILITY_ROW, PageVisibilityRow } from "./PageVisibilityRow";
 import { PASSWORD_ROW, PasswordRow } from "./PasswordRow";
 import { PUBLIC_URL_ROW, PublicUrlRow } from "./PublicUrlRow";
 import { TWO_FACTOR_ROW, TwoFactorRow } from "./TwoFactorRow";
+import { VerifyEmailCard } from "./VerifyEmailCard";
 
 // Screen Review 019 I01, 021 I01 and 098 I01 (D04, D30). Account Settings is
 // one 610 column with one G1 clear card of flat disclosure rows: Public URL,
@@ -28,7 +29,9 @@ export function AccountSettings() {
   const initialOpen = requested && ROWS.includes(requested) ? requested : undefined;
 
   return (
-    <div className="max-w-[610px]">
+    <div className="max-w-[610px] space-y-[21px]">
+      {/* QA-058: resend the verification link while the email is unverified */}
+      <VerifyEmailCard />
       <div className="prism-glass-clear [&>div>div:last-child]:border-b-0">
         <DisclosureGroup
           storageKey="amped:account-open"
