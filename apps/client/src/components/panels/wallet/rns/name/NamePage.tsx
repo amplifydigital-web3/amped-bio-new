@@ -149,7 +149,7 @@ function NamePageBody({ label }: { label: string }) {
   return (
     <div className="space-y-[21px] font-prism">
       <BackToRns onBack={back} />
-      <NameHeader name={name} chainId={chain.id} onOpenIdentity={openIdentity} />
+      <NameHeader name={name} chainId={chain.id} onOpenIdentity={openIdentity} onFindOwn={back} />
 
       <Tabs
         value={view}
