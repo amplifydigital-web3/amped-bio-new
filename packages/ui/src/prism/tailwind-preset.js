@@ -94,6 +94,10 @@ export const prismType = {
   label: ["16px", { lineHeight: "20px" }],
   meta: ["13px", { lineHeight: "16px" }],
   eyebrow: ["13px", { lineHeight: "16px", letterSpacing: "0.08em", fontWeight: "600" }],
+  // v1.1 (Screen Review 094 D2, 092 D3): monospace sizes for credentials, URIs
+  // and code only. Pair with font-prism-mono and a 44 copy button.
+  "code-sm": ["13px", { lineHeight: "21px" }],
+  code: ["16px", { lineHeight: "20px" }],
 };
 
 /** Section 12. Spacing. Production snaps of the Fibonacci scale. */
@@ -606,6 +610,15 @@ const prismPreset = {
       fontFamily: {
         prism: ['"Figtree"', "ui-sans-serif", "system-ui", "sans-serif"],
         "prism-display": ['"Bebas Neue"', "Impact", "sans-serif"],
+        // v1.1 monospace token: the system stack, no font file (094 D2)
+        "prism-mono": [
+          "ui-monospace",
+          "SFMono-Regular",
+          "Menlo",
+          "Consolas",
+          '"Liberation Mono"',
+          "monospace",
+        ],
       },
       fontSize: Object.fromEntries(
         Object.entries(prismType).map(([key, value]) => [`prism-${key}`, value])

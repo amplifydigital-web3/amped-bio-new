@@ -1,17 +1,28 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import {
+  Button,
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
+  Input,
+  Notice,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  trpc,
 } from "@repo/ui";
-import { Button } from "@repo/ui";
 import { AVAILABLE_CHAINS } from "@repo/web3";
-import { Loader2 } from "lucide-react";
-import { trpc } from "@repo/ui";
-import { useMutation } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { FieldError } from "../kit/parts";
+import { TX_HASH, TX_HASH_ERROR } from "../kit/format";
+
+// Screen Review 089 I13. Sync transaction on the shared Dialog: Network
+// select, Transaction hash checked on blur, Sync transaction, and the result
+// inline above the footer.
 
 interface SyncTransactionDialogProps {
   isOpen: boolean;
@@ -26,89 +37,93 @@ export default function SyncTransactionDialog({
 }: SyncTransactionDialogProps) {
   const [chainId, setChainId] = useState("");
   const [hash, setHash] = useState("");
+  const [errors, setErrors] = useState<{ chain?: string; hash?: string }>({});
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const syncTransactionMutation = useMutation({
+  useEffect(() => {
+    if (!isOpen) return;
+    setChainId("");
+    setHash("");
+    setErrors({});
+    setResult(null);
+  }, [isOpen]);
+
+  const sync = useMutation({
     mutationFn: trpc.admin.pools.syncTransaction.mutationOptions().mutationFn,
     onSuccess: data => {
-      toast.success(data.message);
-      setChainId("");
-      setHash("");
+      setResult({ ok: true, text: data.message || "Transaction synced." });
       onSyncComplete();
-      onClose();
     },
-    onError: err => {
-      toast.error(`Failed to sync transaction: ${err.message}`);
-    },
+    onError: () =>
+      setResult({ ok: false, text: "The transaction did not sync. Check the network and hash." }),
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chainId.trim() || !hash.trim()) return;
-
-    syncTransactionMutation.mutate({ chainId, hash });
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const next = {
+      chain: chainId ? undefined : "Choose a network.",
+      hash: TX_HASH.test(hash.trim()) ? undefined : TX_HASH_ERROR,
+    };
+    setErrors(next);
+    setResult(null);
+    if (!next.chain && !next.hash) sync.mutate({ chainId, hash: hash.trim() });
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+    <Dialog open={isOpen} onOpenChange={open => !open && !sync.isPending && onClose()}>
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle>Sync Transaction</DialogTitle>
+          <DialogTitle>Sync transaction</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="chainId" className="block text-sm font-medium mb-1">
-              Blockchain
-            </label>
-            <select
-              id="chainId"
-              value={chainId}
-              onChange={e => setChainId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-              required
-            >
-              <option value="">Select a blockchain</option>
-              {AVAILABLE_CHAINS.map(chain => (
-                <option key={chain.id} value={chain.id.toString()}>
-                  {chain.name}
-                </option>
-              ))}
-            </select>
+        <form noValidate onSubmit={submit} className="space-y-5">
+          <div className="space-y-2">
+            <p id="sync-network" className="text-prism-label font-semibold text-prism-ink">
+              Network
+            </p>
+            <Select value={chainId || undefined} onValueChange={value => setChainId(value)}>
+              <SelectTrigger
+                aria-labelledby="sync-network"
+                aria-invalid={errors.chain ? true : undefined}
+              >
+                <SelectValue placeholder="Choose a network" />
+              </SelectTrigger>
+              <SelectContent>
+                {AVAILABLE_CHAINS.map(chain => (
+                  <SelectItem key={chain.id} value={chain.id.toString()}>
+                    {chain.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <FieldError>{errors.chain}</FieldError>
           </div>
-
-          <div>
-            <label htmlFor="hash" className="block text-sm font-medium mb-1">
-              Transaction Hash
-            </label>
-            <input
-              id="hash"
-              type="text"
-              value={hash}
-              onChange={e => setHash(e.target.value)}
-              placeholder="0x..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-              required
-              pattern="^0x[0-9a-fA-F]{64}$"
-              title="Please enter a valid transaction hash"
-            />
-          </div>
-
+          <Input
+            label="Transaction hash"
+            value={hash}
+            spellCheck={false}
+            autoComplete="off"
+            onChange={event => setHash(event.target.value)}
+            onBlur={() =>
+              hash &&
+              setErrors(e => ({
+                ...e,
+                hash: TX_HASH.test(hash.trim()) ? undefined : TX_HASH_ERROR,
+              }))
+            }
+            error={errors.hash}
+            className="font-prism-mono text-prism-code-sm"
+          />
+          {result && (
+            <Notice variant={result.ok ? "success" : "error"} role={result.ok ? "status" : "alert"}>
+              {result.text}
+            </Notice>
+          )}
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              disabled={syncTransactionMutation.isPending}
-            >
-              Cancel
+            <Button type="button" variant="secondary" onClick={onClose} disabled={sync.isPending}>
+              {result?.ok ? "Close" : "Cancel"}
             </Button>
-            <Button
-              type="submit"
-              disabled={syncTransactionMutation.isPending || !chainId.trim() || !hash.trim()}
-            >
-              {syncTransactionMutation.isPending && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              Sync
+            <Button type="submit" disabled={sync.isPending} aria-busy={sync.isPending || undefined}>
+              Sync transaction
             </Button>
           </DialogFooter>
         </form>
