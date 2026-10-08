@@ -6,6 +6,8 @@
 //   /wallet?tab=rns&flow=register&name=<label>         register flow (value panel)
 //   /wallet?tab=rns&name=<label>&flow=extend|transfer|publish
 //                                                     name page flows (080, 111)
+//   /wallet?tab=rns&name=<label>&view=facets&request=<id>
+//                                                     facet request dialog (107)
 
 export type RnsFlow = "register" | "extend" | "transfer" | "publish";
 
@@ -17,16 +19,17 @@ export type NamePageFlow = (typeof NAME_PAGE_FLOWS)[number];
 export const NAME_VIEWS = ["profile", "identity", "attributes", "facets"] as const;
 export type NameView = (typeof NAME_VIEWS)[number];
 
-export const RNS_PARAMS = ["name", "view", "address", "flow"] as const;
+export const RNS_PARAMS = ["name", "view", "address", "flow", "request"] as const;
 
 export function rnsWalletPath(
-  target: { name?: string; address?: string; flow?: RnsFlow; view?: string } = {}
+  target: { name?: string; address?: string; flow?: RnsFlow; view?: string; request?: string } = {}
 ): string {
   const params = new URLSearchParams({ tab: "rns" });
   if (target.address) params.set("address", target.address);
   if (target.flow) params.set("flow", target.flow);
   if (target.name) params.set("name", target.name);
   if (target.view) params.set("view", target.view);
+  if (target.request) params.set("request", target.request);
   return `/wallet?${params.toString()}`;
 }
 

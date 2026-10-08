@@ -10,6 +10,8 @@ interface ImportMetaEnv {
   readonly VITE_RNS_IDENTITY?: string;
   readonly VITE_RNS_ATTRIBUTES?: string;
   readonly VITE_RNS_FACETS?: string;
+  /** Facet request dialog (Screen Review 107). Off until the proof API exists. */
+  readonly VITE_SHOW_FACET_REQUEST?: string;
   /** USD by card through Authbase checkout (078 D1, 080 D1). Off until wired. */
   readonly VITE_RNS_CARD_CHECKOUT?: string;
   readonly VITE_SHOW_GALLERY: string;
