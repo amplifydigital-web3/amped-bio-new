@@ -3,7 +3,13 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { isAddress } from "viem";
 import { prisma } from "@repo/database";
-import { AuthbaseError, getAuthbaseWalletStatus, isAuthbaseConfigured } from "../services/authbase";
+import {
+  AuthbaseError,
+  getAuthbaseWalletStatus,
+  isAuthbaseConfigured,
+  publicSharedAttributes,
+} from "../services/authbase";
+import { env } from "../env";
 
 // Screen Review 105 I04, 106 I08: one Notify me for RNS attributes and facets.
 const IDENTITY_NEXT = "rns_identity_next";
@@ -49,12 +55,18 @@ export const authbaseRouter = router({
   // Whether the integration is configured server-side. The client gates the
   // Identity tab on this so an unconfigured deployment hides the feature
   // instead of showing every visitor an "Unavailable" error.
-  isConfigured: publicProcedure.query(() => ({ configured: isAuthbaseConfigured() })),
+  // publicAttributes tells the name page whether the 079 D2 rule is live.
+  isConfigured: publicProcedure.query(() => ({
+    configured: isAuthbaseConfigured(),
+    publicAttributes: isAuthbaseConfigured() && env.RNS_PUBLIC_ATTRIBUTES,
+  })),
 
   // Public identity lookup for any wallet, mirroring the rns-backend proxy at
   // GET /api/authbase/wallets/:address/status. No auth: a wallet's verification
   // status is public, and the profile view calls it for arbitrary addresses.
-  // Shared attributes are stripped here (Screen Review 104 D1).
+  // Shared attributes are stripped here (Screen Review 104 D1), except under
+  // the 079 D2 rule: with RNS_PUBLIC_ATTRIBUTES on, a Verified wallet returns
+  // its labeled attributes. Not verified and Not linked never return any.
   getWalletStatus: publicProcedure
     .input(
       z.object({
@@ -65,9 +77,14 @@ export const authbaseRouter = router({
       try {
         const status = await getAuthbaseWalletStatus(input.address);
         // Consent to share attributes with Amped.Bio is not consent to publish
-        // them. The public lookup returns status, tier, dates and badge only.
+        // them. The public lookup returns status, tier, dates and badge only,
+        // unless 079 D2 is turned on and the wallet is Verified.
         // The owner reads their own attributes through getMyStatus.
-        return { ...status, attributes: {} as Record<string, string> };
+        const attributes: Record<string, string> =
+          env.RNS_PUBLIC_ATTRIBUTES && status.verified
+            ? publicSharedAttributes(status.attributes)
+            : {};
+        return { ...status, attributes };
       } catch (err) {
         toTrpcError(err);
       }
