@@ -10,6 +10,7 @@ import { Button, EmptyState, ErrorCard, PoolCardMedium } from "@repo/ui";
 import { getChainConfig } from "@repo/web3";
 import { trpc } from "@/lib/trpc";
 import type { PoolsPageData } from "@/lib/getPoolsData";
+import { SHOW_MOTION } from "@/components/landing/motion/flag";
 import PoolSkeleton from "./PoolSkeleton";
 
 export type PoolFilter = "all" | "no-fans" | "more-than-10-fans" | "more-than-10k-stake";
@@ -161,7 +162,8 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
           const staked = `${formatStaked(pool.stakedAmount ?? 0)} ${symbol}`;
           const fans = `${(pool.fans ?? 0).toLocaleString("en-US")} ${pool.fans === 1 ? "fan" : "fans"}`;
           return (
-            <li key={pool.id}>
+            // Cards rise once as they enter the screen (#26, CSS scroll timeline, no script)
+            <li key={pool.id} className={SHOW_MOTION ? "motion-reveal" : undefined}>
               <PoolCardMedium
                 href={`/i/pools/${pool.address}`}
                 ariaLabel={`${pool.name}, ${fans}, ${staked} staked`}
