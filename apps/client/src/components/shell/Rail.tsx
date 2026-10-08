@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { cn } from "@repo/ui";
 import { useEditor } from "@/contexts/EditorContext";
 import {
@@ -22,12 +22,27 @@ export function Rail() {
   const { activePanel } = useEditor();
   const current = destinationForPanel(activePanel);
   const enabled = enabledDestinations();
+  const navRef = useRef<HTMLElement>(null);
+  const lens = useRailLens(navRef, `${current}:${enabled.length}`);
 
   return (
     <nav
+      ref={navRef}
       aria-label="Editor"
       className="prism-dock fixed bottom-[21px] left-[21px] top-[21px] z-30 hidden w-[89px] overflow-y-auto rounded-prism-34 p-[13px] font-prism md:block"
     >
+      {lens && (
+        // One lens thumb glides to the new destination in panel time (#26, section 3.4)
+        <span
+          aria-hidden
+          className={cn(
+            "prism-lens-thumb pointer-events-none absolute left-0 top-0 h-16 w-[61px] rounded-[27px]",
+            lens.animate &&
+              "transition-transform duration-prism-panel ease-prism motion-reduce:transition-none"
+          )}
+          style={{ transform: `translate(${lens.x}px, ${lens.y}px)` }}
+        />
+      )}
       {/* QA-040: the Amplify mark heads the rail in the 55 slot the shell
           skeleton reserves (081). It is a Home link with a 44 target. */}
       <div className="mb-2 flex justify-center">
@@ -75,6 +90,31 @@ export function Rail() {
   );
 }
 
+/** Where the gliding lens sits: the current item's offset inside the rail. */
+function useRailLens(navRef: RefObject<HTMLElement | null>, current: string) {
+  const [lens, setLens] = useState<{ x: number; y: number; animate: boolean } | null>(null);
+  const placed = useRef(false);
+  useLayoutEffect(() => {
+    const nav = navRef.current;
+    const item = nav?.querySelector<HTMLElement>('a[aria-current="page"]');
+    if (!nav || !item) {
+      setLens(null);
+      placed.current = false;
+      return;
+    }
+    const navBox = nav.getBoundingClientRect();
+    const box = item.getBoundingClientRect();
+    setLens({
+      // Absolute children sit inside the border, so take the border off
+      x: box.left - navBox.left - nav.clientLeft + nav.scrollLeft,
+      y: box.top - navBox.top - nav.clientTop + nav.scrollTop,
+      animate: placed.current,
+    });
+    placed.current = true;
+  }, [navRef, current]);
+  return lens;
+}
+
 function RailItem({ item, current }: { item: Destination; current: boolean }) {
   const Icon = item.icon;
   return (
@@ -82,8 +122,9 @@ function RailItem({ item, current }: { item: Destination; current: boolean }) {
       panel={item.id}
       current={current}
       className={cn(
-        "flex h-16 w-[61px] flex-col items-center justify-center gap-[5px] rounded-[27px]",
-        current ? "prism-lens-thumb" : "prism-dock-item"
+        "relative flex h-16 w-[61px] flex-col items-center justify-center gap-[5px] rounded-[27px]",
+        // The lens itself is the gliding element above; the item keeps its hover only when not current
+        current ? "text-prism-nav-pressed" : "prism-dock-item"
       )}
     >
       <Icon

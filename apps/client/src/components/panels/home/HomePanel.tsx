@@ -110,7 +110,7 @@ export function HomePanel() {
       {data && !data.emailVerified && data.email && <VerifyEmailNotice email={data.email} />}
 
       <div className="grid gap-[21px] lg:grid-cols-[minmax(0,759fr)_minmax(0,508fr)] lg:gap-x-[21px] lg:gap-y-[34px]">
-        <div className="flex min-w-0 flex-col gap-[21px] lg:col-start-1 lg:row-start-1">
+        <div className="prism-stagger flex min-w-0 flex-col gap-[21px] lg:col-start-1 lg:row-start-1">
           {status.isPending && showSkeleton && <SetupChecklistSkeleton />}
           {status.isError && <SetupChecklistError onRetry={() => void status.refetch()} />}
           {showChecklist && <SetupChecklist status={data} welcome={welcome} />}
@@ -135,7 +135,7 @@ export function HomePanel() {
         </div>
 
         {/* Static: always renders, even with the API blocked (016 I13) */}
-        <div className="flex min-w-0 flex-col gap-[34px] lg:col-start-2 lg:row-span-2 lg:row-start-1">
+        <div className="prism-stagger flex min-w-0 flex-col gap-[34px] lg:col-start-2 lg:row-span-2 lg:row-start-1">
           <TestnetCard />
           <NetworkSection className="hidden lg:block" />
           <VideoGuides />

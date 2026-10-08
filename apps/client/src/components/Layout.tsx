@@ -22,7 +22,8 @@ import { MobileDock } from "./shell/MobileDock";
 import { MobileTopBar, TopBar } from "./shell/TopBar";
 import { ShellNavigationProvider } from "./shell/ShellNavigation";
 import { useSupportWidget } from "./shell/useSupportWidget";
-import { cn } from "@repo/ui";
+import { useLayoutEffect } from "react";
+import { cn, markTransitionCommitted } from "@repo/ui";
 import RNSHeader from "./rns/RNSHeader.tsx";
 import type { EditorPanelType } from "@/types/editor.ts";
 
@@ -113,6 +114,8 @@ function ActivePanel({ panel }: { panel: EditorPanelType }) {
 export function Layout({ bannerData, bannerLoading }: LayoutProps) {
   const { activePanel } = useEditor();
   const showPreview = PREVIEW_PANELS.includes(activePanel);
+  // The room transition waits for the new destination to render (#26)
+  useLayoutEffect(() => markTransitionCommitted(), [activePanel]);
   // Below 1024 the preview is a tab: ?view=preview (006 I01)
   const [params, setParams] = useSearchParams();
   const view = showPreview && params.get("view") === "preview" ? "preview" : "edit";
@@ -152,6 +155,7 @@ export function Layout({ bannerData, bannerLoading }: LayoutProps) {
             )}
             <main
               id="editor-content"
+              data-prism-vt-name="room"
               className={cn(
                 RESTYLED_PANELS.includes(activePanel)
                   ? "min-w-0"

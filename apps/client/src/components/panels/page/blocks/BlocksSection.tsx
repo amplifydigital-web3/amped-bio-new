@@ -23,7 +23,7 @@ import {
   SINGLETON_BLOCK_TYPES,
   type BlockType,
 } from "@repo/constants";
-import { Button, EmptyState, trpcClient } from "@repo/ui";
+import { Button, EmptyState, listTransition, trpcClient } from "@repo/ui";
 import { useEditor } from "@/contexts/EditorContext";
 import { toast } from "@/components/ui/toast";
 import { onAddBlockRequest } from "@/components/preview/addBlockRequest";
@@ -203,8 +203,10 @@ export function BlocksSection() {
     const index = blocks.findIndex(b => b.id === block.id);
     const title = blockTitle(block);
     const without = blocks.filter(b => b.id !== block.id);
-    if (selectedBlockId === block.id) selectBlock(null);
-    reorderBlocks(without);
+    listTransition(() => {
+      if (selectedBlockId === block.id) selectBlock(null);
+      reorderBlocks(without);
+    });
 
     const commit = async () => {
       pendingDeletes.current.delete(block.id);
@@ -226,7 +228,8 @@ export function BlocksSection() {
       pendingDeletes.current.delete(block.id);
       const current = [...blocksRef.current.filter(b => b.id !== block.id)];
       current.splice(Math.min(index, current.length), 0, block);
-      reorderBlocks(current);
+      // Undo plays the reverse: the row slides back into its place
+      listTransition(() => reorderBlocks(current));
     };
 
     pendingDeletes.current.set(
@@ -320,7 +323,7 @@ export function BlocksSection() {
                     open={selectedBlockId === block.id}
                     onToggle={() => open(selectedBlockId === block.id ? null : block.id)}
                     onChange={config => updateBlock(block.id, config)}
-                    onMove={to => reorderBlocks(arrayMove(blocks, index, to))}
+                    onMove={to => listTransition(() => reorderBlocks(arrayMove(blocks, index, to)))}
                     onDelete={() => remove(block)}
                     onToggleHidden={() =>
                       updateBlock(block.id, {
