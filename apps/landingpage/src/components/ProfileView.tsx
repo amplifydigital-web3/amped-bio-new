@@ -20,6 +20,9 @@ import { TextBlock } from "@/components/blocks/text/TextBlock";
 import { MediaBlock } from "@/components/blocks/MediaBlock";
 import { CreatorPoolBlock } from "@/components/blocks/CreatorPoolBlock";
 import { ReferralBlock } from "@/components/blocks/ReferralBlock";
+import { FollowBlock } from "@/components/blocks/FollowBlock";
+import { FollowersBlock } from "@/components/blocks/FollowersBlock";
+import { FollowContext } from "@/components/follow/FollowContext";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -53,7 +56,12 @@ import {
   FollowerCount,
   FollowToastView,
 } from "@/components/follow/FollowControls";
-import { isRenderable, sanitizeRichHtml, type BlockType } from "@repo/constants";
+import {
+  blockCarriesFollow,
+  isRenderable,
+  sanitizeRichHtml,
+  type BlockType,
+} from "@repo/constants";
 import {
   DEFAULT_HANDLE,
   DEFAULT_PROFILE_DATA,
@@ -346,14 +354,21 @@ export function ProfileView({
   // 039 I03: one neutral frame capsule; nothing renders when it would be empty
   const isOwner = isOwnerView || (!!authUser && authUser.handle === normalizedHandle);
   const showViewPool = hasCreatorPool && !!creatorPoolAddress && !hasPoolBlock;
-  const showFollow = followEnabled && !isOwner && (!!followState.status || followState.failed);
+  // Follow blocks (#30, spec 3.8): a renderable block with its own Follow
+  // button takes Follow and the count out of the capsule, so one Follow is on
+  // screen at a time. The sheet, toast and sign up return stay at page level.
+  const followActive = followEnabled && !isOwner;
+  const blockFollow = followEnabled && renderable.some(blockCarriesFollow);
+  const showFollow = followActive && !blockFollow && (!!followState.status || followState.failed);
   const showCapsule = showViewPool || isOwner || showFollow;
   const showPrivacyChoices = trackableProfileId !== null && consent !== null;
   const cardShowing = bannerMode !== "hidden" && trackableProfileId !== null;
 
   const photo = profile.photoCmp || profile.photoUrl;
 
-  return (
+  // The page tree. The FollowContext around it hands the one useFollow to the
+  // Follow and Followers blocks (spec 3.4).
+  const page = (
     <div
       className="relative min-h-dvh"
       style={{ ...themeCssVars(themeConfig), "--amped-font": fontColor } as React.CSSProperties}
@@ -501,6 +516,12 @@ export function ProfileView({
                       theme={themeConfig as any}
                       pageOwnerId={profile.id}
                     />
+                  ) : block.type === "follow" ? (
+                    followEnabled && <FollowBlock block={block} theme={themeConfig} />
+                  ) : block.type === "followers" ? (
+                    followEnabled && (
+                      <FollowersBlock block={block} theme={themeConfig} handle={normalizedHandle} />
+                    )
                   ) : (
                     <TextBlock block={block as any} theme={themeConfig as any} />
                   )}
@@ -600,7 +621,7 @@ export function ProfileView({
                 <FollowButton
                   status={followState.status}
                   busy={followState.busy}
-                  onFollow={followState.startFollow}
+                  onFollow={() => followState.startFollow("page")}
                   onUnfollow={() => void followState.unfollow()}
                   onUpdate={patch => void followState.update(patch)}
                 />
@@ -625,7 +646,7 @@ export function ProfileView({
             </div>
           </nav>
         )}
-        {showFollow && (
+        {followActive && (
           <FirstFollowSheet
             open={followState.sheetOpen}
             onOpenChange={followState.setSheetOpen}
@@ -653,5 +674,11 @@ export function ProfileView({
         )}
       </div>
     </div>
+  );
+
+  return (
+    <FollowContext.Provider value={{ state: followState, isOwner, enabled: followEnabled }}>
+      {page}
+    </FollowContext.Provider>
   );
 }
