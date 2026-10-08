@@ -10,22 +10,37 @@ const WALLET = "0x7a3f00000000000000000000000000000000c91e";
 const state = vi.hoisted(() => ({
   rows: new Map<string, { user_id: number; feature: string; source: string }>(),
   statusCalls: [] as string[],
+  publicAttributes: false,
+  status: "VERIFIED" as string,
 }));
 
 vi.mock("../utils/auth", () => ({ auth: { api: { getSession: vi.fn(async () => null) } } }));
-vi.mock("../services/authbase", () => ({
-  AuthbaseError: class extends Error {},
-  isAuthbaseConfigured: () => true,
-  getAuthbaseWalletStatus: vi.fn(async (address: string) => {
-    state.statusCalls.push(address);
-    return {
-      wallet_address: address,
-      status: "VERIFIED",
-      verified: true,
-      hasBadge: false,
-      attributes: { name: "Maya Lin", country: "United States" },
-    };
-  }),
+vi.mock("../services/authbase", async () => {
+  const actual =
+    await vi.importActual<typeof import("../services/authbase")>("../services/authbase");
+  return {
+    AuthbaseError: class extends Error {},
+    isAuthbaseConfigured: () => true,
+    publicSharedAttributes: actual.publicSharedAttributes,
+    getAuthbaseWalletStatus: vi.fn(async (address: string) => {
+      state.statusCalls.push(address);
+      const verified = state.status === "VERIFIED" || state.status === "VERIFIED_WITH_BADGE";
+      return {
+        wallet_address: address,
+        status: state.status,
+        verified,
+        hasBadge: false,
+        attributes: { name: "Maya Lin", country: "United States", legal_id: "X123" },
+      };
+    }),
+  };
+});
+vi.mock("../env", () => ({
+  env: {
+    get RNS_PUBLIC_ATTRIBUTES() {
+      return state.publicAttributes;
+    },
+  },
 }));
 vi.mock("@repo/database", () => {
   const key = (where: { user_id: number; feature: string }) => `${where.user_id}:${where.feature}`;
@@ -73,6 +88,8 @@ const ctx = (user?: { sub: number; wallet: string | null }) =>
 beforeEach(() => {
   state.rows.clear();
   state.statusCalls.length = 0;
+  state.publicAttributes = false;
+  state.status = "VERIFIED";
 });
 
 describe("authbase router", () => {
@@ -82,10 +99,34 @@ describe("authbase router", () => {
     expect(JSON.stringify(result)).not.toContain("Maya Lin");
   });
 
+  it("079 D2 on: a Verified wallet returns only the labeled attributes", async () => {
+    state.publicAttributes = true;
+    const result = await authbaseRouter.createCaller(ctx()).getWalletStatus({ address: WALLET });
+    expect(result?.attributes).toEqual({ name: "Maya Lin", country: "United States" });
+    expect(JSON.stringify(result)).not.toContain("X123");
+    expect(await authbaseRouter.createCaller(ctx()).isConfigured()).toEqual({
+      configured: true,
+      publicAttributes: true,
+    });
+  });
+
+  it("079 D2 on: Not verified and Not linked never return attributes", async () => {
+    state.publicAttributes = true;
+    for (const status of ["NOT_VERIFIED", "NOT_LINKED"]) {
+      state.status = status;
+      const result = await authbaseRouter.createCaller(ctx()).getWalletStatus({ address: WALLET });
+      expect(result?.attributes).toEqual({});
+    }
+  });
+
   it("getMyStatus reads the session wallet and returns the owner's attributes", async () => {
     const result = await authbaseRouter.createCaller(ctx({ sub: 7, wallet: WALLET })).getMyStatus();
     expect(state.statusCalls).toEqual([WALLET]);
-    expect(result?.attributes).toEqual({ name: "Maya Lin", country: "United States" });
+    expect(result?.attributes).toEqual({
+      name: "Maya Lin",
+      country: "United States",
+      legal_id: "X123",
+    });
   });
 
   it("getMyStatus with no wallet returns null and asks Authbase nothing", async () => {

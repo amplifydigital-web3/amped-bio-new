@@ -30,6 +30,8 @@ const copyValue = (value: string) =>
     .then(() => toast.add({ title: "Copied", type: "success" }))
     .catch(() => undefined);
 
+const NOT_AVAILABLE = "Not available";
+
 function CopyButton({ value, label }: { value: string; label: string }) {
   return (
     <button
@@ -333,6 +335,7 @@ function NameDetails({
     });
   }
   const token = name.tokenId.toString();
+  const tokenHex = `0x${name.tokenId.toString(16)}`;
   rows.push({
     label: "Token ID",
     value: (
@@ -342,11 +345,21 @@ function NameDetails({
       </span>
     ),
   });
-  if (name.registeredAt) {
-    rows.push({ label: "Registered", value: formatRnsDate(name.registeredAt) });
-  }
-  if (name.expiry) rows.push({ label: "Expires", value: formatRnsDate(name.expiry) });
-  if (name.graceEnd) rows.push({ label: "Grace period ends", value: formatRnsDate(name.graceEnd) });
+  // 079 I13: the token ID in hex as well, each with its own copy
+  rows.push({
+    label: "Token ID (hex)",
+    value: (
+      <span className="inline-flex min-w-0 items-center gap-1 tabular-nums">
+        <span className="max-w-[160px] truncate sm:max-w-[220px]">{tokenHex}</span>
+        <CopyButton value={tokenHex} label="Copy token ID in hex" />
+      </span>
+    ),
+  });
+  // 079 I12: an unreadable date reads Not available, never today and never blank
+  const date = (seconds: number | null) => (seconds ? formatRnsDate(seconds) : NOT_AVAILABLE);
+  rows.push({ label: "Registered", value: date(name.registeredAt) });
+  rows.push({ label: "Expires", value: date(name.expiry) });
+  rows.push({ label: "Grace period ends", value: date(name.graceEnd) });
   rows.push({ label: "Parent", value: getRnsSuffix(chainId).replace(/^\./, "") });
 
   return (

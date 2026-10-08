@@ -45,6 +45,20 @@ export default function ProfileTabs() {
     setDestinationTab(next);
   };
 
+  // 077 I01: ?tab=names (the Names tab in the 077 boards) lands on the RNS
+  // tab and keeps its name, address and flow params.
+  useEffect(() => {
+    if (params.get("tab") !== "names" || !RNS_FLAGS.enabled) return;
+    setParams(
+      current => {
+        const updated = new URLSearchParams(current);
+        updated.set("tab", "rns");
+        return updated;
+      },
+      { replace: true }
+    );
+  }, [params, setParams]);
+
   useEffect(() => {
     const raw = params.get("tab");
     if (!raw || !(raw in LEGACY_TABS)) return;

@@ -6,7 +6,7 @@ import { RNS_COPY } from "@/config/rns/copy";
 import { NameTile, VerifiedChip } from "../shared";
 import { AUTHBASE_URL } from "./catalog";
 import { IdEyebrow, SoonPill } from "./parts";
-import { SharedAttributes } from "./SharedAttributes";
+import { NOT_VERIFIED_SHARING_LINE } from "./SharedAttributes";
 
 /**
  * 103 I08: benefit tiles render only when the surface they promise ships.
@@ -298,7 +298,12 @@ export function IdentityPromo({
         </section>
       </div>
 
-      {showShared && <SharedAttributes attributes={attributes} />}
+      {/* 079 D2: attributes show only for a Verified status. The owner sees where they will appear. */}
+      {showShared && (
+        <p className="prism-glass-clear !rounded-prism-13 p-[21px] text-prism-body text-prism-ink-2">
+          {NOT_VERIFIED_SHARING_LINE}
+        </p>
+      )}
     </div>
   );
 }

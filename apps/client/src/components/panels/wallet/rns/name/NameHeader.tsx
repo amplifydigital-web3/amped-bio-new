@@ -1,6 +1,7 @@
 import { useId } from "react";
 import { CheckCircle2, Copy, ShieldCheck } from "lucide-react";
 import { formatRnsName, RNS_GRACE_PERIOD_SECONDS } from "@repo/web3";
+import { Button } from "@repo/ui";
 import { toast } from "@/components/ui/toast";
 import { RNS_FLAGS } from "@/config/rns/flags";
 import { RNS_COPY } from "@/config/rns/copy";
@@ -37,10 +38,13 @@ export function NameHeader({
   name,
   chainId,
   onOpenIdentity,
+  onFindOwn,
 }: {
   name: RnsNameState;
   chainId: number;
   onOpenIdentity?: () => void;
+  /** 079 I08: non owners get a way back to the search */
+  onFindOwn?: () => void;
 }) {
   const fullName = formatRnsName(name.label, chainId);
   const badgeHelpId = useId();
@@ -107,9 +111,16 @@ export function NameHeader({
           </p>
         )}
       </div>
-      <div className="flex flex-wrap gap-1.5 max-sm:w-full sm:justify-end">
-        <ExpiryBadge name={name} />
-        {name.isPrimary && <RowBadge>Primary</RowBadge>}
+      <div className="flex flex-wrap items-center gap-1.5 max-sm:w-full sm:flex-col sm:items-end">
+        <span className="flex flex-wrap gap-1.5 sm:justify-end">
+          <ExpiryBadge name={name} />
+          {name.isPrimary && <RowBadge>Primary</RowBadge>}
+        </span>
+        {!name.isOwner && onFindOwn && (
+          <Button type="button" variant="ghost" onClick={onFindOwn} className="max-sm:-ml-3">
+            Find your own RNS name
+          </Button>
+        )}
       </div>
     </section>
   );

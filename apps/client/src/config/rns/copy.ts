@@ -15,7 +15,7 @@ export const RNS_COPY = {
   walletTab: "RNS",
   findTitle: "Find an RNS name",
   myNamesTitle: "My RNS names",
-  aboutTitle: "About Revolution Name Service",
+  aboutTitle: "About names",
   pageField: "RNS name",
   manageLink: "Manage in Wallet",
   verifiedBy: "Verified by Authbase",

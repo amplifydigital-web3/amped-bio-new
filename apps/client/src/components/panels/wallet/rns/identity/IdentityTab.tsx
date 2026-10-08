@@ -13,6 +13,7 @@ import { authbaseDate } from "./dates";
 import { IdentityPromo } from "./IdentityPromo";
 import { IdentityVerified } from "./IdentityVerified";
 import { IdEyebrow } from "./parts";
+import { SharedAttributes } from "./SharedAttributes";
 
 function IdentitySkeleton() {
   return (
@@ -45,8 +46,9 @@ function Unavailable({ onRetry }: { onRetry: () => void }) {
 }
 
 /**
- * 103 I02: the status card. Visitors see only this: the RNS name, Verified or
- * Not verified, the dates and the disclaimer. No prices, plans or attributes.
+ * 103 I02: the status card. Visitors see this: the RNS name, Verified or
+ * Not verified, the dates and the disclaimer. No prices or plans. Shared
+ * attributes follow under the 079 D2 rule only.
  * Verified needs the name bound to the owner's wallet (I04, 104 I12).
  */
 function StatusCard({
@@ -119,11 +121,15 @@ function VisitorIdentity({ name, chainId }: { name: RnsNameState; chainId: numbe
   if (status.isError || !status.data) return <Unavailable onRetry={() => void status.refetch()} />;
   const verified = status.data.verified && isBound(name);
   return (
-    <StatusCard
-      fullName={fullName}
-      verified={verified}
-      validUntil={status.data.verification?.valid_until}
-    />
+    <div className="space-y-[21px]">
+      <StatusCard
+        fullName={fullName}
+        verified={verified}
+        validUntil={status.data.verification?.valid_until}
+      />
+      {/* 079 D2: only for Verified. The server returns attributes only under RNS_PUBLIC_ATTRIBUTES. */}
+      {verified && <SharedAttributes attributes={status.data.attributes ?? {}} viewer="visitor" />}
+    </div>
   );
 }
 
@@ -188,8 +194,8 @@ function OwnerIdentity({
  * Screen Review 103, 104: the Identity tab of the RNS name page, in two views
  * (103 I02). The owner (connected wallet owns the name) gets the full tab from
  * authbase.getMyStatus, which the server keys to the session wallet. Everyone
- * else gets the status card from the public lookup, which never carries
- * attributes (104 D1).
+ * else gets the status card from the public lookup, which carries attributes
+ * only for a Verified wallet and only when the server turns on 079 D2.
  */
 export function IdentityTab({
   name,

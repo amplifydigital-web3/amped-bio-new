@@ -165,6 +165,10 @@ const envSchema = z.object({
   // Screen Review 109 I01: the public page may show the Verified chip and the
   // check dates. Off: the page shows the RNS name only and never calls Authbase.
   RNS_PUBLIC_IDENTITY: boolSchema(false),
+  // Screen Review 079 D2: a name page may show the attributes a Verified owner
+  // shared through Authbase. Off by default: the published Privacy Policy says
+  // only the owner sees them. Turn on only after the policy is updated.
+  RNS_PUBLIC_ATTRIBUTES: boolSchema(false),
 
   // Creator analytics
   // Secret mixed into the daily visitor hash salt. Falls back to BETTER_AUTH_SECRET when empty.
