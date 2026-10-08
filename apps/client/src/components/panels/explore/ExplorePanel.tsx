@@ -64,8 +64,10 @@ const USER_SORTS: Option<UserSort>[] = [
   { value: "name-asc", label: "Name A to Z" },
   { value: "name-desc", label: "Name Z to A" },
 ];
+// 086 D3: Most staked and Most fans are sort options only. No rank numbers,
+// no Top labels, no rank by rate (pending counsel).
 const POOL_SORTS: Option<PoolSort>[] = [
-  { value: "most-fans", label: "Most backed" },
+  { value: "most-fans", label: "Most fans" },
   { value: "most-staked", label: "Most staked" },
   { value: "newest", label: "Newest" },
   { value: "name-asc", label: "Name A to Z" },
@@ -345,7 +347,7 @@ export default function ExplorePage({ initialTab, onTabChange }: ExplorePageProp
                     <ArrowDownUp className="h-[21px] w-[21px] text-prism-ink-2" aria-hidden />
                   </button>
                 </BottomSheetTrigger>
-                <BottomSheetContent title="Sort">
+                <BottomSheetContent title={tab === "pools" ? "Sort pools" : "Sort"}>
                   <div role="listbox" aria-label="Sort" className="space-y-1 pb-2">
                     {sorts.map(option => (
                       <BottomSheetClose asChild key={option.value}>

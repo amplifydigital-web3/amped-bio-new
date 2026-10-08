@@ -7,6 +7,7 @@ import { useSearchParams } from "react-router";
 import PoolPanel from "../pool-panel/PoolPanel";
 import { useChainId } from "wagmi";
 import { formatTokenAmount } from "../pool-panel/format";
+import { TestnetLine } from "../pool-panel/sections";
 
 // Define filter and sort types
 type PoolFilter = "all" | "no-fans" | "more-than-10-fans" | "more-than-10k-stake";
@@ -98,6 +99,11 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* 086 (QA): every pool list carries the verbatim testnet line. Above the
+          list at 390, under it on desktop. */}
+      <div className="sm:hidden">
+        <TestnetLine />
+      </div>
       {/* Prism medium pool cards (QA-028), the same card as the public pools
           directory (070). The whole card opens the pool panel. */}
       <ul className="grid grid-cols-1 gap-[21px] sm:grid-cols-2 xl:grid-cols-3">
@@ -140,6 +146,9 @@ const PoolsTab: React.FC<PoolsTabProps> = ({
           </li>
         )}
       </ul>
+      <div className="hidden sm:block">
+        <TestnetLine />
+      </div>
 
       {/* Pool details and the stake, unstake and claim flows (rows 046 to 048) */}
       <PoolPanel
