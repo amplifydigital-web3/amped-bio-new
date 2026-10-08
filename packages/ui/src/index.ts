@@ -115,6 +115,24 @@ export { OAuthConsentScreen } from "./oauth/oauth-consent-screen";
 export { OAuthDeviceScreen } from "./oauth/oauth-device-screen";
 export { describeOAuthScope, OAUTH_SCOPE_DESCRIPTIONS } from "./oauth/oauth-scopes";
 export {
+  FacetRequestCard,
+  type FacetRequestCardProps,
+  type FacetRequestChannel,
+  type FacetRequester,
+  type FacetRequestState,
+} from "./oauth/facet-request-card";
+export {
+  FACET_CATALOG,
+  FACET_SCOPE_PREFIX,
+  buildFacetLearnLists,
+  describeFacetScope,
+  formatProofLifetime,
+  isFacetScope,
+  type FacetDescription,
+  type FacetLearnLists,
+  type FacetTier,
+} from "./oauth/facet-scopes";
+export {
   navigateToProviderRedirect,
   useOAuthFlowQuery,
   type OAuthFlowQuery,
