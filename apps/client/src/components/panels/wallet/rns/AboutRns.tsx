@@ -1,26 +1,26 @@
 import { useId, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { TESTNET_NOTICE, cn } from "@repo/ui";
+import { getRnsSuffix } from "@repo/web3";
 import { Eyebrow } from "../../explore/pool-panel/sections";
 
-// Screen Review 101 I14: four disclosures, one open at a time, the first open
-// by default. Answers verbatim.
+// Screen Review 077 D1 (wording approved 7 Oct 2026): three About names
+// rows, one open at a time, the first open by default. The answers ship as
+// approved, with the testnet line verbatim. Counsel reads them before
+// VITE_SHOW_RNS is turned on. The suffix is the chain suffix (.revotest.eth).
+const SUFFIX = getRnsSuffix();
 const QUESTIONS = [
   {
-    q: "What is Revolution Name Service (RNS)?",
-    a: "RNS gives your wallet a readable name, like mayalin.revo. It works like ENS on Ethereum. People can send to the name instead of a long address, and your Amped.Bio page can show it with a Verified badge.",
+    q: "What is a name?",
+    a: `A ${SUFFIX} name points to your wallet, so people can send to a name instead of an address. Names use 6 to 32 lowercase letters, numbers or hyphens. It is a testnet name.`,
   },
   {
-    q: "How long does an RNS name last?",
-    a: "You register an RNS name for a term you choose. Extend it before it expires to keep it. A grace period follows expiry. When the grace period ends, anyone can register the name. Amped.Bio does not send expiry reminders.",
+    q: "How long does a name last?",
+    a: "You register a name for a term you choose. Extend it before it expires to keep it. A grace period follows expiry. When the grace period ends, anyone can register the name. Amped.Bio does not send expiry reminders.",
   },
   {
-    q: "What does an RNS name cost?",
-    a: `The price depends on the name and the term. You see the price and the estimated network fee before you confirm. ${TESTNET_NOTICE}`,
-  },
-  {
-    q: "What does Verified mean?",
-    a: "Authbase, an identity service, checked the ID of the person who owns the name. Verified means the identity check passed. It is not an endorsement.",
+    q: "What does a name cost?",
+    a: `The price depends on the name and the term. You see the price and the estimated network fee in tREVO before you confirm. ${TESTNET_NOTICE}`,
   },
 ];
 
@@ -30,7 +30,7 @@ export function AboutRns() {
   return (
     <section aria-labelledby={`${baseId}-title`} className="space-y-1 font-prism">
       <div id={`${baseId}-title`} className="pb-2">
-        <Eyebrow>About Revolution Name Service</Eyebrow>
+        <Eyebrow>About names</Eyebrow>
       </div>
       <ul className="divide-y divide-prism-line border-t border-prism-line">
         {QUESTIONS.map((item, index) => {

@@ -2,7 +2,7 @@ import { useId, useMemo, useRef, useState } from "react";
 import { getAddress, isAddress } from "viem";
 import { AlertTriangle, ArrowLeft, AtSign, Copy, Info, Search, XCircle } from "lucide-react";
 import { Button, EmptyState, ErrorCard } from "@repo/ui";
-import { parseRnsInput, rnsExpiryFromGraceEnd, rnsExpiryState } from "@repo/web3";
+import { formatRnsName, parseRnsInput, rnsExpiryFromGraceEnd, rnsExpiryState } from "@repo/web3";
 import { toast } from "@/components/ui/toast";
 import { useDelayed } from "@/hooks/useDelayed";
 import useGetAllRegisteredNames from "@/hooks/rns/useGetAllRegisteredNames";
@@ -11,9 +11,22 @@ import { RNS_FLAGS } from "@/config/rns/flags";
 import { Eyebrow } from "../../explore/pool-panel/sections";
 import { useAddressSummary, useRnsAvatars, useRnsChain } from "./hooks";
 import { formatRnsDate, shortAddress } from "./format";
-import { NameRow, NameTile, RowBadge, RowsSkeleton, VerifiedChip } from "./shared";
+import { NameRow, NameTile, RnsName, RowBadge, RowsSkeleton, VerifiedChip } from "./shared";
 
 const SEARCH_FROM = 6; // 111 D1: search only at 6 or more names
+
+function CopyIconButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className="prism-focus inline-flex h-touch w-touch shrink-0 items-center justify-center rounded-full text-prism-ink-2"
+    >
+      <Copy aria-hidden className="h-[21px] w-[21px]" />
+    </button>
+  );
+}
 
 function BackToRns({ onBack }: { onBack: () => void }) {
   return (
@@ -85,6 +98,8 @@ export function AddressView({
           <XCircle aria-hidden className="h-[21px] w-[21px] shrink-0 text-prism-danger" />
           <div className="space-y-3">
             <h2 className="text-prism-panel-title text-prism-ink">This is not a wallet address</h2>
+            {/* 079 I20: the entered value, so the person sees what failed */}
+            <p className="break-all text-prism-meta tabular-nums text-prism-ink-2">{address}</p>
             <p className="text-prism-body text-prism-ink-2">Check the address and try again.</p>
             <Button type="button" variant="secondary" onClick={onBack}>
               Back to RNS
@@ -97,11 +112,13 @@ export function AddressView({
 
   const person = summary.data?.person ?? null;
   const verified = RNS_FLAGS.identity ? (summary.data?.verified ?? null) : null;
-  const copy = () =>
+  const copy = (value: string) =>
     navigator.clipboard
-      .writeText(owner)
+      .writeText(value)
       .then(() => toast.add({ title: "Copied", type: "success" }))
       .catch(() => undefined);
+  // 079 I21, I25: the header leads with the forward checked primary name
+  const primaryFull = primaryLabel ? formatRnsName(primaryLabel, chain.id) : null;
 
   let list: React.ReactNode;
   if (isFetching && !rows.length) {
@@ -166,7 +183,7 @@ export function AddressView({
     <div className="space-y-[21px] font-prism">
       <BackToRns onBack={onBack} />
 
-      <section className="prism-glass-clear flex items-start gap-3 p-[21px]">
+      <section className="prism-glass-clear flex flex-wrap items-start gap-3 p-[21px] sm:flex-nowrap">
         {person?.image ? (
           <img
             src={person.image}
@@ -177,17 +194,28 @@ export function AddressView({
           <NameTile size={55} />
         )}
         <div className="min-w-0 flex-1 space-y-1">
-          <h1 className="flex items-center gap-1 text-prism-card-title tabular-nums text-prism-ink">
-            <span className="truncate">{shortAddress(owner)}</span>
-            <button
-              type="button"
-              onClick={copy}
-              aria-label="Copy wallet address"
-              className="prism-focus inline-flex h-touch w-touch shrink-0 items-center justify-center rounded-full text-prism-ink-2"
-            >
-              <Copy aria-hidden className="h-[21px] w-[21px]" />
-            </button>
-          </h1>
+          {primaryLabel && primaryFull ? (
+            <>
+              <h1 className="flex min-w-0 items-center gap-1 text-[26px] font-bold leading-[33px] text-prism-ink">
+                <RnsName label={primaryLabel} chainId={chain.id} className="min-w-0 break-all" />
+                <CopyIconButton label="Copy name" onClick={() => copy(primaryFull)} />
+              </h1>
+              <p className="-mt-1 flex items-center gap-1 text-prism-meta tabular-nums text-prism-ink-2">
+                {shortAddress(owner)}
+                <CopyIconButton label="Copy address" onClick={() => copy(owner)} />
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="flex items-center gap-1 text-[26px] font-bold leading-[33px] tabular-nums text-prism-ink">
+                <span className="truncate">{shortAddress(owner)}</span>
+                <CopyIconButton label="Copy address" onClick={() => copy(owner)} />
+              </h1>
+              {!summary.isLoading && (
+                <p className="text-prism-body text-prism-ink-2">No primary name</p>
+              )}
+            </>
+          )}
           {person ? (
             <p className="flex flex-wrap items-center gap-2 text-prism-label text-prism-ink-2">
               Owned by <b className="font-semibold text-prism-ink">{person.name}</b>
@@ -219,6 +247,16 @@ export function AddressView({
             </p>
           )}
         </div>
+        {primaryLabel && (
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => onOpenName(primaryLabel)}
+            className="max-sm:w-full"
+          >
+            View name
+          </Button>
+        )}
       </section>
 
       <section aria-labelledby="address-names-title" className="space-y-3">

@@ -23,7 +23,6 @@ import { MobileTopBar, TopBar } from "./shell/TopBar";
 import { ShellNavigationProvider } from "./shell/ShellNavigation";
 import { useSupportWidget } from "./shell/useSupportWidget";
 import { cn } from "@repo/ui";
-import RNSHeader from "./rns/RNSHeader.tsx";
 import type { EditorPanelType } from "@/types/editor.ts";
 
 interface LayoutProps {
@@ -76,16 +75,9 @@ function ActivePanel({ panel }: { panel: EditorPanelType }) {
     case "account":
       return <AccountPanel />;
     case "rns":
-      // RNS navigation is the destination's own header, not the top bar (002 I08, D06)
-      return import.meta.env.VITE_SHOW_RNS === "true" ? (
-        <>
-          <div className="flex items-center gap-4 border-b border-gray-200 px-6 py-3">
-            <RNSHeader />
-            <RNSHeader mobile />
-          </div>
-          <RNSPanel />
-        </>
-      ) : null;
+      // 077 I03: no RNS header in the top bar. The legacy rns panel only
+      // redirects old /rns?t= links to the Wallet RNS tab.
+      return import.meta.env.VITE_SHOW_RNS === "true" ? <RNSPanel /> : null;
     case "reward":
       return <RewardPanel />;
     case "leaderboard":
