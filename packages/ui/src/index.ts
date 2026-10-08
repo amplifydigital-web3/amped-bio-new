@@ -93,6 +93,13 @@ export {
   type PoolStat,
 } from "./prism/pool-card";
 export { cn } from "./utils";
+// Creator blocks shared by the public page and the editor preview (Build Board #30)
+export {
+  FollowersCard,
+  type FollowersCardData,
+  type FollowersCardFace,
+  type FollowersCardProps,
+} from "./creator/followers-card";
 export { ExternalRedirect } from "./external-redirect";
 
 // Auth
