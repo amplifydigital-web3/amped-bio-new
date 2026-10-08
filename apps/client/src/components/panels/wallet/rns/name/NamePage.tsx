@@ -23,6 +23,7 @@ import { IdentityTab } from "../identity/IdentityTab";
 import { AttributesTab } from "../identity/AttributesTab";
 import { FacetsTab } from "../identity/FacetsTab";
 import { SoonPill } from "../identity/parts";
+import { FacetRequestDialog } from "../identity/FacetRequestDialog";
 
 function BackToRns({ onBack }: { onBack: () => void }) {
   return (
@@ -144,6 +145,8 @@ function NamePageBody({ label }: { label: string }) {
   }
 
   const openIdentity = () => route.setView("identity");
+  // 107: an app's facet request, for the owner only, behind VITE_SHOW_FACET_REQUEST
+  const facetRequestId = RNS_FLAGS.facetRequest && name.isOwner ? route.request : null;
   const closeFlow = () => route.setNameFlow(null);
 
   return (
@@ -216,6 +219,14 @@ function NamePageBody({ label }: { label: string }) {
             meta: banner ? banner.meta : name.records.bannerMeta,
           }}
           onDone={setBanner}
+        />
+      )}
+      {facetRequestId && (
+        <FacetRequestDialog
+          key={facetRequestId}
+          requestId={facetRequestId}
+          onClose={route.clearRequest}
+          onOpenIdentity={openIdentity}
         />
       )}
       {route.nameFlow === "publish" && (
