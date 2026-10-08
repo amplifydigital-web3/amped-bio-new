@@ -2,7 +2,6 @@
 
 interface ImportMetaEnv {
   readonly VITE_LANDINGPAGE_URL: string;
-  readonly VITE_REWARD_URL: string;
   readonly VITE_SHOW_REWARD: string;
   readonly VITE_SHOW_CREATOR_POOL: string;
   readonly VITE_SHOW_RNS: string;

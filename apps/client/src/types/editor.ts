@@ -38,7 +38,8 @@ export type Theme = {
 // Routable editor panels. The rail shows seven destinations (Screen Review 001,
 // D01): home, explore, page, design, analytics, wallet, my-pool. Account is
 // reached from the avatar menu. pay and rns stay routable and belong to Wallet.
-// reward, rewardPools and leaderboard are hidden panels (D22).
+// The hidden Leaderboard, Reward and Reward Pools panels are deleted (086 D1);
+// their old URLs are legacy redirects below.
 export const EDITOR_PANELS = [
   "home",
   "analytics",
@@ -51,9 +52,6 @@ export const EDITOR_PANELS = [
   "account",
   "pay",
   "rns",
-  "reward",
-  "rewardPools",
-  "leaderboard",
   "inbox",
 ] as const;
 
@@ -71,6 +69,10 @@ export const LEGACY_PANEL_REDIRECTS: Record<string, { panel: EditorPanelType; ta
   developer: { panel: "account", tab: "developers" },
   appearance: { panel: "design", tab: "style" },
   effects: { panel: "design", tab: "motion" },
+  // Screen Review 086 I01, I10 (D1, D2): deleted panels. Silent redirect, no toast.
+  leaderboard: { panel: "explore", tab: "pools" },
+  rewardPools: { panel: "explore", tab: "pools" },
+  reward: { panel: "my-pool" },
 };
 
 /** Old /profile?tab= values that now live on Design (Screen Review 027). */

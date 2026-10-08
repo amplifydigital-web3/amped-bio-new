@@ -5,11 +5,9 @@ import { useEditor } from "../contexts/EditorContext";
 import { MyPoolDestination } from "./panels/broadcast/MyPoolDestination";
 import { InboxPanel } from "./panels/broadcast/InboxPanel";
 import { BROADCAST_ON } from "./panels/broadcast/utils";
-import { LeaderboardPanel } from "./panels/leaderboard/LeaderboardPanel";
 import { RNSPanel } from "./panels/rns/RNSPanel";
 import { HomePanel } from "./panels/home/HomePanel";
 import { MyWalletPanel } from "./panels/wallet/MyWalletPanel";
-import RewardPanel from "./panels/reward/RewardPanel.tsx";
 import PayRedirect from "./panels/wallet/send/PayRedirect";
 import ExplorePage from "./panels/explore/ExplorePanel.tsx";
 import { AnalyticsPanel } from "./panels/analytics/AnalyticsPanel";
@@ -87,10 +85,6 @@ function ActivePanel({ panel }: { panel: EditorPanelType }) {
           <RNSPanel />
         </>
       ) : null;
-    case "reward":
-      return <RewardPanel />;
-    case "leaderboard":
-      return <LeaderboardPanel />;
     default:
       return null;
   }
