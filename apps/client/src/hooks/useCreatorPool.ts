@@ -3,6 +3,7 @@ import { type Address, isAddress, parseEther, zeroAddress } from "viem";
 import { useMemo, useEffect, useRef } from "react";
 import { CREATOR_POOL_FACTORY_ABI, getChainConfig } from "@repo/web3";
 import { useWalletContext } from "@/contexts/WalletContext";
+import { withWalletTimeout } from "@/utils/walletTimeout";
 
 export interface CreatePoolArgs {
   creatorCut: number;
@@ -81,14 +82,17 @@ export function useCreatorPool() {
       throw new Error("Wallet client not available");
     }
 
-    const hash = await walletClient.writeContract({
-      address: chain.contracts.CREATOR_POOL_FACTORY.address,
-      abi: CREATOR_POOL_FACTORY_ABI,
-      functionName: "createPool",
-      args: [chain.contracts.NODE.address, BigInt(args.creatorCut * 100), args.poolName],
-      value: parseEther(args.stake.toString()),
-      gas: BigInt(5000000), // Add explicit gas limit
-    });
+    // QA-057: bounded, so a wallet that never answers ends on the launch error
+    const hash = await withWalletTimeout(
+      walletClient.writeContract({
+        address: chain.contracts.CREATOR_POOL_FACTORY.address,
+        abi: CREATOR_POOL_FACTORY_ABI,
+        functionName: "createPool",
+        args: [chain.contracts.NODE.address, BigInt(args.creatorCut * 100), args.poolName],
+        value: parseEther(args.stake.toString()),
+        gas: BigInt(5000000), // Add explicit gas limit
+      })
+    );
 
     return hash;
   };

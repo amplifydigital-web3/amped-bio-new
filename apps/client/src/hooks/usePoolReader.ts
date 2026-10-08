@@ -3,6 +3,7 @@ import { type Address } from "viem";
 import { CREATOR_POOL_ABI } from "@repo/web3";
 import React from "react";
 import { trpcClient } from "@repo/ui";
+import { withWalletTimeout } from "@/utils/walletTimeout";
 
 interface UsePoolReaderOptions {
   initialFanStake?: bigint;
@@ -82,13 +83,16 @@ export function usePoolReader(
 
     try {
       const startHashTime = performance.now();
-      const hash = await writeCreatorPoolContractAsync({
-        address: poolAddress,
-        abi: CREATOR_POOL_ABI,
-        functionName: "claimReward",
-        // Sign on the pool's chain when the caller knows it
-        chainId: options?.chainId,
-      });
+      // QA-057: bounded, so a wallet that never answers ends on an error card
+      const hash = await withWalletTimeout(
+        writeCreatorPoolContractAsync({
+          address: poolAddress,
+          abi: CREATOR_POOL_ABI,
+          functionName: "claimReward",
+          // Sign on the pool's chain when the caller knows it
+          chainId: options?.chainId,
+        })
+      );
       const endHashTime = performance.now();
       const hashTimeMs = endHashTime - startHashTime;
       console.log(`⏱️ Transaction hash returned in: ${hashTimeMs.toFixed(2)}ms | Hash: ${hash}`);

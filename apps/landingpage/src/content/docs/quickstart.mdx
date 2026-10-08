@@ -7,7 +7,7 @@ group: Getting started
 
 ## 1. Register your application
 
-Create an OAuth application in **Developers → OAuth applications** inside the Amped.bio app. You will get a
+Create an application in [Account settings, Developers tab]({{APP_URL}}/account?tab=developers). An Amped.Bio account is required. You will get a
 `client_id`, and a `client_secret` shown only once.
 
 Rules for redirect URIs:
@@ -20,17 +20,29 @@ Rules for redirect URIs:
 Send the user to the authorization endpoint. Generate and store a `state` and a PKCE verifier first.
 
 ```js
-const verifier = crypto.randomUUID();
-const challenge = base64UrlEncode(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)));
+// Base64url without padding (RFC 7636)
+function base64UrlEncode(bytes) {
+  let binary = "";
+  for (const byte of new Uint8Array(bytes)) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+// 32 random bytes give a 43 character verifier
+const verifier = base64UrlEncode(crypto.getRandomValues(new Uint8Array(32)));
+const challenge = base64UrlEncode(
+  await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier))
+);
+const state = base64UrlEncode(crypto.getRandomValues(new Uint8Array(16)));
 
 sessionStorage.setItem("pkce_verifier", verifier);
+sessionStorage.setItem("oauth_state", state);
 
 const params = new URLSearchParams({
   client_id: "YOUR_CLIENT_ID",
   redirect_uri: "https://your-app.example.com/callback",
   response_type: "code",
   scope: "openid profile email",
-  state: crypto.randomUUID(),
+  state,
   code_challenge: challenge,
   code_challenge_method: "S256",
 });
@@ -43,7 +55,17 @@ you asked for.
 
 ## 3. Exchange the code
 
-Back on your `redirect_uri`, verify `state`, then exchange `code` at the token endpoint.
+Back on your `redirect_uri`, compare `state` with the value you stored, then exchange `code` at the token
+endpoint.
+
+```js
+const callback = new URLSearchParams(window.location.search);
+if (callback.get("state") !== sessionStorage.getItem("oauth_state")) {
+  throw new Error("State does not match. Start the sign in again.");
+}
+const code = callback.get("code");
+const codeVerifier = sessionStorage.getItem("pkce_verifier");
+```
 
 ```bash
 curl -sS https://auth.amped.bio/oauth2/token \
@@ -72,6 +94,8 @@ curl -sS https://auth.amped.bio/oauth2/userinfo \
   "name": "Ada Lovelace",
   "given_name": "Ada",
   "family_name": "Lovelace",
+  "picture": "https://cdn.amped.bio/ada.png",
+  "wallet": "0x7a3f00000000000000000000000000000000c91e",
   "email": "ada@example.com",
   "email_verified": true
 }

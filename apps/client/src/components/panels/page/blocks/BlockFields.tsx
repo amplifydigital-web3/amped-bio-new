@@ -6,6 +6,7 @@ import { appChainId } from "@/utils/appChain";
 import { FieldError, LinkFields } from "./LinkFields";
 import { linkConfig, linkValueFromConfig, wellClass } from "./linkValue";
 import { mediaHelp, mediaName, mediaUrlError, stripTags } from "./blockInfo";
+import { FollowBlockFields, FollowersBlockFields } from "./FollowBlockFields";
 
 // Screen Review 037. The fields an open block row needs, one column on the G2
 // slab. Every valid change goes to the editor state at once (the preview
@@ -220,6 +221,10 @@ export function BlockFields({ block, onValid }: { block: BlockType; onValid: Con
           Shows your Amped.Bio invite link to visitors.
         </p>
       );
+    case "follow":
+      return <FollowBlockFields key={key} config={block.config} onValid={onValid} />;
+    case "followers":
+      return <FollowersBlockFields key={key} block={block} onValid={onValid} />;
     default:
       return null;
   }

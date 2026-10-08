@@ -16,7 +16,16 @@ import {
   Pencil,
   XCircle,
 } from "lucide-react";
-import { Button, Checkbox, CommitAction, Notice, SidePanel, StepBar, cn } from "@repo/ui";
+import {
+  Button,
+  Checkbox,
+  CommitAction,
+  Notice,
+  SidePanel,
+  StepBar,
+  SuccessMoment,
+  cn,
+} from "@repo/ui";
 import { toast } from "@/components/ui/toast";
 import { ReconnectCard } from "@/components/panels/wallet/send/ReconnectCard";
 import { formatTokenAmount } from "../../explore/pool-panel/format";
@@ -544,6 +553,8 @@ export function CreatePoolFlow({
   const resultBody =
     launch.phase === "done" ? (
       <>
+        {/* Result step only, never Review or Commit (Prism 15, #26 section 3.4) */}
+        <SuccessMoment label="Pool created" size={72} />
         <div>
           <h3
             ref={headingRef}

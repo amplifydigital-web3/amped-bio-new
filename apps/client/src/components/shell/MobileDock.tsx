@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronRight, MoreHorizontal } from "lucide-react";
 import { BottomSheet, BottomSheetContent, cn } from "@repo/ui";
 import { useEditor } from "@/contexts/EditorContext";
@@ -63,6 +63,9 @@ export function MobileDock() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const keyboardOpen = useKeyboardOpen();
   const moreCurrent = more.some(d => d.id === current);
+  const moreRef = useRef<HTMLButtonElement>(null);
+  // Closing by Escape, the scrim, Close or a drag returns focus to More (#26, criterion 11)
+  const navigatedFromSheet = useRef(false);
 
   return (
     <>
@@ -83,8 +86,12 @@ export function MobileDock() {
           {more.length > 0 && (
             <li>
               <button
+                ref={moreRef}
                 type="button"
-                onClick={() => setSheetOpen(true)}
+                onClick={() => {
+                  navigatedFromSheet.current = false;
+                  setSheetOpen(true);
+                }}
                 aria-haspopup="dialog"
                 aria-expanded={sheetOpen}
                 className={cn(
@@ -111,7 +118,14 @@ export function MobileDock() {
       </nav>
 
       <BottomSheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <BottomSheetContent title="More">
+        <BottomSheetContent
+          title="More"
+          onCloseAutoFocus={event => {
+            event.preventDefault();
+            // A destination picked in the sheet moves focus to its title instead
+            if (!navigatedFromSheet.current) moreRef.current?.focus();
+          }}
+        >
           <ul className="divide-y divide-prism-line">
             {more.map(item => {
               const Icon = item.icon;
@@ -121,7 +135,10 @@ export function MobileDock() {
                   <NavItemLink
                     panel={item.id}
                     current={isCurrent}
-                    onNavigate={() => setSheetOpen(false)}
+                    onNavigate={() => {
+                      navigatedFromSheet.current = true;
+                      setSheetOpen(false);
+                    }}
                     className={cn(
                       "flex min-h-commit items-center gap-3 rounded-prism-13 px-2 text-prism-label font-semibold text-prism-ink",
                       isCurrent ? "prism-lens-thumb" : "prism-dock-item text-prism-ink"

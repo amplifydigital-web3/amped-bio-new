@@ -10,8 +10,5 @@ export * from "./files";
 // Theme management components
 export * from "./themes";
 
-// Block management components
-export * from "./blocks";
-
-// Shared/common components
+// Shared types
 export * from "./shared";

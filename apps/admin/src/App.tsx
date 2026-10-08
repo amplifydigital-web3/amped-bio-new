@@ -6,7 +6,7 @@ import {
   AdminDashboard,
   AdminUsers,
   AdminThemes,
-  AdminBlocks,
+  AdminNewTheme,
   AdminFiles,
   AdminPools,
   AdminNdauConversions,
@@ -28,7 +28,9 @@ function AppRouter() {
         <Route index element={<AdminDashboard />} />
         <Route path="users" element={<AdminUsers />} />
         <Route path="themes" element={<AdminThemes />} />
-        <Route path="blocks" element={<AdminBlocks />} />
+        <Route path="themes/new" element={<AdminNewTheme />} />
+        {/* 088 I09: the Blocks placeholder is not rendered */}
+        <Route path="blocks" element={<Navigate to="/" replace />} />
         <Route path="files" element={<AdminFiles />} />
         <Route path="pools" element={<AdminPools />} />
         <Route path="ndau-conversions" element={<AdminNdauConversions />} />

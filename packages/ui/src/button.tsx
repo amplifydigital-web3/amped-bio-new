@@ -4,8 +4,9 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "./utils";
 
 // Prism 2.2 section 8. Every size meets the 44 target; lg is the 55 primary.
+// Press: 1 down in micro time (section 14), none under reduced motion.
 const buttonVariants = cva(
-  "prism-focus prism-btn-disabled inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-prism-13 font-prism font-semibold tabular-nums transition-[background-color,box-shadow,color] duration-prism-hover ease-prism [&_svg]:size-5 [&_svg]:shrink-0",
+  "prism-focus prism-btn-disabled inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-prism-13 font-prism font-semibold tabular-nums transition-[background-color,box-shadow,color,transform] duration-prism-hover ease-prism active:translate-y-px active:duration-prism-micro disabled:active:translate-y-0 motion-reduce:active:translate-y-0 [&_svg]:size-5 [&_svg]:shrink-0",
   {
     variants: {
       variant: {

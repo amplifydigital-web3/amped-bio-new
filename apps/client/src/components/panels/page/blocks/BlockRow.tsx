@@ -14,9 +14,20 @@ import {
   GripVertical,
   MoreHorizontal,
   Trash2,
+  UserPlus,
+  UsersRound,
 } from "lucide-react";
 import type { BlockType } from "@repo/constants";
-import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, Tooltip, cn } from "@repo/ui";
+import {
+  Menu,
+  MenuContent,
+  MenuItem,
+  MenuSeparator,
+  MenuTrigger,
+  Tooltip,
+  cn,
+  transitionName,
+} from "@repo/ui";
 import { getPlatformIcon } from "@/utils/platforms";
 import { BlockFields, type ConfigChange } from "./BlockFields";
 import { NEED_LABEL, blockMeta, blockNeed, blockTitle, hostOf, isHidden } from "./blockInfo";
@@ -40,7 +51,11 @@ function BlockIcon({ block }: { block: BlockType }) {
       ? Coins
       : block.type === "referral"
         ? Gift
-        : getPlatformIcon(block.type === "text" ? "text" : block.config.platform);
+        : block.type === "follow"
+          ? UserPlus
+          : block.type === "followers"
+            ? UsersRound
+            : getPlatformIcon(block.type === "text" ? "text" : block.config.platform);
   return <Icon aria-hidden className="h-[21px] w-[21px] shrink-0 text-prism-ink-2" />;
 }
 
@@ -97,6 +112,8 @@ export function BlockRow({
         rowRef.current = node;
       }}
       style={style}
+      // Rows slide into place when one is deleted, restored or moved by a button (#26)
+      data-prism-vt-row={transitionName("block", block.id)}
       onKeyDown={event => {
         if (event.key === "Escape" && open) {
           event.stopPropagation();

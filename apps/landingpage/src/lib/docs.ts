@@ -3,7 +3,7 @@ import path from "node:path";
 import matter from "gray-matter";
 
 // Documentation pages live as `.mdx` files and are currently rendered through a
-// remark/rehype pipeline (see app/docs/[[...slug]]/page.tsx): the landing page
+// remark/rehype pipeline (see lib/docsRender.ts): the landing page
 // still runs React 18 while Next 16 evaluates MDX with React 19, so the MDX
 // runtime cannot be used yet. Content is plain Markdown with Shiki highlighted
 // code blocks; JSX inside these files will start working once the landing page
@@ -55,7 +55,9 @@ export function getAllDocs(): DocPage[] {
     .sort((a, b) => a.order - b.order || a.title.localeCompare(b.title));
 }
 
-export function getDocsNavigation(): Array<{ group: string; pages: DocPage[] }> {
+export type DocNavGroup = { group: string; pages: DocPage[] };
+
+export function getDocsNavigation(): DocNavGroup[] {
   const groups = new Map<string, DocPage[]>();
 
   for (const page of getAllDocs()) {
@@ -75,4 +77,12 @@ export function getDocBySlug(slug: string): DocPageWithContent | null {
 
 export function getDocSlugs(): string[] {
   return listDocFiles().map(fileName => fileName.replace(/\.mdx?$/, ""));
+}
+
+/** 090 I16: previous and next pages in sidebar order */
+export function getDocNeighbors(slug: string): { previous: DocPage | null; next: DocPage | null } {
+  const pages = getAllDocs();
+  const index = pages.findIndex(page => page.slug === slug);
+  if (index < 0) return { previous: null, next: null };
+  return { previous: pages[index - 1] ?? null, next: pages[index + 1] ?? null };
 }

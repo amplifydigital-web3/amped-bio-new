@@ -11,7 +11,8 @@ import { PANEL_TITLES } from "./shell/destinations";
 export type BannerPanel = BannerPanelValue;
 
 // Legacy banner values mapped to the D01 destinations (Screen Review 005 I04,
-// I08, 098 I07). Hidden panels (D22) get no button.
+// I08, 098 I07). Deleted panels (reward, rewardPools, leaderboard; 086 I02)
+// get no button: the banner renders without its link.
 const BANNER_DESTINATIONS: Partial<Record<BannerPanel, { panel: EditorPanelType; tab?: string }>> =
   {
     home: { panel: "home" },
@@ -28,8 +29,6 @@ const BANNER_DESTINATIONS: Partial<Record<BannerPanel, { panel: EditorPanelType;
     pay: { panel: "wallet" },
     rns: { panel: "wallet" },
     createRewardPool: { panel: "my-pool" },
-    rewardPools: { panel: "explore" },
-    leaderboard: { panel: "explore" },
   };
 
 type BannerType = "info" | "warning" | "success" | "error";

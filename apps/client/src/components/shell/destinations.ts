@@ -98,9 +98,6 @@ export const PANEL_TITLES: Record<EditorPanelType, string> = {
   account: "Account",
   pay: "Wallet",
   rns: "Wallet",
-  reward: "Reward",
-  rewardPools: "Reward pools",
-  leaderboard: "Leaderboard",
   inbox: "Inbox",
 };
 

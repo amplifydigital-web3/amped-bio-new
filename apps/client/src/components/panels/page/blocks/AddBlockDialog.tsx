@@ -1,8 +1,23 @@
 import { useState, type KeyboardEvent } from "react";
-import { Check, Coins, FileText, Link2, Loader2, Plus, type LucideIcon } from "lucide-react";
+import {
+  Check,
+  Coins,
+  FileText,
+  Link2,
+  Loader2,
+  Plus,
+  UserPlus,
+  UsersRound,
+  type LucideIcon,
+} from "lucide-react";
 import { BsTelegram } from "react-icons/bs";
 import type { IconType } from "react-icons/lib";
-import { TELEGRAM_LINK, type BlockType, type MediaBlockPlatform } from "@repo/constants";
+import {
+  SINGLETON_BLOCK_TYPES,
+  TELEGRAM_LINK,
+  type BlockType,
+  type MediaBlockPlatform,
+} from "@repo/constants";
 import {
   Button,
   Dialog,
@@ -17,14 +32,26 @@ import { FieldError, LinkFields } from "./LinkFields";
 import { emptyLink, linkConfig, type LinkValue } from "./linkValue";
 
 // Screen Review 034 and 035. One Add block dialog: the Link section first,
-// then MEDIA, UTILITY and WEB3 tiles. Picking a tile closes the dialog and the
-// new block opens inline in the list (D18).
+// then MEDIA, UTILITY, PEOPLE and WEB3 tiles. Picking a tile closes the dialog
+// and the new block opens inline in the list (D18). People (Build Board #30,
+// board fb4) holds the Follow button and Followers blocks; both are
+// singletons, like the referral block, and show "On your page" once added.
 
 export type NewBlockKind =
   | { type: "media"; platform: MediaBlockPlatform }
   | { type: "text" }
   | { type: "pool" }
-  | { type: "referral" };
+  | { type: "referral" }
+  | { type: "follow" }
+  | { type: "followers" };
+
+type SingletonType = (typeof SINGLETON_BLOCK_TYPES)[number];
+
+function isSingleton(type: string): type is SingletonType {
+  return (SINGLETON_BLOCK_TYPES as readonly string[]).includes(type);
+}
+
+const fanGraphOn = import.meta.env.VITE_FAN_GRAPH === "true";
 
 type Tile = { label: string; icon: LucideIcon | IconType; kind: NewBlockKind };
 
@@ -76,6 +103,17 @@ const SECTIONS: { eyebrow: string; tiles: Tile[] }[] = [
       { label: "Referral link", icon: Link2, kind: { type: "referral" } },
     ],
   },
+  ...(fanGraphOn
+    ? [
+        {
+          eyebrow: "People",
+          tiles: [
+            { label: "Follow button", icon: UserPlus, kind: { type: "follow" as const } },
+            { label: "Followers", icon: UsersRound, kind: { type: "followers" as const } },
+          ],
+        },
+      ]
+    : []),
   { eyebrow: "Web3", tiles: [{ label: "Creator pool", icon: Coins, kind: { type: "pool" } }] },
 ];
 
@@ -92,12 +130,13 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 function TileGrid({
   label,
   tiles,
-  hasReferral,
+  onPage,
   onPick,
 }: {
   label: string;
   tiles: Tile[];
-  hasReferral: boolean;
+  /** Singleton types already on the page */
+  onPage: Set<string>;
   onPick: (kind: NewBlockKind) => void;
 }) {
   const [focus, setFocus] = useState(0);
@@ -123,7 +162,7 @@ function TileGrid({
       className="grid grid-cols-2 gap-[13px]"
     >
       {tiles.map((tile, index) => {
-        const onPage = tile.kind.type === "referral" && hasReferral;
+        const added = isSingleton(tile.kind.type) && onPage.has(tile.kind.type);
         return (
           <button
             key={tile.label}
@@ -134,8 +173,8 @@ function TileGrid({
           >
             <tile.icon aria-hidden className="h-[21px] w-[21px] shrink-0 text-prism-ink-2" />
             <span className="min-w-0 flex-1 truncate">{tile.label}</span>
-            {onPage && (
-              <span className="flex shrink-0 items-center gap-1 text-prism-meta font-normal text-prism-ink-2">
+            {added && (
+              <span className="flex shrink-0 items-center gap-1 whitespace-nowrap text-prism-meta font-normal text-prism-ink-2">
                 On your page
                 <Check aria-hidden className="h-[21px] w-[21px]" />
               </span>
@@ -167,7 +206,7 @@ export function AddBlockDialog({
   const [submitted, setSubmitted] = useState(false);
   const [adding, setAdding] = useState(false);
   const [failed, setFailed] = useState(false);
-  const hasReferral = blocks.some(b => b.type === "referral");
+  const onPage = new Set(blocks.map(b => b.type).filter(isSingleton));
   const config = linkConfig(link);
   const duplicateOf = config
     ? blocks.find(b => b.type === "link" && b.config.url === config.url)
@@ -200,8 +239,8 @@ export function AddBlockDialog({
   };
 
   const pick = (kind: NewBlockKind) => {
-    if (kind.type === "referral" && hasReferral) {
-      const existing = blocks.find(b => b.type === "referral");
+    if (isSingleton(kind.type) && onPage.has(kind.type)) {
+      const existing = blocks.find(b => b.type === kind.type);
       close(false);
       if (existing) onOpenExisting(existing.id);
       return;
@@ -277,7 +316,7 @@ export function AddBlockDialog({
               <TileGrid
                 label={section.eyebrow}
                 tiles={section.tiles}
-                hasReferral={hasReferral}
+                onPage={onPage}
                 onPick={pick}
               />
             </div>

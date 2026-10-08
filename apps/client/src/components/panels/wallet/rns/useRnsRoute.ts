@@ -46,7 +46,7 @@ export function useRnsRoute() {
       ),
     [setParams]
   );
-  /** Switches the name page tab in the URL (102 I01). */
+  /** Switches the name page tab in the URL (102 I01). Leaves any facet request (107). */
   const setView = useCallback(
     (view: string) =>
       setParams(
@@ -54,6 +54,21 @@ export function useRnsRoute() {
           const updated = new URLSearchParams(current);
           updated.set("view", view);
           updated.delete("flow");
+          updated.delete("request");
+          return updated;
+        },
+        { replace: true }
+      ),
+    [setParams]
+  );
+
+  /** Closes the facet request dialog (107). */
+  const clearRequest = useCallback(
+    () =>
+      setParams(
+        current => {
+          const updated = new URLSearchParams(current);
+          updated.delete("request");
           return updated;
         },
         { replace: true }
@@ -67,10 +82,12 @@ export function useRnsRoute() {
     flow,
     nameFlow,
     view: params.get("view"),
+    request: name ? params.get("request") : null,
     go,
     closeFlow,
     setNameFlow,
     setView,
+    clearRequest,
   };
 }
 

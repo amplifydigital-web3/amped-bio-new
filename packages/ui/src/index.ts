@@ -17,6 +17,23 @@ export { Textarea } from "./Textarea";
 export { Chip, ChipGroup, type ChipProps, type ChipGroupOption } from "./prism/chip";
 export { Tabs, TabsList, TabsTrigger, TabsContent } from "./prism/tabs";
 export {
+  MOTION,
+  PRISM_EASE,
+  drawStroke,
+  listTransition,
+  markTransitionCommitted,
+  motionAllowed,
+  prefersReducedMotion,
+  pulseOnce,
+  roomTransition,
+  transitionName,
+  useIsomorphicLayoutEffect,
+  useOffscreenPause,
+  viewTransition,
+  type PrismTransitionKind,
+} from "./prism/motion";
+export { SuccessMoment, DrawnCheck } from "./prism/moments/success-moment";
+export {
   Menu,
   MenuTrigger,
   MenuGroup,
@@ -93,6 +110,13 @@ export {
   type PoolStat,
 } from "./prism/pool-card";
 export { cn } from "./utils";
+// Creator blocks shared by the public page and the editor preview (Build Board #30)
+export {
+  FollowersCard,
+  type FollowersCardData,
+  type FollowersCardFace,
+  type FollowersCardProps,
+} from "./creator/followers-card";
 export { ExternalRedirect } from "./external-redirect";
 
 // Auth
@@ -114,6 +138,24 @@ export { OAuthLoginScreen, useOAuthClientName } from "./oauth/oauth-login-screen
 export { OAuthConsentScreen } from "./oauth/oauth-consent-screen";
 export { OAuthDeviceScreen } from "./oauth/oauth-device-screen";
 export { describeOAuthScope, OAUTH_SCOPE_DESCRIPTIONS } from "./oauth/oauth-scopes";
+export {
+  FacetRequestCard,
+  type FacetRequestCardProps,
+  type FacetRequestChannel,
+  type FacetRequester,
+  type FacetRequestState,
+} from "./oauth/facet-request-card";
+export {
+  FACET_CATALOG,
+  FACET_SCOPE_PREFIX,
+  buildFacetLearnLists,
+  describeFacetScope,
+  formatProofLifetime,
+  isFacetScope,
+  type FacetDescription,
+  type FacetLearnLists,
+  type FacetTier,
+} from "./oauth/facet-scopes";
 export {
   navigateToProviderRedirect,
   useOAuthFlowQuery,

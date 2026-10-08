@@ -1,8 +1,9 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { privateProcedure, router } from "./trpc";
+import { privateProcedure, publicProcedure, router } from "./trpc";
 import { prisma } from "@repo/database";
 import { auth } from "../utils/auth";
+import { checkSignOrigin } from "../services/signOrigin";
 
 const clientIdInput = z.object({ client_id: z.string().min(1) });
 
@@ -21,7 +22,8 @@ function toTRPCError(error: unknown): never {
   if (error instanceof TRPCError) throw error;
 
   const message =
-    (error as { body?: { message?: string; error_description?: string } })?.body?.error_description ??
+    (error as { body?: { message?: string; error_description?: string } })?.body
+      ?.error_description ??
     (error as { body?: { message?: string } })?.body?.message ??
     (error as Error)?.message ??
     "OAuth request failed";
@@ -38,6 +40,26 @@ function toTRPCError(error: unknown): never {
  * only forwards the caller's session.
  */
 export const oauthAppsRouter = router({
+  /**
+   * Screen Review 074 D3: whether a /sign requester is an enabled registered
+   * app. Public, because /sign checks the origin before showing the message.
+   * Returns only the app name and icon, which the registry already publishes
+   * on the consent screen.
+   */
+  signOrigin: publicProcedure
+    .input(z.object({ origin: z.string().trim().min(1).max(512) }))
+    .query(async ({ input }) => {
+      try {
+        return await checkSignOrigin(input.origin);
+      } catch (error) {
+        console.error("[oauthApps] sign origin check failed", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "We could not check this site. Try again in a moment.",
+        });
+      }
+    }),
+
   list: privateProcedure.query(async ({ ctx }) => {
     try {
       return await auth.api.getOAuthClients({ headers: ctx.req.headers as never });
@@ -126,14 +148,16 @@ export const oauthAppsRouter = router({
     }
   }),
 
-  revokeConsent: privateProcedure.input(z.object({ id: z.string().min(1) })).mutation(async ({ ctx, input }) => {
-    try {
-      return await auth.api.deleteOAuthConsent({
-        headers: ctx.req.headers as never,
-        body: input,
-      });
-    } catch (error) {
-      return toTRPCError(error);
-    }
-  }),
+  revokeConsent: privateProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        return await auth.api.deleteOAuthConsent({
+          headers: ctx.req.headers as never,
+          body: input,
+        });
+      } catch (error) {
+        return toTRPCError(error);
+      }
+    }),
 });

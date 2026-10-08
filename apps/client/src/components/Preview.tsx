@@ -11,6 +11,8 @@ import { MediaBlock } from "./blocks/MediaBlock";
 import { TextBlock } from "./blocks/text/TextBlock";
 import { CreatorPoolBlock } from "./blocks/CreatorPoolBlock";
 import { ReferralBlock } from "./blocks/ReferralBlock";
+import { FollowBlock } from "./blocks/FollowBlock";
+import { FollowersBlock } from "./blocks/FollowersBlock";
 import { isHTML } from "@/utils/htmlutils";
 import { type BlockType, sanitizeRichHtml } from "@repo/constants";
 import { Theme, UserProfile } from "@/types/editor";
@@ -39,6 +41,8 @@ const extractRootDomain = (url: string): string => {
 /** QA-004: shows behind a video background until its first frame arrives
  *  (same value as the public page). */
 const VIDEO_BACKDROP = "#14141C";
+
+const fanGraphOn = import.meta.env.VITE_FAN_GRAPH === "true";
 
 interface PreviewProps {
   isEditing: boolean;
@@ -171,6 +175,23 @@ export function Preview({
             pageOwnerId={userId ?? 0}
             isPreview={isEditing}
           />
+        </ErrorBoundary>
+      );
+    }
+    // Follow blocks (#30) show only while the fan graph is on, as on the page
+    if (block.type === "follow") {
+      if (!fanGraphOn) return null;
+      return (
+        <ErrorBoundary key={block.id} fallback={fallback}>
+          <FollowBlock block={block} theme={themeConfig} />
+        </ErrorBoundary>
+      );
+    }
+    if (block.type === "followers") {
+      if (!fanGraphOn) return null;
+      return (
+        <ErrorBoundary key={block.id} fallback={fallback}>
+          <FollowersBlock block={block} theme={themeConfig} handle={profile.handle ?? ""} />
         </ErrorBoundary>
       );
     }

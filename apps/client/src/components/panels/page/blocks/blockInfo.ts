@@ -29,6 +29,10 @@ export function blockTitle(block: BlockType) {
       return block.config.label || "Creator pool";
     case "referral":
       return "Referral link";
+    case "follow":
+      return "Follow button";
+    case "followers":
+      return "Followers";
     default:
       return "Text";
   }
@@ -65,6 +69,20 @@ export function blockMeta(block: BlockType) {
       return block.config.label ? block.config.label : "";
     case "referral":
       return "Your invite link";
+    case "follow":
+      return block.config.label || "Follow";
+    case "followers": {
+      // The rows that are on, in card order (036 I05)
+      const show = block.config.show ?? {};
+      const rows = [
+        show.count !== false && "Count",
+        show.faces !== false && "faces",
+        show.poolFans !== false && "Pool fans",
+        show.milestone !== false && "milestone",
+        show.sources === true && "sources",
+      ].filter((row): row is string => typeof row === "string");
+      return rows.length > 0 ? rows.join(", ") : "Title only";
+    }
     case "text":
       return stripTags(block.config.content ?? "");
     default:

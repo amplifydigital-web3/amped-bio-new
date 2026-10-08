@@ -6,6 +6,9 @@ import { trpcClient } from "@/lib/trpc";
 
 export type FollowStatus = Awaited<ReturnType<typeof trpcClient.follow.status.query>>;
 
+/** Where a follow starts: the frame capsule or a block in the page (decision 8). */
+export type FollowSource = "page" | "block";
+
 export type FollowToast = {
   id: number;
   type: "success" | "error" | "info";
@@ -57,7 +60,11 @@ export function useFollow(handle: string, signedIn: boolean, authPending: boolea
   const [toast, setToast] = useState<FollowToast | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoFollowDone = useRef(false);
+  // The placement that started the current follow, for the first-follow
+  // sheet and the return from sign up. Capsule unless a block said otherwise.
+  const sourceRef = useRef<FollowSource>("page");
   const FOLLOW_INTENT_KEY = "amped_follow_intent";
+  const FOLLOW_SOURCE_KEY = "amped_follow_source";
 
   const showToast = useCallback((next: Omit<FollowToast, "id">) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -104,7 +111,7 @@ export function useFollow(handle: string, signedIn: boolean, authPending: boolea
       try {
         const result = await trpcClient.follow.follow.mutate({
           handle,
-          source: "page",
+          source: sourceRef.current,
           campaignId: campaignFromUrl(),
           ...options,
         });
@@ -176,22 +183,29 @@ export function useFollow(handle: string, signedIn: boolean, authPending: boolea
   );
 
   /** Follow tapped: sign up, the one-time sheet, or a one tap follow. */
-  const startFollow = useCallback(() => {
-    if (!signedIn) {
-      // Record intent before navigating away so auto-follow only fires when
-      // the flow originated from the Follow control
-      try {
-        sessionStorage.setItem(FOLLOW_INTENT_KEY, handle);
-      } catch { /* noop */ }
-      window.location.href = `/register?intent=follow&creator=${encodeURIComponent(handle)}`;
-      return;
-    }
-    if (status?.viewer && !status.viewer.disclosureSeen) {
-      setSheetOpen(true);
-      return;
-    }
-    void follow();
-  }, [signedIn, handle, status, follow]);
+  const startFollow = useCallback(
+    (source: FollowSource = "page") => {
+      sourceRef.current = source;
+      if (!signedIn) {
+        // Record intent before navigating away so auto-follow only fires when
+        // the flow originated from the Follow control
+        try {
+          sessionStorage.setItem(FOLLOW_INTENT_KEY, handle);
+          sessionStorage.setItem(FOLLOW_SOURCE_KEY, source);
+        } catch {
+          /* noop */
+        }
+        window.location.href = `/register?intent=follow&creator=${encodeURIComponent(handle)}`;
+        return;
+      }
+      if (status?.viewer && !status.viewer.disclosureSeen) {
+        setSheetOpen(true);
+        return;
+      }
+      void follow();
+    },
+    [signedIn, handle, status, follow]
+  );
 
   // Back from sign up or sign in with ?follow=1: finish the follow once,
   // but only when a follow intent was recorded before navigating away
@@ -210,14 +224,21 @@ export function useFollow(handle: string, signedIn: boolean, authPending: boolea
       `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`
     );
     let recordedHandle: string | null = null;
+    let recordedSource: FollowSource = "page";
     try {
       recordedHandle = sessionStorage.getItem(FOLLOW_INTENT_KEY);
-    } catch { /* noop */ }
+      if (sessionStorage.getItem(FOLLOW_SOURCE_KEY) === "block") recordedSource = "block";
+    } catch {
+      /* noop */
+    }
     if (recordedHandle !== handle) return;
     try {
       sessionStorage.removeItem(FOLLOW_INTENT_KEY);
-    } catch { /* noop */ }
-    if (!status.viewer.following) startFollow();
+      sessionStorage.removeItem(FOLLOW_SOURCE_KEY);
+    } catch {
+      /* noop */
+    }
+    if (!status.viewer.following) startFollow(recordedSource);
   }, [status, signedIn, startFollow]);
 
   return {

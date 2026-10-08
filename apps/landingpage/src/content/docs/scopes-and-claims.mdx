@@ -1,22 +1,24 @@
 ---
 title: Scopes and claims
 description: What each scope grants and which claims come back.
-order: 11
+order: 21
 group: Reference
 ---
 
 ## Supported scopes
 
-| Scope | Grants | UserInfo claims |
-| --- | --- | --- |
-| `openid` | Identity (required for OIDC) | `sub` |
-| `profile` | Basic profile | `name`, `given_name`, `family_name`, `picture` |
-| `email` | Email address | `email`, `email_verified` |
-| `offline_access` | Refresh token | - |
-| `mcp:read` | Read access to the MCP resource | - |
+| Scope            | Grants                                           | UserInfo claims                                          |
+| ---------------- | ------------------------------------------------ | -------------------------------------------------------- |
+| `openid`         | Identity (required for OIDC)                     | `sub`                                                    |
+| `profile`        | Display name, profile picture and wallet address | `name`, `given_name`, `family_name`, `picture`, `wallet` |
+| `email`          | Email address                                    | `email`, `email_verified`                                |
+| `offline_access` | Refresh token                                    | -                                                        |
+| `mcp:read`       | Read access to the MCP resource                  | -                                                        |
+
+The `profile` scope shares the user's wallet address. Treat it as personal data.
 
 Only ask for what you need: every scope is shown to the user on the consent screen, and users can revoke
-access at any time from **Developers → Authorized applications**.
+access at any time from [Account settings, Developers tab]({{APP_URL}}/account?tab=developers), Authorized applications.
 
 ## Claims in the ID token
 
@@ -26,13 +28,14 @@ the access token as the source of truth for API calls.
 
 ## Claims in the access token
 
-| Claim | Meaning |
-| --- | --- |
-| `sub` | Amped.bio user id |
-| `client_id` / `azp` | Your `client_id` |
-| `scope` | Granted scopes |
-| `sid` | Session id (tokens stop verifying once the session ends) |
-| `aud` | Requested `resource`, or the userinfo endpoint |
+| Claim               | Meaning                                                                                  |
+| ------------------- | ---------------------------------------------------------------------------------------- |
+| `sub`               | Amped.Bio user id                                                                        |
+| `client_id` / `azp` | Your `client_id`                                                                         |
+| `scope`             | Granted scopes                                                                           |
+| `sid`               | Session id (tokens stop verifying once the session ends)                                 |
+| `aud`               | Requested `resource`, or the userinfo endpoint                                           |
+| `wallet`            | The user's wallet address, with `profile` or `mcp:read`. `null` when no wallet is linked |
 
 ## Requesting specific claims
 
@@ -42,4 +45,5 @@ OpenID Connect lets a client ask for individual claims:
 claims={"userinfo":{"email":null,"email_verified":null}}
 ```
 
-Claims that no granted scope covers are omitted rather than returned as `null`.
+`wallet` is returned for a claims request under any scope, and is `null` when the user has not linked a
+wallet. The consent screen names the wallet address in the `profile` line, so users see that it is shared.
