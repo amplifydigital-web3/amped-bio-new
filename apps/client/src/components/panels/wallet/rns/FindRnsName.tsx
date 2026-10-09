@@ -1,10 +1,9 @@
 import { useId, useRef, useState } from "react";
-import { AlertCircle, Check, ChevronRight, Info, RefreshCw, Search, Wallet } from "lucide-react";
+import { AlertCircle, Check, ChevronRight, Info, RefreshCw, Search } from "lucide-react";
 import { Button, cn } from "@repo/ui";
 import { getRnsSuffix, RNS_LABEL_FIX } from "@repo/web3";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useDelayed } from "@/hooks/useDelayed";
-import { useWalletContext } from "@/contexts/WalletContext";
 import { Eyebrow } from "../../explore/pool-panel/sections";
 import {
   readRnsSearch,
@@ -71,7 +70,6 @@ export function FindRnsName({
   const ids = { input: useId(), helper: useId(), error: useId() };
   const chain = useRnsChain();
   const network = useRnsNetwork();
-  const wallet = useWalletContext();
   const [value, setValue] = useState("");
   const debounced = useDebounce(value, 500);
   const search = readRnsSearch(debounced, chain.id);
@@ -110,7 +108,11 @@ export function FindRnsName({
         }
       : null;
 
-  const registerButton = network.isConnected ? (
+  // In-app every user is signed in and the embedded wallet connects
+  // automatically, so the result never offers "Connect wallet". Availability
+  // and price are public reads, and RegisterFlow handles the rare
+  // wallet-not-ready edge before signing.
+  const registerButton = (
     <Button
       type="button"
       size="lg"
@@ -118,17 +120,6 @@ export function FindRnsName({
       className="max-sm:w-full"
     >
       Register
-    </Button>
-  ) : (
-    <Button
-      type="button"
-      size="lg"
-      onClick={() => void wallet.connect()}
-      disabled={wallet.connecting}
-      className="max-sm:w-full"
-    >
-      <Wallet aria-hidden />
-      Connect wallet
     </Button>
   );
 
@@ -245,14 +236,12 @@ export function FindRnsName({
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch">
-            {network.isConnected && price ? (
+            {price ? (
               <p className="text-prism-label tabular-nums text-prism-ink">
                 {price.term}, <b className="font-bold">{price.amount}</b>
               </p>
             ) : (
-              <p className="text-prism-meta text-prism-ink-2">
-                Connect your wallet to see the price and register.
-              </p>
+              <p className="text-prism-meta text-prism-ink-2">Checking the price…</p>
             )}
             {registerButton}
           </div>
