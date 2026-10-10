@@ -441,9 +441,16 @@ export const auth = betterAuth({
   },
   // Required to send the verification email. Top-level since Better Auth 1.7.
   emailVerification: {
-    sendVerificationEmail: async ({ user, url, token }: { user: any; url: any; token: any }) => {
-      console.info("Sending email verification to:", JSON.stringify({ user, url, token }));
-      sendEmailVerification(user.email, token);
+    sendVerificationEmail: async ({ user, token }: { user: any; url: any; token: any }) => {
+      console.info("Sending email verification to:", user.email);
+      // Awaited so an SMTP failure is logged here instead of becoming an
+      // unhandled rejection. It is not rethrown: sign up still completes and
+      // the person can resend from Home or Account.
+      try {
+        await sendEmailVerification(user.email, token);
+      } catch (error: any) {
+        console.error("Email verification send failed for", user.email, error?.message ?? error);
+      }
     },
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
@@ -507,8 +514,8 @@ export const auth = betterAuth({
       hash: hashPassword,
       verify: verifyPassword,
     },
-    sendResetPassword: async ({ user, url, token }: { user: any; url: any; token: any }) => {
-      console.info("Sending password reset email to:", JSON.stringify({ user, url, token }));
+    sendResetPassword: async ({ user, token }: { user: any; url: any; token: any }) => {
+      console.info("Sending password reset email to:", user.email);
       await sendPasswordResetEmail(user.email, token);
     },
   },
