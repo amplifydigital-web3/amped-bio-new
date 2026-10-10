@@ -3,6 +3,7 @@ import {
   Check,
   Coins,
   FileText,
+  IdCard,
   Link2,
   Loader2,
   Plus,
@@ -43,7 +44,8 @@ export type NewBlockKind =
   | { type: "pool" }
   | { type: "referral" }
   | { type: "follow" }
-  | { type: "followers" };
+  | { type: "followers" }
+  | { type: "rnsid" };
 
 type SingletonType = (typeof SINGLETON_BLOCK_TYPES)[number];
 
@@ -52,6 +54,7 @@ function isSingleton(type: string): type is SingletonType {
 }
 
 const fanGraphOn = import.meta.env.VITE_FAN_GRAPH === "true";
+const rnsOn = import.meta.env.VITE_SHOW_RNS === "true";
 
 type Tile = { label: string; icon: LucideIcon | IconType; kind: NewBlockKind };
 
@@ -111,6 +114,15 @@ const SECTIONS: { eyebrow: string; tiles: Tile[] }[] = [
             { label: "Follow button", icon: UserPlus, kind: { type: "follow" as const } },
             { label: "Followers", icon: UsersRound, kind: { type: "followers" as const } },
           ],
+        },
+      ]
+    : []),
+  // Identity (Build Board #33, Screen Review 112): the RNS ID block, one per page
+  ...(rnsOn
+    ? [
+        {
+          eyebrow: "Identity",
+          tiles: [{ label: "RNS ID", icon: IdCard, kind: { type: "rnsid" as const } }],
         },
       ]
     : []),
