@@ -1,10 +1,20 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { prisma } from "@repo/database";
-import { BROADCAST_LIMITS, checkBroadcastContent } from "@repo/constants";
+import {
+  BROADCAST_LIMITS,
+  EMAIL_VERIFICATION_GRACE_BROADCASTS,
+  checkBroadcastContent,
+} from "@repo/constants";
 import { privateProcedure, router } from "../trpc";
 import { env } from "../../env";
-import { countMembers, enqueueBroadcast, getQuota } from "../../services/broadcast";
+import {
+  countMembers,
+  countSentBroadcasts,
+  enqueueBroadcast,
+  getQuota,
+} from "../../services/broadcast";
+import { verificationGate } from "../../utils/verificationGrace";
 import { bodySchema, ownedPool, storedFlags, titleSchema } from "./shared";
 
 type Quota = Awaited<ReturnType<typeof getQuota>>;
@@ -34,21 +44,32 @@ export const broadcastCreatorRouter = router({
         where: { chainId: input.chainId, wallet: { userId } },
         select: { id: true, name: true },
       });
-      const [quota, status, user] = await Promise.all([
+      const [quota, status, user, sentTotal] = await Promise.all([
         getQuota(userId),
         prisma.broadcastSenderStatus.findUnique({ where: { userId } }),
         prisma.user.findUnique({
           where: { id: userId },
-          select: { name: true, email_verified: true },
+          select: { name: true, email_verified: true, created_at: true },
         }),
+        countSentBroadcasts(userId),
       ]);
       const members = pool ? await countMembers(pool.id, userId) : 0;
+      // Verification grace (Rob, 2026-10-10): a new creator sends without a
+      // verified email for 30 days or EMAIL_VERIFICATION_GRACE_BROADCASTS sends
+      const verification = verificationGate(
+        user ?? { email_verified: false, created_at: new Date() },
+        { milestoneReached: sentTotal >= EMAIL_VERIFICATION_GRACE_BROADCASTS }
+      );
       return {
         pool,
         members,
         quota,
         creatorName: user?.name ?? "",
-        emailVerified: !!user?.email_verified,
+        emailVerified: verification.verified,
+        verification,
+        graceSendsLeft: verification.verified
+          ? null
+          : Math.max(0, EMAIL_VERIFICATION_GRACE_BROADCASTS - sentTotal),
         // Pilot gate: the tab shows a waitlist line until an admin invites the owner
         canSend: !env.BROADCAST_INVITE_ONLY || !!status?.invitedAt,
         paused: !!status?.pausedAt,
@@ -87,22 +108,31 @@ export const broadcastCreatorRouter = router({
       if (existing) return existing;
 
       const pool = await ownedPool(userId, input.chainId);
-      const [user, status, quota] = await Promise.all([
+      const [user, status, quota, sentTotal] = await Promise.all([
         prisma.user.findUnique({
           where: { id: userId },
-          select: { email_verified: true, block: true },
+          select: { email_verified: true, block: true, created_at: true },
         }),
         prisma.broadcastSenderStatus.findUnique({ where: { userId } }),
         getQuota(userId),
+        countSentBroadcasts(userId),
       ]);
 
       if (!user || user.block !== "no") {
         throw new TRPCError({ code: "FORBIDDEN", message: "This account cannot send broadcasts." });
       }
-      if (!user.email_verified) {
+      // Verification grace (Rob, 2026-10-10): the email must be verified once
+      // the account is 30 days old or has sent EMAIL_VERIFICATION_GRACE_BROADCASTS
+      const verification = verificationGate(user, {
+        milestoneReached: sentTotal >= EMAIL_VERIFICATION_GRACE_BROADCASTS,
+      });
+      if (verification.required) {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "Confirm your email to send broadcasts.",
+          message:
+            verification.reason === "milestone"
+              ? `You have sent ${EMAIL_VERIFICATION_GRACE_BROADCASTS} broadcasts. Confirm your email to keep sending.`
+              : "Confirm your email to send broadcasts.",
         });
       }
       if (env.BROADCAST_INVITE_ONLY && !status?.invitedAt) {
