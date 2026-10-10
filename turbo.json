@@ -43,6 +43,9 @@
     "typecheck": {
       "cache": false
     },
+    "test": {
+      "cache": false
+    },
     "dev": {
       "dependsOn": ["prisma:generate"],
       "cache": false,

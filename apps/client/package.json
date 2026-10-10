@@ -21,7 +21,9 @@
     "generate-thumbnails": "bun run tsx scripts/generate-video-thumbnails.ts",
     "download-convert-videos": "bun run tsx scripts/download-convert-videos.ts",
     "e2e:test": "cypress run",
-    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf build && rm -rf coverage"
+    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf build && rm -rf coverage",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@cap.js/widget": "0.1.57",
@@ -97,6 +99,9 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
     "@trpc/server": "^11.1.2",
     "@types/decimal.js": "^7.4.3",
     "@types/jest": "^29.5.14",
@@ -113,6 +118,7 @@
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.11",
     "globals": "^15.9.0",
+    "jsdom": "^30.1.2",
     "postcss": "^8.4.35",
     "prettier": "^3.2.5",
     "process": "^0.11.10",
@@ -122,6 +128,7 @@
     "typescript": "5.9.2",
     "typescript-eslint": "^8.40.0",
     "vite": "^5.4.2",
+    "vitest": "^3.1.0",
     "zod": "3.25.64"
   }
 }
