@@ -1,5 +1,6 @@
 import { instrumentCaptchaVerification } from "./utils/captcha-observability";
 import { startBroadcastSweeper } from "./services/broadcast";
+import { startTelegramLoop } from "./services/telegram/loop";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
@@ -11,3 +12,6 @@ instrumentCaptchaVerification();
 
 // Resume broadcasts left queued after a restart (Build Board #1)
 startBroadcastSweeper();
+
+// Messaging on Telegram (Build Board #2): drain the inbox and outbox tables. No-op until TELEGRAM_ENABLED.
+startTelegramLoop();
