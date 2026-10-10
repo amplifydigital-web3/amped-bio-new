@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getAddress, isAddress, type Address } from "viem";
+import { rnsIdConfigSchema } from "@repo/constants";
 import {
   formatRnsName,
   isRnsNameActive,
@@ -9,7 +10,7 @@ import {
 } from "@repo/web3";
 import { env } from "../env";
 import { cache } from "../utils/cache";
-import { getAuthbaseWalletStatus, isAuthbaseConfigured } from "./authbase";
+import { getAuthbaseWalletStatus, isAuthbaseConfigured, publicSharedAttributes } from "./authbase";
 import { checkRnsBinding, checkRnsBindingCached, type RnsBindingResult } from "./rns";
 import { readPrimaryName } from "./rnsSummary";
 
@@ -51,7 +52,18 @@ export function parseRnsDisplay(value: unknown): RnsDisplay {
 export type RnsCheckTier = "standard" | "enhanced";
 
 export type RnsVerification =
-  | { state: "verified"; verifiedAt: string; validUntil: string; tier: RnsCheckTier }
+  | {
+      state: "verified";
+      verifiedAt: string;
+      validUntil: string;
+      tier: RnsCheckTier;
+      /**
+       * The name Authbase checked, only under the 079 D2 rule
+       * (RNS_PUBLIC_ATTRIBUTES). Leaves this module only through
+       * computeRnsIdentity, when the owner's RNS ID block asks for it (112 D1).
+       */
+      nameOnId?: string;
+    }
   | { state: "not_verified" | "off" | "unavailable" };
 
 const VERIFICATION_TTL_SECONDS = 300;
@@ -73,6 +85,9 @@ export async function getRnsVerification(wallet: string): Promise<RnsVerificatio
       status.verification &&
       status.verification.valid_until &&
       Date.now() > new Date(status.verification.valid_until).getTime();
+    const nameOnId = env.RNS_PUBLIC_ATTRIBUTES
+      ? publicSharedAttributes(status.attributes).name
+      : undefined;
     const result: RnsVerification =
       status.verified && status.verification && !alreadyExpired
         ? {
@@ -80,12 +95,17 @@ export async function getRnsVerification(wallet: string): Promise<RnsVerificatio
             verifiedAt: status.verification.verified_at,
             validUntil: status.verification.valid_until,
             tier: status.verification.type === "ENHANCED" ? "enhanced" : "standard",
+            ...(nameOnId ? { nameOnId } : {}),
           }
         : { state: "not_verified" };
     // Cache entries expire at most at validUntil so stale verified state is never shown
-    const ttl = result.state === "verified"
-      ? Math.min(VERIFICATION_TTL_SECONDS, Math.max(1, Math.floor((new Date(result.validUntil).getTime() - Date.now()) / 1000)))
-      : VERIFICATION_TTL_SECONDS;
+    const ttl =
+      result.state === "verified"
+        ? Math.min(
+            VERIFICATION_TTL_SECONDS,
+            Math.max(1, Math.floor((new Date(result.validUntil).getTime() - Date.now()) / 1000))
+          )
+        : VERIFICATION_TTL_SECONDS;
     await cache.set(key, result, ttl);
     return result;
   } catch (error) {
@@ -129,13 +149,38 @@ export type PublicRnsIdentity = {
   wallet?: string;
   /** The identity check, only when verified and details.check is on */
   check?: { verifiedAt: string; validUntil: string; tier: RnsCheckTier };
+  /**
+   * The name Authbase checked (112 D1). Only when verified, the owner's RNS ID
+   * block has Name on ID on, and RNS_PUBLIC_ATTRIBUTES is on. Never in the
+   * name chip state.
+   */
+  nameOnId?: string;
 } | null;
 
 export type RnsIdentityInput = {
   storedName: string | null;
   wallet: string | null;
   display: RnsDisplay;
+  /** The owner's RNS ID block switches, from rnsIdBlockOptions (112) */
+  block?: RnsIdBlockOptions;
 };
+
+export type RnsIdBlockOptions = { nameOnId: boolean };
+
+/**
+ * The RNS ID block's identity switches, from the page's block rows. Only a
+ * visible rnsid block counts; a hidden one asks for nothing. One block per
+ * page (SINGLETON_BLOCK_TYPES), so the first match is the block.
+ */
+export function rnsIdBlockOptions(
+  blocks: readonly { type: string; config: unknown }[]
+): RnsIdBlockOptions {
+  const block = blocks.find(row => row.type === "rnsid");
+  if (!block) return { nameOnId: false };
+  const parsed = rnsIdConfigSchema.safeParse(block.config);
+  if (!parsed.success || parsed.data.hidden) return { nameOnId: false };
+  return { nameOnId: parsed.data.show.nameOnId };
+}
 
 export type RnsIdentityResult = {
   identity: PublicRnsIdentity;
@@ -152,7 +197,7 @@ export type RnsIdentityResult = {
  * about the check shows the name chip.
  */
 export async function computeRnsIdentity(
-  { storedName, wallet, display }: RnsIdentityInput,
+  { storedName, wallet, display, block }: RnsIdentityInput,
   options: { fresh?: boolean } = {}
 ): Promise<RnsIdentityResult> {
   const label = storedName ? parseRnsInput(storedName, RNS_CHAIN.id) || null : null;
@@ -207,6 +252,11 @@ export async function computeRnsIdentity(
       validUntil: verification.validUntil,
       tier: verification.tier,
     };
+  }
+  // 112 D1: the checked name rides on the verified chip only, and only when
+  // the owner's block asks for it. The name chip never carries it.
+  if (verified && block?.nameOnId && verification.state === "verified" && verification.nameOnId) {
+    identity.nameOnId = verification.nameOnId;
   }
   return { ...base, expiry, identity, nameState, verification };
 }

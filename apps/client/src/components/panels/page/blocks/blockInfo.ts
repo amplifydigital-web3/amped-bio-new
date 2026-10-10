@@ -33,6 +33,8 @@ export function blockTitle(block: BlockType) {
       return "Follow button";
     case "followers":
       return "Followers";
+    case "rnsid":
+      return "RNS ID";
     default:
       return "Text";
   }
@@ -82,6 +84,15 @@ export function blockMeta(block: BlockType) {
         show.sources === true && "sources",
       ].filter((row): row is string => typeof row === "string");
       return rows.length > 0 ? rows.join(", ") : "Title only";
+    }
+    case "rnsid": {
+      const styles = {
+        nameplate: "Nameplate",
+        idcard: "ID Card",
+        proofstrip: "Proof Strip",
+        seal: "Seal",
+      };
+      return styles[block.config.style] ?? "Nameplate";
     }
     case "text":
       return stripTags(block.config.content ?? "");

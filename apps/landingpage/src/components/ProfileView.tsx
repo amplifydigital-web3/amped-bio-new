@@ -22,6 +22,7 @@ import { CreatorPoolBlock } from "@/components/blocks/CreatorPoolBlock";
 import { ReferralBlock } from "@/components/blocks/ReferralBlock";
 import { FollowBlock } from "@/components/blocks/FollowBlock";
 import { FollowersBlock } from "@/components/blocks/FollowersBlock";
+import { RnsIdBlock } from "@/components/blocks/RnsIdBlock";
 import { FollowContext } from "@/components/follow/FollowContext";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
 import { useAuth } from "@/contexts/AuthContext";
@@ -521,6 +522,20 @@ export function ProfileView({
                   ) : block.type === "followers" ? (
                     followEnabled && (
                       <FollowersBlock block={block} theme={themeConfig} handle={normalizedHandle} />
+                    )
+                  ) : block.type === "rnsid" ? (
+                    // 112: the same identity the header chip shows; nothing without it
+                    showRns && (
+                      <RnsIdBlock
+                        block={block}
+                        theme={themeConfig}
+                        identity={identity}
+                        displayName={profile.name}
+                        avatarUrl={photo || null}
+                        since={profile.since ?? null}
+                        sendHref={sendHref}
+                        rnsUrl={process.env.NEXT_PUBLIC_RNS_URL}
+                      />
                     )
                   ) : (
                     <TextBlock block={block as any} theme={themeConfig as any} />

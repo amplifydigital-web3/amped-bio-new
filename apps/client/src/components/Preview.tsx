@@ -13,6 +13,7 @@ import { CreatorPoolBlock } from "./blocks/CreatorPoolBlock";
 import { ReferralBlock } from "./blocks/ReferralBlock";
 import { FollowBlock } from "./blocks/FollowBlock";
 import { FollowersBlock } from "./blocks/FollowersBlock";
+import { RnsIdBlock } from "./blocks/RnsIdBlock";
 import { isHTML } from "@/utils/htmlutils";
 import { type BlockType, sanitizeRichHtml } from "@repo/constants";
 import { Theme, UserProfile } from "@/types/editor";
@@ -43,6 +44,7 @@ const extractRootDomain = (url: string): string => {
 const VIDEO_BACKDROP = "#14141C";
 
 const fanGraphOn = import.meta.env.VITE_FAN_GRAPH === "true";
+const rnsOn = import.meta.env.VITE_SHOW_RNS === "true";
 
 interface PreviewProps {
   isEditing: boolean;
@@ -192,6 +194,20 @@ export function Preview({
       return (
         <ErrorBoundary key={block.id} fallback={fallback}>
           <FollowersBlock block={block} theme={themeConfig} handle={profile.handle ?? ""} />
+        </ErrorBoundary>
+      );
+    }
+    // RNS ID block (#33) shows only while RNS is on, as on the page
+    if (block.type === "rnsid") {
+      if (!rnsOn) return null;
+      return (
+        <ErrorBoundary key={block.id} fallback={fallback}>
+          <RnsIdBlock
+            block={block}
+            theme={themeConfig}
+            displayName={profile.name}
+            avatarUrl={profile.photoUrl || null}
+          />
         </ErrorBoundary>
       );
     }
