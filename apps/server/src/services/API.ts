@@ -9,6 +9,7 @@ import wellKnownRouter from "../routes/well-known";
 import blocksSchemasRouter from "../routes/blocks-schemas";
 import healthRouter from "../routes/health";
 import analyticsRouter from "../routes/analytics";
+import telegramRouter from "../routes/telegram";
 import mcpRouter from "../routes/mcp";
 
 const app: Application = express();
@@ -84,6 +85,10 @@ app.use(apiCors);
 // /.well-known/oauth-protected-resource/mcp. Registered before the JSON body
 // parser because it reads the raw request stream itself.
 app.use("/mcp", mcpRouter);
+
+// Telegram webhook (Build Board #2). Registered before the global JSON parser with its
+// own body limit; it checks the secret header, dedupes and writes the update, nothing else.
+app.use("/webhooks/telegram", telegramRouter);
 
 // Protected resource metadata (RFC 9728) for MCP clients.
 // Tells clients that the authorization server is at auth.amped.bio.

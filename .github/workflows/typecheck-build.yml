@@ -47,3 +47,10 @@ jobs:
 
       - name: Build all apps
         run: pnpm run build
+
+      - name: Server unit tests
+        # The two OAuth integration files need staging and a database; they run by hand (AGENTS.md, Testing)
+        run: pnpm --filter @repo/server run test:unit
+
+      - name: Compliance copy check
+        run: pnpm run check:copy
