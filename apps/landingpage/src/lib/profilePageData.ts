@@ -16,6 +16,8 @@ export interface UserProfile {
   photoCmp?: string;
   /** 109 I01: the RNS chip and the sheet fields the owner allows */
   identity?: HandleUser["identity"];
+  /** 112: the month the page joined, "YYYY-MM", for the RNS ID block */
+  since?: string | null;
 }
 
 // Theme from tRPC, but with the JSON column typed as the app's ThemeConfig
@@ -107,6 +109,7 @@ export function mapGetHandleData(result: HandleOutput, handle: string): ProfileP
       photoUrl: user.image ?? "",
       photoCmp: "",
       identity: user.identity ?? null,
+      since: user.since ?? null,
     },
     theme: theme ? (theme as unknown as Theme) : null,
     blocks: [...blocksRaw].sort((a, b) => a.order - b.order) as unknown as BlockType[],
