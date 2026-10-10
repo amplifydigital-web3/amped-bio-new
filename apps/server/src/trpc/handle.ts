@@ -12,6 +12,7 @@ import { indexableUserWhere, isUserIndexable } from "../utils/indexable";
 import {
   computeRnsIdentity,
   parseRnsDisplay,
+  rnsIdBlockOptions,
   type PublicRnsIdentity,
 } from "../services/rnsIdentity";
 import { assertHandleAvailable, newHandleSchema } from "../services/pageHandle";
@@ -180,16 +181,20 @@ const appRouter = router({
         description,
         image,
         image_file_id,
+        created_at,
       } = user;
 
-      const [themeResult, blocksResult, imageResult, identityResult, trackingPixelsResult] =
+      // The RNS ID block (112) sets which identity fields the page asks for,
+      // so the blocks are read before the identity
+      const blockRows = await prisma.block.findMany({
+        where: {
+          user_id: Number(user_id),
+        },
+      });
+
+      const [themeResult, imageResult, identityResult, trackingPixelsResult] =
         await Promise.allSettled([
           getPublicTheme(Number(theme_id)),
-          prisma.block.findMany({
-            where: {
-              user_id: Number(user_id),
-            },
-          }),
           getFileUrl({
             legacyImageField: image,
             imageFileId: image_file_id,
@@ -200,15 +205,15 @@ const appRouter = router({
             storedName: revo_name ?? null,
             wallet: user.wallet?.address ?? null,
             display: parseRnsDisplay(rns_display),
+            block: rnsIdBlockOptions(blockRows),
           }),
           getPublicTrackingPixels(user_id),
         ]);
 
-      // Theme and blocks are the profile itself, so their failures are fatal
+      // The theme is the profile itself, so its failure is fatal
       if (themeResult.status === "rejected") throw themeResult.reason;
-      if (blocksResult.status === "rejected") throw blocksResult.reason;
 
-      const publicBlocks = blocksResult.value.map(block => ({
+      const publicBlocks = blockRows.map(block => ({
         id: block.id,
         user_id: block.user_id,
         type: block.type,
@@ -237,6 +242,8 @@ const appRouter = router({
           // Sanitized on read as well as on save, so bios stored before the sanitizer are safe
           description: sanitizeRichText(description),
           image: settledOrFallback(imageResult, null, "profile image URL"),
+          // 112: the month the page joined, for the RNS ID block (day dropped)
+          since: created_at ? created_at.toISOString().slice(0, 7) : null,
         },
         theme: themeResult.value,
         blocks: publicBlocks,

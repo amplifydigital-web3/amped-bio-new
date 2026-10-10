@@ -18,6 +18,7 @@ vi.mock("../trpc/trackingPixels", () => ({ getPublicTrackingPixels: vi.fn(async 
 vi.mock("../services/rnsIdentity", () => ({
   computeRnsIdentity: vi.fn(async () => ({ identity: null })),
   parseRnsDisplay: vi.fn(() => ({})),
+  rnsIdBlockOptions: vi.fn(() => ({ nameOnId: false })),
 }));
 
 import handleRouter from "../trpc/handle";
