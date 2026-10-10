@@ -4,6 +4,7 @@ import type { Prisma } from "@repo/database";
 import { privateProcedure, publicProcedure, router } from "./trpc";
 import { prisma } from "../services/DB";
 import { enforceRateLimits } from "../utils/rateLimit";
+import { hasEmailTrust, trustedEmailWhere } from "../utils/verificationGrace";
 import { hexToId, idToHex } from "../services/analytics/ids";
 import { getFileUrl } from "../utils/fileUrlResolver";
 import { cache } from "../utils/cache";
@@ -34,9 +35,11 @@ export { FOLLOWER_COUNT_FLOOR };
 /**
  * Fan Graph (Build Board #22). Spec: docs/features/fan-graph.md.
  *
- * A follow counts while the follower's email is verified and the account is
- * not suspended. That is checked at read time, so a follow from an unverified
- * account starts "pending" and counts on its own once the email is confirmed.
+ * A follow counts while the follower's account is not suspended and its email
+ * is trusted: verified, or inside the verification grace period (Rob,
+ * 2026-10-10, `utils/verificationGrace.ts`). That is checked at read time, so
+ * a follow from an account past the grace period is "pending" and counts on
+ * its own once the email is confirmed.
  * Nothing here ever returns a follower's email or wallet address.
  */
 
@@ -52,8 +55,11 @@ const FOLLOW_SOURCES = ["page", "explore", "pool", "broadcast", "qr", "block"] a
 const PAGE_SOURCES = ["page", "block"] as const;
 const handleInput = z.string().trim().min(1).max(64);
 
-/** Only follows from accounts that count: verified email, not suspended. */
-const COUNTED_FOLLOWER: Prisma.UserWhereInput = { email_verified: true, block: "no" };
+/** Only follows from accounts that count: trusted email, not suspended. */
+function countedFollower(now = new Date()): Prisma.UserWhereInput {
+  // AND keeps the OR inside trustedEmailWhere clear of callers' own OR filters
+  return { block: "no", AND: [trustedEmailWhere(now)] };
+}
 
 function rangeStart(range: "7d" | "30d" | "90d"): Date {
   const days = range === "7d" ? 7 : range === "30d" ? 30 : 90;
@@ -96,7 +102,7 @@ async function invalidateBlockData(creatorId: number): Promise<void> {
 }
 
 async function countFollowers(creatorId: number) {
-  return prisma.follow.count({ where: { creator_id: creatorId, follower: COUNTED_FOLLOWER } });
+  return prisma.follow.count({ where: { creator_id: creatorId, follower: countedFollower() } });
 }
 
 /** User ids among `userIds` with a stake above zero in any of the creator's pools. */
@@ -221,7 +227,7 @@ async function followerWhere(
   const where: Prisma.FollowWhereInput = {
     creator_id: creatorId,
     follower: {
-      ...COUNTED_FOLLOWER,
+      ...countedFollower(),
       ...(q
         ? {
             OR: [
@@ -259,7 +265,7 @@ export const followRouter = router({
       }),
       prisma.user.findUnique({
         where: { id: viewerId },
-        select: { email_verified: true, follow_disclosure_seen_at: true },
+        select: { email_verified: true, created_at: true, follow_disclosure_seen_at: true },
       }),
     ]);
     return {
@@ -267,7 +273,7 @@ export const followRouter = router({
       isOwner: false,
       viewer: {
         following: !!row,
-        pending: !!row && !viewer?.email_verified,
+        pending: !!row && !!viewer && !hasEmailTrust(viewer),
         showPublicly: row?.show_publicly ?? false,
         emailUpdates: row?.email_updates ?? false,
         disclosureSeen: !!viewer?.follow_disclosure_seen_at,
@@ -342,9 +348,9 @@ export const followRouter = router({
       }
       const viewer = await prisma.user.findUnique({
         where: { id: viewerId },
-        select: { email_verified: true },
+        select: { email_verified: true, created_at: true },
       });
-      return { following: true, pending: !viewer?.email_verified };
+      return { following: true, pending: !viewer || !hasEmailTrust(viewer) };
     }),
 
   unfollow: privateProcedure
@@ -533,7 +539,7 @@ export const followRouter = router({
     .query(async ({ ctx, input }) => {
       const creatorId = ctx.user!.sub;
       const since = rangeStart(input.range);
-      const counted = { creator_id: creatorId, follower: COUNTED_FOLLOWER };
+      const counted = { creator_id: creatorId, follower: countedFollower() };
       const [total, newInRange, unfollows, pageFollows, views, bySource, byCampaign, fans, me] =
         await Promise.all([
           prisma.follow.count({ where: counted }),
@@ -746,7 +752,7 @@ export const followRouter = router({
         where: {
           creator_id: creator.id,
           show_publicly: true,
-          follower: COUNTED_FOLLOWER,
+          follower: countedFollower(),
         },
         orderBy: { id: "desc" },
         take: PAGE_SIZE + 1,
@@ -807,7 +813,7 @@ export const followRouter = router({
       const cached = await cache.get<BlockData>(cacheKey);
       if (cached) return cached;
 
-      const counted = { creator_id: creator.id, follower: COUNTED_FOLLOWER };
+      const counted = { creator_id: creator.id, follower: countedFollower() };
       const since = rangeStart(input.growthRange);
       const windowStart = new Date(Date.now() - FACES_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
       const [count, newInRange, recent, bySource, wallet, optedIn] = await Promise.all([
