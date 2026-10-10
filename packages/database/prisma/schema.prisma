@@ -71,6 +71,8 @@ model User {
   broadcastDeliveries     BroadcastDelivery[]
   broadcastReports        BroadcastReport[]
   notificationPreferences NotificationPreference[]
+  telegramAccount         TelegramAccount?
+  telegramLinkEvents      TelegramLinkEvent[]
 
   @@unique([email])
   @@map("users")
@@ -534,6 +536,8 @@ model UserOnboarding {
   analytics_card_dismissed_at DateTime?
   // QA-008: Not now on the Make your own page card. The card stays hidden for 30 days.
   publish_card_dismissed_at   DateTime?
+  // Messaging on Telegram (Build Board #2): Home checklist item 6, set when wizard A step 3 completes
+  telegram_setup_at           DateTime?
   created_at                  DateTime  @default(now())
   updated_at                  DateTime? @updatedAt
 
@@ -884,6 +888,9 @@ model BroadcastDelivery {
   emailAttempts     Int                  @default(0)
   providerMessageId String?              @db.VarChar(255)
   emailSentAt       DateTime?
+  // Messaging on Telegram (Build Board #2), spec 3.3
+  telegramStatus    BroadcastTelegramStatus @default(NOT_ELIGIBLE)
+  tgMessageId       BigInt?
   readAt            DateTime?
   archivedAt        DateTime?
   createdAt         DateTime             @default(now())
@@ -930,6 +937,8 @@ model NotificationPreference {
   userId        Int
   creatorUserId Int       @default(0)
   emailEnabled  Boolean   @default(false)
+  // Messaging on Telegram (Build Board #2): deliver this creator's broadcasts to the user's Telegram
+  telegramEnabled Boolean @default(false)
   mutedUntil    DateTime?
   updatedAt     DateTime  @updatedAt
 
@@ -937,4 +946,117 @@ model NotificationPreference {
 
   @@unique([userId, creatorUserId])
   @@map("notification_preferences")
+}
+
+// ===== Messaging on Telegram (Build Board #2) =====
+// Spec: docs/features/telegram-messaging.md, section 3.3. New entities use UUID v7 Binary(16).
+// Phase 0 (PR 1, foundation): link models, webhook idempotency, the outbox tables the
+// in process sender loop drains (spec decision 13). Thread and group models arrive in later PRs.
+
+enum BroadcastTelegramStatus {
+  NOT_ELIGIBLE
+  PENDING
+  SENT
+  FAILED
+  BLOCKED
+}
+
+model TelegramAccount {
+  id                Bytes     @id @db.Binary(16)
+  userId            Int       @unique
+  telegramUserId    BigInt    @unique
+  // username, firstName and photoUrl are stored encrypted (services/telegram/secret.ts)
+  username          String?   @db.VarChar(255)
+  firstName         String?   @db.VarChar(255)
+  photoUrl          String?   @db.VarChar(1024)
+  // telegram:bot_access granted at link time, or Start pressed in the bot
+  botAccess         Boolean   @default(false)
+  // Set on a 403 or my_chat_member kicked; cleared when the user unblocks the bot
+  blockedAt         DateTime?
+  // Creator side: a Telegram mark on the public page. Never the username (spec 3.8).
+  showTelegramOnBio Boolean   @default(true)
+  // Fan side: creators the fan messages may see the Telegram username
+  shareUsername     Boolean   @default(false)
+  linkedAt          DateTime  @default(now())
+  lastSeenAt        DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("telegram_accounts")
+}
+
+// Link history and the consent record for Telegram delivery (updates_on, updates_off)
+model TelegramLinkEvent {
+  id             Bytes    @id @db.Binary(16)
+  userId         Int
+  telegramUserId BigInt
+  // linked | unlinked | bot_started | bot_blocked | bot_unblocked | updates_on | updates_off
+  kind           String   @db.VarChar(16)
+  // oidc | mini_app | start_command | my_chat_member | settings | stop_command
+  source         String   @db.VarChar(24)
+  // CONSENT_POLICY_VERSION at the time, set on updates_on and updates_off
+  policyVersion  String?  @db.VarChar(16)
+  createdAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("telegram_link_events")
+}
+
+// Durable idempotency record for webhook updates. Rows older than 7 days are purged by the loop.
+model TelegramUpdateLog {
+  updateId   BigInt   @id
+  receivedAt DateTime @default(now())
+
+  @@map("telegram_update_log")
+}
+
+enum TelegramJobStatus {
+  PENDING
+  CLAIMED
+  DONE
+  FAILED
+}
+
+// Raw webhook updates, processed in order per chat by the sender loop
+model TelegramInbox {
+  id        Bytes             @id @db.Binary(16)
+  updateId  BigInt            @unique
+  chatId    BigInt?
+  payload   Json
+  status    TelegramJobStatus @default(PENDING)
+  attempts  Int               @default(0)
+  claimedAt DateTime?
+  doneAt    DateTime?
+  error     String?           @db.VarChar(255)
+  createdAt DateTime          @default(now())
+
+  @@index([status, createdAt])
+  @@index([chatId, createdAt])
+  @@map("telegram_inbox")
+}
+
+// Everything the bot sends or does, claimed by the sender loop.
+// kind: dm | notice | group_check | group_action | broadcast. priority: dm 0, notice 1, group 2, broadcast 3.
+model TelegramOutbox {
+  id         Bytes             @id @db.Binary(16)
+  kind       String            @db.VarChar(16)
+  priority   Int               @default(0)
+  chatId     BigInt?
+  refId      Bytes?            @db.Binary(16)
+  deliveryId Int?
+  payload    Json
+  status     TelegramJobStatus @default(PENDING)
+  attempts   Int               @default(0)
+  // Telegram retry_after lands here
+  runAfter   DateTime          @default(now())
+  claimedAt  DateTime?
+  doneAt     DateTime?
+  error      String?           @db.VarChar(255)
+  createdAt  DateTime          @default(now())
+
+  @@index([status, priority, runAfter])
+  @@index([deliveryId])
+  @@map("telegram_outbox")
 }
