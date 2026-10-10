@@ -1,6 +1,6 @@
 # Theme Engine v2: effects registry, shared renderer, catalog, fonts, sharing
 
-Status: spec and boards for approval, 2026-10-10. Build Board #28. Build starts on Rob's approval of the three decisions in section 2 and the boards in section 3.1.
+Status: spec and boards for approval, 2026-10-10. Build Board #28. The three card decisions are answered (Rob chose the recommendation on each). Build starts on Rob's approval of the boards in section 3.1 and decisions 4 to 12.
 Owner: Rob Frasca. Drafted by Claude, 2026-10-10, against amplifydigital-web3/amped-bio-new `development` at 29db7cb.
 Overview: docs/overviews/theme-engine-v2.md (project doc claude/amped-theme-engine-v2-overview-2026-10-07.md). This spec implements it and does not restate the research.
 Screens: Prism 2.2 boards 01 to 12 on the Theme Engine v2 design canvas (https://claude.ai/artifact/5oErPADNijTy9hTbXuA4GV). Design QA: docs/features/theme-engine-v2-design-qa.md. Screen Review rows 139 to 150.
@@ -23,11 +23,11 @@ What is on `development` today, confirmed in code on 10 Oct.
 
 v2 replaces integer maps with one typed effect registry in `packages/constants/src/effects/` and one shared page renderer in `packages/ui/src/creator/`, then grows the catalog to about 150 picks across six layers (scene, container, button, button effect, name, cursor), opens the full Google Fonts catalog, versions the theme file, and adds saved looks, history and share links. The overview holds the architecture, catalog tiers, library and license verdicts and the competition read.
 
-### Decisions for Rob (open on the Build Board card; the spec is written on the recommendation)
+### Decisions answered by Rob on the Build Board card (recommended answer on all three)
 
-1. **Effect budget per page.** Recommended: 1 heavy or 3 light effects before the weak device fallback renders the still version. Alternative: no budget. Written into 3.7.
-2. **Font delivery.** Recommended: self host the chosen families through a Fontsource build step on Amped's CDN, no request to Google before consent. Alternative: keep the Google Fonts link. Written into 3.8; the Google path is one function behind a flag.
-3. **react-bits in sold themes.** Recommended: react-bits derived effects ship free as core and plus; any shader Amped wants inside a paid theme is rewritten as Amped's own GLSL. Alternative: ask the author for a commercial exception. Written into 3.5 (the `source` field) and 3.11.
+1. **Effect budget per page.** 1 heavy or 3 light effects before the weak device fallback renders the still version. Written into 3.7.
+2. **Font delivery.** Self host the chosen families through a Fontsource build step on Amped's CDN, no request to Google before consent. Written into 3.8; the Google path stays as `FONT_DELIVERY=google` for staging comparison only.
+3. **react-bits in sold themes.** No. react-bits derived effects ship free as core and plus; any shader Amped wants inside a paid theme is rewritten as Amped's own GLSL. Written into 3.5 (the `source` field) and 3.11.
 
 ### Direction from Rob (7 Oct): transition, not a standalone system
 
@@ -258,7 +258,7 @@ Hover, press and cursor rows carry the line: Hover needs a pointer. Phones feel 
 
 - Catalog: `scripts/fonts/build-catalog.ts` reads the Google Fonts Developer API at build time and writes `packages/constants/src/fonts/catalog.json` (family, category, variable axes with ranges, popularity rank, subsets), about 60 KB gzip, imported lazily when the Text row opens. A `pairings.json` of 24 curated name plus body pairs ships beside it.
 - Picker (board 02): search (prefix and substring over family names), category chips (Serif, Sans, Display, Handwriting, Mono), Popular shelf (top 24 by rank), Pairings shelf, See all opens the full list virtualized at 4 per row. Tiles render the creator's display name in the face; the tile loads the family's `text=` subset of the creator's name only. Weight and italic controls; `wght`, `wdth`, `opsz` sliders when the family exposes the axis. The body font limits size to the four steps; buttons stay 16 to 20 px whatever the size.
-- Delivery (decision 2, recommended): `scripts/fonts/mirror.ts` mirrors the subset files of every family a published page uses into Amped's S3 plus CloudFront under `/fonts/<family>/<subset>-<weight>.woff2` on first use, through a server job triggered by `theme.editTheme` when `fonts.name.family` or `fonts.body.family` changes. The public page emits one `<link rel="preload">` per family and a `@font-face` block with `font-display: swap` and `size-adjust` from the catalog's metrics so text does not jump. No request leaves to Google from a visitor's browser. The flag `FONT_DELIVERY=google` keeps the current link path for staging comparison and is the alternative if Rob chooses it.
+- Delivery (decision 2): `scripts/fonts/mirror.ts` mirrors the subset files of every family a published page uses into Amped's S3 plus CloudFront under `/fonts/<family>/<subset>-<weight>.woff2` on first use, through a server job triggered by `theme.editTheme` when `fonts.name.family` or `fonts.body.family` changes. The public page emits one `<link rel="preload">` per family and a `@font-face` block with `font-display: swap` and `size-adjust` from the catalog's metrics so text does not jump. No request leaves to Google from a visitor's browser. The flag `FONT_DELIVERY=google` keeps the current link path for staging comparison only.
 - Both apps drop the 10 family link in `index.html` and `layout.tsx`. Figtree and Bebas Neue load through the Prism preset only.
 - The name font loads its `text=` subset of the display name plus the bio's first 120 characters when `appliesTo` is `nameAndBio`; the body font loads the Latin subset (plus the subsets the bio needs, detected by script).
 
@@ -346,7 +346,7 @@ KPIs 90 days after phase 2: creators with a non default theme 60% of published p
 | 1b Shared renderer | `CreatorPage` in `packages/ui`, wrappers in both apps, keyframes into the Prism preset, `Preview.tsx` and `ProfileView.tsx` behind `THEME_ENGINE_V2` (env on the server, `VITE_THEME_ENGINE_V2` on the client, `NEXT_PUBLIC_THEME_ENGINE_V2` on the public page), snapshot per registry entry against the old maps, drift bugs fixed (bounce and pulse, hero 4 and 5, focus states) | `THEME_ENGINE_V2` staging all, then Rob's handle, then all | 1 to 2 weeks |
 | 1c Particles v4 | tsParticles v4 slim with color aware factories, both `particleConfigs.ts` deleted, 60 fps in the editor | same flag | 3 days |
 | 2 Core catalog | Shape, border and layout sub controls, mesh and drift gradients, 40 gradients and the builder, textures, 10 official presets, new core button styles, fill sweep, ripple and the press row, name entrances and statics, Settle, parameter strip and sheet, tier badges and cost dots, Show filters, cost chip, Device budget toggle, scene guard | `THEME_ENGINE_V2` | 3 weeks |
-| 2b Fonts | Catalog build step, picker, mirror job or Google path per decision 2, per page font links with subsets, variable axes, weight pulse | `FONT_CATALOG` | 1 to 2 weeks |
+| 2b Fonts | Catalog build step, picker, mirror job, per page font links with subsets, variable axes, weight pulse | `FONT_CATALOG` | 1 to 2 weeks |
 | 3 Showcase | OGL engine with poster and the shared watchdog, 14 shaders plus the 5 pointer reactive ones, galaxy field, cursor row, liquid glass, electric and star borders, spotlight, magnet, particle text, trail particles, build time thumbnails | `THEME_SHOWCASE` | 3 to 4 weeks |
 | 4 Looks and sharing | 10 looks, `ThemeVersion` history and restore, duplicate and rename, `theme.share`, `/t/[slug]`, share dialog, Shared with me, Theme of the week, `User.theme` to int | `THEME_SHARING` | 2 weeks |
 
@@ -366,7 +366,7 @@ Acceptance:
 6. A weak device (forced through the toggle or the watchdog) renders cursor, overlay and shader layers still, in that order, and logs one event.
 7. Every pick updates the preview within 233 ms and autosaves within 800 ms of the last change; Undo returns the previous look.
 8. The contrast guard and the scene guard show the measured ratio and a working one tap fix; saving is never blocked.
-9. Fonts: the picker searches 1,942 families, tiles render the creator's name, variable axes appear only when the family has them, and the public page loads at most two families with subsets; with the recommended delivery no request reaches fonts.googleapis.com or fonts.gstatic.com from a visitor's browser.
+9. Fonts: the picker searches 1,942 families, tiles render the creator's name, variable axes appear only when the family has them, and the public page loads at most two families with subsets; no request reaches fonts.googleapis.com or fonts.gstatic.com from a visitor's browser.
 10. Theme files: v1 files import; v2 files carry the header; locked marketplace themes do not export; a file with a foreign `fileId` imports with the base replaced and a notice.
 11. Share links: create, copy, use, save, revoke; a revoked link 404s; the page shows the handle only with credit on; Download appears only when allowed; uses count on use, not view.
 12. Looks: 10 per user, Save as new look disabled at the limit with the reason; history holds 20 versions; restore applies and records a version.
@@ -393,4 +393,4 @@ Acceptance:
 
 ## Revision log
 
-- 2026-10-10: First spec. Boards 01 to 06 reviewed and fixed, boards 07 to 12 added, all twelve passed the gate. Three decisions open for Rob; spec written on the recommendations.
+- 2026-10-10: First spec. Boards 01 to 06 reviewed and fixed, boards 07 to 12 added, all twelve passed the gate. Rob answered the three card decisions with the recommendation; the spec carries them as settled.
