@@ -119,7 +119,7 @@ export async function claimNextOutbox(now = new Date()): Promise<TelegramOutbox 
 
 export async function claimNextInbox(now = new Date()): Promise<TelegramInbox | null> {
   const candidates = await prisma.telegramInbox.findMany({
-    where: claimableWhere(now),
+    where: { ...claimableWhere(now), runAfter: { lte: now } },
     orderBy: [{ createdAt: "asc" }],
     take: 5,
   });
@@ -227,6 +227,7 @@ export async function runInboxJob(
       where: { id: job.id },
       data: {
         status: next.status,
+        runAfter: next.runAfter,
         error: errorText(error),
         ...(next.countsAsAttempt ? {} : { attempts: { decrement: 1 } }),
         ...(next.status === "FAILED" ? { doneAt: now } : {}),

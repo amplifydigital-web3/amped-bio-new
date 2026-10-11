@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { Prisma, prisma } from "@repo/database";
 import type { DmRuleKind } from "@repo/constants";
 
@@ -33,6 +34,9 @@ export type RuleResult = { allowed: true } | { allowed: false; reason: RuleRefus
 
 /** Only follows from accounts that count: verified email, not suspended (trpc/follow.ts). */
 const COUNTED_FOLLOWER: Prisma.UserWhereInput = { email_verified: true, block: "no" };
+
+/** STAKE_MIN accepts a whole number of tREVO, nothing else. */
+const stakeMinSchema = z.string().regex(/^\d+$/);
 
 /** Pools owned by a creator, through their wallet. */
 export async function creatorPoolIds(creatorUserId: number): Promise<number[]> {
@@ -123,8 +127,13 @@ export async function passingUserIds(
       return paidMemberIds(ctx.creatorUserId, ids);
     case "POOL_MEMBER":
       return stakerIds(ctx.poolIds, ids);
-    case "STAKE_MIN":
-      return stakerIds(ctx.poolIds, ids, ctx.stakeMin);
+    case "STAKE_MIN": {
+      // A missing or malformed threshold refuses instead of falling back to above zero,
+      // so a misconfigured rule never admits users below the intended minimum
+      const minimum = stakeMinSchema.safeParse(ctx.stakeMin);
+      if (!minimum.success) return new Set<number>();
+      return stakerIds(ctx.poolIds, ids, minimum.data);
+    }
   }
 }
 

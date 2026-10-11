@@ -294,6 +294,7 @@ describe("Telegram sender loop", () => {
         payload: { update_id: id },
         status: "PENDING",
         attempts: 0,
+        runAfter: new Date(base),
         claimedAt: null,
         doneAt: null,
         error: null,
@@ -307,6 +308,41 @@ describe("Telegram sender loop", () => {
       [1, "DONE"],
       [2, "DONE"],
     ]);
+  });
+
+  it("an inbox job that got a 429 waits out runAfter and gives the attempt back", async () => {
+    let handleCalls = 0;
+    client.bot = {
+      isInited: () => true,
+      handleUpdate: vi.fn(async () => {
+        handleCalls += 1;
+        if (handleCalls === 1) throw apiError(429, 9);
+      }),
+    };
+    const now = new Date();
+    store.tables.telegramInbox!.push({
+      id: Buffer.from([1]),
+      updateId: 1n,
+      chatId: 1n,
+      payload: { update_id: 1 },
+      status: "PENDING",
+      attempts: 0,
+      runAfter: new Date(0),
+      claimedAt: null,
+      doneAt: null,
+      error: null,
+      createdAt: new Date(0),
+    });
+    expect(await drainOnce()).toBe(1);
+    const row = store.tables.telegramInbox![0]!;
+    expect(row.status).toBe("PENDING");
+    expect(row.attempts).toBe(0);
+    expect(row.runAfter.getTime()).toBe(now.getTime() + 9000);
+    // Not due yet: the next tick leaves it alone instead of retrying every second
+    expect(await drainOnce()).toBe(0);
+    // Once runAfter passes it retries and completes
+    expect(await drainOnce(20, new Date(now.getTime() + 10_000))).toBe(1);
+    expect(store.tables.telegramInbox![0]!.status).toBe("DONE");
   });
 
   it("purges update log and finished inbox rows older than the retention window", async () => {

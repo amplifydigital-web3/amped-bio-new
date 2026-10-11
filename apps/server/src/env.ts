@@ -191,8 +191,10 @@ const envSchema = z.object({
   TELEGRAM_ENABLED: boolSchema(false),
   // Bot token from BotFather (@AmpedBioStagingBot on staging, @AmpedBioBot in production)
   TELEGRAM_BOT_TOKEN: z.string().default(""),
-  // Bot username without the @, used in deep links and the inline card
-  TELEGRAM_BOT_USERNAME: z.string().default("AmpedBioBot"),
+  // Bot username without the @, used in deep links and the inline card. Default picked
+  // by APP_ENV after parsing, so staging without an explicit value does not deep link
+  // to the production bot.
+  TELEGRAM_BOT_USERNAME: z.string().default(""),
   // Value passed as secret_token to setWebhook; the webhook route rejects requests without it
   TELEGRAM_WEBHOOK_SECRET: z.string().default(""),
   // Log In with Telegram (OIDC) client credentials from BotFather, Login Widget
@@ -225,4 +227,11 @@ export const env = result.data;
 // and local runs open Broadcast to every pool owner unless the variable is set.
 if (process.env.BROADCAST_INVITE_ONLY === undefined && env.APP_ENV !== "production") {
   env.BROADCAST_INVITE_ONLY = false;
+}
+
+// Messaging on Telegram (Build Board #2): staging safe default for the bot username.
+// Staging gets its own BotFather bot, so an unset variable there must not produce
+// deep links pointing at the production bot.
+if (!env.TELEGRAM_BOT_USERNAME) {
+  env.TELEGRAM_BOT_USERNAME = env.APP_ENV === "staging" ? "AmpedBioStagingBot" : "AmpedBioBot";
 }

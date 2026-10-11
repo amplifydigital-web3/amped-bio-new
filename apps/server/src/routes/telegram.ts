@@ -68,7 +68,8 @@ export function chatIdOf(update: Record<string, unknown>): bigint | null {
 /**
  * True when this update id was not seen before. Redis SETNX is the fast path; the
  * telegram_update_log unique key is the durable one, so a Redis outage never lets a
- * duplicate through.
+ * duplicate through. When the durable write fails for a real reason the Redis key is
+ * released, so the Telegram retry can claim the update again instead of losing it.
  */
 export async function recordUpdateId(updateId: bigint): Promise<boolean> {
   const redis = getRedisClient();
@@ -93,8 +94,19 @@ export async function recordUpdateId(updateId: bigint): Promise<boolean> {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return false;
     }
+    // The durable write failed: give the Redis slot back so the retry is not dropped
+    if (redis) await redis.del(`tg:upd:${updateId}`).catch(() => {});
     throw error;
   }
+}
+
+/** Roll back the dedupe marks so a Telegram retry can write the update again. */
+async function releaseUpdateId(updateId: bigint): Promise<void> {
+  const redis = getRedisClient();
+  if (redis) await redis.del(`tg:upd:${updateId}`).catch(() => {});
+  await prisma.telegramUpdateLog
+    .delete({ where: { updateId } })
+    .catch(() => {});
 }
 
 export async function handleTelegramWebhook(req: Request, res: Response) {
@@ -128,14 +140,27 @@ export async function handleTelegramWebhook(req: Request, res: Response) {
   try {
     const fresh = await recordUpdateId(updateId);
     if (fresh) {
-      await prisma.telegramInbox.create({
-        data: {
-          id: uuidv7(),
-          updateId,
-          chatId: chatIdOf(update),
-          payload: update as Prisma.InputJsonObject,
-        },
-      });
+      try {
+        await prisma.telegramInbox.create({
+          data: {
+            id: uuidv7(),
+            updateId,
+            chatId: chatIdOf(update),
+            payload: update as Prisma.InputJsonObject,
+            // Due immediately; the loop's claim filter reads this column
+            runAfter: new Date(),
+          },
+        });
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+          // Another writer stored this update id between the two marks. It is a duplicate.
+        } else {
+          // The inbox row is what makes the update durable. Roll back the dedupe
+          // marks so the Telegram retry writes it instead of dropping it forever.
+          await releaseUpdateId(updateId);
+          throw error;
+        }
+      }
     }
   } catch (error) {
     if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) {

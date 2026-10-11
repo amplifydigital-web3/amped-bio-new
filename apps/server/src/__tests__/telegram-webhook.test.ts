@@ -19,6 +19,7 @@ const db = vi.hoisted(() => {
     KnownError,
     seenUpdateIds,
     inbox,
+    inboxFails: false,
     prisma: {
       telegramUpdateLog: {
         create: vi.fn(async ({ data }: any) => {
@@ -27,9 +28,14 @@ const db = vi.hoisted(() => {
           seenUpdateIds.add(key);
           return data;
         }),
+        delete: vi.fn(async ({ where }: any) => {
+          seenUpdateIds.delete(String(where.updateId));
+          return {};
+        }),
       },
       telegramInbox: {
         create: vi.fn(async ({ data }: any) => {
+          if (db.inboxFails) throw new Error("boom: write failed");
           inbox.push(data);
           return data;
         }),
@@ -70,6 +76,7 @@ describe("POST /webhooks/telegram", () => {
   beforeEach(() => {
     db.seenUpdateIds.clear();
     db.inbox.length = 0;
+    db.inboxFails = false;
     (env as any).TELEGRAM_ENABLED = true;
   });
 
@@ -123,6 +130,19 @@ describe("POST /webhooks/telegram", () => {
     expect(codes.every(c => c === 200 || c === 429)).toBe(true);
     expect(codes.filter(c => c === 200).length).toBe(db.inbox.length);
     expect(elapsed).toBeLessThan(5000);
+  });
+
+  it("rolls back the dedupe marks when the inbox write fails, so the retry is not dropped", async () => {
+    const headers = { "x-telegram-bot-api-secret-token": SECRET };
+    const update = { update_id: 88, message: { chat: { id: 4242 }, text: "hi" } };
+    db.inboxFails = true;
+    expect(await call(update, headers)).toBe(500);
+    expect(db.seenUpdateIds.has("88")).toBe(false);
+    // The retry after the failure succeeds: the update is not lost
+    db.inboxFails = false;
+    expect(await call(update, headers)).toBe(200);
+    expect(db.inbox).toHaveLength(1);
+    expect(db.inbox[0].runAfter).toBeInstanceOf(Date);
   });
 
   it("extracts the chat id from every update kind the loop orders by", () => {

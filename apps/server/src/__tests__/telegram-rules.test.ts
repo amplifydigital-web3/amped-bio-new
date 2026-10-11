@@ -79,9 +79,18 @@ describe("Telegram access rules", () => {
     });
   });
 
-  it("a non numeric minimum falls back to above zero rather than failing open or closed by accident", async () => {
-    const result = await stakerIds([5], [2, 3], "500.5 tREVO");
-    expect([...result].sort()).toEqual([2, 3]);
+  it("a malformed STAKE_MIN threshold refuses instead of falling back to above zero", async () => {
+    for (const bad of ["500.5 tREVO", "", " 500", "1e3", null]) {
+      expect(await evaluateRule("STAKE_MIN", { ...ctx, stakeMin: bad }, 3)).toEqual({
+        allowed: false,
+        reason: "stake_below",
+      });
+      expect((await passingUserIds("STAKE_MIN", { ...ctx, stakeMin: bad }, [3])).size).toBe(0);
+    }
+    expect(db.$queryRaw).not.toHaveBeenCalled();
+    // POOL_MEMBER keeps the above zero fallback: no threshold means any stake counts
+    const poolOnly = await stakerIds([5], [2, 3], "500.5 tREVO");
+    expect([...poolOnly].sort()).toEqual([2, 3]);
   });
 
   it("pool rules refuse with no_pool when the creator has no pool", async () => {
