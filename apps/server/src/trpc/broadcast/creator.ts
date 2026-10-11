@@ -57,7 +57,8 @@ export const broadcastCreatorRouter = router({
       // Verification grace (Rob, 2026-10-10): a new creator sends without a
       // verified email for 30 days or EMAIL_VERIFICATION_GRACE_BROADCASTS sends
       const verification = verificationGate(
-        user ?? { email_verified: false, created_at: new Date() },
+        // created_at at the epoch fails closed: an unknown user never rides the grace period
+        user ?? { email_verified: false, created_at: new Date(0) },
         { milestoneReached: sentTotal >= EMAIL_VERIFICATION_GRACE_BROADCASTS }
       );
       return {
@@ -123,6 +124,9 @@ export const broadcastCreatorRouter = router({
       }
       // Verification grace (Rob, 2026-10-10): the email must be verified once
       // the account is 30 days old or has sent EMAIL_VERIFICATION_GRACE_BROADCASTS
+      // Two concurrent sends can both read the count before either enqueues, so the
+      // 3rd send can occasionally become a 4th. Bounded by the quota; do not "fix"
+      // with a transaction without knowing this is accepted.
       const verification = verificationGate(user, {
         milestoneReached: sentTotal >= EMAIL_VERIFICATION_GRACE_BROADCASTS,
       });

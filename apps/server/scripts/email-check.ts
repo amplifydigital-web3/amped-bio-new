@@ -8,6 +8,7 @@
  *
  *   pnpm run --filter server email:check                 connection and login only
  *   pnpm run --filter server email:check you@amped.bio   also sends a verification email
+ *   add --force to send on production, where an accident would be costly
  *
  * The sent email carries a dummy token. Opening its link shows the landing
  * page's "This link does not work" card, which proves the link lands on the
@@ -39,6 +40,11 @@ async function main() {
   if (!to) {
     console.log("Connection and login are fine. Pass an address to send a test email.");
     return;
+  }
+  // A real send against the production relay must be deliberate, never accidental
+  if (env.APP_ENV === "production" && !process.argv.includes("--force")) {
+    console.error("Refusing to send on production. Pass --force to send anyway.");
+    process.exit(1);
   }
 
   const info = await sendEmailVerification(to, "email-check-dummy-token");

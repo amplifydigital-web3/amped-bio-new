@@ -40,6 +40,11 @@ async function main() {
     console.log("Connection and login are fine. Pass an address to send a test email.");
     return;
   }
+  // A real send against the production relay must be deliberate, never accidental
+  if (env.APP_ENV === "production" && !process.argv.includes("--force")) {
+    console.error("Refusing to send on production. Pass --force to send anyway.");
+    process.exit(1);
+  }
 
   const info = await sendEmailVerification(to, "email-check-dummy-token");
   console.log("Accepted by the relay:", info.response);

@@ -29,6 +29,11 @@ Unchanged on purpose:
 - Search indexing (`utils/indexable.ts`) still requires a verified email. That rule is about what goes in the sitemap, not about what the person can use. Rob can lift it the same way if he wants new pages indexed before verification.
 - Follow spec decision 8 ("verified email before a follow counts") is now "trusted email before a follow counts". `docs/features/fan-graph.md` keeps the history; the router comment states the new rule.
 
+### Known accepted behavior
+
+- Follower counts can move down on day 30 of the grace period (read time filter). The Home notice copy explains why; support answers "why did my count drop" with it. This is the amended fan-graph rule, not a bug.
+- Two concurrent broadcast sends can both read the lifetime count before either enqueues, so the milestone can occasionally admit one extra send. Bounded by the broadcast quota.
+
 ## 3. Verification email QA
 
 What was checked, from sign up to the verified state, on both Better Auth instances (`apps/auth-server`, which serves `auth.staging.amped.bio` and sends the sign up email, and `apps/server`, which carries the same config).
