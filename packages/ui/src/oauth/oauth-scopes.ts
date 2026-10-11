@@ -30,6 +30,23 @@ export const OAUTH_SCOPE_DESCRIPTIONS: Record<OAuthScopeKey, OAuthScopeDescripti
   },
 };
 
+/**
+ * Whether this authorization request will share the user's wallet address.
+ * The server returns the wallet claim when the client requests it as a claim
+ * (OIDC `claims` parameter, userinfo or id_token) or holds the profile scope
+ * (apps/server/src/utils/auth.ts, customUserInfoClaims).
+ */
+export function consentSharesWallet(scopes: string[], claims: string | null): boolean {
+  if (scopes.includes("profile")) return true;
+  if (!claims) return false;
+  try {
+    const parsed = JSON.parse(claims) as { userinfo?: object; id_token?: object };
+    return "wallet" in (parsed.userinfo ?? {}) || "wallet" in (parsed.id_token ?? {});
+  } catch {
+    return false;
+  }
+}
+
 export function describeOAuthScope(scope: string): OAuthScopeDescription {
   const known = OAUTH_SCOPE_DESCRIPTIONS[scope as OAuthScopeKey];
   if (known) return known;

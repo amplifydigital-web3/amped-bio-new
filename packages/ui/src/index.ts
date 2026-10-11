@@ -137,7 +137,11 @@ export { OAuthShell } from "./oauth/oauth-shell";
 export { OAuthLoginScreen, useOAuthClientName } from "./oauth/oauth-login-screen";
 export { OAuthConsentScreen } from "./oauth/oauth-consent-screen";
 export { OAuthDeviceScreen } from "./oauth/oauth-device-screen";
-export { describeOAuthScope, OAUTH_SCOPE_DESCRIPTIONS } from "./oauth/oauth-scopes";
+export {
+  consentSharesWallet,
+  describeOAuthScope,
+  OAUTH_SCOPE_DESCRIPTIONS,
+} from "./oauth/oauth-scopes";
 export {
   FacetRequestCard,
   type FacetRequestCardProps,
