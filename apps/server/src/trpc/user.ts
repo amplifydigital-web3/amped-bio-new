@@ -3,7 +3,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { sendEmailChangeNotice, sendEmailChangeVerification } from "../utils/email/email";
 import crypto from "crypto";
-import { prisma } from "../services/DB";
+import { prisma, Prisma } from "@repo/database";
 import { editUserSchema, setRnsNameSchema } from "../schemas/user.schema";
 import Decimal from "decimal.js";
 import { htmlToPlainText, sanitizeRichText } from "@repo/constants";
@@ -17,6 +17,36 @@ import { publicCount } from "../services/follow/rules";
 import { batchPoolFanCreatorIds } from "../services/follow/poolFans";
 import { computeRnsIdentity, parseRnsDisplay } from "../services/rnsIdentity";
 import type { Background, ThemeConfig } from "@repo/constants";
+
+/** The fields one Explore person card needs, shared by both sort paths. */
+const userCardSelect = {
+  id: true,
+  name: true,
+  handle: true,
+  image: true,
+  image_file_id: true,
+  description: true,
+  created_at: true,
+  theme: true,
+  revo_name: true,
+  rns_display: true,
+  show_follower_count: true,
+  wallet: {
+    select: {
+      address: true,
+      creatorPools: {
+        where: { poolAddress: { not: null }, OR: [{ hidden: false }, { hidden: null }] },
+        orderBy: { id: "desc" } as const,
+        take: 1,
+        select: { name: true, fans: true, image_file_id: true },
+      },
+    },
+  },
+  blocks: {
+    orderBy: { order: "asc" } as const,
+    select: { type: true, config: true },
+  },
+};
 
 // Schema for initiating email change
 const initiateEmailChangeSchema = z.object({
@@ -52,7 +82,7 @@ type Person = {
   displayName: string;
   avatar: string | null;
   bio: string;
-  /** Month the account was created, as an ISO date. The day is not shown. */
+  /** The month the account was created, "YYYY-MM". The day never leaves the server. */
   joinedAt: string;
   /** The creator's page background, for the card cover. null falls back to the room. */
   cover: { kind: "color"; css: string } | { kind: "image"; url: string } | null;
@@ -109,6 +139,18 @@ function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T
       }
     );
   });
+}
+
+/** Block config as an object, whether the row stored an object or a JSON string. */
+function visibleBlockConfig(config: unknown): { hidden?: boolean } | null {
+  if (typeof config === "string") {
+    try {
+      return JSON.parse(config) as { hidden?: boolean };
+    } catch {
+      return null;
+    }
+  }
+  return (config as { hidden?: boolean } | null) ?? null;
 }
 
 /** The card cover from a theme background. Video backgrounds use their thumbnail. */
@@ -600,21 +642,22 @@ export const userRouter = router({
       }
 
       // Apply sorting at the database level
-      let orderBy: any = {};
+      const orderBy: any = {};
       switch (input.sort) {
         case "name-asc":
-          orderBy = { name: "asc" };
+          orderBy.name = "asc";
           break;
         case "name-desc":
-          orderBy = { name: "desc" };
+          orderBy.name = "desc";
           break;
         case "newest":
-          orderBy = { created_at: "desc" };
+          orderBy.created_at = "desc";
           break;
-        // 086 D3: a sort, never a rank. Ties and hidden counts still sort, but
-        // the card shows nothing a creator chose to hide.
         case "most-followers":
-          orderBy = [{ followsReceived: { _count: "desc" } }, { created_at: "desc" }];
+          // Ordered by the counted rule the card displays, not by raw follows.
+          // Prisma cannot express a filtered relation count orderBy, so the page
+          // of ids comes from SQL below and the rows load through findMany.
+          orderBy.created_at = "desc";
           break;
         default:
           break;
@@ -624,40 +667,57 @@ export const userRouter = router({
       const total = await prisma.user.count({ where: whereClause });
 
       // Get paginated users with sorting applied at DB level
-      const paginatedUsers = await prisma.user.findMany({
-        where: whereClause,
-        select: {
-          id: true,
-          name: true,
-          handle: true,
-          image: true,
-          image_file_id: true,
-          description: true,
-          created_at: true,
-          theme: true,
-          revo_name: true,
-          rns_display: true,
-          show_follower_count: true,
-          wallet: {
-            select: {
-              address: true,
-              creatorPools: {
-                where: { poolAddress: { not: null }, OR: [{ hidden: false }, { hidden: null }] },
-                orderBy: { id: "desc" },
-                take: 1,
-                select: { name: true, fans: true, image_file_id: true },
-              },
-            },
-          },
-          blocks: {
-            orderBy: { order: "asc" },
-            select: { type: true, config: true },
-          },
-        },
-        orderBy,
-        skip: (safePage - 1) * safeLimit,
-        take: safeLimit,
-      });
+      let paginatedUsers: Prisma.UserGetPayload<{ select: typeof userCardSelect }>[];
+
+      if (input.sort === "most-followers") {
+        // 086 D3: a sort, never a rank. The subquery counts follows the same way
+        // the card displays them (verified email, not suspended), so the order
+        // never contradicts the numbers on the cards.
+        const termLike = term ? `%${term}%` : null;
+        const poolFilter =
+          input.filter === "has-creator-pool"
+            ? Prisma.sql`AND EXISTS (
+                SELECT 1 FROM user_wallets uw
+                JOIN creator_pools cp ON cp.walletId = uw.id
+                WHERE uw.userId = u.id
+              )`
+            : Prisma.empty;
+        const searchFilter = termLike
+          ? Prisma.sql`AND (u.name LIKE ${termLike} OR u.handle LIKE ${termLike})`
+          : Prisma.empty;
+        const ordered = await prisma.$queryRaw<Array<{ id: number }>>(Prisma.sql`
+          SELECT u.id FROM users u
+          WHERE u.page_status = 'PUBLISHED'
+            AND u.block = 'no'
+            ${searchFilter}
+            ${poolFilter}
+          ORDER BY (
+            SELECT COUNT(*) FROM follows f
+            JOIN users fu ON fu.id = f.follower_id
+            WHERE f.creator_id = u.id
+              AND fu.email_verified = 1
+              AND fu.block = 'no'
+          ) DESC, u.created_at DESC
+          LIMIT ${safeLimit} OFFSET ${(safePage - 1) * safeLimit}
+        `);
+        const idOrder = ordered.map(row => row.id);
+        const rows = idOrder.length
+          ? await prisma.user.findMany({
+              where: { ...whereClause, id: { in: idOrder } },
+              select: userCardSelect,
+            })
+          : [];
+        const byId = new Map(rows.map(row => [row.id, row]));
+        paginatedUsers = idOrder.map(id => byId.get(id)).filter(Boolean) as typeof paginatedUsers;
+      } else {
+        paginatedUsers = await prisma.user.findMany({
+          where: whereClause,
+          select: userCardSelect,
+          orderBy: Object.keys(orderBy).length ? [orderBy] : undefined,
+          skip: (safePage - 1) * safeLimit,
+          take: safeLimit,
+        });
+      }
 
       const ids = paginatedUsers.map(user => user.id);
 
@@ -708,7 +768,8 @@ export const userRouter = router({
       const users = await Promise.all(
         paginatedUsers.map(async (user): Promise<Person> => {
           const visibleBlocks = user.blocks.filter(block => {
-            const config = block.config as { hidden?: boolean } | null;
+            // Some legacy rows hold a JSON string; unparseable configs show as visible
+            const config = visibleBlockConfig(block.config);
             return !config?.hidden;
           });
           const platforms: string[] = [];
@@ -757,7 +818,8 @@ export const userRouter = router({
             avatar,
             // Explore cards show the bio as plain text; no creator HTML renders there
             bio: htmlToPlainText(user.description),
-            joinedAt: user.created_at.toISOString(),
+            // Month only, matching what the card shows (the day is not part of the payload)
+            joinedAt: user.created_at.toISOString().slice(0, 7),
             cover,
             rns: identity ? { chip: identity.chip, name: identity.name } : null,
             followerCount: count.followerCount,
