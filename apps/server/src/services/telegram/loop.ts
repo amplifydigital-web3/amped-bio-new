@@ -211,11 +211,19 @@ export async function runInboxJob(
   now = new Date()
 ): Promise<"done" | "failed" | "retry"> {
   const bot = getTelegramBot();
+  if (!bot) {
+    // Enabled without a working bot is a misconfiguration. Failing visibly beats
+    // marking DONE and silently discarding every update; the retention purge
+    // clears the rows later and a restart with a real bot handles the new ones.
+    await prisma.telegramInbox.update({
+      where: { id: job.id },
+      data: { status: "FAILED", error: "no_bot", doneAt: now },
+    });
+    return "failed";
+  }
   try {
-    if (bot) {
-      if (!bot.isInited()) await bot.init();
-      await bot.handleUpdate(job.payload as never);
-    }
+    if (!bot.isInited()) await bot.init();
+    await bot.handleUpdate(job.payload as never);
     await prisma.telegramInbox.update({
       where: { id: job.id },
       data: { status: "DONE", doneAt: now, error: null },

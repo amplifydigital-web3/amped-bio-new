@@ -284,7 +284,7 @@ describe("Telegram sender loop", () => {
     expect(sends).toBe(1);
   });
 
-  it("inbox updates are replayed oldest first and marked DONE even with no bot configured", async () => {
+  it("inbox updates fail visibly with no_bot when the bot is not configured", async () => {
     const base = Date.now();
     for (const [i, id] of [3, 1, 2].entries()) {
       store.tables.telegramInbox!.push({
@@ -302,11 +302,12 @@ describe("Telegram sender loop", () => {
       });
     }
     await drainOnce();
-    const done = store.tables.telegramInbox!.map(r => [Number(r.updateId), r.status]);
+    const done = store.tables.telegramInbox!.map(r => [Number(r.updateId), r.status, r.error]);
+    // Enabled without a bot is a misconfiguration: fail visibly, never silently drop
     expect(done).toEqual([
-      [3, "DONE"],
-      [1, "DONE"],
-      [2, "DONE"],
+      [3, "FAILED", "no_bot"],
+      [1, "FAILED", "no_bot"],
+      [2, "FAILED", "no_bot"],
     ]);
   });
 

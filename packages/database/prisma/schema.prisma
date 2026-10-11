@@ -1048,6 +1048,8 @@ model TelegramOutbox {
   priority   Int               @default(0)
   chatId     BigInt?
   refId      Bytes?            @db.Binary(16)
+  // No foreign key on deliveryId on purpose: broadcast_deliveries rows are append-only
+  // and the outbox outlives a delivery's lifecycle without cascade surprises.
   deliveryId Int?
   payload    Json
   status     TelegramJobStatus @default(PENDING)
