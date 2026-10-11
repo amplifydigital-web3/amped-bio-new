@@ -6,7 +6,7 @@ import { hashPassword, verifyPassword } from "./password";
 import { APIError, betterAuth } from "better-auth";
 import type { BetterAuthPlugin } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { captcha, jwt, customSession, twoFactor } from "better-auth/plugins";
+import { admin, captcha, jwt, customSession, twoFactor } from "better-auth/plugins";
 import { cimd } from "@better-auth/cimd";
 import { fetchClientMetadataResource } from "@better-auth/cimd/node";
 import { mcp } from "@better-auth/mcp";
@@ -125,6 +125,12 @@ export const auth = betterAuth({
         session,
       };
     }),
+    // Better Auth admin plugin: roles, ban and user management endpoints under
+    // /auth/admin, all gated to the "admin" role by the plugin itself. The role
+    // column on users and the tRPC adminProcedure (trpc/trpc.ts) keep working
+    // unchanged, so the admin panel does not depend on the new endpoints.
+    admin(),
+
     captcha({
       provider: "hcaptcha",
       secretKey: env.CAPTCHA_SECRET_KEY,
@@ -226,6 +232,7 @@ export const auth = betterAuth({
     ),
     asBetterAuthPlugin(oauthDeviceAuthorization({ verificationUri: OAUTH_DEVICE_PATH })),
   ],
+  // @ts-expect-error — $extends changes the return type; prismaAdapter needs PrismaClient at runtime
   database: prismaAdapter(withNumericIdCoercion(prisma), {
     provider: "mysql",
   }),

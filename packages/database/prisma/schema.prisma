@@ -27,6 +27,10 @@ model User {
 
   description        String? @map("littlelink_description") @db.LongText
   role               String  @default("user")
+  // Better Auth admin plugin (1.7): ban state, written only by the plugin endpoints
+  banned             Boolean @default(false)
+  banReason          String?
+  banExpires         DateTime?
   block              String  @default("no")
   theme              String?
   image_file_id      Int?
@@ -86,6 +90,8 @@ model Session {
   userAgent String?
   userId    Int
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Better Auth admin plugin: set while an admin impersonates this session
+  impersonatedBy String?
 
   oauthRefreshTokens OauthRefreshToken[]
   oauthAccessTokens  OauthAccessToken[]
