@@ -192,6 +192,7 @@ const appRouter = router({
         },
       });
 
+      const blockOptions = rnsIdBlockOptions(blockRows);
       const [themeResult, imageResult, identityResult, trackingPixelsResult] =
         await Promise.allSettled([
           getPublicTheme(Number(theme_id)),
@@ -205,7 +206,7 @@ const appRouter = router({
             storedName: revo_name ?? null,
             wallet: user.wallet?.address ?? null,
             display: parseRnsDisplay(rns_display),
-            block: rnsIdBlockOptions(blockRows),
+            block: blockOptions,
           }),
           getPublicTrackingPixels(user_id),
         ]);
@@ -242,8 +243,11 @@ const appRouter = router({
           // Sanitized on read as well as on save, so bios stored before the sanitizer are safe
           description: sanitizeRichText(description),
           image: settledOrFallback(imageResult, null, "profile image URL"),
-          // 112: the month the page joined, for the RNS ID block (day dropped)
-          since: created_at ? created_at.toISOString().slice(0, 7) : null,
+          // 112: the month the page joined, for the RNS ID block (day dropped).
+          // A privacy record, not an accident: the month only leaves the server
+          // when the page carries a visible RNS ID block that asks for it.
+          since:
+            blockOptions.visible && created_at ? created_at.toISOString().slice(0, 7) : null,
         },
         theme: themeResult.value,
         blocks: publicBlocks,

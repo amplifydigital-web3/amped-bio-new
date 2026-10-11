@@ -18,6 +18,8 @@ const state = vi.hoisted(() => ({
   configured: true,
   flag: true,
   attributesFlag: false,
+  cache: {} as Record<string, unknown>,
+  cacheHits: false,
 }));
 
 vi.mock("../services/rns", async () => {
@@ -70,7 +72,15 @@ vi.mock("../env", () => ({
   },
 }));
 vi.mock("../utils/cache", () => ({
-  cache: { get: vi.fn(async () => null), set: vi.fn(async () => undefined) },
+  cache: {
+    get: vi.fn(async (key: string) => (state.cacheHits ? (state.cache[key] ?? null) : null)),
+    set: vi.fn(async (key: string, value: unknown) => {
+      state.cache[key] = value;
+    }),
+    delete: vi.fn(async (key: string) => {
+      delete state.cache[key];
+    }),
+  },
 }));
 
 import {
@@ -99,6 +109,8 @@ beforeEach(() => {
   state.configured = true;
   state.flag = true;
   state.attributesFlag = false;
+  state.cache = {};
+  state.cacheHits = false;
 });
 
 describe("public RNS identity", () => {
@@ -252,16 +264,38 @@ describe("RNS ID block: Name on ID", () => {
 
 describe("rnsIdBlockOptions", () => {
   it("reads the switch from a visible rnsid block only", () => {
-    expect(rnsIdBlockOptions([])).toEqual({ nameOnId: false });
+    expect(rnsIdBlockOptions([])).toEqual({ nameOnId: false, visible: false });
     expect(rnsIdBlockOptions([{ type: "link", config: { url: "x" } }])).toEqual({
       nameOnId: false,
+      visible: false,
     });
     expect(rnsIdBlockOptions([{ type: "rnsid", config: { show: { nameOnId: true } } }])).toEqual({
       nameOnId: true,
+      visible: true,
     });
     expect(
       rnsIdBlockOptions([{ type: "rnsid", config: { show: { nameOnId: true }, hidden: true } }])
-    ).toEqual({ nameOnId: false });
-    expect(rnsIdBlockOptions([{ type: "rnsid", config: null }])).toEqual({ nameOnId: false });
+    ).toEqual({ nameOnId: false, visible: false });
+    expect(rnsIdBlockOptions([{ type: "rnsid", config: null }])).toEqual({
+      nameOnId: false,
+      visible: false,
+    });
+  });
+
+  it("a cached verification never releases the name once the public attributes flag is off", async () => {
+    const run = () =>
+      computeRnsIdentity({
+        storedName: "mayalin",
+        wallet: WALLET,
+        display: display({}, { check: true }),
+        block: { nameOnId: true },
+      });
+    // Warm the cache while the flag is on: the entry carries the name
+    state.attributesFlag = true;
+    expect((await run()).identity?.nameOnId).toBe("Maya Lin");
+    // The flag turns off; the cached entry can still hold the name for the TTL
+    state.attributesFlag = false;
+    state.cacheHits = true;
+    expect((await run()).identity?.nameOnId).toBeUndefined();
   });
 });

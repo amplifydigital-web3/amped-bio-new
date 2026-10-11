@@ -165,21 +165,22 @@ export type RnsIdentityInput = {
   block?: RnsIdBlockOptions;
 };
 
-export type RnsIdBlockOptions = { nameOnId: boolean };
+export type RnsIdBlockOptions = { nameOnId: boolean; visible: boolean };
 
 /**
  * The RNS ID block's identity switches, from the page's block rows. Only a
  * visible rnsid block counts; a hidden one asks for nothing. One block per
- * page (SINGLETON_BLOCK_TYPES), so the first match is the block.
+ * page (SINGLETON_BLOCK_TYPES), so the first match is the block. `visible`
+ * also gates the public join month (`since`), which only a block asks for.
  */
 export function rnsIdBlockOptions(
   blocks: readonly { type: string; config: unknown }[]
 ): RnsIdBlockOptions {
   const block = blocks.find(row => row.type === "rnsid");
-  if (!block) return { nameOnId: false };
+  if (!block) return { nameOnId: false, visible: false };
   const parsed = rnsIdConfigSchema.safeParse(block.config);
-  if (!parsed.success || parsed.data.hidden) return { nameOnId: false };
-  return { nameOnId: parsed.data.show.nameOnId };
+  if (!parsed.success || parsed.data.hidden) return { nameOnId: false, visible: false };
+  return { nameOnId: parsed.data.show.nameOnId, visible: true };
 }
 
 export type RnsIdentityResult = {
@@ -254,8 +255,16 @@ export async function computeRnsIdentity(
     };
   }
   // 112 D1: the checked name rides on the verified chip only, and only when
-  // the owner's block asks for it. The name chip never carries it.
-  if (verified && block?.nameOnId && verification.state === "verified" && verification.nameOnId) {
+  // the public attributes flag is on and the owner's block asks for it. The
+  // flag is re-checked at read time so a cached verification cannot release
+  // the name after the flag turns off (cache entries can be up to 5 min old).
+  if (
+    verified &&
+    env.RNS_PUBLIC_ATTRIBUTES &&
+    block?.nameOnId &&
+    verification.state === "verified" &&
+    verification.nameOnId
+  ) {
     identity.nameOnId = verification.nameOnId;
   }
   return { ...base, expiry, identity, nameState, verification };

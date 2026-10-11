@@ -123,13 +123,14 @@ export const rnsRouter = router({
   getMyPageIdentity: privateProcedure.query(async ({ ctx }) => {
     const account = await accountRns(ctx.user!.sub);
     const display = parseRnsDisplay(account?.rns_display);
+    const blockOptions = rnsIdBlockOptions(account?.blocks ?? []);
     const result = await computeRnsIdentity(
       {
         storedName: account?.revo_name ?? null,
         wallet: account?.wallet?.address ?? null,
         display,
         // 112: the RNS ID block's switches, so the preview equals the page
-        block: rnsIdBlockOptions(account?.blocks ?? []),
+        block: blockOptions,
       },
       { fresh: true }
     );
@@ -139,8 +140,11 @@ export const rnsRouter = router({
       nameState: result.nameState,
       expiry: result.expiry,
       display,
-      /** 112: the month the page joined, as getHandle returns it */
-      since: account?.created_at ? account.created_at.toISOString().slice(0, 7) : null,
+      /** 112: the month the page joined, as getHandle returns it (only with a visible block) */
+      since:
+        blockOptions.visible && account?.created_at
+          ? account.created_at.toISOString().slice(0, 7)
+          : null,
       /** 112 D1: whether Name on ID can show at all (flag on and Authbase shared a name) */
       nameOnIdAvailable:
         env.RNS_PUBLIC_ATTRIBUTES &&

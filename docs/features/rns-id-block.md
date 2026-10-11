@@ -90,6 +90,11 @@ The card wears only the creator's theme: surface in the button color at the cont
 
 Typecheck clean for `@repo/constants`, `@repo/ui`, server, client and landingpage. Server `tsc` build, client `vite build --mode staging` and landing `next build` pass. Server unit tests 260 pass (the two live API suites need staging and are excluded here). Prettier and eslint on changed files: no errors; the remaining warnings predate this change. The card was rendered server side in 24 variants (4 styles, verified and linked, 3 taps) with no undefined or NaN output.
 
+## 8a. Privacy record (review, 11 Oct)
+
+- `user.since` (the join month) leaves the server only when the page carries a visible RNS ID block; a page without the block exposes no join month. Both `getHandle` and `rns.getMyPageIdentity` gate on `rnsIdBlockOptions(...).visible`.
+- `nameOnId` is re-checked against `RNS_PUBLIC_ATTRIBUTES` at read time, so a verification cached while the flag was on cannot release the name after the flag turns off (cache entries live up to 5 minutes).
+
 ## 9. Later
 
 - Proofs (facets) and Agents rows once the Authbase proof API (107) and RNS subnames exist. The card's Proof Strip is ready to take more proof chips.
