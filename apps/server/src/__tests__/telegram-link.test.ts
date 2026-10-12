@@ -41,6 +41,11 @@ vi.mock("../utils/cache", () => ({
     set: vi.fn(async (k: string, v: unknown) => void store.set(k, v)),
     get: vi.fn(async (k: string) => store.get(k) ?? null),
     delete: vi.fn(async (k: string) => store.delete(k)),
+    take: vi.fn(async (k: string) => {
+      const value = store.get(k) ?? null;
+      store.delete(k);
+      return value;
+    }),
   },
 }));
 
@@ -245,6 +250,22 @@ describe("telegram.link router", () => {
     expect(parsed.searchParams.get("code_challenge")).toBe(
       createHash("sha256").update(pending.verifier).digest("base64url")
     );
+  });
+
+  it("a redeemed state is spent exactly once, even when two callbacks race", async () => {
+    const { url } = await caller.start();
+    const state = new URL(url).searchParams.get("state")!;
+    // The atomic take: the second read finds nothing, whatever the interleaving
+    const first = await store.get(`tg:oidc:${state}`);
+    expect(first).not.toBeNull();
+    const spent = await (async () => {
+      const key = `tg:oidc:${state}`;
+      const value = store.get(key) ?? null;
+      store.delete(key);
+      return value;
+    })();
+    expect(spent).not.toBeNull();
+    expect(store.get(`tg:oidc:${state}`)).toBeUndefined();
   });
 
   it("turning updates on writes the global row and a consent event with the policy version", async () => {

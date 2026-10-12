@@ -115,13 +115,11 @@ export async function startTelegramLink(userId: number): Promise<string> {
   return url.toString();
 }
 
-/** Read and delete the pending link for `state`. A state is redeemable once. */
+/** Read and delete the pending link for `state`. Atomic, so a state is redeemable
+ * exactly once even when two callbacks with the same state race. */
 export async function takePendingLink(state: string | null): Promise<PendingLink | null> {
   if (!state || state.length > 128) return null;
-  const key = `${STATE_PREFIX}${state}`;
-  const pending = await cache.get<PendingLink>(key);
-  if (pending) await cache.delete(key);
-  return pending;
+  return cache.take<PendingLink>(`${STATE_PREFIX}${state}`);
 }
 
 export type TelegramClaims = {
