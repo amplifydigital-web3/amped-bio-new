@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Megaphone,
   Palette,
+  Send,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -14,8 +15,9 @@ import {
 // Screen Review 087 I01, I04, I20. The admin rail: unlabeled Dashboard, Users;
 // Content: Themes, Files; Money: Pools, Conversions; Access: OAuth clients.
 // Blocks is not rendered (088 I09). Broadcasts shipped after the review and
-// sits in Content so its page stays reachable. USDC (Build Board #29, spec
-// 3.8) joins Money after Conversions.
+// sits in Content so its page stays reachable. Telegram (Build Board #2, row
+// 120) sits beside it: reports, paused senders, the pilot and bot health. USDC
+// (Build Board #29, spec 3.8) joins Money after Conversions.
 export type AdminGroup = "start" | "content" | "money" | "access";
 
 export interface AdminDestination {
@@ -88,6 +90,15 @@ export const ADMIN_DESTINATIONS: AdminDestination[] = [
     label: "Broadcasts",
     title: "Broadcasts",
     icon: Megaphone,
+    group: "content",
+    dock: false,
+  },
+  {
+    id: "telegram",
+    path: "/telegram",
+    label: "Telegram",
+    title: "Telegram",
+    icon: Send,
     group: "content",
     dock: false,
   },
