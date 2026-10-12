@@ -1,12 +1,14 @@
-import React, { useEffect, useId, useState } from "react";
-import { ExternalLink, Search, UsersRound } from "lucide-react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Button, EmptyState, ErrorCard, trpc, type RouterOutputs } from "@repo/ui";
+import React, { useEffect, useState } from "react";
+import { Search, UsersRound } from "lucide-react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Button, EmptyState, ErrorCard, FirstFollowSheet, trpc } from "@repo/ui";
+import { toast } from "@/components/ui/toast";
 import UserSkeleton from "./UserSkeleton";
+import { PersonCard, PersonRow, type Person, type PersonActions } from "./PersonCard";
 
 type UserFilter = "all" | "active-7-days" | "has-creator-pool";
-type UserSort = "newest" | "name-asc" | "name-desc";
-type Person = RouterOutputs["user"]["getUsers"]["users"][number];
+type UserSort = "newest" | "name-asc" | "name-desc" | "most-followers";
+export type UserView = "cards" | "rows";
 
 // user.getUsers returns at most 20 per request (042 I07)
 const PAGE_SIZE = 20;
@@ -15,15 +17,13 @@ interface UsersTabProps {
   searchQuery: string;
   userFilter: UserFilter;
   userSort: UserSort;
+  // Explore person cards build: cards (concept A) or rows (concept E)
+  view: UserView;
   // 045 I10: the result count beside Sort, and Searching while a new query loads.
   // null while there is no count to show (042: a failed request shows none).
   onResult?: (result: { count: number; fetching: boolean } | null) => void;
   // 045 I13: Clear search and Clear filter in the no results state
   emptyActions?: React.ReactNode;
-}
-
-function pageUrl(handle: string) {
-  return `${import.meta.env.VITE_LANDINGPAGE_URL}/${handle}`;
 }
 
 // Skeletons only after 400ms of loading (loading convention)
@@ -40,92 +40,19 @@ function useDelayed(active: boolean, ms = 400) {
   return shown;
 }
 
-/** 042 I05. 55 circle with a line ring; the first letter on the lens disc when there is no photo or it fails. */
-function PersonAvatar({ person }: { person: Person }) {
-  const [failed, setFailed] = useState(false);
-  const letter = (person.displayName.trim() || person.username || "?").charAt(0).toUpperCase();
-
-  if (person.avatar && !failed) {
-    return (
-      <img
-        src={person.avatar}
-        alt=""
-        onError={() => setFailed(true)}
-        className="h-[55px] w-[55px] shrink-0 rounded-full object-cover shadow-[0_0_0_1px_rgba(22,21,43,0.10)]"
-      />
-    );
-  }
-  return (
-    <span
-      aria-hidden
-      className="flex h-[55px] w-[55px] shrink-0 items-center justify-center rounded-full bg-[linear-gradient(180deg,#FFFFFF_0%,#F1F0F9_100%)] text-prism-panel-title text-prism-nav-pressed shadow-[inset_0_0_0_1px_rgba(22,21,43,0.10)]"
-    >
-      {letter}
-    </span>
-  );
-}
-
-/**
- * 042 I02, I03, I11. G1 clear medium card, 189 high: avatar, name, @handle and
- * a two line plain text bio. The whole card is one link to the person's page in
- * a new tab. Rest CLEAR, hover ILLUMINATED (top highlight, 144ms), press
- * REFRACTED (rim flash, 89ms), Prism focus ring.
- */
-function PersonCard({ person }: { person: Person }) {
-  const nameId = useId();
-  const handle = person.username;
-  // The server returns plain text (042 I06); collapse any leftover whitespace
-  const bio = person.bio.replace(/\s+/g, " ").trim();
-
-  return (
-    <a
-      href={pageUrl(handle)}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label={`View @${handle}'s page (opens in a new tab)`}
-      aria-describedby={nameId}
-      className="group prism-glass-clear prism-focus relative flex h-[189px] flex-col gap-[13px] p-[21px] font-prism"
-    >
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[linear-gradient(180deg,rgba(255,255,255,0.36)_0%,rgba(255,255,255,0)_40%)] opacity-0 transition-opacity duration-prism-hover ease-prism group-hover:opacity-100 motion-reduce:transition-none"
-      />
-      <span
-        aria-hidden
-        className="prism-rim opacity-0 transition-opacity duration-prism-micro ease-prism group-active:opacity-100 motion-reduce:transition-none"
-      />
-      <span className="relative flex items-center gap-[13px]">
-        <PersonAvatar person={person} />
-        <span className="min-w-0 flex-1">
-          <span
-            id={nameId}
-            title={person.displayName}
-            className="block truncate text-prism-label font-bold text-prism-ink"
-          >
-            {person.displayName}
-          </span>
-          <span className="block truncate text-prism-meta text-prism-ink-2">@{handle}</span>
-        </span>
-        <ExternalLink
-          className="h-[21px] w-[21px] shrink-0 self-start text-prism-ink-2"
-          aria-hidden
-        />
-      </span>
-      {bio && <span className="relative line-clamp-2 text-prism-meta text-prism-ink-2">{bio}</span>}
-    </a>
-  );
-}
-
 const GRID =
   "grid grid-cols-1 gap-[13px] sm:grid-cols-[repeat(auto-fill,minmax(272px,1fr))] sm:gap-[21px]";
+const ROWS = "prism-glass-clear px-[21px] py-1";
 
 const UsersTab: React.FC<UsersTabProps> = ({
   searchQuery,
   userFilter,
   userSort,
+  view,
   onResult,
   emptyActions,
 }) => {
+  const queryClient = useQueryClient();
   // A new query starts again from the first page
   const queryKey = `${searchQuery}|${userFilter}|${userSort}`;
   const [paging, setPaging] = useState({ key: queryKey, page: 1 });
@@ -168,6 +95,108 @@ const UsersTab: React.FC<UsersTabProps> = ({
     onResult?.({ count: data.total ?? 0, fetching: isFetching && isPlaceholderData && page === 1 });
   }, [data, isError, isFetching, isPlaceholderData, page, onResult]);
 
+  // ===== Follow from Explore (Fan Graph #22, source = explore) =====
+  const follow = useMutation(trpc.follow.follow.mutationOptions());
+  const unfollow = useMutation(trpc.follow.unfollow.mutationOptions());
+  const undoUnfollow = useMutation(trpc.follow.undoUnfollow.mutationOptions());
+  // The person whose first-follow sheet is open (decision 3: once, then one tap)
+  const [sheetFor, setSheetFor] = useState<Person | null>(null);
+  const busy = follow.isPending || unfollow.isPending || undoUnfollow.isPending;
+
+  const setFollowing = (id: string, following: boolean, disclosureSeen?: boolean) => {
+    setPeople(previous =>
+      previous.map(person =>
+        person.id === id && person.viewer
+          ? {
+              ...person,
+              viewer: {
+                ...person.viewer,
+                following,
+                disclosureSeen: disclosureSeen ?? person.viewer.disclosureSeen,
+              },
+            }
+          : person
+      )
+    );
+    // The disclosure is seen once for every card on the page
+    if (disclosureSeen) {
+      setPeople(previous =>
+        previous.map(person =>
+          person.viewer ? { ...person, viewer: { ...person.viewer, disclosureSeen: true } } : person
+        )
+      );
+    }
+    void queryClient.invalidateQueries({ queryKey: trpc.follow.listFollowing.queryKey() });
+  };
+
+  const doFollow = async (
+    person: Person,
+    choice?: { showPublicly: boolean; emailUpdates: boolean }
+  ) => {
+    try {
+      const result = await follow.mutateAsync({
+        handle: person.username,
+        source: "explore",
+        ...(choice ? { ...choice, fromDisclosure: true } : {}),
+      });
+      setSheetFor(null);
+      setFollowing(person.id, true, choice ? true : undefined);
+      toast.add({
+        type: "success",
+        title: `You follow ${person.displayName}.`,
+        description: result.pending ? "It counts once you confirm your email." : undefined,
+        duration: 8000,
+        actionProps: {
+          children: "Undo",
+          onClick: () => {
+            void unfollow
+              .mutateAsync({ handle: person.username })
+              .then(() => setFollowing(person.id, false))
+              .catch(() => toast.add({ type: "error", title: "That didn't work. Try again." }));
+          },
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      toast.add({ type: "error", title: message || "That didn't work. Try again." });
+    }
+  };
+
+  const actions: PersonActions = {
+    busy,
+    onFollow: person => {
+      if (person.viewer?.disclosureSeen) void doFollow(person);
+      else setSheetFor(person);
+    },
+    onUnfollow: async person => {
+      try {
+        const { restoreToken } = await unfollow.mutateAsync({ handle: person.username });
+        setFollowing(person.id, false);
+        toast.add({
+          type: "success",
+          title: `You unfollowed ${person.displayName}.`,
+          duration: 8000,
+          // Undo restores the follow as it was, with its settings and date (QA-033)
+          actionProps: restoreToken
+            ? {
+                children: "Undo",
+                onClick: () => {
+                  void undoUnfollow
+                    .mutateAsync({ token: restoreToken })
+                    .then(() => setFollowing(person.id, true))
+                    .catch(() =>
+                      toast.add({ type: "error", title: "Undo is no longer available." })
+                    );
+                },
+              }
+            : undefined,
+        });
+      } catch {
+        toast.add({ type: "error", title: "That didn't work. Try again." });
+      }
+    },
+  };
+
   const showSkeleton = useDelayed(query.isLoading);
   const appending = page > 1 && isPlaceholderData;
 
@@ -184,15 +213,22 @@ const UsersTab: React.FC<UsersTabProps> = ({
     );
   }
 
-  // 042 I08: nothing before 400ms, then 8 skeleton cards where the cards land
+  // 042 I08: nothing before 400ms, then 8 skeletons where the cards or rows land
   if (query.isLoading) {
-    return showSkeleton ? (
-      <div className={GRID} aria-busy aria-label="Loading people">
+    if (!showSkeleton) return null;
+    return view === "rows" ? (
+      <div className={ROWS} aria-busy aria-label="Loading people">
         {Array.from({ length: 8 }).map((_, index) => (
-          <UserSkeleton key={index} />
+          <UserSkeleton key={index} view="rows" />
         ))}
       </div>
-    ) : null;
+    ) : (
+      <div className={GRID} aria-busy aria-label="Loading people">
+        {Array.from({ length: 8 }).map((_, index) => (
+          <UserSkeleton key={index} view="cards" />
+        ))}
+      </div>
+    );
   }
 
   // 042 I09: no results for a query, or from a filter only
@@ -219,13 +255,23 @@ const UsersTab: React.FC<UsersTabProps> = ({
 
   return (
     <div className="space-y-[34px]">
-      <div role="list" aria-label="People" className={GRID}>
-        {people.map(person => (
-          <div role="listitem" key={person.id}>
-            <PersonCard person={person} />
-          </div>
-        ))}
-      </div>
+      {view === "rows" ? (
+        <div role="list" aria-label="People" className={ROWS}>
+          {people.map(person => (
+            <div role="listitem" key={person.id}>
+              <PersonRow person={person} actions={actions} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div role="list" aria-label="People" className={GRID}>
+          {people.map(person => (
+            <div role="listitem" key={person.id}>
+              <PersonCard person={person} actions={actions} />
+            </div>
+          ))}
+        </div>
+      )}
 
       {total > 0 && (
         <div className="flex flex-col items-center gap-[13px]">
@@ -255,6 +301,22 @@ const UsersTab: React.FC<UsersTabProps> = ({
             )
           )}
         </div>
+      )}
+
+      {/* First follow only (board fg3). The same sheet as the creator page capsule. */}
+      {sheetFor && (
+        <FirstFollowSheet
+          key={sheetFor.id}
+          open
+          onOpenChange={open => {
+            if (!open) setSheetFor(null);
+          }}
+          creatorName={sheetFor.displayName}
+          showCount={sheetFor.showCount}
+          busy={follow.isPending}
+          privacyHref={`${import.meta.env.VITE_LANDINGPAGE_URL ?? ""}/privacy`}
+          onConfirm={choice => void doFollow(sheetFor, choice)}
+        />
       )}
     </div>
   );

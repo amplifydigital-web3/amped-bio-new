@@ -119,6 +119,7 @@ export {
   type FollowersCardFace,
   type FollowersCardProps,
 } from "./creator/followers-card";
+export { FirstFollowSheet } from "./creator/first-follow-sheet";
 export {
   RnsIdCard,
   RNS_ID_COPY,
