@@ -11,6 +11,7 @@ import { adminPoolsRouter } from "./pools";
 import { affiliateAdminRouter } from "./affiliate";
 import { oauthAppsAdminRouter } from "./oauthApps";
 import { broadcastsAdminRouter } from "./broadcasts";
+import { moneyAdminRouter } from "./money";
 
 export const adminRouter = router({
   // User Management
@@ -48,4 +49,7 @@ export const adminRouter = router({
 
   // OAuth Applications
   oauthApps: oauthAppsAdminRouter,
+
+  // USDC relayer, gas ledger, funding, screening and the send pause (Build Board #29)
+  money: moneyAdminRouter,
 });
