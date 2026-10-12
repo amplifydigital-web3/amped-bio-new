@@ -27,6 +27,8 @@ interface ImportMetaEnv {
   readonly VITE_SHOW_NFTS?: string;
   /** Creator Pool Broadcast (Build Board #1): My Pool Broadcasts tab and the Inbox */
   readonly VITE_SHOW_BROADCAST: string;
+  /** Messaging on Telegram (Build Board #2): Account, Telegram link and the composer's Telegram channel */
+  readonly VITE_SHOW_TELEGRAM?: string;
   readonly VITE_DEFAULT_NETWORK_ID_HEX: `0x${string}`;
   // google
   readonly VITE_CAPTCHA_SERVER_URL: string;
