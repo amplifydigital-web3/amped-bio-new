@@ -8,6 +8,7 @@ import { linkConfig, linkValueFromConfig, wellClass } from "./linkValue";
 import { mediaHelp, mediaName, mediaUrlError, stripTags } from "./blockInfo";
 import { FollowBlockFields, FollowersBlockFields } from "./FollowBlockFields";
 import { RnsIdBlockFields } from "./RnsIdBlockFields";
+import { TelegramBlockFields } from "./TelegramBlockFields";
 
 // Screen Review 037. The fields an open block row needs, one column on the G2
 // slab. Every valid change goes to the editor state at once (the preview
@@ -228,6 +229,9 @@ export function BlockFields({ block, onValid }: { block: BlockType; onValid: Con
       return <FollowersBlockFields key={key} block={block} onValid={onValid} />;
     case "rnsid":
       return <RnsIdBlockFields key={key} block={block} onValid={onValid} />;
+    case "telegram_message":
+    case "telegram_group":
+      return <TelegramBlockFields key={key} block={block} onValid={onValid} />;
     default:
       return null;
   }
