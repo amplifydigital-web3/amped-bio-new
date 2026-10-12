@@ -282,6 +282,16 @@ describe("rnsIdBlockOptions", () => {
     });
   });
 
+  it("reads the first rnsid row when a legacy page somehow holds two", () => {
+    const two = [
+      { type: "rnsid", config: { show: { nameOnId: true } } },
+      { type: "rnsid", config: { show: { nameOnId: false }, hidden: true } },
+    ];
+    expect(rnsIdBlockOptions(two)).toEqual({ nameOnId: true, visible: true });
+    // The server side addBlock gate keeps this from happening (see
+    // rns-id-block-singleton.test.ts); the read side stays deterministic anyway
+  });
+
   it("a cached verification never releases the name once the public attributes flag is off", async () => {
     const run = () =>
       computeRnsIdentity({
