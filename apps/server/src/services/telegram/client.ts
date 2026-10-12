@@ -15,6 +15,7 @@ import { env } from "../../env";
  */
 
 let bot: Bot | null = null;
+let cachedMe: { id: number; username: string | null } | null = null;
 
 export function isTelegramConfigured(): boolean {
   return env.TELEGRAM_ENABLED && env.TELEGRAM_BOT_TOKEN.length > 0;
@@ -45,7 +46,29 @@ export function telegramBotId(): number | null {
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
-/** Test seam: drop the cached client so a test can change env between cases. */
+/**
+ * The bot's own username, resolved from the Bot API `getMe()` so it always
+ * matches the token in use instead of a guessed env value. One call per
+ * process, then cached. `TELEGRAM_BOT_USERNAME` stays as an override for
+ * tests or a split environment where the token cannot reach the API.
+ */
+export async function getBotUsername(): Promise<string | null> {
+  if (env.TELEGRAM_BOT_USERNAME) return env.TELEGRAM_BOT_USERNAME;
+  const bot = getTelegramBot();
+  if (!bot) return null;
+  if (cachedMe) return cachedMe.username;
+  try {
+    const me = await bot.api.getMe();
+    cachedMe = { id: me.id, username: me.username ?? null };
+  } catch (error) {
+    console.error("[telegram] getMe failed, deep links stay unavailable:", error);
+    return null;
+  }
+  return cachedMe.username;
+}
+
+/** Test seam: drop the cached client and getMe result so a test can change env between cases. */
 export function resetTelegramBotForTests() {
   bot = null;
+  cachedMe = null;
 }
