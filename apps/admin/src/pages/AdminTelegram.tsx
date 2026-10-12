@@ -412,7 +412,14 @@ export function AdminTelegram() {
             placeholder="Why this account is paused"
           />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPauseFor(null)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPauseFor(null);
+                // A cancelled pause must not pre-fill the reason for the next one
+                setReason("");
+              }}
+            >
               Cancel
             </Button>
             <Button

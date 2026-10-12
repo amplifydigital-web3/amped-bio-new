@@ -322,6 +322,7 @@ export function startTelegramLoop() {
     purger.unref();
   }
   if (!isTelegramConfigured()) return;
+
   const tick = async () => {
     if (draining) return;
     draining = true;

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useEffect, useCallback, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import { MessageCircle } from "lucide-react";
@@ -35,8 +35,13 @@ export function MessagesTab() {
   const openWizard = useOpenTelegramWizard();
   const openId = params.get("t");
   const sideParam = params.get("side") === "fan" ? "fan" : null;
-  const [guessedSide, setGuessedSide] = useState<ThreadSide>("creator");
+  const [guessedSide, guessedSideFor] = useState<ThreadSide>("creator");
+  // A guess belongs to the open thread only; a different id starts the guess over,
+  // so the fan view of one deep link never sticks to the next one
   const side: ThreadSide = sideParam ?? guessedSide;
+  useEffect(() => {
+    guessedSideFor("creator");
+  }, [openId]);
   const [filter, setFilter] = useState<Filter>(sideParam === "fan" ? "sent" : "all");
 
   const setOpen = (id: string | null, nextSide: ThreadSide = "creator") =>
@@ -53,7 +58,7 @@ export function MessagesTab() {
       return next;
     });
   const onWrongSide = useCallback(() => {
-    if (!sideParam && guessedSide === "creator") setGuessedSide("fan");
+    if (!sideParam && guessedSide === "creator") guessedSideFor("fan");
   }, [sideParam, guessedSide]);
 
   const creatorList = useInfiniteQuery({

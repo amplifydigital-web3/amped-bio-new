@@ -181,6 +181,13 @@ export const broadcastCreatorRouter = router({
       // Warn only (Rob, 2026-10-04): a flag never holds the broadcast, but the
       // creator must have seen it and the phrases are kept for admin follow-up.
       const flags = checkBroadcastContent(input.title, input.body);
+
+      // The checkbox is client-gated on a reachable link; the server refuses it
+      // here too, so a stale client cannot queue a broadcast Telegram can never
+      // deliver
+      const telegramUsable = input.sendTelegram
+        ? isTelegramConfigured() && isReachable(await findByUserId(userId))
+        : false;
       if (flags.length > 0 && !input.confirmFlags) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
@@ -205,7 +212,7 @@ export const broadcastCreatorRouter = router({
               creatorUserId: userId,
               poolId: pool.id,
               audienceKind: "ALL_MEMBERS",
-              sendTelegram: input.sendTelegram && isTelegramConfigured(),
+              sendTelegram: telegramUsable,
               title: input.title,
               body: input.body,
               idempotencyKey: input.idempotencyKey,

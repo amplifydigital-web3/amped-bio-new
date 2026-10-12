@@ -132,7 +132,10 @@ export async function unlinkTelegram(userId: number) {
       data: { telegramEnabled: null },
     }),
   ]);
+  // Unlink ends the delivery consent too, so the trail shows the withdrawal,
+  // not only the original grant
   await recordLinkEvent(userId, account.telegramUserId, "unlinked", "settings");
+  await recordLinkEvent(userId, account.telegramUserId, "updates_off", "settings");
   return { telegramUserId: account.telegramUserId, reachable: isReachable(account) };
 }
 
