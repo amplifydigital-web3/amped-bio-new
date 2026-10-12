@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { prisma } from "@repo/database";
-import { TELEGRAM_BOT_STRINGS } from "@repo/constants";
+import { HANDLE_REGEX, TELEGRAM_BOT_STRINGS } from "@repo/constants";
 import { privateProcedure, router } from "../trpc";
 import { env } from "../../env";
 import { enforceRateLimits } from "../../utils/rateLimit";
@@ -13,7 +13,17 @@ import {
   unlinkTelegram,
 } from "../../services/telegram/accounts";
 import { isOidcConfigured, startTelegramLink } from "../../services/telegram/oidc";
+import { getBotUsername } from "../../services/telegram/client";
 import { enqueueOutbox } from "../../services/telegram/loop";
+
+/** Where the browser lands after Telegram (PR 4). The handle must name a published page. */
+const returnToSchema = z
+  .discriminatedUnion("to", [
+    z.object({ to: z.literal("account") }),
+    z.object({ to: z.literal("wizard") }),
+    z.object({ to: z.literal("fan"), handle: z.string().min(1).max(64).regex(HANDLE_REGEX) }),
+  ])
+  .default({ to: "account" });
 
 /**
  * telegram.link (Build Board #2, spec 3.4): Account, Connected apps, row 112.
@@ -25,12 +35,17 @@ export const telegramLinkRouter = router({
   status: privateProcedure.query(async ({ ctx }) => {
     const userId = ctx.user!.sub;
     const available = isOidcConfigured();
-    const account = await findByUserId(userId);
+    const [account, botUsername] = await Promise.all([
+      findByUserId(userId),
+      // The bot's public handle, for t.me deep links (wizard A Done, wizard B)
+      env.TELEGRAM_ENABLED ? getBotUsername() : Promise.resolve(null),
+    ]);
     if (!account) {
-      return { available, linked: false as const, telegramBroadcasts: false };
+      return { available, botUsername, linked: false as const, telegramBroadcasts: false };
     }
     return {
       available,
+      botUsername,
       linked: true as const,
       telegramBroadcasts: await getGlobalTelegramDelivery(userId),
       ...ownLinkView(account),
@@ -38,28 +53,38 @@ export const telegramLinkRouter = router({
   }),
 
   /** The Log In with Telegram URL for this user. The browser goes there next. */
-  start: privateProcedure.mutation(async ({ ctx }) => {
-    const userId = ctx.user!.sub;
-    if (!isOidcConfigured()) {
-      throw new TRPCError({
-        code: "PRECONDITION_FAILED",
-        message: "Telegram is not available yet.",
-      });
-    }
-    await enforceRateLimits(
-      [{ key: `tg-link-start:${userId}`, limit: 10, windowSeconds: 3600 }],
-      "Too many link attempts. Try again in an hour."
-    );
-    try {
-      return { url: await startTelegramLink(userId) };
-    } catch (error) {
-      console.error("[telegram] link start failed", error);
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Telegram did not answer. Try again in a minute.",
-      });
-    }
-  }),
+  start: privateProcedure
+    .input(z.object({ returnTo: returnToSchema }).optional())
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user!.sub;
+      if (!isOidcConfigured()) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Telegram is not available yet.",
+        });
+      }
+      await enforceRateLimits(
+        [{ key: `tg-link-start:${userId}`, limit: 10, windowSeconds: 3600 }],
+        "Too many link attempts. Try again in an hour."
+      );
+      const returnTo = input?.returnTo ?? { to: "account" as const };
+      if (returnTo.to === "fan") {
+        const page = await prisma.user.findFirst({
+          where: { handle: returnTo.handle, page_status: "PUBLISHED" },
+          select: { id: true },
+        });
+        if (!page) throw new TRPCError({ code: "NOT_FOUND", message: "Page not found." });
+      }
+      try {
+        return { url: await startTelegramLink(userId, returnTo) };
+      } catch (error) {
+        console.error("[telegram] link start failed", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Telegram did not answer. Try again in a minute.",
+        });
+      }
+    }),
 
   setPreferences: privateProcedure
     .input(
