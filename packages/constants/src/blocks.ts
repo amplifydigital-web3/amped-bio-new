@@ -2,7 +2,15 @@ import { z } from "zod";
 import { allowedPlatforms, mediaPlataforms, PlatformId } from "./platforms";
 
 // TypeScript type definitions for block types
-type BaseBlockType = "link" | "media" | "text" | "pool" | "referral" | "follow" | "followers";
+type BaseBlockType =
+  | "link"
+  | "media"
+  | "text"
+  | "pool"
+  | "referral"
+  | "follow"
+  | "followers"
+  | "rnsid";
 
 export type BaseBlock<type extends BaseBlockType = any, T = any> = {
   id: number;
@@ -79,6 +87,48 @@ export type FollowersBlockConfig = {
 
 export type FollowersBlock = BaseBlock<"followers", FollowersBlockConfig>;
 
+// RNS ID block (Build Board #33, Screen Review 112): who runs the page, from
+// the same server identity rule as the header chip (108, 109). One per page.
+// The block never carries identity data; the public renderer reads
+// `profile.identity`, so the owner's Page > RNS switches and the binding
+// rule apply before anything reaches a visitor.
+export type RnsIdBlockStyle = "nameplate" | "idcard" | "proofstrip" | "seal";
+export type RnsIdBlockTap = "sheet" | "inline" | "none";
+
+export type RnsIdBlockConfig = {
+  style: RnsIdBlockStyle;
+  /** Eyebrow on ID Card and Proof Strip, 1 to 24 characters */
+  label: string;
+  /** sheet: the identity sheet. inline: the facts open under the block. none: static */
+  tap: RnsIdBlockTap;
+  show: {
+    /** Display name and handle (ID Card, Seal sentence) */
+    displayName: boolean;
+    /** Avatar (ID Card) */
+    avatar: boolean;
+    /** Month the page joined Amped.Bio */
+    since: boolean;
+    /** The name Authbase checked. Verified pages only, server applied (112 D1) */
+    nameOnId: boolean;
+  };
+};
+
+export type RnsIdBlock = BaseBlock<"rnsid", RnsIdBlockConfig>;
+
+export const RNSID_LABEL_MAX = 24;
+
+export const DEFAULT_RNSID_CONFIG: RnsIdBlockConfig = {
+  style: "nameplate",
+  label: "Identity",
+  tap: "sheet",
+  show: { displayName: true, avatar: true, since: true, nameOnId: false },
+};
+
+/** Which tap behaviours a style offers (112 D3) */
+export function rnsIdTapsFor(style: RnsIdBlockStyle): readonly RnsIdBlockTap[] {
+  return style === "idcard" || style === "proofstrip" ? ["sheet", "inline"] : ["sheet", "none"];
+}
+
 export const FOLLOW_LABEL_MAX = 24;
 export const FOLLOWERS_TITLE_MAX = 40;
 
@@ -100,10 +150,11 @@ export type BlockType =
   | PoolBlock
   | ReferralBlock
   | FollowBlock
-  | FollowersBlock;
+  | FollowersBlock
+  | RnsIdBlock;
 
 /** Block types a page holds at most once. The Add block dialog opens the existing row. */
-export const SINGLETON_BLOCK_TYPES = ["referral", "follow", "followers"] as const;
+export const SINGLETON_BLOCK_TYPES = ["referral", "follow", "followers", "rnsid"] as const;
 
 /**
  * Capsule rule (follow-blocks spec 3.8): a renderable block that carries its
@@ -211,6 +262,21 @@ export const followersConfigSchema = z.object({
   hidden: z.boolean().optional(),
 });
 
+export const rnsIdConfigSchema = z.object({
+  style: z.enum(["nameplate", "idcard", "proofstrip", "seal"]).default("nameplate"),
+  label: z.string().trim().min(1, "Label is required").max(RNSID_LABEL_MAX).default("Identity"),
+  tap: z.enum(["sheet", "inline", "none"]).default("sheet"),
+  show: z
+    .object({
+      displayName: z.boolean().default(true),
+      avatar: z.boolean().default(true),
+      since: z.boolean().default(true),
+      nameOnId: z.boolean().default(false),
+    })
+    .default({ displayName: true, avatar: true, since: true, nameOnId: false }),
+  hidden: z.boolean().optional(),
+});
+
 /** The config schema for a block type. Unknown types fall back to the union. */
 const CONFIG_SCHEMAS: Record<string, z.ZodTypeAny> = {
   link: linkConfigSchema,
@@ -220,6 +286,7 @@ const CONFIG_SCHEMAS: Record<string, z.ZodTypeAny> = {
   referral: referralConfigSchema,
   follow: followConfigSchema,
   followers: followersConfigSchema,
+  rnsid: rnsIdConfigSchema,
 };
 
 // The referral schema accepts any object, so it stays last in the fallback
@@ -230,6 +297,7 @@ const anyBlockConfigSchema = z.union([
   poolConfigSchema,
   followConfigSchema,
   followersConfigSchema,
+  rnsIdConfigSchema,
   referralConfigSchema,
 ]);
 

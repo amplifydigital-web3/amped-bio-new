@@ -62,12 +62,14 @@ export {
 } from "./prism/states";
 export {
   RnsIdentityChip,
+  RnsIdentityDialog,
   RnsVerifiedMark,
   RNS_IDENTITY_COPY,
   formatRnsDate,
   type RnsIdentity,
   type RnsIdentityCheck,
   type RnsIdentityChipProps,
+  type RnsIdentityDialogProps,
 } from "./prism/rns-identity";
 export {
   SidePanel,
@@ -117,6 +119,12 @@ export {
   type FollowersCardFace,
   type FollowersCardProps,
 } from "./creator/followers-card";
+export {
+  RnsIdCard,
+  RNS_ID_COPY,
+  formatSinceMonth,
+  type RnsIdCardProps,
+} from "./creator/rns-id-card";
 export { ExternalRedirect } from "./external-redirect";
 
 // Auth

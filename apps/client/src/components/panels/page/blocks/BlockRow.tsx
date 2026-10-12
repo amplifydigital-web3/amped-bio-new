@@ -12,6 +12,7 @@ import {
   EyeOff,
   Gift,
   GripVertical,
+  IdCard,
   MoreHorizontal,
   Trash2,
   UserPlus,
@@ -55,7 +56,9 @@ function BlockIcon({ block }: { block: BlockType }) {
           ? UserPlus
           : block.type === "followers"
             ? UsersRound
-            : getPlatformIcon(block.type === "text" ? "text" : block.config.platform);
+            : block.type === "rnsid"
+              ? IdCard
+              : getPlatformIcon(block.type === "text" ? "text" : block.config.platform);
   return <Icon aria-hidden className="h-[21px] w-[21px] shrink-0 text-prism-ink-2" />;
 }
 

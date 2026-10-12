@@ -17,6 +17,9 @@ const state = vi.hoisted(() => ({
   authbase: "verified" as "verified" | "not_verified" | "throw",
   configured: true,
   flag: true,
+  attributesFlag: false,
+  cache: {} as Record<string, unknown>,
+  cacheHits: false,
 }));
 
 vi.mock("../services/rns", async () => {
@@ -33,7 +36,10 @@ vi.mock("../services/rns", async () => {
   };
 });
 vi.mock("../services/rnsSummary", () => ({ readPrimaryName: vi.fn(async () => null) }));
-vi.mock("../services/authbase", () => ({
+vi.mock("../services/authbase", async () => ({
+  publicSharedAttributes: (
+    await vi.importActual<typeof import("../services/authbase")>("../services/authbase")
+  ).publicSharedAttributes,
   isAuthbaseConfigured: () => state.configured,
   getAuthbaseWalletStatus: vi.fn(async () => {
     if (state.authbase === "throw") throw new Error("down");
@@ -48,7 +54,7 @@ vi.mock("../services/authbase", () => ({
             valid_until: "2027-08-12T00:00:00Z",
           }
         : null,
-      attributes: { legal_name: "Secret Name" },
+      attributes: { legal_name: "Secret Name", name: "Maya Lin", country: "US" },
       message: "upstream message",
       authbase_wallet_address: WALLET,
     };
@@ -59,14 +65,30 @@ vi.mock("../env", () => ({
     get RNS_PUBLIC_IDENTITY() {
       return state.flag;
     },
+    get RNS_PUBLIC_ATTRIBUTES() {
+      return state.attributesFlag;
+    },
     SUBGRAPH_URL: "",
   },
 }));
 vi.mock("../utils/cache", () => ({
-  cache: { get: vi.fn(async () => null), set: vi.fn(async () => undefined) },
+  cache: {
+    get: vi.fn(async (key: string) => (state.cacheHits ? (state.cache[key] ?? null) : null)),
+    set: vi.fn(async (key: string, value: unknown) => {
+      state.cache[key] = value;
+    }),
+    delete: vi.fn(async (key: string) => {
+      delete state.cache[key];
+    }),
+  },
 }));
 
-import { computeRnsIdentity, parseRnsDisplay, RNS_DISPLAY_DEFAULTS } from "../services/rnsIdentity";
+import {
+  computeRnsIdentity,
+  parseRnsDisplay,
+  rnsIdBlockOptions,
+  RNS_DISPLAY_DEFAULTS,
+} from "../services/rnsIdentity";
 
 const display = (over: Partial<typeof RNS_DISPLAY_DEFAULTS> = {}, details = {}) => ({
   ...RNS_DISPLAY_DEFAULTS,
@@ -86,6 +108,9 @@ beforeEach(() => {
   state.authbase = "verified";
   state.configured = true;
   state.flag = true;
+  state.attributesFlag = false;
+  state.cache = {};
+  state.cacheHits = false;
 });
 
 describe("public RNS identity", () => {
@@ -183,5 +208,104 @@ describe("public RNS identity", () => {
   it("reads malformed display settings as the defaults", () => {
     expect(parseRnsDisplay(null)).toEqual(RNS_DISPLAY_DEFAULTS);
     expect(parseRnsDisplay({ showName: "yes" })).toEqual(RNS_DISPLAY_DEFAULTS);
+  });
+});
+
+// RNS ID block (Build Board #33, Screen Review 112 D1): the checked name
+// reaches the page only with the attributes flag on, a verified chip and
+// the owner's block switch on. Every other path leaves it out.
+describe("RNS ID block: Name on ID", () => {
+  const block = { nameOnId: true };
+  const withBlock = (over: Partial<typeof RNS_DISPLAY_DEFAULTS> = {}, options = block) =>
+    computeRnsIdentity({
+      storedName: "mayalin",
+      wallet: WALLET,
+      display: display(over),
+      block: options,
+    });
+
+  it("is left out while RNS_PUBLIC_ATTRIBUTES is off, whatever the block asks", async () => {
+    const { identity } = await withBlock();
+    expect(identity?.chip).toBe("verified");
+    expect(identity && "nameOnId" in identity).toBe(false);
+  });
+
+  it("shows the Authbase name with the flag, a verified chip and the switch on", async () => {
+    state.attributesFlag = true;
+    const { identity } = await withBlock();
+    expect(identity?.nameOnId).toBe("Maya Lin");
+    const json = JSON.stringify(identity);
+    expect(json).not.toContain("Secret Name");
+    expect(json).not.toContain("US");
+  });
+
+  it("is left out when the block switch is off or there is no block", async () => {
+    state.attributesFlag = true;
+    expect((await withBlock({}, { nameOnId: false })).identity?.nameOnId).toBeUndefined();
+    const { identity } = await computeRnsIdentity({
+      storedName: "mayalin",
+      wallet: WALLET,
+      display: display(),
+    });
+    expect(identity?.nameOnId).toBeUndefined();
+  });
+
+  it("never rides on the name chip (badge off or not verified)", async () => {
+    state.attributesFlag = true;
+    const badgeOff = await withBlock({ showBadge: false });
+    expect(badgeOff.identity?.chip).toBe("name");
+    expect(badgeOff.identity?.nameOnId).toBeUndefined();
+    state.authbase = "not_verified";
+    const unverified = await withBlock();
+    expect(unverified.identity?.chip).toBe("name");
+    expect(unverified.identity?.nameOnId).toBeUndefined();
+  });
+});
+
+describe("rnsIdBlockOptions", () => {
+  it("reads the switch from a visible rnsid block only", () => {
+    expect(rnsIdBlockOptions([])).toEqual({ nameOnId: false, visible: false });
+    expect(rnsIdBlockOptions([{ type: "link", config: { url: "x" } }])).toEqual({
+      nameOnId: false,
+      visible: false,
+    });
+    expect(rnsIdBlockOptions([{ type: "rnsid", config: { show: { nameOnId: true } } }])).toEqual({
+      nameOnId: true,
+      visible: true,
+    });
+    expect(
+      rnsIdBlockOptions([{ type: "rnsid", config: { show: { nameOnId: true }, hidden: true } }])
+    ).toEqual({ nameOnId: false, visible: false });
+    expect(rnsIdBlockOptions([{ type: "rnsid", config: null }])).toEqual({
+      nameOnId: false,
+      visible: false,
+    });
+  });
+
+  it("reads the first rnsid row when a legacy page somehow holds two", () => {
+    const two = [
+      { type: "rnsid", config: { show: { nameOnId: true } } },
+      { type: "rnsid", config: { show: { nameOnId: false }, hidden: true } },
+    ];
+    expect(rnsIdBlockOptions(two)).toEqual({ nameOnId: true, visible: true });
+    // The server side addBlock gate keeps this from happening (see
+    // rns-id-block-singleton.test.ts); the read side stays deterministic anyway
+  });
+
+  it("a cached verification never releases the name once the public attributes flag is off", async () => {
+    const run = () =>
+      computeRnsIdentity({
+        storedName: "mayalin",
+        wallet: WALLET,
+        display: display({}, { check: true }),
+        block: { nameOnId: true },
+      });
+    // Warm the cache while the flag is on: the entry carries the name
+    state.attributesFlag = true;
+    expect((await run()).identity?.nameOnId).toBe("Maya Lin");
+    // The flag turns off; the cached entry can still hold the name for the TTL
+    state.attributesFlag = false;
+    state.cacheHits = true;
+    expect((await run()).identity?.nameOnId).toBeUndefined();
   });
 });
