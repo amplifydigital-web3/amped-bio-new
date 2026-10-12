@@ -3,6 +3,7 @@ import { autoRetry } from "@grammyjs/auto-retry";
 import { apiThrottler } from "@grammyjs/transformer-throttler";
 import { TELEGRAM_LIMITS } from "@repo/constants";
 import { env } from "../../env";
+import { installBotHandlers } from "./bot";
 
 /**
  * Messaging on Telegram (Build Board #2), spec 3.5. One grammY client for the whole
@@ -11,7 +12,7 @@ import { env } from "../../env";
  * rate limits in the spec hold without any caller thinking about them.
  *
  * The bot never polls. Updates arrive through POST /webhooks/telegram and are
- * replayed to `bot.handleUpdate` by the sender loop. Handlers register in later PRs.
+ * replayed to `bot.handleUpdate` by the sender loop. Handlers live in ./bot.ts.
  */
 
 let bot: Bot | null = null;
@@ -36,6 +37,7 @@ export function getTelegramBot(): Bot | null {
     })
   );
   bot.api.config.use(autoRetry({ maxRetryAttempts: 3, maxDelaySeconds: 300 }));
+  installBotHandlers(bot);
   return bot;
 }
 
