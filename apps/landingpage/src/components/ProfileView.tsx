@@ -24,6 +24,7 @@ import { ReferralBlock } from "@/components/blocks/ReferralBlock";
 import { FollowBlock } from "@/components/blocks/FollowBlock";
 import { FollowersBlock } from "@/components/blocks/FollowersBlock";
 import { RnsIdBlock } from "@/components/blocks/RnsIdBlock";
+import { TelegramMessageBlock } from "@/components/blocks/TelegramMessageBlock";
 import { FollowContext } from "@/components/follow/FollowContext";
 import { useReferralHandler } from "@/hooks/useReferralHandler";
 import { useAuth } from "@/contexts/AuthContext";
@@ -549,7 +550,23 @@ export function ProfileView({
                         rnsUrl={process.env.NEXT_PUBLIC_RNS_URL}
                       />
                     )
-                  ) : (
+                  ) : block.type === "telegram_message" ? (
+                    // Row 115: live only while the creator takes Fan messages
+                    telegramMarkOn && (
+                      <TelegramMessageBlock
+                        block={block}
+                        theme={themeConfig}
+                        door={profile.telegramDoor}
+                        handle={normalizedHandle}
+                        creatorUserId={profile.id}
+                        creatorName={profile.name}
+                        creatorAvatar={photo || null}
+                        signedIn={!!authUser}
+                        authPending={authPending}
+                        isOwner={isOwner}
+                      />
+                    )
+                  ) : block.type === "telegram_group" ? null : (
                     <TextBlock block={block as any} theme={themeConfig as any} />
                   )}
                 </ErrorBoundary>
