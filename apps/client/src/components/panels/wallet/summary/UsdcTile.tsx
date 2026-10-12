@@ -1,7 +1,9 @@
-import { useState } from "react";
-import { ArrowDownToLine, Plus } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router";
+import { useMutation } from "@tanstack/react-query";
+import { ArrowDownToLine, Plus, Send } from "lucide-react";
 import { USDC_SYMBOL, formatUsdc } from "@repo/web3";
-import { Button, Skeleton } from "@repo/ui";
+import { Button, Skeleton, trpc } from "@repo/ui";
 import { useWalletContext } from "@/contexts/WalletContext";
 import { useDelayed } from "@/hooks/useDelayed";
 import { paymentChain } from "@/utils/paymentChain";
@@ -21,15 +23,22 @@ function Eyebrow() {
 /**
  * Screen Review 137 (board w1). The USDC tile on the payment chain: the one
  * G3 lens on the Wallet with the rim, the balance in Bebas 68/55 as USD with
- * two decimals (spec decision 8), the network line, and Receive and Fund.
- * Send arrives with the gasless send build (USDC-2) and is not rendered until
- * then (D07). No testnet line: it belongs to tREVO surfaces only.
+ * two decimals (spec decision 8), the network line, and Send, Receive and
+ * Fund. Send opens the gasless USDC send (?send=usdc). No testnet line: it
+ * belongs to tREVO surfaces only.
  */
 export function UsdcTile() {
   const { address } = useWalletContext();
   const balance = useUsdcBalance(address);
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [fundOpen, setFundOpen] = useState(false);
+  const [, setParams] = useSearchParams();
+  // Spec 3.2: the first view starts indexing this address and screens it once
+  const seen = useMutation(trpc.usdc.seen.mutationOptions());
+  const markSeen = seen.mutate;
+  useEffect(() => {
+    if (address) markSeen();
+  }, [address, markSeen]);
   const showSkeleton = useDelayed(balance.isPending, 400);
 
   const amount = balance.data !== undefined ? formatUsdc(balance.data, 4) : null;
@@ -84,7 +93,25 @@ export function UsdcTile() {
           <p className="text-prism-meta text-prism-ink-2">
             {paymentChain.name} · a dollar stablecoin by Circle
           </p>
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+          <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() =>
+                setParams(
+                  current => {
+                    const next = new URLSearchParams(current);
+                    next.set("send", "usdc");
+                    return next;
+                  },
+                  { replace: true }
+                )
+              }
+              className="max-sm:w-full"
+            >
+              <Send aria-hidden />
+              Send
+            </Button>
             <Button
               type="button"
               variant="secondary"
