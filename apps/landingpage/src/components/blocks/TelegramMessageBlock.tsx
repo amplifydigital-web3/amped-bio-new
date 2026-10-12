@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { z } from "zod";
 import { useQuery } from "@tanstack/react-query";
 import { Check, Loader2, Send } from "lucide-react";
 import {
@@ -29,13 +30,19 @@ export type TelegramDoor = { open: boolean; ruleKind: DmRuleKind; botUsername: s
 const PREFS_KEY = "amped_tg_link_prefs";
 const INTENT_KEY = "amped_message_intent";
 
-type LinkPrefs = { handle: string; updates: boolean; username: boolean };
+// Session storage is user writable, so the shape is validated before use
+const linkPrefsSchema = z.object({
+  handle: z.string().max(64),
+  updates: z.boolean(),
+  username: z.boolean(),
+});
+type LinkPrefs = z.infer<typeof linkPrefsSchema>;
 
 function readPrefs(handle: string): LinkPrefs | null {
   try {
     const raw = sessionStorage.getItem(PREFS_KEY);
     sessionStorage.removeItem(PREFS_KEY);
-    const prefs = raw ? (JSON.parse(raw) as LinkPrefs) : null;
+    const prefs = raw ? (linkPrefsSchema.safeParse(JSON.parse(raw)).data ?? null) : null;
     return prefs?.handle === handle ? prefs : null;
   } catch {
     return null;
@@ -144,8 +151,14 @@ export function TelegramMessageBlock({
             ...(prefs.updates ? { telegramBroadcasts: true } : {}),
             ...(prefs.username ? { shareUsername: true } : {}),
           })
-          .catch(() => undefined);
+          .catch(error => {
+            console.error("[telegram] preference save failed", error);
+            setLinkError(S.errors.declined);
+          });
       }
+      // A fan who tapped Message me before the link continues into the thread
+      // instead of stopping at the linked sheet
+      if (message && intended) setResumeTap(true);
       void status.refetch();
       setSheet("linked");
     } else if (telegram) {

@@ -197,22 +197,27 @@ export async function checkFanBlockThreshold(fanUserId: number, now = new Date()
  */
 export async function checkCreatorReportThreshold(creatorUserId: number, now = new Date()) {
   const since = new Date(now.getTime() - 7 * DAY);
-  const [reports, threads] = await Promise.all([
-    prisma.messageReport.count({
+  const [reportRows, threads] = await Promise.all([
+    prisma.messageReport.findMany({
       where: {
         createdAt: { gte: since },
         thread: { creatorUserId },
         reporterUserId: { not: creatorUserId },
       },
+      select: { reporterUserId: true },
     }),
     prisma.messageThread.count({ where: { creatorUserId, lastMessageAt: { gte: since } } }),
   ]);
-  if (reports < Math.max(5, Math.ceil(threads * 0.01))) return false;
+  // Distinct reporters, not report rows: one fan reporting one thread five times
+  // must never pause the creator, and the dm-report rate limit alone does not stop
+  // a repeat reporter
+  const reporters = new Set(reportRows.map(row => row.reporterUserId));
+  if (reporters.size < Math.max(5, Math.ceil(threads * 0.01))) return false;
   const settings = await getCreatorSettings(creatorUserId);
   if (!settings || settings.pausedAt) return false;
   await prisma.creatorMessagingSettings.update({
     where: { userId: creatorUserId },
-    data: { pausedAt: now, pausedReason: `${reports} fan reports in 7 days` },
+    data: { pausedAt: now, pausedReason: `${reporters.size} fans reported in 7 days` },
   });
   return true;
 }

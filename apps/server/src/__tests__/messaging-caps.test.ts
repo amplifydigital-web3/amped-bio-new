@@ -153,6 +153,15 @@ describe("automatic pauses", () => {
     expect(await canMessage(200, MAYA)).toMatchObject({ reason: "disabled" });
   });
 
+  it("one fan reporting the same thread five times does not pause the creator", async () => {
+    addUser(300);
+    const { threadId } = await send(300, MAYA);
+    for (let i = 0; i < 5; i += 1) {
+      await reportThread({ reporterUserId: 300, threadId, reason: "SPAM" });
+    }
+    expect(fake.db.table("creatorMessagingSettings")[0].pausedAt).toBeNull();
+  });
+
   it("only a participant can report a thread", async () => {
     const { threadId } = await send(JORDAN, MAYA);
     await expect(

@@ -308,7 +308,19 @@ let draining = false;
 
 export function startTelegramLoop() {
   if (ticker || process.env.NODE_ENV === "test") return;
+
+  // Retention purges run even while the bot is not configured: messages written
+  // while it was on still age out, and telegram_update_log keeps filling.
+  purger = setInterval(() => {
+    void purgeTelegramLogs().catch(error => console.error("[telegram] purge failed", error));
+    void purgeStaleMessages().catch(error =>
+      console.error("[telegram] message purge failed", error)
+    );
+  }, PURGE_MS);
+  purger.unref();
+
   if (!isTelegramConfigured()) return;
+
   const tick = async () => {
     if (draining) return;
     draining = true;
@@ -322,13 +334,6 @@ export function startTelegramLoop() {
   };
   ticker = setInterval(() => void tick(), TICK_MS);
   ticker.unref();
-  purger = setInterval(() => {
-    void purgeTelegramLogs().catch(error => console.error("[telegram] purge failed", error));
-    void purgeStaleMessages().catch(error =>
-      console.error("[telegram] message purge failed", error)
-    );
-  }, PURGE_MS);
-  purger.unref();
   console.log("[telegram] sender loop started");
 }
 

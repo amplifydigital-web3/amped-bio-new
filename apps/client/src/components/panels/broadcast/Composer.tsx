@@ -87,7 +87,8 @@ export function Composer({
         body,
         idempotencyKey: keyRef.current,
         confirmFlags,
-        sendTelegram: showTelegram && sendTelegram,
+        // A stale checked state must not send when the link went away mid-composition
+        sendTelegram: showTelegram && sendTelegram && !!telegram?.creatorLinked,
       }),
     onSuccess: res => {
       setConfirmOpen(false);
