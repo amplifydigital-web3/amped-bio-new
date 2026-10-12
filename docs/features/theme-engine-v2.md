@@ -166,9 +166,22 @@ export const themeConfigV2Schema = z.object({
       z.object({ type: z.literal("gradient"), stops: z.array(z.object({ color: hex, at: z.number().min(0).max(100) })).min(2).max(4), angle: z.number().min(0).max(360), mesh: z.boolean().default(false), drift: z.boolean().default(false), texture: z.enum(["none", "grain", "dots", "scanlines"]).default("none") }),
       z.object({ type: z.literal("image"), fileId: z.number().int().positive().optional(), value: z.string().url().optional(), texture: z.enum(["none", "grain", "dots", "scanlines"]).default("none") }),
       z.object({ type: z.literal("video"), fileId: z.number().int().positive().optional(), value: z.string().url().optional(), poster: z.string().url().optional() }),
-      z.object({ type: z.literal("shader"), ...effectSlotSchema("scene").shape }),
+      // The scene slots are engine-scoped: the shader base takes only registry ids
+      // whose engine is webgl, the particle overlay only ids whose engine is
+      // particles. The refinements below reject the swap at write time.
+      z.object({ type: z.literal("shader"), ...effectSlotSchema("scene").shape })
+        .superRefine((slot, ctx) => {
+          if (registry.get(slot.id)?.engine !== "webgl") {
+            ctx.addIssue({ code: "custom", message: "shader base takes a webgl effect id" });
+          }
+        }),
     ]),
-    overlay: effectSlotSchema("scene").optional(),          // particles
+    overlay: effectSlotSchema("scene").optional()
+      .superRefine((slot, ctx) => {
+        if (slot && registry.get(slot.id)?.engine !== "particles") {
+          ctx.addIssue({ code: "custom", message: "overlay takes a particles effect id" });
+        }
+      }),
   }),
   container: effectSlotSchema("container").extend({ shape: z.enum(CONTAINER_SHAPES), border: z.enum(BORDER_STYLES) }),
   button: effectSlotSchema("button").extend({ shape: z.enum(BUTTON_SHAPES), border: z.enum(BORDER_STYLES), layout: z.enum(["label", "icon", "split"]) }),
@@ -178,7 +191,17 @@ export const themeConfigV2Schema = z.object({
   cursor: effectSlotSchema("cursor"),
 }).strict();
 
-export const anyThemeConfigSchema = z.union([themeConfigV2Schema, themeConfigSchema]);
+// Dispatch on `version` instead of a blind union: zod strips unknown keys, so a
+// malformed v2 config would otherwise fall through the legacy branch and import
+// as an empty config. A config claiming v2 that fails the v2 schema is rejected.
+export const anyThemeConfigSchema = z.union([
+  z.object({ version: z.literal(2) }).and(themeConfigV2Schema),
+  z.object({ version: z.literal(1).optional() }).and(themeConfigSchema),
+]).superRefine((value, ctx) => {
+  if (value.version === 2 && themeConfigV2Schema.safeParse(value).success === false) {
+    ctx.addIssue({ code: "custom", message: "invalid v2 theme config" });
+  }
+});
 export const CONTAINER_SHAPES = ["rounded", "pill", "squircle", "cut", "arch", "blob"] as const;
 export const BUTTON_SHAPES = ["rounded", "pill", "squircle", "cut", "ticket"] as const;
 export const BORDER_STYLES = ["none", "hairline", "thick", "dashed", "gradient", "glow"] as const;
@@ -191,7 +214,7 @@ export const BORDER_STYLES = ["none", "hairline", "thick", "dashed", "gradient",
 - `buttonEffect` 0 to 9 map to `buttonHover.none`, `scale`, `glow`, `slide`, `bounce`, `pulse`, `shake`, `rotate`, `pop`, `shine`. Bounce and pulse become 233 ms one shot on both renderers (the editor's infinite loop was a drift bug).
 - `heroEffect` 0, 2, 6, 7, 8, 9 map to `name.none`, `glow`, `wave`, `neon`, `rainbow`, `glitch`. 1 maps to `name.gradient` (returns in v2). 3 maps to `name.typewriter` (fixed). 4 and 5 (undefined classes today) map to `name.blur-in` and `name.split-reveal`, the nearest entrances.
 - `particlesEffect` maps to `scene.overlay`: 0 none, then `scene.floating-dots`, `links`, `snow`, `bubbles`, `fireflies`, `confetti`, `stars`, `geometric`. 6 (retired Matrix) becomes none.
-- `background` maps to `scene.base`: `color` to `{type: "color"}`, a CSS gradient string to `{type: "gradient"}` parsed into stops and angle (the 4 known gradients are matched by string; any other string becomes a two stop gradient from its first two hexes), `image` and `video` keep their ids and urls.
+- `background` maps to `scene.base`: `color` to `{type: "color"}`, a CSS gradient string to `{type: "gradient"}` parsed into stops and angle (the 4 known gradients are matched by string; any other string that contains at least one hex color becomes a two stop gradient from its first two hex colors, and a string with no hex color at all, such as a plain CSS function, falls back to the default gradient stops #3b82f6 to #8b5cf6 at 90 degrees), `image` and `video` keep their ids and urls.
 - `fontFamily` to `fonts.name.family` and `fonts.body.family` (same family), `fontSize` to `fonts.size`, colors to `colors`, `transparency` to `colors.containerOpacity`.
 - `buttonText` is derived: the contrast guard picks black or white against `button`.
 
@@ -222,12 +245,12 @@ Every entry below ships with its tier, engine, cost and parameter set. Durations
 | --- | --- | --- | --- | --- | --- | --- |
 | scene.floating-dots, links, snow, bubbles, fireflies, confetti, stars, geometric | keep | core | particles | light | density 10 to 100 (default 40), speed 10 to 100, colors theme or custom | Factories `(colors, params) => ISourceOptions` on tsParticles v4 slim; paint.fill reads scene-a, scene-b |
 | scene.fire, fountain, fireworks, meteors, hyperspace, sea-anemone, triangles, squares, big-circles, ambient | official presets | plus | particles | light | density, speed, colors | one `@tsparticles/preset-*` each, colors remapped to the theme |
-| scene.emoji-rain, hearts, leaves, petals, coins | plus | particles | light | density, speed, size 8 to 48, set (emoji string, up to 6) | `shape-emoji`; coins use `shape-image` with Amped's own sprite |
-| scene.magnetic-dots, attract, bubble-hover | plus | particles | light | density, strength 10 to 100 | `interaction-external-repulse`, `-attract`, `-bubble`; fine pointers, still elsewhere |
+| scene.emoji-rain, hearts, leaves, petals, coins | Emoji and shapes | plus | particles | light | density, speed, size 8 to 48, set (emoji string, up to 6) | `shape-emoji`; coins use `shape-image` with Amped's own sprite |
+| scene.magnetic-dots, attract, bubble-hover | Pointer wells | plus | particles | light | density, strength 10 to 100 | `interaction-external-repulse`, `-attract`, `-bubble`; fine pointers, still elsewhere |
 | scene.trail | Comet trails | showcase | particles | heavy | density, length 10 to 100 | `effect-trail` plugin |
 | scene.galaxy-field | Galaxy field | showcase | webgl | heavy | points 50k to 200k, speed, colors | Amped authored GPU point sprites, under 3 KB GLSL, poster is a radial gradient |
-| scene.aurora, silk, iridescence, liquid-chrome, plasma, galaxy, threads, lightning, orb, dark-veil, grainient, light-rays, dot-field, ripple-grid | showcase | webgl | heavy | intensity 0 to 100, speed 0 to 100 (0 stops), colors theme or custom, loop | react-bits shaders ported to the WebGL engine (decision 13) (source react-bits); each paints its poster gradient first and mounts after first paint |
-| scene.ferrofluid, molten-metal, topography, faulty-terminal, letter-glitch | showcase | webgl | heavy | intensity, speed, colors, pointer reactivity 0 to 100 | react-bits, pointer reactive, still on coarse pointers |
+| scene.aurora, silk, iridescence, liquid-chrome, plasma, galaxy, threads, lightning, orb, dark-veil, grainient, light-rays, dot-field, ripple-grid | Shader gallery | showcase | webgl | heavy | intensity 0 to 100, speed 0 to 100 (0 stops), colors theme or custom, loop | react-bits shaders ported to the WebGL engine (decision 13) (source react-bits); each paints its poster gradient first and mounts after first paint |
+| scene.ferrofluid, molten-metal, topography, faulty-terminal, letter-glitch | Pointer reactive shaders | showcase | webgl | heavy | intensity, speed, colors, pointer reactivity 0 to 100 | react-bits, pointer reactive, still on coarse pointers |
 
 **Containers (Style tab, Container row, board 03).** Keep: none, frosted, floating, gradient-border, neon-glow, double-border, minimal-glass, modern-card (core, css, still). New: `container.liquid-glass` (plus, css plus SVG displacement filter, light, params blur 4 to 21, refraction 0 to 100; falls back to frosted without `backdrop-filter`), `container.animated-border` (plus, css `@property --angle` conic sweep 8 s, light), `container.star-border` (plus, css, light, speed), `container.spotlight` (plus, css plus 10 lines of JS, light, params radius 89 to 377, follows pointer or drifts), `container.glare` (plus, css, light), `container.electric-border` (showcase, css plus SVG `feTurbulence` displaced stroke, light, params intensity, speed, color), `container.tilt` (showcase, waapi, light, fine pointers, params depth 0 to 100). Sub controls on every container: `shape` (rounded r21, pill, squircle `border-radius: 34% / 45%` with `clip-path` fallback, cut corners 13 px, arch (today's id 8), blob) and `border` (none, hairline 1 px line, thick 3 px, dashed, gradient (conic in the theme colors), glow (`0 0 21px` in scene-a)).
 
@@ -298,7 +321,7 @@ model ThemeVersion {
 }
 ```
 
-`User.theme` stays a string in this release (reads cast to int); a follow up migration makes it an int foreign key once v1 rows are gone. `share_level` becomes `private | link` and `share_config` holds `{credit, download}` mirrored from the columns above until the columns are the source of truth (one release).
+`User.theme` stays a string in this release (reads cast to int). The int foreign key conversion is decoupled from v1 config retirement: its own migration casts and backfills every `User.theme` to an int reference, and it is tracked as a separate Build Board #28 item with its own phase 4 line, so it does not wait on creators rewriting v1 configs. `share_level` becomes `private | link` and `share_config` holds `{credit, download}` mirrored from the columns above until the columns are the source of truth (one release).
 
 **Server procedures** (`apps/server/src/trpc/theme.ts`, additive):
 
@@ -356,7 +379,7 @@ KPIs 90 days after phase 2: creators with a non default theme 60% of published p
 | 2 Core catalog | Shape, border and layout sub controls, mesh and drift gradients, 40 gradients and the builder, textures, 10 official presets, new core button styles, fill sweep, ripple and the press row, name entrances and statics, Settle, parameter strip and sheet, tier badges and cost dots, Show filters, cost chip, Device budget toggle, scene guard | `SHOW_THEME_V2` | 3 weeks |
 | 2b Fonts | Catalog build step, picker, mirror job, per page font links with subsets, variable axes, weight pulse | `SHOW_FONT_CATALOG` | 1 to 2 weeks |
 | 3 Showcase | WebGL engine per decision 13 with poster and the shared watchdog, 14 shaders plus the 5 pointer reactive ones, galaxy field, cursor row, liquid glass, electric and star borders, spotlight, magnet, particle text, trail particles, build time thumbnails | `SHOW_THEME_SHOWCASE` | 3 to 4 weeks |
-| 4 Looks and sharing | Updates #304's `EditorContext.test.tsx` for the new `applyTheme` and look flow; 10 looks, `ThemeVersion` history and restore, duplicate and rename, `theme.share`, `/t/[slug]`, share dialog, Shared with me, Theme of the week, `User.theme` to int | `SHOW_THEME_SHARING` | 2 weeks |
+| 4 Looks and sharing | Updates #304's `EditorContext.test.tsx` for the new `applyTheme` and look flow; 10 looks, `ThemeVersion` history and restore, duplicate and rename, `theme.share`, `/t/[slug]`, share dialog, Shared with me, Theme of the week, `User.theme` to int (backfill migration from 3.9) | `SHOW_THEME_SHARING` | 2 weeks |
 
 PRs into `development`, each small enough for Gustavo to review in one sitting: 1a registry; 1b renderer; 1c particles; then one PR per row in phase 2 (Background, Container, Buttons, Hover and press, Name, Scene core, Editor chrome); 2b fonts in two PRs (catalog and picker, delivery); phase 3 one PR per engine plus one per effect family; phase 4 in three PRs (looks and history, share API and page, Themes tab). Rollout of each flag: staging, Rob's handle, all. Old renderers deleted one release after `SHOW_THEME_V2` is on for all.
 

@@ -2,13 +2,20 @@
 
 Build Board #28. Written 7 Oct 2026. Living copy with comments: https://claude.ai/code/artifact/beb1dc55-a670-4f32-ac7b-60b282d37625. Spec: docs/features/theme-engine-v2.md.
 
+> Where this overview and the feature spec differ, the feature spec wins. The spec
+> is the implementation contract; this document keeps the research and the
+> library comparison. Known divergences this revision left behind on purpose:
+> the v2 config here is sketched loosely, the normalized schema with separate
+> `buttonHover` and `buttonPress` slots lives only in the spec, and the WebGL
+> engine is decision 13 there (open, raw WebGL recommended over OGL).
+
 ## Summary
 
-The Amped.Bio theme engine works, but it is a fixed menu of 10 button styles, 8 container styles, 10 hover effects, 6 name effects, 8 particle presets and 8 fonts, each defined as a hardcoded Tailwind string and copied by hand into two renderers. v2 turns it into a registry: one shared renderer, one effect catalog in `packages/constants`, layered effects (background scene, container, button, name, cursor) that follow the creator's colors, a 2,000 family font catalog loaded on demand, and versioned theme files that can be shared by link. The effect library grows from about 40 picks to about 150, built on libraries that are MIT licensed and already inside the chosen stack: tsParticles, OGL, CSS and the Web Animations API.
+The Amped.Bio theme engine works, but it is a fixed menu of 10 button styles, 8 container styles, 10 hover effects, 6 name effects, 8 particle presets and 8 fonts, each defined as a hardcoded Tailwind string and copied by hand into two renderers. v2 turns it into a registry: one shared renderer, one effect catalog in `packages/constants`, layered effects (background scene, container, button, name, cursor) that follow the creator's colors, a 2,000 family font catalog loaded on demand, and versioned theme files that can be shared by link. The effect library grows from about 40 picks to about 150, built on libraries that are MIT licensed and already inside the chosen stack: tsParticles, the shared WebGL helper extracted from the motion layer, CSS and the Web Animations API (decision 13 recommends raw WebGL over OGL for v2).
 
 The headline recommendation is to build the registry and shared renderer first (phase 1), because every new effect after that is one file instead of six. The showcase effects (WebGL scenes, text physics, cursor effects) come in phase 3 behind a device budget and a per page kill switch. GSAP stays out of creator effects, as the motion layer decision already holds. No new library enters the editor bundle; the preview renders the same component the public page renders.
 
-The work is sized at four phases. Phase 1 is foundation and removes the known drift bugs. Phases 2 and 3 are catalog growth. Phase 4 is theme sharing and the groundwork for paid themes (#3). Three decisions for Rob close the plan: the effect budget per page, the font catalog source, and whether react-bits components may ship inside sold themes.
+The work is sized at four phases. Phase 1 is foundation and removes the known drift bugs. Phases 2 and 3 are catalog growth. Phase 4 is theme sharing and the groundwork for paid themes (#3). Three decisions for Rob close the plan: the effect budget per page, the font catalog source, and whether react-bits components may ship inside sold themes. The spec adds one more, decision 13 (the WebGL engine), open with raw WebGL recommended.
 
 ## How it works today
 
@@ -57,11 +64,11 @@ Performance today is acceptable but not tuned. `@tsparticles/all` ships about 69
 
 v2 replaces the integer maps with one typed registry and one renderer. The registry is the catalog. The renderer is the only code that turns a theme into a page. Both apps import them from the shared packages, so the preview and the public page cannot drift. A theme flows down: the config names effects by id, the registry resolves each id to its definition, the renderer composes the layers, and the two apps mount the same component.
 
-**Effect registry.** A new folder `packages/constants/src/effects/` holds one file per layer: `scenes.ts`, `containers.ts`, `buttons.ts`, `buttonEffects.ts`, `names.ts`, `cursors.ts`, `fonts.ts`. Each entry is one object with a stable string id, a label, a short description, a tier (`core`, `plus`, `showcase`), an engine (`css`, `waapi`, `particles`, `ogl`), a cost class (`still`, `light`, `heavy`), a `colorMode` (`fixed`, `theme`), the Tailwind class or the config factory, and the preview recipe for the editor tile. A derived `EFFECT_IDS` object feeds zod enums, so `themeConfigSchema` rejects unknown ids instead of accepting any integer. Legacy integer ids map to the new string ids in one `legacyMap.ts` and are migrated on read.
+**Effect registry.** A new folder `packages/constants/src/effects/` holds one file per layer: `scenes.ts`, `containers.ts`, `buttons.ts`, `buttonHover.ts`, `buttonPress.ts`, `names.ts`, `cursors.ts`, `fonts.ts`. Each entry is one object with a stable string id, a label, a short description, a tier (`core`, `plus`, `showcase`), an engine (`css`, `waapi`, `particles`, `webgl`; the spec's decision 13 picks the engine implementation), a cost class (`still`, `light`, `heavy`), a `colorMode` (`fixed`, `theme`), the Tailwind class or the config factory, and the preview recipe for the editor tile. A derived `EFFECT_IDS` object feeds zod enums, so `themeConfigSchema` rejects unknown ids instead of accepting any integer. Legacy integer ids map to the new string ids in `legacy.ts` and are upgraded on read by `upgradeTheme`.
 
 **Shared renderer.** `packages/ui/src/creator/CreatorPage.tsx` becomes the one page renderer. It takes `{theme, profile, blocks, mode}` where mode is `edit`, `preview` or `public`. `Preview.tsx` and `ProfileView.tsx` shrink to thin wrappers that pass data and mount the component. This is the D10 item that `docs/prism/batch-08-creator-page.md` lists as pending. v2 depends on it, so it ships first.
 
-**Layered config.** `ThemeConfig` v2 keeps every existing field for compatibility and adds `version: 2` plus an `effects` object with one key per layer: `scene`, `container`, `button`, `buttonEffect`, `name`, `cursor`. Each layer holds `{id, params}`. Params are small and typed per effect (density, speed, intensity, direction, a second color). Every effect reads the creator's colors through the existing `--amped-*` variables, with a `palette` param to override. Particle presets become factories: `(colors, params) => ISourceOptions`, so Fireflies glow in the button color and Snow matches the font color.
+**Layered config.** The spec's v2 schema is normalized: `version: 2` with one slot per layer (`scene.base`, `scene.overlay`, `container`, `button`, `buttonHover`, `buttonPress`, `name`, `cursor`), and v1 configs are upgraded on read by `upgradeTheme` instead of being kept as-is. Each layer holds `{id, params}`. Params are small and typed per effect (density, speed, intensity, direction, a second color). Every effect reads the creator's colors through the existing `--amped-*` variables, with a `palette` param to override. Particle presets become factories: `(colors, params) => ISourceOptions`, so Fireflies glow in the button color and Snow matches the font color.
 
 **Keyframes as Tailwind.** The three copies of `animations.css` fold into the Prism preset plugin in `packages/ui/src/prism/tailwind-preset.js`, which already registers component classes. That restores the Tailwind only rule and gives both apps the same keyframes from one file.
 
@@ -180,7 +187,7 @@ Every engine in v2 is MIT licensed or native, except one source of components th
 | Library | Version | License | Weight (gzip) | Verdict for creator effects |
 | --- | --- | --- | --- | --- |
 | tsParticles | 4.4.0 (Amped is on 3.8.1) | MIT | slim bundle about 25 KB plus 1 to 3 KB per plugin | Yes. Upgrade to v4 for the paint system (fill plus stroke arrays), 100 palette packages, OffscreenCanvas and the trail, zoom and blend plugins |
-| OGL | 1.0.11 | MIT | 12.8 KB for the subset in use | Yes. Already the chosen WebGL engine in the motion layer spec. Powers 30 of the react-bits background shaders |
+| OGL | 1.0.11 | MIT | 12.8 KB for the subset in use | Reference. Powers 30 of the react-bits background shaders, but decision 13 in the spec recommends the shared raw WebGL helper (about 2 KB) for v2, with OGL as the fallback |
 | CSS, `@property`, Web Animations API, View Transitions | native | browser | 0 | Yes. First choice for every container, button and name effect |
 | react-bits | 200 plus components, 47k stars | MIT plus Commons Clause | per component | Yes for use inside Amped. Counsel confirms before any component ships inside a sold theme (below) |
 | Motion (framer-motion) | 14.0.0 | MIT | 28.5 to 42 KB | No. Already rejected for the editor in the motion layer decision 1. Every react-bits text effect that uses Motion can be rewritten on WAAPI in under 50 lines |
@@ -258,10 +265,10 @@ Four phases. Phase 1 is the foundation and pays for itself by removing the drift
 | 1 Foundation | Registry, string ids with legacy map, zod enums, shared `CreatorPage`, keyframes moved into the Prism preset, color aware particle factories, tsParticles v4 on the slim bundle, theme file v2 header with v1 import, dead dependencies removed, Rings file restored, debug logging removed, first tests | Prism 2.2 rollout (#20) merged for the Design screens | 2 to 3 weeks |
 | 2 Core catalog | Shape and border sub controls, mesh and animated gradients, 40 gradients, 10 official particle presets, new CSS button styles, fill and ripple and press effects, name entrances, Settle control, parameter strip, tier badges and cost dots | Phase 1 | 3 weeks |
 | 2b Fonts | Catalog JSON build step, picker with search and shelves, per page font link with subsetting, variable axes, delivery per decision 2 | Phase 1, decision 2 | 1 to 2 weeks |
-| 3 Showcase | OGL scene engine with poster and watchdog, shaders, galaxy field, cursor layer, Liquid glass, Electric and Star borders, Magnet and Spotlight, particle text, device budget toggle in the preview | Phase 2, motion layer phase 2 (shares the watchdog) | 3 to 4 weeks |
-| 4 Sharing and looks | My looks (10 saved), `ThemeVersion` history, `theme.share` and `amped.bio/t/<slug>`, author credit, Theme of the week, `User.theme` foreign key | Phase 1, counsel on react-bits in sold themes | 2 weeks |
+| 3 Showcase | WebGL scene engine (decision 13: raw WebGL recommended) with poster and watchdog, shaders, galaxy field, cursor layer, Liquid glass, Electric and Star borders, Magnet and Spotlight, particle text, device budget toggle in the preview | Phase 2, motion layer phase 2 (shares the watchdog) | 3 to 4 weeks |
+| 4 Sharing and looks | My looks (10 saved), `ThemeVersion` history, `theme.share` and `amped.bio/t/<slug>`, author credit, Theme of the week, `User.theme` foreign key with the backfill migration tracked on Build Board #28 | Phase 1, counsel on react-bits in sold themes | 2 weeks |
 
-**Transition (Rob, 7 Oct).** Not a standalone system. Wrap today's effects in the registry with a legacy id map (no pixel change, snapshot tested), ship the shared renderer beside the old two behind `THEME_ENGINE_V2` (staging all, then Rob's handle, then all), read v1 rows forever and write v2 on next save, additive database changes only, delete old renderers one release after full rollout. No long lived v2 branch.
+**Transition (Rob, 7 Oct).** Not a standalone system. Wrap today's effects in the registry with a legacy id map (no pixel change, snapshot tested), ship the shared renderer beside the old two behind `SHOW_THEME_V2` (staging all, then Rob's handle, then all), read v1 rows forever and write v2 on next save, additive database changes only, delete old renderers one release after full rollout. No long lived v2 branch.
 
 **Decisions for Rob.**
 
