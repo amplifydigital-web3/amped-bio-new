@@ -206,6 +206,33 @@ const envSchema = z.object({
   MESSAGING_INVITE_ONLY: boolSchema(true),
   // Gated creator groups (phase 2)
   TELEGRAM_GROUPS: boolSchema(false),
+
+  // USDC in the wallet (Build Board #29), spec docs/features/usdc-wallet-onramp.md 3.3 and 3.4.
+  // Master switch for gasless sends and the indexer. Off until the CDP relayer account exists.
+  USDC_ENABLED: boolSchema(false),
+  // "base" in production; anything else is Base Sepolia
+  PAYMENT_CHAIN: z.string().default("base-sepolia"),
+  // CDP Node RPC for Base in production; empty uses the chain's public endpoint (staging)
+  BASE_RPC_URL: z.string().default(""),
+  // CDP Server Wallet relayer (Coinbase holds the key). API key id and secret, Wallet Secret,
+  // and the account name created once per environment in the CDP Portal.
+  CDP_API_KEY_ID: z.string().default(""),
+  CDP_API_KEY_SECRET: z.string().default(""),
+  CDP_WALLET_SECRET: z.string().default(""),
+  CDP_RELAYER_ACCOUNT: z.string().default(""),
+  // Relayer ETH on Base, in ETH: alarm below the first, sends pause below the second
+  RELAYER_GAS_ALARM_ETH: z.string().default("0.05"),
+  RELAYER_GAS_STOP_ETH: z.string().default("0.01"),
+  // Circle Compliance Engine standalone address screening, once Circle grants access
+  CIRCLE_API_KEY: z.string().default(""),
+  // Circle's chain enum for an EVM address screen. The API lists no Base value; ETH screens the same address.
+  CIRCLE_SCREENING_CHAIN: z.string().default("ETH"),
+  // Chainalysis sanctions oracle on Base (0x3A91A31cB3dC49b4db9Ce721F50a9D076c8D739B). Not deployed on Base Sepolia.
+  CHAINALYSIS_ORACLE: z.string().default(""),
+  // Comma separated addresses always refused. Staging uses it for the screening acceptance test.
+  USDC_SCREEN_DENYLIST: z.string().default(""),
+  // When no screening vendor is configured: refuse every send (production) or allow and record unscreened (staging)
+  USDC_SCREENING_REQUIRED: boolSchema(true),
 });
 
 // ================ parse & export ================
@@ -229,3 +256,8 @@ if (process.env.BROADCAST_INVITE_ONLY === undefined && env.APP_ENV !== "producti
   env.BROADCAST_INVITE_ONLY = false;
 }
 
+// USDC sends fail closed without a screening vendor in production only. Base Sepolia has no
+// Chainalysis oracle, so staging records sends as unscreened unless the variable is set.
+if (process.env.USDC_SCREENING_REQUIRED === undefined && env.APP_ENV !== "production") {
+  env.USDC_SCREENING_REQUIRED = false;
+}
