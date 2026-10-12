@@ -28,14 +28,33 @@ export function longTime(value: string | Date) {
   return sameDay(d, new Date()) ? `Today, ${time}` : `${shortTime(d)}, ${time}`;
 }
 
-/** Unread count for the Inbox button. Polls every 60 seconds and on focus (spec 3.2). */
+/** Messaging on Telegram (#2): the inbox also holds conversations. Behind VITE_SHOW_TELEGRAM. */
+const MESSAGES_ON = import.meta.env.VITE_SHOW_TELEGRAM === "true";
+
+const POLL = { refetchInterval: 60_000, refetchOnWindowFocus: true, staleTime: 30_000 } as const;
+
+/**
+ * Unread count for the Inbox button: broadcasts plus messages from either side of
+ * a conversation (spec 3.2, both kinds count). Polls every 60 seconds and on focus.
+ */
 export function useInboxUnread(enabled = true) {
-  const query = useQuery({
+  const updates = useQuery({
     ...trpc.broadcast.inbox.unreadCount.queryOptions(),
     enabled: BROADCAST_ON && enabled,
-    refetchInterval: 60_000,
-    refetchOnWindowFocus: true,
-    staleTime: 30_000,
+    ...POLL,
   });
-  return query.data?.count ?? 0;
+  const asCreator = useQuery({
+    ...trpc.messaging.creator.unreadCount.queryOptions(),
+    enabled: MESSAGES_ON && enabled,
+    ...POLL,
+  });
+  const asFan = useQuery({
+    ...trpc.messaging.fan.unreadCount.queryOptions(),
+    enabled: MESSAGES_ON && enabled,
+    ...POLL,
+  });
+  return (updates.data?.count ?? 0) + (asCreator.data?.count ?? 0) + (asFan.data?.count ?? 0);
 }
+
+/** The inbox is on when either of its kinds is. */
+export const INBOX_ON = BROADCAST_ON || MESSAGES_ON;
