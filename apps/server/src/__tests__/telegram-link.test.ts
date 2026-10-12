@@ -14,6 +14,7 @@ const db = vi.hoisted(() => {
     telegramLinkEvent: { create: fn() },
     notificationPreference: { findUnique: fn(), upsert: fn(), updateMany: fn() },
     telegramOutbox: { create: fn() },
+    user: { findFirst: fn() },
     $transaction: fn(),
   };
 });
@@ -57,7 +58,6 @@ const op = vi.hoisted(() => ({
 
 import { SignJWT, exportJWK, generateKeyPair } from "jose";
 import { createHash } from "node:crypto";
-
 const keys = await generateKeyPair("RS256");
 const otherKeys = await generateKeyPair("RS256");
 const publicJwk = { ...(await exportJWK(keys.publicKey)), kid: "k1", alg: "RS256", use: "sig" };
@@ -360,5 +360,53 @@ describe("GET /telegram/oidc/callback", () => {
     const res = await callback({ code: "c", state: "state-abc" });
     expect(res.location).toContain("telegram=error");
     expect(db.telegramAccount.upsert).not.toHaveBeenCalled();
+  });
+});
+
+describe("return targets (PR 4: wizard A and the fan link sheet)", () => {
+  const pendingFor = (url: string) =>
+    store.get(`tg:oidc:${new URL(url).searchParams.get("state")}`) as {
+      returnTo: { to: string; handle?: string };
+    };
+
+  it("start keeps the return target with the state, defaulting to Account", async () => {
+    expect(pendingFor((await caller.start()).url).returnTo).toEqual({ to: "account" });
+    expect(pendingFor((await caller.start({ returnTo: { to: "wizard" } })).url).returnTo).toEqual({
+      to: "wizard",
+    });
+  });
+
+  it("a fan return names a published page, checked before Telegram opens", async () => {
+    db.user.findFirst.mockResolvedValue({ id: 1 });
+    const { url } = await caller.start({ returnTo: { to: "fan", handle: "maya" } });
+    expect(pendingFor(url).returnTo).toEqual({ to: "fan", handle: "maya" });
+    expect(db.user.findFirst.mock.calls[0]![0].where).toEqual({
+      handle: "maya",
+      page_status: "PUBLISHED",
+    });
+    db.user.findFirst.mockResolvedValue(null);
+    await expect(caller.start({ returnTo: { to: "fan", handle: "nobody" } })).rejects.toMatchObject(
+      { code: "NOT_FOUND" }
+    );
+    await expect(
+      caller.start({ returnTo: { to: "fan", handle: "../evil?x=" } })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  it("the callback lands on the wizard or the creator page, with the result", async () => {
+    Object.assign(env, { LANDINGPAGE_URL: "https://staging.amped.bio" });
+    db.telegramAccount.findUnique.mockResolvedValue(null);
+    store.set("tg:oidc:w", { userId: USER, verifier: "v", returnTo: { to: "wizard" } });
+    expect((await callback({ code: "c", state: "w" })).location).toBe(
+      "https://app.staging.amped.bio/home?wizard=telegram&telegram=linked"
+    );
+    store.set("tg:oidc:f", {
+      userId: USER,
+      verifier: "v",
+      returnTo: { to: "fan", handle: "maya" },
+    });
+    expect((await callback({ error: "access_denied", state: "f" })).location).toBe(
+      "https://staging.amped.bio/maya?message=1&telegram=declined"
+    );
   });
 });
