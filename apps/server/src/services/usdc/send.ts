@@ -251,7 +251,13 @@ async function settle(row: SendRow, txHash: Hex, waitMs: number) {
     const status = receipt.status === "success" ? "confirmed" : "failed";
     await prisma.usdcSend.update({
       where: { id: row.id },
-      data: { status, failureCode: status === "failed" ? "reverted" : null },
+      data: {
+        status,
+        failureCode: status === "failed" ? "reverted" : null,
+        // Gas ledger (spec 3.8): what the relayer paid, success or revert
+        gasUsed: receipt.gasUsed,
+        gasCostWei: receipt.gasUsed * receipt.effectiveGasPrice,
+      },
     });
     if (status === "confirmed") {
       const block = await paymentClient().getBlock({ blockNumber: receipt.blockNumber });
