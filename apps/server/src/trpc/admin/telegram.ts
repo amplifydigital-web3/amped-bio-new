@@ -182,18 +182,32 @@ export const telegramAdminRouter = router({
     }));
   }),
 
+  /** Invite by user id, or by @handle or email from the admin page (tg9). */
   invite: adminProcedure
-    .input(z.object({ userId: z.number().int().positive() }))
+    .input(
+      z
+        .object({
+          userId: z.number().int().positive().optional(),
+          who: z.string().trim().min(1).max(255).optional(),
+        })
+        .refine(v => v.userId !== undefined || !!v.who, "Name a user")
+    )
     .mutation(async ({ input }) => {
-      const user = await prisma.user.findUnique({
-        where: { id: input.userId },
+      const who = input.who?.replace(/^@/, "").toLowerCase();
+      const user = await prisma.user.findFirst({
+        where:
+          input.userId !== undefined
+            ? { id: input.userId }
+            : who!.includes("@")
+              ? { email: who }
+              : { handle: who },
         select: { id: true },
       });
       if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "User not found." });
       const now = new Date();
       await prisma.creatorMessagingSettings.upsert({
-        where: { userId: input.userId },
-        create: { userId: input.userId, invitedAt: now },
+        where: { userId: user.id },
+        create: { userId: user.id, invitedAt: now },
         update: { invitedAt: now },
       });
       return { ok: true };
