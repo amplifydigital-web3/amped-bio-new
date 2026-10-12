@@ -1,4 +1,4 @@
-import type { BlockType } from "@repo/constants";
+import { TELEGRAM_APP_STRINGS, type BlockType } from "@repo/constants";
 import { getPlatformName, getPlatformUrl, platforms, type PlatformId } from "@/utils/platforms";
 
 // Titles, meta lines and validity for block rows (Screen Review 036 I05, I10)
@@ -35,6 +35,10 @@ export function blockTitle(block: BlockType) {
       return "Followers";
     case "rnsid":
       return "RNS ID";
+    case "telegram_message":
+      return TELEGRAM_APP_STRINGS.messageBlockTitle;
+    case "telegram_group":
+      return TELEGRAM_APP_STRINGS.groupBlockTitle;
     default:
       return "Text";
   }
@@ -94,6 +98,9 @@ export function blockMeta(block: BlockType) {
       };
       return styles[block.config.style] ?? "Nameplate";
     }
+    case "telegram_message":
+    case "telegram_group":
+      return block.config.label ?? "";
     case "text":
       return stripTags(block.config.content ?? "");
     default:

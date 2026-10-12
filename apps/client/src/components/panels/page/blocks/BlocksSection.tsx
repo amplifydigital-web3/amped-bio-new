@@ -21,14 +21,17 @@ import {
   DEFAULT_FOLLOW_CONFIG,
   DEFAULT_FOLLOWERS_CONFIG,
   DEFAULT_RNSID_CONFIG,
+  DEFAULT_TELEGRAM_MESSAGE_CONFIG,
   SINGLETON_BLOCK_TYPES,
   type BlockType,
 } from "@repo/constants";
-import { Button, EmptyState, listTransition, trpcClient } from "@repo/ui";
+import { useQueryClient } from "@tanstack/react-query";
+import { Button, EmptyState, listTransition, trpc, trpcClient } from "@repo/ui";
 import { useEditor } from "@/contexts/EditorContext";
 import { toast } from "@/components/ui/toast";
 import { onAddBlockRequest } from "@/components/preview/addBlockRequest";
 import { useOpenParam } from "@/hooks/useOpenParam";
+import { useOpenTelegramWizard } from "../../messages/shared";
 import { AddBlockDialog, type NewBlockKind } from "./AddBlockDialog";
 import { BlockRow } from "./BlockRow";
 import { blockNeed, blockTitle } from "./blockInfo";
@@ -69,6 +72,13 @@ function draftFor(kind: NewBlockKind): BlockType {
         order: 0,
         config: { ...DEFAULT_RNSID_CONFIG, show: { ...DEFAULT_RNSID_CONFIG.show } },
       };
+    case "telegram_message":
+      return {
+        id: DRAFT_ID,
+        type: "telegram_message",
+        order: 0,
+        config: { ...DEFAULT_TELEGRAM_MESSAGE_CONFIG },
+      };
     default:
       return { id: DRAFT_ID, type: "text", order: 0, config: { content: "", platform: "text" } };
   }
@@ -78,6 +88,8 @@ export function BlocksSection() {
   const { blocks, addBlock, updateBlock, reorderBlocks, selectedBlockId, selectBlock, profile } =
     useEditor();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const openTelegramWizard = useOpenTelegramWizard();
   // A new block stays in its draft row until it collapses, so typing keeps its
   // focus when the first valid value creates it on the server
   const [draft, setDraft] = useState<BlockType | null>(null);
@@ -165,7 +177,18 @@ export function BlocksSection() {
     selectBlock(id);
   };
 
-  const pick = (kind: NewBlockKind) => {
+  const pick = async (kind: NewBlockKind) => {
+    // Messaging on Telegram (#2, spec 3.11a): with Fan messages off, the tile opens
+    // wizard A, which turns them on and adds the button in step 3
+    if (kind.type === "telegram_message") {
+      const settings = await queryClient
+        .fetchQuery(trpc.messaging.creator.getSettings.queryOptions())
+        .catch(() => null);
+      if (!settings?.enabled) {
+        openTelegramWizard();
+        return;
+      }
+    }
     if ((SINGLETON_BLOCK_TYPES as readonly string[]).includes(kind.type)) {
       // Referral has no fields and the follow blocks have defaults: add at
       // once and open the row (#30 acceptance 1: on the page within the add)
@@ -383,7 +406,7 @@ export function BlocksSection() {
           setDialogOpen(false);
           open(created.id);
         }}
-        onPick={pick}
+        onPick={kind => void pick(kind)}
         onOpenExisting={id => open(id)}
       />
     </section>
