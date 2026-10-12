@@ -1,4 +1,8 @@
-import { Gift, ArrowLeftRight, Zap, ArrowRight, Check } from "lucide-react";
+import { Gift, ArrowLeftRight, Zap, ArrowRight, Check, CircleDollarSign } from "lucide-react";
+import { USDC_SYMBOL } from "@repo/web3";
+import { USDC_FLAGS } from "@/config/usdc/flags";
+import { paymentChain } from "@/utils/paymentChain";
+import type { ReceiveNetwork } from "./ReceiveDialog";
 import CoinbaseIcon from "@/assets/icons/coinbase.png";
 import MoonpayIcon from "@/assets/icons/moonpay.png";
 import OnRampIcon from "@/assets/icons/onramp.png";
@@ -69,7 +73,8 @@ function CountdownTimer({ targetDate, onComplete }: { targetDate: Date; onComple
 interface FundWalletDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  openReceiveModal: () => void;
+  /** Opens Receive. Deposit USDC passes "payment" so it lands on the USDC chain (137 w5). */
+  openReceiveModal: (network?: ReceiveNetwork) => void;
 }
 
 function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDialogProps) {
@@ -120,6 +125,11 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
   const handleManualDeposit = () => {
     onOpenChange(false);
     openReceiveModal();
+  };
+
+  const handleUsdcDeposit = () => {
+    onOpenChange(false);
+    openReceiveModal("payment");
   };
 
   return (
@@ -278,6 +288,29 @@ function FundWalletDialog({ open, onOpenChange, openReceiveModal }: FundWalletDi
                     ? "✓ Profile complete — faucet unlocked"
                     : "Complete your profile to unlock the faucet →"}
                 </button>
+              )}
+
+              {/* Deposit USDC (Screen Review 137, board w5): opens Receive on the payment chain */}
+              {USDC_FLAGS.wallet && (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow duration-200">
+                  <button
+                    onClick={handleUsdcDeposit}
+                    className="w-full flex items-center justify-between"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="p-2 bg-indigo-100 rounded-lg">
+                        <CircleDollarSign className="w-6 h-6 text-indigo-600" />
+                      </div>
+                      <div className="text-left">
+                        <h3 className="font-semibold text-gray-900">Deposit {USDC_SYMBOL}</h3>
+                        <p className="text-sm text-gray-600">
+                          From an exchange or another wallet, on {paymentChain.name}
+                        </p>
+                      </div>
+                    </div>
+                    <ArrowRight className="w-5 h-5 text-gray-400" />
+                  </button>
+                </div>
               )}
 
               {/* Bridge */}
