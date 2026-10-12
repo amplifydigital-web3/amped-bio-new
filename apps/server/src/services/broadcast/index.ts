@@ -11,6 +11,7 @@
  */
 import { Prisma, prisma } from "@repo/database";
 import { BROADCAST_LIMITS, BROADCAST_PAUSE_RULES } from "@repo/constants";
+import { enqueueTelegramBroadcast } from "../telegram/broadcast";
 
 const CHUNK = 1000;
 /** A SENDING broadcast untouched this long is treated as abandoned and resumed. */
@@ -179,6 +180,11 @@ export async function processBroadcast(
       data: { status: "SENT", recipientCount, completedAt: new Date() },
     });
     console.log(`[broadcast] ${b.id} delivered to ${recipientCount} inboxes`);
+    // Messaging on Telegram (#2): members who linked Telegram and turned updates on
+    // get it there too, when the creator ticked Telegram. Never fails the broadcast.
+    void enqueueTelegramBroadcast(b.id).catch(error =>
+      console.error(`[broadcast] Telegram fan-out failed for ${b.id}`, error)
+    );
     return "sent";
   } catch (error) {
     console.error(
