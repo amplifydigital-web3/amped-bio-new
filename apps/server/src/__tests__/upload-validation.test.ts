@@ -37,7 +37,8 @@ const HEIC = padTo(text("\u0000\u0000\u0000\u0018ftypheic\u0000\u0000\u0000\u000
 const SVG = text(
   '<?xml version="1.0"?>\n<!-- logo -->\n<svg xmlns="http://www.w3.org/2000/svg"></svg>'
 );
-const SVG_BOM = text('﻿  <svg viewBox="0 0 1 1"/>');
+const BOM = String.fromCharCode(0xfeff);
+const SVG_BOM = text(`${BOM}  <svg viewBox="0 0 1 1"/>`);
 const HTML = text("<!doctype html><html><body><script>alert(1)</script></body></html>");
 const EXE = padTo(bytes(0x4d, 0x5a, 0x90, 0x00, 0x03, 0x00));
 const ZIP = padTo(bytes(0x50, 0x4b, 0x03, 0x04));
