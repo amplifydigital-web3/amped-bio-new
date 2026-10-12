@@ -3,8 +3,7 @@ import { prisma } from "../DB";
 /**
  * Fan Graph (#22). Batch check: which of `creatorIds` has the viewer as a pool
  * fan (stake above zero in any of that creator's pools). Shared by
- * user.getUsers (Explore person cards). follow.ts keeps its own copy for
- * listFollowing until the two are consolidated.
+ * user.getUsers (Explore person cards) and trpc/follow.ts (listFollowing).
  */
 export async function batchPoolFanCreatorIds(
   creatorIds: number[],

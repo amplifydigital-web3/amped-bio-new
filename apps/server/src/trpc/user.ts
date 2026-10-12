@@ -765,83 +765,89 @@ export const userRouter = router({
         followerCountById.set(group.creator_id, group._count._all);
       const followingIds = new Set(viewerFollows.map(row => row.creator_id));
 
-      const users = await Promise.all(
-        paginatedUsers.map(async (user): Promise<Person> => {
-          const visibleBlocks = user.blocks.filter(block => {
-            // Some legacy rows hold a JSON string; unparseable configs show as visible
-            const config = visibleBlockConfig(block.config);
-            return !config?.hidden;
-          });
-          const platforms: string[] = [];
-          for (const block of visibleBlocks) {
-            if (block.type !== "link" && block.type !== "media") continue;
-            const platform = (block.config as { platform?: string } | null)?.platform;
-            if (!platform || UNMARKED_PLATFORMS.has(platform) || platforms.includes(platform))
-              continue;
-            platforms.push(platform);
-          }
-          const pool = user.wallet?.creatorPools[0] ?? null;
-          const theme = themeById.get(Number(user.theme)) ?? null;
+      // Bounded concurrency: a cold page must not fire 20 parallel chain reads at
+      // once (RNS verification and signed file URLs), so users are built 4 at a
+      // time while the batch reads above stay one query per table.
+      const buildPerson = async (user: (typeof paginatedUsers)[number]): Promise<Person> => {
+        const visibleBlocks = user.blocks.filter(block => {
+          // Some legacy rows hold a JSON string; unparseable configs show as visible
+          const config = visibleBlockConfig(block.config);
+          return !config?.hidden;
+        });
+        const platforms: string[] = [];
+        for (const block of visibleBlocks) {
+          if (block.type !== "link" && block.type !== "media") continue;
+          const platform = (block.config as { platform?: string } | null)?.platform;
+          if (!platform || UNMARKED_PLATFORMS.has(platform) || platforms.includes(platform))
+            continue;
+          platforms.push(platform);
+        }
+        const pool = user.wallet?.creatorPools[0] ?? null;
+        const theme = themeById.get(Number(user.theme)) ?? null;
 
-          const [avatar, cover, poolImage, identity] = await Promise.all([
-            getFileUrl({ legacyImageField: user.image, imageFileId: user.image_file_id }).catch(
-              () => null
-            ),
-            coverFrom(theme?.background),
-            pool?.image_file_id
-              ? getFileUrl({ legacyImageField: null, imageFileId: pool.image_file_id }).catch(
-                  () => null
-                )
-              : Promise.resolve(null),
-            // 109 I01: the same rule as the public page, so the card never
-            // shows a name the page hides. Any doubt or delay shows no chip.
-            user.revo_name
-              ? withTimeout(
-                  computeRnsIdentity({
-                    storedName: user.revo_name,
-                    wallet: user.wallet?.address ?? null,
-                    display: parseRnsDisplay(user.rns_display),
-                  }).then(result => result.identity),
-                  RNS_READ_TIMEOUT_MS,
-                  null
-                )
-              : Promise.resolve(null),
-          ]);
+        const [avatar, cover, poolImage, identity] = await Promise.all([
+          getFileUrl({ legacyImageField: user.image, imageFileId: user.image_file_id }).catch(
+            () => null
+          ),
+          coverFrom(theme?.background),
+          pool?.image_file_id
+            ? getFileUrl({ legacyImageField: null, imageFileId: pool.image_file_id }).catch(
+                () => null
+              )
+            : Promise.resolve(null),
+          // 109 I01: the same rule as the public page, so the card never
+          // shows a name the page hides. Any doubt or delay shows no chip.
+          user.revo_name
+            ? withTimeout(
+                computeRnsIdentity({
+                  storedName: user.revo_name,
+                  wallet: user.wallet?.address ?? null,
+                  display: parseRnsDisplay(user.rns_display),
+                }).then(result => result.identity),
+                RNS_READ_TIMEOUT_MS,
+                null
+              )
+            : Promise.resolve(null),
+        ]);
 
-          const counted = followerCountById.get(user.id) ?? 0;
-          const count = publicCount(counted, user.show_follower_count);
+        const counted = followerCountById.get(user.id) ?? 0;
+        const count = publicCount(counted, user.show_follower_count);
 
-          return {
-            id: user.id.toString(),
-            displayName: user.name,
-            username: user.handle || "",
-            avatar,
-            // Explore cards show the bio as plain text; no creator HTML renders there
-            bio: htmlToPlainText(user.description),
-            // Month only, matching what the card shows (the day is not part of the payload)
-            joinedAt: user.created_at.toISOString().slice(0, 7),
-            cover,
-            rns: identity ? { chip: identity.chip, name: identity.name } : null,
-            followerCount: count.followerCount,
-            showCount: count.showCount,
-            newOnAmped: count.newOnAmped,
-            linkCount: visibleBlocks.filter(block => block.type === "link").length,
-            mediaCount: visibleBlocks.filter(block => block.type === "media").length,
-            platforms,
-            pool: pool
-              ? { name: pool.name || "Creator pool", fans: pool.fans, image: poolImage }
-              : null,
-            viewer: viewerId
-              ? {
-                  isOwner: viewerId === user.id,
-                  following: followingIds.has(user.id),
-                  poolFan: viewerPoolFans.has(user.id),
-                  disclosureSeen: !!viewer?.follow_disclosure_seen_at,
-                }
-              : null,
-          };
-        })
-      );
+        return {
+          id: user.id.toString(),
+          displayName: user.name,
+          username: user.handle || "",
+          avatar,
+          // Explore cards show the bio as plain text; no creator HTML renders there
+          bio: htmlToPlainText(user.description),
+          // Month only, matching what the card shows (the day is not part of the payload)
+          joinedAt: user.created_at.toISOString().slice(0, 7),
+          cover,
+          rns: identity ? { chip: identity.chip, name: identity.name } : null,
+          followerCount: count.followerCount,
+          showCount: count.showCount,
+          newOnAmped: count.newOnAmped,
+          linkCount: visibleBlocks.filter(block => block.type === "link").length,
+          mediaCount: visibleBlocks.filter(block => block.type === "media").length,
+          platforms,
+          pool: pool
+            ? { name: pool.name || "Creator pool", fans: pool.fans, image: poolImage }
+            : null,
+          viewer: viewerId
+            ? {
+                isOwner: viewerId === user.id,
+                following: followingIds.has(user.id),
+                poolFan: viewerPoolFans.has(user.id),
+                disclosureSeen: !!viewer?.follow_disclosure_seen_at,
+              }
+            : null,
+        };
+      };
+
+      const users: Person[] = [];
+      for (let i = 0; i < paginatedUsers.length; i += 4) {
+        users.push(...(await Promise.all(paginatedUsers.slice(i, i + 4).map(buildPerson))));
+      }
 
       return { users, total };
     }),
