@@ -762,7 +762,7 @@ model Follow {
   // Broadcast (#1) reads it; a follow alone is never email consent.
   email_updates    Boolean   @default(false)
   email_updates_at DateTime?
-  // page | explore | pool | broadcast | qr
+  // page | explore | pool | broadcast | qr | block
   source           String    @db.VarChar(16)
   campaign_id      Bytes?    @db.Binary(16)
   created_at       DateTime  @default(now())
@@ -849,6 +849,8 @@ model Broadcast {
   title             String                @db.VarChar(120)
   body              String                @db.Text // Markdown subset, rendered with an allowlist
   sendEmail         Boolean               @default(false) // email arrives in phase 2
+  // Messaging on Telegram (Build Board #2): the creator ticked Telegram in the composer
+  sendTelegram      Boolean               @default(false)
   status            BroadcastStatus       @default(QUEUED)
   idempotencyKey    String                @db.VarChar(64)
   // Phrases the content check matched. Warn only: the creator confirmed and sent (Rob, 2026-10-04)
@@ -937,8 +939,9 @@ model NotificationPreference {
   userId        Int
   creatorUserId Int       @default(0)
   emailEnabled  Boolean   @default(false)
-  // Messaging on Telegram (Build Board #2): deliver this creator's broadcasts to the user's Telegram
-  telegramEnabled Boolean @default(false)
+  // Messaging on Telegram (Build Board #2). Global row (creatorUserId 0): the user's opt in,
+  // null means off. Creator row: null follows the global row, false turns this creator off.
+  telegramEnabled Boolean?
   mutedUntil    DateTime?
   updatedAt     DateTime  @updatedAt
 
