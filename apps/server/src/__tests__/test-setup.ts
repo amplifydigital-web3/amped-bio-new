@@ -29,5 +29,16 @@ process.env.AWS_REGION = "us-east-1";
 process.env.AWS_ACCESS_KEY_ID = "test";
 process.env.AWS_SECRET_ACCESS_KEY = "test";
 
+// Messaging on Telegram (Build Board #2)
+process.env.TELEGRAM_ENABLED = "false";
+process.env.TELEGRAM_BOT_TOKEN = "";
+process.env.TELEGRAM_BOT_USERNAME = "AmpedBioStagingBot";
+process.env.TELEGRAM_WEBHOOK_SECRET = "test-telegram-webhook-secret";
+process.env.TELEGRAM_OIDC_CLIENT_ID = "";
+process.env.TELEGRAM_OIDC_CLIENT_SECRET = "";
+process.env.TELEGRAM_SECRET_BOX_KEY = "test-telegram-secret-box-key";
+process.env.MESSAGING_INVITE_ONLY = "true";
+process.env.TELEGRAM_GROUPS = "false";
+
 // Database connection for tests that import auth.ts (which creates Prisma client)
 process.env.DATABASE_URL = "mysql://amped_user:amped_password@localhost:23306/amped_bio";

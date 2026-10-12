@@ -184,6 +184,28 @@ const envSchema = z.object({
   TRACKING_TOKEN_SECRET: z.string().default(""),
   // Meta Graph API version used for the Conversions API
   META_GRAPH_API_VERSION: z.string().default("v24.0"),
+
+  // Messaging on Telegram (Build Board #2), spec 3.14. Secrets never live in committed .env files.
+  // Master switch: starts the sender loop and accepts webhook updates. Off everywhere until the
+  // staging bot exists.
+  TELEGRAM_ENABLED: boolSchema(false),
+  // Bot token from BotFather (@AmpedBioStagingBot on staging, @AmpedBioBot in production)
+  TELEGRAM_BOT_TOKEN: z.string().default(""),
+  // Optional override for the bot username. The runtime resolves it from the Bot
+  // API getMe() (services/telegram/client.ts), so it always matches the token in
+  // use; set this only in tests or a split environment the token cannot reach.
+  TELEGRAM_BOT_USERNAME: z.string().default(""),
+  // Value passed as secret_token to setWebhook; the webhook route rejects requests without it
+  TELEGRAM_WEBHOOK_SECRET: z.string().default(""),
+  // Log In with Telegram (OIDC) client credentials from BotFather, Login Widget
+  TELEGRAM_OIDC_CLIENT_ID: z.string().default(""),
+  TELEGRAM_OIDC_CLIENT_SECRET: z.string().default(""),
+  // Encrypts username, firstName and photoUrl on telegram_accounts. Falls back to BETTER_AUTH_SECRET.
+  TELEGRAM_SECRET_BOX_KEY: z.string().default(""),
+  // While true, only creators an admin has invited can turn on Fan messages (phase 1 pilot)
+  MESSAGING_INVITE_ONLY: boolSchema(true),
+  // Gated creator groups (phase 2)
+  TELEGRAM_GROUPS: boolSchema(false),
 });
 
 // ================ parse & export ================
@@ -206,3 +228,4 @@ export const env = result.data;
 if (process.env.BROADCAST_INVITE_ONLY === undefined && env.APP_ENV !== "production") {
   env.BROADCAST_INVITE_ONLY = false;
 }
+
