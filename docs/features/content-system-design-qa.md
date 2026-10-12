@@ -2,7 +2,7 @@
 
 Drafted by Claude for Rob Frasca, 2026-10-12. Spec: docs/features/content-system.md (section 3.1). Overview: docs/overviews/content-system.md.
 
-This QA checks the existing Prism 2.2 boards against the rewritten spec and lists the boards still to draw. No new board is drawn yet. Boards follow Rob's answers to decisions 10 to 24.
+This QA checks the existing Prism 2.2 boards against the rewritten spec and lists the boards still to draw. No new board is drawn yet. Boards follow Rob's answers to decisions 10 to 25.
 
 ## 1. Existing boards
 
