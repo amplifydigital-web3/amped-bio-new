@@ -2,7 +2,7 @@
 
 Drafted by Claude for Rob Frasca, 2026-10-12. Spec: docs/features/content-system.md (section 3.1). Overview: docs/overviews/content-system.md.
 
-All 18 boards are drawn in Prism 2.2 on 12 Oct. Decisions 10 to 25 read as accepted on the Build Board card (recommended answers). The CSAM vendor stays to discuss. This record replaces the proposed row numbers in spec 3.1.
+All 18 boards are drawn in Prism 2.2 on 12 Oct. Decisions 10 to 25 read as accepted on the Build Board card (recommended answers). Decision 11 (CSAM): PhotoDNA after beta. This record replaces the proposed row numbers in spec 3.1.
 
 ## 1. Design pages
 
@@ -56,5 +56,5 @@ Every board is rendered from source at 1.5x (desktop) or 2x (phone) and checked 
 
 ## 5. Open
 
-- CSAM vendor (decision 11) stays to discuss with Rob.
+- CSAM: Rob moved PhotoDNA to after beta (12 Oct). Beta is invite only with the Cloudflare CSAM Scanning Tool on; no board changes.
 - mb6 on the memberships page is still the 8 Oct Prism colored sheet with Buy USDC inside. st9 is the correct pattern for creator payments; mb6 should be retired or redrawn on #25.
