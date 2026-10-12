@@ -11,6 +11,7 @@ import { adminPoolsRouter } from "./pools";
 import { affiliateAdminRouter } from "./affiliate";
 import { oauthAppsAdminRouter } from "./oauthApps";
 import { broadcastsAdminRouter } from "./broadcasts";
+import { telegramAdminRouter } from "./telegram";
 import { moneyAdminRouter } from "./money";
 
 export const adminRouter = router({
@@ -43,6 +44,9 @@ export const adminRouter = router({
 
   // Creator Pool Broadcast review and pilot (Build Board #1)
   broadcasts: broadcastsAdminRouter,
+
+  // Messaging on Telegram: reports, paused senders, pilot, bot health (Build Board #2)
+  telegram: telegramAdminRouter,
 
   // Affiliate Rewards Management
   affiliate: affiliateAdminRouter,

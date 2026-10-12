@@ -194,3 +194,17 @@ export async function showsTelegramMark(userId: number): Promise<boolean> {
   const account = await findByUserId(userId);
   return !!account && account.showTelegramOnBio && isReachable(account);
 }
+
+/**
+ * Telegram answered 403 for a user: they blocked the bot. Stop writing to them until
+ * they press Start again. Idempotent; records bot_blocked once.
+ */
+export async function markBotBlocked(userId: number) {
+  const account = await findByUserId(userId);
+  if (!account || account.blockedAt) return;
+  await prisma.telegramAccount.update({
+    where: { id: account.id },
+    data: { blockedAt: new Date() },
+  });
+  await recordLinkEvent(userId, account.telegramUserId, "bot_blocked", "my_chat_member");
+}
