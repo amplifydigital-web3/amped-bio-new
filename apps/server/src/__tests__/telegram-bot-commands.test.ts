@@ -121,7 +121,7 @@ describe("/start", () => {
 
   it("a start payload from a later phase is answered as a plain /start", async () => {
     db.telegramAccount.findUnique.mockResolvedValue(account());
-    await makeBot().handleUpdate(command("/start dm_maya") as never);
+    await makeBot().handleUpdate(command("/start ref_maya") as never);
     expect(replies()[0]!.payload.text).toBe(TELEGRAM_BOT_STRINGS.startLinkedReturning("@jordan"));
   });
 
